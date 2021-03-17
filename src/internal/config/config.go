@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	configEnvVar  = "PACH_CONFIG"
-	contextEnvVar = "PACH_CONTEXT"
+	configEnvVar            = "PACH_CONFIG"
+	contextEnvVar           = "PACH_CONTEXT"
+	enterpriseContextEnvVar = "PACH_ENTERPRISE_CONTEXT"
 )
 
 var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
@@ -67,6 +68,39 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 
 	}
 	return c.V2.ActiveContext, context, nil
+}
+
+// ActiveEnterpriseContext gets the active enterprise server context in the config
+func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context, error) {
+	if c.V2 == nil {
+		return "", nil, errors.Errorf("cannot get active context from non-v2 config")
+	}
+	if envContext, ok := os.LookupEnv(enterpriseContextEnvVar); ok {
+		context := c.V2.Contexts[envContext]
+		if context == nil {
+			return "", nil, errors.Errorf("pachctl config error: `%s` refers to a context (%q) that does not exist", contextEnvVar, envContext)
+		}
+		return envContext, context, nil
+	}
+	context := c.V2.Contexts[c.V2.ActiveEnterpriseContext]
+	if context == nil {
+		if c.V2.ActiveEnterpriseContext == "" {
+			if errorOnNoActive {
+				return "", nil, errors.Errorf("pachctl config error: no active " +
+					"enterprise context configured.\n\nYou can fix your config by setting " +
+					"the active context like so: pachctl config set " +
+					"active-enterprise-context <context>")
+			}
+		} else {
+			return "", nil, errors.Errorf("pachctl config error: pachctl's active "+
+				"enterprise context is %q, but no context named %q has been configured.\n\nYou can fix "+
+				"your config by setting the active context like so: pachctl config set "+
+				"active-enterprise-context <context>",
+				c.V2.ActiveContext, c.V2.ActiveContext)
+		}
+
+	}
+	return c.V2.ActiveEnterpriseContext, context, nil
 }
 
 // Read loads the Pachyderm config on this machine.
