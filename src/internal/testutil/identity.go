@@ -21,11 +21,11 @@ const DexMockConnectorEmail = `kilgore@kilgore.trout`
 // OIDCOIDCConfig is an auth config which can be used to connect to the identity service in tests
 func OIDCOIDCConfig() *auth.OIDCConfig {
 	return &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
-		ClientID:        "pachyderm",
-		ClientSecret:    "notsecret",
-		RedirectURI:     "http://pachd:657/authorization-code/callback",
-		LocalhostIssuer: true,
+		Issuer:        "http://localhost:30658/",
+		ClientID:      "pachyderm",
+		ClientSecret:  "notsecret",
+		RedirectURI:   "http://pachd:657/authorization-code/callback",
+		RewriteIssuer: "http:localhost:658",
 	}
 }
 

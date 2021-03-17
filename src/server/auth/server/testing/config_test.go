@@ -29,11 +29,11 @@ func TestSetGetConfigBasic(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
-		ClientID:        "configtest",
-		ClientSecret:    "newsecret",
-		RedirectURI:     "http://pachd:657/authorization-code/test",
-		LocalhostIssuer: true,
+		Issuer:        "http://localhost:30658/",
+		ClientID:      "configtest",
+		ClientSecret:  "newsecret",
+		RedirectURI:   "http://pachd:657/authorization-code/test",
+		RewriteIssuer: "http://localhost:658",
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
@@ -68,11 +68,10 @@ func TestIssuerNotLocalhost(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:658/",
-		ClientID:        "configtest",
-		ClientSecret:    "newsecret",
-		RedirectURI:     "http://pachd:657/authorization-code/test",
-		LocalhostIssuer: false,
+		Issuer:       "http://localhost:658/",
+		ClientID:     "configtest",
+		ClientSecret: "newsecret",
+		RedirectURI:  "http://pachd:657/authorization-code/test",
 	}
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
@@ -107,11 +106,11 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 
 	// Alice tries to set the current configuration and fails
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
-		ClientID:        "configtest",
-		ClientSecret:    "newsecret",
-		RedirectURI:     "http://pachd:657/authorization-code/test",
-		LocalhostIssuer: true,
+		Issuer:        "http://localhost:30658/",
+		ClientID:      "configtest",
+		ClientSecret:  "newsecret",
+		RedirectURI:   "http://pachd:657/authorization-code/test",
+		RewriteIssuer: "http://localhost:658",
 	}
 	_, err = aliceClient.SetConfiguration(aliceClient.Ctx(),
 		&auth.SetConfigurationRequest{
@@ -166,11 +165,11 @@ func TestConfigRestartAuth(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
-		ClientID:        "configtest",
-		ClientSecret:    "newsecret",
-		RedirectURI:     "http://pachd:657/authorization-code/test",
-		LocalhostIssuer: true,
+		Issuer:        "http://localhost:30658/",
+		ClientID:      "configtest",
+		ClientSecret:  "newsecret",
+		RedirectURI:   "http://pachd:657/authorization-code/test",
+		RewriteIssuer: "http://localhost:658",
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
@@ -252,11 +251,11 @@ func TestSetGetNilConfig(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
-		ClientID:        "configtest",
-		ClientSecret:    "newsecret",
-		RedirectURI:     "http://pachd:657/authorization-code/test",
-		LocalhostIssuer: true,
+		Issuer:        "http://localhost:30658/",
+		ClientID:      "configtest",
+		ClientSecret:  "newsecret",
+		RedirectURI:   "http://pachd:657/authorization-code/test",
+		RewriteIssuer: "http://localhost:658",
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})

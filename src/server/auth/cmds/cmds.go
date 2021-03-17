@@ -130,11 +130,11 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 
 				if _, err := c.SetConfiguration(c.Ctx(),
 					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
-						Issuer:          "http://localhost:30658/",
-						ClientID:        "pachd",
-						ClientSecret:    oidcClient.Client.Secret,
-						RedirectURI:     "http://localhost:30657/authorization-code/callback",
-						LocalhostIssuer: true,
+						Issuer:        "http://localhost:30658/",
+						ClientID:      "pachd",
+						ClientSecret:  oidcClient.Client.Secret,
+						RedirectURI:   "http://localhost:30657/authorization-code/callback",
+						RewriteIssuer: "localhost:658",
 					}}); err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
 				}
