@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -38,7 +39,7 @@ const (
 	// IndexPath is the suffix to append to the path of a hashtree for the index.
 	IndexPath = "-index"
 	// IndexSize is the size of the index chunks.
-	IndexSize = uint64(1 << (10 * 2))
+	IndexSize = 100 * units.KB
 )
 
 var (

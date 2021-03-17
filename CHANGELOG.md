@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.12.5
+Deprecation notice: Deprecating the use of vault plugin. It will be removed from the code in a future release.
+
+- Changes to switches to an inode generation scheme to work around the reserved inode issues which prevent `pachctl mount` from succeeding. (#5766)
+- Fixed a bug that causes panic in GetLogs when `since` has not been specified (#5769)
+- Fixes a bug that caused the `since` field to not propagate to Loki for some `logs` calls. (#5777)
+- Added support to `fsck` to fix provenance relationships not mirrored by subvenance relationships and vice versa (#5782)
+- Fixes a bug that caused pachd to crash on some incorrect glob patterns (#5812)
+- Changes to improve ListPipeline performance when it returns many pipelines. (#5830)
+
+## 1.12.4
+
+- Changes to capture previous logs in debug dump (#5723)
+- Fixes a bug that causes pachctl commands to hang when metrics were disabled (#5724)
+- Changes to improve performance of file downloads and egress (#5744)
+- Fixes a bug that causes pachd to crash when collecting metrics (#5752)
+- Fixes a bug that would cause a job merge to hang when the job output metadata is not cached in the cluster (#5754)
+
+
 ## 1.12.3
 - Fixes a bug that does not return objects with paths that have a leading slash in S3 gateway requests (#5679)
 - Fixes a bug that causes intermittent pachd crashes (#5690)
