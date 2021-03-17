@@ -1,6 +1,8 @@
 # imagePullSecret sets the image pull secret used for all images.  It
 # is analogous to the --image-pull-secret argument to pachctl deploy.
-imagePullSecret: "" # FIXME: should this be per-image?
+#
+# FIXME: should this be per-image?
+imagePullSecret: ""
 
 dash:
   image:
@@ -40,10 +42,10 @@ pachd:
   metrics:
     enabled: true
     endpoint: ""
-  # noExposeDockerSocket controls whether the Docker socket is
-  # exposed.  It is analogous to the --no-expose-docker-socket
+  # exposeDockerSocket controls whether the Docker socket is
+  # exposed.  It is the inverse of the --no-expose-docker-socket
   # argument passed to pachctl deploy.
-  noExposeDockerSocket: false
+  exposeDockerSocket: false
   # numShards sets the maximum number of pachd nodes allowed in the
   # cluster; increasing this number blindly can result in degraded
   # performance.  It is analogous to the --shards argument to pachctl
