@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.module.css';
 
 export {default as useLoginWindow} from './hooks/useLoginWindow';
