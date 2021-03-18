@@ -280,6 +280,17 @@ func containsEmpty(vals []string) bool {
 	return false
 }
 
+// deprecationWarning prints a deprecation warning to os.Stdout.
+//
+// TODO: consider printing deprecation warnings to os.Stderr.
+func deprecationWarning(msg string) {
+	fmt.Printf("DEPRECATED: %s\n\n", msg)
+}
+
+const (
+	defaultPachdShards = 16
+)
+
 func standardDeployCmds() []*cobra.Command {
 	var commands []*cobra.Command
 	var opts *assets.AssetOpts
@@ -316,7 +327,7 @@ func standardDeployCmds() []*cobra.Command {
 	var requireCriticalServersOnly bool
 	var workerServiceAccountName string
 	appendGlobalFlags := func(cmd *cobra.Command) {
-		cmd.Flags().IntVar(&pachdShards, "shards", 16, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
+		cmd.Flags().IntVar(&pachdShards, "shards", defaultPachdShards, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
 		cmd.Flags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
 		cmd.Flags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 		cmd.Flags().StringVar(&etcdStorageClassName, "etcd-storage-class", "", "If set, the name of an existing StorageClass to use for etcd storage. Ignored if --static-etcd-volume is set.")
@@ -368,6 +379,35 @@ func standardDeployCmds() []*cobra.Command {
 				"request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
 				"etc).")
 	}
+	checkDeprecatedGlobalFlags := func() {
+		if dashImage != "" {
+			deprecationWarning("The dash-image flag will be removed in a future version.  To specify a particular dash image, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if dashOnly {
+			deprecationWarning("The dash-only flag will be removed in a future version.")
+		}
+		if noDash {
+			deprecationWarning("The no-dashboard flag will be removed in a future version.")
+		}
+		if exposeObjectAPI {
+			deprecationWarning("The expose-object-api flag will be removed in a future version.")
+		}
+		if storageV2 {
+			deprecationWarning("The storage-v2 flag will be removed in a future version.")
+		}
+		if pachdShards != defaultPachdShards {
+			deprecationWarning("The shards flag will be removed in a future version.  To specify the number of shards, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if noRBAC {
+			deprecationWarning("The no-rbac flag will be removed in a future version.  To prevent creation of RBAC objects, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if noGuaranteed {
+			deprecationWarning("The no-guaranteed flag will be removed in a future version.  To remove resource limits, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if etcdVolume != "" {
+			deprecationWarning("Specification of a static etcd volume will be removed in a future version.  Consider using the pachyderm/pachyderm Helm chart.")
+		}
+	}
 
 	var retries int
 	var timeout string
@@ -398,6 +438,7 @@ func standardDeployCmds() []*cobra.Command {
 	}
 
 	preRunInternal := func(args []string) error {
+		checkDeprecatedGlobalFlags()
 		cfg, err := config.Read(false, false)
 		if err != nil {
 			log.Warningf("could not read config to check whether cluster metrics "+
