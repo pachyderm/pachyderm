@@ -1,6 +1,6 @@
 .base {
     display: inline-flex;
-    width: 100%;
+    overflow-x: hidden;
 }
 
 .base > *:last-child {
@@ -9,4 +9,9 @@
 
 .leftPane {
     width: 400px;
+}
+
+.wrapper {
+    background-color: var(--background-grey);
+    padding: 1.25rem 2.5rem;
 }

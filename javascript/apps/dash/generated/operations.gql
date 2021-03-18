@@ -17,3 +17,27 @@ query getDag($args: DagQueryArgs!) {
     }
   }
 }
+query getDags($args: DagQueryArgs!) {
+  dags(args: $args) {
+    nodes {
+      name
+      type
+      access
+      state
+    }
+    links {
+      source
+      target
+      state
+    }
+  }
+}
+query projects {
+  projects {
+    id
+    name
+    description
+    createdAt
+    status
+  }
+}

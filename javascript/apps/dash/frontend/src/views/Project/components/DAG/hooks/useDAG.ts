@@ -1,4 +1,5 @@
 import * as d3 from 'd3';
+import {D3ZoomEvent} from 'd3';
 import {useEffect} from 'react';
 
 import {LinkDatum, NodeDatum} from '@dash-frontend/lib/DAGTypes';
@@ -57,7 +58,7 @@ const transformArrow = (d: LinkDatum, nodeRadius: number, invert?: boolean) => {
 };
 
 const generateLinks = (
-  svgParent: d3.Selection<SVGSVGElement, unknown, HTMLElement, unknown>,
+  svgParent: d3.Selection<SVGGElement, unknown, HTMLElement, unknown>,
   links: LinkDatum[],
 ) => {
   const link = svgParent
@@ -137,7 +138,7 @@ const generateDefs = (
 };
 
 const generateNodeGroups = (
-  svgParent: d3.Selection<SVGSVGElement, unknown, HTMLElement, unknown>,
+  svgParent: d3.Selection<SVGGElement, unknown, HTMLElement, unknown>,
   nodes: NodeDatum[],
   nodeWidth: number,
   nodeHeight: number,
@@ -149,7 +150,8 @@ const generateNodeGroups = (
     .join((group) => {
       const enter = group
         .append<SVGGElement>('g')
-        .attr('class', `nodeGroup ${!preview ? 'draggable' : ''}`);
+        .attr('class', `nodeGroup ${!preview ? 'draggable' : ''}`)
+        .attr('id', (group) => `${group.name}GROUP`);
 
       enter
         .append<SVGRectElement>('rect')
@@ -209,7 +211,6 @@ const generateNodeGroups = (
         })
         .attr('x', nodeWidth * 0.95 - 15)
         .attr('y', nodeHeight - nodeHeight * 0.95);
-
       return enter;
     });
 
@@ -217,8 +218,8 @@ const generateNodeGroups = (
 };
 
 const assignPositions = (
-  svgParent: d3.Selection<SVGSVGElement, unknown, HTMLElement, unknown>,
-  links: d3.Selection<SVGPathElement, LinkDatum, SVGSVGElement, unknown>,
+  svgParent: d3.Selection<SVGGElement, unknown, HTMLElement, unknown>,
+  links: d3.Selection<SVGPathElement, LinkDatum, SVGGElement, unknown>,
   nodes: NodeDatum[],
   nodeWidth: number,
   nodeHeight: number,
@@ -236,39 +237,6 @@ const assignPositions = (
       d.y ? d.y - ((nodeHeight * 1.2) / 2) * 0.95 : 0
     })`;
   });
-};
-
-const attachBackgroundDragHandlers = (baseElement: HTMLElement) => {
-  // https://htmldom.dev/drag-to-scroll/
-  let positionState = {top: 0, left: 0, x: 0, y: 0};
-  const mouseDownHandler = (e: MouseEvent) => {
-    positionState = {
-      left: baseElement.scrollLeft,
-      top: baseElement.scrollTop,
-      // Get the current mouse position
-      x: e.clientX,
-      y: e.clientY,
-    };
-    document.addEventListener('mousemove', mouseMoveHandler);
-    document.addEventListener('mouseup', mouseUpHandler);
-  };
-
-  const mouseMoveHandler = (e: MouseEvent) => {
-    // How far the mouse has been moved
-    const dx = e.clientX - positionState.x;
-    const dy = e.clientY - positionState.y;
-
-    // Scroll the baseElementment
-    baseElement.scrollTop = positionState.top - dy;
-    baseElement.scrollLeft = positionState.left - dx;
-  };
-
-  const mouseUpHandler = () => {
-    document.removeEventListener('mousemove', mouseMoveHandler);
-    document.removeEventListener('mouseup', mouseUpHandler);
-  };
-
-  baseElement.addEventListener('mousedown', mouseDownHandler);
 };
 
 type useDAGProps = {
@@ -315,6 +283,7 @@ const useDAG = ({
       y: undefined,
     };
     const svg = d3.select<SVGSVGElement, unknown>(`#${id}`);
+    const graph = d3.select<SVGGElement, unknown>(`#${id}Graph`);
     const d3Links: LinkDatum[] = data.links.map((link) => ({
       ...link,
       index: undefined,
@@ -323,8 +292,8 @@ const useDAG = ({
       ...node,
       ...defaultd3Node,
     }));
-    const links = generateLinks(svg, d3Links);
-    generateNodeGroups(svg, d3Nodes, nodeWidth, nodeHeight, preview);
+    const links = generateLinks(graph, d3Links);
+    generateNodeGroups(graph, d3Nodes, nodeWidth, nodeHeight, preview);
 
     const simulation = d3
       .forceSimulation<NodeDatum, LinkDatum>()
@@ -334,7 +303,7 @@ const useDAG = ({
       .force('centerY', d3.forceY(svgParentSize.height / 2))
       .force('link', d3.forceLink(d3Links))
       .on('tick', () => {
-        assignPositions(svg, links, d3Nodes, nodeWidth, nodeHeight);
+        assignPositions(graph, links, d3Nodes, nodeWidth, nodeHeight);
       })
       .stop();
 
@@ -343,16 +312,36 @@ const useDAG = ({
     const enableDragging = (
       simulation: d3.Simulation<NodeDatum, LinkDatum>,
     ) => {
-      const clamp = (x: number, lo: number, hi: number) =>
-        x < lo ? lo : x > hi ? hi : x;
-
       function dragged(
-        event: d3.D3DragEvent<SVGGElement, NodeDatum, NodeDatum>,
+        event: d3.D3DragEvent<SVGElement, NodeDatum, NodeDatum>,
         d: NodeDatum,
       ) {
-        d.fx = clamp(event.x, 0, svgParentSize.width);
-        d.fy = clamp(event.y, 0, svgParentSize.height);
-        simulation.alpha(0).force('collide', d3.forceCollide()).restart();
+        const clamp = (x: number, low: number, high: number) => {
+          if (x < low) return low;
+          if (x > high) return high;
+          return x;
+        };
+
+        const graphNode = graph.node();
+        if (graphNode) {
+          // Grab the transform on the graph group and use that to invert the drag edges.
+          const graphTransform = d3.zoomTransform(graphNode);
+          const left = graphTransform.invertX(
+            (nodeWidth / 2) * graphTransform.k,
+          );
+          const right = graphTransform.invertX(
+            svgParentSize.width - (nodeWidth / 2) * graphTransform.k,
+          );
+          const top = graphTransform.invertY(
+            nodeHeight * graphTransform.k + 12,
+          );
+          const bottom = graphTransform.invertY(
+            svgParentSize.height - (nodeHeight / 2 + 10) * graphTransform.k,
+          );
+          d.fx = clamp(event.x, left, right);
+          d.fy = clamp(event.y, top, bottom);
+          simulation.alpha(0).force('collide', d3.forceCollide()).restart();
+        }
       }
       const drag = d3.drag<SVGElement, NodeDatum>().on('drag', dragged);
       svg
@@ -360,14 +349,43 @@ const useDAG = ({
         .data(d3Nodes)
         .call(drag);
     };
+
+    const zoomed = (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
+      const {transform} = event;
+      graph.attr('transform', transform.toString());
+    };
+
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.1, 4])
+      .on('zoom', zoomed);
+
+    svg.call(zoom);
+
     !preview && enableDragging(simulation);
-    assignPositions(svg, links, d3Nodes, nodeWidth, nodeHeight);
+    assignPositions(graph, links, d3Nodes, nodeWidth, nodeHeight);
+
+    // initialize zoom based on node positions and center dag
+    const xExtent = d3.extent(d3Nodes, (d) => d.x);
+    const yExtent = d3.extent(d3Nodes, (d) => d.y);
+    const xMin = xExtent[0] || 0;
+    const xMax = xExtent[1] || svgParentSize.width;
+    const yMin = yExtent[0] || 0;
+    const yMax = yExtent[1] || svgParentSize.height;
+    const xScale = svgParentSize.width / (xMax - xMin);
+    const yScale = svgParentSize.height / 2 / (yMax - yMin);
+    const minScale = Math.min(xScale, yScale);
+
+    const transform = d3.zoomIdentity
+      .translate(svgParentSize.width / 2, svgParentSize.height / 2)
+      .scale(minScale)
+      .translate(-(xMin + xMax) / 2, -(yMin + yMax) / 2);
+    svg.call(zoom.transform, transform);
   }, [id, nodeHeight, nodeWidth, data, svgParentSize, preview]);
 
   // Post-build steps
   useEffect(() => {
     const svgElement = d3.select<SVGSVGElement, null>(`#${id}`).node();
-    const baseElement = document.getElementById(`${id}Base`);
 
     // Set parent svg with and height to our SVG's content-defined bounding box to readjust graph positioning
     if (svgElement) {
@@ -376,9 +394,6 @@ const useDAG = ({
         height: svgElement.getBBox().width + nodeHeight,
       });
     }
-
-    // Attach drag handlers to move overall SVG around parent container for browser only, NOT individual nodes
-    baseElement && attachBackgroundDragHandlers(baseElement);
   }, [id, setSVGParentSize, nodeHeight, nodeWidth]);
 };
 

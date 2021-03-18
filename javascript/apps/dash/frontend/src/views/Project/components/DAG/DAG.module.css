@@ -1,14 +1,10 @@
 .base {
-    border: solid 1px rgba(0,0,0,0.1);
-    float: right;
-    height: calc(100vh - 71px);
-    overflow: auto;
+    box-shadow: 0 1px 2px 0 var(--border-grey);
+    border-radius: 3px;
+    font-size: var(--font-size-body-medium);
+    background-color: var(--white);
+    margin-bottom: 1.25rem;
 }
-
-.base > svg {
-    border: solid 1px rgba(0,0,0,0.1);
-}
-
 .base.draggable:hover {
     cursor: grab;
 }
