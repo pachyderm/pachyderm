@@ -37,7 +37,7 @@ sudo chown root:root /etc/fuse.conf
 
 # Install aws CLI (for TLS test)
 pip3 install --upgrade --user wheel
-pip3 install --upgrade --user awscli
+pip3 install --upgrade --user awscli s3transfer==0.3.4
 
 # Install kubectl
 # To get the latest kubectl version:
