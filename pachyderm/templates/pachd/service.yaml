@@ -61,10 +61,10 @@ spec:
     {{- end }}
     port: 600
     targetPort: s3gateway-port
-  - name: prometheus-metrics
+  - name: prom-metrics
     port: 656
     protocol: TCP
-    targetPort: prometheus-metrics
+    targetPort: prom-metrics
   selector:
     app: pachd
   type: {{ .Values.pachd.service.type }}

@@ -316,7 +316,7 @@ spec:
           name: oidc-port
           protocol: TCP
         - containerPort: 656
-          name: prometheus-metrics
+          name: prom-metrics
           protocol: TCP
         readinessProbe:
           exec:
