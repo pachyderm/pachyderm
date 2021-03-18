@@ -42,9 +42,6 @@ etcd:
     requests:
       cpu: 1
       memory: 2G
-  # staticVolume sets the name of a static volume to use.  It is
-  # analogous to the --static-etcd-volume argument to pachctl deploy.
-  staticVolume: ""
   # storageClass indicates the etcd should use an existing
   # StorageClass for its storage.  It is analogous to the
   # --etcd-storage-class argument to pachctl deploy.

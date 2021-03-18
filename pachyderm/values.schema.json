@@ -98,9 +98,6 @@
                         }
                     }
                 },
-                "staticVolume": {
-                    "type": "string"
-                },
                 "storageClass": {
                     "type": "string"
                 },

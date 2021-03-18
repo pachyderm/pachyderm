@@ -1,6 +1,5 @@
-{{- if gt .Values.etcd.dynamicNodes 0.0 -}}
-{{- if .Values.etcd.staticVolume }}
-  {{ fail "May not specify etcd.dynamicNodes and etcd.staticVolume" }}
+{{- if le .Values.etcd.dynamicNodes 0.0 -}}
+{{ fail "dynamicNodes must be > 0" }}
 {{ end -}}
 apiVersion: apps/v1
 kind: StatefulSet
@@ -84,8 +83,3 @@ spec:
       resources:
         requests:
           storage: {{ .Values.etcd.storageSize }}
-{{- else }}
-{{- if not .Values.etcd.staticVolume }}
-  {{ fail "Must specify etcd.dynamicNodes or etcd.staticVolume" }}
-{{ end -}}
-{{ end -}}
