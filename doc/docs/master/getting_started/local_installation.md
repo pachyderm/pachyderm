@@ -1,9 +1,26 @@
 # Local Installation
 
+!!! Attention
+      Local installations help you to learn
+      some of the Pachyderm basics and is not designed to be a production
+      environment.
+
 This guide walks you through the steps to install Pachyderm
-on macOS®, Linux®, or Microsoft® Windows®. Local installation helps you to learn
-some of the Pachyderm basics and is not designed to be a production
-environment.
+on macOS®, Linux®, or Microsoft® Windows®. 
+
+!!! Note
+    If you want to install Pachyderm on Windows, take a look at
+    [Deploy Pachyderm on Windows](wsl-deploy.md) first.
+
+We offer two ways to deploy Pachyderm on a local Kubernetes cluster. 
+
+- The first uses Pachyderm's client `pachctl` and the command `pachctl deploy local`.
+- The second uses the deployment tool `Helm`. 
+
+!!! Note
+      Helm support in Pachyderm has a **beta** release status. 
+      See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details on our product release life cycle.
+
 
 `pachctl deploy local` is designed for a single-node cluster.
 This cluster uses local storage on disk and does not create a
@@ -12,23 +29,19 @@ cluster, follow the instructions for your cloud provider or on-prem
 installation as described in [Deploy Pachyderm](../../deploy-manage/deploy/).
 New Kubernetes nodes cannot be added to this single-node cluster.
 
-!!! note
+!!! Info
     Pachyderm supports the Docker runtime only. If you want to
     deploy Pachyderm on a system that uses another container runtime,
     ask for advice in our [Slack channel](http://slack.pachyderm.io/).
 
-## Prerequisites
+## 0- Prerequisites
 
-Before you can deploy Pachyderm, make sure you have the following
-programs installed on your computer:
-
-- [Minikube](#using-minikube)
-- Oracle® VirtualBox™ or [Docker Desktop (v18.06+)](#docker-desktop)
-- [Pachyderm Command Line Interface](#install-pachctl)
-
-If you want to install Pachyderm on Windows, follow the instructions in
-[Deploy Pachyderm on Windows](wsl-deploy.md).
-
+Before you deploy Pachyderm, make sure that you have:
+- A Kubernetes cluster running on your local environment: 
+   - [Docker Desktop](#docker-desktop),
+   - [Minikube](#using-minikube)
+   - Oracle® VirtualBox™
+- [Pachyderm Command Line Interface](#install-pachctl) or [Helm](https://helm.sh/docs/intro/install/) installed depending on your installation choice.
 
 ### Using Minikube
 
@@ -40,8 +53,7 @@ the Beginner Tutorial.
 To configure Minikube, follow these steps:
 
 1. Install minikube and VirtualBox in your operating system as described in
-the
-[Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube).
+the [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube).
 1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 1. Start `minikube`:
 
@@ -49,21 +61,21 @@ the
    minikube start
    ```
 
-!!! note
+!!! Note
     Any time you want to stop and restart Pachyderm, run `minikube delete`
     and `minikube start`. Minikube is not meant to be a production environment
     and does not handle being restarted well without a full wipe.
 
-### Docker Desktop
+### Using Kubernetes on Docker Desktop
 
-If you are using Minikube, skip this section and proceed to [Install pachctl](#install-pachctl)
+If you are using Minikube, skip this section.
 
-You can use Docker Desktop instead of Minikube on macOS or Linux
+You can use Kubernetes on Docker Desktop instead of Minikube on macOS or Linux
 by following these steps:
 
-1. In the Docker Desktop settings, verify that Kubernetes is enabled:
+1. In the Docker Desktop Preferences, enable Kubernetes:
 
-   ![Docker Desktop Enable K8s](../assets/images/Docker_Desktop_Enable_k8s.png)
+   ![Docker Desktop Enable K8s](../images/k8s_docker_desktop.png)
 
 1. From the command prompt, confirm that Kubernetes is running:
 
@@ -74,17 +86,16 @@ by following these steps:
    ```
 
    * To reset your Kubernetes cluster that runs on Docker Desktop, click
-   the **Reset** button in the **Preferences** sub-menu.
+   the **Reset Kubernetes cluster** button. See image above. 
 
-   ![Reset K8s](../assets/images/DFD_Reset_K8s.png)
 
 ### Install `pachctl`
 
-`pachctl` is a command-line utility that you can use to interact
-with a Pachyderm cluster.
+`pachctl` is a command-line tool that you can use to interact
+with a Pachyderm cluster in your terminal.
 
-To deploy Pachyderm locally, you need
-to have pachctl installed on your machine by following these steps:
+You **need to have `pachctl` installed on your machine** 
+to deploy Pachyderm using the `pachctl deploy local` command:
 
 1. Run the corresponding steps for your operating system:
 
@@ -120,18 +131,27 @@ to have pachctl installed on your machine by following these steps:
    pachctl             {{ config.pach_latest_version }}
    ```
 
-   If you run `pachctl version` without `--client-only`, the command times
-   out. This is expected behavior because `pachd` is not yet running.
+   If you run `pachctl version` without the flag `--client-only`, the command times
+   out. This is expected behavior because Pachyderm has not been deployed yet (`pachd` is not yet running).
 
-## Deploy Pachyderm
+   !!! Note "Architecture"
+         A look at [Pachyderm high-level architecture diagram](https://docs.pachyderm.com/latest/deploy-manage/#overview) 
+         will help you build a mental image of Pachyderm various architectural components.
 
-After you configure all the [Prerequisites](#prerequisites),
-deploy Pachyderm by following these steps:
+### Install `Helm`
 
-!!! tip
+If you choose to install Pachyderm using Helm, follow their [installation guide](https://helm.sh/docs/intro/install/).
+
+## 1- Deploy Pachyderm
+
+When done with the [Prerequisites](#prerequisites),
+deploy Pachyderm on your local cluster by following these steps:
+
+### Using `pachctl`
+!!! Tip
     If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/).
-    This handy tool suggests you `pachctl` commands as you type and
-    helps you learn Pachyderm faster.
+    This add-on tool suggests `pachctl` commands as you type. 
+    It will help you learn Pachyderm's main commands faster.
 
 * For macOS or Linux, run:
 
@@ -139,8 +159,13 @@ deploy Pachyderm by following these steps:
    pachctl deploy local
    ```
 
-   This command generates a Pachyderm manifest and deploys Pachyderm on
+   This command generates a **Pachyderm manifest** and deploys Pachyderm on
    Kubernetes.
+
+   Try the following dry run to visualize your manifest:
+   ```shell
+   pachctl deploy local --dry-run > pachyderm.json
+   ```
 
 * For Windows:
 
@@ -158,13 +183,29 @@ deploy Pachyderm by following these steps:
      kubectl create -f ./pachyderm.json
      ```
 
+### Using Helm
+    1. Get Repo Info
+    ```shell
+    $ helm repo add pachyderm https://pachyderm.github.io/helmchart
+    ```
+    ```shell
+    $ helm repo update
+    ```
+    1. Edit a values file `my_pachyderm_values.yaml` with `pachd.storage.backend` set to `LOCAL`
+    Find the [reference values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) here.
+    1. Install the Pachyderm helm chart ([helm v3](https://helm.sh/docs/intro/))
+    ```shell
+    $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
+    ```
+
+## Check your install
+Check the status of the Pachyderm pods by periodically
+running `kubectl get pods`. When Pachyderm is ready for use,
+all Pachyderm pods must be in the **Running** status.
+
   Because Pachyderm needs to pull the Pachyderm Docker image
   from DockerHub, it might take a few minutes for the Pachyderm pods status
   to change to `Running`.
-
-1. Check the status of the Pachyderm pods by periodically
-running `kubectl get pods`. When Pachyderm is ready for use,
-all Pachyderm pods must be in the **Running** status.
 
 
    ```shell
@@ -197,10 +238,10 @@ all Pachyderm pods must be in the **Running** status.
    pachctl             {{ config.pach_latest_version }}
    pachd               {{ config.pach_latest_version }}
    ```
-
+   
 1. Open a new terminal window.
 
-1. Use port forwarding to access the Pachyderm dashboard.
+1. Use port forwarding to access the Pachyderm dashboard (Pachyderm UI).
 
    ```shell
    pachctl port-forward
@@ -208,7 +249,7 @@ all Pachyderm pods must be in the **Running** status.
 
    This command runs continuosly and does not exit unless you interrupt it.
 
-1. Alternatively, you can set up Pachyderm to directly connect to
+1. Minikube users: you can alternatively set up Pachyderm to directly connect to
 the Minikube instance:
 
    1. Get your Minikube IP address:
@@ -220,13 +261,10 @@ the Minikube instance:
    1. Configure Pachyderm to connect directly to the Minikube instance:
 
       ```shell
-      pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
+      pachctl config update context `pachctl config get active-context` --pachd-address=<minikube ip>:30080
       ```
 
-## Next Steps
-
-After you install and configure Pachyderm,
-continue exploring Pachyderm:
+## 2- Next Steps
 
 * Complete the [Beginner Tutorial](./beginner_tutorial.md)
 to learn the basics of Pachyderm, such as adding data and building
