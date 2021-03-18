@@ -1,6 +1,8 @@
 import {Group, Circle} from '@pachyderm/components';
+import capitalize from 'lodash/capitalize';
 import React, {useMemo} from 'react';
 
+import projectStatusAsString from '@dash-frontend/lib/projecStatusAsString';
 import {ProjectStatus as ProjectStatusEnum} from '@graphqlTypes';
 
 type ProjectStatusType = {
@@ -23,10 +25,7 @@ const ProjectStatus: React.FC<ProjectStatusType> = ({status}) => {
   return (
     <Group spacing={8} align="center">
       <Circle color={color} />
-      {`${status.toString().charAt(0)}${status
-        .toString()
-        .substring(1)
-        .toLowerCase()}`}
+      {capitalize(projectStatusAsString(status))}
     </Group>
   );
 };

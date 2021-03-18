@@ -1,22 +1,30 @@
-import {Group, TableView} from '@pachyderm/components';
-import React, {useState} from 'react';
-import {useForm} from 'react-hook-form';
-
-import {useProjects} from '@dash-frontend/hooks/useProjects';
+import {Dropdown, Group, TableView} from '@pachyderm/components';
+import React from 'react';
 
 import ProjectRow from './components/ProjectRow/ProjectRow';
+import {useLandingView} from './hooks/useLandingView';
 import styles from './Landing.module.css';
 
 const Landing: React.FC = () => {
-  const [searchValue, setSearchValue] = useState('');
-  const formCtx = useForm();
-  const {projects} = useProjects();
+  const {
+    filterFormCtx,
+    filterStatus,
+    handleSortSelect,
+    loading,
+    projects,
+    projectCount,
+    searchValue,
+    setSearchValue,
+    sortButtonText,
+  } = useLandingView();
+
+  if (loading) return null; // TODO loading view
 
   return (
     <div className={styles.wrapper}>
       <TableView title="Projects" errorMessage="Error loading projects">
         <TableView.Header heading="Projects" headerButtonHidden />
-        <TableView.Body initialActiveTabId="Public" showSkeleton={false}>
+        <TableView.Body initialActiveTabId="Team" showSkeleton={false}>
           <TableView.Body.Header>
             <TableView.Body.Tabs
               placeholder=""
@@ -24,28 +32,50 @@ const Landing: React.FC = () => {
               onSearch={setSearchValue}
               showSearch
             >
-              <TableView.Body.Tabs.Tab id="Public" count={projects.length}>
-                Public
+              <TableView.Body.Tabs.Tab id="Team" count={projectCount}>
+                Team
               </TableView.Body.Tabs.Tab>
-              <TableView.Body.Tabs.Tab id="Private" count={0}>
-                Private
+              <TableView.Body.Tabs.Tab id="Personal" count={0}>
+                Personal
               </TableView.Body.Tabs.Tab>
               <TableView.Body.Tabs.Tab id="Playground" count={0}>
-                Private
+                Playground
               </TableView.Body.Tabs.Tab>
             </TableView.Body.Tabs>
             <Group spacing={32}>
+              <Dropdown
+                storeSelected
+                initialSelectId="Created On"
+                onSelect={handleSortSelect}
+              >
+                <Dropdown.Button>{`Sort by: ${sortButtonText}`}</Dropdown.Button>
+
+                <Dropdown.Menu>
+                  <Dropdown.MenuItem id="Created On">
+                    Created On
+                  </Dropdown.MenuItem>
+                  <Dropdown.MenuItem id="Name A-Z">Name A-Z</Dropdown.MenuItem>
+                </Dropdown.Menu>
+              </Dropdown>
+
               <TableView.Body.Dropdown
-                formCtx={formCtx}
-                buttonText="Sort by: Created On"
-              />
-              <TableView.Body.Dropdown
-                formCtx={formCtx}
-                buttonText=" Filter by: None"
-              />
+                formCtx={filterFormCtx}
+                buttonText={filterStatus}
+              >
+                <TableView.Body.Dropdown.Item
+                  name="HEALTHY"
+                  id="HEALTHY"
+                  label="Healthy"
+                />
+                <TableView.Body.Dropdown.Item
+                  name="UNHEALTHY"
+                  id="UNHEALTHY"
+                  label="Unhealthy"
+                />
+              </TableView.Body.Dropdown>
             </Group>
           </TableView.Body.Header>
-          <TableView.Body.Content id="Public">
+          <TableView.Body.Content id="Team">
             <table className={styles.table}>
               <tbody>
                 {projects.map((project) => (
@@ -54,7 +84,7 @@ const Landing: React.FC = () => {
               </tbody>
             </table>
           </TableView.Body.Content>
-          <TableView.Body.Content id="Private" />
+          <TableView.Body.Content id="Personal" />
           <TableView.Body.Content id="Playground" />
         </TableView.Body>
       </TableView>

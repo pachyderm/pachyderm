@@ -9,7 +9,7 @@ const projects: {[projectId: string]: Project} = {
   '1': new Project()
     .setId('1')
     .setName('Solar Panel Data Sorting')
-    .setCreatedat(new Timestamp().setSeconds(1614126189))
+    .setCreatedat(new Timestamp().setSeconds(1614026189))
     .setStatus(ProjectStatus.HEALTHY)
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
@@ -17,7 +17,7 @@ const projects: {[projectId: string]: Project} = {
   '2': new Project()
     .setId('2')
     .setName('Data Cleaning Process')
-    .setCreatedat(new Timestamp().setSeconds(1614126189))
+    .setCreatedat(new Timestamp().setSeconds(1614526189))
     .setStatus(ProjectStatus.UNHEALTHY)
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',

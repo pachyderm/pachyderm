@@ -24,12 +24,15 @@ const ProjectRow: React.FC<ProjectRowProps> = ({project}) => {
       </td>
       <td>
         <Info header="Project Status" headerId="project-status">
-          <ProjectStatus status={project.status} />
+          <ProjectStatus
+            status={project.status}
+            data-testid="ProjectRow__status"
+          />
         </Info>
       </td>
       <td>
         <Info header="Created On" headerId="project-creation">
-          {date}
+          <span data-testid="ProjectRow__created">{date}</span>
         </Info>
       </td>
       <td>

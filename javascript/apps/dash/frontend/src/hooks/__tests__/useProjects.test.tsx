@@ -47,7 +47,7 @@ describe('useProjects', () => {
       '0 project description: Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     );
     const projectCreationDate = await findByText(
-      '0 project createdAt: 1614126189',
+      '0 project createdAt: 1614026189',
     );
     const projectStatus = await findByText('0 project status: HEALTHY');
 
