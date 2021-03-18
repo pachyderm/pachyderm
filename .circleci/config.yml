@@ -9,6 +9,8 @@ jobs:
             - run: cd packages/components && npm ci
             - run: cd packages/components && npm run lint
             - run: cd packages/components && npm run test
+            - run: cd packages/components && npm run build
+            - run: cd packages/components && npm run build:storybook
     components-storybook-release:
         docker:
             - image: circleci/node:14.15.0

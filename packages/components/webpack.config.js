@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-var-requires,@typescript-eslint/camelcase */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
 const path = require('path');
 
@@ -6,6 +6,30 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const postcssNormalize = require('postcss-normalize');
 const getCSSModuleLocalIdent = require('react-dev-utils/getCSSModuleLocalIdent');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
+
+const styleLoader =  process.env.NODE_ENV === 'production'
+? {
+    loader: MiniCssExtractPlugin.loader,
+  }
+: require.resolve('style-loader');
+
+const postcssLoader = {
+  loader: require.resolve('postcss-loader'),
+  options: {
+    ident: 'postcss',
+    plugins: () => [
+      require('postcss-flexbugs-fixes'),
+      require('postcss-preset-env')({
+        autoprefixer: {
+          flexbox: 'no-2009',
+        },
+        stage: 3,
+      }),
+      postcssNormalize(),
+    ],
+    sourceMap: process.env.NODE_ENV === 'production',
+  },
+};
 
 const config = {
   mode: 'production',
@@ -46,14 +70,24 @@ const config = {
           },
           {
             test: /\.css$/,
+            exclude: /\.module\.css$/,
             use: [
-              process.env.NODE_ENV === 'production'
-                ? {
-                    loader: MiniCssExtractPlugin.loader,
-                  }
-                : {
-                    loader: require.resolve('style-loader'),
-                  },
+              styleLoader,
+              {
+                loader: require.resolve('css-loader'),
+                options: {
+                  importLoaders: 1,
+                  sourceMap: process.env.NODE_ENV === 'production',
+                },
+              },
+              postcssLoader,
+            ],
+            sideEffects: true,
+          },
+          {
+            test: /\.module\.css$/,
+            use: [
+              styleLoader,
               {
                 loader: require.resolve('css-loader'),
                 options: {
@@ -64,23 +98,7 @@ const config = {
                   sourceMap: true,
                 },
               },
-              {
-                loader: require.resolve('postcss-loader'),
-                options: {
-                  ident: 'postcss',
-                  plugins: () => [
-                    require('postcss-flexbugs-fixes'),
-                    require('postcss-preset-env')({
-                      autoprefixer: {
-                        flexbox: 'no-2009',
-                      },
-                      stage: 3,
-                    }),
-                    postcssNormalize(),
-                  ],
-                  sourceMap: true,
-                },
-              },
+              postcssLoader,
             ],
           },
           {
