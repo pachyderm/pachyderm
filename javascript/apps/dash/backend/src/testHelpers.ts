@@ -12,6 +12,7 @@ const operations = fs.readFileSync('../generated/operations.gql', 'utf-8');
 const executeOperation = async <T>(
   operationName: string,
   variables: Record<string, unknown> = {},
+  headers: {[key: string]: string} = {},
 ) => {
   const response = await fetch(
     `http://localhost:${process.env.GRAPHQL_PORT}/graphql`,
@@ -25,6 +26,7 @@ const executeOperation = async <T>(
       headers: {
         'pachd-address': `localhost:${process.env.GRPC_PORT}`,
         'Content-Type': 'application/json',
+        ...headers,
       },
     },
   );
@@ -40,6 +42,7 @@ const executeOperation = async <T>(
 const createOperation = async <T>(
   query: string,
   variables: Record<string, unknown> = {},
+  headers: {[key: string]: string} = {},
 ) => {
   const response = await fetch(
     `http://localhost:${process.env.GRAPHQL_PORT}/graphql`,
@@ -52,6 +55,7 @@ const createOperation = async <T>(
       headers: {
         'pachd-address': `localhost:${process.env.GRPC_PORT}`,
         'Content-Type': 'application/json',
+        ...headers,
       },
     },
   );

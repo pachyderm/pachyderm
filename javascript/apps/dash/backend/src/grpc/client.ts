@@ -1,7 +1,8 @@
-import {Metadata} from '@grpc/grpc-js';
+import {Metadata, ServiceError} from '@grpc/grpc-js';
 import Logger from 'bunyan';
 
 import createCredentials from '@dash-backend/grpc/createCredentials';
+import errorPlugin from '@dash-backend/grpc/plugins/errorPlugin';
 import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
 import auth from '@dash-backend/grpc/services/auth';
 import pfs from '@dash-backend/grpc/services/pfs';
@@ -44,7 +45,7 @@ const attachPlugins = <T extends ServiceDefinition>(
           onCompleteObservers.forEach((cb) => cb({requestName}));
           return result;
         } catch (e) {
-          onErrorObservers.forEach((cb) => cb(e));
+          onErrorObservers.forEach((cb) => cb({error: e, requestName}));
           throw e;
         }
       };
@@ -73,8 +74,8 @@ const client = ({
     projectId,
   });
 
-  const defaultPlugins = [loggingPlugin(log)];
-  const plugins = [...defaultPlugins, ...userPlugins];
+  const defaultPlugins = [loggingPlugin(log), errorPlugin];
+  const plugins = defaultPlugins.concat(userPlugins);
 
   let pfsService: ReturnType<typeof pfs> | undefined;
   let ppsService: ReturnType<typeof pps> | undefined;

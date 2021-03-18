@@ -30,7 +30,7 @@ export interface ServiceArgs {
 export interface GRPCPlugin {
   onCall?: (args: {requestName: string}) => void;
   onCompleted?: (args: {requestName: string}) => void;
-  onError?: (args: {error: Error; requestName: string}) => void;
+  onError?: (args: {error: unknown; requestName: string}) => void;
 }
 
 export type ServiceHandlerFunction = (...args: never[]) => Promise<unknown>;

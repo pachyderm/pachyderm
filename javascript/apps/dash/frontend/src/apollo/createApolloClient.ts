@@ -6,6 +6,7 @@ import {
 } from '@apollo/client';
 import {History as BrowserHistory} from 'history';
 
+import {errorLink} from '@dash-frontend/apollo/links/errorLink';
 import {LOGGED_IN_QUERY} from '@dash-frontend/hooks/useAuth';
 
 import {contextLink} from './links/contextLink';
@@ -16,7 +17,7 @@ const createApolloClient = (
 ): ApolloClient<NormalizedCacheObject> => {
   const cache = new InMemoryCache();
 
-  const link = ApolloLink.from([contextLink(), httpLink()]);
+  const link = ApolloLink.from([contextLink(), errorLink(), httpLink()]);
 
   const resolvers = {};
 
