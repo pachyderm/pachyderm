@@ -329,7 +329,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 			}, backoff.NewInfiniteBackOff(),
 				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipeline))
 		})
-		if pipelineInfo.ParallelismSpec.Constant > 1 && pipelineInfo.Autoscaling {
+		if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > 1 && pipelineInfo.Autoscaling {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
 					worker := work.NewWorker(
