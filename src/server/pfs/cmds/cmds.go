@@ -17,7 +17,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/mattn/go-isatty"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -33,7 +32,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -729,7 +727,7 @@ from commits with 'get file'.`,
 	var inputFile string
 	var recursive bool
 	var parallelism int
-	var overwrite bool
+	var appendFile bool
 	var compress bool
 	var enableProgress bool
 	putFile := &cobra.Command{
@@ -794,17 +792,9 @@ $ {{alias}} repo@branch -i http://host/path`,
 			defer c.Close()
 			defer progress.Wait()
 
-			// load data into pachyderm
-			pfc, err := c.NewPutFileClient()
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := pfc.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			limiter := limit.New(int(parallelism))
+			// TODO: Rethink put file parallelism for 2.0.
+			// Doing parallel uploads at the file level for small files will be bad, but we still want a clear way to parallelize large file uploads.
+			//limiter := limit.New(int(parallelism))
 			var sources []string
 			if inputFile != "" {
 				// User has provided a file listing sources, one per line. Read sources
@@ -846,33 +836,29 @@ $ {{alias}} repo@branch -i http://host/path`,
 				sources = filePaths
 			}
 
-			// Arguments parsed; create putFileHelper and begin copying data
-			var eg errgroup.Group
-			for _, source := range sources {
-				source := source
-				if file.Path == "" {
-					// The user has not specified a path so we use source as path.
-					if source == "-" {
-						return errors.Errorf("must specify filename when reading data from stdin")
+			repo := file.Commit.Repo.Name
+			commit := file.Commit.ID
+			return c.WithModifyFileClient(repo, commit, func(mfc client.ModifyFileClient) error {
+				for _, source := range sources {
+					source := source
+					if file.Path == "" {
+						// The user has not specified a path so we use source as path.
+						if source == "-" {
+							return errors.Errorf("must specify filename when reading data from stdin")
+						}
+						return putFileHelper(mfc, joinPaths("", source), source, recursive, appendFile)
+					} else if len(sources) == 1 {
+						// We have a single source and the user has specified a path,
+						// we use the path and ignore source (in terms of naming the file).
+						return putFileHelper(mfc, file.Path, source, recursive, appendFile)
+					} else {
+						// We have multiple sources and the user has specified a path,
+						// we use that path as a prefix for the filepaths.
+						return putFileHelper(mfc, joinPaths(file.Path, source), source, recursive, appendFile)
 					}
-					eg.Go(func() error {
-						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, joinPaths("", source), source, recursive, overwrite, limiter)
-					})
-				} else if len(sources) == 1 {
-					// We have a single source and the user has specified a path,
-					// we use the path and ignore source (in terms of naming the file).
-					eg.Go(func() error {
-						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, file.Path, source, recursive, overwrite, limiter)
-					})
-				} else {
-					// We have multiple sources and the user has specified a path,
-					// we use that path as a prefix for the filepaths.
-					eg.Go(func() error {
-						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, joinPaths(file.Path, source), source, recursive, overwrite, limiter)
-					})
 				}
-			}
-			return eg.Wait()
+				return nil
+			})
 		}),
 	}
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
@@ -880,14 +866,14 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Compress data during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
-	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
 				cs, cf := shell.FilesystemCompletion(flag, text, maxCompletions)
 				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-			} else if flag == "" || flag == "-c" || flag == "--commit" || flag == "-o" || flag == "--overwrite" {
+			} else if flag == "" || flag == "-c" || flag == "--commit" || flag == "-o" || flag == "--append" {
 				cs, cf := shell.FileCompletion(flag, text, maxCompletions)
 				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
 			}
@@ -914,14 +900,18 @@ $ {{alias}} repo@branch -i http://host/path`,
 			}
 			defer c.Close()
 
+			var opts []client.CopyFileOption
+			if appendFile {
+				opts = append(opts, client.WithAppendCopyFile())
+			}
 			return c.CopyFile(
 				srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path,
 				destFile.Commit.Repo.Name, destFile.Commit.ID, destFile.Path,
-				overwrite,
+				opts...,
 			)
 		}),
 	}
-	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	copyFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(copyFile, "copy file"))
 
@@ -1295,37 +1285,30 @@ Objects are a low-level resource and should not be accessed directly by most use
 	return commands
 }
 
-func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, path, source string, recursive, overwrite bool, limiter limit.ConcurrencyLimiter) (retErr error) {
+func putFileHelper(mfc client.ModifyFileClient, path, source string, recursive, appendFile bool) (retErr error) {
 	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
 	// to the server, and convert to unix path in case we're on windows.
 	path = filepath.ToSlash(filepath.Clean(path))
 	for strings.HasPrefix(path, "../") {
 		path = strings.TrimPrefix(path, "../")
 	}
-	putFile := func(r io.Reader) error {
-		if overwrite {
-			return pfc.PutFileOverwrite(repo, commit, path, r)
-		}
-		return pfc.PutFile(repo, commit, path, r)
+	var opts []client.PutFileOption
+	if appendFile {
+		opts = append(opts, client.WithAppendPutFile())
+	}
+	// try parsing the filename as a url, if it is one do a PutFileURL
+	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
+		return mfc.PutFileURL(path, url.String(), recursive, opts...)
 	}
 	if source == "-" {
 		if recursive {
 			return errors.New("cannot set -r and read from stdin (must also set -f or -i)")
 		}
-		limiter.Acquire()
-		defer limiter.Release()
 		stdin := progress.Stdin()
 		defer stdin.Finish()
-		return putFile(stdin)
-	}
-	// try parsing the filename as a url, if it is one do a PutFileURL
-	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
-		limiter.Acquire()
-		defer limiter.Release()
-		return pfc.PutFileURL(repo, commit, path, url.String(), recursive, overwrite)
+		return mfc.PutFile(path, stdin, opts...)
 	}
 	if recursive {
-		var eg errgroup.Group
 		if err := filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
 			// file doesn't exist
 			if info == nil {
@@ -1335,30 +1318,24 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, 
 				return nil
 			}
 			childDest := filepath.Join(path, strings.TrimPrefix(filePath, source))
-			eg.Go(func() error {
-				// don't do a second recursive 'put file', just put the one file at
-				// filePath into childDest, and then this walk loop will go on to the
-				// next one
-				return putFileHelper(c, pfc, repo, commit, childDest, filePath, false, overwrite, limiter)
-			})
-			return nil
+			// don't do a second recursive 'put file', just put the one file at
+			// filePath into childDest, and then this walk loop will go on to the
+			// next one
+			return putFileHelper(mfc, childDest, filePath, false, appendFile)
 		}); err != nil {
 			return err
 		}
-		return eg.Wait()
 	}
-	limiter.Acquire()
-	defer limiter.Release()
 	f, err := progress.Open(source)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := f.Close(); err != nil && retErr == nil {
+		if err := f.Close(); retErr == nil {
 			retErr = err
 		}
 	}()
-	return putFile(f)
+	return mfc.PutFile(path, f, opts...)
 }
 
 func joinPaths(prefix, filePath string) string {

@@ -69,7 +69,7 @@ func workerPutObject(t *testing.T, s *workerTestState) {
 	_, err := s.minioClient.PutObject("out", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
-	// this should act as a PFS PutFileOverwrite
+	// this should act as a PFS PutFile
 	r2 := strings.NewReader("content2")
 	_, err = s.minioClient.PutObject("out", "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)

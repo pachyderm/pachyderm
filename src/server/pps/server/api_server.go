@@ -1616,7 +1616,7 @@ func (a *apiServer) makePipelineInfoCommitOnBranch(pachClient *client.APIClient,
 		if err != nil {
 			return errors.Wrapf(err, "could not marshal PipelineInfo")
 		}
-		if err := superUserClient.PutFileOverwrite(ppsconsts.SpecRepo, branchName, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
+		if err := superUserClient.PutFile(ppsconsts.SpecRepo, branchName, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
 			return err
 		}
 		branchInfo, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, branchName)
@@ -3049,26 +3049,21 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 	// make a tick on each cron input
 	for _, cron := range crons {
-		// Use a PutFileClient
-		pfc, err := txnClient.NewPutFileClient()
-		if err != nil {
-			return nil, err
-		}
-		if cron.Overwrite {
-			// get rid of any files, so the new file "overwrites" previous runs
-			err = pfc.DeleteFile(cron.Repo, "master", "")
-			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
-				return nil, errors.Wrapf(err, "delete error")
+		// TODO: This isn't transactional, we could support a transactional modify file through the fileset API though.
+		if err := txnClient.WithModifyFileClient(cron.Repo, "master", func(mfc client.ModifyFileClient) error {
+			if cron.Overwrite {
+				// get rid of any files, so the new file "overwrites" previous runs
+				err = mfc.DeleteFile("/")
+				if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+					return errors.Wrapf(err, "delete error")
+				}
 			}
-		}
-
-		// Put in an empty file named by the timestamp
-		if err := pfc.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader("")); err != nil {
-			return nil, errors.Wrapf(err, "put error")
-		}
-
-		err = pfc.Close()
-		if err != nil {
+			// Put in an empty file named by the timestamp
+			if err := mfc.PutFile(time.Now().Format(time.RFC3339), strings.NewReader("")); err != nil {
+				return errors.Wrapf(err, "put error")
+			}
+			return nil
+		}); err != nil {
 			return nil, err
 		}
 	}

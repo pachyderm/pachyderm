@@ -78,10 +78,10 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup file operation client for output meta commit.
 	metaCommit := datumSet.MetaCommit
-	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta *client.ModifyFileClient) error {
+	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta client.ModifyFileClient) error {
 		// Setup file operation client for output PFS commit.
 		outputCommit := datumSet.OutputCommit
-		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS *client.ModifyFileClient) (retErr error) {
+		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS client.ModifyFileClient) (retErr error) {
 			opts := []datum.SetOption{
 				datum.WithMetaOutput(newDatumClient(mfcMeta, pachClient, metaCommit)),
 				datum.WithPFSOutput(newDatumClient(mfcPFS, pachClient, outputCommit)),
@@ -129,12 +129,12 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 
 // TODO: This should be removed when CopyFile is a part of ModifyFile.
 type datumClient struct {
-	*client.ModifyFileClient
+	client.ModifyFileClient
 	pachClient *client.APIClient
 	commit     *pfs.Commit
 }
 
-func newDatumClient(mfc *client.ModifyFileClient, pachClient *client.APIClient, commit *pfs.Commit) datum.Client {
+func newDatumClient(mfc client.ModifyFileClient, pachClient *client.APIClient, commit *pfs.Commit) datum.Client {
 	return &datumClient{
 		ModifyFileClient: mfc,
 		pachClient:       pachClient,
@@ -143,7 +143,8 @@ func newDatumClient(mfc *client.ModifyFileClient, pachClient *client.APIClient, 
 }
 
 func (dc *datumClient) CopyFile(dst string, srcFile *pfs.File, tag string) error {
-	return dc.pachClient.CopyFile(srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path, dc.commit.Repo.Name, dc.commit.ID, dst, false, tag)
+	opts := []client.CopyFileOption{client.WithAppendCopyFile(), client.WithTagCopyFile(tag)}
+	return dc.pachClient.CopyFile(srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path, dc.commit.Repo.Name, dc.commit.ID, dst, opts...)
 }
 
 type datumClientFileset struct {

@@ -74,10 +74,10 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error)
 	defer pj.jdit.SetDeleter(nil)
 	// Setup file operation client for output Meta commit.
 	metaCommit := pj.metaCommitInfo.Commit
-	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta *client.ModifyFileClient) error {
+	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta client.ModifyFileClient) error {
 		// Setup file operation client for output PFS commit.
 		outputCommit := pj.commitInfo.Commit
-		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS *client.ModifyFileClient) error {
+		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS client.ModifyFileClient) error {
 			parentMetaCommit := pj.metaCommitInfo.ParentCommit
 			metaFileWalker := func(path string) ([]string, error) {
 				var files []string

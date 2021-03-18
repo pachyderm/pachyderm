@@ -42,8 +42,8 @@ const (
 
 // Client is the standard interface for a datum client.
 type Client interface {
-	// AppendFileTar puts a tar stream.
-	AppendFileTar(overwrite bool, r io.Reader, datum ...string) error
+	// PutFileTar puts a tar stream.
+	PutFileTar(r io.Reader, opts ...client.PutFileOption) error
 	// CopyFile copies a file from src to dst.
 	CopyFile(dst string, src *pfs.File, tag string) error
 }
@@ -348,7 +348,7 @@ func (d *Datum) upload(c Client, storageRoot string, cb ...func(*tar.Header) err
 	if _, err := f.Seek(0, 0); err != nil {
 		return err
 	}
-	return c.AppendFileTar(false, f, d.ID)
+	return c.PutFileTar(f, client.WithTagPutFile(d.ID))
 }
 
 func (d *Datum) handleSymlink(c Client, dst, src string, copyFunc func() error) error {
@@ -374,17 +374,11 @@ func (d *Datum) handleSymlink(c Client, dst, src string, copyFunc func() error) 
 // TODO: I think these types would be unecessary if the dependencies were shuffled around a bit.
 type fileWalkerFunc func(string) ([]string, error)
 
-// DeleteClient is the standard interface for a client that implements DeleteFile.
-type DeleteClient interface {
-	// DeleteFile deletes a file.
-	DeleteFile(file string, datum ...string) error
-}
-
 // Deleter deletes a datum.
 type Deleter func(*Meta) error
 
 // NewDeleter creates a new deleter.
-func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient DeleteClient) Deleter {
+func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient client.ModifyFileClient) Deleter {
 	return func(meta *Meta) error {
 		ID := common.DatumID(meta.Inputs)
 		// Delete the datum directory in the meta output.
@@ -409,7 +403,7 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 			if err != nil {
 				return err
 			}
-			if err := pfsOutputClient.DeleteFile(file, ID); err != nil {
+			if err := pfsOutputClient.DeleteFile(file, client.WithTagDeleteFile(ID)); err != nil {
 				return err
 			}
 		}

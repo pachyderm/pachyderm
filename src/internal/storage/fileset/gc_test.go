@@ -17,8 +17,8 @@ func TestGC(t *testing.T) {
 	s := NewTestStorage(t, db, tr)
 	gc := s.newGC()
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
-	err := w.Append("a.txt", func(fw *FileWriter) error {
-		fw.Append("tag1")
+	err := w.Add("a.txt", func(fw *FileWriter) error {
+		fw.Add("tag1")
 		_, err := fw.Write([]byte("test data"))
 		return err
 	})

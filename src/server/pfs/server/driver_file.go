@@ -149,7 +149,7 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 	return commitInfo, fs, nil
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool, tag string) (retErr error) {
+func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, appendFile bool, tag string) (retErr error) {
 	ctx := pachClient.Ctx()
 	srcCommitInfo, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -164,10 +164,6 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		return pfsserver.ErrCommitFinished{dstCommitInfo.Commit}
 	}
 	dstCommit := dstCommitInfo.Commit
-	if overwrite {
-		// TODO: after delete merging is sorted out add overwrite support
-		return errors.New("overwrite not yet supported")
-	}
 	srcPath := cleanPath(src.Path)
 	dstPath := cleanPath(dst.Path)
 	pathTransform := func(x string) string {
@@ -191,8 +187,13 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	})
 	return d.withCommitWriter(pachClient, dstCommit, func(tag string, dstW *fileset.Writer) error {
 		return fs.Iterate(ctx, func(f fileset.File) error {
-			return dstW.Append(f.Index().Path, func(fw *fileset.FileWriter) error {
-				fw.Append(tag)
+			if !appendFile {
+				if err := dstW.Delete(f.Index().Path, tag); err != nil {
+					return err
+				}
+			}
+			return dstW.Add(f.Index().Path, func(fw *fileset.FileWriter) error {
+				fw.Add(tag)
 				return f.Content(fw)
 			})
 		})
@@ -263,16 +264,16 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 	fs = d.storage.NewIndexResolver(fs)
 	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-		if idx.Path == "/" {
+		// Check for directory match (don't return directory in list)
+		if idx.Path == fileset.Clean(name, true) {
 			return false
 		}
+		// Check for file match.
 		if idx.Path == name {
 			return true
 		}
-		if idx.Path == name+"/" {
-			return false
-		}
-		return strings.HasPrefix(idx.Path, name)
+		// Check for sub directory / file match.
+		return strings.HasPrefix(idx.Path, fileset.Clean(name, true))
 	})
 	s := NewSource(commitInfo, fs, true)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {

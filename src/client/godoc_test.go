@@ -128,7 +128,7 @@ func ExampleAPIClient_PutFileWriter() {
 	fmt.Println(files)
 }
 
-func ExampleAPIClient_NewPutFileClient() {
+func ExampleAPIClient_NewModifyFileClient() {
 
 	// This method enables you to group multiple "put file" operations into one
 	// request.
@@ -148,16 +148,16 @@ func ExampleAPIClient_NewPutFileClient() {
 	); err != nil {
 		panic(err)
 	}
-	pfc, err := c.NewPutFileClient()
+	mfc, err := c.NewModifyFileClient("test", "master")
 	if err != nil {
 		panic(err)
 	}
 	defer func() {
-		if err := pfc.Close(); err != nil {
+		if err := mfc.Close(); err != nil {
 			panic(err)
 		}
 	}()
-	if err := pfc.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := mfc.PutFile("file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
 	files, err := c.ListFileAll("test", "master", "/")

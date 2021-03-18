@@ -1294,53 +1294,48 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 
 	// insert the source code
-	pfc, err := pc.NewPutFileClient()
-	if err != nil {
-		return errors.Wrapf(err, "failed to construct put file client for source code in build step-enabled pipeline")
-	}
-	if update {
-		if err = pfc.DeleteFile(buildPipelineName, "source", "/"); err != nil {
-			return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+	if err := pc.WithModifyFileClient(buildPipelineName, "source", func(mfc pachdclient.ModifyFileClient) error {
+		if update {
+			if err := mfc.DeleteFile("/"); err != nil {
+				return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+			}
 		}
-	}
-	if err := filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
-		if info == nil {
-			return errors.Errorf("%q doesn't exist", srcFilePath)
-		}
-		if info.IsDir() {
-			return nil
-		}
-
-		destFilePath, err := filepath.Rel(buildPath, srcFilePath)
-		if err != nil {
-			return errors.Wrapf(err, "failed to discover relative path for %s", srcFilePath)
-		}
-		for _, g := range ignores {
-			if g.Match(destFilePath) {
+		return filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
+			if info == nil {
+				return errors.Errorf("%q doesn't exist", srcFilePath)
+			}
+			if info.IsDir() {
 				return nil
 			}
-		}
 
-		f, err := progress.Open(srcFilePath)
-		if err != nil {
-			return errors.Wrapf(err, "failed to open file %q for source code in build step-enabled pipeline", srcFilePath)
-		}
-		defer func() {
-			if err := f.Close(); err != nil && retErr == nil {
-				retErr = err
+			destFilePath, err := filepath.Rel(buildPath, srcFilePath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to discover relative path for %s", srcFilePath)
 			}
-		}()
+			for _, g := range ignores {
+				if g.Match(destFilePath) {
+					return nil
+				}
+			}
 
-		if err := pfc.PutFileOverwrite(buildPipelineName, "source", destFilePath, f); err != nil {
-			return errors.Wrapf(err, "failed to put file %q->%q for source code in build step-enabled pipeline", srcFilePath, destFilePath)
-		}
+			f, err := progress.Open(srcFilePath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to open file %q for source code in build step-enabled pipeline", srcFilePath)
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 
-		return nil
+			if err := mfc.PutFile(destFilePath, f); err != nil {
+				return errors.Wrapf(err, "failed to put file %q->%q for source code in build step-enabled pipeline", srcFilePath, destFilePath)
+			}
+
+			return nil
+		})
 	}); err != nil {
 		return err
-	}
-	if err := pfc.Close(); err != nil {
-		return errors.Wrapf(err, "failed to close put file client for source code in build step-enabled pipeline")
 	}
 
 	// modify the pipeline to use the build assets

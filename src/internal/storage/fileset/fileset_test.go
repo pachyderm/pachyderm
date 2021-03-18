@@ -36,9 +36,9 @@ type testPart struct {
 
 func appendFile(t *testing.T, w *Writer, path string, parts []*testPart) {
 	// Write content and tags.
-	err := w.Append(path, func(fw *FileWriter) error {
+	err := w.Add(path, func(fw *FileWriter) error {
 		for _, part := range parts {
-			fw.Append(part.tag)
+			fw.Add(part.tag)
 			if _, err := fw.Write(part.data); err != nil {
 				return err
 			}
