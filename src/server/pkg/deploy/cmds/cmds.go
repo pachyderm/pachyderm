@@ -405,7 +405,7 @@ func standardDeployCmds() []*cobra.Command {
 			deprecationWarning("The no-guaranteed flag will be removed in a future version.  To remove resource limits, consider using the pachyderm/pachyderm Helm chart.")
 		}
 		if etcdVolume != "" {
-			deprecationWarning("Specification of a static etcd volume will be removed in a future version.  Consider using the pachyderm/pachyderm Helm chart.")
+			deprecationWarning("Specification of a static etcd volume will be removed in a future version.")
 		}
 	}
 
