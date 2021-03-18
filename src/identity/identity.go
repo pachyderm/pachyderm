@@ -15,7 +15,7 @@ var (
 	ErrAlreadyExists = status.Error(codes.Internal, "ID already exists")
 )
 
-// IsErrInvalidID checks if an error is a ErrAlreadyActivated
+// IsErrInvalidID checks if an error is a ErrInvalidID
 func IsErrInvalidID(err error) bool {
 	if err == nil {
 		return false
