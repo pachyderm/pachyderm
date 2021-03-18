@@ -1,4 +1,4 @@
-{{- if and .Values.rbac.create .Values.rbac.localRoles -}}
+{{- if and .Values.rbac.create (not .Values.rbac.clusterRBAC) -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:

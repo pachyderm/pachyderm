@@ -407,10 +407,10 @@
         "rbac": {
             "type": "object",
             "properties": {
-                "create": {
+                "clusterRBAC": {
                     "type": "boolean"
                 },
-                "localRoles": {
+                "create": {
                     "type": "boolean"
                 }
             }

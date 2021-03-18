@@ -242,11 +242,10 @@ rbac:
   # Setting it to false is analogous to passing --no-rbac to pachctl
   # deploy.
   create: true
-  # localRoles indicates if a Role and RoleBinding should be used
-  # rather than a ClusterRole and ClusterRoleBinding; it is analogous
-  # to --local-roles passed to pachctl deploy.
-  localRoles: false
-
+  # clusterRBAC indicates that ClusterRole and ClusterRoleBinding
+  # should be used rather than Role and RoleBinding; it is the inverse
+  # of --local-roles passed to pachctl deploy.
+  clusterRBAC: true
 
 # move under ingress? How to make work with cert-manager, maybe add
 # tls option to pachctl create secret?
