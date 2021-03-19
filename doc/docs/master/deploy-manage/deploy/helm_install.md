@@ -85,19 +85,29 @@ pachd               {{ config.pach_latest_version }}
 ## Conversion table
 | FLAG OPTION | Values.yaml ATTRIBUTE |
 |-------------|-----------------------|
+|--tls|tls.crt|
+||tls.key|
 |--image-pull-secret|imagePullSecret|
 |--dash-image|dash.image.repository|
-|--registry|dash.image.tag|
+||dash.image.tag|
+|opposite of --no-dashboard|dash.enabled |
 |--dynamic-etcd-nodes|etcd.dynamicNodes|
 |--etcd-storage-class|etcd.storageClass|
+|--etcd-cpu-request|etcd.cpuRequest|
+|--etcd-memory-request|etcd.memoryRequest|
 |--block-cache-size|pachd.blockCacheBytes|
+|--cluster-deployment-id|pachd.clusterDeploymentID|
+|--pachd-cpu-request|pachd.cpuRequest|
 |inverse of --no-expose-docker-socket|pachd.exposeDockerSocket|
-|--expose-object-api|exposeObjectAPI|
-|--shards|pachd.numShards|
+|--expose-object-api|pachd.exposeObjectAPI|
+|--pachd-memory-request|pachd.memoryRequest|
 |--require-critical-servers-only|pachd.requireCriticalServersOnly|
+|--put-file-concurrency-limit|pachd.storage.putFileConcurrencyLimit|
+|--upload-concurrency-limit|pachd.storage.uploadConcurrencyLimit|
+|--shards|pachd.numShards|
 |--cloudfront-distribution|pachd.storage.amazon.cloudFrontDistribution|
 |--disable-ssl|pachd.storage.amazon.disableSSL|
-|--iam-role|iamRole|
+|--iam-role|pachd.storage.amazon.iamRole|
 |--credentials|pachd.storage.amazon.id|
 || pachd.storage.amazon.secret|
 || pachd.storage.amazon.token|
