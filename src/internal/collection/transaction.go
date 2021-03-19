@@ -279,7 +279,7 @@ func (s *stm) commit() *v3.TxnResponse {
 				err, len(cmps), len(writes)),
 		})
 	} else if err != nil {
-		panic(stmError{err})
+		panic(stmError{errors.EnsureStack(err)})
 	}
 	if txnresp.Succeeded {
 		return txnresp
@@ -305,7 +305,7 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 	defer tracing.FinishAnySpan(span)
 	resp, err := s.client.Get(ctx, key, s.getOpts...)
 	if err != nil {
-		panic(stmError{err})
+		panic(stmError{errors.EnsureStack(err)})
 	}
 	s.rset[key] = resp
 	return resp
@@ -497,7 +497,7 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 	defer tracing.FinishAnySpan(span)
 	leaseResp, err := s.client.TimeToLive(ctx, leaseID)
 	if err != nil {
-		panic(stmError{err})
+		panic(stmError{errors.EnsureStack(err)})
 	}
 	s.ttlset[key] = leaseResp.TTL
 	for _, key := range leaseResp.Keys {

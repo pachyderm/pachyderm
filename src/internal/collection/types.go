@@ -83,7 +83,6 @@ type ReadWriteCollection interface {
 	Create(key string, val proto.Message) error
 	Delete(key string) error
 	DeleteAll() error
-	DeleteAllPrefix(prefix string) error
 }
 
 type PostgresReadWriteCollection interface {
@@ -102,6 +101,8 @@ type EtcdReadWriteCollection interface {
 	// can result in inconsistency, as the indices are removed at roughly
 	// but not exactly the same time as the documents.
 	PutTTL(key string, val proto.Message, ttl int64) error
+
+	DeleteAllPrefix(prefix string) error
 }
 
 // ReadOnlyCollection is a collection interface that only supports read ops.

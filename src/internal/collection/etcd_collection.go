@@ -387,7 +387,7 @@ func (c *etcdReadOnlyCollection) get(key string, opts ...etcd.OpOption) (resp *e
 		tracing.FinishAnySpan(span)
 	}()
 	resp, err := c.etcdClient.Get(ctx, key, opts...)
-	return resp, err
+	return resp, errors.EnsureStack(err)
 }
 
 func (c *etcdReadOnlyCollection) Get(key string, val proto.Message) error {

@@ -127,7 +127,6 @@ func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 	columns = append(columns, fmt.Sprintf("primary key(%s)", info.Pkey.SQLName))
 
 	createTable := fmt.Sprintf("create table if not exists %s (%s);", info.Table, strings.Join(columns, ", "))
-	fmt.Printf(createTable + "\n")
 	_, err := db.Exec(createTable)
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -306,7 +305,6 @@ func (c *postgresReadOnlyCollection) listInternal(query string, params []interfa
 		}
 	}
 
-	fmt.Printf("running query: %s\nparams: %v\n", query, params)
 	rows, err := c.db.Queryx(query, params...)
 	if err != nil {
 		return c.mapSQLError(err, "")
@@ -394,7 +392,7 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 	}
 
 	values = append(values, key)
-	query := fmt.Sprintf("update %s set %s where %s = $%d", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey, len(values)-1)
+	query := fmt.Sprintf("update %s set %s where %s = $%d", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey.SQLName, len(values)-1)
 	_, err := c.tx.Exec(query, values...)
 	return c.mapSQLError(err, key)
 }
@@ -412,16 +410,17 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		values = append(values, reflect.Indirect(row).FieldByName(field.GoName).Interface())
 	}
 
-	query := fmt.Sprintf("insert into %s (%s) values (%s)", c.sqlInfo.Table, strings.Join(columns, ", "), strings.Join(params, ", "))
+	columnList := strings.Join(columns, ", ")
+	paramList := strings.Join(params, ", ")
+
+	query := fmt.Sprintf("insert into %s (%s) values (%s)", c.sqlInfo.Table, columnList, paramList)
 	if upsert {
 		upsertFields := []string{}
 		for i, column := range columns {
 			upsertFields = append(upsertFields, fmt.Sprintf("%s = $%d", column, i+1))
 		}
-		query = fmt.Sprintf("%s on conflict do update set %s", query, strings.Join(upsertFields, ", "))
+		query = fmt.Sprintf("%s on conflict (%s) do update set (%s) = (%s)", query, c.sqlInfo.Pkey.SQLName, columnList, paramList)
 	}
-	fmt.Printf("query: %s\n", query)
-	fmt.Printf("values: %v\n", values)
 	_, err := c.tx.Exec(query, values...)
 	return err
 }
@@ -445,19 +444,23 @@ func (c *postgresReadWriteCollection) Create(key string, val proto.Message) erro
 
 func (c *postgresReadWriteCollection) Delete(key string) error {
 	// TODO: do soft deletes for point-deletes?
-	query := fmt.Sprintf("delete from %s where %s = $1;", c.sqlInfo.Table, c.sqlInfo.Pkey)
-	_, err := c.tx.Exec(query, key)
-	return c.mapSQLError(err, key)
+	query := fmt.Sprintf("delete from %s where %s = $1;", c.sqlInfo.Table, c.sqlInfo.Pkey.SQLName)
+
+	res, err := c.tx.Exec(query, key)
+	if err != nil {
+		return c.mapSQLError(err, key)
+	}
+
+	if count, err := res.RowsAffected(); err != nil {
+		return c.mapSQLError(err, key)
+	} else if count == 0 {
+		return errors.WithStack(ErrNotFound{c.sqlInfo.Table, key})
+	}
+	return nil
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
 	query := fmt.Sprintf("delete from %s;", c.sqlInfo.Table)
 	_, err := c.db.Exec(query)
-	return c.mapSQLError(err, "")
-}
-
-func (c *postgresReadWriteCollection) DeleteAllPrefix(prefix string) error {
-	query := fmt.Sprintf("delete from %s where %s like $1;", c.sqlInfo.Table, c.sqlInfo.Pkey)
-	_, err := c.db.Exec(query, prefix)
 	return c.mapSQLError(err, "")
 }

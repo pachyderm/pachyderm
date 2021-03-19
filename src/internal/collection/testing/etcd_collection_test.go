@@ -32,26 +32,22 @@ var (
 )
 
 func TestEtcdCollections(suite *testing.T) {
-	err := testetcd.WithEnv(func(etcdEnv *testetcd.Env) (err error) {
-		newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
-			prefix := testutil.UniqueString("test-etcd-collections-")
-			testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, nil, &TestItem{}, nil, nil)
+	etcdEnv := testetcd.NewEnv(suite)
+	newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
+		prefix := testutil.UniqueString("test-etcd-collections-")
+		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, nil, &TestItem{}, nil, nil)
 
-			writeCallback := func(f func(col.ReadWriteCollection) error) error {
-				_, err := col.NewSTM(context.Background(), etcdEnv.EtcdClient, func(stm col.STM) error {
-					return f(testCol.ReadWrite(stm))
-				})
-				return err
-			}
-
-			return testCol.ReadOnly(context.Background()), writeCallback
+		writeCallback := func(f func(col.ReadWriteCollection) error) error {
+			_, err := col.NewSTM(context.Background(), etcdEnv.EtcdClient, func(stm col.STM) (retErr error) {
+				return f(testCol.ReadWrite(stm))
+			})
+			return errors.EnsureStack(err)
 		}
 
-		readOnlyTests(suite, newCollection)
-		readWriteTests(suite, newCollection)
-		return nil
-	})
-	require.NoError(suite, err)
+		return testCol.ReadOnly(context.Background()), writeCallback
+	}
+
+	collectionTests(suite, newCollection)
 }
 
 func TestDryrun(t *testing.T) {
@@ -74,78 +70,6 @@ func TestDryrun(t *testing.T) {
 	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 	err = jobInfosReadonly.Get("j1", job)
 	require.True(t, col.IsErrNotFound(err))
-}
-
-func TestDelNonexistant(t *testing.T) {
-	require.NoError(t, testetcd.WithEnv(func(e *testetcd.Env) error {
-		c := e.EtcdClient
-		uuidPrefix := uuid.NewWithoutDashes()
-
-		jobInfos := col.NewEtcdCollection(c, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
-
-		_, err := col.NewSTM(context.Background(), c, func(stm col.STM) error {
-			err := jobInfos.ReadWrite(stm).Delete("test")
-			require.True(t, col.IsErrNotFound(err))
-			return err
-		})
-		require.True(t, col.IsErrNotFound(err))
-		return nil
-	}))
-}
-
-func TestGetAfterDel(t *testing.T) {
-	etcdClient := getEtcdClient()
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
-
-	j1 := &pps.JobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p1"),
-	}
-	j2 := &pps.JobInfo{
-		Job:      client.NewJob("j2"),
-		Pipeline: client.NewPipeline("p1"),
-	}
-	j3 := &pps.JobInfo{
-		Job:      client.NewJob("j3"),
-		Pipeline: client.NewPipeline("p2"),
-	}
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		jobInfos := jobInfos.ReadWrite(stm)
-		jobInfos.Put(j1.Job.ID, j1)
-		jobInfos.Put(j2.Job.ID, j2)
-		jobInfos.Put(j3.Job.ID, j3)
-		return nil
-	})
-	require.NoError(t, err)
-
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		job := &pps.JobInfo{}
-		jobInfos := jobInfos.ReadWrite(stm)
-		if err := jobInfos.Get(j1.Job.ID, job); err != nil {
-			return err
-		}
-
-		if err := jobInfos.Get("j4", job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", "j4")
-		}
-
-		jobInfos.DeleteAll()
-
-		if err := jobInfos.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
-		}
-		if err := jobInfos.Get(j2.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
-		}
-		return nil
-	})
-	require.NoError(t, err)
-
-	count, err := jobInfos.ReadOnly(context.Background()).Count()
-	require.NoError(t, err)
-	require.Equal(t, int64(0), count)
 }
 
 func TestDeletePrefix(t *testing.T) {

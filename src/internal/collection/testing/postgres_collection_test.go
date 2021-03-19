@@ -60,6 +60,7 @@ func TestPostgresCollections(suite *testing.T) {
 		return testCol.ReadOnly(context.Background()), writeCallback
 	}
 
-	readOnlyTests(suite, newCollection)
-	readWriteTests(suite, newCollection)
+	collectionTests(suite, newCollection)
+
+	// TODO: postgres-specific collection tests
 }

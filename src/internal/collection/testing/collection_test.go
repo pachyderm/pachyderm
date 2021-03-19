@@ -16,11 +16,30 @@ const (
 	collectionName     = "test_items"
 )
 
+type TestError struct{}
+
+func (te TestError) Is(other error) bool {
+	_, ok := other.(TestError)
+	return ok
+}
+
+func (te TestError) Error() string {
+	return "TestError"
+}
+
 type WriteCallback func(func(col.ReadWriteCollection) error) error
+
+func intRange(start int, end int) []int {
+	result := make([]int, 0, end-start)
+	for i := start; i < end; i++ {
+		result = append(result, i)
+	}
+	return result
+}
 
 // populateCollection writes a standard set of rows to the collection for use by
 // individual tests.
-func populateCollection(rw col.ReadWriteCollection) error {
+func populateCollection(rw col.ReadWriteCollection) (retErr error) {
 	for i := 0; i < baseCollectionSize; i++ {
 		testProto := makeProto(i)
 		testProto.Value = originalValue
@@ -47,71 +66,89 @@ type RowDiff struct {
 	Added   []int
 }
 
-// checkCollection validates that the contents of the collection match the
-// expected set of rows.
-func checkCollection(t *testing.T, ro col.ReadOnlyCollection, diff RowDiff) {
-	expectedRows := map[string]string{}
+// checkDefaultCollection validates that the contents of the collection match
+// the expected set of rows based on a diff from the default collection
+// populated by populateCollection.
+func checkDefaultCollection(t *testing.T, ro col.ReadOnlyCollection, diff RowDiff) {
+	expected := map[string]string{}
 	for i := 0; i < baseCollectionSize; i++ {
-		expectedRows[makeID(i)] = originalValue
+		expected[makeID(i)] = originalValue
 	}
 	if diff.Deleted != nil {
 		for _, i := range diff.Deleted {
-			_, ok := expectedRows[makeID(i)]
+			_, ok := expected[makeID(i)]
 			require.True(t, ok, "test specified a deleted row that was not in the original set")
-			delete(expectedRows, makeID(i))
+			delete(expected, makeID(i))
 		}
 	}
 	if diff.Changed != nil {
 		for _, i := range diff.Changed {
-			_, ok := expectedRows[makeID(i)]
+			_, ok := expected[makeID(i)]
 			require.True(t, ok, "test specified a changed row that was not in the original set")
-			expectedRows[makeID(i)] = changedValue
+			expected[makeID(i)] = changedValue
 		}
 	}
 	if diff.Added != nil {
 		for _, i := range diff.Added {
-			_, ok := expectedRows[makeID(i)]
+			_, ok := expected[makeID(i)]
 			require.False(t, ok, "test specified an added row that was already in the original set")
-			expectedRows[makeID(i)] = changedValue
+			expected[makeID(i)] = changedValue
 		}
 	}
+	checkCollection(t, ro, expected)
+}
 
+func checkItem(t *testing.T, item *TestItem, id string, value string) error {
+	if item.ID != id {
+		return errors.Errorf("Item has incorrect ID, expected: %s, actual: %s", id, item.ID)
+	}
+	if item.Value != value {
+		return errors.Errorf("Item has incorrect Value, expected: %s, actual: %s", value, item.Value)
+	}
+	return nil
+}
+
+func checkCollection(t *testing.T, ro col.ReadOnlyCollection, expected map[string]string) {
 	testProto := &TestItem{}
-	actualRows := map[string]string{}
+	actual := map[string]string{}
 	require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
-		actualRows[testProto.ID] = testProto.Value
+		actual[testProto.ID] = testProto.Value
 		return nil
 	}))
 
-	for k, v := range expectedRows {
-		other, ok := actualRows[k]
+	for k, v := range expected {
+		other, ok := actual[k]
 		require.True(t, ok, "row '%s' was expected to be present but was not found", k)
 		require.Equal(t, v, other, "row '%s' had an unexpected value", k)
 	}
 
-	for k := range actualRows {
-		_, ok := expectedRows[k]
+	for k := range actual {
+		_, ok := expected[k]
 		require.True(t, ok, "row '%s' was present but was not expected", k)
 	}
 }
 
-func readOnlyTests(
-	suite *testing.T,
+func collectionTests(
+	parent *testing.T,
 	newCollection func(*testing.T) (col.ReadOnlyCollection, WriteCallback),
 ) {
-	suite.Run("ReadOnly", func(suite *testing.T) {
+	parent.Run("ReadOnly", func(suite *testing.T) {
+		suite.Parallel()
 		emptyCol, _ := newCollection(suite)
 		staticCol, writer := newCollection(suite)
 		require.NoError(suite, writer(populateCollection))
 
 		suite.Run("Get", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("ErrNotFound", func(t *testing.T) {
+				t.Parallel()
 				itemProto := &TestItem{}
 				err := staticCol.Get("baz", itemProto)
-				require.True(t, errors.Is(err, col.ErrNotFound{}))
-				require.True(t, col.IsErrNotFound(err))
+				require.True(t, errors.Is(err, col.ErrNotFound{}), "Incorrect error: %v", err)
+				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
 			})
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 				itemProto := &TestItem{}
 				require.NoError(t, staticCol.Get("5", itemProto))
 				require.Equal(t, "5", itemProto.ID)
@@ -119,28 +156,39 @@ func readOnlyTests(
 		})
 
 		suite.Run("GetByIndex", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("ErrNotFound", func(t *testing.T) {
+				t.Parallel()
 			})
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 			})
 		})
 
 		suite.Run("List", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("Empty", func(t *testing.T) {
+				t.Parallel()
 			})
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 			})
 		})
 
 		suite.Run("ListPrefix", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("Empty", func(t *testing.T) {
+				t.Parallel()
 			})
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 			})
 		})
 
 		suite.Run("Count", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 				count, err := staticCol.Count()
 				require.NoError(t, err)
 				require.Equal(t, int64(10), count)
@@ -152,49 +200,122 @@ func readOnlyTests(
 		})
 
 		suite.Run("Watch", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 			})
 		})
 
 		suite.Run("WatchF", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 			})
 		})
 
 		suite.Run("WatchOne", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("ErrNotFound", func(t *testing.T) {
+				t.Parallel()
 			})
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 			})
 		})
 
 		suite.Run("WatchOneF", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("ErrNotFound", func(t *testing.T) {
+				t.Parallel()
 			})
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 			})
 		})
 
 		suite.Run("WatchByIndex", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 			})
 		})
 	})
-}
 
-func readWriteTests(
-	suite *testing.T,
-	newCollection func(t *testing.T) (col.ReadOnlyCollection, WriteCallback),
-) {
-	initCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
-		readOnly, writer := newCollection(t)
-		require.NoError(t, writer(populateCollection))
-		return readOnly, writer
-	}
+	parent.Run("ReadWrite", func(suite *testing.T) {
+		suite.Parallel()
+		initCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
+			readOnly, writer := newCollection(t)
+			require.NoError(t, writer(populateCollection))
+			return readOnly, writer
+		}
 
-	suite.Run("ReadWrite", func(suite *testing.T) {
-		suite.Run("Create", func(subsuite *testing.T) {
+		testRollback := func(t *testing.T, cb func(rw col.ReadWriteCollection) error) error {
+			readOnly, writer := initCollection(t)
+			err := writer(func(rw col.ReadWriteCollection) error {
+				return cb(rw)
+			})
+			require.YesError(t, err)
+			checkDefaultCollection(t, readOnly, RowDiff{})
+			return err
+		}
+
+		suite.Run("Get", func(subsuite *testing.T) {
+			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				readOnly, writer := initCollection(t)
+
+				err := writer(func(rw col.ReadWriteCollection) error {
+					itemProto := &TestItem{}
+					if err := rw.Get(makeID(8), itemProto); err != nil {
+						return err
+					}
+					if itemProto.Value != originalValue {
+						return errors.Errorf("Incorrect value when fetching via ReadWriteCollection.Get, expected: %s, actual: %s", originalValue, itemProto.Value)
+					}
+					return nil
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("AfterDelete", func(t *testing.T) {
+				t.Parallel()
+				readOnly, writer := initCollection(t)
+
+				err := writer(func(rw col.ReadWriteCollection) error {
+					testProto := &TestItem{}
+					if err := rw.Get(makeID(1), testProto); err != nil {
+						return err
+					}
+
+					oobID := 10
+					if err := rw.Get(makeID(oobID), testProto); !col.IsErrNotFound(err) {
+						return errors.Wrapf(err, "Expected ErrNotFound for key '%d', but got", oobID)
+					}
+
+					rw.DeleteAll()
+
+					for id := 0; id < baseCollectionSize; id++ {
+						if err := rw.Get(makeID(id), testProto); !col.IsErrNotFound(err) {
+							return errors.Wrapf(err, "Expected ErrNotFound for key '%d', but got", id)
+						}
+					}
+					return nil
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Deleted: intRange(0, 10)})
+
+				count, err := readOnly.Count()
+				require.NoError(t, err)
+				require.Equal(t, int64(0), count)
+			})
+		})
+
+		suite.Run("Create", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
 				newID := 10
 				readOnly, writer := initCollection(t)
 				err := writer(func(rw col.ReadWriteCollection) error {
@@ -202,11 +323,11 @@ func readWriteTests(
 					return rw.Create(testProto.ID, testProto)
 				})
 				require.NoError(t, err)
-				checkCollection(t, readOnly, RowDiff{Added: []int{newID}})
+				checkDefaultCollection(t, readOnly, RowDiff{Added: []int{newID}})
 			})
 
 			subsuite.Run("ErrExists", func(t *testing.T) {
-				// Fails when overwriting a row
+				t.Parallel()
 				overwriteID := 5
 				readOnly, writer := initCollection(t)
 				err := writer(func(rw col.ReadWriteCollection) error {
@@ -214,47 +335,339 @@ func readWriteTests(
 					return rw.Create(testProto.ID, testProto)
 				})
 				require.YesError(t, err)
-				require.True(t, col.IsErrExists(err))
-				require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: makeID(overwriteID)}))
-				checkCollection(t, readOnly, RowDiff{})
+				require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
+				require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: makeID(overwriteID)}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
 			})
 
-			subsuite.Run("TransactionRollback", func(t *testing.T) {
-				// Fails when doing a successful create and an overwrite in the same transaction
-				overwriteID := 6
-				newID := 10
-				readOnly, writer := initCollection(t)
-				err := writer(func(rw col.ReadWriteCollection) error {
-					testProto := makeProto(newID)
-					if err := rw.Create(testProto.ID, testProto); err != nil {
-						return err
-					}
-					testProto = makeProto(overwriteID)
-					return rw.Create(testProto.ID, testProto)
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+				subsuite.Run("CreateError", func(t *testing.T) {
+					t.Parallel()
+					overwriteID := 6
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := makeProto(10)
+						if err := rw.Create(testProto.ID, testProto); err != nil {
+							return err
+						}
+						testProto = makeProto(overwriteID)
+						return rw.Create(testProto.ID, testProto)
+					})
+					require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
+					require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: makeID(overwriteID)}), "Incorrect error: %v", err)
 				})
-				require.YesError(t, err)
-				require.True(t, col.IsErrExists(err))
-				require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: makeID(overwriteID)}))
-				checkCollection(t, readOnly, RowDiff{})
+
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := makeProto(10)
+						if err := rw.Create(testProto.ID, testProto); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
 			})
 		})
 
 		suite.Run("Put", func(subsuite *testing.T) {
-			subsuite.Run("Success", func(t *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Insert", func(t *testing.T) {
+				t.Parallel()
+				newID := 10
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					testProto := makeProto(newID)
+					return rw.Put(testProto.ID, testProto)
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Added: []int{newID}})
 			})
-			subsuite.Run("ErrExists", func(t *testing.T) {
-				// Fails if row already exists
+
+			subsuite.Run("Overwrite", func(t *testing.T) {
+				t.Parallel()
 				overwriteID := 5
 				readOnly, writer := initCollection(t)
 				err := writer(func(rw col.ReadWriteCollection) error {
 					testProto := makeProto(overwriteID)
-					return rw.Create(testProto.ID, testProto)
+					return rw.Put(testProto.ID, testProto)
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Changed: []int{overwriteID}})
+			})
+
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := makeProto(10)
+						if err := rw.Put(testProto.ID, testProto); err != nil {
+							return err
+						}
+						testProto = makeProto(8)
+						if err := rw.Put(testProto.ID, testProto); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+			})
+		})
+
+		suite.Run("Update", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				updateID := 1
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					testProto := &TestItem{}
+					if err := rw.Upsert(makeID(updateID), testProto, func() error {
+						if err := checkItem(t, testProto, makeID(updateID), originalValue); err != nil {
+							return err
+						}
+						testProto.Value = changedValue
+						return nil
+					}); err != nil {
+						return err
+					}
+					if err := rw.Get(makeID(updateID), testProto); err != nil {
+						return err
+					}
+					return checkItem(t, testProto, makeID(updateID), changedValue)
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Changed: []int{updateID}})
+			})
+
+			subsuite.Run("ErrorInCallback", func(t *testing.T) {
+				t.Parallel()
+				updateID := 2
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					testProto := &TestItem{}
+					return rw.Update(makeID(updateID), testProto, func() error {
+						return &TestError{}
+					})
 				})
 				require.YesError(t, err)
-				require.True(t, col.IsErrExists(err))
-				require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: makeID(overwriteID)}))
-				checkCollection(t, readOnly, RowDiff{})
+				require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("NotFound", func(t *testing.T) {
+				t.Parallel()
+				notExistsID := 10
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					testProto := &TestItem{}
+					return rw.Update(makeID(notExistsID), testProto, func() error {
+						return nil
+					})
+				})
+				require.YesError(t, err)
+				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
+				require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: makeID(notExistsID)}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+				subsuite.Run("UpdateError", func(t *testing.T) {
+					t.Parallel()
+				})
+
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+				})
+			})
+		})
+
+		suite.Run("Upsert", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Insert", func(t *testing.T) {
+				t.Parallel()
+				newID := 10
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					testProto := &TestItem{}
+					return rw.Upsert(makeID(newID), testProto, func() error {
+						if testProto.ID != "" {
+							return errors.Errorf("Upsert of new row modified the ID, new value: %s", testProto.ID)
+						}
+						if testProto.Value != "" {
+							return errors.Errorf("Upsert of new row modified the Value, new value: %s", testProto.Value)
+						}
+						testProto.ID = makeID(newID)
+						testProto.Value = changedValue
+						return nil
+					})
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Added: []int{newID}})
+			})
+
+			subsuite.Run("ErrorInCallback", func(t *testing.T) {
+				t.Parallel()
+				newID := 10
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					testProto := &TestItem{}
+					return rw.Upsert(makeID(newID), testProto, func() error {
+						return &TestError{}
+					})
+				})
+				require.YesError(t, err)
+				require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("Overwrite", func(t *testing.T) {
+				t.Parallel()
+				overwriteID := 5
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					testProto := &TestItem{}
+					return rw.Upsert(makeID(overwriteID), testProto, func() error {
+						if testProto.ID != makeID(overwriteID) {
+							return errors.Errorf("Upsert of existing row does not pass through the ID, expected: %s, actual: %s", makeID(overwriteID), testProto.ID)
+						}
+						if testProto.Value != originalValue {
+							return errors.Errorf("Upsert of existing row does not pass through the value, expected: %s, actual: %s", originalValue, testProto.Value)
+						}
+						testProto.Value = changedValue
+						return nil
+					})
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Changed: []int{overwriteID}})
+			})
+
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+				subsuite.Run("UpsertError", func(t *testing.T) {
+					t.Parallel()
+					notExistsID := 10
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						if err := rw.Delete(makeID(6)); err != nil {
+							return err
+						}
+						return rw.Delete(makeID(notExistsID))
+					})
+					require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
+					require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: makeID(notExistsID)}), "Incorrect error: %v", err)
+				})
+
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &TestItem{}
+						if err := rw.Upsert(makeID(6), testProto, func() error {
+							return nil
+						}); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+
+				subsuite.Run("UserErrorInCallback", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &TestItem{}
+						if err := rw.Upsert(makeID(5), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						}); err != nil {
+							return err
+						}
+
+						return rw.Upsert(makeID(6), testProto, func() error {
+							return &TestError{}
+						})
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+			})
+		})
+
+		suite.Run("Delete", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				deleteID := 3
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					return rw.Delete(makeID(deleteID))
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Deleted: []int{deleteID}})
+			})
+
+			subsuite.Run("NotExists", func(t *testing.T) {
+				t.Parallel()
+				notExistsID := 10
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					return rw.Delete(makeID(notExistsID))
+				})
+				require.YesError(t, err)
+				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
+				require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: makeID(notExistsID)}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+				subsuite.Run("DeleteError", func(t *testing.T) {
+					t.Parallel()
+					notExistsID := 10
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						if err := rw.Delete(makeID(6)); err != nil {
+							return err
+						}
+						return rw.Delete(makeID(notExistsID))
+					})
+					require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
+					require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: makeID(notExistsID)}), "Incorrect error: %v", err)
+				})
+
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						if err := rw.Delete(makeID(6)); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+			})
+		})
+
+		suite.Run("DeleteAll", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				readOnly, writer := initCollection(t)
+				err := writer(func(rw col.ReadWriteCollection) error {
+					return rw.DeleteAll()
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Deleted: intRange(0, 10)})
+				count, err := readOnly.Count()
+				require.NoError(t, err)
+				require.Equal(t, int64(0), count)
 			})
 		})
 	})
 }
+
+// test watches
+// test indexes
+// test multiple changes to the same row in one txn
+// test interruption
