@@ -78,7 +78,7 @@
                             "type": "object",
                             "properties": {
                                 "cpu": {
-                                    "type": "integer"
+                                    "type": "string"
                                 },
                                 "memory": {
                                     "type": "string"
@@ -89,7 +89,7 @@
                             "type": "object",
                             "properties": {
                                 "cpu": {
-                                    "type": "integer"
+                                    "type": "string"
                                 },
                                 "memory": {
                                     "type": "string"
@@ -174,7 +174,7 @@
                             "type": "object",
                             "properties": {
                                 "cpu": {
-                                    "type": "integer"
+                                    "type": "string"
                                 },
                                 "memory": {
                                     "type": "string"
@@ -185,7 +185,7 @@
                             "type": "object",
                             "properties": {
                                 "cpu": {
-                                    "type": "integer"
+                                    "type": "string"
                                 },
                                 "memory": {
                                     "type": "string"

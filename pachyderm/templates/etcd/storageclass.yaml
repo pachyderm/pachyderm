@@ -1,4 +1,4 @@
-{{- if and (.Values.etcd.storageClass | not) (gt .Values.etcd.dynamicNodes 0.0) -}}
+{{- if and (.Values.etcd.storageClass | not) (gt .Values.etcd.dynamicNodes 0.0) (eq .Values.pachd.storage.backend "LOCAL" | not) -}}
 allowVolumeExpansion: true
 apiVersion: storage.k8s.io/v1
 kind: StorageClass

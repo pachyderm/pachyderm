@@ -1,6 +1,8 @@
 {{- if le .Values.etcd.dynamicNodes 0.0 -}}
 {{ fail "dynamicNodes must be > 0" }}
 {{ end -}}
+{{- if eq .Values.pachd.storage.backend "LOCAL" | not -}}
+{{- /* the local backend uses an etcd deployment */ -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -83,3 +85,4 @@ spec:
       resources:
         requests:
           storage: {{ .Values.etcd.storageSize }}
+{{ end -}}
