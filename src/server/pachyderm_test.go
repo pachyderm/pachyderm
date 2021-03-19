@@ -13609,6 +13609,7 @@ func TestPipelineSpecCommitCleanup(t *testing.T) {
 	require.Equal(t, len(commits), 1)
 }
 
+// TestPipelineAutoscaling test a pipeline with autoscaling enabled.
 func TestPipelineAutoscaling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
