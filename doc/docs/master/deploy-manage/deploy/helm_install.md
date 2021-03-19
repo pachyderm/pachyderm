@@ -35,7 +35,7 @@ As a general rule, those steps would be:
 ## Edit a values.yaml file
 Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/helmchart/tree/master/examples). Pick the example that fits your target deployment and update the relevant fields according to the parameters gathered in the previous step.   
 
-See the [conversion table](#conversion-table) at the end of this page. It should help you pass easily from the `pachctl deploy` arguments and flags to their values.yaml counterpart:
+See the [conversion table](#conversion-table) at the end of this page. It should help you pass easily from the `pachctl deploy` arguments and flags to their attributes counterpart in values.yaml.
 
 See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters.
 
@@ -86,13 +86,10 @@ pachd               {{ config.pach_latest_version }}
 | FLAG OPTION | Values.yaml ATTRIBUTE |
 |-------------|-----------------------|
 |--image-pull-secret|imagePullSecret|
-|--- dash ------------||
 |--dash-image|dash.image.repository|
 |--registry|dash.image.tag|
-|--- etcd ------------||
 |--dynamic-etcd-nodes|etcd.dynamicNodes|
 |--etcd-storage-class|etcd.storageClass|
-|--- pachd ------------||
 |--block-cache-size|pachd.blockCacheBytes|
 |inverse of --no-expose-docker-socket|pachd.exposeDockerSocket|
 |--expose-object-api|exposeObjectAPI|
