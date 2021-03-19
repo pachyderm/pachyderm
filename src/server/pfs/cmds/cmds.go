@@ -846,15 +846,21 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
 						}
-						return putFileHelper(mfc, joinPaths("", source), source, recursive, appendFile)
+						if err := putFileHelper(mfc, joinPaths("", source), source, recursive, appendFile); err != nil {
+							return err
+						}
 					} else if len(sources) == 1 {
 						// We have a single source and the user has specified a path,
 						// we use the path and ignore source (in terms of naming the file).
-						return putFileHelper(mfc, file.Path, source, recursive, appendFile)
+						if err := putFileHelper(mfc, file.Path, source, recursive, appendFile); err != nil {
+							return err
+						}
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						return putFileHelper(mfc, joinPaths(file.Path, source), source, recursive, appendFile)
+						if err := putFileHelper(mfc, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
+							return err
+						}
 					}
 				}
 				return nil
@@ -1309,7 +1315,7 @@ func putFileHelper(mfc client.ModifyFileClient, path, source string, recursive, 
 		return mfc.PutFile(path, stdin, opts...)
 	}
 	if recursive {
-		if err := filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
+		return filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
 			// file doesn't exist
 			if info == nil {
 				return errors.Errorf("%s doesn't exist", filePath)
@@ -1322,9 +1328,7 @@ func putFileHelper(mfc client.ModifyFileClient, path, source string, recursive, 
 			// filePath into childDest, and then this walk loop will go on to the
 			// next one
 			return putFileHelper(mfc, childDest, filePath, false, appendFile)
-		}); err != nil {
-			return err
-		}
+		})
 	}
 	f, err := progress.Open(source)
 	if err != nil {

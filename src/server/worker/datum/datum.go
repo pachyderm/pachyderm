@@ -348,7 +348,7 @@ func (d *Datum) upload(c Client, storageRoot string, cb ...func(*tar.Header) err
 	if _, err := f.Seek(0, 0); err != nil {
 		return err
 	}
-	return c.PutFileTar(f, client.WithTagPutFile(d.ID))
+	return c.PutFileTar(f, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
 }
 
 func (d *Datum) handleSymlink(c Client, dst, src string, copyFunc func() error) error {
