@@ -47,6 +47,8 @@ var (
 )
 
 const (
+	defaultPachdShards = 16
+
 	defaultDashImage   = "pachyderm/dash"
 	defaultDashVersion = "0.5.57"
 
@@ -286,10 +288,6 @@ func containsEmpty(vals []string) bool {
 func deprecationWarning(msg string) {
 	fmt.Printf("DEPRECATED: %s\n\n", msg)
 }
-
-const (
-	defaultPachdShards = 16
-)
 
 func standardDeployCmds() []*cobra.Command {
 	var commands []*cobra.Command
