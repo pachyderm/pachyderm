@@ -20,6 +20,8 @@ import {
   Spout,
   TFJob,
   Transform,
+  Job,
+  JobInfo,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import {
@@ -202,9 +204,17 @@ export type PipelineInfoObject = {
   //TODO: Proto Map does not have a setter
   // metadata?: Metadata.AsObject,
 };
+
 export type PipelineInfosObject = {
   pipelineInfoList: PipelineInfoObject[];
 };
+
+export type JobInfoObject = {
+  id: Job.AsObject['id'];
+  createdAt: JobInfo.AsObject['started'];
+  state: JobState;
+};
+
 export const pipelineFromObject = ({name}: PipelineObject) => {
   const pipeline = new Pipeline();
   pipeline.setName(name);
@@ -627,4 +637,15 @@ export const pipelineInfosFromObject = ({
   }
 
   return pipelineInfos;
+};
+
+export const jobInfoFromObject = ({id, createdAt, state}: JobInfoObject) => {
+  const jobInfo = new JobInfo()
+    .setState(state)
+    .setStarted(
+      timestampFromObject({seconds: createdAt?.seconds || 0, nanos: 0}),
+    )
+    .setJob(new Job().setId(id));
+
+  return jobInfo;
 };

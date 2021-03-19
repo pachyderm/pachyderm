@@ -100,14 +100,8 @@ type Pach {
 
 type Job {
   id: ID!
-  pipeline: Pipeline!
-  parentJobId: String
-  startedAt: Int!
-  finishedAt: Int
+  createdAt: Int!
   state: JobState!
-  reason: String
-  outputRepo: Repo!
-  input: Input!
 }
 
 enum NodeType {
@@ -136,6 +130,10 @@ type Dag {
 }
 
 input DagQueryArgs {
+  projectId: ID!
+}
+
+input JobQueryArgs {
   projectId: ID!
 }
 
@@ -179,7 +177,7 @@ type Query {
   projects: [Project!]!
   pipelines: [Pipeline!]!
   repos: [Repo!]!
-  jobs: [Job!]!
+  jobs(args: JobQueryArgs!): [Job!]!
   dag(args: DagQueryArgs!): Dag!
   dags(args: DagQueryArgs!): [Dag!]!
   files(args: FileQueryArgs!): [File!]!

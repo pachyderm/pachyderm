@@ -11,6 +11,7 @@ import {
 import authResolver from './Auth';
 import dagResolver from './Dag';
 import fileResolver from './File';
+import jobResolver from './Job';
 import projectsResolver from './Projects';
 import repoResolver from './Repo';
 
@@ -24,6 +25,7 @@ const resolver: Resolvers = merge(
   repoResolver,
   authResolver,
   projectsResolver,
+  jobResolver,
   {},
 );
 export default resolver;

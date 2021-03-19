@@ -17,6 +17,7 @@ import {
   spoutFromObject,
   tfJobFromObject,
   transformFromObject,
+  jobInfoFromObject,
 } from '@dash-backend/grpc/builders/pps';
 
 describe('grpc/builders/pps', () => {
@@ -627,4 +628,19 @@ describe('grpc/builders/pps', () => {
       pipelineInfos.getPipelineInfoList()[1]?.getPipeline()?.getName(),
     ).toBe('pipeline_two');
   });
+});
+
+it('should create JobInfo from an object', () => {
+  const job = jobInfoFromObject({
+    state: 1,
+    id: '1',
+    createdAt: {
+      seconds: 564645,
+      nanos: 0,
+    },
+  });
+
+  expect(job.getState()).toBe(1);
+  expect(job.getStarted()?.getSeconds()).toBe(564645);
+  expect(job.getJob()?.getId()).toBe('1');
 });

@@ -2,9 +2,10 @@ import {Status} from '@grpc/grpc-js/build/src/constants';
 import {IAPIServer} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
 import {PipelineInfos} from '@pachyderm/proto/pb/pps/pps_pb';
 
+import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
 
-const pps: Pick<IAPIServer, 'listPipeline'> = {
+const pps: Pick<IAPIServer, 'listPipeline' | 'listJob'> = {
   listPipeline: (call, callback) => {
     const [projectId] = call.metadata.get('project-id');
     const [authToken] = call.metadata.get('authn-token');
@@ -28,6 +29,12 @@ const pps: Pick<IAPIServer, 'listPipeline'> = {
     );
 
     callback(null, reply);
+  },
+  listJob: (call) => {
+    const [projectId] = call.metadata.get('project-id');
+    const replyJobs = projectId ? jobs[projectId.toString()] : jobs['1'];
+    replyJobs.forEach((job) => call.write(job));
+    call.end();
   },
 };
 

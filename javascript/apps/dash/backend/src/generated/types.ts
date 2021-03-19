@@ -114,14 +114,8 @@ export type Pach = {
 export type Job = {
   __typename?: 'Job';
   id: Scalars['ID'];
-  pipeline: Pipeline;
-  parentJobId?: Maybe<Scalars['String']>;
-  startedAt: Scalars['Int'];
-  finishedAt?: Maybe<Scalars['Int']>;
+  createdAt: Scalars['Int'];
   state: JobState;
-  reason?: Maybe<Scalars['String']>;
-  outputRepo: Repo;
-  input: Input;
 };
 
 export enum NodeType {
@@ -151,6 +145,10 @@ export type Dag = {
 };
 
 export type DagQueryArgs = {
+  projectId: Scalars['ID'];
+};
+
+export type JobQueryArgs = {
   projectId: Scalars['ID'];
 };
 
@@ -198,6 +196,10 @@ export type Query = {
   dag: Dag;
   dags: Array<Dag>;
   files: Array<File>;
+};
+
+export type QueryJobsArgs = {
+  args: JobQueryArgs;
 };
 
 export type QueryDagArgs = {
@@ -362,6 +364,7 @@ export type ResolversTypes = ResolversObject<{
   Link: ResolverTypeWrapper<Link>;
   Dag: ResolverTypeWrapper<Dag>;
   DagQueryArgs: DagQueryArgs;
+  JobQueryArgs: JobQueryArgs;
   Project: ResolverTypeWrapper<Project>;
   FileType: FileType;
   Timestamp: ResolverTypeWrapper<Timestamp>;
@@ -391,6 +394,7 @@ export type ResolversParentTypes = ResolversObject<{
   Link: Link;
   Dag: Dag;
   DagQueryArgs: DagQueryArgs;
+  JobQueryArgs: JobQueryArgs;
   Project: Project;
   Timestamp: Timestamp;
   File: File;
@@ -579,18 +583,8 @@ export type JobResolvers<
   ParentType extends ResolversParentTypes['Job'] = ResolversParentTypes['Job']
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  pipeline?: Resolver<ResolversTypes['Pipeline'], ParentType, ContextType>;
-  parentJobId?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
-  startedAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  finishedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
-  reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  outputRepo?: Resolver<ResolversTypes['Repo'], ParentType, ContextType>;
-  input?: Resolver<ResolversTypes['Input'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -688,7 +682,12 @@ export type QueryResolvers<
     ContextType
   >;
   repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
-  jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
+  jobs?: Resolver<
+    Array<ResolversTypes['Job']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryJobsArgs, 'args'>
+  >;
   dag?: Resolver<
     ResolversTypes['Dag'],
     ParentType,
