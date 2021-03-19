@@ -485,6 +485,25 @@ func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func()
 	})
 }
 
+// ListRev returns objects sorted based on the options passed in. f will be called
+// with each key and the create-revision of the key, val will contain the
+// corresponding value. Val is not an argument to f because that would require
+// f to perform a cast before it could be used.  You can break out of iteration
+// by returning errutil.ErrBreak.
+func (c *etcdReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(createRev int64) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
+	defer tracing.FinishAnySpan(span)
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
+	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
+			return err
+		}
+		return f(kv.CreateRevision)
+	})
+}
+
 func (c *etcdReadOnlyCollection) list(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
 	return listRevision(c, prefix, limitPtr, opts, f)
 }

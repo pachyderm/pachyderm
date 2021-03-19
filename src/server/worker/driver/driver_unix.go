@@ -70,12 +70,12 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 
 		target, err := os.Readlink(path)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if !filepath.IsAbs(target) {
 			target, err = filepath.Abs(filepath.Join(filepath.Dir(path), target))
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 
@@ -94,11 +94,11 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 		}
 
 		if err := os.Remove(path); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		// Always overwrite the symlink at this point, in case it's relative
-		return os.Symlink(filepath.Join(target), filepath.Join(path))
+		return errors.EnsureStack(os.Symlink(filepath.Join(target), filepath.Join(path)))
 	})
 }
 
@@ -122,7 +122,7 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 			src := filepath.Join(dir, input.Name)
 			dst := filepath.Join(d.InputDir(), input.Name)
 			if err := os.Symlink(src, dst); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 	}
@@ -132,13 +132,13 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 			filepath.Join(dir, d.PipelineInfo().Spout.Marker),
 			filepath.Join(d.InputDir(), d.PipelineInfo().Spout.Marker),
 		); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 
 	if !d.PipelineInfo().S3Out {
 		if err := os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out")); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 

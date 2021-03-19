@@ -48,11 +48,11 @@ package pipeline
 //	// Open a read connection to the /pfs/out named pipe.
 //	out, err := os.Open("/pfs/out")
 //	if err != nil {
-//		return err
+//		return errors.EnsureStack(err)
 //	}
 //	defer func() {
 //		if err := out.Close(); retErr == nil {
-//			retErr = err
+//			retErr = errors.EnsureStack(err)
 //		}
 //	}()
 //	cancelCtx, cancel := context.WithCancel(ctx)

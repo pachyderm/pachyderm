@@ -1354,7 +1354,6 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		number = math.MaxUint64
 	}
 	commits := d.commits(repo.Name).ReadOnly(ctx)
-	// ci := &pfs.CommitInfo{}
 
 	if from != nil && to == nil {
 		return errors.Errorf("cannot use `from` commit without `to` commit")
@@ -1387,9 +1386,10 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 			cis = nil
 			return nil
 		}
-		/* TODO: do this without ListRev (unsupported by postgres collections)
+		// TODO: do this without ListRev (unsupported by postgres collections)
+		ci := &pfs.CommitInfo{}
 		lastRev := int64(-1)
-		if err := commits.ListRev(ci, opts, func(commitID string, createRev int64) error {
+		if err := commits.ListRev(ci, opts, func(createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -1404,7 +1404,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		}); err != nil {
 			return err
 		}
-		*/
+
 		// Call sendCis one last time to send whatever's pending in 'cis'
 		if err := sendCis(); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return err
@@ -2153,8 +2153,6 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	}
 
 	var result []*pfs.BranchInfo
-	// branchInfo := &pfs.BranchInfo{}
-	// branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
 	opts := col.DefaultOptions()
 	if reverse {
 		opts.Order = etcd.SortAscend
@@ -2169,9 +2167,11 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 		result = append(result, bis...)
 		bis = nil
 	}
-	/* TODO: do this without ListRev (unsupported by postgres collections)
+	// TODO: do this without ListRev (unsupported by postgres collections)
 	lastRev := int64(-1)
-	if err := branches.ListRev(branchInfo, opts, func(branch string, createRev int64) error {
+	branchInfo := &pfs.BranchInfo{}
+	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
+	if err := branches.ListRev(branchInfo, opts, func(createRev int64) error {
 		if createRev != lastRev {
 			sendBis()
 			lastRev = createRev
@@ -2181,7 +2181,6 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	}); err != nil {
 		return nil, err
 	}
-	*/
 	sendBis()
 	return result, nil
 }

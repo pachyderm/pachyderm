@@ -52,6 +52,7 @@ func expectSubv(commits ...*pfs.Commit) []interface{} {
 }
 
 func TestTransactions(suite *testing.T) {
+	suite.Parallel()
 	postgres := dbtesting.NewPostgresDeployment(suite)
 
 	suite.Run("TestEmptyTransaction", func(t *testing.T) {

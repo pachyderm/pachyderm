@@ -18,6 +18,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -110,11 +111,11 @@ func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) err
 		opt(s)
 	}
 	if err := os.MkdirAll(storageRoot, 0700); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := os.RemoveAll(storageRoot); retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	return cb(s)
@@ -212,11 +213,11 @@ func (d *Datum) handleFailed(err error) {
 func (d *Datum) withData(cb func() error) (retErr error) {
 	// Setup and defer cleanup of pfs directory.
 	if err := os.MkdirAll(path.Join(d.PFSStorageRoot(), OutputPrefix), 0700); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := os.RemoveAll(d.PFSStorageRoot()); retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	return pfssync.WithDownloader(d.set.pachClient, func(downloader pfssync.Downloader) error {
@@ -292,11 +293,11 @@ func (d *Datum) uploadMetaOutput() (retErr error) {
 	if d.set.metaOutputClient != nil {
 		// Setup and defer cleanup of meta directory.
 		if err := os.MkdirAll(d.MetaStorageRoot(), 0700); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer func() {
 			if err := os.RemoveAll(d.MetaStorageRoot()); retErr == nil {
-				retErr = err
+				retErr = errors.EnsureStack(err)
 			}
 		}()
 		marshaler := &jsonpb.Marshaler{}
@@ -332,7 +333,7 @@ func (d *Datum) upload(c Client, storageRoot string, cb ...func(*tar.Header) err
 	// TODO: Might make more sense to convert to tar on the fly.
 	f, err := os.Create(path.Join(d.set.storageRoot, TmpFileName))
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	opts := []tarutil.ExportOption{
 		tarutil.WithSymlinkCallback(func(dst, src string, copyFunc func() error) error {

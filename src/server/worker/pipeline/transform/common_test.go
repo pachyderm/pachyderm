@@ -2,7 +2,9 @@ package transform
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"testing"
 
 	etcd "github.com/coreos/etcd/clientv3"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -18,6 +21,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
+
+// Set this to true to enable worker log statements to go to stdout
+const debug = true
 
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
@@ -61,10 +67,10 @@ type testDriver struct {
 }
 
 // Fuck golang
-func (td *testDriver) Jobs() col.Collection {
+func (td *testDriver) Jobs() col.EtcdCollection {
 	return td.inner.Jobs()
 }
-func (td *testDriver) Pipelines() col.Collection {
+func (td *testDriver) Pipelines() col.EtcdCollection {
 	return td.inner.Pipelines()
 }
 func (td *testDriver) NewTaskWorker() *work.Worker {
@@ -118,6 +124,9 @@ func (td *testDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) 
 func newTestEnv(t *testing.T, db *sqlx.DB, pipelineInfo *pps.PipelineInfo) *testEnv {
 	realEnv := testpachd.NewRealEnv(t, db)
 	logger := logs.NewMockLogger()
+	if debug {
+		logger.Writer = os.Stdout
+	}
 	workerDir := filepath.Join(realEnv.Directory, "worker")
 	driver, err := driver.NewDriver(
 		pipelineInfo,

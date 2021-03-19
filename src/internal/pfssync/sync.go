@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"golang.org/x/sync/errgroup"
@@ -48,10 +49,10 @@ func (d *downloader) closePipes() (retErr error) {
 	defer func() {
 		for path, pipe := range pipes {
 			if err := pipe.Close(); retErr == nil {
-				retErr = err
+				retErr = errors.EnsureStack(err)
 			}
 			if err := os.Remove(path); retErr == nil {
-				retErr = err
+				retErr = errors.EnsureStack(err)
 			}
 		}
 	}()
@@ -59,7 +60,7 @@ func (d *downloader) closePipes() (retErr error) {
 	for path := range d.pipes {
 		f, err := os.OpenFile(path, syscall.O_NONBLOCK+os.O_RDONLY, os.ModeNamedPipe)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		pipes[path] = f
 	}
@@ -74,7 +75,7 @@ type downloadConfig struct {
 // Download a PFS file to a location on the local filesystem.
 func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...DownloadOption) error {
 	if err := os.MkdirAll(storageRoot, 0700); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	dc := &downloadConfig{}
 	for _, opt := range opts {
@@ -99,11 +100,11 @@ func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *do
 	return d.pachClient.WalkFile(repo, commit, file.Path, func(fi *pfs.FileInfo) error {
 		basePath, err := filepath.Rel(path.Dir(file.Path), fi.File.Path)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		fullPath := path.Join(storageRoot, basePath)
 		if fi.FileType == pfs.FileType_DIR {
-			return os.MkdirAll(fullPath, 0700)
+			return errors.EnsureStack(os.MkdirAll(fullPath, 0700))
 		}
 		if config.lazy {
 			return d.makePipe(fullPath, func(w io.Writer) error {
@@ -127,8 +128,8 @@ func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *do
 		}
 		f, err := os.Create(fullPath)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
-		return f.Close()
+		return errors.EnsureStack(f.Close())
 	})
 }

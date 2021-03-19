@@ -14,7 +14,8 @@ import (
 
 func TestIterators(t *testing.T) {
 	t.Parallel()
-	db := dbtesting.NewTestDB(t)
+	postgres := dbtesting.NewPostgresDeployment(t)
+	db := postgres.NewDatabase(t)
 	env := testpachd.NewRealEnv(t, db)
 
 	c := env.PachClient

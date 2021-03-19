@@ -62,18 +62,18 @@ func writeErrorFile(tw *tar.Writer, err error, prefix ...string) error {
 
 func withTmpFile(cb func(*os.File) error) (retErr error) {
 	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	f, err := ioutil.TempFile(os.TempDir(), "pachyderm_debug")
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := os.Remove(f.Name()); retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 		if err := f.Close(); retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	return cb(f)
@@ -82,7 +82,7 @@ func withTmpFile(cb func(*os.File) error) (retErr error) {
 func writeTarFile(tw *tar.Writer, name string, f *os.File) error {
 	fi, err := os.Stat(f.Name())
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	hdr := &tar.Header{
 		Name: join(name),

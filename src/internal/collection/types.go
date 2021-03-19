@@ -129,4 +129,6 @@ type EtcdReadOnlyCollection interface {
 	// TTL returns the number of seconds that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	TTL(key string) (int64, error)
+
+	ListRev(val proto.Message, opts *Options, f func(createRev int64) error) error
 }
