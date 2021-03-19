@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+    pagerduty: fredbi/pagerduty@0.3.0
+
 jobs:
     backend-test:
         docker:
@@ -19,6 +22,29 @@ jobs:
             - run: cd javascript/apps/dash/frontend && npm ci
             - run: cd javascript/apps/dash/frontend && npm run lint
             - run: cd javascript/apps/dash/frontend && npm run test
+    live-automation:
+        resource_class: xlarge
+        docker:
+            - image: circleci/node:14.14.0-browsers
+        steps:
+            - checkout
+            - run: cd javascript/apps/dash/live-automation && npm install
+            - run:
+                  cd javascript/apps/dash/live-automation &&
+                  CYPRESS_RECORD_KEY=$LIVE_AUTOMATION_RECORD_KEY npm run
+                  test-and-report-production
+            - store_artifacts:
+                  path: /tmp/cypress-screenshots
+            - store_artifacts:
+                  path: /tmp/cypress-videos
+            - store_artifacts:
+                  path: /tmp/cypress-network
+            - pagerduty/notify:
+                  when: on_fail
+                  severity: critical
+                  component: production
+                  incident_title:
+                      "Dash Live automation run against production failed"
 
 workflows:
     version: 2
@@ -26,3 +52,12 @@ workflows:
         jobs:
             - backend-test
             - frontend-test
+    live-automation:
+        triggers:
+            - schedule:
+                  cron: "10,30,50 * * * *"
+                  filters:
+                      branches:
+                          only: master
+        jobs:
+            - live-automation
