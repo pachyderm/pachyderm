@@ -1,38 +1,34 @@
 # Local Installation
 
-!!! Attention
-      Local installations help you to learn
-      some of the Pachyderm basics and is not designed to be a production
+!!! Info
+      Local installations help you learn
+      some of the Pachyderm basics and are not designed to be a production
       environment.
 
 This guide walks you through the steps to install Pachyderm
 on macOS®, Linux®, or Microsoft® Windows®. 
 
-!!! Note
-    If you want to install Pachyderm on Windows, take a look at
-    [Deploy Pachyderm on Windows](wsl-deploy.md) first.
+To install Pachyderm on Windows, take a look at
+[Deploy Pachyderm on Windows](wsl-deploy.md) first.
 
 We offer two ways to deploy Pachyderm on a local Kubernetes cluster. 
 
 - The first uses Pachyderm's client `pachctl` and the command `pachctl deploy local`.
 - The second uses the deployment tool `Helm`. 
 
-!!! Note
-      Helm support in Pachyderm has a **beta** release status. 
-      See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details on our product release life cycle.
-
-
-`pachctl deploy local` is designed for a single-node cluster.
-This cluster uses local storage on disk and does not create a
-PersistentVolume (PV). If you want to deploy a production multi-node
-cluster, follow the instructions for your cloud provider or on-prem
-installation as described in [Deploy Pachyderm](../../deploy-manage/deploy/).
-New Kubernetes nodes cannot be added to this single-node cluster.
-
 !!! Info
-    Pachyderm supports the Docker runtime only. If you want to
-    deploy Pachyderm on a system that uses another container runtime,
-    ask for advice in our [Slack channel](http://slack.pachyderm.io/).
+      - Helm support in Pachyderm is a **beta** release. 
+      See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details on our product release life cycle.
+      - `pachctl deploy local` is designed for a **single-node cluster**.
+      This cluster uses local storage on disk and does not create a
+      PersistentVolume (PV). If you want to deploy a production multi-node
+      cluster, follow the instructions for your cloud provider or on-prem
+      installation as described in [Deploy Pachyderm](../../deploy-manage/deploy/).
+      New Kubernetes nodes cannot be added to this single-node cluster.
+      - Pachyderm supports the **Docker runtime only**. If you want to
+      deploy Pachyderm on a system that uses another container runtime,
+      ask for advice in our [Slack channel](http://slack.pachyderm.io/).
+
 
 ## 0- Prerequisites
 
@@ -74,13 +70,13 @@ You can use Kubernetes on Docker Desktop instead of Minikube on macOS or Linux
 by following these steps:
 
 1. In the Docker Desktop Preferences, enable Kubernetes:
-
    ![Docker Desktop Enable K8s](../images/k8s_docker_desktop.png)
 
 1. From the command prompt, confirm that Kubernetes is running:
-
    ```shell
    kubectl get all
+   ```
+   ```
    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
    service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   56d
    ```
@@ -120,23 +116,23 @@ to deploy Pachyderm using the `pachctl deploy local` command:
 
 1. Verify that installation was successful by running `pachctl version --client-only`:
 
-   ```shell
-   pachctl version --client-only
-   ```
+      ```shell
+      pachctl version --client-only
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
-   COMPONENT           VERSION
-   pachctl             {{ config.pach_latest_version }}
-   ```
+      ```shell
+      COMPONENT           VERSION
+      pachctl             {{ config.pach_latest_version }}
+      ```
 
-   If you run `pachctl version` without the flag `--client-only`, the command times
-   out. This is expected behavior because Pachyderm has not been deployed yet (`pachd` is not yet running).
+      If you run `pachctl version` without the flag `--client-only`, the command times
+      out. This is expected behavior because Pachyderm has not been deployed yet (`pachd` is not yet running).
 
-   !!! Note "Architecture"
-         A look at [Pachyderm high-level architecture diagram](https://docs.pachyderm.com/latest/deploy-manage/#overview) 
-         will help you build a mental image of Pachyderm various architectural components.
+!!! Note "Architecture"
+      A look at [Pachyderm high-level architecture diagram](https://docs.pachyderm.com/latest/deploy-manage/#overview) 
+      will help you build a mental image of Pachyderm various architectural components.
 
 ### Install `Helm`
 
@@ -184,87 +180,88 @@ deploy Pachyderm on your local cluster by following these steps:
      ```
 
 ### Using Helm
-    1. Get Repo Info
-    ```shell
-    $ helm repo add pachyderm https://pachyderm.github.io/helmchart
-    ```
-    ```shell
-    $ helm repo update
-    ```
-    1. Edit a values file `my_pachyderm_values.yaml` with `pachd.storage.backend` set to `LOCAL`
-    Find the [reference values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) here.
-    1. Install the Pachyderm helm chart ([helm v3](https://helm.sh/docs/intro/))
-    ```shell
-    $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
-    ```
+* Get Repo Info:
+   ```shell
+   $ helm repo add pachyderm https://pachyderm.github.io/helmchart
+   ```
+   ```shell
+   $ helm repo update
+   ```
 
-## Check your install
+* Edit a values file `my_pachyderm_values.yaml` with `pachd.storage.backend` set to `LOCAL`:
+   
+      Find the [reference values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) here.
+
+* Install the Pachyderm helm chart ([helm v3](https://helm.sh/docs/intro/)):
+   ```shell
+   $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
+   ```
+
+## 2- Check your install
 Check the status of the Pachyderm pods by periodically
 running `kubectl get pods`. When Pachyderm is ready for use,
 all Pachyderm pods must be in the **Running** status.
 
-  Because Pachyderm needs to pull the Pachyderm Docker image
-  from DockerHub, it might take a few minutes for the Pachyderm pods status
-  to change to `Running`.
+Because Pachyderm needs to pull the Pachyderm Docker image
+from DockerHub, it might take a few minutes for the Pachyderm pods status
+to change to `Running`.
 
 
-   ```shell
-   kubectl get pods
-   ```
+```shell
+kubectl get pods
+```
 
-   **System Response:**
+**System Response:**
 
-   ```shell
-   NAME                     READY     STATUS    RESTARTS   AGE
-   dash-6c9dc97d9c-vb972    2/2       Running   0          6m
-   etcd-7dbb489f44-9v5jj    1/1       Running   0          6m
-   pachd-6c878bbc4c-f2h2c   1/1       Running   0          6m
-   ```
+```shell
+NAME                     READY     STATUS    RESTARTS   AGE
+dash-6c9dc97d9c-vb972    2/2       Running   0          6m
+etcd-7dbb489f44-9v5jj    1/1       Running   0          6m
+pachd-6c878bbc4c-f2h2c   1/1       Running   0          6m
+```
 
-   If you see a few restarts on the `pachd` nodes, that means that
-   Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
-   Kubernetes restarted those pods. You can safely ignore that message.
+If you see a few restarts on the `pachd` nodes, that means that
+Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
+Kubernetes restarted those pods. You can safely ignore that message.
 
 1. Run `pachctl version` to verify that `pachd` has been deployed.
 
-   ```shell
-   pachctl version
-   ```
+      ```shell
+      $ pachctl version
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
-   COMPONENT           VERSION
-   pachctl             {{ config.pach_latest_version }}
-   pachd               {{ config.pach_latest_version }}
-   ```
+      ```shell
+      COMPONENT           VERSION
+      pachctl             {{ config.pach_latest_version }}
+      pachd               {{ config.pach_latest_version }}
+      ```
    
 1. Open a new terminal window.
-
 1. Use port forwarding to access the Pachyderm dashboard (Pachyderm UI).
 
-   ```shell
-   pachctl port-forward
-   ```
+      ```shell
+      pachctl port-forward
+      ```
 
-   This command runs continuosly and does not exit unless you interrupt it.
+      This command runs continuosly and does not exit unless you interrupt it.
 
-1. Minikube users: you can alternatively set up Pachyderm to directly connect to
-the Minikube instance:
+1. Minikube users: you can alternatively set up Pachyderm to directly connect to the Minikube instance:
 
-   1. Get your Minikube IP address:
+   * Get your Minikube IP address:
 
       ```shell
       minikube ip
       ```
 
-   1. Configure Pachyderm to connect directly to the Minikube instance:
+   * Configure Pachyderm to connect directly to the Minikube instance:
 
       ```shell
       pachctl config update context `pachctl config get active-context` --pachd-address=<minikube ip>:30080
       ```
 
-## 2- Next Steps
+## 3- Next Steps
 
 * Complete the [Beginner Tutorial](./beginner_tutorial.md)
 to learn the basics of Pachyderm, such as adding data and building
