@@ -5,40 +5,39 @@ However, you can now deploy Pachyderm using the package manager [Helm](https://h
 
 !!! Note
       Helm support for Pachyderm is a **beta** release. 
-      See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details on our product release life cycle.
+      See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details.
 
-This page gives a you a quick overview of the steps to follow to "helm install" Pachyderm.
+This page gives you a high level view of the steps to follow to install Pachyderm using Helm.
 
-As a general rules, those steps would be:
+As a general rule, those steps would be:
 
 ## Prerequisites
 1. Install [`Helm`](https://helm.sh/docs/intro/install/). 
 
-1. Follow all installation prerequisites, Kubernetes deployment instructions, and kubectl installation applying to the cloud provider   of your choice:
-    Choose the [guidelines](https://docs.pachyderm.com/latest/deploy-manage/deploy/) that apply to you.
+1. Choose the deployment [guidelines](https://docs.pachyderm.com/latest/deploy-manage/deploy/) that apply to you:
+    * **Find the deployment page that applies to your Cloud provider** (Custom deployment, or on-premises deployment).
+    It will help list the various installation prerequisites, Kubernetes deployment instructions, and kubectl installation applying to your own use case:
     
-    For example, if your Cloud provider is Google Cloud Platform, look at the **Prerequisites** and **Deploy Kubernetes** sections for a [deployment on Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/#google-cloud-platform).
+        For example, if your Cloud provider is Google Cloud Platform, follow the **Prerequisites** and **Deploy Kubernetes** sections of the [deployment on Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/#google-cloud-platform) page.
 
-1. The Deployment page that applies to your Cloud provider (or Custom deployment, or On premises deployment) will help you define the various parameters that relate to your own deployment use case.
-
+    * Additionaly, those instructions will also help you define and configure the various elements (persistent volume, object store, credentials...) that relate to your deployment needs. 
     In the case of a deployment using `pachctl deploy`, the values of those parameters would ultimately be passed to the 
     corresponding arguments and flags of the command.
 
-    !!! "Example of Google generic pachctl deploy command:"
-            ```shell
-            pachctl deploy google <bucket-name> <disk-size> [<credentials-file>] [flags]
-            ```
-            This command comes with an exhaustive [list of available flags](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_google/) allowing to personalize this deployment.
+        For example, in the case of a generic `pachctl deploy google` command:"
+        ```shell
+        pachctl deploy google <bucket-name> <disk-size> [<credentials-file>] [flags]
+        ```
+        This command comes with an exhaustive [list of available flags](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_google/).
     
-    Those same parameters values will now populate a .yaml configuration file as follow.
+        In the case of an installation using Helm, those same parameters values will now **populate a .yaml configuration file** as follow.
 
 ## Edit a values.yaml file
-Create a personalized `my_pachyderm_values.yaml` out of the [reference values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) and update the relevant fields according to the parameters gathered in th eprevious step.   
+Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/helmchart/tree/master/examples). Pick the example that fits your target deployment and update the relevant fields according to the parameters gathered in the previous step.   
 
-Here is a conversion table that should help you pass easily from the `pachctl deploy` flags to their values.yaml counterpart:
+See the [conversion table](#conversion-table) at the end of this page. It should help you pass easily from the `pachctl deploy` arguments and flags to their values.yaml counterpart:
 
-| FLAG OPTION | Values.yaml ATTRIBUTE |
-|-------------|-----------------------|
+See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters.
 
 ## Get your Helm Repo Info
 ```shell
@@ -82,3 +81,41 @@ COMPONENT           VERSION
 pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
+
+## Conversion table
+| FLAG OPTION | Values.yaml ATTRIBUTE |
+|-------------|-----------------------|
+|--image-pull-secret|imagePullSecret|
+|--- dash ------------||
+|--dash-image|dash.image.repository|
+|--registry|dash.image.tag|
+|--- etcd ------------||
+|--dynamic-etcd-nodes|etcd.dynamicNodes|
+|--etcd-storage-class|etcd.storageClass|
+|--- pachd ------------||
+|--block-cache-size|pachd.blockCacheBytes|
+|inverse of --no-expose-docker-socket|pachd.exposeDockerSocket|
+|--expose-object-api|exposeObjectAPI|
+|--shards|pachd.numShards|
+|--require-critical-servers-only|pachd.requireCriticalServersOnly|
+|--cloudfront-distribution|pachd.storage.amazon.cloudFrontDistribution|
+|--disable-ssl|pachd.storage.amazon.disableSSL|
+|--iam-role|iamRole|
+|--credentials|pachd.storage.amazon.id|
+|| pachd.storage.amazon.secret|
+|| pachd.storage.amazon.token|
+|--obj-log-options|pachd.storage.amazon.logOptions|
+|--max-upload-parts|pachd.storage.amazon.maxUploadParts|
+|--no-verify-ssl|pachd.storage.amazon.noVerifySSL|
+|--part-size|pachd.storage.amazon.partSize|
+|--retries|pachd.storage.amazon.retries|
+|--reverse|pachd.storage.amazon.reverse|
+|--timeout|pachd.storage.amazon.timeout|
+|--upload-acl|pachd.storage.amazon.uploadACL|
+|--host-path|pachd.storage.local.hostPath|
+|--put-file-concurrency-limit|pachd.storage.minio.putFileConcurrencyLimit|
+|--upload-concurrency-limit|pachd.storage.minio.uploadConcurrencyLimit|
+|--worker-service-account|pachd.workerServiceAccount.name|
+|--no-rbac|opposite of rbac.create|
+|--local-roles|rbac.clusterRBAC|
+

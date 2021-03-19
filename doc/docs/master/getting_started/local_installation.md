@@ -1,8 +1,8 @@
 # Local Installation
 
 !!! Info
-      Local installations help you learn
-      some of the Pachyderm basics and are not designed to be a production
+      A local installation helps you learn
+      some of the Pachyderm basics and is not designed to be a production
       environment.
 
 This guide walks you through the steps to install Pachyderm
@@ -18,7 +18,7 @@ We offer two ways to deploy Pachyderm on a local Kubernetes cluster.
 
 !!! Info
       - Helm support in Pachyderm is a **beta** release. 
-      See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details on our product release life cycle.
+      See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details.
       - `pachctl deploy local` is designed for a **single-node cluster**.
       This cluster uses local storage on disk and does not create a
       PersistentVolume (PV). If you want to deploy a production multi-node
@@ -30,13 +30,14 @@ We offer two ways to deploy Pachyderm on a local Kubernetes cluster.
       ask for advice in our [Slack channel](http://slack.pachyderm.io/).
 
 
-## 0- Prerequisites
+## Prerequisites
 
 Before you deploy Pachyderm, make sure that you have:
+
 - A Kubernetes cluster running on your local environment: 
-   - [Docker Desktop](#docker-desktop),
-   - [Minikube](#using-minikube)
-   - Oracle® VirtualBox™
+      - [Docker Desktop](#docker-desktop),
+      - [Minikube](#using-minikube)
+      - Oracle® VirtualBox™
 - [Pachyderm Command Line Interface](#install-pachctl) or [Helm](https://helm.sh/docs/intro/install/) installed depending on your installation choice.
 
 ### Using Minikube
@@ -53,9 +54,9 @@ the [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/
 1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 1. Start `minikube`:
 
-   ```shell
-   minikube start
-   ```
+      ```shell
+      minikube start
+      ```
 
 !!! Note
     Any time you want to stop and restart Pachyderm, run `minikube delete`
@@ -95,24 +96,24 @@ to deploy Pachyderm using the `pachctl deploy local` command:
 
 1. Run the corresponding steps for your operating system:
 
-   * For macOS, run:
+      * For macOS, run:
 
-     ```shell
-     brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
-     ```
+      ```shell
+      brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
+      ```
 
-   * For a Debian-based Linux 64-bit or Windows 10 or later running on
-   WSL:
+      * For a Debian-based Linux 64-bit or Windows 10 or later running on
+      WSL:
 
-     ```shell
-     curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
-     ```
+      ```shell
+      curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+      ```
 
-   * For all other Linux flavors:
+      * For all other Linux flavors:
 
-     ```shell
-     curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_{{ config.pach_latest_version }}_linux_amd64/pachctl /usr/local/bin
-     ```
+      ```shell
+      curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_{{ config.pach_latest_version }}_linux_amd64/pachctl /usr/local/bin
+      ```
 
 1. Verify that installation was successful by running `pachctl version --client-only`:
 
@@ -138,7 +139,7 @@ to deploy Pachyderm using the `pachctl deploy local` command:
 
 If you choose to install Pachyderm using Helm, follow their [installation guide](https://helm.sh/docs/intro/install/).
 
-## 1- Deploy Pachyderm
+## Deploy Pachyderm
 
 When done with the [Prerequisites](#prerequisites),
 deploy Pachyderm on your local cluster by following these steps:
@@ -151,36 +152,36 @@ deploy Pachyderm on your local cluster by following these steps:
 
 * For macOS or Linux, run:
 
-   ```shell
-   pachctl deploy local
-   ```
+      ```shell
+      pachctl deploy local
+      ```
 
-   This command generates a **Pachyderm manifest** and deploys Pachyderm on
-   Kubernetes.
+      This command generates a **Pachyderm manifest** and deploys Pachyderm on
+      Kubernetes.
 
-   Try the following dry run to visualize your manifest:
-   ```shell
-   pachctl deploy local --dry-run > pachyderm.json
-   ```
+      Try the following dry run to visualize your manifest:
+      ```shell
+      pachctl deploy local --dry-run > pachyderm.json
+      ```
 
 * For Windows:
 
-  1. Start WSL.
-  1. In WSL, run:
+      1. Start Windows Subsystem for Linux.
+      1. In WSL, run:
 
-     ```shell
-     pachctl deploy local --dry-run > pachyderm.json
-     ```
+         ```shell
+         pachctl deploy local --dry-run > pachyderm.json
+         ```
 
-  1. Copy the `pachyderm.json` file into your working directory.
-  1. From the same directory, run:
+      1. Copy the `pachyderm.json` file into your working directory.
+      1. From the same directory, run:
 
-     ```shell
-     kubectl create -f ./pachyderm.json
-     ```
+         ```shell
+         kubectl create -f ./pachyderm.json
+         ```
 
 ### Using Helm
-* Get Repo Info:
+* Get the Repo Info:
    ```shell
    $ helm repo add pachyderm https://pachyderm.github.io/helmchart
    ```
@@ -190,14 +191,16 @@ deploy Pachyderm on your local cluster by following these steps:
 
 * Edit a values file `my_pachyderm_values.yaml` with `pachd.storage.backend` set to `LOCAL`:
    
-      Find the [reference values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) here.
+      Find a **baseline file for local deployments** in this [example repository](https://github.com/pachyderm/helmchart/tree/master/examples).
+
+      See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters.
 
 * Install the Pachyderm helm chart ([helm v3](https://helm.sh/docs/intro/)):
    ```shell
    $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
    ```
 
-## 2- Check your install
+## Check your install
 Check the status of the Pachyderm pods by periodically
 running `kubectl get pods`. When Pachyderm is ready for use,
 all Pachyderm pods must be in the **Running** status.
@@ -261,7 +264,7 @@ Kubernetes restarted those pods. You can safely ignore that message.
       pachctl config update context `pachctl config get active-context` --pachd-address=<minikube ip>:30080
       ```
 
-## 3- Next Steps
+## Next Steps
 
 * Complete the [Beginner Tutorial](./beginner_tutorial.md)
 to learn the basics of Pachyderm, such as adding data and building
