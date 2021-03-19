@@ -121,8 +121,8 @@ type apiServer struct {
 	peerPort              uint16
 	gcPercent             int
 	// collections
-	pipelines col.Collection
-	jobs      col.Collection
+	pipelines col.EtcdCollection
+	jobs      col.EtcdCollection
 }
 
 func merge(from, to map[string]bool) {

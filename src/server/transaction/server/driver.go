@@ -30,7 +30,7 @@ type driver struct {
 	prefix     string
 
 	// collections
-	transactions col.Collection
+	transactions col.EtcdCollection
 }
 
 func newDriver(

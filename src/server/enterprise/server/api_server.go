@@ -39,10 +39,10 @@ type apiServer struct {
 	enterpriseTokenCache *keycache.Cache
 
 	// enterpriseTokenCol is a collection containing the enterprise license state
-	enterpriseTokenCol col.Collection
+	enterpriseTokenCol col.EtcdCollection
 
 	// configCol is a collection containing the license server configuration
-	configCol col.Collection
+	configCol col.EtcdCollection
 }
 
 func (a *apiServer) LogReq(request interface{}) {

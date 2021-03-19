@@ -37,7 +37,7 @@ type apiServer struct {
 
 	// enterpriseToken is a collection containing at most one Pachyderm enterprise
 	// token
-	enterpriseToken col.Collection
+	enterpriseToken col.EtcdCollection
 }
 
 func (a *apiServer) LogReq(request interface{}) {

@@ -40,7 +40,7 @@ const (
 )
 
 // TracesCol returns the etcd collection of extended traces
-func TracesCol(c *etcd.Client) col.Collection {
+func TracesCol(c *etcd.Client) col.EtcdCollection {
 	return col.NewEtcdCollection(c,
 		tracesCollectionPrefix,
 		nil, // no indexes

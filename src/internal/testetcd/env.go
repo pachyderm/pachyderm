@@ -3,10 +3,8 @@ package testetcd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/url"
-	"os"
 	"path"
 	"testing"
 
@@ -18,6 +16,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // Env contains the basic setup for running end-to-end pachyderm tests entirely
@@ -42,18 +41,10 @@ func NewEnv(t *testing.T) *Env {
 	})
 	t.Cleanup(cancel)
 
-	env := &Env{Context: ctx}
-
-	dirBase := path.Join(os.TempDir(), "pachyderm_test")
-
-	require.NoError(t, os.MkdirAll(dirBase, 0700))
-
-	var err error
-	env.Directory, err = ioutil.TempDir(dirBase, "")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, os.RemoveAll(env.Directory))
-	})
+	env := &Env{
+		Context:   ctx,
+		Directory: testutil.MkdirTemp(t),
+	}
 
 	// NOTE: this is changing a GLOBAL variable in etcd. This function should not
 	// be run in the same process as production code where this may affect

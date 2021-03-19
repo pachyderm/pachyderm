@@ -28,7 +28,7 @@ type apiServer struct {
 	pachLogger log.Logger
 	env        *serviceenv.ServiceEnv
 
-	config         col.Collection
+	config         col.EtcdCollection
 	configCacheMtx sync.RWMutex
 	configCache    identity.IdentityServerConfig
 

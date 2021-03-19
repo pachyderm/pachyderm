@@ -5,11 +5,13 @@ import (
 	"net"
 	"net/url"
 	"path"
+	"testing"
 
 	units "github.com/docker/go-units"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
@@ -32,68 +34,61 @@ type RealEnv struct {
 	MockPPSTransactionServer *MockPPSTransactionServer
 }
 
-// WithRealEnv constructs a MockEnv, then forwards all API calls to go to API
+// NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. PPS requires a kubernetes
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
-func WithRealEnv(db *sqlx.DB, cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullConfiguration) error {
-	return WithMockEnv(func(mockEnv *MockEnv) (err error) {
-		realEnv := &RealEnv{MockEnv: *mockEnv}
-		config := serviceenv.NewConfiguration(NewDefaultConfig())
-		if len(customConfig) > 0 {
-			config = serviceenv.NewConfiguration(customConfig[0])
-		}
+func NewRealEnv(t *testing.T, db *sqlx.DB, customConfig ...*serviceenv.PachdFullConfiguration) *RealEnv {
+	mockEnv := NewMockEnv(t)
 
-		etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
-		if err != nil {
-			return err
-		}
-		config.EtcdHost = etcdClientURL.Hostname()
-		config.EtcdPort = etcdClientURL.Port()
-		config.PeerPort = uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)
-		servEnv := serviceenv.InitServiceEnv(config)
+	realEnv := &RealEnv{MockEnv: *mockEnv}
+	config := serviceenv.NewConfiguration(NewDefaultConfig())
+	if len(customConfig) > 0 {
+		config = serviceenv.NewConfiguration(customConfig[0])
+	}
 
-		if err := migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
-			return err
-		}
-		if err := migrations.BlockUntil(context.Background(), db, clusterstate.DesiredClusterState); err != nil {
-			return err
-		}
+	etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
+	require.NoError(t, err)
 
-		realEnv.LocalStorageDirectory = path.Join(realEnv.Directory, "localStorage")
-		config.StorageRoot = realEnv.LocalStorageDirectory
+	config.EtcdHost = etcdClientURL.Hostname()
+	config.EtcdPort = etcdClientURL.Port()
+	config.PeerPort = uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)
+	servEnv := serviceenv.InitServiceEnv(config)
 
-		etcdPrefix := ""
+	err = migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState)
+	require.NoError(t, err)
+	err = migrations.BlockUntil(context.Background(), db, clusterstate.DesiredClusterState)
+	require.NoError(t, err)
 
-		txnEnv := &txnenv.TransactionEnv{}
+	realEnv.LocalStorageDirectory = path.Join(realEnv.Directory, "localStorage")
+	config.StorageRoot = realEnv.LocalStorageDirectory
 
-		realEnv.PFSServer, err = pfsserver.NewAPIServer(
-			servEnv,
-			txnEnv,
-			etcdPrefix,
-			db,
-		)
-		if err != nil {
-			return err
-		}
+	etcdPrefix := ""
 
-		realEnv.AuthServer = &authtesting.InactiveAPIServer{}
+	txnEnv := &txnenv.TransactionEnv{}
 
-		realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv, etcdPrefix)
-		if err != nil {
-			return err
-		}
+	realEnv.PFSServer, err = pfsserver.NewAPIServer(
+		servEnv,
+		txnEnv,
+		etcdPrefix,
+		db,
+	)
+	require.NoError(t, err)
 
-		realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
+	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
 
-		txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, &realEnv.MockPPSTransactionServer.api)
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv, etcdPrefix)
+	require.NoError(t, err)
 
-		linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
-		linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
-		linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
+	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
 
-		return cb(realEnv)
-	})
+	txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, &realEnv.MockPPSTransactionServer.api)
+
+	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
+	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
+	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
+
+	return realEnv
 }
 
 // NewDefaultConfig creates a new default pachd configuration.

@@ -48,8 +48,8 @@ func workNamespace(pipelineInfo *pps.PipelineInfo) string {
 // interface can be used to mock out external calls to make unit-testing
 // simpler.
 type Driver interface {
-	Jobs() col.Collection
-	Pipelines() col.Collection
+	Jobs() col.EtcdCollection
+	Pipelines() col.EtcdCollection
 
 	NewTaskWorker() *work.Worker
 	NewTaskQueue() (*work.TaskQueue, error)
@@ -104,9 +104,9 @@ type driver struct {
 	etcdPrefix      string
 	activeDataMutex *sync.Mutex
 
-	jobs col.Collection
+	jobs col.EtcdCollection
 
-	pipelines col.Collection
+	pipelines col.EtcdCollection
 
 	namespace string
 
@@ -259,11 +259,11 @@ func (d *driver) WithContext(ctx context.Context) Driver {
 	return result
 }
 
-func (d *driver) Jobs() col.Collection {
+func (d *driver) Jobs() col.EtcdCollection {
 	return d.jobs
 }
 
-func (d *driver) Pipelines() col.Collection {
+func (d *driver) Pipelines() col.EtcdCollection {
 	return d.pipelines
 }
 

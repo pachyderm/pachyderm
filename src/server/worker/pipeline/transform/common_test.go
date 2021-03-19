@@ -113,34 +113,29 @@ func (td *testDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) 
 	return td.inner.NewSTM(cb)
 }
 
-// withTestEnv provides a test env with etcd and pachd instances and connected
+// newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func withTestEnv(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error {
-	return testpachd.WithRealEnv(db, func(realEnv *testpachd.RealEnv) error {
-		logger := logs.NewMockLogger()
-		workerDir := filepath.Join(realEnv.Directory, "worker")
-		driver, err := driver.NewDriver(
-			pipelineInfo,
-			realEnv.PachClient,
-			realEnv.EtcdClient,
-			"/pachyderm_test",
-			workerDir,
-			"namespace",
-		)
-		if err != nil {
-			return err
-		}
+func newTestEnv(t *testing.T, db *sqlx.DB, pipelineInfo *pps.PipelineInfo) *testEnv {
+	realEnv := testpachd.NewRealEnv(t, db)
+	logger := logs.NewMockLogger()
+	workerDir := filepath.Join(realEnv.Directory, "worker")
+	driver, err := driver.NewDriver(
+		pipelineInfo,
+		realEnv.PachClient,
+		realEnv.EtcdClient,
+		"/pachyderm_test",
+		workerDir,
+		"namespace",
+	)
+	require.NoError(t, err)
 
-		ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
-		defer cancel()
-		driver = driver.WithContext(ctx)
+	ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
+	t.Cleanup(cancel)
+	driver = driver.WithContext(ctx)
 
-		env := &testEnv{
-			RealEnv: realEnv,
-			logger:  logger,
-			driver:  &testDriver{driver},
-		}
-
-		return cb(env)
-	})
+	return &testEnv{
+		RealEnv: realEnv,
+		logger:  logger,
+		driver:  &testDriver{driver},
+	}
 }

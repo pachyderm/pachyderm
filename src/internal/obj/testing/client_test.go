@@ -10,8 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 
 	"google.golang.org/api/option"
 )
@@ -134,7 +133,7 @@ func doWriteTest(t *testing.T, backendType BackendType, clientType ClientType, c
 func runClientTests(t *testing.T, backendType BackendType, clientType ClientType, client obj.Client) {
 	t.Run("TestMissingObject", func(t *testing.T) {
 		t.Parallel()
-		object := tu.UniqueString("test-missing-object-")
+		object := testutil.UniqueString("test-missing-object-")
 		requireExists(t, client, object, false)
 
 		r, err := client.Reader(context.Background(), object, 0, 0)
@@ -145,22 +144,22 @@ func runClientTests(t *testing.T, backendType BackendType, clientType ClientType
 
 	t.Run("TestEmptyWrite", func(t *testing.T) {
 		t.Parallel()
-		doWriteTest(t, backendType, clientType, client, tu.UniqueString("test-empty-write-"), []string{})
+		doWriteTest(t, backendType, clientType, client, testutil.UniqueString("test-empty-write-"), []string{})
 	})
 
 	t.Run("TestSingleWrite", func(t *testing.T) {
 		t.Parallel()
-		doWriteTest(t, backendType, clientType, client, tu.UniqueString("test-single-write-"), []string{"foo"})
+		doWriteTest(t, backendType, clientType, client, testutil.UniqueString("test-single-write-"), []string{"foo"})
 	})
 
 	t.Run("TestMultiWrite", func(t *testing.T) {
 		t.Parallel()
-		doWriteTest(t, backendType, clientType, client, tu.UniqueString("test-multi-write-"), []string{"foo", "bar"})
+		doWriteTest(t, backendType, clientType, client, testutil.UniqueString("test-multi-write-"), []string{"foo", "bar"})
 	})
 
 	t.Run("TestSubdirectory", func(t *testing.T) {
 		t.Parallel()
-		object := path.Join(tu.UniqueString("test-subdirectory-"), "object")
+		object := path.Join(testutil.UniqueString("test-subdirectory-"), "object")
 		doWriteTest(t, backendType, clientType, client, object, []string{"foo", "bar"})
 	})
 
@@ -182,7 +181,7 @@ func runClientTests(t *testing.T, backendType BackendType, clientType ClientType
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		object := tu.UniqueString("test-interruption-")
+		object := testutil.UniqueString("test-interruption-")
 		defer requireExists(t, client, object, false)
 
 		// Some clients return an error immediately and some when the stream is closed
@@ -319,12 +318,7 @@ func TestMicrosoftClient(t *testing.T) {
 
 func TestLocalClient(t *testing.T) {
 	t.Parallel()
-	// We don't actually need etcd, but this gives us a callback-scoped temp directory
-	err := testetcd.WithEnv(func(env *testetcd.Env) error {
-		client, err := obj.NewLocalClient(env.Directory)
-		require.NoError(t, err)
-		runClientTests(t, LocalBackend, LocalClient, client)
-		return nil
-	})
+	client, err := obj.NewLocalClient(testutil.MkdirTemp(t))
 	require.NoError(t, err)
+	runClientTests(t, LocalBackend, LocalClient, client)
 }
