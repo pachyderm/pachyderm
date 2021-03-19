@@ -429,6 +429,35 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
 		cmd.Flags().StringVar(&logOptions, "obj-log-options", obj.DefaultAwsLogOptions, "(rarely set) Enable verbose logging in Pachyderm's internal S3 client for debugging. Comma-separated list containing zero or more of: 'Debug', 'Signing', 'HTTPBody', 'RequestRetries', 'RequestErrors', 'EventStreamBody', or 'all' (case-insensitive). See 'AWS SDK for Go' docs for details.")
 	}
+	checkS3Flags := func() {
+		if disableSSL != obj.DefaultDisableSSL {
+			deprecationWarning("The disable-ssl flag will be removed in a future version.  To disable SSL, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if maxUploadParts != obj.DefaultMaxUploadParts {
+			deprecationWarning("The max-upload-parts flag will be removed in a future version.  To specify the maximum number of upload parts, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if noVerifySSL != obj.DefaultNoVerifySSL {
+			deprecationWarning("The no-verify-ssl flag will be removed in a future version.  To disable SSL verification, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if logOptions != obj.DefaultAwsLogOptions {
+			deprecationWarning("The obj-log-options flag will be removed in a future version.  To specify S3 logging options, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if partSize != obj.DefaultPartSize {
+			deprecationWarning("The part-size flag will be removed in a future version.  To specify a custom part size for object uploads, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if retries != obj.DefaultRetries {
+			deprecationWarning("The retries flag will be removed in a future version.  To specify the number of retries for object storage requests, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if reverse != obj.DefaultReverse {
+			deprecationWarning("The reverse flag will be removed in a future version.  To specify whether to reverse object storage paths, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if timeout != obj.DefaultTimeout {
+			deprecationWarning("The timeout flag will be removed in a future version.  To specify an object storage request timeout, consider using the pachyderm/pachyderm Helm chart.")
+		}
+		if uploadACL != obj.DefaultUploadACL {
+			deprecationWarning("The upload-acl flag will be removed in a future version.  To specify an upload ACL, consider using the pachyderm/pachyderm Helm chart.")
+		}
+	}
 
 	var contextName string
 	var createContext bool
@@ -654,6 +683,7 @@ If <object store backend> is \"s3\", then the arguments are:
     <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>`,
 		PreRun: deployPreRun,
 		Run: cmdutil.RunBoundedArgs(4, 7, func(args []string) (retErr error) {
+			checkS3Flags()
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -725,6 +755,10 @@ If <object store backend> is \"s3\", then the arguments are:
   <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).`,
 		PreRun: deployPreRun,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
+			checkS3Flags()
+			if vault != "" {
+				deprecationWarning("The vault flag will be removed in a future version.")
+			}
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -940,6 +974,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Long:   "Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.",
 		PreRun: preRun,
 		Run: cmdutil.RunBoundedArgs(3, 4, func(args []string) error {
+			checkS3Flags()
 			var token string
 			if len(args) == 4 {
 				token = args[3]
