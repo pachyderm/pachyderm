@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"path"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -444,26 +443,6 @@ func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
 		return 0, errors.Wrapf(err, "could not fetch lease TTL")
 	}
 	return leaseTTLResp.TTL, nil
-}
-
-// ListPrefix returns keys (and values) that begin with prefix, f will be
-// called with each key, val will contain the value for the key.
-// You can break out of iteration by returning errutil.ErrBreak.
-func (c *etcdReadOnlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func() error) error {
-	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/ListPrefix", "col", c.prefix, "prefix", prefix)
-	defer tracing.FinishAnySpan(span)
-	queryPrefix := c.prefix
-	if prefix != "" {
-		// If we always call join, we'll get rid of the trailing slash we need
-		// on the root c.prefix
-		queryPrefix = filepath.Join(c.prefix, prefix)
-	}
-	return c.list(queryPrefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
-		if err := proto.Unmarshal(kv.Value, val); err != nil {
-			return err
-		}
-		return f()
-	})
 }
 
 // List returns objects sorted based on the options passed in. f will be called

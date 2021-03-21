@@ -6,14 +6,15 @@ import (
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 const (
-	baseCollectionSize = 10
-	originalValue      = "old"
-	changedValue       = "new"
-	collectionName     = "test_items"
+	defaultCollectionSize = 10
+	originalValue         = "old"
+	changedValue          = "new"
+	collectionName        = "test_items"
 )
 
 type TestError struct{}
@@ -39,8 +40,8 @@ func intRange(start int, end int) []int {
 
 // populateCollection writes a standard set of rows to the collection for use by
 // individual tests.
-func populateCollection(rw col.ReadWriteCollection) (retErr error) {
-	for i := 0; i < baseCollectionSize; i++ {
+func populateCollection(rw col.ReadWriteCollection) error {
+	for i := 0; i < defaultCollectionSize; i++ {
 		testProto := makeProto(i)
 		testProto.Value = originalValue
 		if err := rw.Create(testProto.ID, testProto); err != nil {
@@ -71,7 +72,7 @@ type RowDiff struct {
 // populated by populateCollection.
 func checkDefaultCollection(t *testing.T, ro col.ReadOnlyCollection, diff RowDiff) {
 	expected := map[string]string{}
-	for i := 0; i < baseCollectionSize; i++ {
+	for i := 0; i < defaultCollectionSize; i++ {
 		expected[makeID(i)] = originalValue
 	}
 	if diff.Deleted != nil {
@@ -135,7 +136,7 @@ func collectionTests(
 	parent.Run("ReadOnly", func(suite *testing.T) {
 		suite.Parallel()
 		emptyCol, _ := newCollection(suite)
-		staticCol, writer := newCollection(suite)
+		defaultCol, writer := newCollection(suite)
 		require.NoError(suite, writer(populateCollection))
 
 		suite.Run("Get", func(subsuite *testing.T) {
@@ -143,14 +144,14 @@ func collectionTests(
 			subsuite.Run("ErrNotFound", func(t *testing.T) {
 				t.Parallel()
 				itemProto := &TestItem{}
-				err := staticCol.Get("baz", itemProto)
+				err := defaultCol.Get("baz", itemProto)
 				require.True(t, errors.Is(err, col.ErrNotFound{}), "Incorrect error: %v", err)
 				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
 			})
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 				itemProto := &TestItem{}
-				require.NoError(t, staticCol.Get("5", itemProto))
+				require.NoError(t, defaultCol.Get("5", itemProto))
 				require.Equal(t, "5", itemProto.ID)
 			})
 		})
@@ -169,19 +170,137 @@ func collectionTests(
 			subsuite.Parallel()
 			subsuite.Run("Empty", func(t *testing.T) {
 				t.Parallel()
+				testProto := &TestItem{}
+				err := emptyCol.List(testProto, col.DefaultOptions(), func() error {
+					return errors.Errorf("List callback should not have been called for an empty collection")
+				})
+				require.NoError(t, err)
 			})
-			subsuite.Run("Success", func(t *testing.T) {
-				t.Parallel()
-			})
-		})
 
-		suite.Run("ListPrefix", func(subsuite *testing.T) {
-			subsuite.Parallel()
-			subsuite.Run("Empty", func(t *testing.T) {
-				t.Parallel()
-			})
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
+				items := map[string]string{}
+				testProto := &TestItem{}
+				err := defaultCol.List(testProto, col.DefaultOptions(), func() error {
+					items[testProto.ID] = testProto.Value
+					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
+					testProto.ID = ""
+					testProto.Value = ""
+					return nil
+				})
+				require.NoError(t, err)
+
+				keys := []string{}
+				for k, v := range items {
+					keys = append(keys, k)
+					require.Equal(t, originalValue, v)
+				}
+				expectedKeys := []string{}
+				for i := 0; i < defaultCollectionSize; i++ {
+					expectedKeys = append(expectedKeys, makeID(i))
+				}
+				require.ElementsEqual(t, expectedKeys, keys)
+			})
+
+			subsuite.Run("Sort", func(subsuite *testing.T) {
+				subsuite.Parallel()
+
+				testSort := func(t *testing.T, ro col.ReadOnlyCollection, target col.SortTarget, expectedAsc []string) {
+					t.Parallel()
+
+					collect := func(order col.SortOrder) []string {
+						keys := []string{}
+						testProto := &TestItem{}
+						err := defaultCol.List(testProto, &col.Options{Target: target, Order: order}, func() error {
+							keys = append(keys, testProto.ID)
+							return nil
+						})
+						require.NoError(t, err)
+						return keys
+					}
+
+					t.Run("SortAscend", func(t *testing.T) {
+						t.Parallel()
+						keys := collect(col.SortAscend)
+						fmt.Printf("Comparing col.SortAscend:\n  expected: %v\n  actual  : %v\n", expectedAsc, keys)
+						require.Equal(t, expectedAsc, keys)
+					})
+
+					t.Run("SortDescend", func(t *testing.T) {
+						t.Parallel()
+						keys := collect(col.SortDescend)
+						reversed := []string{}
+						for i := len(expectedAsc) - 1; i >= 0; i-- {
+							reversed = append(reversed, expectedAsc[i])
+						}
+						fmt.Printf("Comparing col.SortDescend:\n  expected: %v\n  actual  : %v\n", reversed, keys)
+						require.Equal(t, reversed, keys)
+					})
+
+					t.Run("SortNone", func(t *testing.T) {
+						t.Parallel()
+						keys := collect(col.SortNone)
+						fmt.Printf("Comparing col.SortNone:\n  expected: %v\n  actual  : %v\n", expectedAsc, keys)
+						require.ElementsEqual(t, expectedAsc, keys)
+					})
+				}
+
+				subsuite.Run("CreatedAt", func(t *testing.T) {
+					testSort(t, defaultCol, col.SortByCreateRevision, []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"})
+				})
+
+				subsuite.Run("UpdatedAt", func(t *testing.T) {
+					// Create a new collection that we can modify to get a different ordering here
+					modCol, writer := newCollection(suite)
+					require.NoError(suite, writer(populateCollection))
+
+					// Rewrite rows 4 and 1
+					err := writer(func(rw col.ReadWriteCollection) error {
+						testProto := &TestItem{}
+						if err := rw.Update(makeID(4), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						}); err != nil {
+							return err
+						}
+						return rw.Update(makeID(1), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						})
+					})
+					require.NoError(t, err)
+
+					testSort(t, modCol, col.SortByModRevision, []string{"0", "2", "3", "5", "6", "7", "8", "9", "4", "1"})
+				})
+
+				subsuite.Run("Key", func(t *testing.T) {
+					testSort(t, defaultCol, col.SortByKey, []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"})
+				})
+			})
+
+			subsuite.Run("ErrorInCallback", func(t *testing.T) {
+				t.Parallel()
+				count := 0
+				testProto := &TestItem{}
+				err := defaultCol.List(testProto, col.DefaultOptions(), func() error {
+					count++
+					return &TestError{}
+				})
+				require.YesError(t, err)
+				require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				require.Equal(t, 1, count, "List callback was called multiple times despite erroring")
+			})
+
+			subsuite.Run("ErrBreak", func(t *testing.T) {
+				t.Parallel()
+				count := 0
+				testProto := &TestItem{}
+				err := defaultCol.List(testProto, col.DefaultOptions(), func() error {
+					count++
+					return errutil.ErrBreak
+				})
+				require.NoError(t, err)
+				require.Equal(t, 1, count, "List callback was called multiple times despite aborting")
 			})
 		})
 
@@ -189,7 +308,7 @@ func collectionTests(
 			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
-				count, err := staticCol.Count()
+				count, err := defaultCol.Count()
 				require.NoError(t, err)
 				require.Equal(t, int64(10), count)
 
@@ -296,7 +415,7 @@ func collectionTests(
 
 					rw.DeleteAll()
 
-					for id := 0; id < baseCollectionSize; id++ {
+					for id := 0; id < defaultCollectionSize; id++ {
 						if err := rw.Get(makeID(id), testProto); !col.IsErrNotFound(err) {
 							return errors.Wrapf(err, "Expected ErrNotFound for key '%d', but got", id)
 						}

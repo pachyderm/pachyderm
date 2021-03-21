@@ -13,37 +13,51 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Hoist these consts so users don't have to import etcd
+var (
+	SortByCreateRevision = etcd.SortByCreateRevision
+	SortByModRevision    = etcd.SortByModRevision
+	SortByKey            = etcd.SortByKey
+	SortNone             = etcd.SortNone
+
+	SortAscend  = etcd.SortAscend
+	SortDescend = etcd.SortDescend
+)
+
+type SortTarget = etcd.SortTarget
+type SortOrder = etcd.SortOrder
+
 // Options are the sort options when iterating through etcd key/values.
 // Currently implemented sort targets are CreateRevision and ModRevision.
 type Options struct {
-	Target etcd.SortTarget
-	Order  etcd.SortOrder
+	Target SortTarget
+	Order  SortOrder
 }
 
 // DefaultOptions are the default sort options when iterating through etcd key/values.
 func DefaultOptions() *Options {
-	return &Options{etcd.SortByCreateRevision, etcd.SortDescend}
+	return &Options{SortByCreateRevision, SortDescend}
 }
 
 func listFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int) {
 	var from func(*mvccpb.KeyValue) etcd.OpOption
 	var compare func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int
 	switch opts.Target {
-	case etcd.SortByCreateRevision:
+	case SortByCreateRevision:
 		switch opts.Order {
-		case etcd.SortAscend:
+		case SortAscend:
 			from = func(fromKey *mvccpb.KeyValue) etcd.OpOption { return etcd.WithMinCreateRev(fromKey.CreateRevision) }
-		case etcd.SortDescend:
+		case SortDescend:
 			from = func(fromKey *mvccpb.KeyValue) etcd.OpOption { return etcd.WithMaxCreateRev(fromKey.CreateRevision) }
 		}
 		compare = func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int {
 			return int(kv1.CreateRevision - kv2.CreateRevision)
 		}
-	case etcd.SortByModRevision:
+	case SortByModRevision:
 		switch opts.Order {
-		case etcd.SortAscend:
+		case SortAscend:
 			from = func(fromKey *mvccpb.KeyValue) etcd.OpOption { return etcd.WithMinModRev(fromKey.ModRevision) }
-		case etcd.SortDescend:
+		case SortDescend:
 			from = func(fromKey *mvccpb.KeyValue) etcd.OpOption { return etcd.WithMaxModRev(fromKey.ModRevision) }
 		}
 		compare = func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int {

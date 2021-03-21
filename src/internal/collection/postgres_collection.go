@@ -13,6 +13,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
@@ -266,46 +267,40 @@ func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal interface
 
 func orderToSQL(order etcd.SortOrder) (string, error) {
 	switch order {
-	case etcd.SortAscend:
+	case SortAscend:
 		return "asc", nil
-	case etcd.SortDescend:
+	case SortDescend:
 		return "desc", nil
 	}
 	return "", errors.Errorf("unsupported sort order: %d", order)
 }
 
-func targetToSQL(target etcd.SortTarget) (string, error) {
+func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string, error) {
 	switch target {
-	case etcd.SortByCreateRevision:
+	case SortByCreateRevision:
 		return "createdat", nil
-	case etcd.SortByModRevision:
+	case SortByModRevision:
 		return "updatedat", nil
+	case SortByKey:
+		return c.sqlInfo.Pkey.SQLName, nil
 	}
-	return "", errors.Errorf("unsupported sort target: %d", target)
+	return "", errors.Errorf("unsupported sort target for postgres collections: %d", target)
 }
 
 func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func() error) error {
-	queryString := fmt.Sprintf("select * from %s", c.sqlInfo.Table)
-	return c.listInternal(queryString, []interface{}{}, val, opts, f)
-}
+	query := fmt.Sprintf("select * from %s", c.sqlInfo.Table)
 
-func (c *postgresReadOnlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func() error) error {
-	queryString := fmt.Sprintf(`select * from %s where %s like $1`, c.sqlInfo.Table, c.sqlInfo.Pkey.SQLName)
-	return c.listInternal(queryString, []interface{}{prefix + "%"}, val, opts, f)
-}
-
-func (c *postgresReadOnlyCollection) listInternal(query string, params []interface{}, val proto.Message, opts *Options, f func() error) error {
-	if opts.Order != etcd.SortNone {
+	if opts.Order != SortNone {
 		if order, err := orderToSQL(opts.Order); err != nil {
 			return err
-		} else if target, err := targetToSQL(opts.Target); err != nil {
+		} else if target, err := c.targetToSQL(opts.Target); err != nil {
 			return err
 		} else {
 			query += fmt.Sprintf(" order by %s %s", target, order)
 		}
 	}
 
-	rows, err := c.db.Queryx(query, params...)
+	rows, err := c.db.Queryx(query)
 	if err != nil {
 		return c.mapSQLError(err, "")
 	}
@@ -322,6 +317,9 @@ func (c *postgresReadOnlyCollection) listInternal(query string, params []interfa
 		}
 
 		if err := f(); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
 			return err
 		}
 	}

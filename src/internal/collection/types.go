@@ -110,7 +110,6 @@ type ReadOnlyCollection interface {
 	Get(key string, val proto.Message) error
 	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error
 	List(val proto.Message, opts *Options, f func() error) error
-	ListPrefix(prefix string, val proto.Message, opts *Options, f func() error) error
 	Count() (int64, error)
 	Watch(opts ...watch.OpOption) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error

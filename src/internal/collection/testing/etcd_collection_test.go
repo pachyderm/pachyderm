@@ -32,6 +32,7 @@ var (
 )
 
 func TestEtcdCollections(suite *testing.T) {
+	suite.Parallel()
 	etcdEnv := testetcd.NewEnv(suite)
 	newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
 		prefix := testutil.UniqueString("test-etcd-collections-")
@@ -510,7 +511,7 @@ func TestIteration(t *testing.T) {
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 		vals = make(map[string]bool)
 		valsOrder = []string{}
-		require.NoError(t, ro.List(val, &col.Options{etcd.SortByCreateRevision, etcd.SortAscend}, func() error {
+		require.NoError(t, ro.List(val, &col.Options{col.SortByCreateRevision, col.SortAscend}, func() error {
 			require.False(t, vals[val.Name], "saw value %s twice", val.Name)
 			vals[val.Name] = true
 			valsOrder = append(valsOrder, val.Name)

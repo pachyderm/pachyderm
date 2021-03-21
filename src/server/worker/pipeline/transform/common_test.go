@@ -23,7 +23,7 @@ import (
 )
 
 // Set this to true to enable worker log statements to go to stdout
-const debug = true
+const debug = false
 
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"

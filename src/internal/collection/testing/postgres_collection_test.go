@@ -45,6 +45,7 @@ func (fm *TestModel) LoadFromProtobuf(val proto.Message) error {
 }
 
 func TestPostgresCollections(suite *testing.T) {
+	suite.Parallel()
 	postgres := dbtesting.NewPostgresDeployment(suite)
 
 	newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {

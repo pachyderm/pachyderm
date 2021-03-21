@@ -1362,7 +1362,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		// the repo, sorted by revision timestamp (or reversed if so requested.)
 		opts := col.DefaultOptions()
 		if reverse {
-			opts.Order = etcd.SortAscend
+			opts.Order = col.SortAscend
 		}
 		// we hold onto a revisions worth of cis so that we can sort them by provenance
 		var cis []*pfs.CommitInfo
@@ -1737,7 +1737,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	}
 
 	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
-	newCommitWatcher, err := commits.Watch(watch.WithSort(etcd.SortByCreateRevision, etcd.SortAscend))
+	newCommitWatcher, err := commits.Watch(watch.WithSort(col.SortByCreateRevision, col.SortAscend))
 	if err != nil {
 		return err
 	}
@@ -2155,7 +2155,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	var result []*pfs.BranchInfo
 	opts := col.DefaultOptions()
 	if reverse {
-		opts.Order = etcd.SortAscend
+		opts.Order = col.SortAscend
 	}
 	var bis []*pfs.BranchInfo
 	sendBis := func() {
