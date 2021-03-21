@@ -211,7 +211,7 @@ func collectionTests(
 					collect := func(order col.SortOrder) []string {
 						keys := []string{}
 						testProto := &TestItem{}
-						err := defaultCol.List(testProto, &col.Options{Target: target, Order: order}, func() error {
+						err := ro.List(testProto, &col.Options{Target: target, Order: order}, func() error {
 							keys = append(keys, testProto.ID)
 							return nil
 						})
@@ -222,7 +222,6 @@ func collectionTests(
 					t.Run("SortAscend", func(t *testing.T) {
 						t.Parallel()
 						keys := collect(col.SortAscend)
-						fmt.Printf("Comparing col.SortAscend:\n  expected: %v\n  actual  : %v\n", expectedAsc, keys)
 						require.Equal(t, expectedAsc, keys)
 					})
 
@@ -233,20 +232,32 @@ func collectionTests(
 						for i := len(expectedAsc) - 1; i >= 0; i-- {
 							reversed = append(reversed, expectedAsc[i])
 						}
-						fmt.Printf("Comparing col.SortDescend:\n  expected: %v\n  actual  : %v\n", reversed, keys)
 						require.Equal(t, reversed, keys)
 					})
 
 					t.Run("SortNone", func(t *testing.T) {
 						t.Parallel()
 						keys := collect(col.SortNone)
-						fmt.Printf("Comparing col.SortNone:\n  expected: %v\n  actual  : %v\n", expectedAsc, keys)
 						require.ElementsEqual(t, expectedAsc, keys)
 					})
 				}
 
 				subsuite.Run("CreatedAt", func(t *testing.T) {
-					testSort(t, defaultCol, col.SortByCreateRevision, []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"})
+					// The defaultCol was written in a single transaction, so all the rows
+					// have the same created time - make our own
+					createCol, writer := newCollection(suite)
+
+					createKeys := []string{"0", "6", "7", "9", "3", "8", "4", "1", "2", "5"}
+					for _, k := range createKeys {
+						err := writer(func(rw col.ReadWriteCollection) error {
+							testProto := &TestItem{ID: k, Value: originalValue}
+							return rw.Create(k, testProto)
+						})
+						require.NoError(t, err)
+					}
+
+					checkDefaultCollection(t, createCol, RowDiff{})
+					testSort(t, createCol, col.SortByCreateRevision, createKeys)
 				})
 
 				subsuite.Run("UpdatedAt", func(t *testing.T) {
@@ -254,23 +265,21 @@ func collectionTests(
 					modCol, writer := newCollection(suite)
 					require.NoError(suite, writer(populateCollection))
 
-					// Rewrite rows 4 and 1
-					err := writer(func(rw col.ReadWriteCollection) error {
-						testProto := &TestItem{}
-						if err := rw.Update(makeID(4), testProto, func() error {
-							testProto.Value = changedValue
-							return nil
-						}); err != nil {
-							return err
-						}
-						return rw.Update(makeID(1), testProto, func() error {
-							testProto.Value = changedValue
+					modKeys := []string{"5", "7", "2", "9", "1", "0", "8", "4", "3", "6"}
+					for _, k := range modKeys {
+						err := writer(func(rw col.ReadWriteCollection) error {
+							testProto := &TestItem{}
+							if err := rw.Update(k, testProto, func() error {
+								testProto.Value = changedValue
+								return nil
+							}); err != nil {
+								return err
+							}
 							return nil
 						})
-					})
-					require.NoError(t, err)
-
-					testSort(t, modCol, col.SortByModRevision, []string{"0", "2", "3", "5", "6", "7", "8", "9", "4", "1"})
+						require.NoError(t, err)
+					}
+					testSort(t, modCol, col.SortByModRevision, modKeys)
 				})
 
 				subsuite.Run("Key", func(t *testing.T) {

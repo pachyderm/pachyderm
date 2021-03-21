@@ -17,6 +17,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
+const (
+	modifiedTriggerName  = "updateModifiedTrigger"
+	modifiedFunctionName = "updateModifiedTime"
+)
+
 // PostgresModel is the interface that all models must fulfill to be used in a postgres collection
 type PostgresModel interface {
 	TableName() string
@@ -122,17 +127,38 @@ func parseModel(model PostgresModel) (*SQLInfo, error) {
 func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 	columns := []string{}
 	for _, field := range info.Fields {
-		// TODO: "createdat timestamp with time zone default current_timestamp"
-		columns = append(columns, fmt.Sprintf("%s %s", field.SQLName, field.SQLType))
+		if field.GoName == "CreatedAt" || field.GoName == "UpdatedAt" {
+			columns = append(columns, fmt.Sprintf("%s %s default current_timestamp", field.SQLName, field.SQLType))
+		} else {
+			columns = append(columns, fmt.Sprintf("%s %s", field.SQLName, field.SQLType))
+		}
 	}
 	columns = append(columns, fmt.Sprintf("primary key(%s)", info.Pkey.SQLName))
 
-	createTable := fmt.Sprintf("create table if not exists %s (%s);", info.Table, strings.Join(columns, ", "))
-	_, err := db.Exec(createTable)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	return nil
+	// TODO: use actual context
+	return NewSQLTx(db, context.Background(), func(tx *sqlx.Tx) error {
+		createTable := fmt.Sprintf("create table if not exists %s (%s);", info.Table, strings.Join(columns, ", "))
+		if _, err := tx.Exec(createTable); err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		// Create trigger to update the modified timestamp (no way to do this without recreating it each time?)
+		dropTrigger := fmt.Sprintf("drop trigger if exists %s on %s;", modifiedTriggerName, info.Table)
+		if _, err := tx.Exec(dropTrigger); err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		createFunction := fmt.Sprintf("create or replace function %s() returns trigger as $$ begin new.updatedat = now(); return new; end; $$ language 'plpgsql';", modifiedFunctionName)
+		if _, err := tx.Exec(createFunction); err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		createTrigger := fmt.Sprintf("create trigger %s before update on %s for each row execute procedure %s();", modifiedTriggerName, info.Table, modifiedFunctionName)
+		if _, err := tx.Exec(createTrigger); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	})
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
@@ -367,7 +393,7 @@ func (c *postgresReadWriteCollection) Get(key string, val proto.Message) error {
 
 // Upsert without the get and callback
 func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
-	return c.mapSQLError(c.insert(key, val, true), key)
+	return c.insert(key, val, true)
 }
 
 // Get then update all values
@@ -384,13 +410,16 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 
 	values := []interface{}{}
 	updateFields := []string{}
-	for i, field := range c.sqlInfo.Fields {
+	for _, field := range c.sqlInfo.Fields {
+		if field.GoName == "UpdatedAt" || field.GoName == "CreatedAt" {
+			continue
+		}
 		values = append(values, reflect.Indirect(row).FieldByName(field.GoName).Interface())
-		updateFields = append(updateFields, fmt.Sprintf("%s = $%d", field.SQLName, i+1))
+		updateFields = append(updateFields, fmt.Sprintf("%s = $%d", field.SQLName, len(values)))
 	}
 
 	values = append(values, key)
-	query := fmt.Sprintf("update %s set %s where %s = $%d", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey.SQLName, len(values)-1)
+	query := fmt.Sprintf("update %s set %s where %s = $%d", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey.SQLName, len(values))
 	_, err := c.tx.Exec(query, values...)
 	return c.mapSQLError(err, key)
 }
@@ -402,9 +431,12 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	columns := []string{}
 	params := []string{}
 	values := []interface{}{}
-	for i, field := range c.sqlInfo.Fields {
+	for _, field := range c.sqlInfo.Fields {
+		if field.GoName == "UpdatedAt" || field.GoName == "CreatedAt" {
+			continue
+		}
 		columns = append(columns, field.SQLName)
-		params = append(params, fmt.Sprintf("$%d", i+1))
+		params = append(params, fmt.Sprintf("$%d", len(columns)))
 		values = append(values, reflect.Indirect(row).FieldByName(field.GoName).Interface())
 	}
 
@@ -420,7 +452,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		query = fmt.Sprintf("%s on conflict (%s) do update set (%s) = (%s)", query, c.sqlInfo.Pkey.SQLName, columnList, paramList)
 	}
 	_, err := c.tx.Exec(query, values...)
-	return err
+	return c.mapSQLError(err, key)
 }
 
 // Insert on conflict update all values (except createdat)
@@ -437,7 +469,7 @@ func (c *postgresReadWriteCollection) Upsert(key string, val proto.Message, f fu
 // Insert
 func (c *postgresReadWriteCollection) Create(key string, val proto.Message) error {
 	// TODO: require that the proto pkey matches key or override it in the insert
-	return c.mapSQLError(c.insert(key, val, false), key)
+	return c.insert(key, val, false)
 }
 
 func (c *postgresReadWriteCollection) Delete(key string) error {
