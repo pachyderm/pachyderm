@@ -9,11 +9,11 @@ import Cookies from 'js-cookie';
 import noop from 'lodash/noop';
 import {useCallback, useEffect} from 'react';
 
-import {MutationExchangeCodeArgs} from '@graphqlTypes';
+import {MutationExchangeCodeArgs, Tokens} from '@graphqlTypes';
 import {EXCHANGE_CODE_MUTATION} from 'mutations/ExchangeCode';
 
 interface ExchangeCodeMutationResults {
-  exchangeCode: string;
+  exchangeCode: Tokens;
 }
 
 interface LogInResponse {
@@ -56,7 +56,14 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
 
   useEffect(() => {
     if (codeMutationData) {
-      window.localStorage.setItem('auth-token', codeMutationData.exchangeCode);
+      window.localStorage.setItem(
+        'auth-token',
+        codeMutationData.exchangeCode.pachToken,
+      );
+      window.localStorage.setItem(
+        'id-token',
+        codeMutationData.exchangeCode.idToken,
+      );
 
       // We need these cookies to enable file downloads and previews
       Cookies.set(
@@ -79,7 +86,10 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
       client.writeQuery({
         query: LOGGED_IN_QUERY,
         data: {
-          loggedIn: Boolean(window.localStorage.getItem('auth-token')),
+          loggedIn: Boolean(
+            window.localStorage.getItem('auth-token') &&
+              window.localStorage.getItem('id-token'),
+          ),
         },
       });
     }

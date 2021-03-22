@@ -173,6 +173,16 @@ input FileQueryArgs {
   repoName: String!
 }
 
+type Tokens {
+  pachToken: String!
+  idToken: String!
+}
+
+type Account {
+  id: ID!
+  email: String!
+}
+
 type Query {
   projects: [Project!]!
   pipelines: [Pipeline!]!
@@ -181,8 +191,9 @@ type Query {
   dag(args: DagQueryArgs!): Dag!
   dags(args: DagQueryArgs!): [Dag!]!
   files(args: FileQueryArgs!): [File!]!
+  account: Account!
 }
 
 type Mutation {
-  exchangeCode(code: String!): String!
+  exchangeCode(code: String!): Tokens!
 }

@@ -1,53 +1,52 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {AuthenticationError} from 'apollo-server-express';
-import {Issuer} from 'openid-client';
 
 import client from '@dash-backend/grpc/client';
-import {MutationResolvers} from '@graphqlTypes';
+import {getOIDCClient} from '@dash-backend/lib/auth';
+import log from '@dash-backend/lib/log';
+import {UnauthenticatedContext} from '@dash-backend/lib/types';
+import authenticated from '@dash-backend/middleware/authenticated';
+import {MutationResolvers, QueryResolvers} from '@graphqlTypes';
 
 interface AuthResolver {
+  Query: {
+    account: QueryResolvers['account'];
+  };
   Mutation: {
-    exchangeCode: MutationResolvers['exchangeCode'];
+    exchangeCode: MutationResolvers<UnauthenticatedContext>['exchangeCode'];
   };
 }
 
 const authResolver: AuthResolver = {
+  Query: {
+    account: authenticated(async (_field, _args, {account}) => {
+      return account;
+    }),
+  },
   Mutation: {
-    exchangeCode: async (_field, {code}, {pachdAddress = '', log}) => {
-      const {
-        ISSUER_URI: issuerUri = '',
-        OAUTH_CLIENT_ID: clientId = '',
-        OAUTH_CLIENT_SECRET: clientSecret = '',
-        OAUTH_REDIRECT_URI: redirectUri = '',
-      } = process.env;
+    exchangeCode: async (_field, {code}, {pachdAddress = ''}) => {
+      const {OAUTH_REDIRECT_URI: redirectUri = ''} = process.env;
 
       try {
-        log.info({
-          eventSource: 'exchangeCode resolver',
-          event: 'discovering issuer',
-        });
-        const dexIssuer = await Issuer.discover(issuerUri);
-
-        const dexClient = new dexIssuer.Client({
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uris: [redirectUri],
-          response_types: ['code'],
-        });
+        const oidcClient = await getOIDCClient();
 
         log.info({
           eventSource: 'exchangeCode resolver',
           event: 'retreiving token from issuer',
         });
-        const {id_token = ''} = await dexClient.callback(redirectUri, {
-          code,
-        });
+
+        const {id_token: idToken = ''} = await oidcClient.callback(
+          redirectUri,
+          {
+            code,
+          },
+        );
 
         const pachToken = await client({pachdAddress, log})
           .auth()
-          .authenticate(id_token);
+          .authenticate(idToken);
 
-        return pachToken;
+        return {pachToken, idToken};
       } catch (e) {
         throw new AuthenticationError(e);
       }

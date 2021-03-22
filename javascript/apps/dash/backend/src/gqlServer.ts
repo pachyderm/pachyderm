@@ -7,18 +7,29 @@ import {v4 as uuid} from 'uuid';
 import loggingPlugin from '@dash-backend/apollo/plugins/loggingPlugin';
 import baseLogger from '@dash-backend/lib/log';
 import resolvers from '@dash-backend/resolvers';
+import {Account} from '@graphqlTypes';
+
+import {getAccountFromIdToken} from './lib/auth';
 
 const gqlServer = new ApolloServer({
-  context: ({req}) => {
+  context: async ({req}) => {
+    const idToken = req.header('id-token');
+
     const log = baseLogger.child({
       pachdAddress: req.header('pachd-address'),
       operationId: uuid(),
     });
 
+    let account: Account | undefined;
+    if (idToken) {
+      account = await getAccountFromIdToken(idToken);
+    }
+
     return {
       authToken: req.header('auth-token'),
       pachdAddress: req.header('pachd-address'),
       log,
+      account,
     };
   },
   // TODO: Maybe move this and add global error messaging

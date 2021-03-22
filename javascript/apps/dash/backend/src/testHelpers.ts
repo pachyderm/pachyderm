@@ -1,9 +1,13 @@
 import fs from 'fs';
+import path from 'path';
 
 import {ApolloError} from 'apollo-server-errors';
+import {sign} from 'jsonwebtoken';
 import fetch from 'node-fetch';
 
-import mockServer from './mock';
+import mockServer from '@dash-backend/mock';
+import keys from '@dash-backend/mock/fixtures/keys';
+import {Account} from '@graphqlTypes';
 
 import graphqlServer from '.';
 
@@ -24,6 +28,7 @@ const executeOperation = async <T>(
         variables,
       }),
       headers: {
+        'id-token': generateIdTokenForAccount(mockServer.state.account),
         'pachd-address': `localhost:${process.env.GRPC_PORT}`,
         'Content-Type': 'application/json',
         ...headers,
@@ -53,6 +58,7 @@ const createOperation = async <T>(
         variables,
       }),
       headers: {
+        'id-token': generateIdTokenForAccount(mockServer.state.account),
         'pachd-address': `localhost:${process.env.GRPC_PORT}`,
         'Content-Type': 'application/json',
         ...headers,
@@ -62,7 +68,25 @@ const createOperation = async <T>(
 
   const json = await response.json();
 
-  return json.data as T;
+  return {
+    data: json.data as T | null,
+    errors: json.errors as ApolloError[] | undefined,
+  };
+};
+
+export const generateIdTokenForAccount = (account: Account) => {
+  return sign(
+    {some: 'stuff', azp: 'dash', email: account.email},
+    fs.readFileSync(path.resolve(__dirname, 'mock/mockPrivate.key')),
+    {
+      algorithm: 'RS256',
+      issuer: process.env.ISSUER_URI,
+      subject: account.id,
+      audience: ['pachd', 'dash'],
+      expiresIn: '30 days',
+      keyid: keys.keys[0].kid,
+    },
+  );
 };
 
 export {mockServer, graphqlServer, executeOperation, createOperation};

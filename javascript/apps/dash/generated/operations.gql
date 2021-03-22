@@ -1,6 +1,9 @@
 
 mutation exchangeCode($code: String!) {
-  exchangeCode(code: $code)
+  exchangeCode(code: $code) {
+    pachToken
+    idToken
+  }
 }
 query getDag($args: DagQueryArgs!) {
   dag(args: $args) {

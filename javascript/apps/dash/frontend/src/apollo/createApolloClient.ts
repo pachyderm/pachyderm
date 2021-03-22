@@ -25,7 +25,10 @@ const createApolloClient = (
 
   client.writeQuery({
     data: {
-      loggedIn: Boolean(window.localStorage.getItem('auth-token')),
+      loggedIn: Boolean(
+        window.localStorage.getItem('auth-token') &&
+          window.localStorage.getItem('id-token'),
+      ),
     },
     query: LOGGED_IN_QUERY,
   });
@@ -34,7 +37,10 @@ const createApolloClient = (
     Promise.resolve(
       client.writeQuery({
         data: {
-          loggedIn: Boolean(window.localStorage.getItem('auth-token')),
+          loggedIn: Boolean(
+            window.localStorage.getItem('auth-token') &&
+              window.localStorage.getItem('id-token'),
+          ),
         },
         query: LOGGED_IN_QUERY,
       }),

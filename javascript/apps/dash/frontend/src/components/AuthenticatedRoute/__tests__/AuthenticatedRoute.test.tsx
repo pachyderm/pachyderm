@@ -28,7 +28,6 @@ describe('AuthenticatedRoute', () => {
   });
 
   afterEach(() => {
-    window.localStorage.removeItem('auth-token');
     window.location = windowLocation;
   });
 
@@ -74,6 +73,9 @@ describe('AuthenticatedRoute', () => {
         assign: jest.fn(),
       },
     });
+
+    window.localStorage.removeItem('auth-token');
+    window.localStorage.removeItem('id-token');
 
     render(<TestBed />);
 

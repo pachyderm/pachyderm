@@ -5,6 +5,7 @@ import {enableFetchMocks} from 'jest-fetch-mock';
 import '@testing-library/jest-dom';
 import '@testing-library/jest-dom/extend-expect';
 
+import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
 import {server, mockServer} from '@dash-frontend/testHelpers';
 
 enableFetchMocks();
@@ -31,6 +32,12 @@ beforeAll(async () => {
 beforeEach(() => {
   fetchMock.dontMock();
   mockServer.resetState();
+
+  window.localStorage.setItem('auth-token', 'xyz');
+  window.localStorage.setItem(
+    'id-token',
+    generateIdTokenForAccount(mockServer.state.account),
+  );
 });
 afterAll(async () => {
   await mockServer.stop();

@@ -1,5 +1,6 @@
 import merge from 'lodash/merge';
 
+import authenticated from '@dash-backend/middleware/authenticated';
 import {
   PipelineState,
   Resolvers,
@@ -15,7 +16,7 @@ import jobResolver from './Job';
 import projectsResolver from './Projects';
 import repoResolver from './Repo';
 
-const resolver: Resolvers = merge(
+const resolvers: Resolvers = merge(
   {JobState: JobState},
   {PipelineState: PipelineState},
   {ProjectStatus: ProjectStatus},
@@ -28,4 +29,20 @@ const resolver: Resolvers = merge(
   jobResolver,
   {},
 );
-export default resolver;
+
+// NOTE: This does not support field level resolvers
+const unauthenticated = ['exchangeCode'];
+
+Object.keys(resolvers.Query || {}).forEach((resolver) => {
+  if (!unauthenticated.includes(resolver) && resolvers.Query) {
+    resolvers.Query[resolver] = authenticated(resolvers.Query[resolver]);
+  }
+});
+
+Object.keys(resolvers.Mutation || {}).forEach((resolver) => {
+  if (!unauthenticated.includes(resolver) && resolvers.Mutation) {
+    resolvers.Mutation[resolver] = authenticated(resolvers.Mutation[resolver]);
+  }
+});
+
+export default resolvers;

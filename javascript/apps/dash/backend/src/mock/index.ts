@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import fs from 'fs';
 import http from 'http';
 import {AddressInfo} from 'net';
-import path from 'path';
 import {URL} from 'url';
 
 import {Server, ServerCredentials} from '@grpc/grpc-js';
@@ -11,10 +9,11 @@ import {APIService as PFSService} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {APIService as PPSService} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
 import {APIService as ProjectsService} from '@pachyderm/proto/pb/projects/projects_grpc_pb';
 import express from 'express';
-import {sign} from 'jsonwebtoken';
 
 import log from '@dash-backend/lib/log';
+import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
 
+import accounts from './fixtures/accounts';
 import keys from './fixtures/keys';
 import openIdConfiguration from './fixtures/openIdConfiguration';
 import auth from './handlers/auth';
@@ -24,6 +23,7 @@ import projects from './handlers/projects';
 
 const defaultState = {
   tokenError: false,
+  account: accounts['1'],
 };
 
 const createServer = () => {
@@ -71,23 +71,12 @@ const createServer = () => {
       throw new Error('Invalid Auth Code');
     }
 
-    const idToken = sign(
-      {some: 'stuff', azp: 'dash'},
-      fs.readFileSync(path.resolve(__dirname, 'mockPrivate.key')),
-      {
-        algorithm: 'RS256',
-        issuer: process.env.ISSUER_URI,
-        subject: 'user',
-        audience: ['pachd', 'dash'],
-        expiresIn: '30 days',
-      },
-    );
-
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    return res.send({id_token: idToken});
+    return res.send({id_token: generateIdTokenForAccount(state.account)});
   });
 
   const mockServer = {
+    state,
     start: () => {
       return new Promise<[number, number]>((res, rej) => {
         authServer = authApp.listen(process.env.MOCK_AUTH_PORT || 0, () => {

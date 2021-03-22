@@ -187,6 +187,18 @@ export type FileQueryArgs = {
   repoName: Scalars['String'];
 };
 
+export type Tokens = {
+  __typename?: 'Tokens';
+  pachToken: Scalars['String'];
+  idToken: Scalars['String'];
+};
+
+export type Account = {
+  __typename?: 'Account';
+  id: Scalars['ID'];
+  email: Scalars['String'];
+};
+
 export type Query = {
   __typename?: 'Query';
   projects: Array<Project>;
@@ -196,6 +208,7 @@ export type Query = {
   dag: Dag;
   dags: Array<Dag>;
   files: Array<File>;
+  account: Account;
 };
 
 export type QueryJobsArgs = {
@@ -216,7 +229,7 @@ export type QueryFilesArgs = {
 
 export type Mutation = {
   __typename?: 'Mutation';
-  exchangeCode: Scalars['String'];
+  exchangeCode: Tokens;
 };
 
 export type MutationExchangeCodeArgs = {
@@ -371,6 +384,8 @@ export type ResolversTypes = ResolversObject<{
   File: ResolverTypeWrapper<File>;
   Float: ResolverTypeWrapper<Scalars['Float']>;
   FileQueryArgs: FileQueryArgs;
+  Tokens: ResolverTypeWrapper<Tokens>;
+  Account: ResolverTypeWrapper<Account>;
   Query: ResolverTypeWrapper<{}>;
   Mutation: ResolverTypeWrapper<{}>;
 }>;
@@ -400,6 +415,8 @@ export type ResolversParentTypes = ResolversObject<{
   File: File;
   Float: Scalars['Float'];
   FileQueryArgs: FileQueryArgs;
+  Tokens: Tokens;
+  Account: Account;
   Query: {};
   Mutation: {};
 }>;
@@ -667,6 +684,24 @@ export type FileResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type TokensResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Tokens'] = ResolversParentTypes['Tokens']
+> = ResolversObject<{
+  pachToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  idToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type AccountResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Account'] = ResolversParentTypes['Account']
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type QueryResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']
@@ -706,6 +741,7 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryFilesArgs, 'args'>
   >;
+  account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
 }>;
 
 export type MutationResolvers<
@@ -713,7 +749,7 @@ export type MutationResolvers<
   ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']
 > = ResolversObject<{
   exchangeCode?: Resolver<
-    ResolversTypes['String'],
+    ResolversTypes['Tokens'],
     ParentType,
     ContextType,
     RequireFields<MutationExchangeCodeArgs, 'code'>
@@ -740,6 +776,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   FileType?: FileTypeResolvers;
   Timestamp?: TimestampResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
+  Tokens?: TokensResolvers<ContextType>;
+  Account?: AccountResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
 }>;

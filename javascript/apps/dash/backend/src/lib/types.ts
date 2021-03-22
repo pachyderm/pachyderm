@@ -1,12 +1,17 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
 import Logger from 'bunyan';
 
-import {Node, JobState} from '@graphqlTypes';
+import {Node, JobState, Account} from '@graphqlTypes';
 
-export interface Context {
+export interface UnauthenticatedContext {
   authToken?: string;
   pachdAddress?: string;
   log: Logger;
+  account?: Account;
+}
+
+export interface Context extends UnauthenticatedContext {
+  account: Account;
 }
 
 export type LinkInputData = {
