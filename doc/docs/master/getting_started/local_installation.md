@@ -2,7 +2,7 @@
 
 !!! Info
       A local installation helps you learn
-      some of the Pachyderm basics and is not designed to be a production
+      some of the Pachyderm basics and experiment. It is not designed to be a production
       environment.
 
 This guide walks you through the steps to install Pachyderm
@@ -32,13 +32,14 @@ We offer two ways to deploy Pachyderm on a local Kubernetes cluster.
 
 ## Prerequisites
 
-Before you deploy Pachyderm, make sure that you have:
+Before you deploy Pachyderm, make sure that you have installed:
 
 - A Kubernetes cluster running on your local environment: 
       - [Docker Desktop](#docker-desktop),
       - [Minikube](#using-minikube)
       - Oracle® VirtualBox™
-- [Pachyderm Command Line Interface](#install-pachctl) or [Helm](https://helm.sh/docs/intro/install/) installed depending on your installation choice.
+- [Pachyderm Command Line Interface](#install-pachctl)
+- [Helm](https://helm.sh/docs/intro/install/) depending on your installation choice.
 
 ### Using Minikube
 
@@ -137,7 +138,7 @@ to deploy Pachyderm using the `pachctl deploy local` command:
 
 ### Install `Helm`
 
-If you choose to install Pachyderm using Helm, follow their [installation guide](https://helm.sh/docs/intro/install/).
+If you choose to install Pachyderm using Helm, follow this [installation guide](https://helm.sh/docs/intro/install/).
 
 ## Deploy Pachyderm
 
@@ -191,9 +192,9 @@ deploy Pachyderm on your local cluster by following these steps:
 
 * Edit a values file `my_pachyderm_values.yaml` with `pachd.storage.backend` set to `LOCAL`:
    
-      Find a **baseline file for local deployments** in this [example repository](https://github.com/pachyderm/helmchart/tree/master/examples).
+      Find a **baseline file for local deployments** in this [example repository](https://github.com/pachyderm/helmchart/tree/master/examples) and set the `backend` attribute to `LOCAL`.
 
-      See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters.
+      See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters. More [details on Helm installation](../deploy-manage/deploy/helm_install).
 
 * Install the Pachyderm helm chart ([helm v3](https://helm.sh/docs/intro/)):
    ```shell

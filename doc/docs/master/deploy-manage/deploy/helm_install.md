@@ -9,20 +9,19 @@ However, you can now deploy Pachyderm using the package manager [Helm](https://h
 
 This page gives you a high level view of the steps to follow to install Pachyderm using Helm.
 
-As a general rule, those steps would be:
-
-## Prerequisites
+As a general rule, those steps are:
+## Install
+### Prerequisites
 1. Install [`Helm`](https://helm.sh/docs/intro/install/). 
 
 1. Choose the deployment [guidelines](https://docs.pachyderm.com/latest/deploy-manage/deploy/) that apply to you:
-    * **Find the deployment page that applies to your Cloud provider** (Custom deployment, or on-premises deployment).
-    It will help list the various installation prerequisites, Kubernetes deployment instructions, and kubectl installation applying to your own use case:
+    * **Find the deployment page that applies to your Cloud provider** (or custom deployment, or on-premises deployment).
+    It will help list the various installation prerequisites, Kubernetes deployment instructions, and kubectl installation that fit your own use case:
     
         For example, if your Cloud provider is Google Cloud Platform, follow the **Prerequisites** and **Deploy Kubernetes** sections of the [deployment on Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/#google-cloud-platform) page.
 
-    * Additionaly, those instructions will also help you define and configure the various elements (persistent volume, object store, credentials...) that relate to your deployment needs. 
-    In the case of a deployment using `pachctl deploy`, the values of those parameters would ultimately be passed to the 
-    corresponding arguments and flags of the command.
+    * Additionally, those instructions will also help you configure the various elements (persistent volume, object store, credentials...) that relate to your deployment needs. 
+    In the case of a deployment using `pachctl deploy`, the values of those parameters would ultimately be passed to the corresponding arguments and flags of the command.
 
         For example, in the case of a generic `pachctl deploy google` command:"
         ```shell
@@ -32,14 +31,14 @@ As a general rule, those steps would be:
     
         In the case of an installation using Helm, those same parameters values will now **populate a .yaml configuration file** as follow.
 
-## Edit a values.yaml file
+### Edit a values.yaml file
 Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/helmchart/tree/master/examples). Pick the example that fits your target deployment and update the relevant fields according to the parameters gathered in the previous step.   
 
 See the [conversion table](#conversion-table) at the end of this page. It should help you pass easily from the `pachctl deploy` arguments and flags to their attributes counterpart in values.yaml.
 
 See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters.
 
-## Get your Helm Repo Info
+### Get your Helm Repo Info
 ```shell
 $ helm repo add pachyderm https://pachyderm.github.io/helmchart
 ```
@@ -47,82 +46,118 @@ $ helm repo add pachyderm https://pachyderm.github.io/helmchart
 $ helm repo update
 ```
 
-## Install the Pachyderm helm chart ([helm v3](https://helm.sh/docs/intro/))
-You are ready to deploy Pachyderm on the environment of your choise.
+### Install the Pachyderm helm chart
+You are ready to deploy Pachyderm on the environment of your choice.
 ```shell
 $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
 ```
 
-## Check your deployment 
+### Check your install
 
+1. Check your deployment
+    ```shell
+    $ kubectl get pods
+    ```
+
+    **System Response:**
+
+    ```
+    NAME                     READY     STATUS    RESTARTS   AGE
+    dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
+    etcd-0                   1/1       Running   0          4m
+    pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
+    ```
+
+1. Verify that the Pachyderm cluster is up and running
+
+    ```shell
+    $ pachctl version
+    ```
+
+    **System Response:**
+
+    ```
+    COMPONENT           VERSION
+    pachctl             {{ config.pach_latest_version }}
+    pachd               {{ config.pach_latest_version }}
+    ```
+## Uninstall the Pachyderm helm chart
+[Helm uninstall](https://helm.sh/docs/helm/helm_uninstall/) a release as easily as you installed it.
 ```shell
-$ kubectl get pods
-```
-
-**System Response:**
-
-```
-NAME                     READY     STATUS    RESTARTS   AGE
-dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
-etcd-0                   1/1       Running   0          4m
-pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
-```
-
-## Verify that the Pachyderm cluster is up and running
-
-```shell
-$ pachctl version
-```
-
-**System Response:**
-
-```
-COMPONENT           VERSION
-pachctl             {{ config.pach_latest_version }}
-pachd               {{ config.pach_latest_version }}
+$ helm uninstall pachd 
 ```
 
 ## Conversion table
-| FLAG OPTION | Values.yaml ATTRIBUTE |
-|-------------|-----------------------|
-|--tls|tls.crt|
-||tls.key|
-|--image-pull-secret|imagePullSecret|
-|--dash-image|dash.image.repository|
-||dash.image.tag|
-|opposite of --no-dashboard|dash.enabled |
-|--dynamic-etcd-nodes|etcd.dynamicNodes|
-|--etcd-storage-class|etcd.storageClass|
-|--etcd-cpu-request|etcd.cpuRequest|
-|--etcd-memory-request|etcd.memoryRequest|
-|--block-cache-size|pachd.blockCacheBytes|
-|--cluster-deployment-id|pachd.clusterDeploymentID|
-|--pachd-cpu-request|pachd.cpuRequest|
-|inverse of --no-expose-docker-socket|pachd.exposeDockerSocket|
-|--expose-object-api|pachd.exposeObjectAPI|
-|--pachd-memory-request|pachd.memoryRequest|
-|--require-critical-servers-only|pachd.requireCriticalServersOnly|
-|--put-file-concurrency-limit|pachd.storage.putFileConcurrencyLimit|
-|--upload-concurrency-limit|pachd.storage.uploadConcurrencyLimit|
-|--shards|pachd.numShards|
-|--cloudfront-distribution|pachd.storage.amazon.cloudFrontDistribution|
-|--disable-ssl|pachd.storage.amazon.disableSSL|
-|--iam-role|pachd.storage.amazon.iamRole|
-|--credentials|pachd.storage.amazon.id|
-|| pachd.storage.amazon.secret|
-|| pachd.storage.amazon.token|
-|--obj-log-options|pachd.storage.amazon.logOptions|
-|--max-upload-parts|pachd.storage.amazon.maxUploadParts|
-|--no-verify-ssl|pachd.storage.amazon.noVerifySSL|
-|--part-size|pachd.storage.amazon.partSize|
-|--retries|pachd.storage.amazon.retries|
-|--reverse|pachd.storage.amazon.reverse|
-|--timeout|pachd.storage.amazon.timeout|
-|--upload-acl|pachd.storage.amazon.uploadACL|
-|--host-path|pachd.storage.local.hostPath|
-|--put-file-concurrency-limit|pachd.storage.minio.putFileConcurrencyLimit|
-|--upload-concurrency-limit|pachd.storage.minio.uploadConcurrencyLimit|
-|--worker-service-account|pachd.workerServiceAccount.name|
-|--no-rbac|opposite of rbac.create|
-|--local-roles|rbac.clusterRBAC|
+| FLAG OPTION | Values.yaml ATTRIBUTE | DEFAULT|
+|-------------|-----------------------|-------------------|
+|**common** |----|---|
+|--image-pull-secret|imagePullSecret| ""|
+|**dash**|----|---|
+|--dash-image|dash.image.repository|pachyderm/dash|
+|--registry|dash.image.tag |"0.5.57"|
+|**etcd**|----|---|
+|--dynamic-etcd-nodes|etcd.dynamicNodes|1|
+|--etcd-storage-class|etcd.storageClass|""|
+|--etcd-cpu-request|etcd.resources.requests.cpu|"1"|
+|--etcd-memory-request|etcd.resources.requests.memory|"2G"|
+|**pachd**|----|---|
+|--block-cache-size|pachd.blockCacheBytes|"1G"|
+|--cluster-deployment-id|pachd.clusterDeploymentID|""|
+|inverse of --no-expose-docker-socket|pachd.exposeDockerSocket|false|
+|--expose-object-api|pachd.exposeObjectAPI|false|
+|--pachd-cpu-request|pachd.resources.requests.cpu|"1"|
+|--pachd-memory-request|pachd.resources.requests.memory|"2G"|
+|--require-critical-servers-only|pachd.requireCriticalServersOnly|false|
+|--shards|pachd.numShards|16|
+|--worker-service-account|pachd.workerServiceAccount.name|pachyderm-worker|
+|**pachd.storage**|----|---|
+|--put-file-concurrency-limit|pachd.storage.putFileConcurrencyLimit|100|
+|--upload-concurrency-limit|pachd.storage.uploadConcurrencyLimit|100|
+|**pachd.storage.amazon**|----|---|
+|--cloudfront-distribution|pachd.storage.amazon.cloudFrontDistribution|""|
+|--credentials|`id` together with `secret` and `token`, <br> implements the functionality of the <br> --credentials argument to pachctl deploy.<br><ul><li>pachd.storage.amazon.id</li><li>pachd.storage.amazon.secret</li><li> pachd.storage.amazon.token</li></ul>|all 3 default to " "|
+|--disable-ssl|pachd.storage.amazon.disableSSL|false|
+|--iam-role|pachd.storage.amazon.iamRole|""|
+|--max-upload-parts|pachd.storage.amazon.maxUploadParts|10000|
+|--no-verify-ssl|pachd.storage.amazon.noVerifySSL|false|
+|--obj-log-options|pachd.storage.amazon.logOptions|Comma-separated list containing zero or more of: 'Debug', 'Signing', 'HTTPBody', 'RequestRetries','RequestErrors', 'EventStreamBody', or 'all' (case-insensitive).  See 'AWS SDK for Go' docs for details. Default to: ""|
+|--part-size|pachd.storage.amazon.partSize|5242880|
+|--retries|pachd.storage.amazon.retries|10|
+|--reverse|pachd.storage.amazon.reverse|true|
+|--timeout|pachd.storage.amazon.timeout|"5m"|
+|--upload-acl|pachd.storage.amazon.uploadACL|bucket-owner-full-control|
+| **pachd.storage.local**|----|---|
+|--host-path|pachd.storage.local.hostPath|"/var/pachyderm/"|
+|**rbac**|----|---|
+|--local-roles|rbac.clusterRBAC|true|
+|--no-rbac|opposite of rbac.create|true|
+|**tls**|----|---|
+|--tls|<ul><li>tls.crt</li><li>tls.key</li></ul>|both default to ""|
+
+## Deploy flag deprecation
+
+!!! Info "Deprecation notice"
+        With the addition of the Helm chart, the following `pachctl deploy`
+        flags are deprecated and will be removed in the future:
+
+        - dash-image
+        - dashboard-only
+        - no-dashboard
+        - expose-object-api
+        - storage-v2
+        - shards
+        - no-rbac
+        - no-guaranteed
+        - static-etcd-volume
+        - disable-ssl
+        - max-upload-parts
+        - no-verify-ssl
+        - obj-log-options
+        - part-size
+        - retries
+        - reverse
+        - timeout
+        - upload-acl
+
+
 
