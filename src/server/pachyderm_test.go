@@ -5954,15 +5954,14 @@ func TestGroupInput(t *testing.T) {
 		// then, we're grouping the files in these pairs by the third digit/second digit as before
 		// this should regroup things into two groups of four
 		expected := [][]string{
-			{"/file-0.1011",
-				"/file-0.1111",
-				"/file-1.1101",
-				"/file-1.1111"},
-
 			{"/file-0.1001",
 				"/file-0.1101",
 				"/file-1.1001",
-				"/file-1.1011"}}
+				"/file-1.1011"},
+			{"/file-0.1011",
+				"/file-0.1111",
+				"/file-1.1101",
+				"/file-1.1111"}}
 		actual := make([][]string, 0, 2)
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 		require.NoError(t, err)
