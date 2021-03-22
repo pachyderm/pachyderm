@@ -26,7 +26,7 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.4.2
+	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
@@ -86,6 +86,7 @@ require (
 	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.36.1
+	google.golang.org/grpc/examples v0.0.0-20210603042213-0956b12520b5 // indirect
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
