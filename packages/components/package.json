@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -65,7 +65,7 @@
     "classnames": "^2.2.6",
     "lodash": "^4.17.20",
     "react-helmet": "^6.1.0",
-    "react-hook-form": "^6.15.4",
+    "react-hook-form": "^6.14.1",
     "splitting": "^1.0.6"
   },
   "peerDependencies": {
