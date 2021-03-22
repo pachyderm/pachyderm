@@ -16,8 +16,7 @@ const operations = globSync(
   path.join(process.cwd(), '/src/**/+(queries|mutations|fragments)/*.ts'),
 ).reduce((acc, filePath) => {
   acc +=
-    '\n' +
-    gqlPluckFromCodeStringSync(filePath, fs.readFileSync(filePath, 'utf8'));
+    gqlPluckFromCodeStringSync(filePath, fs.readFileSync(filePath, 'utf8')) + '\n';
 
   return acc;
 }, '');
