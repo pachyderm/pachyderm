@@ -85,7 +85,6 @@ export type Pipeline = {
   numOfJobsFailing: Scalars['Int'];
   numOfJobsSucceeding: Scalars['Int'];
   numOfJobsKilled: Scalars['Int'];
-  numOfJobsMerging: Scalars['Int'];
   numOfJobsEgressing: Scalars['Int'];
   lastJobState?: Maybe<JobState>;
   inputs: Array<Input>;
@@ -199,6 +198,11 @@ export type Account = {
   email: Scalars['String'];
 };
 
+export type SearchResults = {
+  __typename?: 'SearchResults';
+  pipelines: Array<Maybe<Pipeline>>;
+};
+
 export type Query = {
   __typename?: 'Query';
   projects: Array<Project>;
@@ -209,6 +213,7 @@ export type Query = {
   dags: Array<Dag>;
   files: Array<File>;
   account: Account;
+  searchResults: SearchResults;
 };
 
 export type QueryJobsArgs = {
@@ -225,6 +230,10 @@ export type QueryDagsArgs = {
 
 export type QueryFilesArgs = {
   args: FileQueryArgs;
+};
+
+export type QuerySearchResultsArgs = {
+  query: Scalars['String'];
 };
 
 export type Mutation = {
@@ -386,6 +395,7 @@ export type ResolversTypes = ResolversObject<{
   FileQueryArgs: FileQueryArgs;
   Tokens: ResolverTypeWrapper<Tokens>;
   Account: ResolverTypeWrapper<Account>;
+  SearchResults: ResolverTypeWrapper<SearchResults>;
   Query: ResolverTypeWrapper<{}>;
   Mutation: ResolverTypeWrapper<{}>;
 }>;
@@ -417,6 +427,7 @@ export type ResolversParentTypes = ResolversObject<{
   FileQueryArgs: FileQueryArgs;
   Tokens: Tokens;
   Account: Account;
+  SearchResults: SearchResults;
   Query: {};
   Mutation: {};
 }>;
@@ -547,7 +558,6 @@ export type PipelineResolvers<
     ContextType
   >;
   numOfJobsKilled?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  numOfJobsMerging?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   numOfJobsEgressing?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   lastJobState?: Resolver<
     Maybe<ResolversTypes['JobState']>,
@@ -702,6 +712,18 @@ export type AccountResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type SearchResultsResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['SearchResults'] = ResolversParentTypes['SearchResults']
+> = ResolversObject<{
+  pipelines?: Resolver<
+    Array<Maybe<ResolversTypes['Pipeline']>>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type QueryResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']
@@ -742,6 +764,12 @@ export type QueryResolvers<
     RequireFields<QueryFilesArgs, 'args'>
   >;
   account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
+  searchResults?: Resolver<
+    ResolversTypes['SearchResults'],
+    ParentType,
+    ContextType,
+    RequireFields<QuerySearchResultsArgs, 'query'>
+  >;
 }>;
 
 export type MutationResolvers<
@@ -778,6 +806,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   File?: FileResolvers<ContextType>;
   Tokens?: TokensResolvers<ContextType>;
   Account?: AccountResolvers<ContextType>;
+  SearchResults?: SearchResultsResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
 }>;

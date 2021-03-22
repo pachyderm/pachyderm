@@ -13,11 +13,13 @@ const tutorial = [
         new Input().setPfs(new PFSInput().setRepo('edges')),
         new Input().setPfs(new PFSInput().setRepo('images')),
       ]),
-    ),
+    )
+    .setDescription('Not my favorite pipeline'),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('edges'))
-    .setInput(new Input().setPfs(new PFSInput().setRepo('images'))),
+    .setInput(new Input().setPfs(new PFSInput().setRepo('images')))
+    .setDescription('Very cool edges description'),
 ];
 
 const customerTeam = [

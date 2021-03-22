@@ -16,10 +16,10 @@ const pps = ({
   const client = new APIClient(pachdAddress, channelCredentials);
 
   return {
-    listPipeline: () => {
+    listPipeline: (jq = '') => {
       return new Promise<PipelineInfo.AsObject[]>((resolve, reject) => {
         client.listPipeline(
-          new ListPipelineRequest(),
+          new ListPipelineRequest().setJqfilter(jq),
           credentialMetadata,
           (error, res) => {
             if (error) {

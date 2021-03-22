@@ -73,7 +73,6 @@ type Pipeline {
   numOfJobsFailing: Int!
   numOfJobsSucceeding: Int!
   numOfJobsKilled: Int!
-  numOfJobsMerging: Int!
   numOfJobsEgressing: Int!
   lastJobState: JobState
   inputs: [Input!]!
@@ -183,6 +182,10 @@ type Account {
   email: String!
 }
 
+type SearchResults {
+  pipelines: [Pipeline]!
+}
+
 type Query {
   projects: [Project!]!
   pipelines: [Pipeline!]!
@@ -192,6 +195,7 @@ type Query {
   dags(args: DagQueryArgs!): [Dag!]!
   files(args: FileQueryArgs!): [File!]!
   account: Account!
+  searchResults(query: String!): SearchResults!
 }
 
 type Mutation {

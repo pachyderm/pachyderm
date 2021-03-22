@@ -15,6 +15,7 @@ import fileResolver from './File';
 import jobResolver from './Job';
 import projectsResolver from './Projects';
 import repoResolver from './Repo';
+import searchResolver from './Search';
 
 const resolvers: Resolvers = merge(
   {JobState: JobState},
@@ -27,6 +28,7 @@ const resolvers: Resolvers = merge(
   authResolver,
   projectsResolver,
   jobResolver,
+  searchResolver,
   {},
 );
 

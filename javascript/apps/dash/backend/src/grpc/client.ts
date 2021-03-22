@@ -1,4 +1,4 @@
-import {Metadata, ServiceError} from '@grpc/grpc-js';
+import {Metadata} from '@grpc/grpc-js';
 import Logger from 'bunyan';
 
 import createCredentials from '@dash-backend/grpc/createCredentials';
