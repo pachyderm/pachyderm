@@ -194,7 +194,7 @@ deploy Pachyderm on your local cluster by following these steps:
    
       Find a **baseline file for local deployments** in this [example repository](https://github.com/pachyderm/helmchart/tree/master/examples) and set the `backend` attribute to `LOCAL`.
 
-      See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters. More [details on Helm installation](../deploy-manage/deploy/helm_install).
+      See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters. More [details on Helm installation](../../deploy-manage/deploy/helm_install/).
 
 * Install the Pachyderm helm chart ([helm v3](https://helm.sh/docs/intro/)):
    ```shell
