@@ -29,7 +29,7 @@
                             "type": "object",
                             "properties": {
                                 "cpu": {
-                                    "type": "integer"
+                                    "type": "string"
                                 },
                                 "memory": {
                                     "type": "string"
@@ -40,7 +40,7 @@
                             "type": "object",
                             "properties": {
                                 "cpu": {
-                                    "type": "integer"
+                                    "type": "string"
                                 },
                                 "memory": {
                                     "type": "string"
@@ -243,9 +243,6 @@
                                 "maxUploadParts": {
                                     "type": "integer"
                                 },
-                                "noVerifySSL": {
-                                    "type": "boolean"
-                                },
                                 "partSize": {
                                     "type": "integer"
                                 },
@@ -283,6 +280,9 @@
                                             "type": "string"
                                         }
                                     }
+                                },
+                                "verifySSL": {
+                                    "type": "boolean"
                                 }
                             }
                         },

@@ -11,19 +11,19 @@ dash:
     # repository is the image repo to pull from; together with tag it
     # replicates the --dash-image & --registry arguments to pachctl
     # deploy.
-    repository: pachyderm/dash
-    pullPolicy: IfNotPresent
+    repository: "pachyderm/dash"
+    pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "0.5.57"
   # resources specifies the resource request
   resources:
     limits:
-      cpu: 1
-      memory: 2G
+      cpu: "1"
+      memory: "2G"
     requests:
-      cpu: 1
-      memory: 2G
+      cpu: "1"
+      memory: "2G"
 
 etcd:
   # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
@@ -31,17 +31,17 @@ etcd:
   # deploy.
   dynamicNodes: 1
   image:
-    repository: pachyderm/etcd
+    repository: "pachyderm/etcd"
     tag: "v3.3.5"
-    pullPolicy: IfNotPresent
+    pullPolicy: "IfNotPresent"
   # resources specifies the resource request
   resources:
     limits:
       cpu: "1"
-      memory: 2G
+      memory: "2G"
     requests:
       cpu: "1"
-      memory: 2G
+      memory: "2G"
   # storageClass indicates the etcd should use an existing
   # StorageClass for its storage.  It is analogous to the
   # --etcd-storage-class argument to pachctl deploy.
@@ -68,10 +68,10 @@ pachd:
   # analogous to --expose-object-api passed to pachctl deploy.
   exposeObjectAPI: false
   image:
-    repository: pachyderm/pachd
-    pullPolicy: IfNotPresent
+    repository: "pachyderm/pachd"
+    pullPolicy: "IfNotPresent"
     tag: "1.12.4"
-  logLevel: info
+  logLevel: "info"
   metrics:
     enabled: true
     endpoint: ""
@@ -84,22 +84,22 @@ pachd:
   resources:
     limits:
       cpu: "1"
-      memory: 2G
+      memory: "2G"
     requests:
       cpu: "1"
-      memory: 2G
+      memory: "2G"
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
   requireCriticalServersOnly: false
   service: #TODO How to handle selective ports for hub
-    type: ClusterIP
+    type: "ClusterIP"
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
   serviceAccount:
     create: true
-    name: pachyderm #TODO Set default in helpers / Wire up in templates
+    name: "pachyderm" #TODO Set default in helpers / Wire up in templates
   storage:
     amazon:
       # bucket sets the S3 bucket to use.
@@ -132,11 +132,9 @@ pachd:
       # analogous to the --max-upload-parts argument to pachctl
       # deploy.
       maxUploadParts: 10000
-      # noVerifySSL skips SSL certificate verification.  It is
-      # analogous to the --no-verify-ssl argument to pachctl deploy.
-      #
-      # FIXME: invert this to verifySSL
-      noVerifySSL: false
+      # verifySSL performs SSL certificate verification.  It is the
+      # inverse of the --no-verify-ssl argument to pachctl deploy.
+      verifySSL: true
       # partSize sets the part size for object storage uploads.  It is
       # analogous to the --part-size argument to pachctl deploy.
       partSize: 5242880
@@ -162,7 +160,7 @@ pachd:
       token: ""
       # uploadACL sets the upload ACL for object storage uploads.  It
       # is analogous to the --upload-acl argument to pachctl deploy.
-      uploadACL: bucket-owner-full-control
+      uploadACL: "bucket-owner-full-control"
       vault:
         address: ""
         role: ""
@@ -228,7 +226,7 @@ pachd:
     create: true
     # name sets the name of the worker service account.  Analogous to
     # the --worker-service-account argument to pachctl deploy.
-    name: pachyderm-worker #TODO Set default in helpers / Wire up in templates
+    name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
   # The options below are unusual.  You probably will not want to
   # change them.
   authenticationDisabledForTesting: false
@@ -254,5 +252,5 @@ tls:
 
 worker:
   image:
-    repository: pachyderm/worker
+    repository: "pachyderm/worker"
     tag: "1.12.4"
