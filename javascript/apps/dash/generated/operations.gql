@@ -1,4 +1,3 @@
-
 mutation exchangeCode($code: String!) {
   exchangeCode(code: $code) {
     pachToken
@@ -33,6 +32,21 @@ query getDags($args: DagQueryArgs!) {
       target
       state
     }
+  }
+}
+query getFiles($args: FileQueryArgs!) {
+  files(args: $args) {
+    committed {
+      nanos
+      seconds
+    }
+    commitId
+    download
+    hash
+    path
+    repoName
+    sizeBytes
+    type
   }
 }
 query projects {
