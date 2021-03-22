@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package auth;
+package auth2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/auth";
 
 import "gogoproto/gogo.proto";
@@ -10,8 +10,8 @@ import "google/protobuf/timestamp.proto";
  *
  * In Pachyderm, usernames are structured strings. This makes both
  * our API and our data model more flexible (at the loss of some type safety).
- * Basically, anywhere that Pachyderm refers to a subject (i.e. TokenInfo) or 
- * principal (ACL, the 'admins' collection), that username will have some 
+ * Basically, anywhere that Pachyderm refers to a subject (i.e. TokenInfo) or
+ * principal (ACL, the 'admins' collection), that username will have some
  * structured prefix.
  *
  * Note that externally-facing principals ({Get,Set}{Scope,ACL}, ModifyAdmins,
@@ -48,7 +48,7 @@ message DeactivateRequest {}
 message DeactivateResponse {}
 
 
-// Configure Pachyderm's auth system with an OIDC provider 
+// Configure Pachyderm's auth system with an OIDC provider
 message OIDCConfig{
   string issuer = 1;
   string client_id = 2 [(gogoproto.customname) = "ClientID"];
@@ -59,7 +59,7 @@ message OIDCConfig{
 
  // localhost_issuer ignores the contents of the issuer claim and makes all
  // OIDC requests to the embedded OIDC provider. This is necessary to support
- // some network configurations like Minikube. 
+ // some network configurations like Minikube.
  bool localhost_issuer = 7;
 }
 
@@ -130,7 +130,7 @@ message RoleBinding {
   map<string, Roles> entries = 1;
 }
 
-// Permission represents the ability to perform a given operation on a Resource 
+// Permission represents the ability to perform a given operation on a Resource
 enum Permission {
   UNKNOWN = 0;
 
@@ -207,7 +207,7 @@ enum ResourceType {
 
 // Resource represents any resource that has role-bindings in the system
 message Resource {
-  ResourceType type = 1; 
+  ResourceType type = 1;
   string name = 2;
 }
 
@@ -225,7 +225,7 @@ message AuthorizeRequest {
   reserved 2;
   Resource resource = 1;
 
-  // permissions are the operations the caller is attempting to perform 
+  // permissions are the operations the caller is attempting to perform
   repeated Permission permissions = 3;
 }
 
@@ -244,7 +244,7 @@ message AuthorizeResponse {
 }
 
 message ModifyRoleBindingRequest {
-  // resource is the resource to modify the role bindings on 
+  // resource is the resource to modify the role bindings on
   Resource resource = 1;
 
   // principal is the principal to modify the roles binding for
@@ -258,11 +258,11 @@ message ModifyRoleBindingRequest {
 message ModifyRoleBindingResponse {}
 
 message GetRoleBindingRequest {
-  Resource resource = 1; 
+  Resource resource = 1;
 }
 
 message GetRoleBindingResponse {
-  RoleBinding binding = 1; 
+  RoleBinding binding = 1;
 }
 
 //////////////////////////////
@@ -405,12 +405,12 @@ message HashedAuthToken {
 message ExtractAuthTokensRequest {}
 
 message ExtractAuthTokensResponse {
-  repeated HashedAuthToken tokens = 1; 
+  repeated HashedAuthToken tokens = 1;
 }
 
 // RestoreAuthToken inserts a hashed token that has previously been extracted.
 message RestoreAuthTokenRequest {
-  HashedAuthToken token = 1; 
+  HashedAuthToken token = 1;
 }
 
 message RestoreAuthTokenResponse {}

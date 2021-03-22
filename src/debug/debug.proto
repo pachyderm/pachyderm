@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package debug;
+package debug2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/debug";
 
 import "google/protobuf/wrappers.proto";
@@ -20,8 +20,8 @@ message Profile {
 
 message Filter {
   oneof filter {
-    bool pachd = 1;	
-    pps.Pipeline pipeline = 2;	
+    bool pachd = 1;
+    pps2.Pipeline pipeline = 2;
     Worker worker = 3;
   }
 }

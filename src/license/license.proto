@@ -20,14 +20,14 @@ message ActivateRequest {
 }
 
 message ActivateResponse {
-  enterprise.TokenInfo info = 1;
+  enterprise2.TokenInfo info = 1;
 }
 
 message GetActivationCodeRequest {}
 
 message GetActivationCodeResponse {
-  enterprise.State state = 1;
-  enterprise.TokenInfo info = 2;
+  enterprise2.State state = 1;
+  enterprise2.TokenInfo info = 2;
   string activation_code = 3;
 }
 
@@ -41,7 +41,7 @@ message AddClusterRequest {
   string address = 2;
   // If set, secret specifies the shared secret this cluster will use
   // to authenticate to the license server. Otherwise a secret will be
-  // generated and returned in the response. 
+  // generated and returned in the response.
   string secret = 3;
 }
 message AddClusterResponse {
@@ -58,8 +58,8 @@ message ClusterStatus {
   string address = 2;
   string version = 3;
   bool auth_enabled = 4 [(gogoproto.moretags) = "db:\"auth_enabled\""];
-  google.protobuf.Timestamp last_heartbeat = 5 [(gogoproto.moretags) = "db:\"last_heartbeat\"", (gogoproto.stdtime) = true]; 
-  google.protobuf.Timestamp created_at = 6 [(gogoproto.moretags) = "db:\"created_at\"", (gogoproto.stdtime) = true]; 
+  google.protobuf.Timestamp last_heartbeat = 5 [(gogoproto.moretags) = "db:\"last_heartbeat\"", (gogoproto.stdtime) = true];
+  google.protobuf.Timestamp created_at = 6 [(gogoproto.moretags) = "db:\"created_at\"", (gogoproto.stdtime) = true];
 }
 
 message UpdateClusterRequest {
@@ -70,7 +70,7 @@ message UpdateClusterResponse{}
 
 message ListClustersRequest {}
 message ListClustersResponse {
-  repeated ClusterStatus clusters = 1;  
+  repeated ClusterStatus clusters = 1;
 }
 
 message DeleteAllRequest{}
@@ -84,7 +84,7 @@ message HeartbeatRequest {
 }
 
 message HeartbeatResponse {
-  enterprise.LicenseRecord license = 1;
+  enterprise2.LicenseRecord license = 1;
 }
 
 service API {
@@ -106,4 +106,3 @@ service API {
   // to communicate their status and fetch updates.
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse) {}
 }
-

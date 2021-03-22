@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package enterprise;
+package enterprise2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/enterprise";
 
 import "google/protobuf/timestamp.proto";
@@ -27,10 +27,10 @@ message EnterpriseConfig {
   string secret = 3;
 }
 
-// EnterpriseRecord is a protobuf we cache in etcd to store the 
+// EnterpriseRecord is a protobuf we cache in etcd to store the
 // enterprise status.
 message EnterpriseRecord {
-  // license is the cached LicenseRecord retrieved from the most recent 
+  // license is the cached LicenseRecord retrieved from the most recent
   // heartbeat to the license server.
   LicenseRecord license = 1;
 
@@ -90,7 +90,7 @@ message GetActivationCodeResponse {
 }
 
 // Heartbeat in the enterprise service just triggers a heartbeat for
-// testing purposes. The RPC used to communicate with the license 
+// testing purposes. The RPC used to communicate with the license
 // service is defined in the license service.
 message HeartbeatRequest{}
 message HeartbeatResponse{}
@@ -113,4 +113,3 @@ service API {
   // token and sets its enterprise state to NONE.
   rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
 }
-

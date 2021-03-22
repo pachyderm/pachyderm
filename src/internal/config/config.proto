@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package config;
+package config2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/config";
 
 import "gogoproto/gogo.proto";

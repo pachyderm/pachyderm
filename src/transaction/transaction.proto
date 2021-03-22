@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package transaction;
+package transaction2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/transaction";
 
 import "google/protobuf/empty.proto";
@@ -16,21 +16,21 @@ message DeleteAllRequest {
 
 message TransactionRequest {
   // Exactly one of these fields should be set
-  pfs.CreateRepoRequest create_repo = 1;
-  pfs.DeleteRepoRequest delete_repo = 2;
-  pfs.StartCommitRequest start_commit = 3;
-  pfs.FinishCommitRequest finish_commit = 4;
-  pfs.SquashCommitRequest squash_commit = 5;
-  pfs.CreateBranchRequest create_branch = 6;
-  pfs.DeleteBranchRequest delete_branch = 7;
-  pps.UpdateJobStateRequest update_job_state = 11;
-  pps.CreatePipelineRequest create_pipeline = 12;
+  pfs2.CreateRepoRequest create_repo = 1;
+  pfs2.DeleteRepoRequest delete_repo = 2;
+  pfs2.StartCommitRequest start_commit = 3;
+  pfs2.FinishCommitRequest finish_commit = 4;
+  pfs2.SquashCommitRequest squash_commit = 5;
+  pfs2.CreateBranchRequest create_branch = 6;
+  pfs2.DeleteBranchRequest delete_branch = 7;
+  pps2.UpdateJobStateRequest update_job_state = 11;
+  pps2.CreatePipelineRequest create_pipeline = 12;
   DeleteAllRequest delete_all = 10;
 }
 
 message TransactionResponse {
   // At most, one of these fields should be set (most responses are empty)
-  pfs.Commit commit = 2; // Only used for StartCommit - any way we can deterministically provide this before finishing the transaction?
+  pfs2.Commit commit = 2; // Only used for StartCommit - any way we can deterministically provide this before finishing the transaction?
 }
 
 message Transaction {
