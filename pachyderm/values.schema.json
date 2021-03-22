@@ -253,7 +253,7 @@
                                     "type": "integer"
                                 },
                                 "reverse": {
-                                    "type": "string"
+                                    "type": "boolean"
                                 },
                                 "secret": {
                                     "type": "string"

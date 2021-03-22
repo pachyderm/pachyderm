@@ -146,7 +146,7 @@ pachd:
       retries: 10
       # reverse reverses object storage paths.  It is analogous to the
       # --reverse argument to pachctl deploy.
-      reverse: "true"
+      reverse: true
       # secret sets the Amazon secret access key to use.  Together with id
       # and token, it implements the functionality of the
       # --credentials argument to pachctl deploy.
