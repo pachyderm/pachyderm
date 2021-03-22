@@ -1,24 +1,43 @@
 import {Button, Info} from '@pachyderm/components';
+import classNames from 'classnames';
 import {format, fromUnixTime} from 'date-fns';
+import noop from 'lodash/noop';
 import React from 'react';
 import {useHistory} from 'react-router';
 
+import projectStatusAsString from '@dash-frontend/lib/projectStatusAsString';
 import {Project} from '@graphqlTypes';
 
-import ProjectStatus from './components/ProjectStatus/ProjectStatus';
+import ProjectStatus from '../ProjectStatus';
+
 import styles from './ProjectRow.module.css';
 
 type ProjectRowProps = {
   project: Project;
+  isSelected: boolean;
+  setSelectedProject: () => void;
 };
 
-const ProjectRow: React.FC<ProjectRowProps> = ({project}) => {
+const ProjectRow: React.FC<ProjectRowProps> = ({
+  project,
+  isSelected = false,
+  setSelectedProject = noop,
+}) => {
   const browserHistory = useHistory();
   const onClick = () => browserHistory.push(`/project/${project.id}`);
   const date = format(fromUnixTime(project.createdAt), 'MM/d/yyyy');
 
   return (
-    <tr className={styles.row}>
+    <tr
+      className={classNames(styles.row, {
+        [styles[
+          `${projectStatusAsString(project.status)}Selected`
+        ]]: isSelected,
+      })}
+      onClick={(e: React.MouseEvent<HTMLTableRowElement, MouseEvent>) =>
+        setSelectedProject()
+      }
+    >
       <td>
         <h3 className={styles.title}>{project.name}</h3>
       </td>

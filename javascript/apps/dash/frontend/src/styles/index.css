@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css?family=Montserrat:400,500,600,800&display=swap');
 
+.tooltip.show {
+  opacity: 1;
+}
+
 body, div[id=root], html, main {
   height: 100%;
 }

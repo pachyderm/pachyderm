@@ -1,0 +1,52 @@
+.base {
+  width: 100%;
+}
+
+.topContent {
+  padding: 1.5rem;
+  padding-top: 4rem;
+  padding-bottom: 0rem;
+}
+
+.title {
+  color: var(--pachyderm-black);
+  font-weight: 600;
+  font-size: var(--font-size-header);
+  line-height: 19px;
+}
+
+.subTitle {
+  color: var(--pachyderm-black);
+  font-weight: 600;
+  line-height: 22px;
+  font-size: 0.875rem;
+}
+.inline {
+  display: inline-flex;
+  width: 100%;
+}
+
+.inline a {
+  text-align: right;
+}
+
+.extras {
+  margin-left: 0.5rem;
+  flex: 1;
+  display: inline-flex;
+  justify-content: space-between;
+  text-align: right;
+}
+
+.link {
+  color: var(--pachyderm-plum);
+}
+
+.link:hover {
+  text-decoration: none;
+  color: var(--pachyderm-plum);
+}
+
+.link:active {
+  color: var(--pachyderm-plum);
+}

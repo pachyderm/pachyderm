@@ -6,7 +6,7 @@ import {useCallback, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
 import {useProjects} from '@dash-frontend/hooks/useProjects';
-import projectStatusAsString from '@dash-frontend/lib/projecStatusAsString';
+import projectStatusAsString from '@dash-frontend/lib/projectStatusAsString';
 import {Project} from '@graphqlTypes';
 
 type sortOptions = {
@@ -43,6 +43,7 @@ export const useLandingView = () => {
 
   const [searchValue, setSearchValue] = useState('');
   const [sortButtonText, setSortButtonText] = useState('Created On');
+  const [selectedProject, setSelectedProject] = useState(0);
 
   const handleSortSelect = useCallback(
     (id: string) => {
@@ -104,5 +105,7 @@ export const useLandingView = () => {
     searchValue,
     setSearchValue,
     sortButtonText,
+    selectedProject,
+    setSelectedProject,
   };
 };

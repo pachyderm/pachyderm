@@ -1,0 +1,7 @@
+.base {
+  background-color: var(--white);
+  max-width: 19rem;
+  width: 100%;
+  display: flex;
+  border-left: solid 1px var(--line-grey);
+}

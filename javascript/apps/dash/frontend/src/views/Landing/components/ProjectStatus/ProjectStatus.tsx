@@ -2,7 +2,7 @@ import {Group, Circle} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React, {useMemo} from 'react';
 
-import projectStatusAsString from '@dash-frontend/lib/projecStatusAsString';
+import projectStatusAsString from '@dash-frontend/lib/projectStatusAsString';
 import {ProjectStatus as ProjectStatusEnum} from '@graphqlTypes';
 
 type ProjectStatusType = {

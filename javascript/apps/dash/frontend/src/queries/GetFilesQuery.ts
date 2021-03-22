@@ -1,4 +1,4 @@
-import gql from 'graphql-tag';
+import {gql} from '@apollo/client';
 
 export const GET_FILES_QUERY = gql`
   query getFiles($args: FileQueryArgs!) {

@@ -11,6 +11,11 @@
   font-size: var(--font-size-body-medium);
 }
 
+.row:hover {
+  cursor: pointer;
+  box-shadow: 0 2px 4px 0 var(--border-grey);
+}
+
 .row td {
   background-color: var(--white);
   padding: 1.5rem 2rem;
@@ -30,4 +35,13 @@
   color: var(--pachyderm-black);
   font-size: 1rem;
   line-height: 25px;
+}
+
+.row.healthySelected td:first-child {
+  border-left: solid 6px var(--banner-green);
+  padding-left: calc(1.5rem - 6px);
+}
+.row.unhealthySelected td:first-child {
+  border-left: solid 6px var(--error-red);
+  padding-left: calc(1.5rem - 6px);
 }
