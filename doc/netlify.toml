@@ -52,6 +52,13 @@
   status = 301
   force = true
 
+
+[[redirects]]
+  from = "/en/latest/cookbook/combining.html"
+  to = "https://docs.pachyderm.com/latest/examples/examples/#lazy-shuffle-pipeline"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
   to = "/deploy-manage/deploy/deploy-pachyderm-ide/"
