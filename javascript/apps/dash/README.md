@@ -12,17 +12,44 @@ This will start the UI server, API server, mock gRPC server, and a mock IDP. You
 ### Using 2.0 Pachyderm Cluster 🚧
 This feature is still under development, and will likely change.
 
-1. Ensure that your cluster is deployed with `2.0.0-alpha.2` or later. Users of brew can install with `brew install pachyderm/tap/pachctl@2.0`.
+1. Ensure that your cluster is deployed with `2.0.0-alpha.9` or later. Users of brew can install with `brew install pachyderm/tap/pachctl@2.0`.
 1. [Deploy a pachyderm cluster locally](https://docs.pachyderm.com/latest/getting_started/local_installation/), or create a workspace using Hub.
 1. Create a `.env.test.local` in this directory. In that file, add the variable `REACT_APP_PACHD_ADDRESS`.
 1. Fill `REACT_APP_PACHD_ADDRESS` with the address of the gRPC API server in your pach cluster. For local clusters, this is `localhost:30650`. (2.0 clusters are not yet available to be deployed on Hub)
 1. [Create a Github OAuth app](https://docs.github.com/en/developers/apps/creating-an-oauth-app). For local clusters, set your callback url to `http://localhost:30658/callback`. Make sure to save the secret key, you'll need it for the next step.
-1. Generate an enterprise key for the next step: https://enterprise-token-gen.pachyderm.io/dev. For Max OS users, `echo '<your-enterprise-token-here>' | pachctl enterprise activate` might be required due to input buffer limits.
-1. Run the steps in the following gist https://gist.github.com/actgardner/d11545796112003c637882571df4b357. You can skip the creation of the pachd client, and the port-forwarding steps. __NOTE:__ After the `pachctl auth activate` step, it's helpful to add your Github account as a cluster admin using: `pachctl auth set cluster clusterAdmin user:<your github email>`. This will make your Github IDP user a cluster admin, allowing you to finish the remaining steps which require admin privileges. This will also give your user access to all created cluster resources. If you choose not to do this, you'll need to hold off on using `pachctl auth login` until finishing the remaining steps (remaining logged in as the root user). At that point, you'll need to login with your Github user before creating any cluster resources. Otherwise, your Github user won't have all of the necessary privileges to interact with create repos/pipelines/etc.
+1. Generate an enterprise key for the next step: https://enterprise-token-gen.pachyderm.io/dev. For Max OS users, `echo '<your-enterprise-token-here>' | pachctl enterprise activate`.
+1. Run `pachctl auth activate`.
+1. (Optional) It's helpful to add your Github account as a cluster admin using: `pachctl auth set cluster clusterAdmin user:<your github email>`. This will make your Github IDP user a cluster admin, allowing you to finish the remaining steps which require admin privileges. This will also give your user access to all created cluster resources. If you choose not to do this, you'll need to hold off on using `pachctl auth login` until finishing the remaining steps (remaining logged in as the root user). At that point, you'll need to login with your Github user before creating any cluster resources. Otherwise, your Github user won't have all of the necessary privileges to interact with create repos/pipelines/etc.
+1. Set the active enterprise context by running: `pachctl config set-active-enterprise-context <your-context>`. For local deployments, `<your-context>` will be `local`.
+1. Configure the issuer for by running: `pachctl idp set-config --issuer 'http://localhost:30658/'`
+1. Configure the GitHub connector by running:
+    ```
+    pachctl idp create-connector --id github --name github --type github --config - <<EOF
+    {
+      "clientID": "<Github client id>",
+      "clientSecret": "<Github client secret>",
+      "redirectURI": "http://localhost:30658/callback",
+      "org": "pachyderm"
+    }
+    EOF
+    ```
+1. Configure the OIDC provider by running:
+    ```
+    pachctl auth set-config  <<EOF
+    {
+      "issuer": "http://localhost:30658/",
+      "localhost_issuer": true,
+      "client_id": "pachd",
+      "client_secret": "notsecret",
+      "redirect_uri": "http://localhost:30657/authorization-code/callback"
+    }
+    EOF
+    ```
 1. Create the pachyderm client using: `pachctl idp create-client --id dash --name dash --redirectUris http://localhost:4000/oauth/callback/\?inline\=true`. Save the client-secret!
 1. Add the variable `OAUTH_CLIENT_SECRET` to the `.env.test.local` you created earlier with the value set to the dash client secret.
 1. Update the `pachd` to allow dash to issue tokens on it's behalf using `pachctl idp update-client pachd --trustedPeers dash`
 1. Run `pachctl port-forward`
+1. (Optional) Use `pachctl auth login` to login via Github. If you opt not to do this, you will continue as the root user when creating resources.
 1. Run `npm run start:dev` from the /backend directory, and `npm run start` from the /frontend directory.
 1. Make sure to delete any existing `auth-token` from the mock-server in `localStorage`.
 1. Navigate to `localhost:4000` in the browser.
