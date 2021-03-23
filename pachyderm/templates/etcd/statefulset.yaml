@@ -58,7 +58,7 @@ spec:
         - containerPort: 2380
           name: peer-port
         {{- if .Values.etcd.resources }}
-        resources: {{ toYaml .Values.etcd.resources | nindent 12 }}
+        resources: {{ toYaml .Values.etcd.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
         - mountPath: /var/data/etcd
