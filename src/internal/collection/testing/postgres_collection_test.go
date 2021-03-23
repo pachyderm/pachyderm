@@ -20,27 +20,31 @@ type TestModel struct {
 	Value     string
 }
 
-func (fm *TestModel) TableName() string {
+func (tm *TestModel) Indexes() []*col.Index {
+	return []*col.Index{TestSecondaryIndex}
+}
+
+func (tm *TestModel) TableName() string {
 	return "foos"
 }
 
-func (fm *TestModel) WriteToProtobuf(val proto.Message) error {
+func (tm *TestModel) WriteToProtobuf(val proto.Message) error {
 	pb, ok := val.(*TestItem)
 	if !ok {
 		return errors.Errorf("incorrect protobuf type")
 	}
-	pb.ID = fm.ID
-	pb.Value = fm.Value
+	pb.ID = tm.ID
+	pb.Value = tm.Value
 	return nil
 }
 
-func (fm *TestModel) LoadFromProtobuf(val proto.Message) error {
+func (tm *TestModel) LoadFromProtobuf(val proto.Message) error {
 	pb, ok := val.(*TestItem)
 	if !ok {
 		return errors.Errorf("incorrect protobuf type")
 	}
-	fm.ID = pb.ID
-	fm.Value = pb.Value
+	tm.ID = pb.ID
+	tm.Value = pb.Value
 	return nil
 }
 

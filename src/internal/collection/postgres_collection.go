@@ -3,6 +3,7 @@ package collection
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 	"strings"
@@ -14,17 +15,25 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
 const (
-	modifiedTriggerName  = "updateModifiedTrigger"
-	modifiedFunctionName = "updateModifiedTime"
+	modifiedTriggerName  = "update_modified_trigger"
+	modifiedFunctionName = "update_modified_time"
+	watchBaseName        = "pwc" // "Pachyderm Watch Channel"
+	pgIdentBase64Values  = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_$"
+)
+
+var (
+	pgIdentBase64Encoding = base64.NewEncoding(pgIdentBase64Values).WithPadding(base64.NoPadding)
 )
 
 // PostgresModel is the interface that all models must fulfill to be used in a postgres collection
 type PostgresModel interface {
 	TableName() string
+	Indexes() []*Index
 	WriteToProtobuf(proto.Message) error
 	LoadFromProtobuf(proto.Message) error
 }
@@ -53,6 +62,10 @@ func toSQLType(gotype string) (string, error) {
 	return "", errors.Errorf("No SQL type for %s", gotype)
 }
 
+type SQLIndex struct {
+	Index
+}
+
 type SQLField struct {
 	SQLType string
 	SQLName string
@@ -60,15 +73,16 @@ type SQLField struct {
 	GoName  string
 }
 
-type SQLIndex struct {
-	Names []string
+// TODO: would be better if we just serialize this field in the protobuf to a byte array?
+func (sf *SQLField) fromRow(row reflect.Value) interface{} {
+	return reflect.Indirect(row).FieldByName(sf.GoName).Interface()
 }
 
 type SQLInfo struct {
 	Table   string
 	Pkey    *SQLField
 	Fields  []SQLField
-	Indexes []SQLIndex
+	Indexes []*Index
 }
 
 func forEachField(modelType reflect.Type, cb func(reflect.StructField) error) error {
@@ -85,7 +99,6 @@ func parseModel(model PostgresModel) (*SQLInfo, error) {
 
 	pkey := []*SQLField{}
 	sqlFields := []SQLField{}
-	sqlIndexes := []SQLIndex{}
 	if err := forEachField(modelType, func(field reflect.StructField) error {
 		// Get the field tag value
 		tag := field.Tag.Get("collection")
@@ -116,18 +129,36 @@ func parseModel(model PostgresModel) (*SQLInfo, error) {
 	if len(pkey) == 0 {
 		return nil, errors.Errorf("%v has no field tagged with collection:\"primaryKey\"", modelType)
 	} else if len(pkey) != 1 {
-		// TODO: support compound primary keys
 		return nil, errors.Errorf("%v has multiple fields tagged with collection:\"primaryKey\": %v", modelType, pkey[0].GoName)
 	}
 
-	return &SQLInfo{model.TableName(), pkey[0], sqlFields, sqlIndexes}, nil
+	return &SQLInfo{model.TableName(), pkey[0], sqlFields, model.Indexes()}, nil
+}
+
+func ensureModifiedTrigger(tx *sqlx.Tx, info *SQLInfo) error {
+	// Create trigger to update the modified timestamp (no way to do this without recreating it each time?)
+	dropTrigger := fmt.Sprintf("drop trigger if exists %s on %s;", modifiedTriggerName, info.Table)
+	if _, err := tx.Exec(dropTrigger); err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	createFunction := fmt.Sprintf("create or replace function %s() returns trigger as $$ begin new.updatedat = now(); return new; end; $$ language 'plpgsql';", modifiedFunctionName)
+	if _, err := tx.Exec(createFunction); err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	createTrigger := fmt.Sprintf("create trigger %s before update or insert on %s for each row execute procedure %s();", modifiedTriggerName, info.Table, modifiedFunctionName)
+	if _, err := tx.Exec(createTrigger); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 // Ensure the table and all indices exist
 func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 	columns := []string{}
 	for _, field := range info.Fields {
-		if field.GoName == "CreatedAt" || field.GoName == "UpdatedAt" {
+		if field.GoName == "CreatedAt" {
 			columns = append(columns, fmt.Sprintf("%s %s default current_timestamp", field.SQLName, field.SQLType))
 		} else {
 			columns = append(columns, fmt.Sprintf("%s %s", field.SQLName, field.SQLType))
@@ -139,22 +170,6 @@ func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 	return NewSQLTx(db, context.Background(), func(tx *sqlx.Tx) error {
 		createTable := fmt.Sprintf("create table if not exists %s (%s);", info.Table, strings.Join(columns, ", "))
 		if _, err := tx.Exec(createTable); err != nil {
-			return errors.EnsureStack(err)
-		}
-
-		// Create trigger to update the modified timestamp (no way to do this without recreating it each time?)
-		dropTrigger := fmt.Sprintf("drop trigger if exists %s on %s;", modifiedTriggerName, info.Table)
-		if _, err := tx.Exec(dropTrigger); err != nil {
-			return errors.EnsureStack(err)
-		}
-
-		createFunction := fmt.Sprintf("create or replace function %s() returns trigger as $$ begin new.updatedat = now(); return new; end; $$ language 'plpgsql';", modifiedFunctionName)
-		if _, err := tx.Exec(createFunction); err != nil {
-			return errors.EnsureStack(err)
-		}
-
-		createTrigger := fmt.Sprintf("create trigger %s before update on %s for each row execute procedure %s();", modifiedTriggerName, info.Table, modifiedFunctionName)
-		if _, err := tx.Exec(createTrigger); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return nil
@@ -396,6 +411,17 @@ func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
 	return c.insert(key, val, true)
 }
 
+// if a key collision occurs, the last specified param will survive
+func mergeParams(maps ...map[string]interface{}) map[string]interface{} {
+	result := map[string]interface{}{}
+	for _, m := range maps {
+		for k, v := range m {
+			result[k] = v
+		}
+	}
+	return result
+}
+
 // Get then update all values
 func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f func() error) error {
 	if err := c.Get(key, val); err != nil {
@@ -408,20 +434,72 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 	row := reflect.New(reflect.ValueOf(c.model).Elem().Type())
 	row.MethodByName("LoadFromProtobuf").Call([]reflect.Value{reflect.ValueOf(val)})
 
-	values := []interface{}{}
+	params := map[string]interface{}{}
 	updateFields := []string{}
 	for _, field := range c.sqlInfo.Fields {
 		if field.GoName == "UpdatedAt" || field.GoName == "CreatedAt" {
 			continue
 		}
-		values = append(values, reflect.Indirect(row).FieldByName(field.GoName).Interface())
-		updateFields = append(updateFields, fmt.Sprintf("%s = $%d", field.SQLName, len(values)))
+		params[field.SQLName] = reflect.Indirect(row).FieldByName(field.GoName).Interface()
+		updateFields = append(updateFields, fmt.Sprintf("%s = :%s", field.SQLName, field.SQLName))
 	}
 
-	values = append(values, key)
-	query := fmt.Sprintf("update %s set %s where %s = $%d", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey.SQLName, len(values))
-	_, err := c.tx.Exec(query, values...)
+	query := fmt.Sprintf("update %s set %s where %s = :%s", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey.SQLName, c.sqlInfo.Pkey.SQLName)
+
+	notifies, notifyParams, err := c.notifies(key, row, NotifyPayload_PUT)
+	if err != nil {
+		return err
+	}
+	query += ";\n" + notifies
+
+	_, err = c.tx.NamedExec(query, mergeParams(params, notifyParams))
 	return c.mapSQLError(err, key)
+}
+
+func (c *postgresReadWriteCollection) notifies(key string, row reflect.Value, kind NotifyPayload_Type) (string, map[string]interface{}, error) {
+	params := map[string]interface{}{}
+	nextParamName := func() string { return fmt.Sprintf("notify_param_%d", len(params)+1) }
+	saveParamData := func(payload *NotifyPayload) error {
+		if data, err := payload.Marshal(); err != nil {
+			return errors.EnsureStack(err)
+		} else {
+			params[nextParamName()] = pgIdentBase64Encoding.EncodeToString(data)
+		}
+		return nil
+	}
+
+	payload := &NotifyPayload{Info: &NotifyInfo{Table: c.sqlInfo.Table}, Key: key, Type: kind}
+	notifies := fmt.Sprintf("notify %s_%s :%s;\n", watchBaseName, c.sqlInfo.Table, nextParamName())
+	if err := saveParamData(payload); err != nil {
+		return "", nil, err
+	}
+
+	for _, idx := range c.sqlInfo.Indexes {
+		payload.Info.Fields = []string{}
+		payload.Info.Values = []string{}
+
+		// TODO: allow compound indexes?
+		// TODO: would be nice if we could just serialize the field from the
+		// original protobuf? But this might be fine since we limit the types that
+		// the model can use.
+		value := reflect.Indirect(row).FieldByName(idx.Field).Interface()
+		payload.Info.Fields = append(payload.Info.Fields, idx.Field)
+		payload.Info.Values = append(payload.Info.Values, fmt.Sprintf("%v", value))
+
+		data, err := payload.Info.Marshal()
+		if err != nil {
+			return "", nil, errors.EnsureStack(err)
+		}
+		hash := pachhash.Sum(data)
+		hashBase64 := pgIdentBase64Encoding.EncodeToString(hash[:])
+
+		notifies += fmt.Sprintf("notify %s_%s :%s;\n", watchBaseName, hashBase64, nextParamName())
+		if err := saveParamData(payload); err != nil {
+			return "", nil, err
+		}
+	}
+
+	return notifies, params, nil
 }
 
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
@@ -429,29 +507,36 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	row.MethodByName("LoadFromProtobuf").Call([]reflect.Value{reflect.ValueOf(val)})
 
 	columns := []string{}
-	params := []string{}
-	values := []interface{}{}
+	paramNames := []string{}
+	params := map[string]interface{}{}
 	for _, field := range c.sqlInfo.Fields {
 		if field.GoName == "UpdatedAt" || field.GoName == "CreatedAt" {
 			continue
 		}
 		columns = append(columns, field.SQLName)
-		params = append(params, fmt.Sprintf("$%d", len(columns)))
-		values = append(values, reflect.Indirect(row).FieldByName(field.GoName).Interface())
+		paramNames = append(paramNames, ":"+field.SQLName)
+		params[field.SQLName] = reflect.Indirect(row).FieldByName(field.GoName).Interface()
 	}
 
 	columnList := strings.Join(columns, ", ")
-	paramList := strings.Join(params, ", ")
+	paramList := strings.Join(paramNames, ", ")
 
 	query := fmt.Sprintf("insert into %s (%s) values (%s)", c.sqlInfo.Table, columnList, paramList)
 	if upsert {
 		upsertFields := []string{}
-		for i, column := range columns {
-			upsertFields = append(upsertFields, fmt.Sprintf("%s = $%d", column, i+1))
+		for _, column := range columns {
+			upsertFields = append(upsertFields, fmt.Sprintf("%s = :%s", column, column))
 		}
 		query = fmt.Sprintf("%s on conflict (%s) do update set (%s) = (%s)", query, c.sqlInfo.Pkey.SQLName, columnList, paramList)
 	}
-	_, err := c.tx.Exec(query, values...)
+	notifies, notifyParams, err := c.notifies(key, row, NotifyPayload_PUT)
+	if err != nil {
+		return err
+	}
+	query += ";\n" + notifies
+	fmt.Printf("query: %s\n", query)
+
+	_, err = c.tx.NamedExec(query, mergeParams(params, notifyParams))
 	return c.mapSQLError(err, key)
 }
 
@@ -473,23 +558,41 @@ func (c *postgresReadWriteCollection) Create(key string, val proto.Message) erro
 }
 
 func (c *postgresReadWriteCollection) Delete(key string) error {
-	// TODO: do soft deletes for point-deletes?
-	query := fmt.Sprintf("delete from %s where %s = $1;", c.sqlInfo.Table, c.sqlInfo.Pkey.SQLName)
+	// For delete notifications we need to load the deleted row
+	query := fmt.Sprintf("delete from %s where %s = $1 returning *;", c.sqlInfo.Table, c.sqlInfo.Pkey.SQLName)
+	row := reflect.New(reflect.ValueOf(c.model).Elem().Type())
 
-	res, err := c.tx.Exec(query, key)
+	if err := sqlx.Get(c.tx, row.Interface(), query, key); err != nil {
+		// TODO: what happens if there is no row?
+		return c.mapSQLError(err, key)
+	}
+
+	notifies, notifyParams, err := c.notifies(key, row, NotifyPayload_DELETE)
 	if err != nil {
-		return c.mapSQLError(err, key)
+		return err
 	}
+	_, err = c.tx.NamedExec(notifies, notifyParams)
+	return c.mapSQLError(err, key)
 
-	if count, err := res.RowsAffected(); err != nil {
-		return c.mapSQLError(err, key)
-	} else if count == 0 {
-		return errors.WithStack(ErrNotFound{c.sqlInfo.Table, key})
-	}
-	return nil
+	/*
+		res, err := c.tx.NamedExec(query, key)
+		if err != nil {
+			return c.mapSQLError(err, key)
+		}
+
+		if count, err := res.RowsAffected(); err != nil {
+			return c.mapSQLError(err, key)
+		} else if count == 0 {
+			return errors.WithStack(ErrNotFound{c.sqlInfo.Table, key})
+		}
+		return nil
+	*/
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
+	// TODO: delete notifications are tough here, can we use a trigger?
+	// Otherwise we need to load each row to notify the right channel.
+	// It's easier for collection-level watches but not for indexed watches.
 	query := fmt.Sprintf("delete from %s;", c.sqlInfo.Table)
 	_, err := c.db.Exec(query)
 	return c.mapSQLError(err, "")

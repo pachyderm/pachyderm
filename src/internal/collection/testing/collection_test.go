@@ -17,6 +17,11 @@ const (
 	collectionName        = "test_items"
 )
 
+var (
+	TestPrimaryIndex   = &col.Index{Field: "ID"}
+	TestSecondaryIndex = &col.Index{Field: "Value"}
+)
+
 type TestError struct{}
 
 func (te TestError) Is(other error) bool {
