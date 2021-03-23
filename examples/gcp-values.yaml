@@ -1,7 +1,6 @@
 pachd:
   image:
     tag: 1.12.3
-  exposeDockerSocket: false
   storage:
     backend: GOOGLE
     google:
