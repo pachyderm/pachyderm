@@ -1,7 +1,7 @@
 # imagePullSecret sets the image pull secret used for all images.  It
 # is analogous to the --image-pull-secret argument to pachctl deploy.
 #
-# FIXME: should this be per-image?
+# In accordance with pachctl deploy it is _not_ per-image.
 imagePullSecret: ""
 
 dash:
