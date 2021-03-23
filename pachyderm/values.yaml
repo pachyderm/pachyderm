@@ -17,13 +17,15 @@ dash:
     # replicates the --dash-image argument to pachctl deploy.
     tag: "0.5.57"
   # resources specifies the resource request
-  resources:
+  resources: #Can't zero out resources with {}
     limits:
       cpu: "1"
       memory: "2G"
     requests:
       cpu: "1"
       memory: "2G"
+  service:
+    type: ClusterIP
 
 etcd:
   # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
@@ -47,6 +49,8 @@ etcd:
   # --etcd-storage-class argument to pachctl deploy.
   storageClass: ""
   storageSize: "10Gi"
+  service:
+    type: ClusterIP
 
 imageCredentials: {}
   #registry: ""

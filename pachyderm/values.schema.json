@@ -48,6 +48,14 @@
                             }
                         }
                     }
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },
@@ -95,6 +103,14 @@
                                     "type": "string"
                                 }
                             }
+                        }
+                    }
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
                         }
                     }
                 },

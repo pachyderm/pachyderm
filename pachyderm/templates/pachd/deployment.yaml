@@ -327,7 +327,7 @@ spec:
             - /pachd
             - --readiness
         {{- if .Values.pachd.resources }}
-        resources: {{ toYaml .Values.pachd.resources | nindent 12 }}
+        resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
         - mountPath: /pach
