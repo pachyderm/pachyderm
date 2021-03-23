@@ -31,7 +31,7 @@ func TestRegisterPachd(t *testing.T) {
 	defer resetClusterState(t)
 
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl license activate
+		echo {{.license}} | pachctl enterprise activate
 		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \
@@ -48,17 +48,101 @@ func TestRegisterAuthenticated(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 
+	cluster := tu.UniqueString("cluster")
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl license activate
-		pachctl auth activate --enterprise --issuer http://pach-enterprise:658
+		echo {{.license}} | pachctl enterprise activate
+		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \
 		  | match 'id: {{.id}}' \
 		  | match -v 'last_heartbeat: <nil>'
-		pachctl auth --enterprise whoami | match 'pach:root'
+
+		pachctl auth whoami --enterprise | match 'pach:root'
+	`,
+		"id", cluster,
+		"license", tu.GetTestEnterpriseCode(t),
+		"token", tu.RootToken,
+	).Run())
+}
+
+// TestEnterpriseRoleBindings tests configuring role bindings for the enterprise server
+func TestEnterpriseRoleBindings(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl enterprise activate
+		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
+		pachctl auth set enterprise clusterAdmin robot:test1
+		pachctl auth get enterprise | match robot:test1
+		pachctl auth get cluster | match -v robot:test1
 		`,
 		"id", tu.UniqueString("cluster"),
 		"license", tu.GetTestEnterpriseCode(t),
+		"token", tu.RootToken,
+	).Run())
+}
+
+// TestGetAndUseRobotToken tests getting a robot token for the enterprise server
+func TestGetAndUseRobotToken(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl enterprise activate
+		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
+		pachctl auth get-robot-token --enterprise -q {{.alice}} | pachctl auth use-auth-token --enterprise
+		pachctl auth get-robot-token -q {{.bob}} | pachctl auth use-auth-token
+		pachctl auth whoami --enterprise | match {{.alice}}
+		pachctl auth whoami | match {{.bob}}
+		`,
+		"id", tu.UniqueString("cluster"),
+		"license", tu.GetTestEnterpriseCode(t),
+		"token", tu.RootToken,
+		"alice", tu.UniqueString("alice"),
+		"bob", tu.UniqueString("bob"),
+	).Run())
+}
+
+// TestConfig tests getting and setting OIDC configuration for the identity server
+func TestConfig(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl enterprise activate
+		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
+			`,
+		"id", tu.UniqueString("cluster"),
+		"token", tu.RootToken,
+		"license", tu.GetTestEnterpriseCode(t),
+	).Run())
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth set-config --enterprise <<EOF
+{
+	"issuer": "http://pach-enterprise.enterprise:658",
+        "localhost_issuer": true,
+	"client_id": localhost,
+	"redirect_uri": "http://pach-enterprise.enterprise:650"
+}
+EOF
+	`).Run())
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth get-config --enterprise \
+		  | match '"issuer": "http://pach-enterprise.enterprise:658"' \
+		  | match '"localhost_issuer": true' \
+		  | match '"client_id": "localhost"' \
+		  | match '"redirect_uri": "http://pach-enterprise.enterprise:650"'
+		`,
 	).Run())
 }

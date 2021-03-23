@@ -13,10 +13,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func newClient(enterprise bool) (*client.APIClient, error) {
+	if enterprise {
+		return client.NewEnterpriseClientOnUserMachine("user")
+	}
+	return client.NewOnUserMachine("user")
+}
+
 // ActivateCmd returns a cobra.Command to activate the license service,
 // register the current pachd and activate enterprise features.
-// This only makes sense in a single-cluster enterprise environment where
-// this is one pachd acting as the Enterprise Server.
+// This always runs against the current enterprise context, and can
+// be used to activate a single-node pachd deployment or the enterprise
+// server in a multi-node deployment.
 func ActivateCmd() *cobra.Command {
 	activate := &cobra.Command{
 		Use:   "{{alias}}",
@@ -28,7 +36,7 @@ func ActivateCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not read enterprise key")
 			}
 
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient(true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -116,8 +124,10 @@ func RegisterCmd() *cobra.Command {
 			}
 			defer ec.Close()
 
+			fmt.Printf("ec: %v\nc: %v\n", ec, c)
+
 			// Register the pachd with the license server
-			resp, err := ec.License.AddCluster(c.Ctx(),
+			resp, err := ec.License.AddCluster(ec.Ctx(),
 				&license.AddClusterRequest{
 					Id:      id,
 					Address: pachdAddr,
