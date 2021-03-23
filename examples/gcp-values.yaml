@@ -6,7 +6,8 @@ pachd:
     backend: GOOGLE
     google:
       bucket: "fake-bucket"
-      cred: ""
+      cred: |
+        INSERT JSON HERE
 
 tls:
   crt: ""
