@@ -326,8 +326,7 @@ spec:
             command:
             - /pachd
             - --readiness
-        resources:
-{{ toYaml .Values.pachd.resources | indent 12 }}
+        resources: {{ toYaml .Values.pachd.resources | nindent 12 }}
         volumeMounts:
         - mountPath: /pach
           name: pach-disk
