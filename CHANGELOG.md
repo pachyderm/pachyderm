@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.13.0
+Deprecation notice: The following `pachctl deploy` flags are deprecated and will be removed in a future release:
+- dash-image
+- dashboard-only
+- no-dashboard
+- expose-object-api
+- storage-v2
+- shards
+- no-rbac
+- no-guaranteed
+- static-etcd-volume
+- disable-ssl
+- max-upload-parts
+- no-verify-ssl
+- obj-log-options
+- part-size
+- retries
+- reverse
+- timeout
+- upload-acl
+
 ## 1.12.5
 Deprecation notice: Deprecating the use of vault plugin. It will be removed from the code in a future release.
 
@@ -106,13 +127,13 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 
 - Adds support for running multiple jobs in parallel in a single pipeline (#4572)
 - Adds support for logs stack traces when a request encounters an error (#4681)
-- Adds support for the first release of the pachyderm IDE (#4732) (#4790) (#4838) 
+- Adds support for the first release of the pachyderm IDE (#4732) (#4790) (#4838)
 - Adds support for displaying progress bar during `pachctl put file` (#4745)
 - Adds support for writable pachctl mount which checkpoints data back into pfs when it's unmounted (#4772)
-- Adds support for metric endpoint configurable via METRICS_ENDPOINT env variable (#4793) 
+- Adds support for metric endpoint configurable via METRICS_ENDPOINT env variable (#4793)
 - Adds an "exit" command to the pachctl shell (#4802)
 - Adds a `--compress` option to `pachctl put file` which GZIP compresses the upload stream (#4814)
-- Adds a `--put-file-concurrency-limit` option to `pachctl put file` command to limits the upload parallelism which limits the memory footprint in pachd to avoid OOM condition (#4827) 
+- Adds a `--put-file-concurrency-limit` option to `pachctl put file` command to limits the upload parallelism which limits the memory footprint in pachd to avoid OOM condition (#4827)
 - Adds support to periodically reload TLS certs (#4835)
 - Adds a new pipeline state "crashing" which pipelines enter when they encounter Kubernetes errors. Pipelines in this state will have a human-readable "Reason" that explains why they're crashing. Pipelines also now expose the number of pods that are up and responsive. Both values can be seen with `inspect pipeline` (#4922)
 - Adds support to allow etcd volumes to be expanded. (Special thanks to @mattrobenolt.) (#4925)
@@ -121,7 +142,7 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Adds a new cluster-admin role, "FS", which grants access to all repos but not other admin-only endpoints (#4975) (#5103)
 - Adds support to surface image pull errors in pipeline sidecar containers (#4979)
 - Adds support for colorizing level in `pachctl logs` (Special thanks to @farhaanbukhsh) (#4996)
-- Adds configurable resource limits to the storage side and set default resource limits for the init container (#4999) 
+- Adds configurable resource limits to the storage side and set default resource limits for the init container (#4999)
 - Adds support user sign in by authenticating with an OIDC provider (#5005)
 - Adds error handling when starting a transaction when another one is pending (Special thanks to @farhaanbukhsh) (#5010)
 - Adds support for using TLS (if enabled) for downloading files over HTTP (#5023)
@@ -129,23 +150,23 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Adds build steps for pipelines (#5064)
 - Adds support for a dockerized version of `pachctl` available on docker hub (#5073) (#5079)
 - Adds support for configuring Go's GC Percentage (#5089)
-- Changes to propagate feature flags to sidecar (#4718) 
-- Changes to route all object store access through the sidecar (#4741) 
-- Changes to better support disparate S3 client behaviors. Includes numerous compatibility improvements in S3 gateway (#4902) 
-- Changes debug dump to collect sidecar goroutines (#4954) 
+- Changes to propagate feature flags to sidecar (#4718)
+- Changes to route all object store access through the sidecar (#4741)
+- Changes to better support disparate S3 client behaviors. Includes numerous compatibility improvements in S3 gateway (#4902)
+- Changes debug dump to collect sidecar goroutines (#4954)
 - Fixes a bug that would cause spouts to lose data when spouts are rapidly opened and closed (#4693) (#4910)
-- Fixes a bug that allowed spouts with inputs (#4747) 
-- Fixes a bug that prevented access to S3 gateway when other workers are running in a different namespace than Pachyderm namespace (#4753) 
-- Fixes a bug that would not delete Kubernetes service when a pipeline is restarted due to updates (#4782) 
-- Fixes a bug that created messages larger than expected size which can fail some operations with grpc: received message larger than max error (#4819) 
-- Fixes a bug that caused an EOF error in get file request when using azure blob storage client (#4824) 
-- Fixes a bug that would fail a restore operation in certain scenarios when the extract operation captures commits in certain failed/incomplete states (#4839) 
-- Fixes a bug that causes garbage collection to fail for standby pipelines (#4860) 
-- Fixes a bug that did not use the native DNS resolver in pachctl client which may prevent pachd access over VPNs (#4876)  
-- Fixes a bug that caused `pachctl list datum <running job>` to return an error "output commit not finished" on pipelines with stats enabled (#4886) 
+- Fixes a bug that allowed spouts with inputs (#4747)
+- Fixes a bug that prevented access to S3 gateway when other workers are running in a different namespace than Pachyderm namespace (#4753)
+- Fixes a bug that would not delete Kubernetes service when a pipeline is restarted due to updates (#4782)
+- Fixes a bug that created messages larger than expected size which can fail some operations with grpc: received message larger than max error (#4819)
+- Fixes a bug that caused an EOF error in get file request when using azure blob storage client (#4824)
+- Fixes a bug that would fail a restore operation in certain scenarios when the extract operation captures commits in certain failed/incomplete states (#4839)
+- Fixes a bug that causes garbage collection to fail for standby pipelines (#4860)
+- Fixes a bug that did not use the native DNS resolver in pachctl client which may prevent pachd access over VPNs (#4876)
+- Fixes a bug that caused `pachctl list datum <running job>` to return an error "output commit not finished" on pipelines with stats enabled (#4886)
 - Fixes a bug causing a resource leak in pachd when certain protocol errors occur in PutFile (#4908)
 - Fixes a bug where downloading files over HTTP didn't work with authorization enabled (#4930)
-- Fixes a family of issues that caused workers to indefinitely wait on etcd after a pod eviction (#4947) (#4948) (#4959) 
+- Fixes a family of issues that caused workers to indefinitely wait on etcd after a pod eviction (#4947) (#4948) (#4959)
 - Fixes a bug that did not set environment variables for service pipelines (#5009)
 - Fixes a bug where users get an error if they run `pachctl debug pprof`, but don't have to “go” installed on their machine (#5022)
 - Fixes a bug which caused the metadata of a spout pipeline's spec commit to grow without bound (#5050)
@@ -185,7 +206,7 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Fixes a bug that would cause crash in ‘diff file’ command (#4601)
 - Fixes a bug that caused a crash when `run pipeline` is executed with stats enabled (#4615)
 - Fixes a bug that incorrectly skips duplicate datums in a union, under specific conditions (#4691)
-- Fixes a bug that ignored the logging level set in the environment variable (#4706) 
+- Fixes a bug that ignored the logging level set in the environment variable (#4706)
 
 
 ## 1.9.12
@@ -193,8 +214,8 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - New configuration for deployments (exposed through pachctl deploy flags):
   - Only require critical servers to startup and run without error (--require-critical-servers-only). (#4512)
 - Improved job logging. (#4523)
-- Fixes a bug where some unfinished commit finish times displayed the Unix Epoch time. (#4524) 
-- Fixes a bug with edit pipeline. (#4530) 
+- Fixes a bug where some unfinished commit finish times displayed the Unix Epoch time. (#4524)
+- Fixes a bug with edit pipeline. (#4530)
 - Removed cluster id check. (#4534)
 - Fixes a bug with spout markers. (#4487)
 
@@ -436,7 +457,7 @@ collection can be made more accurate by using more memory with the flag
 ## 1.7.6
 
 - Pachyderm's FUSE support (`pachctl mount`) has been rewritten. (#3088)
-- `put-file` requests that put files from multiple sources (`-i` or `-r`) now create a single commit. (#3118) 
+- `put-file` requests that put files from multiple sources (`-i` or `-r`) now create a single commit. (#3118)
 - Fixes a bug that caused `put-file` to throw spurious warnings about URL formatted paths. (#3117)
 - Several fixes have been made to which user code runs as to allow services such as Jupyter to work out of the box. (#3085)
 - `pachctl` now has `auth set-config` and `auth get-config` commands. (#3095)<Paste>
@@ -708,7 +729,7 @@ New Features:
 
 ### New features
 
-* Pachyderm now ships with a web UI!  To deploy a new Pachyderm cluster with the UI, use `pachctl deploy <arguments> --dashboard`.  To deploy the UI onto an existing cluster, use `pachctl deploy <arguments> --dashboard-only`.  To access the UI, simply `pachctl port-forward`, then go to `localhost:38080`.  Note that the web UI is currently in alpha; expect bugs and significant changes.   
+* Pachyderm now ships with a web UI!  To deploy a new Pachyderm cluster with the UI, use `pachctl deploy <arguments> --dashboard`.  To deploy the UI onto an existing cluster, use `pachctl deploy <arguments> --dashboard-only`.  To access the UI, simply `pachctl port-forward`, then go to `localhost:38080`.  Note that the web UI is currently in alpha; expect bugs and significant changes.
 * You can now specify the amount of resources (i.e. CPU & memory) used by Pachyderm and etcd.  See `pachctl deploy --help` for details. (#1676)
 * You can now specify the amount of resources (i.e. CPU & memory) used by your pipelines. (#1683)
 
