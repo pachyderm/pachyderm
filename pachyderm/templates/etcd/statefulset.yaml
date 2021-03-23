@@ -30,7 +30,7 @@ spec:
           "--data-dir=/var/data/etcd" "--auto-compaction-retention=1" "--max-txn-ops=10000"
           "--max-request-bytes=52428800" "--quota-backend-bytes=8589934592" "--listen-peer-urls=http://0.0.0.0:2380"
           "--initial-cluster-token=pach-cluster" "--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380"
-          "--initial-cluster={{ range $i, $e := until (.Values.etcd.dynamicNodes | int) }}etcd-{{$e}}=http://etdc-{{$e}}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380{{ end }}"'
+          "--initial-cluster={{ range $i, $e := until (.Values.etcd.dynamicNodes | int) }}etcd-{{$e}}=http://etcd-{{$e}}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380{{ end }}"'
 
         command:
         - /bin/sh
