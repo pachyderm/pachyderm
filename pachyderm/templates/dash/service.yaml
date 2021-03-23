@@ -12,12 +12,12 @@ spec:
   - name: dash-http
     {{- if eq .Values.dash.service.type "NodePort" }}
     nodePort: 30080
-    {{- end }}  
+    {{- end }}
     port: 8080
   - name: grpc-proxy-http
     {{- if eq .Values.dash.service.type "NodePort" }}
     nodePort: 30081
-    {{- end }}  
+    {{- end }}
     port: 8081
   selector:
     app: dash
