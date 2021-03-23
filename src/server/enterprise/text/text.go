@@ -15,5 +15,5 @@ const (
 
 Learn about Pachyderm Enterprise here:
 
-<URL>`
+https://www.pachyderm.com/trial`
 )
