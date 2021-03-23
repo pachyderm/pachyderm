@@ -6,7 +6,7 @@ pachd:
     backend: GOOGLE
     google:
       bucket: "fake-bucket"
-      cred: {}
+      cred: ""
 
 tls:
   # this certificate is for the domain fake.example
