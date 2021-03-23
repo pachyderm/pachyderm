@@ -158,7 +158,7 @@ func ensureModifiedTrigger(tx *sqlx.Tx, info *SQLInfo) error {
 func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 	columns := []string{}
 	for _, field := range info.Fields {
-		if field.GoName == "CreatedAt" {
+		if field.GoName == "CreatedAt" || field.GoName == "UpdatedAt" {
 			columns = append(columns, fmt.Sprintf("%s %s default current_timestamp", field.SQLName, field.SQLType))
 		} else {
 			columns = append(columns, fmt.Sprintf("%s %s", field.SQLName, field.SQLType))
@@ -411,17 +411,6 @@ func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
 	return c.insert(key, val, true)
 }
 
-// if a key collision occurs, the last specified param will survive
-func mergeParams(maps ...map[string]interface{}) map[string]interface{} {
-	result := map[string]interface{}{}
-	for _, m := range maps {
-		for k, v := range m {
-			result[k] = v
-		}
-	}
-	return result
-}
-
 // Get then update all values
 func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f func() error) error {
 	if err := c.Get(key, val); err != nil {
@@ -446,32 +435,23 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 
 	query := fmt.Sprintf("update %s set %s where %s = :%s", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey.SQLName, c.sqlInfo.Pkey.SQLName)
 
-	notifies, notifyParams, err := c.notifies(key, row, NotifyPayload_PUT)
-	if err != nil {
-		return err
+	if _, err := c.tx.NamedExec(query, params); err != nil {
+		return c.mapSQLError(err, key)
 	}
-	query += ";\n" + notifies
 
-	_, err = c.tx.NamedExec(query, mergeParams(params, notifyParams))
-	return c.mapSQLError(err, key)
+	return c.notify(key, row, NotifyPayload_PUT)
 }
 
-func (c *postgresReadWriteCollection) notifies(key string, row reflect.Value, kind NotifyPayload_Type) (string, map[string]interface{}, error) {
-	params := map[string]interface{}{}
-	nextParamName := func() string { return fmt.Sprintf("notify_param_%d", len(params)+1) }
-	saveParamData := func(payload *NotifyPayload) error {
-		if data, err := payload.Marshal(); err != nil {
-			return errors.EnsureStack(err)
-		} else {
-			params[nextParamName()] = pgIdentBase64Encoding.EncodeToString(data)
-		}
-		return nil
-	}
-
+func (c *postgresReadWriteCollection) notify(key string, row reflect.Value, kind NotifyPayload_Type) error {
 	payload := &NotifyPayload{Info: &NotifyInfo{Table: c.sqlInfo.Table}, Key: key, Type: kind}
-	notifies := fmt.Sprintf("notify %s_%s :%s;\n", watchBaseName, c.sqlInfo.Table, nextParamName())
-	if err := saveParamData(payload); err != nil {
-		return "", nil, err
+	payloadData, err := payload.Marshal()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	payloadString := pgIdentBase64Encoding.EncodeToString(payloadData)
+	query := fmt.Sprintf("notify %s_%s, '%s';\n", watchBaseName, c.sqlInfo.Table, payloadString)
+	if _, err := c.tx.Exec(query); err != nil {
+		return c.mapSQLError(err, key)
 	}
 
 	for _, idx := range c.sqlInfo.Indexes {
@@ -488,18 +468,23 @@ func (c *postgresReadWriteCollection) notifies(key string, row reflect.Value, ki
 
 		data, err := payload.Info.Marshal()
 		if err != nil {
-			return "", nil, errors.EnsureStack(err)
+			return errors.EnsureStack(err)
 		}
 		hash := pachhash.Sum(data)
 		hashBase64 := pgIdentBase64Encoding.EncodeToString(hash[:])
 
-		notifies += fmt.Sprintf("notify %s_%s :%s;\n", watchBaseName, hashBase64, nextParamName())
-		if err := saveParamData(payload); err != nil {
-			return "", nil, err
+		payloadData, err = payload.Marshal()
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		payloadString = pgIdentBase64Encoding.EncodeToString(payloadData)
+
+		query = fmt.Sprintf("notify %s_%s, '%s';\n", watchBaseName, hashBase64, payloadString)
+		if _, err := c.tx.Exec(query); err != nil {
+			return c.mapSQLError(err, key)
 		}
 	}
-
-	return notifies, params, nil
+	return nil
 }
 
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
@@ -529,15 +514,12 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		}
 		query = fmt.Sprintf("%s on conflict (%s) do update set (%s) = (%s)", query, c.sqlInfo.Pkey.SQLName, columnList, paramList)
 	}
-	notifies, notifyParams, err := c.notifies(key, row, NotifyPayload_PUT)
-	if err != nil {
-		return err
-	}
-	query += ";\n" + notifies
-	fmt.Printf("query: %s\n", query)
 
-	_, err = c.tx.NamedExec(query, mergeParams(params, notifyParams))
-	return c.mapSQLError(err, key)
+	if _, err := c.tx.NamedExec(query, params); err != nil {
+		return c.mapSQLError(err, key)
+	}
+
+	return c.notify(key, row, NotifyPayload_PUT)
 }
 
 // Insert on conflict update all values (except createdat)
@@ -567,12 +549,7 @@ func (c *postgresReadWriteCollection) Delete(key string) error {
 		return c.mapSQLError(err, key)
 	}
 
-	notifies, notifyParams, err := c.notifies(key, row, NotifyPayload_DELETE)
-	if err != nil {
-		return err
-	}
-	_, err = c.tx.NamedExec(notifies, notifyParams)
-	return c.mapSQLError(err, key)
+	return c.notify(key, row, NotifyPayload_DELETE)
 
 	/*
 		res, err := c.tx.NamedExec(query, key)
