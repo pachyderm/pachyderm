@@ -31,7 +31,9 @@ spec:
         ports:
         - containerPort: 8080
           name: dash-http
+        {{- if .Values.dash.resources }}
         resources: {{ toYaml .Values.dash.resources | nindent 12 }}
+        {{- end }}
       - image: pachyderm/grpc-proxy:0.4.10
         imagePullPolicy: IfNotPresent
         name: grpc-proxy

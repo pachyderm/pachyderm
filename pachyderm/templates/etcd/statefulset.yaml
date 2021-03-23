@@ -57,7 +57,9 @@ spec:
           name: client-port
         - containerPort: 2380
           name: peer-port
+        {{- if .Values.etcd.resources }}
         resources: {{ toYaml .Values.etcd.resources | nindent 12 }}
+        {{- end }}
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
