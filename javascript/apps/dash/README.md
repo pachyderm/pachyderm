@@ -20,7 +20,7 @@ This feature is still under development, and will likely change.
 1. Generate an enterprise key for the next step: https://enterprise-token-gen.pachyderm.io/dev. For Max OS users, `echo '<your-enterprise-token-here>' | pachctl enterprise activate`.
 1. Run `pachctl auth activate`.
 1. (Optional) It's helpful to add your Github account as a cluster admin using: `pachctl auth set cluster clusterAdmin user:<your github email>`. This will make your Github IDP user a cluster admin, allowing you to finish the remaining steps which require admin privileges. This will also give your user access to all created cluster resources. If you choose not to do this, you'll need to hold off on using `pachctl auth login` until finishing the remaining steps (remaining logged in as the root user). At that point, you'll need to login with your Github user before creating any cluster resources. Otherwise, your Github user won't have all of the necessary privileges to interact with create repos/pipelines/etc.
-1. Set the active enterprise context by running: `pachctl config set-active-enterprise-context <your-context>`. For local deployments, `<your-context>` will be `local`.
+1. Set the active enterprise context by running: ```pachctl config set active-enterprise-context `pachctl config get active-context` ```
 1. Configure the issuer for by running: `pachctl idp set-config --issuer 'http://localhost:30658/'`
 1. Configure the GitHub connector by running:
     ```
