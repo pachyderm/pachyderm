@@ -66,6 +66,7 @@ func newClient(enterprise bool) (*client.APIClient, error) {
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
 	var enterprise, supplyRootToken, onlyActivate bool
+	var issuer, redirect, clientId string
 	var trustedPeers []string
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
@@ -106,29 +107,54 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 
 				c.SetAuthToken(resp.PachToken)
 			}
-			if _, err := c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{}); err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configuring auth for existing PFS repos - run `pachctl auth activate` again")
-			}
-			if _, err := c.PpsAPIClient.ActivateAuth(c.Ctx(), &pps.ActivateAuthRequest{}); err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configuring auth for existing PPS pipelines - run `pachctl auth activate` again")
+
+			// The enterprise server doesn't have PFS or PPS enabled
+			if !enterprise {
+				if _, err := c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{}); err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configuring auth for existing PFS repos - run `pachctl auth activate` again")
+				}
+				if _, err := c.PpsAPIClient.ActivateAuth(c.Ctx(), &pps.ActivateAuthRequest{}); err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configuring auth for existing PPS pipelines - run `pachctl auth activate` again")
+				}
 			}
 
-			// By default, configure pachd as an OIDC client for the embedded Dex server.
-			// If this fails users may need to configure the server manually.
-			if !onlyActivate {
+			// If the user wants to manually configure OIDC, stop here
+			if onlyActivate {
+				return nil
+			}
+
+			// Check whether the enterprise context is a separate identity server
+			conf, err := config.Read(false, true)
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to read configuration file")
+			}
+
+			activeContext, _, err := conf.ActiveContext(true)
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get active context")
+			}
+
+			enterpriseContext, _, err := conf.ActiveEnterpriseContext(true)
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get active context")
+			}
+
+			// In a single-node pachd deployment, configure the OIDC server.
+			// Otherwise just register with the existing identity server.
+			if activeContext == enterpriseContext || enterprise {
 				if _, err := c.SetIdentityServerConfig(c.Ctx(), &identity.SetIdentityServerConfigRequest{
 					Config: &identity.IdentityServerConfig{
-						Issuer: "http://localhost:30658/",
+						Issuer: issuer,
 					}}); err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure identity server issuer")
 				}
 
 				oidcClient, err := c.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{
 					Client: &identity.OIDCClient{
-						Id:           "pachd",
-						Name:         "pachd",
+						Id:           clientId,
+						Name:         clientId,
 						TrustedPeers: trustedPeers,
-						RedirectUris: []string{"http://localhost:30657/authorization-code/callback"},
+						RedirectUris: []string{redirect},
 					},
 				})
 				if err != nil {
@@ -137,11 +163,43 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 
 				if _, err := c.SetConfiguration(c.Ctx(),
 					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
-						Issuer:          "http://localhost:30658/",
-						ClientID:        "pachd",
+						Issuer:          issuer,
+						ClientID:        clientId,
 						ClientSecret:    oidcClient.Client.Secret,
-						RedirectURI:     "http://localhost:30657/authorization-code/callback",
+						RedirectURI:     redirect,
 						LocalhostIssuer: true,
+					}}); err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
+				}
+			} else {
+				ec, err := newClient(true)
+				if err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get enterprise server client")
+				}
+				idCfg, err := ec.GetIdentityServerConfig(c.Ctx(), &identity.GetIdentityServerConfigRequest{})
+				if err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get identity server issuer")
+				}
+
+				oidcClient, err := ec.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{
+					Client: &identity.OIDCClient{
+						Id:           clientId,
+						Name:         clientId,
+						TrustedPeers: trustedPeers,
+						RedirectUris: []string{redirect},
+					},
+				})
+				if err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC client ID")
+				}
+
+				if _, err := c.SetConfiguration(c.Ctx(),
+					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
+						Issuer:          idCfg.Config.Issuer,
+						ClientID:        clientId,
+						ClientSecret:    oidcClient.Client.Secret,
+						RedirectURI:     redirect,
+						LocalhostIssuer: false,
 					}}); err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
 				}
@@ -153,6 +211,9 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 Prompt the user to input a root token on stdin, rather than generating a random one.`[1:])
 	activate.PersistentFlags().BoolVar(&onlyActivate, "only-activate", false, "Activate auth without configuring the OIDC service")
 	activate.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Activate auth on the active enterprise context")
+	activate.PersistentFlags().StringVar(&issuer, "issuer", "http://localhost:30658/", "The issuer for the OIDC service")
+	activate.PersistentFlags().StringVar(&redirect, "redirect", "http://localhost:30657/authorization-code/callback", "The redirect URL for the OIDC service")
+	activate.PersistentFlags().StringVar(&clientId, "client-id", "pachd", "The client ID for this pachd")
 	activate.PersistentFlags().StringSliceVar(&trustedPeers, "trusted-peers", []string{}, "Comma-separated list of OIDC client IDs to trust")
 
 	return cmdutil.CreateAlias(activate, "auth activate")
