@@ -86,11 +86,13 @@ func newUnionIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterat
 	return ui, nil
 }
 
-// TODO: It might make sense to check if duplicate datums show up in the merge?
 func (ui *unionIterator) Iterate(cb func(*Meta) error) error {
-	return Merge(ui.iterators, func(metas []*Meta) error {
-		return cb(metas[0])
-	})
+	for _, iterator := range ui.iterators {
+		if err := iterator.Iterate(cb); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type crossIterator struct {
@@ -453,7 +455,12 @@ func (ds *datumStream) Priority() int {
 }
 
 // NewIterator creates a new datum iterator.
-func NewIterator(pachClient *client.APIClient, input *pps.Input) (Iterator, error) {
+func NewIterator(pachClient *client.APIClient, input *pps.Input) (iterator Iterator, retErr error) {
+	defer func() {
+		if retErr == nil {
+			iterator = newIndexIterator(iterator)
+		}
+	}()
 	switch {
 	case input.Pfs != nil:
 		return newPFSIterator(pachClient, input.Pfs), nil
@@ -469,4 +476,23 @@ func NewIterator(pachClient *client.APIClient, input *pps.Input) (Iterator, erro
 		return newCronIterator(pachClient, input.Cron), nil
 	}
 	return nil, errors.Errorf("unrecognized input type: %v", input)
+}
+
+type indexIterator struct {
+	iterator Iterator
+}
+
+func newIndexIterator(iterator Iterator) Iterator {
+	return &indexIterator{
+		iterator: iterator,
+	}
+}
+
+func (ii *indexIterator) Iterate(cb func(*Meta) error) error {
+	index := int64(0)
+	return ii.iterator.Iterate(func(meta *Meta) error {
+		meta.Index = index
+		index++
+		return cb(meta)
+	})
 }
