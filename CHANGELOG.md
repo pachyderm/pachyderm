@@ -1,6 +1,27 @@
 
 # Changelog
 
+## 1.13.0
+Deprecation notice: The following `pachctl deploy` flags are deprecated and will be removed in a future release:
+- dash-image
+- dashboard-only
+- no-dashboard
+- expose-object-api
+- storage-v2
+- shards
+- no-rbac
+- no-guaranteed
+- static-etcd-volume
+- disable-ssl
+- max-upload-parts
+- no-verify-ssl
+- obj-log-options
+- part-size
+- retries
+- reverse
+- timeout
+- upload-acl
+
 ## 1.12.5
 Deprecation notice: Deprecating the use of vault plugin. It will be removed from the code in a future release.
 
