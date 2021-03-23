@@ -24,6 +24,7 @@ export * from './RadioButton';
 export * from './Search';
 export * from './Select';
 export * from './SkeletonBodyText';
+export * from './SkeletonDisplayText';
 export * from './Svg';
 export * from './TableView';
 export * from './Tabs';

@@ -1,0 +1,60 @@
+@keyframes waveShimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  
+  100% {
+    background-position: 400px 0; 
+  }
+}
+
+@keyframes blueWaveShimmer {
+  0% {
+    background-position: -100px 0;
+  }
+  
+  100% {
+    background-position: 100px 0; 
+  }
+}
+
+.base {
+  max-width: 12rem;
+  position: relative;
+  height: var(--font-size-header);
+  margin-bottom: 1.5rem;
+}
+
+.base::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  border-radius: 3px;
+  background-color: var(--line-grey);
+  background-image: linear-gradient(
+    to right,
+    var(--line-grey) 0%,
+    var(--border-grey) 20%,
+    var(--line-grey) 40%,
+    var(--line-grey) 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 800px 100px;
+  animation: waveShimmer 1s linear 0s infinite normal forwards;
+}
+.base.blueShimmer::after {
+  background-size: 200px 100px;
+  background-color: var(--background-blue);
+  background-image: linear-gradient(
+    to right,
+    var(--background-blue) 0%,
+    var(--dropshadow-grey) 20%,
+    var(--background-blue) 40%,
+    var(--background-blue) 100%
+  );
+  animation: blueWaveShimmer 1s linear 0s infinite normal forwards;
+}
