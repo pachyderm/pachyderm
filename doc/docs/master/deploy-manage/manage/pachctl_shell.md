@@ -52,6 +52,9 @@ the Pachyderm Shell caches completion results. You can clear this cache
 by pressing **F5** forcing the Pachyderm Shell to send requests to the
 server for new completions.
 
+### Clearing the screen
+
+To clear the screen, press `CTRL-L`.
 
 ## Limitations
 
