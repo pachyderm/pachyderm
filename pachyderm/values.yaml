@@ -170,8 +170,8 @@ pachd:
     backend: ""
     google:
       bucket: ""
-      # cred is a GCP service account private key, in object (JSON or
-      # YAML) form, e.g.:
+      # cred is a string containing a GCP service account private key,
+      # in object (JSON or YAML) form, e.g.:
       #
       # {
       #  "type": "service_account",
@@ -185,7 +185,7 @@ pachd:
       #  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
       #  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/…%40….iam.gserviceaccount.com"
       # }
-      cred:
+      cred: |
         type: "service_account"
         project_id: ""
         private_key_id: ""
