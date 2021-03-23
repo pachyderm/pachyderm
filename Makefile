@@ -1,4 +1,4 @@
-SHELL := /bin/bash # Use bash syntax
+SHELL := /bin/bash -o pipefail # Use bash syntax
 
 
 .PHONY: all test lint kubeval-aws kubeval-gcp kubeval-gcp-tls kubeval-local kubeval-minio kubeval-microsoft
@@ -21,7 +21,7 @@ kubeval-gcp-tls:
 	helm template pachyderm -f examples/gcp-values-tls.yaml | kubeval --strict
 
 kubeval-local:
-	helm template pachyderm -f examples/local-values.yaml | kubeval --strict
+	helm template pachyderm -f examples/local-developer-values.yaml | kubeval --strict
 
 kubeval-minio:
 	helm template pachyderm -f examples/minio-values.yaml | kubeval --strict
