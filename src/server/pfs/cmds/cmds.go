@@ -838,7 +838,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 
 			repo := file.Commit.Repo.Name
 			commit := file.Commit.ID
-			return c.WithModifyFileClient(repo, commit, func(mfc client.ModifyFileClient) error {
+			return c.WithModifyFileClient(repo, commit, func(mf client.ModifyFile) error {
 				for _, source := range sources {
 					source := source
 					if file.Path == "" {
@@ -846,19 +846,19 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
 						}
-						if err := putFileHelper(mfc, joinPaths("", source), source, recursive, appendFile); err != nil {
+						if err := putFileHelper(mf, joinPaths("", source), source, recursive, appendFile); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
 						// We have a single source and the user has specified a path,
 						// we use the path and ignore source (in terms of naming the file).
-						if err := putFileHelper(mfc, file.Path, source, recursive, appendFile); err != nil {
+						if err := putFileHelper(mf, file.Path, source, recursive, appendFile); err != nil {
 							return err
 						}
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						if err := putFileHelper(mfc, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
+						if err := putFileHelper(mf, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
 							return err
 						}
 					}
@@ -911,8 +911,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 				opts = append(opts, client.WithAppendCopyFile())
 			}
 			return c.CopyFile(
-				srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path,
 				destFile.Commit.Repo.Name, destFile.Commit.ID, destFile.Path,
+				srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path,
 				opts...,
 			)
 		}),
@@ -1291,7 +1291,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	return commands
 }
 
-func putFileHelper(mfc client.ModifyFileClient, path, source string, recursive, appendFile bool) (retErr error) {
+func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendFile bool) (retErr error) {
 	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
 	// to the server, and convert to unix path in case we're on windows.
 	path = filepath.ToSlash(filepath.Clean(path))
@@ -1304,7 +1304,7 @@ func putFileHelper(mfc client.ModifyFileClient, path, source string, recursive, 
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
-		return mfc.PutFileURL(path, url.String(), recursive, opts...)
+		return mf.PutFileURL(path, url.String(), recursive, opts...)
 	}
 	if source == "-" {
 		if recursive {
@@ -1312,7 +1312,7 @@ func putFileHelper(mfc client.ModifyFileClient, path, source string, recursive, 
 		}
 		stdin := progress.Stdin()
 		defer stdin.Finish()
-		return mfc.PutFile(path, stdin, opts...)
+		return mf.PutFile(path, stdin, opts...)
 	}
 	if recursive {
 		return filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
@@ -1327,7 +1327,7 @@ func putFileHelper(mfc client.ModifyFileClient, path, source string, recursive, 
 			// don't do a second recursive 'put file', just put the one file at
 			// filePath into childDest, and then this walk loop will go on to the
 			// next one
-			return putFileHelper(mfc, childDest, filePath, false, appendFile)
+			return putFileHelper(mf, childDest, filePath, false, appendFile)
 		})
 	}
 	f, err := progress.Open(source)
@@ -1339,7 +1339,7 @@ func putFileHelper(mfc client.ModifyFileClient, path, source string, recursive, 
 			retErr = err
 		}
 	}()
-	return mfc.PutFile(path, f, opts...)
+	return mf.PutFile(path, f, opts...)
 }
 
 func joinPaths(prefix, filePath string) string {

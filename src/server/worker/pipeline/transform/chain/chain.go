@@ -185,9 +185,9 @@ func (jdi *JobDatumIterator) uploadDatumFileset(pachClient *client.APIClient, di
 }
 
 func (jdi *JobDatumIterator) withDatumFileset(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
-	resp, err := pachClient.WithCreateFilesetClient(func(cfsc *client.CreateFilesetClient) error {
+	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
 		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
-		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(datum.NewClientFileset(cfsc)))
+		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(mf))
 	})
 	return resp.FilesetId, err
 }

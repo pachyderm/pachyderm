@@ -1,12 +1,10 @@
 package server
 
 import (
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -59,10 +57,11 @@ func cleanPath(x string) string {
 	return "/" + strings.Trim(x, "/")
 }
 
-func checkFilePath(path string) error {
-	path = filepath.Clean(path)
-	if strings.HasPrefix(path, "../") {
-		return errors.Errorf("path (%s) invalid: traverses above root", path)
-	}
-	return nil
-}
+// TODO: Readd?
+//func checkFilePath(path string) error {
+//	path = filepath.Clean(path)
+//	if strings.HasPrefix(path, "../") {
+//		return errors.Errorf("path (%s) invalid: traverses above root", path)
+//	}
+//	return nil
+//}

@@ -17,8 +17,8 @@ import (
 
 // PutFile puts a file into PFS from a reader.
 func (c APIClient) PutFile(repo, commit, path string, r io.Reader, opts ...PutFileOption) error {
-	return c.WithModifyFileClient(repo, commit, func(mfc ModifyFileClient) error {
-		return mfc.PutFile(path, r, opts...)
+	return c.WithModifyFileClient(repo, commit, func(mf ModifyFile) error {
+		return mf.PutFile(path, r, opts...)
 	})
 }
 
@@ -29,8 +29,8 @@ func (c APIClient) PutFileWriter(repo, commit, path string, opts ...PutFileOptio
 
 // PutFileTar puts a set of files into PFS from a tar stream.
 func (c APIClient) PutFileTar(repo, commit string, r io.Reader, opts ...PutFileOption) error {
-	return c.WithModifyFileClient(repo, commit, func(mfc ModifyFileClient) error {
-		return mfc.PutFileTar(r, opts...)
+	return c.WithModifyFileClient(repo, commit, func(mf ModifyFile) error {
+		return mf.PutFileTar(r, opts...)
 	})
 }
 
@@ -38,33 +38,41 @@ func (c APIClient) PutFileTar(repo, commit string, r io.Reader, opts ...PutFileO
 // The URL is sent to the server which performs the request.
 // recursive allow for recursive scraping of some types of URLs for example on s3:// urls.
 func (c APIClient) PutFileURL(repo, commit, path, url string, recursive bool, opts ...PutFileOption) error {
-	return c.WithModifyFileClient(repo, commit, func(mfc ModifyFileClient) error {
-		return mfc.PutFileURL(path, url, recursive, opts...)
+	return c.WithModifyFileClient(repo, commit, func(mf ModifyFile) error {
+		return mf.PutFileURL(path, url, recursive, opts...)
 	})
 }
 
 // DeleteFile deletes a file from PFS.
 func (c APIClient) DeleteFile(repo, commit, path string, opts ...DeleteFileOption) error {
-	return c.WithModifyFileClient(repo, commit, func(mfc ModifyFileClient) error {
-		return mfc.DeleteFile(path, opts...)
+	return c.WithModifyFileClient(repo, commit, func(mf ModifyFile) error {
+		return mf.DeleteFile(path, opts...)
 	})
 }
 
-// ModifyFileClient is used for performing a stream of file modifications.
+// CopyFile copies a file from one PFS location to another.
+// It can be used on directories or regular files.
+func (c APIClient) CopyFile(dstRepo, dstCommit, dstPath, srcRepo, srcCommit, srcPath string, opts ...CopyFileOption) error {
+	return c.WithModifyFileClient(dstRepo, dstCommit, func(mf ModifyFile) error {
+		return mf.CopyFile(dstPath, NewFile(srcRepo, srcCommit, srcPath), opts...)
+	})
+}
+
+// ModifyFile is used for performing a stream of file modifications.
 // The modifications are not persisted until the ModifyFileClient is closed.
 // ModifyFileClient is not thread safe. Multiple ModifyFileClients
 // should be used for concurrent modifications.
-type ModifyFileClient interface {
+type ModifyFile interface {
 	PutFile(path string, r io.Reader, opts ...PutFileOption) error
 	PutFileWriter(path string, opts ...PutFileOption) (io.WriteCloser, error)
 	PutFileTar(r io.Reader, opts ...PutFileOption) error
 	PutFileURL(path, url string, recursive bool, opts ...PutFileOption) error
 	DeleteFile(path string, opts ...DeleteFileOption) error
-	Close() error
+	CopyFile(dst string, src *pfs.File, opts ...CopyFileOption) error
 }
 
 // WithModifyFileClient creates a new ModifyFileClient that is scoped to the passed in callback.
-func (c APIClient) WithModifyFileClient(repo, commit string, cb func(ModifyFileClient) error) (retErr error) {
+func (c APIClient) WithModifyFileClient(repo, commit string, cb func(ModifyFile) error) (retErr error) {
 	mfc, err := c.NewModifyFileClient(repo, commit)
 	if err != nil {
 		return err
@@ -78,7 +86,7 @@ func (c APIClient) WithModifyFileClient(repo, commit string, cb func(ModifyFileC
 }
 
 // NewModifyFileClient creates a new ModifyFileClient.
-func (c APIClient) NewModifyFileClient(repo, commit string) (_ ModifyFileClient, retErr error) {
+func (c APIClient) NewModifyFileClient(repo, commit string) (_ *ModifyFileClient, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -91,7 +99,7 @@ func (c APIClient) NewModifyFileClient(repo, commit string) (_ ModifyFileClient,
 	}); err != nil {
 		return nil, err
 	}
-	return &modifyFileClient{
+	return &ModifyFileClient{
 		client: client,
 		modifyFileCore: modifyFileCore{
 			client: client,
@@ -99,7 +107,7 @@ func (c APIClient) NewModifyFileClient(repo, commit string) (_ ModifyFileClient,
 	}, nil
 }
 
-type modifyFileClient struct {
+type ModifyFileClient struct {
 	client pfs.API_ModifyFileClient
 	modifyFileCore
 }
@@ -236,8 +244,29 @@ func (mfc *modifyFileCore) sendDeleteFile(req *pfs.DeleteFile) error {
 	})
 }
 
+func (mfc *modifyFileCore) CopyFile(dst string, src *pfs.File, opts ...CopyFileOption) error {
+	return mfc.maybeError(func() error {
+		cf := &pfs.CopyFile{
+			Dst: dst,
+			Src: src,
+		}
+		for _, opt := range opts {
+			opt(cf)
+		}
+		return mfc.sendCopyFile(cf)
+	})
+}
+
+func (mfc *modifyFileCore) sendCopyFile(req *pfs.CopyFile) error {
+	return mfc.client.Send(&pfs.ModifyFileRequest{
+		Modification: &pfs.ModifyFileRequest_CopyFile{
+			CopyFile: req,
+		},
+	})
+}
+
 // Close closes the ModifyFileClient.
-func (mfc *modifyFileClient) Close() error {
+func (mfc *ModifyFileClient) Close() error {
 	return mfc.maybeError(func() error {
 		_, err := mfc.client.CloseAndRecv()
 		return err
@@ -259,7 +288,7 @@ func (c APIClient) WithRenewer(cb func(context.Context, *renew.StringSet) error)
 }
 
 // WithCreateFilesetClient provides a scoped fileset client.
-func (c APIClient) WithCreateFilesetClient(cb func(*CreateFilesetClient) error) (resp *pfs.CreateFilesetResponse, retErr error) {
+func (c APIClient) WithCreateFilesetClient(cb func(ModifyFile) error) (resp *pfs.CreateFilesetResponse, retErr error) {
 	ctfsc, err := c.NewCreateFilesetClient()
 	if err != nil {
 		return nil, err
@@ -311,6 +340,21 @@ func (ctfsc *CreateFilesetClient) Close() (*pfs.CreateFilesetResponse, error) {
 	return ret, nil
 }
 
+// AddFileset adds a fileset to a commit.
+func (c APIClient) AddFileset(repo, commit, ID string) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	_, err := c.PfsAPIClient.AddFileset(
+		c.Ctx(),
+		&pfs.AddFilesetRequest{
+			Commit:    NewCommit(repo, commit),
+			FilesetId: ID,
+		},
+	)
+	return err
+}
+
 // RenewFileSet renews a fileset.
 func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 	defer func() {
@@ -323,23 +367,6 @@ func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 			TtlSeconds: int64(ttl.Seconds()),
 		},
 	)
-	return err
-}
-
-// CopyFile copys a file from one pfs location to another. It can be used on
-// directories or regular files.
-func (c APIClient) CopyFile(srcRepo, srcCommit, srcPath, dstRepo, dstCommit, dstPath string, opts ...CopyFileOption) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	req := &pfs.CopyFileRequest{
-		Src: NewFile(srcRepo, srcCommit, srcPath),
-		Dst: NewFile(dstRepo, dstCommit, dstPath),
-	}
-	for _, opt := range opts {
-		opt(req)
-	}
-	_, err := c.PfsAPIClient.CopyFile(c.Ctx(), req)
 	return err
 }
 
