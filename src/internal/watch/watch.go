@@ -38,11 +38,14 @@ type Event struct {
 
 // Unmarshal unmarshals the item in an event into a protobuf message.
 func (e *Event) Unmarshal(key *string, val proto.Message) error {
+	if e.Value == nil {
+		return errors.Errorf("")
+	}
 	if err := CheckType(e.Template, val); err != nil {
 		return err
 	}
 	*key = string(e.Key)
-	return proto.Unmarshal(e.Value, val)
+	return errors.EnsureStack(proto.Unmarshal(e.Value, val))
 }
 
 // Watcher ...

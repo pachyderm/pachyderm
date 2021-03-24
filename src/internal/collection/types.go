@@ -115,7 +115,6 @@ type ReadOnlyCollection interface {
 	WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error
 	WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error)
 	WatchOneF(key string, f func(*watch.Event) error, opts ...watch.OpOption) error
-	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
 }
 
 type PostgresReadOnlyCollection interface {
@@ -130,4 +129,6 @@ type EtcdReadOnlyCollection interface {
 	TTL(key string) (int64, error)
 
 	ListRev(val proto.Message, opts *Options, f func(createRev int64) error) error
+
+	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
 }

@@ -167,7 +167,7 @@ func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 	columns = append(columns, fmt.Sprintf("primary key(%s)", info.Pkey.SQLName))
 
 	// TODO: use actual context
-	return NewSQLTx(db, context.Background(), func(tx *sqlx.Tx) error {
+	return NewSQLTx(context.Background(), db, func(tx *sqlx.Tx) error {
 		createTable := fmt.Sprintf("create table if not exists %s (%s);", info.Table, strings.Join(columns, ", "))
 		if _, err := tx.Exec(createTable); err != nil {
 			return errors.EnsureStack(err)
@@ -220,7 +220,11 @@ func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection 
 	return &postgresReadWriteCollection{c, tx}
 }
 
-func NewSQLTx(db *sqlx.DB, ctx context.Context, apply func(*sqlx.Tx) error) error {
+// NewSQLTx starts a transaction on the given DB, passes it to the callback, and
+// finishes the transaction afterwards. If the callback was successful, the
+// transaction is committed. If any errors occur, the transaction is rolled
+// back.  This will reattempt the transaction up to three times.
+func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
 	errs := []error{}
 
 	attemptTx := func() (bool, error) {
@@ -439,18 +443,13 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 		return c.mapSQLError(err, key)
 	}
 
-	return c.notify(key, row, NotifyPayload_PUT)
+	return c.notify(key, row, watch.EventPut)
 }
 
-func (c *postgresReadWriteCollection) notify(key string, row reflect.Value, kind NotifyPayload_Type) error {
-	payload := &NotifyPayload{Info: &NotifyInfo{Table: c.sqlInfo.Table}, Key: key, Type: kind}
-	payloadData, err := payload.Marshal()
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	payloadString := pgIdentBase64Encoding.EncodeToString(payloadData)
-	query := fmt.Sprintf("notify %s_%s, '%s';\n", watchBaseName, c.sqlInfo.Table, payloadString)
-	if _, err := c.tx.Exec(query); err != nil {
+func (c *postgresReadWriteCollection) notify(key string, row reflect.Value, evType watch.EventType) error {
+	payload := &watch.NotifyPayload{Info: &watch.NotifyInfo{Table: c.sqlInfo.Table}, Key: key, Type: uint32(evType)}
+	tableChannel := fmt.Sprintf("%s_%s", watchBaseName, c.sqlInfo.Table)
+	if err := watch.PublishNotification(c.tx, tableChannel, payload); err != nil {
 		return c.mapSQLError(err, key)
 	}
 
@@ -466,21 +465,20 @@ func (c *postgresReadWriteCollection) notify(key string, row reflect.Value, kind
 		payload.Info.Fields = append(payload.Info.Fields, idx.Field)
 		payload.Info.Values = append(payload.Info.Values, fmt.Sprintf("%v", value))
 
+		// We can't store the entire secondary index value in the channel name as
+		// some of these are unbounded and identifiers are limited to 64 bytes.
+		// Instead, compute the hash of the data that would make up the channel
+		// name.
+		// TODO: protobuf serialization isn't guaranteed to be deterministic, use json or something
 		data, err := payload.Info.Marshal()
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		hash := pachhash.Sum(data)
 		hashBase64 := pgIdentBase64Encoding.EncodeToString(hash[:])
+		indexChannel := fmt.Sprintf("%s_%s", watchBaseName, hashBase64)
 
-		payloadData, err = payload.Marshal()
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		payloadString = pgIdentBase64Encoding.EncodeToString(payloadData)
-
-		query = fmt.Sprintf("notify %s_%s, '%s';\n", watchBaseName, hashBase64, payloadString)
-		if _, err := c.tx.Exec(query); err != nil {
+		if err := watch.PublishNotification(c.tx, indexChannel, payload); err != nil {
 			return c.mapSQLError(err, key)
 		}
 	}
@@ -519,7 +517,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		return c.mapSQLError(err, key)
 	}
 
-	return c.notify(key, row, NotifyPayload_PUT)
+	return c.notify(key, row, watch.EventPut)
 }
 
 // Insert on conflict update all values (except createdat)
@@ -536,6 +534,7 @@ func (c *postgresReadWriteCollection) Upsert(key string, val proto.Message, f fu
 // Insert
 func (c *postgresReadWriteCollection) Create(key string, val proto.Message) error {
 	// TODO: require that the proto pkey matches key or override it in the insert
+	// longer term - get rid of key parameter and just use the annotated proto message
 	return c.insert(key, val, false)
 }
 
@@ -545,25 +544,10 @@ func (c *postgresReadWriteCollection) Delete(key string) error {
 	row := reflect.New(reflect.ValueOf(c.model).Elem().Type())
 
 	if err := sqlx.Get(c.tx, row.Interface(), query, key); err != nil {
-		// TODO: what happens if there is no row?
 		return c.mapSQLError(err, key)
 	}
 
-	return c.notify(key, row, NotifyPayload_DELETE)
-
-	/*
-		res, err := c.tx.NamedExec(query, key)
-		if err != nil {
-			return c.mapSQLError(err, key)
-		}
-
-		if count, err := res.RowsAffected(); err != nil {
-			return c.mapSQLError(err, key)
-		} else if count == 0 {
-			return errors.WithStack(ErrNotFound{c.sqlInfo.Table, key})
-		}
-		return nil
-	*/
+	return c.notify(key, row, watch.EventDelete)
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {

@@ -57,7 +57,7 @@ func TestPostgresCollections(suite *testing.T) {
 		testCol := col.NewPostgresCollection(db, &TestModel{})
 
 		writeCallback := func(f func(col.ReadWriteCollection) error) error {
-			return col.NewSQLTx(db, context.Background(), func(tx *sqlx.Tx) error {
+			return col.NewSQLTx(context.Background(), db, func(tx *sqlx.Tx) error {
 				return f(testCol.ReadWrite(tx))
 			})
 		}

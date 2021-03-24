@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package common;
-option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/collection";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/watch";
 
 message NotifyInfo {
   string table = 1;
@@ -11,13 +11,6 @@ message NotifyInfo {
 
 message NotifyPayload {
   NotifyInfo info = 1;
-
   string key = 2;
-
-  enum Type {
-    PUT = 0;
-    DELETE = 1;
-  }
-
-  Type type = 3;
+  uint32 type = 3;
 }
