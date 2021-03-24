@@ -23,7 +23,7 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 		return track.SetupPostgresTrackerV0(ctx, env.Tx)
 	}).
 	Apply("storage chunk store v0", func(ctx context.Context, env migrations.Env) error {
-		return chunk.SetupPostgresStoreV0(ctx, "storage.chunks", env.Tx)
+		return chunk.SetupPostgresStoreV0(env.Tx)
 	}).
 	Apply("storage fileset store v0", func(ctx context.Context, env migrations.Env) error {
 		return fileset.SetupPostgresStoreV0(ctx, env.Tx)
