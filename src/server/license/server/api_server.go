@@ -230,9 +230,16 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 	}, nil
 }
 
+func stripSecretFromRequest(req *lc.HeartbeatRequest) *lc.HeartbeatRequest {
+	r := *req
+	r.Secret = ""
+	return &r
+}
+
 func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (resp *lc.HeartbeatResponse, retErr error) {
-	a.LogReq(nil)
-	defer func(start time.Time) { a.pachLogger.Log(nil, resp, retErr, time.Since(start)) }(time.Now())
+	redactedRequest := stripSecretFromRequest(req)
+	a.LogReq(redactedRequest)
+	defer func(start time.Time) { a.pachLogger.Log(redactedRequest, nil, retErr, time.Since(start)) }(time.Now())
 
 	var count int
 	if err := a.env.GetDBClient().GetContext(ctx, &count, `SELECT COUNT(*) FROM license.clusters WHERE id=$1 and secret=$2`, req.Id, req.Secret); err != nil {
