@@ -8,7 +8,7 @@ all: pachyderm/values.schema.json
 lint:
 	helm lint pachyderm
 
-test:  kubeval-aws kubeval-gcp kubeval-gcp-tls kubeval-local kubeval-minio kubeval-microsoft
+test:  kubeval-aws kubeval-gcp kubeval-gcp-tls kubeval-local kubeval-local-dev kubeval-minio kubeval-microsoft
 	go test -race ./... -count 1
 
 kubeval-aws:
@@ -21,7 +21,10 @@ kubeval-gcp-tls:
 	helm template pachyderm -f examples/gcp-values-tls.yaml | kubeval --strict
 
 kubeval-local:
-	helm template pachyderm -f examples/local-developer-values.yaml | kubeval --strict
+	helm template pachyderm -f examples/local-values.yaml | kubeval --strict
+
+kubeval-local-dev:
+	helm template pachyderm -f examples/local-dev-values.yaml | kubeval --strict
 
 kubeval-minio:
 	helm template pachyderm -f examples/minio-values.yaml | kubeval --strict
