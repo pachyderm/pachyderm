@@ -392,19 +392,15 @@ describe('grpc/builders/pps', () => {
 
   it('should create Spout from an object', () => {
     const spout = spoutFromObject({
-      overwrite: true,
       service: {
         internalPort: 8888,
         externalPort: 30888,
         ip: '172.16.254.1',
         type: 'good',
       },
-      marker: 'marker',
     });
 
-    expect(spout.getOverwrite()).toBe(true);
     expect(spout.getService()?.getIp()).toBe('172.16.254.1');
-    expect(spout.getMarker()).toBe('marker');
   });
 
   it('should create ChunkSpec from an object', () => {
@@ -531,14 +527,12 @@ describe('grpc/builders/pps', () => {
         type: 'good',
       },
       spout: {
-        overwrite: true,
         service: {
           internalPort: 8888,
           externalPort: 30888,
           ip: '172.16.254.1',
           type: 'good',
         },
-        marker: 'marker',
       },
       chunkSpec: {
         number: 123,
@@ -589,7 +583,6 @@ describe('grpc/builders/pps', () => {
     expect(pipelineInfo.getReason()).toBe('because');
     expect(pipelineInfo.getMaxQueueSize()).toBe(11);
     expect(pipelineInfo.getService()?.getIp()).toBe('172.16.254.1');
-    expect(pipelineInfo.getSpout()?.getMarker()).toBe('marker');
     expect(pipelineInfo.getChunkSpec()?.getNumber()).toBe(123);
     expect(pipelineInfo.getDatumTimeout()?.getSeconds()).toBe(23424);
     expect(pipelineInfo.getJobTimeout()?.getSeconds()).toBe(564645);

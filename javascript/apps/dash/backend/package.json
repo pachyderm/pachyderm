@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",
-    "@pachyderm/proto": "2.0.0-alpha.5.2",
+    "@pachyderm/proto": "2.0.0-alpha.9.0",
     "apollo-server-express": "2.19.0",
-    "cookie-parser": "1.4.5",
     "bunyan": "1.8.15",
+    "cookie-parser": "1.4.5",
     "express": "4.17.1",
     "graphql": "15.5.0",
     "jsonwebtoken": "8.5.1",

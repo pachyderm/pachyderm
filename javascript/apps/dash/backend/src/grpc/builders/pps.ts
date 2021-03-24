@@ -145,9 +145,7 @@ export type ServiceObject = {
 };
 
 export type SpoutObject = {
-  overwrite: Spout.AsObject['overwrite'];
   service?: ServiceObject;
-  marker: Spout.AsObject['marker'];
 };
 
 export type ChunkSpecObject = {
@@ -478,13 +476,11 @@ export const serviceFromObject = ({
   return service;
 };
 
-export const spoutFromObject = ({overwrite, service, marker}: SpoutObject) => {
+export const spoutFromObject = ({service}: SpoutObject) => {
   const spout = new Spout();
-  spout.setOverwrite(overwrite);
   if (service) {
     spout.setService(serviceFromObject(service));
   }
-  spout.setMarker(marker);
 
   return spout;
 };
