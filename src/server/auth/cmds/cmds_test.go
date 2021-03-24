@@ -41,11 +41,12 @@ func TestLogin(t *testing.T) {
 	out, err := cmd.StdoutPipe()
 	require.NoError(t, err)
 
+	c := tu.GetUnauthenticatedPachClient(t)
 	require.NoError(t, cmd.Start())
 	sc := bufio.NewScanner(out)
 	for sc.Scan() {
 		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
-			tu.DoOAuthExchange(t, sc.Text())
+			tu.DoOAuthExchange(t, c, c, sc.Text())
 			break
 		}
 	}

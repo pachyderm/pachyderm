@@ -22,7 +22,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})
 	require.NoError(t, err)
 
-	tu.DoOAuthExchange(t, loginInfo.LoginURL)
+	tu.DoOAuthExchange(t, testClient, testClient, loginInfo.LoginURL)
 	// Check that pachd recorded the response from the redirect
 	authResp, err := testClient.Authenticate(testClient.Ctx(),
 		&auth.AuthenticateRequest{OIDCState: loginInfo.State})

@@ -3,6 +3,9 @@
 package testing
 
 import (
+	"bufio"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -144,5 +147,67 @@ EOF
 		  | match '"client_id": "localhost"' \
 		  | match '"redirect_uri": "http://pach-enterprise.enterprise:650"'
 		`,
+	).Run())
+}
+
+// TestLogin tests logging in to the enterprise server and leaf pachd
+func TestLogin(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	c, err := client.NewForTest()
+	require.NoError(t, err)
+
+	ec, err := client.NewEnterpriseClientForTest()
+	require.NoError(t, err)
+
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl enterprise activate
+		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
+		echo '{"username": "admin", "password": "password"}' | pachctl idp create-connector --id test --type mockPassword --name test  --config -
+		`,
+		"id", tu.UniqueString("cluster"),
+		"token", tu.RootToken,
+		"license", tu.GetTestEnterpriseCode(t),
+	).Run())
+
+	cmd := exec.Command("pachctl", "auth", "login", "--no-browser")
+	out, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+
+	require.NoError(t, cmd.Start())
+	sc := bufio.NewScanner(out)
+	for sc.Scan() {
+		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
+			tu.DoOAuthExchange(t, c, ec, sc.Text())
+			break
+		}
+	}
+	cmd.Wait()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami | match user:{{.user}}`,
+		"user", tu.DexMockConnectorEmail,
+	).Run())
+
+	cmd = exec.Command("pachctl", "auth", "login", "--no-browser", "--enterprise")
+	out, err = cmd.StdoutPipe()
+	require.NoError(t, err)
+
+	require.NoError(t, cmd.Start())
+	sc = bufio.NewScanner(out)
+	for sc.Scan() {
+		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
+			tu.DoOAuthExchange(t, ec, ec, sc.Text())
+			break
+		}
+	}
+	cmd.Wait()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami --enterprise | match user:{{.user}}`,
+		"user", tu.DexMockConnectorEmail,
 	).Run())
 }
