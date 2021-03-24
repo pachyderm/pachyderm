@@ -124,8 +124,6 @@ func RegisterCmd() *cobra.Command {
 			}
 			defer ec.Close()
 
-			fmt.Printf("ec: %v\nc: %v\n", ec, c)
-
 			// Register the pachd with the license server
 			resp, err := ec.License.AddCluster(ec.Ctx(),
 				&license.AddClusterRequest{
