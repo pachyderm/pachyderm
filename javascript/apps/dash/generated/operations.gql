@@ -4,6 +4,13 @@ mutation exchangeCode($code: String!) {
     idToken
   }
 }
+query getAccount {
+  account {
+    id
+    email
+    name
+  }
+}
 query getDag($args: DagQueryArgs!) {
   dag(args: $args) {
     nodes {

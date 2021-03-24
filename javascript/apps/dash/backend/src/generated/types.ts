@@ -196,6 +196,7 @@ export type Account = {
   __typename?: 'Account';
   id: Scalars['ID'];
   email: Scalars['String'];
+  name?: Maybe<Scalars['String']>;
 };
 
 export type SearchResults = {
@@ -709,6 +710,7 @@ export type AccountResolvers<
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 

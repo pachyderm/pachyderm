@@ -11,3 +11,6 @@ setup-auth:
 
 install:
 	npm install && npm install --prefix ./backend && npm install --prefix ./frontend
+
+graphql:
+	npm run generate-types --prefix ./backend && npm run generate-operations --prefix ./frontend

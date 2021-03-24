@@ -180,6 +180,7 @@ type Tokens {
 type Account {
   id: ID!
   email: String!
+  name: String
 }
 
 type SearchResults {

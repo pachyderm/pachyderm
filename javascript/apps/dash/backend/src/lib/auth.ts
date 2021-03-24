@@ -54,7 +54,11 @@ export const getAccountFromIdToken = async (
         // decoded is a generic 'object' type
         // not sure there is a good way to garauntee typing in this case,
         // as the scope is set by the client
-        const tokenContents = decoded as {sub: string; email: string};
+        const tokenContents = decoded as {
+          sub: string;
+          email: string;
+          name?: string;
+        };
 
         res({
           // NOTE: We may need to return email for both of these fields depending
@@ -62,6 +66,7 @@ export const getAccountFromIdToken = async (
           // by the downstream IDP. However, I believe pachyderm references users by email.
           id: tokenContents.sub,
           email: tokenContents.email,
+          name: tokenContents.name,
         });
       });
     });

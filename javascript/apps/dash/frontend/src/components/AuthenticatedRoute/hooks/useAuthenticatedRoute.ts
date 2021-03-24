@@ -32,7 +32,12 @@ const useAuthenticatedRoute = () => {
       initiateOauthFlow({
         authUrl,
         clientId,
-        scope: `openid+email+audience:server:client_id:${pachdClientId}`,
+        scope: [
+          'openid',
+          'email',
+          'profile',
+          `audience:server:client_id:${pachdClientId}`,
+        ].join('+'),
         openWindow: false,
       });
     }

@@ -74,14 +74,14 @@ const createOperation = async <T>(
   };
 };
 
-export const generateIdTokenForAccount = (account: Account) => {
+export const generateIdTokenForAccount = ({id, ...rest}: Account) => {
   return sign(
-    {some: 'stuff', azp: 'dash', email: account.email},
+    {some: 'stuff', azp: 'dash', ...rest},
     fs.readFileSync(path.resolve(__dirname, 'mock/mockPrivate.key')),
     {
       algorithm: 'RS256',
       issuer: process.env.ISSUER_URI,
-      subject: account.id,
+      subject: id,
       audience: ['pachd', 'dash'],
       expiresIn: '30 days',
       keyid: keys.keys[0].kid,

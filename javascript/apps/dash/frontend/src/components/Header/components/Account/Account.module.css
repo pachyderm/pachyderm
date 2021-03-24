@@ -1,0 +1,14 @@
+.base { 
+  color: var(--white);
+  font-family: Montserrat;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.loaderContainer {
+  width: 7.5rem;
+}
+
+.loader {
+  margin-bottom: 0;
+}

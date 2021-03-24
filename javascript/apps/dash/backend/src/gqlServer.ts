@@ -15,15 +15,19 @@ const gqlServer = new ApolloServer({
   context: async ({req}) => {
     const idToken = req.header('id-token');
 
-    const log = baseLogger.child({
-      pachdAddress: req.header('pachd-address'),
-      operationId: uuid(),
-    });
-
     let account: Account | undefined;
     if (idToken) {
       account = await getAccountFromIdToken(idToken);
     }
+
+    const log = baseLogger.child({
+      pachdAddress: req.header('pachd-address'),
+      operationId: uuid(),
+      account: {
+        id: account?.id,
+        email: account?.email,
+      },
+    });
 
     return {
       authToken: req.header('auth-token'),

@@ -1,6 +1,7 @@
 import {ButtonLink, Group} from '@pachyderm/components';
 import React from 'react';
 
+import Account from './components/Account';
 import styles from './Header.module.css';
 import {ReactComponent as LogoElephant} from './LogoElephant.svg';
 
@@ -23,7 +24,7 @@ const Header: React.FC = () => {
             Support
           </ButtonLink>
           <div className={styles.divider} />
-          <span className={styles.account}>Hello, User!</span>
+          <Account />
         </Group>
       </Group>
     </header>

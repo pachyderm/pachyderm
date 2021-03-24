@@ -86,7 +86,7 @@ describe('AuthenticatedRoute', () => {
           `?client_id=${process.env.REACT_APP_OAUTH_CLIENT_ID}`,
           '&redirect_uri=http://localhost/oauth/callback/?inline=true',
           '&response_type=code',
-          '&scope=openid+email+audience:server:client_id:pachd',
+          '&scope=openid+email+profile+audience:server:client_id:pachd',
           '&state=AAAAAAAAAAAAAAAAAAAA',
         ].join(''),
       ),
