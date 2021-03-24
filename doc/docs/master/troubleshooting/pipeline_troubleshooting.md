@@ -50,9 +50,9 @@ That scenario is quite easy to troubleshoot:
         Get a key here:
         /n <URL  → (Get a Key form)
         ```
- 
 
-To lift those limitations, register to get a 14-day trial enterprise key by following the link in the messages above (/TODO lint to the webform) or login to the Pachyderm UI and provide your email address. 
+
+To lift those limitations, Request an [**Enterprise Edition trial token**](http://pachdm.com/enterprise). 
 Check out our [Enterprise features](https://docs.pachyderm.com/latest/enterprise/). 
 
 

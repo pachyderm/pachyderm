@@ -1,11 +1,7 @@
 # Deploy the Pachyderm IDE
 
-!!! note
-    The Pachyderm IDE is an enterprise feature,
-    which is also available for testing during
-    the 14-day free trial.
-    Contact sales@pachyderm.com for more
-    information.
+!!! Note
+    The Pachyderm IDE is an enterprise feature. Request an [**Enterprise Edition trial token**](http://pachdm.com/enterprise).
 
 The Pachyderm Integrated Development Environment (IDE) is
 an optional extension to Pachyderm clusters that provides a

@@ -3,8 +3,8 @@
 This section describes features available in the enterprise
 edition of Pachyderm. 
 
-!!! Warning "Get your 14-day free-trial."
-    To try our enterprise features, fill in this form (/TODO link to webform) or log in to the Pachyderm UI and
+!!! Warning "Get your free-trial token."
+    To try our enterprise features, fill in [this form](http://pachdm.com/enterprise) or log in to the Pachyderm UI and
     provide your email address. 
 
 
