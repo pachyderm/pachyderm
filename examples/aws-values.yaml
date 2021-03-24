@@ -3,8 +3,8 @@ pachd:
     backend: AMAZON
     amazon:
       amazonBucket: blah
-      # this is an example access key ID from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+      # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
       id: AKIAIOSFODNN7EXAMPLE
-      # this is an example secret access key (ibid.)
+      # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
       secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
       cloudFrontDistribution: cfd-123
