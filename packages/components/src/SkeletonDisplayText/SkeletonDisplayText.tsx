@@ -1,20 +1,25 @@
 import classnames from 'classnames';
-import React, {memo} from 'react';
+import React, {HTMLAttributes} from 'react';
 
 import styles from './SkeletonDisplayText.module.css';
 
-type SkeletonDisplayTextProps = {
+interface SkeletonDisplayTextProps extends HTMLAttributes<HTMLDivElement> {
   blueShimmer?: boolean;
-};
+}
 
 const SkeletonDisplayText: React.FC<SkeletonDisplayTextProps> = ({
   blueShimmer = false,
+  className,
   ...rest
 }) => (
   <div
-    className={classnames(styles.base, {[styles.blueShimmer]: blueShimmer})}
+    className={classnames(
+      styles.base,
+      {[styles.blueShimmer]: blueShimmer},
+      className,
+    )}
     {...rest}
   />
 );
 
-export default memo(SkeletonDisplayText);
+export default SkeletonDisplayText;
