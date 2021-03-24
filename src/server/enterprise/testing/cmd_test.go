@@ -150,8 +150,49 @@ EOF
 	).Run())
 }
 
-// TestLogin tests logging in to the enterprise server and leaf pachd
-func TestLogin(t *testing.T) {
+// TestLoginEnterprise tests logging in to the enterprise server
+func TestLoginEnterprise(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	ec, err := client.NewEnterpriseClientForTest()
+	require.NoError(t, err)
+
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl enterprise activate
+		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
+		echo '{"username": "admin", "password": "password"}' | pachctl idp create-connector --id test --type mockPassword --name test  --config -
+		`,
+		"id", tu.UniqueString("cluster"),
+		"token", tu.RootToken,
+		"license", tu.GetTestEnterpriseCode(t),
+	).Run())
+
+	cmd := exec.Command("pachctl", "auth", "login", "--no-browser", "--enterprise")
+	out, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+
+	require.NoError(t, cmd.Start())
+	sc := bufio.NewScanner(out)
+	for sc.Scan() {
+		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
+			tu.DoOAuthExchange(t, ec, ec, sc.Text())
+			break
+		}
+	}
+	cmd.Wait()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami --enterprise | match user:{{.user}}
+		pachctl auth whoami | match pach:root`,
+		"user", tu.DexMockConnectorEmail,
+	).Run())
+}
+
+// TestLoginPachd tests logging in to pachd
+func TestLoginPachd(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 
@@ -188,26 +229,8 @@ func TestLogin(t *testing.T) {
 	cmd.Wait()
 
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth whoami | match user:{{.user}}`,
-		"user", tu.DexMockConnectorEmail,
-	).Run())
-
-	cmd = exec.Command("pachctl", "auth", "login", "--no-browser", "--enterprise")
-	out, err = cmd.StdoutPipe()
-	require.NoError(t, err)
-
-	require.NoError(t, cmd.Start())
-	sc = bufio.NewScanner(out)
-	for sc.Scan() {
-		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
-			tu.DoOAuthExchange(t, ec, ec, sc.Text())
-			break
-		}
-	}
-	cmd.Wait()
-
-	require.NoError(t, tu.BashCmd(`
-		pachctl auth whoami --enterprise | match user:{{.user}}`,
+		pachctl auth whoami | match user:{{.user}}
+		pachctl auth whoami --enterprise | match 'pach:root'`,
 		"user", tu.DexMockConnectorEmail,
 	).Run())
 }
