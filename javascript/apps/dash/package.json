@@ -1,0 +1,15 @@
+{
+  "name": "@pachyderm/haberdashery",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "setup": "node setup.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "envfile": "6.14.0"
+  }
+}
