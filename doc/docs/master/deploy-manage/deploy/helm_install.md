@@ -29,7 +29,7 @@ As a general rule, those steps are:
         ```
         This command comes with an exhaustive [list of available flags](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_google/).
     
-        In the case of an installation using Helm, those same parameters values will now **populate a .yaml configuration file** as follow.
+        In the case of an installation using Helm, those same parameters values will now **be specified in a YAML configuration file** as follows.
 
 ### Edit a values.yaml file
 Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/helmchart/tree/master/examples). Pick the example that fits your target deployment and update the relevant fields according to the parameters gathered in the previous step.   
@@ -38,21 +38,21 @@ See the [conversion table](#conversion-table) at the end of this page. It should
 
 See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters.
 
-### Get your Helm Repo Info
-```shell
-$ helm repo add pachyderm https://pachyderm.github.io/helmchart
-```
-```shell
-$ helm repo update
-```
+###  Install the Pachyderm Helm Chart
+1. Get your Helm Repo Info
+    ```shell
+    $ helm repo add pachyderm https://pachyderm.github.io/helmchart
+    $ helm repo update
+    ```
 
-### Install the Pachyderm helm chart
-You are ready to deploy Pachyderm on the environment of your choice.
-```shell
-$ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
-```
+1. Install Pachyderm
 
-### Check your install
+    You are ready to deploy Pachyderm on the environment of your choice.
+    ```shell
+    $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
+    ```
+
+### Check your installation
 
 1. Check your deployment
     ```shell
@@ -81,7 +81,8 @@ $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
     pachctl             {{ config.pach_latest_version }}
     pachd               {{ config.pach_latest_version }}
     ```
-## Uninstall the Pachyderm helm chart
+
+## Uninstall the Pachyderm Helm Chart
 [Helm uninstall](https://helm.sh/docs/helm/helm_uninstall/) a release as easily as you installed it.
 ```shell
 $ helm uninstall pachd 
@@ -134,7 +135,7 @@ $ helm uninstall pachd
 |**tls**|----|---|
 |--tls|<ul><li>tls.crt</li><li>tls.key</li></ul>|both default to ""|
 
-## Deploy flag deprecation
+## `pachctl deploy` flag deprecation
 
 !!! Info "Deprecation notice"
         With the addition of the Helm chart, the following `pachctl deploy`
