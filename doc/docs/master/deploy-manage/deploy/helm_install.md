@@ -7,9 +7,8 @@ However, you can now deploy Pachyderm using the package manager [Helm](https://h
       Helm support for Pachyderm is a **beta** release. 
       See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details.
 
-This page gives you a high level view of the steps to follow to install Pachyderm using Helm.
+This page gives you a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm).
 
-As a general rule, those steps are:
 ## Install
 ### Prerequisites
 1. Install [`Helm`](https://helm.sh/docs/intro/install/). 
