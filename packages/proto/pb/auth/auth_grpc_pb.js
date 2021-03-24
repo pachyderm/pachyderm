@@ -138,50 +138,6 @@ function deserialize_auth_ExtractAuthTokensResponse(buffer_arg) {
   return auth_auth_pb.ExtractAuthTokensResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_auth_GetACLRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.GetACLRequest)) {
-    throw new Error('Expected argument of type auth.GetACLRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_GetACLRequest(buffer_arg) {
-  return auth_auth_pb.GetACLRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_GetACLResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.GetACLResponse)) {
-    throw new Error('Expected argument of type auth.GetACLResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_GetACLResponse(buffer_arg) {
-  return auth_auth_pb.GetACLResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_GetAdminsRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.GetAdminsRequest)) {
-    throw new Error('Expected argument of type auth.GetAdminsRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_GetAdminsRequest(buffer_arg) {
-  return auth_auth_pb.GetAdminsRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_GetAdminsResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.GetAdminsResponse)) {
-    throw new Error('Expected argument of type auth.GetAdminsResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_GetAdminsResponse(buffer_arg) {
-  return auth_auth_pb.GetAdminsResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_auth_GetAuthTokenRequest(arg) {
   if (!(arg instanceof auth_auth_pb.GetAuthTokenRequest)) {
     throw new Error('Expected argument of type auth.GetAuthTokenRequest');
@@ -202,28 +158,6 @@ function serialize_auth_GetAuthTokenResponse(arg) {
 
 function deserialize_auth_GetAuthTokenResponse(buffer_arg) {
   return auth_auth_pb.GetAuthTokenResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_GetClusterRoleBindingsRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.GetClusterRoleBindingsRequest)) {
-    throw new Error('Expected argument of type auth.GetClusterRoleBindingsRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_GetClusterRoleBindingsRequest(buffer_arg) {
-  return auth_auth_pb.GetClusterRoleBindingsRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_GetClusterRoleBindingsResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.GetClusterRoleBindingsResponse)) {
-    throw new Error('Expected argument of type auth.GetClusterRoleBindingsResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_GetClusterRoleBindingsResponse(buffer_arg) {
-  return auth_auth_pb.GetClusterRoleBindingsResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_auth_GetConfigurationRequest(arg) {
@@ -292,26 +226,48 @@ function deserialize_auth_GetOIDCLoginResponse(buffer_arg) {
   return auth_auth_pb.GetOIDCLoginResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_auth_GetScopeRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.GetScopeRequest)) {
-    throw new Error('Expected argument of type auth.GetScopeRequest');
+function serialize_auth_GetRobotTokenRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.GetRobotTokenRequest)) {
+    throw new Error('Expected argument of type auth.GetRobotTokenRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_auth_GetScopeRequest(buffer_arg) {
-  return auth_auth_pb.GetScopeRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_auth_GetRobotTokenRequest(buffer_arg) {
+  return auth_auth_pb.GetRobotTokenRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_auth_GetScopeResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.GetScopeResponse)) {
-    throw new Error('Expected argument of type auth.GetScopeResponse');
+function serialize_auth_GetRobotTokenResponse(arg) {
+  if (!(arg instanceof auth_auth_pb.GetRobotTokenResponse)) {
+    throw new Error('Expected argument of type auth.GetRobotTokenResponse');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_auth_GetScopeResponse(buffer_arg) {
-  return auth_auth_pb.GetScopeResponse.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_auth_GetRobotTokenResponse(buffer_arg) {
+  return auth_auth_pb.GetRobotTokenResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_GetRoleBindingRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.GetRoleBindingRequest)) {
+    throw new Error('Expected argument of type auth.GetRoleBindingRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_GetRoleBindingRequest(buffer_arg) {
+  return auth_auth_pb.GetRoleBindingRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_GetRoleBindingResponse(arg) {
+  if (!(arg instanceof auth_auth_pb.GetRoleBindingResponse)) {
+    throw new Error('Expected argument of type auth.GetRoleBindingResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_GetRoleBindingResponse(buffer_arg) {
+  return auth_auth_pb.GetRoleBindingResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_auth_GetUsersRequest(arg) {
@@ -336,50 +292,6 @@ function deserialize_auth_GetUsersResponse(buffer_arg) {
   return auth_auth_pb.GetUsersResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_auth_ModifyAdminsRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.ModifyAdminsRequest)) {
-    throw new Error('Expected argument of type auth.ModifyAdminsRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_ModifyAdminsRequest(buffer_arg) {
-  return auth_auth_pb.ModifyAdminsRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_ModifyAdminsResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.ModifyAdminsResponse)) {
-    throw new Error('Expected argument of type auth.ModifyAdminsResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_ModifyAdminsResponse(buffer_arg) {
-  return auth_auth_pb.ModifyAdminsResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_ModifyClusterRoleBindingRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.ModifyClusterRoleBindingRequest)) {
-    throw new Error('Expected argument of type auth.ModifyClusterRoleBindingRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_ModifyClusterRoleBindingRequest(buffer_arg) {
-  return auth_auth_pb.ModifyClusterRoleBindingRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_ModifyClusterRoleBindingResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.ModifyClusterRoleBindingResponse)) {
-    throw new Error('Expected argument of type auth.ModifyClusterRoleBindingResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_ModifyClusterRoleBindingResponse(buffer_arg) {
-  return auth_auth_pb.ModifyClusterRoleBindingResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_auth_ModifyMembersRequest(arg) {
   if (!(arg instanceof auth_auth_pb.ModifyMembersRequest)) {
     throw new Error('Expected argument of type auth.ModifyMembersRequest');
@@ -400,6 +312,28 @@ function serialize_auth_ModifyMembersResponse(arg) {
 
 function deserialize_auth_ModifyMembersResponse(buffer_arg) {
   return auth_auth_pb.ModifyMembersResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_ModifyRoleBindingRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.ModifyRoleBindingRequest)) {
+    throw new Error('Expected argument of type auth.ModifyRoleBindingRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_ModifyRoleBindingRequest(buffer_arg) {
+  return auth_auth_pb.ModifyRoleBindingRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_ModifyRoleBindingResponse(arg) {
+  if (!(arg instanceof auth_auth_pb.ModifyRoleBindingResponse)) {
+    throw new Error('Expected argument of type auth.ModifyRoleBindingResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_ModifyRoleBindingResponse(buffer_arg) {
+  return auth_auth_pb.ModifyRoleBindingResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_auth_RestoreAuthTokenRequest(arg) {
@@ -446,28 +380,6 @@ function deserialize_auth_RevokeAuthTokenResponse(buffer_arg) {
   return auth_auth_pb.RevokeAuthTokenResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_auth_SetACLRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.SetACLRequest)) {
-    throw new Error('Expected argument of type auth.SetACLRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_SetACLRequest(buffer_arg) {
-  return auth_auth_pb.SetACLRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_SetACLResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.SetACLResponse)) {
-    throw new Error('Expected argument of type auth.SetACLResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_SetACLResponse(buffer_arg) {
-  return auth_auth_pb.SetACLResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_auth_SetConfigurationRequest(arg) {
   if (!(arg instanceof auth_auth_pb.SetConfigurationRequest)) {
     throw new Error('Expected argument of type auth.SetConfigurationRequest');
@@ -510,28 +422,6 @@ function serialize_auth_SetGroupsForUserResponse(arg) {
 
 function deserialize_auth_SetGroupsForUserResponse(buffer_arg) {
   return auth_auth_pb.SetGroupsForUserResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_SetScopeRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.SetScopeRequest)) {
-    throw new Error('Expected argument of type auth.SetScopeRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_SetScopeRequest(buffer_arg) {
-  return auth_auth_pb.SetScopeRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_SetScopeResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.SetScopeResponse)) {
-    throw new Error('Expected argument of type auth.SetScopeResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_SetScopeResponse(buffer_arg) {
-  return auth_auth_pb.SetScopeResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_auth_WhoAmIRequest(arg) {
@@ -605,54 +495,6 @@ activate: {
     responseSerialize: serialize_auth_SetConfigurationResponse,
     responseDeserialize: deserialize_auth_SetConfigurationResponse,
   },
-  // Deprecated. GetAdmins returns the current list of cluster super admins
-getAdmins: {
-    path: '/auth.API/GetAdmins',
-    requestStream: false,
-    responseStream: false,
-    requestType: auth_auth_pb.GetAdminsRequest,
-    responseType: auth_auth_pb.GetAdminsResponse,
-    requestSerialize: serialize_auth_GetAdminsRequest,
-    requestDeserialize: deserialize_auth_GetAdminsRequest,
-    responseSerialize: serialize_auth_GetAdminsResponse,
-    responseDeserialize: deserialize_auth_GetAdminsResponse,
-  },
-  // Deprecated. ModifyAdmins adds or removes super admins from the cluster
-modifyAdmins: {
-    path: '/auth.API/ModifyAdmins',
-    requestStream: false,
-    responseStream: false,
-    requestType: auth_auth_pb.ModifyAdminsRequest,
-    responseType: auth_auth_pb.ModifyAdminsResponse,
-    requestSerialize: serialize_auth_ModifyAdminsRequest,
-    requestDeserialize: deserialize_auth_ModifyAdminsRequest,
-    responseSerialize: serialize_auth_ModifyAdminsResponse,
-    responseDeserialize: deserialize_auth_ModifyAdminsResponse,
-  },
-  // GetClusterRoleBindings returns the current set of cluster role bindings
-getClusterRoleBindings: {
-    path: '/auth.API/GetClusterRoleBindings',
-    requestStream: false,
-    responseStream: false,
-    requestType: auth_auth_pb.GetClusterRoleBindingsRequest,
-    responseType: auth_auth_pb.GetClusterRoleBindingsResponse,
-    requestSerialize: serialize_auth_GetClusterRoleBindingsRequest,
-    requestDeserialize: deserialize_auth_GetClusterRoleBindingsRequest,
-    responseSerialize: serialize_auth_GetClusterRoleBindingsResponse,
-    responseDeserialize: deserialize_auth_GetClusterRoleBindingsResponse,
-  },
-  // ModifyAdmin sets the list of admin roles for a principal
-modifyClusterRoleBinding: {
-    path: '/auth.API/ModifyClusterRoleBinding',
-    requestStream: false,
-    responseStream: false,
-    requestType: auth_auth_pb.ModifyClusterRoleBindingRequest,
-    responseType: auth_auth_pb.ModifyClusterRoleBindingResponse,
-    requestSerialize: serialize_auth_ModifyClusterRoleBindingRequest,
-    requestDeserialize: deserialize_auth_ModifyClusterRoleBindingRequest,
-    responseSerialize: serialize_auth_ModifyClusterRoleBindingResponse,
-    responseDeserialize: deserialize_auth_ModifyClusterRoleBindingResponse,
-  },
   authenticate: {
     path: '/auth.API/Authenticate',
     requestStream: false,
@@ -686,49 +528,27 @@ modifyClusterRoleBinding: {
     responseSerialize: serialize_auth_WhoAmIResponse,
     responseDeserialize: deserialize_auth_WhoAmIResponse,
   },
-  getScope: {
-    path: '/auth.API/GetScope',
+  modifyRoleBinding: {
+    path: '/auth.API/ModifyRoleBinding',
     requestStream: false,
     responseStream: false,
-    requestType: auth_auth_pb.GetScopeRequest,
-    responseType: auth_auth_pb.GetScopeResponse,
-    requestSerialize: serialize_auth_GetScopeRequest,
-    requestDeserialize: deserialize_auth_GetScopeRequest,
-    responseSerialize: serialize_auth_GetScopeResponse,
-    responseDeserialize: deserialize_auth_GetScopeResponse,
+    requestType: auth_auth_pb.ModifyRoleBindingRequest,
+    responseType: auth_auth_pb.ModifyRoleBindingResponse,
+    requestSerialize: serialize_auth_ModifyRoleBindingRequest,
+    requestDeserialize: deserialize_auth_ModifyRoleBindingRequest,
+    responseSerialize: serialize_auth_ModifyRoleBindingResponse,
+    responseDeserialize: deserialize_auth_ModifyRoleBindingResponse,
   },
-  setScope: {
-    path: '/auth.API/SetScope',
+  getRoleBinding: {
+    path: '/auth.API/GetRoleBinding',
     requestStream: false,
     responseStream: false,
-    requestType: auth_auth_pb.SetScopeRequest,
-    responseType: auth_auth_pb.SetScopeResponse,
-    requestSerialize: serialize_auth_SetScopeRequest,
-    requestDeserialize: deserialize_auth_SetScopeRequest,
-    responseSerialize: serialize_auth_SetScopeResponse,
-    responseDeserialize: deserialize_auth_SetScopeResponse,
-  },
-  getACL: {
-    path: '/auth.API/GetACL',
-    requestStream: false,
-    responseStream: false,
-    requestType: auth_auth_pb.GetACLRequest,
-    responseType: auth_auth_pb.GetACLResponse,
-    requestSerialize: serialize_auth_GetACLRequest,
-    requestDeserialize: deserialize_auth_GetACLRequest,
-    responseSerialize: serialize_auth_GetACLResponse,
-    responseDeserialize: deserialize_auth_GetACLResponse,
-  },
-  setACL: {
-    path: '/auth.API/SetACL',
-    requestStream: false,
-    responseStream: false,
-    requestType: auth_auth_pb.SetACLRequest,
-    responseType: auth_auth_pb.SetACLResponse,
-    requestSerialize: serialize_auth_SetACLRequest,
-    requestDeserialize: deserialize_auth_SetACLRequest,
-    responseSerialize: serialize_auth_SetACLResponse,
-    responseDeserialize: deserialize_auth_SetACLResponse,
+    requestType: auth_auth_pb.GetRoleBindingRequest,
+    responseType: auth_auth_pb.GetRoleBindingResponse,
+    requestSerialize: serialize_auth_GetRoleBindingRequest,
+    requestDeserialize: deserialize_auth_GetRoleBindingRequest,
+    responseSerialize: serialize_auth_GetRoleBindingResponse,
+    responseDeserialize: deserialize_auth_GetRoleBindingResponse,
   },
   getOIDCLogin: {
     path: '/auth.API/GetOIDCLogin',
@@ -751,6 +571,17 @@ modifyClusterRoleBinding: {
     requestDeserialize: deserialize_auth_GetAuthTokenRequest,
     responseSerialize: serialize_auth_GetAuthTokenResponse,
     responseDeserialize: deserialize_auth_GetAuthTokenResponse,
+  },
+  getRobotToken: {
+    path: '/auth.API/GetRobotToken',
+    requestStream: false,
+    responseStream: false,
+    requestType: auth_auth_pb.GetRobotTokenRequest,
+    responseType: auth_auth_pb.GetRobotTokenResponse,
+    requestSerialize: serialize_auth_GetRobotTokenRequest,
+    requestDeserialize: deserialize_auth_GetRobotTokenRequest,
+    responseSerialize: serialize_auth_GetRobotTokenResponse,
+    responseDeserialize: deserialize_auth_GetRobotTokenResponse,
   },
   extendAuthToken: {
     path: '/auth.API/ExtendAuthToken',

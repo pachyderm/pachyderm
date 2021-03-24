@@ -291,17 +291,11 @@ export namespace Service {
 }
 
 export class Spout extends jspb.Message { 
-    getOverwrite(): boolean;
-    setOverwrite(value: boolean): Spout;
-
 
     hasService(): boolean;
     clearService(): void;
     getService(): Service | undefined;
     setService(value?: Service): Spout;
-
-    getMarker(): string;
-    setMarker(value: string): Spout;
 
 
     serializeBinary(): Uint8Array;
@@ -316,9 +310,7 @@ export class Spout extends jspb.Message {
 
 export namespace Spout {
     export type AsObject = {
-        overwrite: boolean,
         service?: Service.AsObject,
-        marker: string,
     }
 }
 
@@ -1567,6 +1559,9 @@ export class PipelineInfo extends jspb.Message {
     getMetadata(): Metadata | undefined;
     setMetadata(value?: Metadata): PipelineInfo;
 
+    getNoSkip(): boolean;
+    setNoSkip(value: boolean): PipelineInfo;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): PipelineInfo.AsObject;
@@ -1621,6 +1616,7 @@ export namespace PipelineInfo {
         podPatch: string,
         s3Out: boolean,
         metadata?: Metadata.AsObject,
+        noSkip: boolean,
     }
 }
 
@@ -1887,6 +1883,12 @@ export class StopJobRequest extends jspb.Message {
     setJob(value?: Job): StopJobRequest;
 
 
+    hasOutputCommit(): boolean;
+    clearOutputCommit(): void;
+    getOutputCommit(): pfs_pfs_pb.Commit | undefined;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): StopJobRequest;
+
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): StopJobRequest.AsObject;
     static toObject(includeInstance: boolean, msg: StopJobRequest): StopJobRequest.AsObject;
@@ -1900,6 +1902,7 @@ export class StopJobRequest extends jspb.Message {
 export namespace StopJobRequest {
     export type AsObject = {
         job?: Job.AsObject,
+        outputCommit?: pfs_pfs_pb.Commit.AsObject,
     }
 }
 
@@ -2363,6 +2366,9 @@ export class CreatePipelineRequest extends jspb.Message {
     getMetadata(): Metadata | undefined;
     setMetadata(value?: Metadata): CreatePipelineRequest;
 
+    getNoSkip(): boolean;
+    setNoSkip(value: boolean): CreatePipelineRequest;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreatePipelineRequest.AsObject;
@@ -2406,6 +2412,7 @@ export namespace CreatePipelineRequest {
         podPatch: string,
         specCommit?: pfs_pfs_pb.Commit.AsObject,
         metadata?: Metadata.AsObject,
+        noSkip: boolean,
     }
 }
 

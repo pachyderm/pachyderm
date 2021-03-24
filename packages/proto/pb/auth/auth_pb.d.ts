@@ -213,200 +213,6 @@ export namespace SetConfigurationResponse {
     }
 }
 
-export class ClusterRoles extends jspb.Message { 
-    clearRolesList(): void;
-    getRolesList(): Array<ClusterRole>;
-    setRolesList(value: Array<ClusterRole>): ClusterRoles;
-    addRoles(value: ClusterRole, index?: number): ClusterRole;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ClusterRoles.AsObject;
-    static toObject(includeInstance: boolean, msg: ClusterRoles): ClusterRoles.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ClusterRoles, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ClusterRoles;
-    static deserializeBinaryFromReader(message: ClusterRoles, reader: jspb.BinaryReader): ClusterRoles;
-}
-
-export namespace ClusterRoles {
-    export type AsObject = {
-        rolesList: Array<ClusterRole>,
-    }
-}
-
-export class GetClusterRoleBindingsRequest extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetClusterRoleBindingsRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: GetClusterRoleBindingsRequest): GetClusterRoleBindingsRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetClusterRoleBindingsRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetClusterRoleBindingsRequest;
-    static deserializeBinaryFromReader(message: GetClusterRoleBindingsRequest, reader: jspb.BinaryReader): GetClusterRoleBindingsRequest;
-}
-
-export namespace GetClusterRoleBindingsRequest {
-    export type AsObject = {
-    }
-}
-
-export class GetClusterRoleBindingsResponse extends jspb.Message { 
-
-    getBindingsMap(): jspb.Map<string, ClusterRoles>;
-    clearBindingsMap(): void;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetClusterRoleBindingsResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: GetClusterRoleBindingsResponse): GetClusterRoleBindingsResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetClusterRoleBindingsResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetClusterRoleBindingsResponse;
-    static deserializeBinaryFromReader(message: GetClusterRoleBindingsResponse, reader: jspb.BinaryReader): GetClusterRoleBindingsResponse;
-}
-
-export namespace GetClusterRoleBindingsResponse {
-    export type AsObject = {
-
-        bindingsMap: Array<[string, ClusterRoles.AsObject]>,
-    }
-}
-
-export class ModifyClusterRoleBindingRequest extends jspb.Message { 
-    getPrincipal(): string;
-    setPrincipal(value: string): ModifyClusterRoleBindingRequest;
-
-
-    hasRoles(): boolean;
-    clearRoles(): void;
-    getRoles(): ClusterRoles | undefined;
-    setRoles(value?: ClusterRoles): ModifyClusterRoleBindingRequest;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ModifyClusterRoleBindingRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: ModifyClusterRoleBindingRequest): ModifyClusterRoleBindingRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ModifyClusterRoleBindingRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ModifyClusterRoleBindingRequest;
-    static deserializeBinaryFromReader(message: ModifyClusterRoleBindingRequest, reader: jspb.BinaryReader): ModifyClusterRoleBindingRequest;
-}
-
-export namespace ModifyClusterRoleBindingRequest {
-    export type AsObject = {
-        principal: string,
-        roles?: ClusterRoles.AsObject,
-    }
-}
-
-export class ModifyClusterRoleBindingResponse extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ModifyClusterRoleBindingResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: ModifyClusterRoleBindingResponse): ModifyClusterRoleBindingResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ModifyClusterRoleBindingResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ModifyClusterRoleBindingResponse;
-    static deserializeBinaryFromReader(message: ModifyClusterRoleBindingResponse, reader: jspb.BinaryReader): ModifyClusterRoleBindingResponse;
-}
-
-export namespace ModifyClusterRoleBindingResponse {
-    export type AsObject = {
-    }
-}
-
-export class GetAdminsRequest extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetAdminsRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: GetAdminsRequest): GetAdminsRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetAdminsRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetAdminsRequest;
-    static deserializeBinaryFromReader(message: GetAdminsRequest, reader: jspb.BinaryReader): GetAdminsRequest;
-}
-
-export namespace GetAdminsRequest {
-    export type AsObject = {
-    }
-}
-
-export class GetAdminsResponse extends jspb.Message { 
-    clearAdminsList(): void;
-    getAdminsList(): Array<string>;
-    setAdminsList(value: Array<string>): GetAdminsResponse;
-    addAdmins(value: string, index?: number): string;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetAdminsResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: GetAdminsResponse): GetAdminsResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetAdminsResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetAdminsResponse;
-    static deserializeBinaryFromReader(message: GetAdminsResponse, reader: jspb.BinaryReader): GetAdminsResponse;
-}
-
-export namespace GetAdminsResponse {
-    export type AsObject = {
-        adminsList: Array<string>,
-    }
-}
-
-export class ModifyAdminsRequest extends jspb.Message { 
-    clearAddList(): void;
-    getAddList(): Array<string>;
-    setAddList(value: Array<string>): ModifyAdminsRequest;
-    addAdd(value: string, index?: number): string;
-
-    clearRemoveList(): void;
-    getRemoveList(): Array<string>;
-    setRemoveList(value: Array<string>): ModifyAdminsRequest;
-    addRemove(value: string, index?: number): string;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ModifyAdminsRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: ModifyAdminsRequest): ModifyAdminsRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ModifyAdminsRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ModifyAdminsRequest;
-    static deserializeBinaryFromReader(message: ModifyAdminsRequest, reader: jspb.BinaryReader): ModifyAdminsRequest;
-}
-
-export namespace ModifyAdminsRequest {
-    export type AsObject = {
-        addList: Array<string>,
-        removeList: Array<string>,
-    }
-}
-
-export class ModifyAdminsResponse extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ModifyAdminsResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: ModifyAdminsResponse): ModifyAdminsResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ModifyAdminsResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ModifyAdminsResponse;
-    static deserializeBinaryFromReader(message: ModifyAdminsResponse, reader: jspb.BinaryReader): ModifyAdminsResponse;
-}
-
-export namespace ModifyAdminsResponse {
-    export type AsObject = {
-    }
-}
-
 export class TokenInfo extends jspb.Message { 
     getSubject(): string;
     setSubject(value: string): TokenInfo;
@@ -506,17 +312,8 @@ export class WhoAmIResponse extends jspb.Message {
     getUsername(): string;
     setUsername(value: string): WhoAmIResponse;
 
-    getIsAdmin(): boolean;
-    setIsAdmin(value: boolean): WhoAmIResponse;
-
     getTtl(): number;
     setTtl(value: number): WhoAmIResponse;
-
-
-    hasClusterRoles(): boolean;
-    clearClusterRoles(): void;
-    getClusterRoles(): ClusterRoles | undefined;
-    setClusterRoles(value?: ClusterRoles): WhoAmIResponse;
 
 
     serializeBinary(): Uint8Array;
@@ -532,32 +329,78 @@ export class WhoAmIResponse extends jspb.Message {
 export namespace WhoAmIResponse {
     export type AsObject = {
         username: string,
-        isAdmin: boolean,
         ttl: number,
-        clusterRoles?: ClusterRoles.AsObject,
     }
 }
 
-export class ACL extends jspb.Message { 
+export class Roles extends jspb.Message { 
 
-    getEntriesMap(): jspb.Map<string, Scope>;
+    getRolesMap(): jspb.Map<string, boolean>;
+    clearRolesMap(): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Roles.AsObject;
+    static toObject(includeInstance: boolean, msg: Roles): Roles.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Roles, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Roles;
+    static deserializeBinaryFromReader(message: Roles, reader: jspb.BinaryReader): Roles;
+}
+
+export namespace Roles {
+    export type AsObject = {
+
+        rolesMap: Array<[string, boolean]>,
+    }
+}
+
+export class RoleBinding extends jspb.Message { 
+
+    getEntriesMap(): jspb.Map<string, Roles>;
     clearEntriesMap(): void;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ACL.AsObject;
-    static toObject(includeInstance: boolean, msg: ACL): ACL.AsObject;
+    toObject(includeInstance?: boolean): RoleBinding.AsObject;
+    static toObject(includeInstance: boolean, msg: RoleBinding): RoleBinding.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ACL, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ACL;
-    static deserializeBinaryFromReader(message: ACL, reader: jspb.BinaryReader): ACL;
+    static serializeBinaryToWriter(message: RoleBinding, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RoleBinding;
+    static deserializeBinaryFromReader(message: RoleBinding, reader: jspb.BinaryReader): RoleBinding;
 }
 
-export namespace ACL {
+export namespace RoleBinding {
     export type AsObject = {
 
-        entriesMap: Array<[string, Scope]>,
+        entriesMap: Array<[string, Roles.AsObject]>,
+    }
+}
+
+export class Resource extends jspb.Message { 
+    getType(): ResourceType;
+    setType(value: ResourceType): Resource;
+
+    getName(): string;
+    setName(value: string): Resource;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Resource.AsObject;
+    static toObject(includeInstance: boolean, msg: Resource): Resource.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Resource, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Resource;
+    static deserializeBinaryFromReader(message: Resource, reader: jspb.BinaryReader): Resource;
+}
+
+export namespace Resource {
+    export type AsObject = {
+        type: ResourceType,
+        name: string,
     }
 }
 
@@ -608,11 +451,16 @@ export namespace Groups {
 }
 
 export class AuthorizeRequest extends jspb.Message { 
-    getRepo(): string;
-    setRepo(value: string): AuthorizeRequest;
 
-    getScope(): Scope;
-    setScope(value: Scope): AuthorizeRequest;
+    hasResource(): boolean;
+    clearResource(): void;
+    getResource(): Resource | undefined;
+    setResource(value?: Resource): AuthorizeRequest;
+
+    clearPermissionsList(): void;
+    getPermissionsList(): Array<Permission>;
+    setPermissionsList(value: Array<Permission>): AuthorizeRequest;
+    addPermissions(value: Permission, index?: number): Permission;
 
 
     serializeBinary(): Uint8Array;
@@ -627,14 +475,27 @@ export class AuthorizeRequest extends jspb.Message {
 
 export namespace AuthorizeRequest {
     export type AsObject = {
-        repo: string,
-        scope: Scope,
+        resource?: Resource.AsObject,
+        permissionsList: Array<Permission>,
     }
 }
 
 export class AuthorizeResponse extends jspb.Message { 
     getAuthorized(): boolean;
     setAuthorized(value: boolean): AuthorizeResponse;
+
+    clearSatisfiedList(): void;
+    getSatisfiedList(): Array<Permission>;
+    setSatisfiedList(value: Array<Permission>): AuthorizeResponse;
+    addSatisfied(value: Permission, index?: number): Permission;
+
+    clearMissingList(): void;
+    getMissingList(): Array<Permission>;
+    setMissingList(value: Array<Permission>): AuthorizeResponse;
+    addMissing(value: Permission, index?: number): Permission;
+
+    getPrincipal(): string;
+    setPrincipal(value: string): AuthorizeResponse;
 
 
     serializeBinary(): Uint8Array;
@@ -650,221 +511,108 @@ export class AuthorizeResponse extends jspb.Message {
 export namespace AuthorizeResponse {
     export type AsObject = {
         authorized: boolean,
+        satisfiedList: Array<Permission>,
+        missingList: Array<Permission>,
+        principal: string,
     }
 }
 
-export class GetScopeRequest extends jspb.Message { 
-    getUsername(): string;
-    setUsername(value: string): GetScopeRequest;
+export class ModifyRoleBindingRequest extends jspb.Message { 
 
-    clearReposList(): void;
-    getReposList(): Array<string>;
-    setReposList(value: Array<string>): GetScopeRequest;
-    addRepos(value: string, index?: number): string;
+    hasResource(): boolean;
+    clearResource(): void;
+    getResource(): Resource | undefined;
+    setResource(value?: Resource): ModifyRoleBindingRequest;
+
+    getPrincipal(): string;
+    setPrincipal(value: string): ModifyRoleBindingRequest;
+
+    clearRolesList(): void;
+    getRolesList(): Array<string>;
+    setRolesList(value: Array<string>): ModifyRoleBindingRequest;
+    addRoles(value: string, index?: number): string;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetScopeRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: GetScopeRequest): GetScopeRequest.AsObject;
+    toObject(includeInstance?: boolean): ModifyRoleBindingRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ModifyRoleBindingRequest): ModifyRoleBindingRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetScopeRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetScopeRequest;
-    static deserializeBinaryFromReader(message: GetScopeRequest, reader: jspb.BinaryReader): GetScopeRequest;
+    static serializeBinaryToWriter(message: ModifyRoleBindingRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ModifyRoleBindingRequest;
+    static deserializeBinaryFromReader(message: ModifyRoleBindingRequest, reader: jspb.BinaryReader): ModifyRoleBindingRequest;
 }
 
-export namespace GetScopeRequest {
+export namespace ModifyRoleBindingRequest {
     export type AsObject = {
-        username: string,
-        reposList: Array<string>,
+        resource?: Resource.AsObject,
+        principal: string,
+        rolesList: Array<string>,
     }
 }
 
-export class GetScopeResponse extends jspb.Message { 
-    clearScopesList(): void;
-    getScopesList(): Array<Scope>;
-    setScopesList(value: Array<Scope>): GetScopeResponse;
-    addScopes(value: Scope, index?: number): Scope;
-
+export class ModifyRoleBindingResponse extends jspb.Message { 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetScopeResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: GetScopeResponse): GetScopeResponse.AsObject;
+    toObject(includeInstance?: boolean): ModifyRoleBindingResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ModifyRoleBindingResponse): ModifyRoleBindingResponse.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetScopeResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetScopeResponse;
-    static deserializeBinaryFromReader(message: GetScopeResponse, reader: jspb.BinaryReader): GetScopeResponse;
+    static serializeBinaryToWriter(message: ModifyRoleBindingResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ModifyRoleBindingResponse;
+    static deserializeBinaryFromReader(message: ModifyRoleBindingResponse, reader: jspb.BinaryReader): ModifyRoleBindingResponse;
 }
 
-export namespace GetScopeResponse {
-    export type AsObject = {
-        scopesList: Array<Scope>,
-    }
-}
-
-export class SetScopeRequest extends jspb.Message { 
-    getUsername(): string;
-    setUsername(value: string): SetScopeRequest;
-
-    getRepo(): string;
-    setRepo(value: string): SetScopeRequest;
-
-    getScope(): Scope;
-    setScope(value: Scope): SetScopeRequest;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SetScopeRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: SetScopeRequest): SetScopeRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SetScopeRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SetScopeRequest;
-    static deserializeBinaryFromReader(message: SetScopeRequest, reader: jspb.BinaryReader): SetScopeRequest;
-}
-
-export namespace SetScopeRequest {
-    export type AsObject = {
-        username: string,
-        repo: string,
-        scope: Scope,
-    }
-}
-
-export class SetScopeResponse extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SetScopeResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: SetScopeResponse): SetScopeResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SetScopeResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SetScopeResponse;
-    static deserializeBinaryFromReader(message: SetScopeResponse, reader: jspb.BinaryReader): SetScopeResponse;
-}
-
-export namespace SetScopeResponse {
+export namespace ModifyRoleBindingResponse {
     export type AsObject = {
     }
 }
 
-export class GetACLRequest extends jspb.Message { 
-    getRepo(): string;
-    setRepo(value: string): GetACLRequest;
+export class GetRoleBindingRequest extends jspb.Message { 
+
+    hasResource(): boolean;
+    clearResource(): void;
+    getResource(): Resource | undefined;
+    setResource(value?: Resource): GetRoleBindingRequest;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetACLRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: GetACLRequest): GetACLRequest.AsObject;
+    toObject(includeInstance?: boolean): GetRoleBindingRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetRoleBindingRequest): GetRoleBindingRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetACLRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetACLRequest;
-    static deserializeBinaryFromReader(message: GetACLRequest, reader: jspb.BinaryReader): GetACLRequest;
+    static serializeBinaryToWriter(message: GetRoleBindingRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetRoleBindingRequest;
+    static deserializeBinaryFromReader(message: GetRoleBindingRequest, reader: jspb.BinaryReader): GetRoleBindingRequest;
 }
 
-export namespace GetACLRequest {
+export namespace GetRoleBindingRequest {
     export type AsObject = {
-        repo: string,
+        resource?: Resource.AsObject,
     }
 }
 
-export class ACLEntry extends jspb.Message { 
-    getUsername(): string;
-    setUsername(value: string): ACLEntry;
+export class GetRoleBindingResponse extends jspb.Message { 
 
-    getScope(): Scope;
-    setScope(value: Scope): ACLEntry;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ACLEntry.AsObject;
-    static toObject(includeInstance: boolean, msg: ACLEntry): ACLEntry.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ACLEntry, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ACLEntry;
-    static deserializeBinaryFromReader(message: ACLEntry, reader: jspb.BinaryReader): ACLEntry;
-}
-
-export namespace ACLEntry {
-    export type AsObject = {
-        username: string,
-        scope: Scope,
-    }
-}
-
-export class GetACLResponse extends jspb.Message { 
-    clearEntriesList(): void;
-    getEntriesList(): Array<ACLEntry>;
-    setEntriesList(value: Array<ACLEntry>): GetACLResponse;
-    addEntries(value?: ACLEntry, index?: number): ACLEntry;
-
-    clearRobotEntriesList(): void;
-    getRobotEntriesList(): Array<ACLEntry>;
-    setRobotEntriesList(value: Array<ACLEntry>): GetACLResponse;
-    addRobotEntries(value?: ACLEntry, index?: number): ACLEntry;
+    hasBinding(): boolean;
+    clearBinding(): void;
+    getBinding(): RoleBinding | undefined;
+    setBinding(value?: RoleBinding): GetRoleBindingResponse;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetACLResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: GetACLResponse): GetACLResponse.AsObject;
+    toObject(includeInstance?: boolean): GetRoleBindingResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetRoleBindingResponse): GetRoleBindingResponse.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetACLResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetACLResponse;
-    static deserializeBinaryFromReader(message: GetACLResponse, reader: jspb.BinaryReader): GetACLResponse;
+    static serializeBinaryToWriter(message: GetRoleBindingResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetRoleBindingResponse;
+    static deserializeBinaryFromReader(message: GetRoleBindingResponse, reader: jspb.BinaryReader): GetRoleBindingResponse;
 }
 
-export namespace GetACLResponse {
+export namespace GetRoleBindingResponse {
     export type AsObject = {
-        entriesList: Array<ACLEntry.AsObject>,
-        robotEntriesList: Array<ACLEntry.AsObject>,
-    }
-}
-
-export class SetACLRequest extends jspb.Message { 
-    getRepo(): string;
-    setRepo(value: string): SetACLRequest;
-
-    clearEntriesList(): void;
-    getEntriesList(): Array<ACLEntry>;
-    setEntriesList(value: Array<ACLEntry>): SetACLRequest;
-    addEntries(value?: ACLEntry, index?: number): ACLEntry;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SetACLRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: SetACLRequest): SetACLRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SetACLRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SetACLRequest;
-    static deserializeBinaryFromReader(message: SetACLRequest, reader: jspb.BinaryReader): SetACLRequest;
-}
-
-export namespace SetACLRequest {
-    export type AsObject = {
-        repo: string,
-        entriesList: Array<ACLEntry.AsObject>,
-    }
-}
-
-export class SetACLResponse extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SetACLResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: SetACLResponse): SetACLResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SetACLResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SetACLResponse;
-    static deserializeBinaryFromReader(message: SetACLResponse, reader: jspb.BinaryReader): SetACLResponse;
-}
-
-export namespace SetACLResponse {
-    export type AsObject = {
+        binding?: RoleBinding.AsObject,
     }
 }
 
@@ -985,6 +733,52 @@ export class GetAuthTokenResponse extends jspb.Message {
 export namespace GetAuthTokenResponse {
     export type AsObject = {
         subject: string,
+        token: string,
+    }
+}
+
+export class GetRobotTokenRequest extends jspb.Message { 
+    getRobot(): string;
+    setRobot(value: string): GetRobotTokenRequest;
+
+    getTtl(): number;
+    setTtl(value: number): GetRobotTokenRequest;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetRobotTokenRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetRobotTokenRequest): GetRobotTokenRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetRobotTokenRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetRobotTokenRequest;
+    static deserializeBinaryFromReader(message: GetRobotTokenRequest, reader: jspb.BinaryReader): GetRobotTokenRequest;
+}
+
+export namespace GetRobotTokenRequest {
+    export type AsObject = {
+        robot: string,
+        ttl: number,
+    }
+}
+
+export class GetRobotTokenResponse extends jspb.Message { 
+    getToken(): string;
+    setToken(value: string): GetRobotTokenResponse;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetRobotTokenResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetRobotTokenResponse): GetRobotTokenResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetRobotTokenResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetRobotTokenResponse;
+    static deserializeBinaryFromReader(message: GetRobotTokenResponse, reader: jspb.BinaryReader): GetRobotTokenResponse;
+}
+
+export namespace GetRobotTokenResponse {
+    export type AsObject = {
         token: string,
     }
 }
@@ -1367,15 +1161,66 @@ export namespace RestoreAuthTokenResponse {
     }
 }
 
-export enum ClusterRole {
-    UNDEFINED = 0,
-    SUPER = 1,
-    FS = 2,
+export enum Permission {
+    UNKNOWN = 0,
+    CLUSTER_MODIFY_BINDINGS = 100,
+    CLUSTER_GET_BINDINGS = 101,
+    CLUSTER_AUTH_ACTIVATE = 102,
+    CLUSTER_AUTH_DEACTIVATE = 103,
+    CLUSTER_AUTH_GET_CONFIG = 104,
+    CLUSTER_AUTH_SET_CONFIG = 105,
+    CLUSTER_AUTH_GET_TOKEN = 106,
+    CLUSTER_AUTH_GET_ROBOT_TOKEN = 139,
+    CLUSTER_AUTH_EXTEND_TOKEN = 107,
+    CLUSTER_AUTH_MODIFY_GROUP_MEMBERS = 109,
+    CLUSTER_AUTH_GET_GROUPS = 110,
+    CLUSTER_AUTH_GET_GROUP_USERS = 111,
+    CLUSTER_AUTH_EXTRACT_TOKENS = 112,
+    CLUSTER_AUTH_RESTORE_TOKEN = 113,
+    CLUSTER_ENTERPRISE_ACTIVATE = 114,
+    CLUSTER_ENTERPRISE_HEARTBEAT = 115,
+    CLUSTER_ENTERPRISE_GET_CODE = 116,
+    CLUSTER_ENTERPRISE_DEACTIVATE = 117,
+    CLUSTER_IDENTITY_SET_CONFIG = 118,
+    CLUSTER_IDENTITY_GET_CONFIG = 119,
+    CLUSTER_IDENTITY_CREATE_IDP = 120,
+    CLUSTER_IDENTITY_UPDATE_IDP = 121,
+    CLUSTER_IDENTITY_LIST_IDPS = 122,
+    CLUSTER_IDENTITY_GET_IDP = 123,
+    CLUSTER_IDENTITY_DELETE_IDP = 124,
+    CLUSTER_IDENTITY_CREATE_OIDC_CLIENT = 125,
+    CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT = 126,
+    CLUSTER_IDENTITY_LIST_OIDC_CLIENTS = 127,
+    CLUSTER_IDENTITY_GET_OIDC_CLIENT = 128,
+    CLUSTER_IDENTITY_DELETE_OIDC_CLIENT = 129,
+    CLUSTER_DEBUG_DUMP = 131,
+    CLUSTER_LICENSE_ACTIVATE = 132,
+    CLUSTER_LICENSE_GET_CODE = 133,
+    CLUSTER_LICENSE_ADD_CLUSTER = 134,
+    CLUSTER_LICENSE_UPDATE_CLUSTER = 135,
+    CLUSTER_LICENSE_DELETE_CLUSTER = 136,
+    CLUSTER_LICENSE_LIST_CLUSTERS = 137,
+    CLUSTER_DELETE_ALL = 138,
+    REPO_READ = 200,
+    REPO_WRITE = 201,
+    REPO_MODIFY_BINDINGS = 202,
+    REPO_DELETE = 203,
+    REPO_INSPECT_COMMIT = 204,
+    REPO_LIST_COMMIT = 205,
+    REPO_DELETE_COMMIT = 206,
+    REPO_CREATE_BRANCH = 207,
+    REPO_LIST_BRANCH = 208,
+    REPO_DELETE_BRANCH = 209,
+    REPO_INSPECT_FILE = 210,
+    REPO_LIST_FILE = 211,
+    REPO_ADD_PIPELINE_READER = 212,
+    REPO_REMOVE_PIPELINE_READER = 213,
+    REPO_ADD_PIPELINE_WRITER = 214,
+    PIPELINE_LIST_JOB = 301,
 }
 
-export enum Scope {
-    NONE = 0,
-    READER = 1,
-    WRITER = 2,
-    OWNER = 3,
+export enum ResourceType {
+    RESOURCE_TYPE_UNKNOWN = 0,
+    CLUSTER = 1,
+    REPO = 2,
 }

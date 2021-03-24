@@ -15,19 +15,14 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     deactivate: IAPIService_IDeactivate;
     getConfiguration: IAPIService_IGetConfiguration;
     setConfiguration: IAPIService_ISetConfiguration;
-    getAdmins: IAPIService_IGetAdmins;
-    modifyAdmins: IAPIService_IModifyAdmins;
-    getClusterRoleBindings: IAPIService_IGetClusterRoleBindings;
-    modifyClusterRoleBinding: IAPIService_IModifyClusterRoleBinding;
     authenticate: IAPIService_IAuthenticate;
     authorize: IAPIService_IAuthorize;
     whoAmI: IAPIService_IWhoAmI;
-    getScope: IAPIService_IGetScope;
-    setScope: IAPIService_ISetScope;
-    getACL: IAPIService_IGetACL;
-    setACL: IAPIService_ISetACL;
+    modifyRoleBinding: IAPIService_IModifyRoleBinding;
+    getRoleBinding: IAPIService_IGetRoleBinding;
     getOIDCLogin: IAPIService_IGetOIDCLogin;
     getAuthToken: IAPIService_IGetAuthToken;
+    getRobotToken: IAPIService_IGetRobotToken;
     extendAuthToken: IAPIService_IExtendAuthToken;
     revokeAuthToken: IAPIService_IRevokeAuthToken;
     setGroupsForUser: IAPIService_ISetGroupsForUser;
@@ -74,42 +69,6 @@ interface IAPIService_ISetConfiguration extends grpc.MethodDefinition<auth_auth_
     responseSerialize: grpc.serialize<auth_auth_pb.SetConfigurationResponse>;
     responseDeserialize: grpc.deserialize<auth_auth_pb.SetConfigurationResponse>;
 }
-interface IAPIService_IGetAdmins extends grpc.MethodDefinition<auth_auth_pb.GetAdminsRequest, auth_auth_pb.GetAdminsResponse> {
-    path: "/auth.API/GetAdmins";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<auth_auth_pb.GetAdminsRequest>;
-    requestDeserialize: grpc.deserialize<auth_auth_pb.GetAdminsRequest>;
-    responseSerialize: grpc.serialize<auth_auth_pb.GetAdminsResponse>;
-    responseDeserialize: grpc.deserialize<auth_auth_pb.GetAdminsResponse>;
-}
-interface IAPIService_IModifyAdmins extends grpc.MethodDefinition<auth_auth_pb.ModifyAdminsRequest, auth_auth_pb.ModifyAdminsResponse> {
-    path: "/auth.API/ModifyAdmins";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<auth_auth_pb.ModifyAdminsRequest>;
-    requestDeserialize: grpc.deserialize<auth_auth_pb.ModifyAdminsRequest>;
-    responseSerialize: grpc.serialize<auth_auth_pb.ModifyAdminsResponse>;
-    responseDeserialize: grpc.deserialize<auth_auth_pb.ModifyAdminsResponse>;
-}
-interface IAPIService_IGetClusterRoleBindings extends grpc.MethodDefinition<auth_auth_pb.GetClusterRoleBindingsRequest, auth_auth_pb.GetClusterRoleBindingsResponse> {
-    path: "/auth.API/GetClusterRoleBindings";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<auth_auth_pb.GetClusterRoleBindingsRequest>;
-    requestDeserialize: grpc.deserialize<auth_auth_pb.GetClusterRoleBindingsRequest>;
-    responseSerialize: grpc.serialize<auth_auth_pb.GetClusterRoleBindingsResponse>;
-    responseDeserialize: grpc.deserialize<auth_auth_pb.GetClusterRoleBindingsResponse>;
-}
-interface IAPIService_IModifyClusterRoleBinding extends grpc.MethodDefinition<auth_auth_pb.ModifyClusterRoleBindingRequest, auth_auth_pb.ModifyClusterRoleBindingResponse> {
-    path: "/auth.API/ModifyClusterRoleBinding";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<auth_auth_pb.ModifyClusterRoleBindingRequest>;
-    requestDeserialize: grpc.deserialize<auth_auth_pb.ModifyClusterRoleBindingRequest>;
-    responseSerialize: grpc.serialize<auth_auth_pb.ModifyClusterRoleBindingResponse>;
-    responseDeserialize: grpc.deserialize<auth_auth_pb.ModifyClusterRoleBindingResponse>;
-}
 interface IAPIService_IAuthenticate extends grpc.MethodDefinition<auth_auth_pb.AuthenticateRequest, auth_auth_pb.AuthenticateResponse> {
     path: "/auth.API/Authenticate";
     requestStream: false;
@@ -137,41 +96,23 @@ interface IAPIService_IWhoAmI extends grpc.MethodDefinition<auth_auth_pb.WhoAmIR
     responseSerialize: grpc.serialize<auth_auth_pb.WhoAmIResponse>;
     responseDeserialize: grpc.deserialize<auth_auth_pb.WhoAmIResponse>;
 }
-interface IAPIService_IGetScope extends grpc.MethodDefinition<auth_auth_pb.GetScopeRequest, auth_auth_pb.GetScopeResponse> {
-    path: "/auth.API/GetScope";
+interface IAPIService_IModifyRoleBinding extends grpc.MethodDefinition<auth_auth_pb.ModifyRoleBindingRequest, auth_auth_pb.ModifyRoleBindingResponse> {
+    path: "/auth.API/ModifyRoleBinding";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<auth_auth_pb.GetScopeRequest>;
-    requestDeserialize: grpc.deserialize<auth_auth_pb.GetScopeRequest>;
-    responseSerialize: grpc.serialize<auth_auth_pb.GetScopeResponse>;
-    responseDeserialize: grpc.deserialize<auth_auth_pb.GetScopeResponse>;
+    requestSerialize: grpc.serialize<auth_auth_pb.ModifyRoleBindingRequest>;
+    requestDeserialize: grpc.deserialize<auth_auth_pb.ModifyRoleBindingRequest>;
+    responseSerialize: grpc.serialize<auth_auth_pb.ModifyRoleBindingResponse>;
+    responseDeserialize: grpc.deserialize<auth_auth_pb.ModifyRoleBindingResponse>;
 }
-interface IAPIService_ISetScope extends grpc.MethodDefinition<auth_auth_pb.SetScopeRequest, auth_auth_pb.SetScopeResponse> {
-    path: "/auth.API/SetScope";
+interface IAPIService_IGetRoleBinding extends grpc.MethodDefinition<auth_auth_pb.GetRoleBindingRequest, auth_auth_pb.GetRoleBindingResponse> {
+    path: "/auth.API/GetRoleBinding";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<auth_auth_pb.SetScopeRequest>;
-    requestDeserialize: grpc.deserialize<auth_auth_pb.SetScopeRequest>;
-    responseSerialize: grpc.serialize<auth_auth_pb.SetScopeResponse>;
-    responseDeserialize: grpc.deserialize<auth_auth_pb.SetScopeResponse>;
-}
-interface IAPIService_IGetACL extends grpc.MethodDefinition<auth_auth_pb.GetACLRequest, auth_auth_pb.GetACLResponse> {
-    path: "/auth.API/GetACL";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<auth_auth_pb.GetACLRequest>;
-    requestDeserialize: grpc.deserialize<auth_auth_pb.GetACLRequest>;
-    responseSerialize: grpc.serialize<auth_auth_pb.GetACLResponse>;
-    responseDeserialize: grpc.deserialize<auth_auth_pb.GetACLResponse>;
-}
-interface IAPIService_ISetACL extends grpc.MethodDefinition<auth_auth_pb.SetACLRequest, auth_auth_pb.SetACLResponse> {
-    path: "/auth.API/SetACL";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<auth_auth_pb.SetACLRequest>;
-    requestDeserialize: grpc.deserialize<auth_auth_pb.SetACLRequest>;
-    responseSerialize: grpc.serialize<auth_auth_pb.SetACLResponse>;
-    responseDeserialize: grpc.deserialize<auth_auth_pb.SetACLResponse>;
+    requestSerialize: grpc.serialize<auth_auth_pb.GetRoleBindingRequest>;
+    requestDeserialize: grpc.deserialize<auth_auth_pb.GetRoleBindingRequest>;
+    responseSerialize: grpc.serialize<auth_auth_pb.GetRoleBindingResponse>;
+    responseDeserialize: grpc.deserialize<auth_auth_pb.GetRoleBindingResponse>;
 }
 interface IAPIService_IGetOIDCLogin extends grpc.MethodDefinition<auth_auth_pb.GetOIDCLoginRequest, auth_auth_pb.GetOIDCLoginResponse> {
     path: "/auth.API/GetOIDCLogin";
@@ -190,6 +131,15 @@ interface IAPIService_IGetAuthToken extends grpc.MethodDefinition<auth_auth_pb.G
     requestDeserialize: grpc.deserialize<auth_auth_pb.GetAuthTokenRequest>;
     responseSerialize: grpc.serialize<auth_auth_pb.GetAuthTokenResponse>;
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetAuthTokenResponse>;
+}
+interface IAPIService_IGetRobotToken extends grpc.MethodDefinition<auth_auth_pb.GetRobotTokenRequest, auth_auth_pb.GetRobotTokenResponse> {
+    path: "/auth.API/GetRobotToken";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<auth_auth_pb.GetRobotTokenRequest>;
+    requestDeserialize: grpc.deserialize<auth_auth_pb.GetRobotTokenRequest>;
+    responseSerialize: grpc.serialize<auth_auth_pb.GetRobotTokenResponse>;
+    responseDeserialize: grpc.deserialize<auth_auth_pb.GetRobotTokenResponse>;
 }
 interface IAPIService_IExtendAuthToken extends grpc.MethodDefinition<auth_auth_pb.ExtendAuthTokenRequest, auth_auth_pb.ExtendAuthTokenResponse> {
     path: "/auth.API/ExtendAuthToken";
@@ -271,19 +221,14 @@ export interface IAPIServer {
     deactivate: grpc.handleUnaryCall<auth_auth_pb.DeactivateRequest, auth_auth_pb.DeactivateResponse>;
     getConfiguration: grpc.handleUnaryCall<auth_auth_pb.GetConfigurationRequest, auth_auth_pb.GetConfigurationResponse>;
     setConfiguration: grpc.handleUnaryCall<auth_auth_pb.SetConfigurationRequest, auth_auth_pb.SetConfigurationResponse>;
-    getAdmins: grpc.handleUnaryCall<auth_auth_pb.GetAdminsRequest, auth_auth_pb.GetAdminsResponse>;
-    modifyAdmins: grpc.handleUnaryCall<auth_auth_pb.ModifyAdminsRequest, auth_auth_pb.ModifyAdminsResponse>;
-    getClusterRoleBindings: grpc.handleUnaryCall<auth_auth_pb.GetClusterRoleBindingsRequest, auth_auth_pb.GetClusterRoleBindingsResponse>;
-    modifyClusterRoleBinding: grpc.handleUnaryCall<auth_auth_pb.ModifyClusterRoleBindingRequest, auth_auth_pb.ModifyClusterRoleBindingResponse>;
     authenticate: grpc.handleUnaryCall<auth_auth_pb.AuthenticateRequest, auth_auth_pb.AuthenticateResponse>;
     authorize: grpc.handleUnaryCall<auth_auth_pb.AuthorizeRequest, auth_auth_pb.AuthorizeResponse>;
     whoAmI: grpc.handleUnaryCall<auth_auth_pb.WhoAmIRequest, auth_auth_pb.WhoAmIResponse>;
-    getScope: grpc.handleUnaryCall<auth_auth_pb.GetScopeRequest, auth_auth_pb.GetScopeResponse>;
-    setScope: grpc.handleUnaryCall<auth_auth_pb.SetScopeRequest, auth_auth_pb.SetScopeResponse>;
-    getACL: grpc.handleUnaryCall<auth_auth_pb.GetACLRequest, auth_auth_pb.GetACLResponse>;
-    setACL: grpc.handleUnaryCall<auth_auth_pb.SetACLRequest, auth_auth_pb.SetACLResponse>;
+    modifyRoleBinding: grpc.handleUnaryCall<auth_auth_pb.ModifyRoleBindingRequest, auth_auth_pb.ModifyRoleBindingResponse>;
+    getRoleBinding: grpc.handleUnaryCall<auth_auth_pb.GetRoleBindingRequest, auth_auth_pb.GetRoleBindingResponse>;
     getOIDCLogin: grpc.handleUnaryCall<auth_auth_pb.GetOIDCLoginRequest, auth_auth_pb.GetOIDCLoginResponse>;
     getAuthToken: grpc.handleUnaryCall<auth_auth_pb.GetAuthTokenRequest, auth_auth_pb.GetAuthTokenResponse>;
+    getRobotToken: grpc.handleUnaryCall<auth_auth_pb.GetRobotTokenRequest, auth_auth_pb.GetRobotTokenResponse>;
     extendAuthToken: grpc.handleUnaryCall<auth_auth_pb.ExtendAuthTokenRequest, auth_auth_pb.ExtendAuthTokenResponse>;
     revokeAuthToken: grpc.handleUnaryCall<auth_auth_pb.RevokeAuthTokenRequest, auth_auth_pb.RevokeAuthTokenResponse>;
     setGroupsForUser: grpc.handleUnaryCall<auth_auth_pb.SetGroupsForUserRequest, auth_auth_pb.SetGroupsForUserResponse>;
@@ -307,18 +252,6 @@ export interface IAPIClient {
     setConfiguration(request: auth_auth_pb.SetConfigurationRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetConfigurationResponse) => void): grpc.ClientUnaryCall;
     setConfiguration(request: auth_auth_pb.SetConfigurationRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetConfigurationResponse) => void): grpc.ClientUnaryCall;
     setConfiguration(request: auth_auth_pb.SetConfigurationRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetConfigurationResponse) => void): grpc.ClientUnaryCall;
-    getAdmins(request: auth_auth_pb.GetAdminsRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAdminsResponse) => void): grpc.ClientUnaryCall;
-    getAdmins(request: auth_auth_pb.GetAdminsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAdminsResponse) => void): grpc.ClientUnaryCall;
-    getAdmins(request: auth_auth_pb.GetAdminsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAdminsResponse) => void): grpc.ClientUnaryCall;
-    modifyAdmins(request: auth_auth_pb.ModifyAdminsRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyAdminsResponse) => void): grpc.ClientUnaryCall;
-    modifyAdmins(request: auth_auth_pb.ModifyAdminsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyAdminsResponse) => void): grpc.ClientUnaryCall;
-    modifyAdmins(request: auth_auth_pb.ModifyAdminsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyAdminsResponse) => void): grpc.ClientUnaryCall;
-    getClusterRoleBindings(request: auth_auth_pb.GetClusterRoleBindingsRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetClusterRoleBindingsResponse) => void): grpc.ClientUnaryCall;
-    getClusterRoleBindings(request: auth_auth_pb.GetClusterRoleBindingsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetClusterRoleBindingsResponse) => void): grpc.ClientUnaryCall;
-    getClusterRoleBindings(request: auth_auth_pb.GetClusterRoleBindingsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetClusterRoleBindingsResponse) => void): grpc.ClientUnaryCall;
-    modifyClusterRoleBinding(request: auth_auth_pb.ModifyClusterRoleBindingRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyClusterRoleBindingResponse) => void): grpc.ClientUnaryCall;
-    modifyClusterRoleBinding(request: auth_auth_pb.ModifyClusterRoleBindingRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyClusterRoleBindingResponse) => void): grpc.ClientUnaryCall;
-    modifyClusterRoleBinding(request: auth_auth_pb.ModifyClusterRoleBindingRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyClusterRoleBindingResponse) => void): grpc.ClientUnaryCall;
     authenticate(request: auth_auth_pb.AuthenticateRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.AuthenticateResponse) => void): grpc.ClientUnaryCall;
     authenticate(request: auth_auth_pb.AuthenticateRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.AuthenticateResponse) => void): grpc.ClientUnaryCall;
     authenticate(request: auth_auth_pb.AuthenticateRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.AuthenticateResponse) => void): grpc.ClientUnaryCall;
@@ -328,24 +261,21 @@ export interface IAPIClient {
     whoAmI(request: auth_auth_pb.WhoAmIRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
     whoAmI(request: auth_auth_pb.WhoAmIRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
     whoAmI(request: auth_auth_pb.WhoAmIRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
-    getScope(request: auth_auth_pb.GetScopeRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetScopeResponse) => void): grpc.ClientUnaryCall;
-    getScope(request: auth_auth_pb.GetScopeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetScopeResponse) => void): grpc.ClientUnaryCall;
-    getScope(request: auth_auth_pb.GetScopeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetScopeResponse) => void): grpc.ClientUnaryCall;
-    setScope(request: auth_auth_pb.SetScopeRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetScopeResponse) => void): grpc.ClientUnaryCall;
-    setScope(request: auth_auth_pb.SetScopeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetScopeResponse) => void): grpc.ClientUnaryCall;
-    setScope(request: auth_auth_pb.SetScopeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetScopeResponse) => void): grpc.ClientUnaryCall;
-    getACL(request: auth_auth_pb.GetACLRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetACLResponse) => void): grpc.ClientUnaryCall;
-    getACL(request: auth_auth_pb.GetACLRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetACLResponse) => void): grpc.ClientUnaryCall;
-    getACL(request: auth_auth_pb.GetACLRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetACLResponse) => void): grpc.ClientUnaryCall;
-    setACL(request: auth_auth_pb.SetACLRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetACLResponse) => void): grpc.ClientUnaryCall;
-    setACL(request: auth_auth_pb.SetACLRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetACLResponse) => void): grpc.ClientUnaryCall;
-    setACL(request: auth_auth_pb.SetACLRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetACLResponse) => void): grpc.ClientUnaryCall;
+    modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    getRoleBinding(request: auth_auth_pb.GetRoleBindingRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    getRoleBinding(request: auth_auth_pb.GetRoleBindingRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    getRoleBinding(request: auth_auth_pb.GetRoleBindingRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRoleBindingResponse) => void): grpc.ClientUnaryCall;
     getOIDCLogin(request: auth_auth_pb.GetOIDCLoginRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetOIDCLoginResponse) => void): grpc.ClientUnaryCall;
     getOIDCLogin(request: auth_auth_pb.GetOIDCLoginRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetOIDCLoginResponse) => void): grpc.ClientUnaryCall;
     getOIDCLogin(request: auth_auth_pb.GetOIDCLoginRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetOIDCLoginResponse) => void): grpc.ClientUnaryCall;
     getAuthToken(request: auth_auth_pb.GetAuthTokenRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAuthTokenResponse) => void): grpc.ClientUnaryCall;
     getAuthToken(request: auth_auth_pb.GetAuthTokenRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAuthTokenResponse) => void): grpc.ClientUnaryCall;
     getAuthToken(request: auth_auth_pb.GetAuthTokenRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAuthTokenResponse) => void): grpc.ClientUnaryCall;
+    getRobotToken(request: auth_auth_pb.GetRobotTokenRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRobotTokenResponse) => void): grpc.ClientUnaryCall;
+    getRobotToken(request: auth_auth_pb.GetRobotTokenRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRobotTokenResponse) => void): grpc.ClientUnaryCall;
+    getRobotToken(request: auth_auth_pb.GetRobotTokenRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRobotTokenResponse) => void): grpc.ClientUnaryCall;
     extendAuthToken(request: auth_auth_pb.ExtendAuthTokenRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ExtendAuthTokenResponse) => void): grpc.ClientUnaryCall;
     extendAuthToken(request: auth_auth_pb.ExtendAuthTokenRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ExtendAuthTokenResponse) => void): grpc.ClientUnaryCall;
     extendAuthToken(request: auth_auth_pb.ExtendAuthTokenRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ExtendAuthTokenResponse) => void): grpc.ClientUnaryCall;
@@ -386,18 +316,6 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public setConfiguration(request: auth_auth_pb.SetConfigurationRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetConfigurationResponse) => void): grpc.ClientUnaryCall;
     public setConfiguration(request: auth_auth_pb.SetConfigurationRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetConfigurationResponse) => void): grpc.ClientUnaryCall;
     public setConfiguration(request: auth_auth_pb.SetConfigurationRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetConfigurationResponse) => void): grpc.ClientUnaryCall;
-    public getAdmins(request: auth_auth_pb.GetAdminsRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAdminsResponse) => void): grpc.ClientUnaryCall;
-    public getAdmins(request: auth_auth_pb.GetAdminsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAdminsResponse) => void): grpc.ClientUnaryCall;
-    public getAdmins(request: auth_auth_pb.GetAdminsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAdminsResponse) => void): grpc.ClientUnaryCall;
-    public modifyAdmins(request: auth_auth_pb.ModifyAdminsRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyAdminsResponse) => void): grpc.ClientUnaryCall;
-    public modifyAdmins(request: auth_auth_pb.ModifyAdminsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyAdminsResponse) => void): grpc.ClientUnaryCall;
-    public modifyAdmins(request: auth_auth_pb.ModifyAdminsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyAdminsResponse) => void): grpc.ClientUnaryCall;
-    public getClusterRoleBindings(request: auth_auth_pb.GetClusterRoleBindingsRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetClusterRoleBindingsResponse) => void): grpc.ClientUnaryCall;
-    public getClusterRoleBindings(request: auth_auth_pb.GetClusterRoleBindingsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetClusterRoleBindingsResponse) => void): grpc.ClientUnaryCall;
-    public getClusterRoleBindings(request: auth_auth_pb.GetClusterRoleBindingsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetClusterRoleBindingsResponse) => void): grpc.ClientUnaryCall;
-    public modifyClusterRoleBinding(request: auth_auth_pb.ModifyClusterRoleBindingRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyClusterRoleBindingResponse) => void): grpc.ClientUnaryCall;
-    public modifyClusterRoleBinding(request: auth_auth_pb.ModifyClusterRoleBindingRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyClusterRoleBindingResponse) => void): grpc.ClientUnaryCall;
-    public modifyClusterRoleBinding(request: auth_auth_pb.ModifyClusterRoleBindingRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyClusterRoleBindingResponse) => void): grpc.ClientUnaryCall;
     public authenticate(request: auth_auth_pb.AuthenticateRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.AuthenticateResponse) => void): grpc.ClientUnaryCall;
     public authenticate(request: auth_auth_pb.AuthenticateRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.AuthenticateResponse) => void): grpc.ClientUnaryCall;
     public authenticate(request: auth_auth_pb.AuthenticateRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.AuthenticateResponse) => void): grpc.ClientUnaryCall;
@@ -407,24 +325,21 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public whoAmI(request: auth_auth_pb.WhoAmIRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
     public whoAmI(request: auth_auth_pb.WhoAmIRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
     public whoAmI(request: auth_auth_pb.WhoAmIRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
-    public getScope(request: auth_auth_pb.GetScopeRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetScopeResponse) => void): grpc.ClientUnaryCall;
-    public getScope(request: auth_auth_pb.GetScopeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetScopeResponse) => void): grpc.ClientUnaryCall;
-    public getScope(request: auth_auth_pb.GetScopeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetScopeResponse) => void): grpc.ClientUnaryCall;
-    public setScope(request: auth_auth_pb.SetScopeRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetScopeResponse) => void): grpc.ClientUnaryCall;
-    public setScope(request: auth_auth_pb.SetScopeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetScopeResponse) => void): grpc.ClientUnaryCall;
-    public setScope(request: auth_auth_pb.SetScopeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetScopeResponse) => void): grpc.ClientUnaryCall;
-    public getACL(request: auth_auth_pb.GetACLRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetACLResponse) => void): grpc.ClientUnaryCall;
-    public getACL(request: auth_auth_pb.GetACLRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetACLResponse) => void): grpc.ClientUnaryCall;
-    public getACL(request: auth_auth_pb.GetACLRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetACLResponse) => void): grpc.ClientUnaryCall;
-    public setACL(request: auth_auth_pb.SetACLRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetACLResponse) => void): grpc.ClientUnaryCall;
-    public setACL(request: auth_auth_pb.SetACLRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetACLResponse) => void): grpc.ClientUnaryCall;
-    public setACL(request: auth_auth_pb.SetACLRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.SetACLResponse) => void): grpc.ClientUnaryCall;
+    public modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    public modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    public modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    public getRoleBinding(request: auth_auth_pb.GetRoleBindingRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    public getRoleBinding(request: auth_auth_pb.GetRoleBindingRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRoleBindingResponse) => void): grpc.ClientUnaryCall;
+    public getRoleBinding(request: auth_auth_pb.GetRoleBindingRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRoleBindingResponse) => void): grpc.ClientUnaryCall;
     public getOIDCLogin(request: auth_auth_pb.GetOIDCLoginRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetOIDCLoginResponse) => void): grpc.ClientUnaryCall;
     public getOIDCLogin(request: auth_auth_pb.GetOIDCLoginRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetOIDCLoginResponse) => void): grpc.ClientUnaryCall;
     public getOIDCLogin(request: auth_auth_pb.GetOIDCLoginRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetOIDCLoginResponse) => void): grpc.ClientUnaryCall;
     public getAuthToken(request: auth_auth_pb.GetAuthTokenRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAuthTokenResponse) => void): grpc.ClientUnaryCall;
     public getAuthToken(request: auth_auth_pb.GetAuthTokenRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAuthTokenResponse) => void): grpc.ClientUnaryCall;
     public getAuthToken(request: auth_auth_pb.GetAuthTokenRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetAuthTokenResponse) => void): grpc.ClientUnaryCall;
+    public getRobotToken(request: auth_auth_pb.GetRobotTokenRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRobotTokenResponse) => void): grpc.ClientUnaryCall;
+    public getRobotToken(request: auth_auth_pb.GetRobotTokenRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRobotTokenResponse) => void): grpc.ClientUnaryCall;
+    public getRobotToken(request: auth_auth_pb.GetRobotTokenRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRobotTokenResponse) => void): grpc.ClientUnaryCall;
     public extendAuthToken(request: auth_auth_pb.ExtendAuthTokenRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ExtendAuthTokenResponse) => void): grpc.ClientUnaryCall;
     public extendAuthToken(request: auth_auth_pb.ExtendAuthTokenRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ExtendAuthTokenResponse) => void): grpc.ClientUnaryCall;
     public extendAuthToken(request: auth_auth_pb.ExtendAuthTokenRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ExtendAuthTokenResponse) => void): grpc.ClientUnaryCall;

@@ -141,8 +141,10 @@ export namespace RepoInfo {
 }
 
 export class RepoAuthInfo extends jspb.Message { 
-    getAccessLevel(): auth_auth_pb.Scope;
-    setAccessLevel(value: auth_auth_pb.Scope): RepoAuthInfo;
+    clearPermissionsList(): void;
+    getPermissionsList(): Array<auth_auth_pb.Permission>;
+    setPermissionsList(value: Array<auth_auth_pb.Permission>): RepoAuthInfo;
+    addPermissions(value: auth_auth_pb.Permission, index?: number): auth_auth_pb.Permission;
 
 
     serializeBinary(): Uint8Array;
@@ -157,7 +159,7 @@ export class RepoAuthInfo extends jspb.Message {
 
 export namespace RepoAuthInfo {
     export type AsObject = {
-        accessLevel: auth_auth_pb.Scope,
+        permissionsList: Array<auth_auth_pb.Permission>,
     }
 }
 
@@ -1684,6 +1686,40 @@ export class GetFilesetRequest extends jspb.Message {
 export namespace GetFilesetRequest {
     export type AsObject = {
         commit?: Commit.AsObject,
+    }
+}
+
+export class ActivateAuthRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ActivateAuthRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ActivateAuthRequest): ActivateAuthRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ActivateAuthRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ActivateAuthRequest;
+    static deserializeBinaryFromReader(message: ActivateAuthRequest, reader: jspb.BinaryReader): ActivateAuthRequest;
+}
+
+export namespace ActivateAuthRequest {
+    export type AsObject = {
+    }
+}
+
+export class ActivateAuthResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ActivateAuthResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ActivateAuthResponse): ActivateAuthResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ActivateAuthResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ActivateAuthResponse;
+    static deserializeBinaryFromReader(message: ActivateAuthResponse, reader: jspb.BinaryReader): ActivateAuthResponse;
+}
+
+export namespace ActivateAuthResponse {
+    export type AsObject = {
     }
 }
 

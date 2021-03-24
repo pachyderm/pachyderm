@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/proto",
-  "version": "2.0.0-alpha.5.2",
+  "version": "2.0.0-alpha.9.0",
   "files": [
     "pb"
   ],
@@ -12,6 +12,9 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.2.2",
     "@types/google-protobuf": "^3.7.4",
+    "google-protobuf": "^3.14.0"
+  },
+  "devDependencies": {
     "grpc-tools": "^1.10.0",
     "grpc_tools_node_protoc_ts": "^5.0.1"
   }

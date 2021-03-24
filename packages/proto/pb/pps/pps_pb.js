@@ -3322,9 +3322,7 @@ proto.pps.Spout.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pps.Spout.toObject = function(includeInstance, msg) {
   var f, obj = {
-    overwrite: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
-    service: (f = msg.getService()) && proto.pps.Service.toObject(includeInstance, f),
-    marker: jspb.Message.getFieldWithDefault(msg, 3, "")
+    service: (f = msg.getService()) && proto.pps.Service.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -3362,17 +3360,9 @@ proto.pps.Spout.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setOverwrite(value);
-      break;
-    case 2:
       var value = new proto.pps.Service;
       reader.readMessage(value,proto.pps.Service.deserializeBinaryFromReader);
       msg.setService(value);
-      break;
-    case 3:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setMarker(value);
       break;
     default:
       reader.skipField();
@@ -3403,56 +3393,24 @@ proto.pps.Spout.prototype.serializeBinary = function() {
  */
 proto.pps.Spout.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getOverwrite();
-  if (f) {
-    writer.writeBool(
-      1,
-      f
-    );
-  }
   f = message.getService();
   if (f != null) {
     writer.writeMessage(
-      2,
+      1,
       f,
       proto.pps.Service.serializeBinaryToWriter
     );
   }
-  f = message.getMarker();
-  if (f.length > 0) {
-    writer.writeString(
-      3,
-      f
-    );
-  }
 };
 
 
 /**
- * optional bool overwrite = 1;
- * @return {boolean}
- */
-proto.pps.Spout.prototype.getOverwrite = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pps.Spout} returns this
- */
-proto.pps.Spout.prototype.setOverwrite = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 1, value);
-};
-
-
-/**
- * optional Service service = 2;
+ * optional Service service = 1;
  * @return {?proto.pps.Service}
  */
 proto.pps.Spout.prototype.getService = function() {
   return /** @type{?proto.pps.Service} */ (
-    jspb.Message.getWrapperField(this, proto.pps.Service, 2));
+    jspb.Message.getWrapperField(this, proto.pps.Service, 1));
 };
 
 
@@ -3461,7 +3419,7 @@ proto.pps.Spout.prototype.getService = function() {
  * @return {!proto.pps.Spout} returns this
 */
 proto.pps.Spout.prototype.setService = function(value) {
-  return jspb.Message.setWrapperField(this, 2, value);
+  return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
@@ -3479,25 +3437,7 @@ proto.pps.Spout.prototype.clearService = function() {
  * @return {boolean}
  */
 proto.pps.Spout.prototype.hasService = function() {
-  return jspb.Message.getField(this, 2) != null;
-};
-
-
-/**
- * optional string marker = 3;
- * @return {string}
- */
-proto.pps.Spout.prototype.getMarker = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pps.Spout} returns this
- */
-proto.pps.Spout.prototype.setMarker = function(value) {
-  return jspb.Message.setProto3StringField(this, 3, value);
+  return jspb.Message.getField(this, 1) != null;
 };
 
 
@@ -11041,7 +10981,8 @@ proto.pps.PipelineInfo.toObject = function(includeInstance, msg) {
     podSpec: jspb.Message.getFieldWithDefault(msg, 41, ""),
     podPatch: jspb.Message.getFieldWithDefault(msg, 44, ""),
     s3Out: jspb.Message.getBooleanFieldWithDefault(msg, 47, false),
-    metadata: (f = msg.getMetadata()) && proto.pps.Metadata.toObject(includeInstance, f)
+    metadata: (f = msg.getMetadata()) && proto.pps.Metadata.toObject(includeInstance, f),
+    noSkip: jspb.Message.getBooleanFieldWithDefault(msg, 52, false)
   };
 
   if (includeInstance) {
@@ -11257,6 +11198,10 @@ proto.pps.PipelineInfo.deserializeBinaryFromReader = function(msg, reader) {
       var value = new proto.pps.Metadata;
       reader.readMessage(value,proto.pps.Metadata.deserializeBinaryFromReader);
       msg.setMetadata(value);
+      break;
+    case 52:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setNoSkip(value);
       break;
     default:
       reader.skipField();
@@ -11580,6 +11525,13 @@ proto.pps.PipelineInfo.serializeBinaryToWriter = function(message, writer) {
       48,
       f,
       proto.pps.Metadata.serializeBinaryToWriter
+    );
+  }
+  f = message.getNoSkip();
+  if (f) {
+    writer.writeBool(
+      52,
+      f
     );
   }
 };
@@ -12648,6 +12600,24 @@ proto.pps.PipelineInfo.prototype.clearMetadata = function() {
  */
 proto.pps.PipelineInfo.prototype.hasMetadata = function() {
   return jspb.Message.getField(this, 48) != null;
+};
+
+
+/**
+ * optional bool no_skip = 52;
+ * @return {boolean}
+ */
+proto.pps.PipelineInfo.prototype.getNoSkip = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 52, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pps.PipelineInfo} returns this
+ */
+proto.pps.PipelineInfo.prototype.setNoSkip = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 52, value);
 };
 
 
@@ -14467,7 +14437,8 @@ proto.pps.StopJobRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pps.StopJobRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    job: (f = msg.getJob()) && proto.pps.Job.toObject(includeInstance, f)
+    job: (f = msg.getJob()) && proto.pps.Job.toObject(includeInstance, f),
+    outputCommit: (f = msg.getOutputCommit()) && pfs_pfs_pb.Commit.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -14509,6 +14480,11 @@ proto.pps.StopJobRequest.deserializeBinaryFromReader = function(msg, reader) {
       reader.readMessage(value,proto.pps.Job.deserializeBinaryFromReader);
       msg.setJob(value);
       break;
+    case 2:
+      var value = new pfs_pfs_pb.Commit;
+      reader.readMessage(value,pfs_pfs_pb.Commit.deserializeBinaryFromReader);
+      msg.setOutputCommit(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -14544,6 +14520,14 @@ proto.pps.StopJobRequest.serializeBinaryToWriter = function(message, writer) {
       1,
       f,
       proto.pps.Job.serializeBinaryToWriter
+    );
+  }
+  f = message.getOutputCommit();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      pfs_pfs_pb.Commit.serializeBinaryToWriter
     );
   }
 };
@@ -14583,6 +14567,43 @@ proto.pps.StopJobRequest.prototype.clearJob = function() {
  */
 proto.pps.StopJobRequest.prototype.hasJob = function() {
   return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional pfs.Commit output_commit = 2;
+ * @return {?proto.pfs.Commit}
+ */
+proto.pps.StopJobRequest.prototype.getOutputCommit = function() {
+  return /** @type{?proto.pfs.Commit} */ (
+    jspb.Message.getWrapperField(this, pfs_pfs_pb.Commit, 2));
+};
+
+
+/**
+ * @param {?proto.pfs.Commit|undefined} value
+ * @return {!proto.pps.StopJobRequest} returns this
+*/
+proto.pps.StopJobRequest.prototype.setOutputCommit = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pps.StopJobRequest} returns this
+ */
+proto.pps.StopJobRequest.prototype.clearOutputCommit = function() {
+  return this.setOutputCommit(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pps.StopJobRequest.prototype.hasOutputCommit = function() {
+  return jspb.Message.getField(this, 2) != null;
 };
 
 
@@ -16822,7 +16843,8 @@ proto.pps.CreatePipelineRequest.toObject = function(includeInstance, msg) {
     podSpec: jspb.Message.getFieldWithDefault(msg, 30, ""),
     podPatch: jspb.Message.getFieldWithDefault(msg, 32, ""),
     specCommit: (f = msg.getSpecCommit()) && pfs_pfs_pb.Commit.toObject(includeInstance, f),
-    metadata: (f = msg.getMetadata()) && proto.pps.Metadata.toObject(includeInstance, f)
+    metadata: (f = msg.getMetadata()) && proto.pps.Metadata.toObject(includeInstance, f),
+    noSkip: jspb.Message.getBooleanFieldWithDefault(msg, 48, false)
   };
 
   if (includeInstance) {
@@ -16995,6 +17017,10 @@ proto.pps.CreatePipelineRequest.deserializeBinaryFromReader = function(msg, read
       var value = new proto.pps.Metadata;
       reader.readMessage(value,proto.pps.Metadata.deserializeBinaryFromReader);
       msg.setMetadata(value);
+      break;
+    case 48:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setNoSkip(value);
       break;
     default:
       reader.skipField();
@@ -17250,6 +17276,13 @@ proto.pps.CreatePipelineRequest.serializeBinaryToWriter = function(message, writ
       46,
       f,
       proto.pps.Metadata.serializeBinaryToWriter
+    );
+  }
+  f = message.getNoSkip();
+  if (f) {
+    writer.writeBool(
+      48,
+      f
     );
   }
 };
@@ -18115,6 +18148,24 @@ proto.pps.CreatePipelineRequest.prototype.clearMetadata = function() {
  */
 proto.pps.CreatePipelineRequest.prototype.hasMetadata = function() {
   return jspb.Message.getField(this, 46) != null;
+};
+
+
+/**
+ * optional bool no_skip = 48;
+ * @return {boolean}
+ */
+proto.pps.CreatePipelineRequest.prototype.getNoSkip = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 48, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pps.CreatePipelineRequest} returns this
+ */
+proto.pps.CreatePipelineRequest.prototype.setNoSkip = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 48, value);
 };
 
 

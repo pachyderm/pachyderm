@@ -31,6 +31,28 @@ function deserialize_google_protobuf_Empty(buffer_arg) {
   return google_protobuf_empty_pb.Empty.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_ActivateAuthRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ActivateAuthRequest)) {
+    throw new Error('Expected argument of type pfs.ActivateAuthRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_ActivateAuthRequest(buffer_arg) {
+  return pfs_pfs_pb.ActivateAuthRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_ActivateAuthResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ActivateAuthResponse)) {
+    throw new Error('Expected argument of type pfs.ActivateAuthResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_ActivateAuthResponse(buffer_arg) {
+  return pfs_pfs_pb.ActivateAuthResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_AddFilesetRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.AddFilesetRequest)) {
     throw new Error('Expected argument of type pfs.AddFilesetRequest');
@@ -739,6 +761,18 @@ diffFile: {
     requestDeserialize: deserialize_pfs_DiffFileRequest,
     responseSerialize: serialize_pfs_DiffFileResponse,
     responseDeserialize: deserialize_pfs_DiffFileResponse,
+  },
+  // ActivateAuth creates a role binding for all existing repos
+activateAuth: {
+    path: '/pfs.API/ActivateAuth',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.ActivateAuthRequest,
+    responseType: pfs_pfs_pb.ActivateAuthResponse,
+    requestSerialize: serialize_pfs_ActivateAuthRequest,
+    requestDeserialize: deserialize_pfs_ActivateAuthRequest,
+    responseSerialize: serialize_pfs_ActivateAuthResponse,
+    responseDeserialize: deserialize_pfs_ActivateAuthResponse,
   },
   // DeleteAll deletes everything.
 deleteAll: {

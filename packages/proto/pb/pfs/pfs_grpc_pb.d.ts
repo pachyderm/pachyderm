@@ -38,6 +38,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     walkFile: IAPIService_IWalkFile;
     globFile: IAPIService_IGlobFile;
     diffFile: IAPIService_IDiffFile;
+    activateAuth: IAPIService_IActivateAuth;
     deleteAll: IAPIService_IDeleteAll;
     fsck: IAPIService_IFsck;
     addFileset: IAPIService_IAddFileset;
@@ -262,6 +263,15 @@ interface IAPIService_IDiffFile extends grpc.MethodDefinition<pfs_pfs_pb.DiffFil
     responseSerialize: grpc.serialize<pfs_pfs_pb.DiffFileResponse>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.DiffFileResponse>;
 }
+interface IAPIService_IActivateAuth extends grpc.MethodDefinition<pfs_pfs_pb.ActivateAuthRequest, pfs_pfs_pb.ActivateAuthResponse> {
+    path: "/pfs.API/ActivateAuth";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.ActivateAuthRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.ActivateAuthRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.ActivateAuthResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.ActivateAuthResponse>;
+}
 interface IAPIService_IDeleteAll extends grpc.MethodDefinition<google_protobuf_empty_pb.Empty, google_protobuf_empty_pb.Empty> {
     path: "/pfs.API/DeleteAll";
     requestStream: false;
@@ -344,6 +354,7 @@ export interface IAPIServer {
     walkFile: grpc.handleServerStreamingCall<pfs_pfs_pb.WalkFileRequest, pfs_pfs_pb.FileInfo>;
     globFile: grpc.handleServerStreamingCall<pfs_pfs_pb.GlobFileRequest, pfs_pfs_pb.FileInfo>;
     diffFile: grpc.handleServerStreamingCall<pfs_pfs_pb.DiffFileRequest, pfs_pfs_pb.DiffFileResponse>;
+    activateAuth: grpc.handleUnaryCall<pfs_pfs_pb.ActivateAuthRequest, pfs_pfs_pb.ActivateAuthResponse>;
     deleteAll: grpc.handleUnaryCall<google_protobuf_empty_pb.Empty, google_protobuf_empty_pb.Empty>;
     fsck: grpc.handleServerStreamingCall<pfs_pfs_pb.FsckRequest, pfs_pfs_pb.FsckResponse>;
     addFileset: grpc.handleUnaryCall<pfs_pfs_pb.AddFilesetRequest, google_protobuf_empty_pb.Empty>;
@@ -418,6 +429,9 @@ export interface IAPIClient {
     globFile(request: pfs_pfs_pb.GlobFileRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FileInfo>;
     diffFile(request: pfs_pfs_pb.DiffFileRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.DiffFileResponse>;
     diffFile(request: pfs_pfs_pb.DiffFileRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.DiffFileResponse>;
+    activateAuth(request: pfs_pfs_pb.ActivateAuthRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ActivateAuthResponse) => void): grpc.ClientUnaryCall;
+    activateAuth(request: pfs_pfs_pb.ActivateAuthRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ActivateAuthResponse) => void): grpc.ClientUnaryCall;
+    activateAuth(request: pfs_pfs_pb.ActivateAuthRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ActivateAuthResponse) => void): grpc.ClientUnaryCall;
     deleteAll(request: google_protobuf_empty_pb.Empty, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteAll(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteAll(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -505,6 +519,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public globFile(request: pfs_pfs_pb.GlobFileRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FileInfo>;
     public diffFile(request: pfs_pfs_pb.DiffFileRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.DiffFileResponse>;
     public diffFile(request: pfs_pfs_pb.DiffFileRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.DiffFileResponse>;
+    public activateAuth(request: pfs_pfs_pb.ActivateAuthRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ActivateAuthResponse) => void): grpc.ClientUnaryCall;
+    public activateAuth(request: pfs_pfs_pb.ActivateAuthRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ActivateAuthResponse) => void): grpc.ClientUnaryCall;
+    public activateAuth(request: pfs_pfs_pb.ActivateAuthRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ActivateAuthResponse) => void): grpc.ClientUnaryCall;
     public deleteAll(request: google_protobuf_empty_pb.Empty, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteAll(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteAll(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;

@@ -49,7 +49,7 @@ message RepoInfo {
 message RepoAuthInfo {
   // The callers access level to the relevant repo (e.g. may be OWNER even if
   // the user isn't an OWNER of the repo, if they're an admin for the cluster)
-  auth.Scope access_level = 1;
+  repeated auth.Permission permissions = 1;
 }
 
 message BranchInfo {
@@ -454,6 +454,9 @@ message GetFilesetRequest {
   Commit commit = 1;
 }
 
+message ActivateAuthRequest {}
+message ActivateAuthResponse {}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -509,6 +512,9 @@ service API {
   rpc GlobFile(GlobFileRequest) returns (stream FileInfo) {}
   // DiffFile returns the differences between 2 paths at 2 commits.
   rpc DiffFile(DiffFileRequest) returns (stream DiffFileResponse) {}
+
+  // ActivateAuth creates a role binding for all existing repos
+  rpc ActivateAuth(ActivateAuthRequest) returns (ActivateAuthResponse) {}
 
   // DeleteAll deletes everything.
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
