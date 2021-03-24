@@ -356,6 +356,9 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							return err
 						}
 						if unclaimedTasks > 0 {
+							// TODO route this through the controller rather
+							// than modifying the RC directly. This will
+							// prevent a potential race condition.
 							kubeClient := m.a.env.GetKubeClient()
 							namespace := m.a.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
