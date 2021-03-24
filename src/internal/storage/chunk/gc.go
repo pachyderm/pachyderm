@@ -88,7 +88,6 @@ func (gc *GarbageCollector) deleteEntry(ctx context.Context, chunkID ID, gen uin
 	_, err := gc.s.db.ExecContext(ctx, `
 	DELETE FROM storage.chunk_objects
 	WHERE chunk_id = $1 AND gen = $2 AND tombstone = TRUE
-	LIMIT 1
 	`, chunkID, gen)
 	return err
 }

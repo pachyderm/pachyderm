@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"context"
+	"database/sql"
 	fmt "fmt"
 	"path"
 	"strings"
@@ -59,11 +60,11 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	for _, cid := range md.PointsTo {
 		pointsTo = append(pointsTo, cid.TrackerID())
 	}
-	chunkOID := chunkID.TrackerID()
+	chunkTID := chunkID.TrackerID()
 	var needUpload bool
 	var gen uint64
 	if err := dbutil.WithTx(ctx, c.db, func(tx *sqlx.Tx) error {
-		if err := c.tracker.CreateTx(tx, chunkOID, pointsTo, c.ttl); err != nil {
+		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
 			return err
 		}
 		var ents []Entry
@@ -89,7 +90,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	}); err != nil {
 		return nil, err
 	}
-	if err := c.renewer.Add(ctx, chunkOID); err != nil {
+	if err := c.renewer.Add(ctx, chunkTID); err != nil {
 		return nil, err
 	}
 	if !needUpload {
@@ -120,7 +121,9 @@ func (c *trackedClient) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback
 	LIMIT 1
 	`, chunkID)
 	if err != nil {
-		err = errors.Errorf("no objects for chunk %v", chunkID)
+		if err == sql.ErrNoRows {
+			err = errors.Errorf("no objects for chunk %v", chunkID)
+		}
 		return err
 	}
 	key := chunkKey(chunkID, gen)
