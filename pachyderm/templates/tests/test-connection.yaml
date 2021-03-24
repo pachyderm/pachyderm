@@ -12,6 +12,6 @@ spec:
   containers:
     - name: nc
       image: "alpine"
-      command: ['nc']
-      args: ['-zv','pachd-peer', '30653']
+      command: ['/bin/sh', '-c', '--']
+      args: ['while ! nc -vz pachd-peer 30653 ; do sleep 1 ; done']
   restartPolicy: Never
