@@ -81,8 +81,7 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(Client) error
 	return upload(func(c Client) error {
 		return WithSet(nil, storageRoot, func(s *Set) error {
 			for _, meta := range metas {
-				d := newDatum(s, meta)
-				if err := d.uploadMetaOutput(); err != nil {
+				if err := s.UploadMeta(meta, WithPrefixIndex()); err != nil {
 					return err
 				}
 			}
@@ -118,6 +117,12 @@ func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) err
 		}
 	}()
 	return cb(s)
+}
+
+// UploadMeta uploads the meta file for a datum.
+func (s *Set) UploadMeta(meta *Meta, opts ...Option) error {
+	d := newDatum(s, meta, opts...)
+	return d.uploadMetaOutput()
 }
 
 // WithDatum provides a scoped environment for a datum within the datum set.
@@ -156,7 +161,6 @@ type Datum struct {
 }
 
 func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
-	// TODO: ID needs more discussion.
 	ID := common.DatumID(meta.Inputs)
 	d := &Datum{
 		set:         set,
@@ -415,4 +419,37 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 		}
 		return nil
 	}
+}
+
+// TODO: This should be removed when CopyFile is a part of ModifyFile.
+type datumClient struct {
+	*client.ModifyFileClient
+	pachClient *client.APIClient
+	commit     *pfs.Commit
+}
+
+func NewClient(mfc *client.ModifyFileClient, pachClient *client.APIClient, commit *pfs.Commit) Client {
+	return &datumClient{
+		ModifyFileClient: mfc,
+		pachClient:       pachClient,
+		commit:           commit,
+	}
+}
+
+func (dc *datumClient) CopyFile(dst string, srcFile *pfs.File, tag string) error {
+	return dc.pachClient.CopyFile(srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path, dc.commit.Repo.Name, dc.commit.ID, dst, false, tag)
+}
+
+type datumClientFileset struct {
+	*client.CreateFilesetClient
+}
+
+func NewClientFileset(cfc *client.CreateFilesetClient) Client {
+	return &datumClientFileset{
+		CreateFilesetClient: cfc,
+	}
+}
+
+func (dcf *datumClientFileset) CopyFile(_ string, _ *pfs.File, _ string) error {
+	panic("attempted copy file in fileset datum client")
 }

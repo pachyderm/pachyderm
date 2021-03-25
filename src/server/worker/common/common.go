@@ -4,10 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -23,16 +24,14 @@ func IsDone(ctx context.Context) bool {
 
 // DatumID computes the ID of a datum.
 func DatumID(inputs []*Input) string {
-	// TODO: This is a stopgap solution that needs to be addressed before 2.0 GA.
-	// Datum IDs need more design work.
-	if inputs[0].GroupBy != "" {
-		return inputs[0].GroupBy
-	}
-	var files []string
+	hash := pfs.NewHash()
 	for _, input := range inputs {
-		files = append(files, input.Name+strings.ReplaceAll(input.FileInfo.File.Path, "/", "_"))
+		hash.Write([]byte(input.Name))
+		binary.Write(hash, binary.BigEndian, int64(len(input.Name)))
+		hash.Write([]byte(input.FileInfo.File.Path))
+		binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path)))
 	}
-	return strings.Join(files, "-")
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 // HashDatum computes the hash of a datum.
