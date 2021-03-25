@@ -49,7 +49,7 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
-	github.com/lib/pq v1.3.0
+	github.com/lib/pq v1.10.0
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
@@ -78,14 +78,14 @@ require (
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
-	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9
+	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
 	golang.org/x/mod v0.4.1 // indirect
-	golang.org/x/net v0.0.0-20201021035429-f5854403a974
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20210217105451-b926d437f341
-	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
+	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.29.1

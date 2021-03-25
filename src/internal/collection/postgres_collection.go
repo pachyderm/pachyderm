@@ -10,6 +10,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/jackc/pgerrcode"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
@@ -40,7 +41,9 @@ type PostgresModel interface {
 
 type postgresCollection struct {
 	db         *sqlx.DB
+	listener   watch.PostgresListener
 	model      PostgresModel
+	template   proto.Message
 	sqlInfo    *SQLInfo
 	withFields map[string]interface{}
 }
@@ -177,7 +180,7 @@ func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(db *sqlx.DB, model PostgresModel) PostgresCollection {
+func NewPostgresCollection(db *sqlx.DB, listener watch.PostgresListener, model PostgresModel, template proto.Message) PostgresCollection {
 	sqlInfo, err := parseModel(model)
 	if err != nil {
 		panic(err)
@@ -191,7 +194,9 @@ func NewPostgresCollection(db *sqlx.DB, model PostgresModel) PostgresCollection 
 
 	c := &postgresCollection{
 		db:         db,
+		listener:   listener,
 		model:      model,
+		template:   template,
 		sqlInfo:    sqlInfo,
 		withFields: make(map[string]interface{}),
 	}
@@ -207,6 +212,8 @@ func (c *postgresCollection) With(field string, value interface{}) PostgresColle
 	return &postgresCollection{
 		db:         c.db,
 		model:      c.model,
+		listener:   c.listener,
+		template:   c.template,
 		sqlInfo:    c.sqlInfo,
 		withFields: newWithFields,
 	}
@@ -261,8 +268,9 @@ func (c *postgresCollection) Claim(ctx context.Context, key string, val proto.Me
 }
 
 func isDuplicateKeyError(err error) bool {
-	if err, ok := err.(*pq.Error); ok {
-		return err.Code == "23505" // Postgres error code: unique_violation
+	pqerr := &pq.Error{}
+	if errors.As(err, pqerr) {
+		return pqerr.Code == pgerrcode.UniqueViolation
 	}
 	return false
 }
@@ -385,8 +393,19 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watche
 	return nil, errors.New("Watch is not supported on read-only postgres collections")
 }
 
+func (c *postgresReadOnlyCollection) initialWatchList(cb func(key string, val proto.Message) error) {
+	return c.List(val, opts, cb)
+}
+
 func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error {
-	return errors.New("WatchF is not supported on read-only postgres collections")
+	// TODO support filter options (probably can't support the sort option)
+	channelNames := []string{c.tableWatchChannel()}
+	watcher, err := c.listener.Listen(channelNames, c.template, initialWatchList)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	return watchF(context.Background(), watcher, f)
 }
 
 func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error) {
@@ -446,10 +465,13 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 	return c.notify(key, row, watch.EventPut)
 }
 
+func (c *postgresCollection) tableWatchChannel() string {
+	return watchBaseName + "_" + c.sqlInfo.Table
+}
+
 func (c *postgresReadWriteCollection) notify(key string, row reflect.Value, evType watch.EventType) error {
 	payload := &watch.NotifyPayload{Info: &watch.NotifyInfo{Table: c.sqlInfo.Table}, Key: key, Type: uint32(evType)}
-	tableChannel := fmt.Sprintf("%s_%s", watchBaseName, c.sqlInfo.Table)
-	if err := watch.PublishNotification(c.tx, tableChannel, payload); err != nil {
+	if err := watch.PublishNotification(c.tx, c.tableWatchChannel(), payload); err != nil {
 		return c.mapSQLError(err, key)
 	}
 
@@ -457,19 +479,14 @@ func (c *postgresReadWriteCollection) notify(key string, row reflect.Value, evTy
 		payload.Info.Fields = []string{}
 		payload.Info.Values = []string{}
 
-		// TODO: allow compound indexes?
-		// TODO: would be nice if we could just serialize the field from the
-		// original protobuf? But this might be fine since we limit the types that
-		// the model can use.
+		// TODO: protobuf serialization isn't guaranteed to be deterministic, use json or something
 		value := reflect.Indirect(row).FieldByName(idx.Field).Interface()
 		payload.Info.Fields = append(payload.Info.Fields, idx.Field)
 		payload.Info.Values = append(payload.Info.Values, fmt.Sprintf("%v", value))
 
-		// We can't store the entire secondary index value in the channel name as
-		// some of these are unbounded and identifiers are limited to 64 bytes.
-		// Instead, compute the hash of the data that would make up the channel
-		// name.
-		// TODO: protobuf serialization isn't guaranteed to be deterministic, use json or something
+		// We can't store the entire index value in the channel name as some of
+		// these are unbounded and identifiers are limited to 64 bytes. Instead,
+		// compute the hash of the data that would make up the channel name.
 		data, err := payload.Info.Marshal()
 		if err != nil {
 			return errors.EnsureStack(err)

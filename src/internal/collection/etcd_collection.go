@@ -508,10 +508,10 @@ func (c *etcdReadOnlyCollection) WatchF(f func(e *watch.Event) error, opts ...wa
 		return err
 	}
 	defer watcher.Close()
-	return c.watchF(watcher, f)
+	return watchF(c.ctx, watcher, f)
 }
 
-func (c *etcdReadOnlyCollection) watchF(watcher watch.Watcher, f func(e *watch.Event) error) error {
+func watchF(ctx context.Context, watcher watch.Watcher, f func(e *watch.Event) error) error {
 	for {
 		select {
 		case e, ok := <-watcher.Watch():
@@ -527,8 +527,8 @@ func (c *etcdReadOnlyCollection) watchF(watcher watch.Watcher, f func(e *watch.E
 				}
 				return err
 			}
-		case <-c.ctx.Done():
-			return c.ctx.Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
@@ -614,5 +614,5 @@ func (c *etcdReadOnlyCollection) WatchOneF(key string, f func(e *watch.Event) er
 		return err
 	}
 	defer watcher.Close()
-	return c.watchF(watcher, f)
+	return watchF(c.ctx, watcher, f)
 }

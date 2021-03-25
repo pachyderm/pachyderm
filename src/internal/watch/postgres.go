@@ -23,8 +23,10 @@ const (
 type postgresWatcher struct {
 	l            *listener
 	c            chan *Event
-	channelNames []string
+	closeMutex   sync.Mutex
+	closed       bool
 	template     proto.Message
+	channelNames []string
 }
 
 func newPostgresWatch(l *listener, channelNames []string, template proto.Message) *postgresWatcher {
@@ -37,8 +39,8 @@ func newPostgresWatch(l *listener, channelNames []string, template proto.Message
 	return &postgresWatcher{
 		l:            l,
 		c:            make(chan *Event),
-		channelNames: namesCopy,
 		template:     template,
+		channelNames: namesCopy,
 	}
 }
 
@@ -47,7 +49,15 @@ func (pw *postgresWatcher) Watch() <-chan *Event {
 }
 
 func (pw *postgresWatcher) Close() {
+	pw.closeMutex.Lock()
+	defer pw.closeMutex.Unlock()
+
 	pw.l.unregister(pw)
+
+	if !pw.closed {
+		pw.closed = true
+		close(pw.c)
+	}
 }
 
 type PostgresListener interface {
@@ -58,34 +68,41 @@ type PostgresListener interface {
 type watcherSet = map[*postgresWatcher]struct{}
 
 type listener struct {
+	dsn    string
 	pql    *pq.Listener
 	mu     sync.Mutex
 	eg     *errgroup.Group
-	cancel func()
+	closed bool
 
 	channels map[string]watcherSet
 }
 
-func NewPostgresListener(connStr string) PostgresListener {
-	ctx, cancel := context.WithCancel(context.Background())
-	eg, ctx := errgroup.WithContext(ctx)
+func NewPostgresListener(dsn string) PostgresListener {
+	eg, _ := errgroup.WithContext(context.Background())
 
 	l := &listener{
-		pql:      pq.NewListener(connStr, minReconnectInterval, maxReconnectInterval, nil),
-		cancel:   cancel,
+		dsn:      dsn,
+		eg:       eg,
 		channels: make(map[string]watcherSet),
 	}
-	eg.Go(l.multiplex)
 
 	return l
 }
 
 func (l *listener) Close() error {
-	if l.eg != nil {
-		l.cancel()
-		if err := l.eg.Wait(); err != nil {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.closed = true
+
+	if l.pql != nil {
+		if err := l.pql.Close(); err != nil {
 			return err
 		}
+	}
+
+	if err := l.eg.Wait(); err != nil {
+		return err
 	}
 
 	if len(l.channels) != 0 {
@@ -94,11 +111,55 @@ func (l *listener) Close() error {
 	return nil
 }
 
-func (l *listener) Listen(channelNames []string, template proto.Message) (Watcher, error) {
-	pw := newPostgresWatch(l, channelNames, template)
+// Lazily generate the pq.Listener because we don't want to trigger a race
+// condition where an unused pq.Listener can't be closed properly. The mutex
+// must be locked before calling this.
+func (l *listener) getPQL() *pq.Listener {
+	if l.pql == nil {
+		l.pql = pq.NewListener(l.dsn, minReconnectInterval, maxReconnectInterval, nil)
+		l.eg.Go(func() error {
+			return l.multiplex(l.pql.Notify)
+		})
+	}
+	return l.pql
+}
 
+func (l *listener) multiplex(notifyChan chan *pq.Notification) error {
+	for {
+		notification, ok := <-notifyChan
+		if !ok {
+			return nil
+		}
+		if notification == nil {
+			// A 'nil' notification means that the connection was lost - error out all
+			// current watchers so they can rebuild state.
+			l.reset(errors.Errorf("lost connection to database"))
+		} else {
+			l.routeNotification(notification)
+		}
+	}
+}
+
+func (l *listener) reset(err error) {
+	for _, watchers := range l.channels {
+		sendError(watchers, err)
+	}
+
+	l.channels = make(map[string]watcherSet)
+	if err := l.getPQL().UnlistenAll(); err != nil {
+		// `reset` is only ever called in the case of an error, so it should be fine to discard this error
+	}
+}
+
+func (l *listener) Listen(channelNames []string, template proto.Message) (Watcher, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	if l.closed {
+		return nil, errors.New("PostgresListener has been closed")
+	}
+
+	pw := newPostgresWatch(l, channelNames, template)
 
 	// Subscribe the watch to the given channels
 	for _, name := range pw.channelNames {
@@ -106,8 +167,12 @@ func (l *listener) Listen(channelNames []string, template proto.Message) (Watche
 		if !ok {
 			watchers = make(watcherSet)
 			l.channels[name] = watchers
-			if err := l.pql.Listen(name); err != nil {
-				return nil, errors.EnsureStack(err)
+			if err := l.getPQL().Listen(name); err != nil {
+				// If an error occurs, error out all watches and reset the state of the
+				// listener to prevent desyncs
+				err = errors.EnsureStack(err)
+				l.reset(err)
+				return nil, err
 			}
 		}
 		watchers[pw] = struct{}{}
@@ -120,51 +185,50 @@ func (l *listener) unregister(pw *postgresWatcher) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if l.closed {
+		return errors.New("PostgresListener has been closed")
+	}
+
 	// Remove the watch from the given channels, unlisten if any are empty
 	for _, name := range pw.channelNames {
 		watchers := l.channels[name]
 		delete(watchers, pw)
 		if len(watchers) == 0 {
-			if err := l.pql.Unlisten(name); err != nil {
-				return errors.EnsureStack(err)
+			delete(l.channels, name)
+			if err := l.getPQL().Unlisten(name); err != nil {
+				// If an error occurs, error out all watches and reset the state of the
+				// listener to prevent desyncs
+				err = errors.EnsureStack(err)
+				l.reset(err)
+				return err
 			}
 		}
 	}
 	return nil
 }
 
-func (l *listener) multiplex() error {
-	for {
-		notification, ok := <-l.pql.Notify
-		if !ok {
-			return nil
-		}
-		if notification != nil {
-			// A 'nil' notification means that the connection was lost - error out all
-			// current watchers so they can rebuild state.
-			l.broadcastError(errors.Errorf("lost connection to database"))
-		} else {
-			l.routeNotification(notification)
-		}
-	}
-}
+// Send the given event to the watcher, but abort the watcher if the send would
+// block. If this happens, the watcher is not keeping up with events. Spawn a
+// goroutine to write an error, then close the watcher.
+func sendToWatcher(watcher *postgresWatcher, ev *Event) {
+	select {
+	case watcher.c <- ev:
+	default:
+		// Unregister the watcher first, so we stop attempting to send it events
+		// (this will happen again in watcher.Close(), but be a no-op).
+		watcher.l.unregister(watcher)
 
-func (l *listener) broadcastError(err error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	for _, watchers := range l.channels {
-		sendError(watchers, err)
+		go func() {
+			watcher.c <- &Event{Err: errors.New("watcher channel is full, aborting watch"), Type: EventError}
+			watcher.Close()
+		}()
 	}
 }
 
 func sendError(watchers watcherSet, err error) {
+	ev := &Event{Err: err, Type: EventError}
 	for watcher := range watchers {
-		// TODO: close the channel if the send would block
-		watcher.c <- &Event{
-			Err:  err,
-			Type: EventError,
-		}
+		sendToWatcher(watcher, ev)
 	}
 }
 
@@ -172,6 +236,7 @@ func (l *listener) routeNotification(n *pq.Notification) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	// Ignore any messages from channels we have no watchers for
 	watchers, ok := l.channels[n.Channel]
 	if ok {
 		payload := &NotifyPayload{}
@@ -184,8 +249,7 @@ func (l *listener) routeNotification(n *pq.Notification) {
 				// TODO: verify this watcher was interested in this data (since there may have been a hash collision)
 				// TODO: load the value from the payload (if we decide to store it inline) or from the database
 				ev := &Event{Key: []byte(payload.Key), Value: nil, Type: EventType(payload.Type), Template: watcher.template}
-				// TODO: close the channel if the send would block
-				watcher.c <- ev
+				sendToWatcher(watcher, ev)
 			}
 		}
 	}

@@ -23,7 +23,7 @@ const (
 	DefaultMaxOpenConns = 3
 )
 
-type dBConfig struct {
+type dbConfig struct {
 	host           string
 	port           int
 	user, password string
@@ -31,9 +31,8 @@ type dBConfig struct {
 	maxOpenConns   int
 }
 
-// NewDB creates a new DB.
-func NewDB(opts ...Option) (*sqlx.DB, error) {
-	dbc := &dBConfig{
+func newConfig(opts ...Option) *dbConfig {
+	dbc := &dbConfig{
 		host:         DefaultHost,
 		port:         DefaultPort,
 		user:         DefaultUser,
@@ -43,6 +42,10 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 	for _, opt := range opts {
 		opt(dbc)
 	}
+	return dbc
+}
+
+func getDSN(dbc *dbConfig) string {
 	fields := map[string]string{
 		"sslmode": "disable",
 	}
@@ -65,8 +68,22 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 	for k, v := range fields {
 		dsnParts = append(dsnParts, k+"="+v)
 	}
-	dsn := strings.Join(dsnParts, " ")
-	db, err := sqlx.Open("postgres", dsn)
+	return strings.Join(dsnParts, " ")
+}
+
+// GetDSN returns the string for connecting to the postgres instance with the
+// parameters specified in 'opts'. This is needed because 'listen' operations
+// are not supported in generic SQL libraries and they need to be run in a side
+// session.
+func GetDSN(opts ...Option) string {
+	dbc := newConfig(opts...)
+	return getDSN(dbc)
+}
+
+// NewDB creates a new DB.
+func NewDB(opts ...Option) (*sqlx.DB, error) {
+	dbc := newConfig(opts...)
+	db, err := sqlx.Open("postgres", getDSN(dbc))
 	if err != nil {
 		return nil, err
 	}

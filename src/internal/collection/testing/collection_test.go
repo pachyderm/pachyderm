@@ -3,11 +3,13 @@ package testing
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
 const (
@@ -341,8 +343,100 @@ func collectionTests(
 
 		suite.Run("WatchF", func(subsuite *testing.T) {
 			subsuite.Parallel()
-			subsuite.Run("Success", func(t *testing.T) {
+
+			doWrite := func(id int) func(rw col.ReadWriteCollection) error {
+				return func(rw col.ReadWriteCollection) error {
+					testProto := makeProto(id)
+					return rw.Put(testProto.ID, testProto)
+				}
+			}
+
+			doDelete := func(id int) func(rw col.ReadWriteCollection) error {
+				return func(rw col.ReadWriteCollection) error {
+					return rw.Delete(makeID(id))
+				}
+			}
+
+			asyncWrite := func(t *testing.T, writer WriteCallback, cbs ...func(rw col.ReadWriteCollection) error) {
+				go func() {
+					time.Sleep(100 * time.Millisecond)
+					for _, cb := range cbs {
+						require.NoError(t, writer(cb))
+					}
+				}()
+			}
+
+			collectEvents := func(count int, out *[]*watch.Event) func(*watch.Event) error {
+				return func(ev *watch.Event) error {
+					*out = append(*out, ev)
+					fmt.Printf("got watch event: %v\n", ev)
+					if len(*out) == count {
+						return errutil.ErrBreak
+					}
+					return nil
+				}
+			}
+
+			extractKey := func(ev interface{}) interface{} {
+				return string(ev.(*watch.Event).Key)
+			}
+
+			extractEventType := func(ev interface{}) interface{} {
+				return ev.(*watch.Event).Type
+			}
+
+			subsuite.Run("Delete", func(t *testing.T) {
 				t.Parallel()
+				watchCol, writer := newCollection(suite)
+				writer(doWrite(1))
+				asyncWrite(t, writer, doDelete(1))
+
+				events := []*watch.Event{}
+				err := watchCol.WatchF(collectEvents(2, &events))
+				require.NoError(t, err)
+				require.ElementsEqualUnderFn(t, []string{"1", "1"}, events, extractKey)
+				require.ElementsEqualUnderFn(t, []watch.EventType{watch.EventPut, watch.EventDelete}, events, extractEventType)
+			})
+
+			subsuite.Run("DeleteAll", func(t *testing.T) {
+				// TODO: DeleteAll notifications can't be supported in postgres?
+			})
+
+			subsuite.Run("Create", func(t *testing.T) {
+				t.Parallel()
+				watchCol, writer := newCollection(suite)
+				asyncWrite(t, writer, doWrite(1), doWrite(2))
+
+				events := []*watch.Event{}
+				err := watchCol.WatchF(collectEvents(2, &events))
+				require.NoError(t, err)
+				require.ElementsEqualUnderFn(t, []string{"1", "2"}, events, extractKey)
+				require.ElementsEqualUnderFn(t, []watch.EventType{watch.EventPut, watch.EventPut}, events, extractEventType)
+			})
+
+			subsuite.Run("Overwrite", func(t *testing.T) {
+				t.Parallel()
+				watchCol, writer := newCollection(suite)
+				writer(doWrite(1))
+				asyncWrite(t, writer, doWrite(1))
+
+				events := []*watch.Event{}
+				err := watchCol.WatchF(collectEvents(2, &events))
+				require.NoError(t, err)
+				require.ElementsEqualUnderFn(t, []string{"1", "1"}, events, extractKey)
+				require.ElementsEqualUnderFn(t, []watch.EventType{watch.EventPut, watch.EventPut}, events, extractEventType)
+			})
+
+			subsuite.Run("ErrBreak", func(t *testing.T) {
+				t.Parallel()
+				watchCol, writer := newCollection(suite)
+				writer(doWrite(1))
+				writer(doWrite(2))
+
+				events := []*watch.Event{}
+				err := watchCol.WatchF(collectEvents(1, &events))
+				require.NoError(t, err)
+				require.Equal(t, 1, len(events), "List callback was called multiple times despite aborting")
 			})
 		})
 
