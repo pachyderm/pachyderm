@@ -282,11 +282,9 @@ func containsEmpty(vals []string) bool {
 	return false
 }
 
-// deprecationWarning prints a deprecation warning to os.Stdout.
-//
-// TODO: consider printing deprecation warnings to os.Stderr.
+// deprecationWarning prints a deprecation warning to os.Stderr.
 func deprecationWarning(msg string) {
-	fmt.Printf("DEPRECATED: %s\n\n", msg)
+	fmt.Fprintf(os.Stderr, "DEPRECATED: %s\n\n", msg)
 }
 
 func standardDeployCmds() []*cobra.Command {
