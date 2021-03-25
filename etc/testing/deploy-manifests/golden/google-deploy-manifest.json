@@ -170,21 +170,22 @@
   }
 }
 {
-  "allowVolumeExpansion": true,
-  "apiVersion": "storage.k8s.io/v1",
   "kind": "StorageClass",
+  "apiVersion": "storage.k8s.io/v1",
   "metadata": {
+    "name": "etcd-storage-class",
+    "namespace": "default",
+    "creationTimestamp": null,
     "labels": {
       "app": "etcd",
       "suite": "pachyderm"
-    },
-    "name": "etcd-storage-class",
-    "namespace": "default"
+    }
   },
+  "provisioner": "kubernetes.io/gce-pd",
   "parameters": {
     "type": "pd-ssd"
   },
-  "provisioner": "kubernetes.io/gce-pd"
+  "allowVolumeExpansion": true
 }
 {
   "kind": "Service",
@@ -361,6 +362,205 @@
   }
 }
 {
+  "kind": "ConfigMap",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "postgres-init-cm",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    }
+  },
+  "data": {
+    "init-db.sh": "\n#!/bin/bash\nset -e\n\npsql -v ON_ERROR_STOP=1 --username \"$POSTGRES_USER\" --dbname \"$POSTGRES_DB\" \u003c\u003c-EOSQL\n    CREATE DATABASE dex;\n    GRANT ALL PRIVILEGES ON DATABASE dex TO postgres;\nEOSQL\n"
+  }
+}
+{
+  "kind": "StorageClass",
+  "apiVersion": "storage.k8s.io/v1",
+  "metadata": {
+    "name": "postgres-storage-class",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    }
+  },
+  "provisioner": "kubernetes.io/gce-pd",
+  "parameters": {
+    "type": "pd-ssd"
+  },
+  "allowVolumeExpansion": true
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "postgres-headless",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "client-port",
+        "port": 5432,
+        "targetPort": 0
+      }
+    ],
+    "selector": {
+      "app": "postgres"
+    },
+    "clusterIP": "None"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "apiVersion": "apps/v1",
+  "kind": "StatefulSet",
+  "metadata": {
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    },
+    "name": "postgres",
+    "namespace": "default"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "postgres",
+        "suite": "pachyderm"
+      }
+    },
+    "serviceName": "postgres-headless",
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "postgres",
+          "suite": "pachyderm"
+        },
+        "name": "postgres",
+        "namespace": "default"
+      },
+      "spec": {
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "POSTGRES_DB",
+                "value": "pgc"
+              },
+              {
+                "name": "POSTGRES_HOST_AUTH_METHOD",
+                "value": "trust"
+              }
+            ],
+            "image": "postgres:13.0-alpine",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "postgres",
+            "ports": [
+              {
+                "containerPort": 5432,
+                "name": "client-port"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "1",
+                "memory": "2G"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/var/lib/postgresql",
+                "name": "postgres-storage"
+              },
+              {
+                "mountPath": "/docker-entrypoint-initdb.d",
+                "name": "postgres-init"
+              }
+            ]
+          }
+        ],
+        "imagePullSecrets": null,
+        "volumes": [
+          {
+            "name": "postgres-init",
+            "configMap": {
+              "name": "postgres-init-cm"
+            }
+          }
+        ]
+      }
+    },
+    "volumeClaimTemplates": [
+      {
+        "metadata": {
+          "annotations": {
+            "volume.beta.kubernetes.io/storage-class": "postgres-storage-class"
+          },
+          "labels": {
+            "app": "postgres",
+            "suite": "pachyderm"
+          },
+          "name": "postgres-storage",
+          "namespace": "default"
+        },
+        "spec": {
+          "accessModes": [
+            "ReadWriteOnce"
+          ],
+          "resources": {
+            "requests": {
+              "storage": "50Gi"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "postgres",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "client-port",
+        "port": 5432,
+        "targetPort": 0
+      }
+    ],
+    "selector": {
+      "app": "postgres"
+    },
+    "type": "NodePort"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
   "kind": "Service",
   "apiVersion": "v1",
   "metadata": {
@@ -397,16 +597,16 @@
         "nodePort": 30652
       },
       {
-        "name": "saml-port",
-        "port": 654,
-        "targetPort": 0,
-        "nodePort": 30654
-      },
-      {
         "name": "oidc-port",
         "port": 657,
         "targetPort": 0,
         "nodePort": 30657
+      },
+      {
+        "name": "identity-port",
+        "port": 658,
+        "targetPort": 0,
+        "nodePort": 30658
       },
       {
         "name": "api-git-port",
@@ -514,7 +714,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.12.5",
+            "image": "pachyderm/pachd:2.0.0",
             "command": [
               "/pachd"
             ],
@@ -544,11 +744,6 @@
                 "protocol": "TCP"
               },
               {
-                "name": "saml-port",
-                "containerPort": 654,
-                "protocol": "TCP"
-              },
-              {
                 "name": "oidc-port",
                 "containerPort": 657,
                 "protocol": "TCP"
@@ -575,14 +770,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.12.5"
+                "value": "pachyderm/worker:2.0.0"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.12.5"
+                "value": "pachyderm/pachd:2.0.0"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -594,7 +789,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.12.5"
+                "value": "2.0.0"
               },
               {
                 "name": "METRICS",
@@ -613,10 +808,6 @@
               },
               {
                 "name": "NO_EXPOSE_DOCKER_SOCKET",
-                "value": "false"
-              },
-              {
-                "name": "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING",
                 "value": "false"
               },
               {
@@ -970,10 +1161,6 @@
               {
                 "name": "STORAGE_PUT_FILE_CONCURRENCY_LIMIT",
                 "value": "100"
-              },
-              {
-                "name": "STORAGE_V2",
-                "value": "false"
               }
             ],
             "resources": {

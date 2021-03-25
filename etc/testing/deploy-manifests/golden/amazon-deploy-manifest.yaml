@@ -125,6 +125,7 @@ allowVolumeExpansion: true
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
+  creationTimestamp: null
   labels:
     app: etcd
     suite: pachyderm
@@ -251,6 +252,145 @@ status:
   loadBalancer: {}
 ---
 apiVersion: v1
+data:
+  init-db.sh: |2
+
+    #!/bin/bash
+    set -e
+
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        CREATE DATABASE dex;
+        GRANT ALL PRIVILEGES ON DATABASE dex TO postgres;
+    EOSQL
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres-init-cm
+  namespace: default
+---
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  creationTimestamp: null
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres-storage-class
+  namespace: default
+parameters:
+  type: gp2
+provisioner: kubernetes.io/aws-ebs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres-headless
+  namespace: default
+spec:
+  clusterIP: None
+  ports:
+  - name: client-port
+    port: 5432
+    targetPort: 0
+  selector:
+    app: postgres
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      suite: pachyderm
+  serviceName: postgres-headless
+  template:
+    metadata:
+      labels:
+        app: postgres
+        suite: pachyderm
+      name: postgres
+      namespace: default
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: pgc
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: trust
+        image: postgres:13.0-alpine
+        imagePullPolicy: IfNotPresent
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: client-port
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2G
+        volumeMounts:
+        - mountPath: /var/lib/postgresql
+          name: postgres-storage
+        - mountPath: /docker-entrypoint-initdb.d
+          name: postgres-init
+      imagePullSecrets: null
+      volumes:
+      - configMap:
+          name: postgres-init-cm
+        name: postgres-init
+  volumeClaimTemplates:
+  - metadata:
+      annotations:
+        volume.beta.kubernetes.io/storage-class: postgres-storage-class
+      labels:
+        app: postgres
+        suite: pachyderm
+      name: postgres-storage
+      namespace: default
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres
+  namespace: default
+spec:
+  ports:
+  - name: client-port
+    port: 5432
+    targetPort: 0
+  selector:
+    app: postgres
+  type: NodePort
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
 kind: Service
 metadata:
   annotations:
@@ -276,13 +416,13 @@ spec:
     nodePort: 30652
     port: 652
     targetPort: 0
-  - name: saml-port
-    nodePort: 30654
-    port: 654
-    targetPort: 0
   - name: oidc-port
     nodePort: 30657
     port: 657
+    targetPort: 0
+  - name: identity-port
+    nodePort: 30658
+    port: 658
     targetPort: 0
   - name: api-git-port
     nodePort: 30655
@@ -363,16 +503,16 @@ spec:
           value: AMAZON
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.12.5
+          value: pachyderm/worker:2.0.0
         - name: IMAGE_PULL_SECRET
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.12.5
+          value: pachyderm/pachd:2.0.0
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
         - name: WORKER_SERVICE_ACCOUNT
           value: pachyderm-worker
         - name: PACHD_VERSION
-          value: 1.12.5
+          value: 2.0.0
         - name: METRICS
           value: "true"
         - name: LOG_LEVEL
@@ -381,8 +521,6 @@ spec:
           value: 1G
         - name: IAM_ROLE
         - name: NO_EXPOSE_DOCKER_SOCKET
-          value: "false"
-        - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
           value: "false"
         - name: PACH_NAMESPACE
           valueFrom:
@@ -592,9 +730,7 @@ spec:
           value: "100"
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: "100"
-        - name: STORAGE_V2
-          value: "false"
-        image: pachyderm/pachd:1.12.5
+        image: pachyderm/pachd:2.0.0
         imagePullPolicy: IfNotPresent
         name: pachd
         ports:
@@ -611,9 +747,6 @@ spec:
           protocol: TCP
         - containerPort: 655
           name: api-git-port
-          protocol: TCP
-        - containerPort: 654
-          name: saml-port
           protocol: TCP
         - containerPort: 657
           name: oidc-port
