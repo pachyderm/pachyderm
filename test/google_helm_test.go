@@ -77,12 +77,13 @@ func TestGoogleValues(t *testing.T) {
 		serviceAccount      = "a-service-account"
 		helmChartPath       = "../pachyderm"
 		checks              = map[string]bool{
-			"bucket":          false,
-			"cred":            false,
-			"service account": false,
-			"STORAGE_BACKEND": false,
-			"GOOGLE_BUCKET":   false,
-			"GOOGLE_CRED":     false,
+			"bucket":                false,
+			"cred":                  false,
+			"service account":       false,
+			"STORAGE_BACKEND":       false,
+			"GOOGLE_BUCKET":         false,
+			"GOOGLE_CRED":           false,
+			"volume claim template": false,
 		}
 
 		options = &helm.Options{
@@ -195,6 +196,16 @@ func TestGoogleValues(t *testing.T) {
 						checks["GOOGLE_CRED"] = true
 					}
 				}
+			}
+		case *appsV1.StatefulSet:
+			if resource.Name != "etcd" {
+				continue
+			}
+			for _, v := range resource.Spec.VolumeClaimTemplates {
+				if _, ok := v.Annotations["volume.beta.kubernetes.io/storage-class"]; !ok {
+					continue
+				}
+				checks["volume claim template"] = true
 			}
 		}
 	}
