@@ -11,5 +11,5 @@ The following table includes the links to earlier Pachyderm versions.
 
 | Version | URL |
 | ------- | ---- |
-| 1.9.8 | https://github.com/pachyderm/pachyderm/blob/master/doc/docs/1.9.x/index.md|
-|1.10.5|https://github.com/pachyderm/pachyderm/blob/master/doc/docs/1.10.x/index.md|
+| 1.9.8 | https://github.com/pachyderm/pachyderm/tree/master/doc/docs/archived/1.9.x|
+|1.10.5|https://github.com/pachyderm/pachyderm/tree/master/doc/docs/archived/1.10.x|
