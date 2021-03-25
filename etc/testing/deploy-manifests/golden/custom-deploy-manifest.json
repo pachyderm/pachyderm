@@ -67,7 +67,8 @@
       ],
       "resources": [
         "replicationcontrollers",
-        "services"
+        "services",
+        "replicationcontrollers/scale"
       ]
     },
     {
@@ -497,7 +498,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.12.5",
+            "image": "pachyderm/pachd:1.13.0",
             "command": [
               "/pachd"
             ],
@@ -558,14 +559,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.12.5"
+                "value": "pachyderm/worker:1.13.0"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.12.5"
+                "value": "pachyderm/pachd:1.13.0"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -577,7 +578,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.12.5"
+                "value": "1.13.0"
               },
               {
                 "name": "METRICS",
