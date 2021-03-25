@@ -1,15 +1,11 @@
 package helmtest
 
 import (
-	"bytes"
-	"encoding/base64"
-	"io"
-	"log"
 	"testing"
 
-	goyaml "github.com/go-yaml/yaml"
 	"github.com/gruntwork-io/terratest/modules/helm"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/kubectl/pkg/scheme"
 )
 
 /*
@@ -76,10 +72,8 @@ func TestGoogleWorkerServiceAccount(t *testing.T) {
 func TestGoogleValues(t *testing.T) {
 	var (
 		bucket                = "fake-bucket"
-		bucketBase64          = base64.StdEncoding.EncodeToString([]byte(bucket))
 		bucketChecked         bool
 		cred                  = `INSERT JSON HERE`
-		credBase64            = base64.StdEncoding.EncodeToString([]byte(cred))
 		credChecked           bool
 		pachdServiceAccount   = "128"
 		serviceAccount        = "a-service-account"
@@ -146,37 +140,41 @@ func TestGoogleValues(t *testing.T) {
 `,
 			},
 		}
-		output = helm.RenderTemplate(t, options, helmChartPath, "release-name", nil)
+		output  = helm.RenderTemplate(t, options, helmChartPath, "release-name", nil)
+		files   []string
+		objects []interface{}
+		err     error
 	)
-	files, err := splitYAML(output)
-	if err != nil {
+	if files, err = splitYAML(output); err != nil {
 		t.Fatal(err)
 	}
-
 	for _, f := range files {
-		var resource map[string]interface{}
-		helm.UnmarshalK8SYaml(t, f, &resource)
-		switch resource["kind"].(string) {
-		case "Secret":
-			if resource["metadata"].(map[string]interface{})["name"] != "pachyderm-storage-secret" {
+		obj, _, err := scheme.Codecs.UniversalDeserializer().Decode([]byte(f), nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		objects = append(objects, obj)
+	}
+
+	for _, object := range objects {
+		switch resource := object.(type) {
+		case *v1.Secret:
+			if resource.Name != "pachyderm-storage-secret" {
 				continue
 			}
-			data := resource["data"].(map[string]interface{})
-			if bucket := data["google-bucket"].(string); bucket != bucketBase64 {
-				t.Errorf("expected bucket to be %q but was %q", bucketBase64, bucket)
+			if b := string(resource.Data["google-bucket"]); b != bucket {
+				t.Errorf("expected bucket to be %q but was %q", bucket, b)
 			}
 			bucketChecked = true
-			if cred := data["google-cred"].(string); cred != credBase64 {
-				t.Errorf("expected cred to be %q but was %q", credBase64, cred)
+			if c := string(resource.Data["google-cred"]); c != cred {
+				t.Errorf("expected cred to be %q but was %q", cred, c)
 			}
 			credChecked = true
-		case "ServiceAccount":
-			log.Print(resource["metadata"])
-			if resource["metadata"].(map[string]interface{})["name"] != pachdServiceAccount {
+		case *v1.ServiceAccount:
+			if resource.Name != pachdServiceAccount {
 				continue
 			}
-			annotations := resource["metadata"].(map[string]interface{})["annotations"].(map[string]interface{})
-			if sa := annotations["iam.gke.io/gcp-service-account"]; sa != serviceAccount {
+			if sa := resource.Annotations["iam.gke.io/gcp-service-account"]; sa != serviceAccount {
 				t.Errorf("expected service account to be %q but was %q", serviceAccount, sa)
 			}
 			serviceAccountChecked = true
@@ -191,24 +189,4 @@ func TestGoogleValues(t *testing.T) {
 	if !serviceAccountChecked {
 		t.Error("service account unchecked")
 	}
-}
-
-// adapted from https://play.golang.org/p/MZNwxdUzxPo
-func splitYAML(manifest string) ([]string, error) {
-	dec := goyaml.NewDecoder(bytes.NewReader([]byte(manifest)))
-	var res []string
-	for {
-		var value interface{}
-		if err := dec.Decode(&value); err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, err
-		}
-		b, err := goyaml.Marshal(value)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, string(b))
-	}
-	return res, nil
 }
