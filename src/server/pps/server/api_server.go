@@ -28,6 +28,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	enterpriselimits "github.com/pachyderm/pachyderm/src/server/enterprise/limits"
+	enterprisemetrics "github.com/pachyderm/pachyderm/src/server/enterprise/metrics"
+	enterprisetext "github.com/pachyderm/pachyderm/src/server/enterprise/text"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -46,10 +49,12 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	ppsServer "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -1456,7 +1461,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
 	if a.env.LokiLogging || request.UseLokiBackend {
-		resp, err := pachClient.Enterprise.GetState(context.Background(),
+		resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
 			&enterpriseclient.GetStateRequest{})
 		if err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
@@ -1464,7 +1469,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if resp.State == enterpriseclient.State_ACTIVE {
 			return a.getLogsLoki(request, apiGetLogsServer)
 		}
-		return errors.Errorf("enterprise must be enabled to use loki logging")
+		enterprisemetrics.IncEnterpriseFailures()
+		return errors.Errorf("%s requires an activation key to use Loki for logs. %s\n\n%s",
+			enterprisetext.OpenSourceProduct, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -1856,6 +1863,39 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	return nil
 }
 
+func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name); err == nil {
+		// Pipeline already exists so we allow people to update it even if
+		// they're over the limits.
+		return nil
+	}
+	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
+		&enterpriseclient.GetStateRequest{})
+	if err != nil {
+		return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
+	}
+	if resp.State == enterpriseclient.State_ACTIVE {
+		// Enterprise is enabled so anything goes.
+		return nil
+	}
+	pipelines, err := a.pipelines.ReadOnly(ctx).Count()
+	if err != nil {
+		return err
+	}
+	if pipelines >= enterpriselimits.Pipelines {
+		enterprisemetrics.IncEnterpriseFailures()
+		return errors.Errorf("%s requires an activation key to create more than %d total pipelines (you have %d). %s\n\n%s",
+			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, pipelines, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+	}
+	if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > enterpriselimits.Parallelism {
+		enterprisemetrics.IncEnterpriseFailures()
+		return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
+			enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+	}
+	return nil
+}
+
 func (a *apiServer) validatePipelineInTransaction(txnCtx *txnenv.TransactionContext, pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
@@ -1946,6 +1986,9 @@ func (a *apiServer) validatePipelineInTransaction(txnCtx *txnenv.TransactionCont
 		if pipelineInfo.Spout.Service == nil && pipelineInfo.Input != nil {
 			return errors.Errorf("spout pipelines (without a service) must not have an input")
 		}
+	}
+	if err := a.validateEnterpriseChecks(txnCtx.ClientContext, pipelineInfo); err != nil {
+		return err
 	}
 	return nil
 }
@@ -2297,6 +2340,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		PodPatch:              request.PodPatch,
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
+		Autoscaling:           request.Autoscaling,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return err
@@ -2921,6 +2965,15 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txnenv.TransactionConte
 		pipelineInfo.WorkersAvailable = int64(len(workerStatus))
 		pipelineInfo.WorkersRequested = int64(pipelinePtr.Parallelism)
 	}
+	unclaimedTasks, err := work.NewWorker(
+		a.env.GetEtcdClient(),
+		a.etcdPrefix,
+		driver.WorkNamespace(pipelineInfo),
+	).UnclaimedTasks(txnCtx.ClientContext)
+	if err != nil {
+		return nil, err
+	}
+	pipelineInfo.UnclaimedTasks = int64(unclaimedTasks)
 	return pipelineInfo, nil
 }
 

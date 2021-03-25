@@ -229,6 +229,7 @@ func (m *Master) createSubtask(subtask *Task) error {
 func (m *Master) deleteSubtasks() error {
 	_, err := col.NewSTM(context.Background(), m.etcdClient, func(stm col.STM) error {
 		m.subtaskCol.ReadWrite(stm).DeleteAllPrefix(m.taskID)
+		m.claimCol.ReadWrite(stm).DeleteAllPrefix(m.taskID)
 		return nil
 	})
 	return err
@@ -237,6 +238,7 @@ func (m *Master) deleteSubtasks() error {
 func (tq *TaskQueue) deleteTask(taskID string) error {
 	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAllPrefix(taskID)
+		tq.claimCol.ReadWrite(stm).DeleteAllPrefix(taskID)
 		return tq.taskCol.ReadWrite(stm).Delete(taskID)
 	})
 	return err
@@ -245,6 +247,7 @@ func (tq *TaskQueue) deleteTask(taskID string) error {
 func (tq *TaskQueue) deleteAllTasks() error {
 	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAll()
+		tq.claimCol.ReadWrite(stm).DeleteAll()
 		tq.taskCol.ReadWrite(stm).DeleteAll()
 		return nil
 	})
@@ -385,4 +388,23 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 			fmt.Printf("errored in subtask callback: %v\n", err)
 		}
 	}
+}
+
+// UnclaimedTasks returns how many unclaimed tasks there are in the queue.
+func (w *Worker) UnclaimedTasks(ctx context.Context) (int, error) {
+	subTasks, rev, err := w.subtaskCol.ReadOnly(ctx).CountRev(0)
+	if err != nil {
+		return 0, err
+	}
+	claims, _, err := w.claimCol.ReadOnly(ctx).CountRev(rev)
+	if err != nil {
+		return 0, err
+	}
+	result := subTasks - claims
+	if result < 0 {
+		// This is defensive, it shouldn't be possible to get more claims than
+		// subtasks.
+		result = 0
+	}
+	return int(subTasks - claims), nil
 }

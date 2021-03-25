@@ -1,6 +1,7 @@
 package datum
 
 import (
+	"bytes"
 	"io"
 	"sort"
 
@@ -77,12 +78,7 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 	// not possible for 2 inputs to have the same path so this is guaranteed to
 	// produce a deterministic order.
 	sort.Slice(result.inputs, func(i, j int) bool {
-		// We sort by descending size first because it can boost performance to
-		// process the biggest datums first.
-		if result.inputs[i].FileInfo.SizeBytes != result.inputs[j].FileInfo.SizeBytes {
-			return result.inputs[i].FileInfo.SizeBytes > result.inputs[j].FileInfo.SizeBytes
-		}
-		return result.inputs[i].FileInfo.File.Path < result.inputs[j].FileInfo.File.Path
+		return bytes.Compare(result.inputs[i].FileInfo.Hash, result.inputs[j].FileInfo.Hash) < 0
 	})
 	return result, nil
 }

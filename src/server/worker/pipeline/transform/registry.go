@@ -35,6 +35,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform/chain"
 )
 
+const (
+	taskGranularity = 4
+)
+
 func jobArtifactPrefix(jobID string) string {
 	return path.Join("artifacts", fmt.Sprintf("job-%s", jobID))
 }
@@ -386,12 +390,12 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 	maxBytesPerTask := int64(chunkSpec.SizeBytes)
 	driver := pj.driver.WithContext(ctx)
 	var numTasks int64
-	if numDatums < reg.concurrency {
+	if numDatums < reg.concurrency*taskGranularity {
 		numTasks = numDatums
-	} else if maxDatumsPerTask > 0 && numDatums/maxDatumsPerTask > reg.concurrency {
+	} else if maxDatumsPerTask > 0 && numDatums/maxDatumsPerTask > reg.concurrency*taskGranularity {
 		numTasks = numDatums / maxDatumsPerTask
 	} else {
-		numTasks = reg.concurrency
+		numTasks = reg.concurrency * taskGranularity
 	}
 	datumsPerTask := int64(math.Ceil(float64(numDatums) / float64(numTasks)))
 

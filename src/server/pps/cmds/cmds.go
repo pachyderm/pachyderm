@@ -1252,12 +1252,12 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 				fmt.Fprintf(os.Stderr,
 					"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
 						"For example, change 'python' to 'python:3' or 'bash' to 'bash:5'. This improves\n"+
-						"reproducibility of your pipelines.\n")
+						"reproducibility of your pipelines.\n\n")
 			} else if strings.HasSuffix(request.Transform.Image, ":latest") {
 				fmt.Fprintf(os.Stderr,
 					"WARNING: please do not specify the ':latest' tag for the docker image in your\n"+
 						"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
-						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n")
+						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
 			}
 		}
 		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
