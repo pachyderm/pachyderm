@@ -1226,9 +1226,9 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 	if _, err := os.Stat(buildPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("build path %q does not exist", buildPath)
+			return fmt.Errorf("build path %s does not exist", buildPath)
 		}
-		return errors.Wrapf(err, "could not stat build path %q", buildPath)
+		return errors.Wrapf(err, "could not stat build path %s", buildPath)
 	}
 
 	buildPipelineName := fmt.Sprintf("%s_build", request.Pipeline.Name)
@@ -1280,14 +1280,14 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	if _, err := os.Stat(ignorePath); err == nil {
 		f, err := os.Open(ignorePath)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read build step ignore file %q", ignorePath)
+			return errors.Wrapf(err, "failed to read build step ignore file %s", ignorePath)
 		}
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := scanner.Text()
 			g, err := glob.Compile(line)
 			if err != nil {
-				return errors.Wrapf(err, "build step ignore file %q: failed to compile glob %q", ignorePath, line)
+				return errors.Wrapf(err, "build step ignore file %s: failed to compile glob %s", ignorePath, line)
 			}
 			ignores = append(ignores, g)
 		}
@@ -1302,7 +1302,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 		}
 		return filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
 			if info == nil {
-				return errors.Errorf("%q doesn't exist", srcFilePath)
+				return errors.Errorf("%s doesn't exist", srcFilePath)
 			}
 			if info.IsDir() {
 				return nil
@@ -1320,7 +1320,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 
 			f, err := progress.Open(srcFilePath)
 			if err != nil {
-				return errors.Wrapf(err, "failed to open file %q for source code in build step-enabled pipeline", srcFilePath)
+				return errors.Wrapf(err, "failed to open file %s for source code in build step-enabled pipeline", srcFilePath)
 			}
 			defer func() {
 				if err := f.Close(); err != nil && retErr == nil {
@@ -1329,7 +1329,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 			}()
 
 			if err := mfc.PutFile(destFilePath, f); err != nil {
-				return errors.Wrapf(err, "failed to put file %q->%q for source code in build step-enabled pipeline", srcFilePath, destFilePath)
+				return errors.Wrapf(err, "failed to put file %s->%s for source code in build step-enabled pipeline", srcFilePath, destFilePath)
 			}
 
 			return nil

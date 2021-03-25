@@ -22,11 +22,6 @@ func (c APIClient) PutFile(repo, commit, path string, r io.Reader, opts ...PutFi
 	})
 }
 
-// PutFileWriter sets up a writer for putting a file in PFS.
-func (c APIClient) PutFileWriter(repo, commit, path string, opts ...PutFileOption) (io.WriteCloser, error) {
-	return nil, errV1NotImplemented
-}
-
 // PutFileTar puts a set of files into PFS from a tar stream.
 func (c APIClient) PutFileTar(repo, commit string, r io.Reader, opts ...PutFileOption) error {
 	return c.WithModifyFileClient(repo, commit, func(mfc ModifyFileClient) error {
@@ -36,7 +31,7 @@ func (c APIClient) PutFileTar(repo, commit string, r io.Reader, opts ...PutFileO
 
 // PutFileURL puts a file into PFS using the content found at a URL.
 // The URL is sent to the server which performs the request.
-// recursive allow for recursive scraping of some types of URLs for example on s3:// urls.
+// recursive allows for recursive scraping of some types of URLs.
 func (c APIClient) PutFileURL(repo, commit, path, url string, recursive bool, opts ...PutFileOption) error {
 	return c.WithModifyFileClient(repo, commit, func(mfc ModifyFileClient) error {
 		return mfc.PutFileURL(path, url, recursive, opts...)
@@ -55,11 +50,16 @@ func (c APIClient) DeleteFile(repo, commit, path string, opts ...DeleteFileOptio
 // ModifyFileClient is not thread safe. Multiple ModifyFileClients
 // should be used for concurrent modifications.
 type ModifyFileClient interface {
+	// PutFile puts a file into PFS from a reader.
 	PutFile(path string, r io.Reader, opts ...PutFileOption) error
-	PutFileWriter(path string, opts ...PutFileOption) (io.WriteCloser, error)
+	// PutFileTar puts a set of files into PFS from a tar stream.
 	PutFileTar(r io.Reader, opts ...PutFileOption) error
+	// PutFileURL puts a file into PFS using the content found at a URL.
+	// recursive allows for recursive scraping of some types of URLs.
 	PutFileURL(path, url string, recursive bool, opts ...PutFileOption) error
+	// DeleteFile deletes a file from PFS.
 	DeleteFile(path string, opts ...DeleteFileOption) error
+	// Close closes the client.
 	Close() error
 }
 
@@ -166,12 +166,6 @@ func (mfc *modifyFileCore) sendPutFile(req *pfs.PutFile) error {
 			PutFile: req,
 		},
 	})
-}
-
-var errV1NotImplemented = errors.Errorf("V1 method not implemented")
-
-func (mfc *modifyFileCore) PutFileWriter(path string, opts ...PutFileOption) (io.WriteCloser, error) {
-	return nil, errV1NotImplemented
 }
 
 func (mfc *modifyFileCore) PutFileTar(r io.Reader, opts ...PutFileOption) error {
