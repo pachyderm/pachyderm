@@ -116,7 +116,7 @@ disk, the bucket name, and create the bucket by running the following
 commands:
 
 !!! Warning
-    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but high IOPS (1500), therefore, depending on your disk choice, you may need to oversize the volume significantly to insure enough IOPS.
+    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your disk choice, you may need to oversize the volume significantly to insure enough IOPS.
 
 
 ```shell

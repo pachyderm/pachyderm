@@ -21,13 +21,13 @@ Pachyderm needs a few things to install and run successfully in any Kubernetes e
 
 ### Persistent volume
 
-You'll need to create a persistent volume with enough space for the metadata associated with the data you plan to store Pachyderm. 
+You will need to create a persistent volume with enough space for the metadata associated with the data you plan to store Pachyderm. 
 The `pachctl deploy` command for AWS, GCP and Azure creates persistent storage for you, when you follow the instructions below.
 A custom deploy can also create storage.  
-We'll show you below how to take out the PV that's automatically created, in case you want to create it outside of the Pachyderm deployment and just consume it.
+We will show you below how to take out the PV that is automatically created, in case you want to create it outside of the Pachyderm deployment and just consume it.
 
-We're currently developing good rules of thumb for scaling this storage as your Pachyderm deployment grows,
-but it looks like 10G of disk space is sufficient for most purposes.
+!!! Warning
+    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your cloud provider, and disk generation, you may need to oversize the volume significantly to insure enough IOPS.
 
 ### Object store
 
