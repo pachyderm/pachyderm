@@ -23,6 +23,7 @@ rules:
   - ""
   resources:
   - replicationcontrollers
+  - replicationcontrollers/scale
   - services
   verbs:
   - get
