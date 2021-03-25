@@ -13,6 +13,6 @@ roleRef:
   name: pachyderm
 subjects:
 - kind: ServiceAccount
-  name: {{ .Values.pachd.serviceAccount.name }}
+  name: {{ .Values.pachd.serviceAccount.name | quote }}
   namespace: {{ .Release.Namespace }}
 {{ end -}}

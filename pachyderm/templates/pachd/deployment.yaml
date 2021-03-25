@@ -339,7 +339,7 @@ spec:
           name: pachd-tls-cert
         {{- end }}
       {{- if .Values.pachd.serviceAccount.name }}
-      serviceAccountName: {{ .Values.pachd.serviceAccount.name }}
+      serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
       {{- end }}
       volumes:
       - name: pach-disk

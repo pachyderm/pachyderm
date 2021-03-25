@@ -2,7 +2,7 @@ package helmtest
 
 import (
 	"bytes"
-	"fmt"
+	"encoding/base64"
 	"io"
 	"log"
 	"testing"
@@ -42,7 +42,6 @@ func TestGoogleServiceAccount(t *testing.T) {
 
 	helm.UnmarshalK8SYaml(t, output, &serviceAccount)
 
-	fmt.Printf("%+v", serviceAccount.Annotations)
 	manifestServiceAccount := serviceAccount.Annotations["iam.gke.io/gcp-service-account"]
 	if manifestServiceAccount != expectedServiceAccount {
 		t.Fatalf("Google service account expected (%s) actual (%s) ", expectedServiceAccount, manifestServiceAccount)
@@ -68,7 +67,6 @@ func TestGoogleWorkerServiceAccount(t *testing.T) {
 
 	helm.UnmarshalK8SYaml(t, output, &serviceAccount)
 
-	fmt.Printf("%+v", serviceAccount.Annotations)
 	manifestServiceAccount := serviceAccount.Annotations["iam.gke.io/gcp-service-account"]
 	if manifestServiceAccount != expectedServiceAccount {
 		t.Fatalf("Google service account expected (%s) actual (%s) ", expectedServiceAccount, manifestServiceAccount)
@@ -77,15 +75,25 @@ func TestGoogleWorkerServiceAccount(t *testing.T) {
 
 func TestGoogleValues(t *testing.T) {
 	var (
-		helmChartPath = "../pachyderm"
+		bucket                = "fake-bucket"
+		bucketBase64          = base64.StdEncoding.EncodeToString([]byte(bucket))
+		bucketChecked         bool
+		cred                  = `INSERT JSON HERE`
+		credBase64            = base64.StdEncoding.EncodeToString([]byte(cred))
+		credChecked           bool
+		pachdServiceAccount   = "128"
+		serviceAccount        = "a-service-account"
+		serviceAccountChecked bool
+		helmChartPath         = "../pachyderm"
 
 		options = &helm.Options{
-			SetValues: map[string]string{
+			SetStrValues: map[string]string{
+				"pachd.serviceAccount.name":               pachdServiceAccount,
 				"pachd.image.tag":                         "1.12.3",
 				"pachd.storage.backend":                   "GOOGLE",
-				"pachd.storage.google.bucket":             "fake-bucket",
-				"pachd.storage.google.cred":               `INSERT JSON HERE`,
-				"pachd.storage.google.serviceAccountName": "a-service-account",
+				"pachd.storage.google.bucket":             bucket,
+				"pachd.storage.google.cred":               cred,
+				"pachd.storage.google.serviceAccountName": serviceAccount,
 				// this certificate was generated for the examples FIXME: generate one for tests
 				"tls.crt": `
     -----BEGIN CERTIFICATE-----
@@ -144,15 +152,44 @@ func TestGoogleValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, f := range files {
 		var resource map[string]interface{}
 		helm.UnmarshalK8SYaml(t, f, &resource)
 		switch resource["kind"].(string) {
-		case "Deployment":
-			log.Println(resource)
-		case "Service":
-			// …
+		case "Secret":
+			if resource["metadata"].(map[string]interface{})["name"] != "pachyderm-storage-secret" {
+				continue
+			}
+			data := resource["data"].(map[string]interface{})
+			if bucket := data["google-bucket"].(string); bucket != bucketBase64 {
+				t.Errorf("expected bucket to be %q but was %q", bucketBase64, bucket)
+			}
+			bucketChecked = true
+			if cred := data["google-cred"].(string); cred != credBase64 {
+				t.Errorf("expected cred to be %q but was %q", credBase64, cred)
+			}
+			credChecked = true
+		case "ServiceAccount":
+			log.Print(resource["metadata"])
+			if resource["metadata"].(map[string]interface{})["name"] != pachdServiceAccount {
+				continue
+			}
+			annotations := resource["metadata"].(map[string]interface{})["annotations"].(map[string]interface{})
+			if sa := annotations["iam.gke.io/gcp-service-account"]; sa != serviceAccount {
+				t.Errorf("expected service account to be %q but was %q", serviceAccount, sa)
+			}
+			serviceAccountChecked = true
 		}
+	}
+	if !bucketChecked {
+		t.Error("bucket unchecked")
+	}
+	if !credChecked {
+		t.Error("cred unchecked")
+	}
+	if !serviceAccountChecked {
+		t.Error("service account unchecked")
 	}
 }
 
