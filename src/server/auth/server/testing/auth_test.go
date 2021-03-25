@@ -2238,8 +2238,11 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	}
 
 	// generate auth credentials
-	aliceClient := tu.GetAuthenticatedPachClient(t, robot(tu.UniqueString("alice")))
-	authResp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{})
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	alice := tu.UniqueString("alice")
+	authResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: alice,
+	})
 	require.NoError(t, err)
 	authToken := authResp.Token
 
@@ -2396,8 +2399,12 @@ func TestExtractAuthToken(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
-	// Create a token with the default TTL and confirm it is extracted with an expiration
-	tokenResp, err := adminClient.GetAuthToken(adminClient.Ctx(), &auth.GetAuthTokenRequest{Subject: "robot:other"})
+	// Create a token with a TTL and confirm it is extracted with an expiration
+	tokenResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "other", TTL: 1000})
+	require.NoError(t, err)
+
+	// Create a token without a TTL and confirm it is extracted
+	tokenRespTwo, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "otherTwo"})
 	require.NoError(t, err)
 
 	// admins can extract auth tokens
@@ -2424,6 +2431,7 @@ func TestExtractAuthToken(t *testing.T) {
 	}
 
 	require.NoError(t, containsToken(tokenResp.Token, "robot:other", true))
+	require.NoError(t, containsToken(tokenRespTwo.Token, "robot:otherTwo", false))
 }
 
 // TestRestoreAuthToken tests that admins can restore hashed auth tokens that have been extracted

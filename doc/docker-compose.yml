@@ -13,9 +13,10 @@ version: '3.8'
 services:
   mkdocs-serve:
     build: 
-      context: .. 
+      context: ..
+      target: mkdocs 
       dockerfile: Dockerfile.pachdoc
-    command: ["mkdocs","serve", "-f", "mkdocs-1.12.x.yml", "--dev-addr", "0.0.0.0:8889", "--dirtyreload"]
+    command: ["mkdocs","serve", "-f", "mkdocs-master.yml", "--dev-addr", "0.0.0.0:8889", "--dirtyreload"]
     volumes: 
       - .:/usr/src/app/doc
     ports:
@@ -24,6 +25,7 @@ services:
   netlify-dev:
     build: 
       context: .. 
+      target: netlify
       dockerfile: Dockerfile.pachdoc
     command: ["netlify","dev"]
     ports:
@@ -31,7 +33,8 @@ services:
 
   netlify-build:
     build: 
-      context: .. 
+      context: ..
+      target: netlify 
       dockerfile: Dockerfile.pachdoc
     #command: ["netlify","build", "--dry", "--context", "deploy-preview"]
     command: ["bash"]

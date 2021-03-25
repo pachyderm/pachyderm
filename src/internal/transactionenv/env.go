@@ -397,10 +397,12 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 			Client:        pachClient,
 			ClientContext: pachClient.Ctx(),
 			Stm:           stm,
-			pfsPropagater: env.pfsServer.NewPropagater(stm),
 			txnEnv:        env,
 		}
-		txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
+		if env.pfsServer != nil {
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
+			txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
+		}
 
 		err := cb(txnCtx)
 		if err != nil {
@@ -421,9 +423,11 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 			Client:         pachClient,
 			ClientContext:  pachClient.Ctx(),
 			Stm:            stm,
-			pfsPropagater:  env.pfsServer.NewPropagater(stm),
 			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 			txnEnv:         env,
+		}
+		if env.pfsServer != nil {
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
 		}
 
 		err := cb(txnCtx)

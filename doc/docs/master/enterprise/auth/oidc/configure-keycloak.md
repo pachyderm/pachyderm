@@ -10,7 +10,7 @@ For more information about Keycloak support for OIDC, see the
 !!! note
     Although this section describes how to configure Keycloak with
     OIDC, you can configure SAML as well with the corresponding
-    [SAML auth config](../../saml/saml_setup/#write-pachyderm-config).
+    [SAML auth config](../../saml/#write-pachyderm-config).
 
 ## Prerequisites
 
@@ -235,9 +235,6 @@ user.
    You are "keycloak:test@pachyderm.com"
    session expires: 06 Aug 20 09:23 PDT
    ```
-
-!!! note "See Also"
-    - [Configure SAML authentication with Okta](../../saml/saml_setup/)
 
 ## Modifying Realm Settings
 

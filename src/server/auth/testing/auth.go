@@ -89,6 +89,11 @@ func (a *InactiveAPIServer) WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.
 	return nil, auth.ErrNotActivated
 }
 
+// GetRobotToken implements the GetRobotToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetRobotToken(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // GetAuthToken implements the GetAuthToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetAuthToken(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
 	return nil, auth.ErrNotActivated

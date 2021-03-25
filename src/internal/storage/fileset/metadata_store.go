@@ -34,18 +34,20 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) MetadataStore) {
 	t.Run("SetGet", func(t *testing.T) {
 		x := newStore(t)
 		md := &Metadata{}
-		require.NoError(t, setMetadata(ctx, x, "test", md))
-		actual, err := x.Get(ctx, "test")
+		testID := newID()
+		require.NoError(t, setMetadata(ctx, x, testID, md))
+		actual, err := x.Get(ctx, testID)
 		require.NoError(t, err)
 		require.Equal(t, md, actual)
 	})
 	t.Run("Delete", func(t *testing.T) {
 		x := newStore(t)
-		require.NoError(t, deleteMetadata(ctx, x, "keys that don't exist should not cause delete to error"))
+		require.NoError(t, deleteMetadata(ctx, x, newID()))
 		md := &Metadata{}
-		require.NoError(t, setMetadata(ctx, x, "test", md))
-		require.NoError(t, deleteMetadata(ctx, x, "test"))
-		_, err := x.Get(ctx, "test")
+		testID := newID()
+		require.NoError(t, setMetadata(ctx, x, testID, md))
+		require.NoError(t, deleteMetadata(ctx, x, testID))
+		_, err := x.Get(ctx, testID)
 		require.Equal(t, ErrFileSetNotExists, err)
 	})
 }

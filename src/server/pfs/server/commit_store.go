@@ -206,13 +206,13 @@ func SetupPostgresCommitStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 		CREATE TABLE pfs.commit_diffs (
 			commit_id VARCHAR(64) NOT NULL,
 			num BIGSERIAL NOT NULL,
-			fileset_id VARCHAR(64) NOT NULL,
+			fileset_id UUID NOT NULL,
 			PRIMARY KEY(commit_id, num)
 		);
 
 		CREATE TABLE pfs.commit_totals (
 			commit_id VARCHAR(64) NOT NULL,
-			fileset_id VARCHAR(64) NOT NULL,
+			fileset_id UUID NOT NULL,
 			PRIMARY KEY(commit_id)
 		);
 	`)

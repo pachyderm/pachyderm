@@ -1,4 +1,67 @@
+
 # Changelog
+
+## 1.13.0
+Deprecation notice: The following `pachctl deploy` flags are deprecated and will be removed in a future release:
+- dash-image
+- dashboard-only
+- no-dashboard
+- expose-object-api
+- storage-v2
+- shards
+- no-rbac
+- no-guaranteed
+- static-etcd-volume
+- disable-ssl
+- max-upload-parts
+- no-verify-ssl
+- obj-log-options
+- part-size
+- retries
+- reverse
+- timeout
+- upload-acl
+
+## 1.12.5
+Deprecation notice: Deprecating the use of vault plugin. It will be removed from the code in a future release.
+
+- Changes to switches to an inode generation scheme to work around the reserved inode issues which prevent `pachctl mount` from succeeding. (#5766)
+- Fixed a bug that causes panic in GetLogs when `since` has not been specified (#5769)
+- Fixes a bug that caused the `since` field to not propagate to Loki for some `logs` calls. (#5777)
+- Added support to `fsck` to fix provenance relationships not mirrored by subvenance relationships and vice versa (#5782)
+- Fixes a bug that caused pachd to crash on some incorrect glob patterns (#5812)
+- Changes to improve ListPipeline performance when it returns many pipelines. (#5830)
+
+## 1.12.4
+- Changes to capture previous logs in debug dump (#5723)
+- Fixes a bug that causes pachctl commands to hang when metrics were disabled (#5724)
+- Changes to improve performance of file downloads and egress (#5744)
+- Fixes a bug that causes pachd to crash when collecting metrics (#5752)
+- Fixes a bug that would cause a job merge to hang when the job output metadata is not cached in the cluster (#5754)
+
+
+## 1.12.3
+- Fixes a bug that does not return objects with paths that have a leading slash in S3 gateway requests (#5679)
+- Fixes a bug that causes intermittent pachd crashes (#5690)
+- Adds support for services without ports set (#5691)
+- Fixes a bug that prevents InitContainer from initializing if pipelines are already running  (#5701)
+- Fixes a bug that would crash when email verified claim is not set by OIDC provider (#5709)
+- Adds support for additional metrics (#5713)
+
+## 1.12.2
+- Fixes several issues with logging, specifically with the Loki backend. Adds support for getting logs since a particular time. (#5438)
+- Fixes a bug that can deadlock in listfile (#5638)
+- Added support to expose Prometheus-metrics ports (#5646)
+- Added support to show progress bars during downloads (#5654)
+- Fixes a bug that causes update-pipeline to time out in some cases (#5661)
+
+## 1.12.1
+- [Security] Adds required authentication for various API calls (#5582) (#5577) (#5575)
+- Fixes a bug that prevented the creation of build pipeline when auth is enabled (#5594)
+- Changes to improve the performance for repos with a large number of files (#5600)
+- Changes to improve the performance of reading output repo metadata (#5609)
+- Changes to improve the performance of file upload in spout pipelines (#5613)
+- Added support to capture commit and job info in debug dump (#5619)
 
 ## 1.12.0
 - Fixed a race condition that updated a job state after it is finished (#5099)
@@ -57,8 +120,69 @@
 - Fixed a bug preventing creating some build pipelines with auth enabled (#5523)
 - Update crewjam/saml to 0.45 to fix vulnerabilities in SAML auth provider (#5527)
 
-## 1.11.0
+## 1.11.9
+- Changes to support extract/restore functionality with auth enabled (#5515)
+- Update crewjam/saml to 0.45 fix known security vulnerabilities (#5533)
 
+## 1.11.8
+- Fixes a bug that prevented deletion directory under certain conditions (#5466)
+- Fixes a bug that prevented debug dump command when Auth is enabled (#5473)
+- Fixes a bug that failed objects uploads when single grpc message is greater than 20M (#5477)
+- Fixes a bug that causes a connection failure when DNS is not configured properly (#5479)
+- Added an option `--split-txn` to pachctl delete pipeline` or `pachctl delete repo` commands for deployments with a very large number of commits and job history (#5482)
+
+## 1.11.7
+- Changes to fix Jaeger tracing functionality (#5331)
+- Reverted a change that accidentally made storage credentials required in custom deployment when upgrading to 1.11.6 (#5421)
+
+## 1.11.6
+- Added a deploy option to enable verbose logging in S3 client (#5340)
+- Fix a bug that would leak a revoked pipeline token object (#5397)
+- Fix a bug causing extra data to be written to small job artifact files in some cases (#5401)
+- Fix a bug causing workers to attempt to read certain job artifacts before they were fully written (#5402)
+- Added support to display when a job is in the egress state (#5411)
+
+## 1.11.5
+- Changes to fix multiple error log messages when processing `list pipeline` (#5304)
+- Fixes a bug that can cause get file request to fail when the request falls on a certain boundary condition (#5316)
+- Fixes a bug that can leave a stats commit open when stats enabled pipeline is updated with `--reprocess` option. This bug will also prevent new jobs from getting created. (#5321)
+- Changes for better error handling when pipelines info cannot be fully initialized due to transient failures or user errors (#5322)
+- Fixes a bug that did not stop a job before deleting a job when `delete job` is called (#5326)
+- Fixes a family of bugs to handle pipeline state transitions. The change resolves a few issues: pipelines getting stuck in STARTING state if Kubernetes is unavailable; cannot delete and recreate pipelines in STANDBY state; fixes jobs occasionally getting stuck in CRASHING state (#5330) (#5357)
+- Fixes a family of bug that did not properly clean up temporary artifacts from a job (#5332)
+- Changes to move some noisy log message to DEBUG level (#5352)
+- Fixes a bug that can sometimes leave pipeline in STANDBY state (#5364)
+- Fixes a bug that causes incorrect datums to be processed due to trailing slashes in joins (#5366)
+- Changes the metric reporting interval to 60mins (#5375)
+- Fixes a bug that loses auth credentials from pipelines after 30 days (#5388)
+
+## 1.11.4
+- Fixes a race condition that prevents a standby pipeline from transitioning out of crashing state (#5273)
+- Fixes a bug that leaked goroutine (#5288)
+- Fixes a bug that did not correctly set the provenance when specified in `run pipeline` command (#5299)
+
+## 1.11.3
+- Fixes a bug that did not correctly port forward OIDC port (#5221)
+- Changes to allow configuration of SAML and OIDC default server ports (#5234)
+- Changes to improve the reliability of handling streams in spouts (#5240)
+- Fixes a bug that would fail the `run cron <pipeline>` command if multiple cron inputs have been specified (#5241)
+
+## 1.11.2
+- Changes to create/update pipeline to warn users about using the “latest” tag in their images (#5164)
+- Fixes a bug that mistagged user logs messages for spouts and services as master log messages (#5187)
+- Fixed a bug that would return an error when listing commits and the list reaches the user-specified limit (#5190)
+- Fixes `create_python_pipeline` in the python client library when auth is enabled (#5194)
+- Fixes a bug that fails to execute a pipeline if the build pipeline does not any wheels (#5197)
+- Fixes a bug that would immediately cancel job egress (#5201)
+- Fixes a bug that prevented progress counts from being updated. In addition, make progress counts update more granularly in `inspect job` (#5206)
+- Fixes a bug that would cause certain kinds of jobs to pick an incorrect commit if there were multiple commits on the same branch in the provenance (#5207)
+
+## 1.11.1
+- Fixed a race condition that updated a job state after it is finished (#5099)
+- Fixes a bug that would prevent successful initialization (#5130)
+- Changes to `debug dump` command to capture debug info from pachd and all worker pods by default. Debug info includes logs, goroutines, profiles, and specs (#5150)
+
+## 1.11.0
 Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will reach end-of-life in 1.12.0. Users who are using S3V4-capable storage should make sure their deployment is using the supported storage backend by redeploying without `--isS3V2` flag. If you need help, please reach out to Pachyderm support.
 
 - Adds support for running multiple jobs in parallel in a single pipeline (#4572)
@@ -112,8 +236,36 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Moves etcd image to Docker Hub from Quay.io (#4899)
 - Updates dash version to the latest published version 0.5.48 (#4756)
 
-## 1.10.0
+## 1.10.5
+- Fixed a family of issues that causes a worker thread to indefinitely wait on etcd after a pod eviction (#4962) (#4963) (#4965)
+- Changes to debug dump to collect sidecar goroutines (#4964)
+- Changes to add configurable resource limits to the storage side and set default resource limits for the init container (#4999)
+- Fixes a bug that did not set environment variables for service pipelines (#5003)
 
+## 1.10.4
+- Added a --put-file-concurrency-limit option to pachctl put file command to limits the upload parallelism which limits the memory footprint in pachd to avoid OOM condition (#4848)
+- Fixes a bug that causes garbage collection to fail for standby pipelines (#4862)
+- Fixes a bug that causes pachctl list datum <running job> to return an error output commit not finished on pipelines with stats enabled (#4886)
+- Fixes a bug that did not use the native DNS resolver in pachctl client which may prevent pachd access over VPNs (#4888)
+
+## 1.10.3
+- Fixes a bug that caused an EOF in `get file` request when using azure blob storage client (#4824)
+- Fixes a bug that created messages larger than expected size which can fail some operations with `grpc: received message larger than max` error (#4822)
+- Fixes a bug that would fail a restore operation in certain scenarios when the extract operation captures commits in certain failed/incomplete states (#4840)
+
+## 1.10.2
+- Changes to improve warning message (#4776)
+- Added support for metric endpoint configurable via METRICS_ENDPOINT env variable (#4793)
+- Fixes a bug that would not delete Kubernetes service when a pipeline is restarted due to updates (#4796)
+
+## 1.10.1
+- Changes to propagate feature flags to sidecar (#4719)
+- Changes to route all object store access through the sidecar (#4740)
+- Fixes a bug that prevented access to S3 gateway when other workers are running in a different namespace than Pachyderm namespace (#4752)
+- Fixes a bug that allowed to specific inputs with spouts (#4748)
+- Updates dash version to the latest published version 0.5.48 (#4758)
+
+## 1.10.0
 - Change Pachyderm license from Apache 2.0 to Pachyderm Community License
 - Changes to how resources are applied to pipeline containers (#4675)
 - Changes to GitHook and Prometheus ports (#4537)
@@ -146,7 +298,6 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 
 
 ## 1.9.12
-
 - New configuration for deployments (exposed through pachctl deploy flags):
   - Only require critical servers to startup and run without error (--require-critical-servers-only). (#4512)
 - Improved job logging. (#4523)
@@ -156,7 +307,6 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Fixes a bug with spout markers. (#4487)
 
 ## 1.9.11
-
 - New configuration for deployments (exposed through pachctl deploy flags):
   - Object storage upload concurrency limit (--upload-concurrency-limit). (#4393)
 - Various configuration improvements. (#4442)
@@ -170,7 +320,6 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Removes k8s api access from worker code. (#4498)
 
 ## 1.9.10
-
 - Fixes a bug that causes `pachctl` to connect to the wrong cluster (#4416)
 - Fixes a bug that causes hashtree resource leak in certain conditions (#4420)
 - Fixes a family of minor bugs found through static code analysis (#4410)
@@ -183,7 +332,6 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Open source Pachyderm S3 gateway to allow applications to interact with PFS storage (#4399)
 
 ## 1.9.9
-
 - Adds support for spout marker to keep track of metadata during spout processing. (#4224)
 - Updates GPT 2 example to use GPU. (#4325)
 - Fixes a bug that did not extract all the pipeline fields (#4204)
@@ -197,7 +345,6 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Changes to CLI output for list commit to show progress and description while removing parent and duration output. (#4368)
 
 ## 1.9.8
-
 - Fixes a bug that prevent the `--reprocess` flag in `edit pipeline` from working. (#4232)
 - Changes the CLI syntax for `run pipeline` to accept commit branch pairs. (#4262)
 - Fixes a bug that caused `pachctl logs --follow` to exit immediately. (#4259)
@@ -206,11 +353,9 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Fixes a family of bugs that could cause output and stats commits to remain open and block later jobs. (#4215)
 
 ## 1.9.7
-
 - Fixes a bug that prevent pachctl from connecting to clusters with TLS enabled. (#4167)
 
 ## 1.9.6
-
 - Fixes a bug which would cause jobs to report success despite datum failures. (#4158)
 - Fixes a bug which prevent Disk resource requests in pipelines from working. (#4157)
 - Fixes a bug which caused `pachctl fsck --fix` to exit with an error and not complete the fix. (#4155)
@@ -225,14 +370,12 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Removes and unused field `Batch` from the pipeline spec. (#4104)
 
 ## 1.9.5
-
 - Fixes a bug that caused the Salt field to be stripped from restored pipelines. (#4086)
 - Fixes a bug that caused datums to fail with `io: read/write on closed pipe`. (#4085)
 - Fixes a bug that prevented reading logs from running jobs with stats enabled. (#4083)
 - Fixes a bug that prevented putting files into output commits via s3gateway. (#4076)
 
 ## 1.9.4
-
 - Fixes a bug (#4053) which made it impossible to read files written to output commits with `put file`. (#4055)
 - Adds a flag `--fix` to `pachctl fsck` which will fix some of the issues that it detects. (#4052)
 - Fixes a bug (#3879) which caused `pachctl debug dump` to hit max message size issues. (#4015)
@@ -243,19 +386,16 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - S3Geteway now has support for auth. (#3937)
 
 ## 1.9.3
-
 - Fixes a bug that caused the Azure driver to lock up when there were too many active requests. (#3970)
 - Increases the max message size for etcd, this should eliminate errors that would appear with large etcd requests such as those created when deleting repos and pipelines. (#3958)
 - Fixes several bugs that would cause commits not to be finished when jobs encountered errors, which would lead to pipelines getting stuck. (#3951)
 
 ## 1.9.2
-
 - Fixes a bug that broke Pachyderm on Openshift. (#3935, thanks to @jiangytcn)
 - Fixes a bug that caused pachctl to crash when deleting a transaction while no active transaction was set. (#3929)
 - Fixes a bug that broke provenance when deleting a repo or pipeline. (#3925)
 
 ## 1.9.1
-
 - Pachyderm now uses go modules. (#3870)
 - `pachctl diff file` now diffs content, similar to `git diff`. (#3866)
 - It's now possible to create spout services as ingress endpoints. (#3829)
@@ -266,7 +406,6 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Fixes a bug that causes pachd to panic when a pipeline had no transform. (#3866)
 
 ## 1.9.0
-
 - `pachctl` now has a new, more consistent syntax that's more in line with other container clis such as `kubectl`. (#3617)
 - Pachyderm now exposes an s3 interface to the data stored in pfs. (#3411, #3432, #3508)
 - Pachyderm now supports transactional PFS operations. (#3658)
@@ -293,11 +432,9 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - The `ADDRESS` env var for connecting to pachd has been removed, use `PACHD_ADDRESS` instead. (#3638)
 
 ## 1.8.8
-
 - Fixes a bug that caused pipelines to recompute everything when they were restored. (#4079)
 
 ## 1.8.7
-
 - Make the 'put file' directory traversal change backwards compatible for legacy branches (#3707)
 - Several fixes to provenance (#3734):
     - Force provenance to be transitively closed
@@ -309,7 +446,6 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Refactor/fix some of the PFS upload steps (#3750)
 
 ## 1.8.6
-
 - The semantics of Cron inputs have changed slightly, each tick will now be a separate file unless the `Overwrite` flag is set to true, which will get you the old behavior. The name of the emitted file is now the timestamp that triggered the cron, rather than a static filename. Pipelines that use cron will need to be updated to work in 1.8.6. See [the docs](https://docs-archive.pachyderm.com/en/v1.8.6/reference/pipeline_spec.html#cron-input) for more info. (#3509)
 - 1.8.6 contains unstable support for a new kind of pipeline, spouts, which take no inputs and run continuously outputting (or spouting) data. Documentation and an example of spout usage will be in a future release. (#3531)
 - New debug commands have been added to `pachctl` to easily profile running pachyderm clusters. They are `debug-profile` `debug-binary` and `debug-pprof`.  See the docs for these commands for more information. (#3559)
@@ -328,13 +464,11 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - New shuffle step which should improve the merge performance on certain workloads.
 
 ## 1.8.4
-
 - Azure Blob Storage block size has been changed to 4MB due to object body too large errors. (#3464)
 - Fixed a bug in `--no-metrics` and `--no-port-forwarding`. (#3462)
 - Fixes a bug that caused `list-job` to panic if the `Reason` field was too short. (#3453)
 
 ## 1.8.3
-
 - `--push-images` on `create-pipeline` has been replaced with `--build` which builds and pushes docker images. (#3370)
 - Fixed a bug that would cause malformed config files to panic pachctl. (#3336)
 - Port-forwarding will now happen automatically when commands are run. (#3340)
@@ -349,11 +483,9 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Pachyderm developer names should no longer appear in backtraces. (#3436)
 
 ## 1.8.2
-
 - Updated support for GPUs (through device plugins).
 
 ## 1.8.1
-
 - Adds support for viewing file history via the `--history` flag to `list-file` (#3277, #3299).
 - Adds a new job state, `merging` which indicates that a job has finished processing everything and is merging the results together (#3261).
 - Fixes a bug that prevented s3 `put-file` from working (#3273).
@@ -361,21 +493,18 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Removed `message` and `description` from `put-file`, they don't work with the new multi `put-file` features and weren't commonly used enough to reimplement. For similar functionality use `start-commit` (#3251).
 
 ## 1.8.0
-
 - Completely rewritten hashtree backend that provides massive performance boosts.
 - Single sign-on Auth via Okta.
 - Support for groups and robot users.
 - Support for splitting file formats with headers and footers such as SQL and CSV.
 
 ## 1.7.10
-
 - Adds `put-file --split` support for SQL dumps. (#3064)
 - Adds support for headers and footers for data types passed to `--split` such as CSV and the above mentioned SQL. (#3064)
 - Adds support for accessing previous versions of pipelines using the same syntax as is used with commits. I.e. `pachctl inspect-pipeline foo^` will give the previous version of `foo`. (#3159)
 - Adds support in pipelines for additional Kubernetes primitives on workers, including: node selectors, priority class and storage requests and limits. Additionally there is now a field in the pipeline spec `pod_spec` that allows you to set any field on the pod using json. (#3169)
 
 ## 1.7.9
-
 - Moves garbage collection over to a bloom filter based indexing method. This
 greatly decreases the amount of memory that garbage collection requires, at the
 cost of a small probability of not deleting objects that should be. Garbage
@@ -383,15 +512,12 @@ collection can be made more accurate by using more memory with the flag
 `--memory` passed to `pachctl garbage-collect`. (#3161)
 
 ## 1.7.8
-
 - Fixes multiple issues that could cause jobs to hang when they encountered intermittent errors such as network hiccups. (#3155)
 
 ## 1.7.7
-
 - Greatly improves the performance of the pfs FUSE implementation. Performance should be close to on par with the that of pachctl get-file. The only trade-off is that the new implementation will use disk space to cache file contents. (#3140)
 
 ## 1.7.6
-
 - Pachyderm's FUSE support (`pachctl mount`) has been rewritten. (#3088)
 - `put-file` requests that put files from multiple sources (`-i` or `-r`) now create a single commit. (#3118) 
 - Fixes a bug that caused `put-file` to throw spurious warnings about URL formatted paths. (#3117)
@@ -399,7 +525,6 @@ collection can be made more accurate by using more memory with the flag
 - `pachctl` now has `auth set-config` and `auth get-config` commands. (#3095)<Paste>
 
 ## 1.7.5
-
 - Workers no longer run privileged containers. (#3031) To achieve this a few modifications had to be made to the `/pfs` directory that may impact some user code. Directories under `/pfs` are now symlinks to directories, previously they were bind-mounts (which requires that the container be privileged). Furthermore there's now a hidden directory under `/pfs` called `.scratch` which contains the directories that the symlinks under `/pfs` point to.
 - The number of times datums are retries is now configurable. (#3033)
 - Fixed a bug that could cause Kubernetes errors to prevent pipelines from coming up permanently. (#3043, #3005)
@@ -411,7 +536,6 @@ collection can be made more accurate by using more memory with the flag
 - `pachd` now prints a full goroutine dump if it encounters an error. (#3103)
 
 ## 1.7.4
-
 - Fixes a bug that prevented image pull secrets from propagating through `pachctl deploy`. (#2956, thanks to @jkinkead)
 - Fixes a bug that made `get-file` fail on empty files. (#2960)
 - `ListFile` and `GlobFile` now return results leixcographically sorted. (#2972)
@@ -425,12 +549,10 @@ collection can be made more accurate by using more memory with the flag
 - Fixes a bug that caused `update-pipeline` to modify jobs that had already run. (#3028)
 
 ## 1.7.3
-
 - Fixes an issue that caused etcd deployment to fail when using a StatefulSet. (#2929, #2937)
 - Fixes an issue that prevented pipelines from starting up. (#2949)
 
 ## 1.7.2
-
 - Pachyderm now exposes metrics via Prometheus. (#2856)
 - File commands now all support globbing syntax. I.e. you can do pachctl list-file ... foo/*. (#2870)
 - garbage-collect is now safer and less error prone. (#2912)
@@ -449,7 +571,6 @@ collection can be made more accurate by using more memory with the flag
 - Pachyderm now deploys and uses the latest version of etcd. (#2914)
 
 ## 1.7.1
-
 - Introduces a new model for scaling up and down pipeline workers. [Read more](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#standby-optional).
 - It's now possible to run Pachyderm without workers needing access to the docker socket. (#2813)
 - Fixes a bug that caused stats enabled pipelines to get stuck in a restart loop if they were deleted and recreated. (#2816)
@@ -460,7 +581,6 @@ collection can be made more accurate by using more memory with the flag
 - Fixes a bug that caused `max_queue_size` to be ignored in pipelines. (#2818)
 
 ## 1.7.0
-
 - Implements a new algorithm for triggering jobs in response to new commits.
 - Pachyderm now tracks subvenance, the inverse of provenance.
 - Branches now track provenance and subvenance.
@@ -476,22 +596,18 @@ collection can be made more accurate by using more memory with the flag
 - You can no longer commit directly to output repos, this would cause a number of problems with the internal model that were tough to recover from.
 
 ## 1.6.10
-
 - Fixes a bug in extract that prevented some migrations from completing.
 
 ## 1.6.9
-
 - Adds admin commands extract and restore.
 
 ## 1.6.8
-
 - Fixed an issue that could cause output data to get doubled. (#2644)
 - Fix / add filtering of jobs in list-job by input commits. (#2642)
 - Extends bash completion to cover values as well as keywords. (#2617)
 - Adds better validation of file paths. (#2627)
 
 ## 1.6.7
-
 - Support for Google Service Accounts
 - RBAC support
 - Follow and tail logs
@@ -500,41 +616,35 @@ collection can be made more accurate by using more memory with the flag
 - Fix datum status in the UI
 
 ## 1.6.6
-
 - Users can now specify k8s resource limits on a pipeline
 - Users can specify a `datum_timeout` and `job_timeout` on a pipeline
 - Minio S3V2 support
 - New worker model (to eliminate long running grpc calls)
 
 ## 1.6.5
-
 - Adds support for Kubernetes 1.8
 - Fixes a bug that caused jobs with small numbers of datums not to use available nodes for processing. #2480.
 
 ## 1.6.4
 
 ## 1.6.3
-
 - Fixes a bug that corrupted large files ingressed from object stores. #2405
 - Fixes a migration bug that could get pipelines stuck in a crash loop
 - Fixes an issue with pipelines processing old data #2469
 - Fixes a bug that allowed paused pipelines to restart themselves.
 
 ## 1.6.2
-
 - Changes default memory settings so that Pachyderm works on Minikube out of the box.
 - Implements streaming versions of `ListFile` and `GlobFile` which prevents crashing on larger datasets.
 - Fixes a race condition with `GetLogs`
 
 ## 1.6.1
-
 - Adds support for private registries. (#2360)
 - Fixes a bug that prevent cloud front deployments from working. (#2381)
 - Fixes a failure that code arise while watching k8s resources. (#2382)
 - Uses k8s' Guaranteed QoS for etcd and pachd. (#2368)
 
 ## 1.6.0
-
 New Features:
 
 - Cron Inputs
@@ -543,7 +653,6 @@ New Features:
 - Extended UI
 
 ## 1.5.3
-
 Bug Fixes:
 
 - Fix an issue that prevented deployment on GCE #2139
@@ -558,7 +667,6 @@ New Features:
 - We've introduce a new type of input, `Cron`, which can be used to trigger pipelines based on time. #2150.
 
 ## 1.5.1 / 1.5.2
-
 ### Bug Fixes
 
 * A pipeline can get stuck after repeated worker failures.  (#2064)
@@ -575,7 +683,6 @@ New Features:
 * The `scaleDownThreshold` feature has been improved such that when a pipeline is scaled down, the remaining worker only takes up minimal system resources.  (#2091)
 
 ## 1.5.0
-
 ### Bug Fixes
 
 * Downstream repos' provenance is not updated properly when `update-pipeline` changes the inputs for a pipeline. (#1958)
@@ -593,7 +700,6 @@ New Features:
 * You can now use `get-file` and `list-file` on open commits. (#1943)
 
 ## 1.4.8
-
 ### Bug Fixes
 
 - Fixes bugs that caused us to swamp etcd with traffic.
@@ -612,7 +718,6 @@ New Features:
 - Removes one-off jobs, they were a rarely used feature and the same behavior can be replicated with pipelines
 
 ## 1.4.7
-
 ### Bug fixes
 
 * [Copy elision](http://docs-archive.pachyderm.com/en/latest/managing_pachyderm/data_management.html#shuffling-files) does not work for directories. (#1803)
@@ -631,7 +736,6 @@ New Features:
 * The web UI has added a file viewer, which allows for viewing PFS file content in the browser.
 
 ## 1.4.6
-
 ### Bug fixes
 
 * `get-logs` returns errors along the lines of `Invalid character…`. (#1741)
@@ -652,7 +756,6 @@ New Features:
 * Workers no longer send/receive data through pachd.  As a result, pachd is a lot more responsive and stable even when there are many ongoing jobs.  (#1742)
 
 ## 1.4.5
-
 ### Bug fixes
 
 * Fix a bug where pachd may crash after creating/updating a pipeline that has many input commits. (#1678)
@@ -670,7 +773,6 @@ New Features:
 * You can now specify the amount of resources (i.e. CPU & memory) used by your pipelines. (#1683)
 
 ## 1.4.4
-
 ### Bug fixes
 
 * A job can fail to restart when encountering an internal error.
@@ -690,7 +792,6 @@ New Features:
 * A job can be stopped manually via `stop-job`.
 
 ## 1.4.3
-
 ### Bug fixes
 
 * Pipelines with multiple inputs process only a subset of data.
@@ -703,7 +804,6 @@ New Features:
 * Azure deployments now support dynamic provisioning of volumes.
 
 ## 1.4.2
-
 ### Bug fixes
 
 * Certain network failures may cause a job to be stuck in the `running` state forever.
@@ -720,7 +820,6 @@ New Features:
 * `pachctl list-job` now displays the pipeline of a job even if the job hasn't completed.
 
 ## 1.4.1
-
 ### Bug fixes
 
 * Getting files from GCE results in errors.
@@ -739,7 +838,6 @@ New Features:
 * `pachctl get-logs` now outputs unstructured logs by default.  To see structured/annotated logs, use the `--raw` flag.
 
 ## 1.4.0
-
 Features/improvements:
 
 - Correct processing of modifications and deletions.  In prior versions, Pachyderm pipelines can only process data additions; data that are removed or modified are effectively ignored.  In 1.4, when certain input data are removed (or modified), downstream pipelines know to remove (or modify) the output that were produced as a result of processing the said input data.
@@ -774,7 +872,6 @@ A handful of APIs have been removed because they no longer make sense in 1.4.  T
 - ReplayCommit (same as above)
 
 ## 1.3.0
-
 Features:
 
 - Embedded Applications - Our “service” enhancement allows you to embed applications, like Jupyter, dashboards, etc., within Pachyderm, access versioned data from within the applications, and expose the applications externally.
@@ -793,7 +890,6 @@ Features:
 - Upgrade to k8s 1.4.6
 
 ## 1.2.0
-
 Features:
 
 - PFS has been rewritten to be more reliable and optimizeable
@@ -823,7 +919,6 @@ Content:
 - OpenCV example
 
 ## 1.1.0
-
 Features:
 
 - Data Provenance, which tracks the flow of data as it's analyzed
@@ -885,7 +980,6 @@ Tests:
 From 1.0.0 to 1.1.0 we've gone from 70 tests to 120, a 71% increase.
 
 ## 1.0.0 (5/4/2016)
-
 1.0.0 is the first generally available release of Pachyderm.
 It's a complete rewrite of the 0.* series of releases, sharing no code with them.
 The following major architectural changes have happened since 0.*:

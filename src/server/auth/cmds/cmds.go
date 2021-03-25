@@ -184,7 +184,7 @@ func DeactivateCmd() *cobra.Command {
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
 func LoginCmd() *cobra.Command {
-	var noBrowser bool
+	var noBrowser, idToken bool
 	login := &cobra.Command{
 		Short: "Log in to Pachyderm",
 		Long: "Login to Pachyderm. Any resources that have been restricted to " +
@@ -200,32 +200,44 @@ func LoginCmd() *cobra.Command {
 			// Issue authentication request to Pachyderm and get response
 			var resp *auth.AuthenticateResponse
 			var authErr error
-			if state, err := requestOIDCLogin(c, !noBrowser); err == nil {
-				// Exchange OIDC token for Pachyderm token
-				fmt.Println("Retrieving Pachyderm token...")
+			if idToken {
+				token, err := cmdutil.ReadPassword("ID token: ")
+				if err != nil {
+					return errors.Wrapf(err, "could not read id token")
+				}
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
-					&auth.AuthenticateRequest{OIDCState: state})
+					&auth.AuthenticateRequest{IdToken: strings.TrimSpace(token)})
 				if authErr != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
-						"authorization failed (OIDC state token: %q; Pachyderm logs may "+
-							"contain more information)",
-						// Print state token as it's logged, for easy searching
-						fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
+						"authorization failed (Pachyderm logs may contain more information)")
 				}
 			} else {
-				return fmt.Errorf("no authentication providers are configured")
+				if state, err := requestOIDCLogin(c, !noBrowser); err == nil {
+					// Exchange OIDC token for Pachyderm token
+					fmt.Println("Retrieving Pachyderm token...")
+					resp, authErr = c.Authenticate(
+						c.Ctx(),
+						&auth.AuthenticateRequest{OIDCState: state})
+					if authErr != nil {
+						return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
+							"authorization failed (OIDC state token: %q; Pachyderm logs may "+
+								"contain more information)",
+							// Print state token as it's logged, for easy searching
+							fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
+					}
+				} else {
+					return fmt.Errorf("no authentication providers are configured")
+				}
 			}
-
 			// Write new Pachyderm token to config
-			if authErr != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(authErr), "error authenticating with Pachyderm cluster")
-			}
 			return config.WritePachTokenToConfig(resp.PachToken)
 		}),
 	}
 	login.PersistentFlags().BoolVarP(&noBrowser, "no-browser", "b", false,
 		"If set, don't try to open a web browser")
+	login.PersistentFlags().BoolVarP(&idToken, "id-token", "t", false,
+		"If set, read an ID token on stdin to authenticate the user")
 	return cmdutil.CreateAlias(login, "auth login")
 }
 
@@ -333,6 +345,53 @@ func GetAuthTokenCmd() *cobra.Command {
 		"be a golang duration (e.g. \"30s\" or \"1h2m3s\"). If unset, tokens will "+
 		"have a lifetime of 30 days.")
 	return cmdutil.CreateAlias(getAuthToken, "auth get-auth-token")
+}
+
+// GetRobotTokenCmd returns a cobra command that lets a user get a pachyderm
+// token on behalf of themselves or another user
+func GetRobotTokenCmd() *cobra.Command {
+	var quiet bool
+	var ttl string
+	getAuthToken := &cobra.Command{
+		Use:   "{{alias}} [username]",
+		Short: "Get an auth token for a robot user with the specified name.",
+		Long:  "Get an auth token for a robot user with the specified name.",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			req := &auth.GetRobotTokenRequest{
+				Robot: args[0],
+			}
+			if ttl != "" {
+				d, err := time.ParseDuration(ttl)
+				if err != nil {
+					return errors.Wrapf(err, "could not parse duration %q", ttl)
+				}
+				req.TTL = int64(d.Seconds())
+			}
+			resp, err := c.GetRobotToken(c.Ctx(), req)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if quiet {
+				fmt.Println(resp.Token)
+			} else {
+				fmt.Printf("Token: %s\n", resp.Token)
+			}
+			return nil
+		}),
+	}
+	getAuthToken.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "if "+
+		"set, only print the resulting token (if successful). This is useful for "+
+		"scripting, as the output can be piped to use-auth-token")
+	getAuthToken.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, the "+
+		"resulting auth token will have the given lifetime. If not set, the token does not expire."+
+		" This flag should be a golang duration (e.g. \"30s\" or \"1h2m3s\").")
+	return cmdutil.CreateAlias(getAuthToken, "auth get-robot-token")
 }
 
 // UseAuthTokenCmd returns a cobra command that lets a user get a pachyderm
@@ -525,6 +584,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, LogoutCmd())
 	commands = append(commands, WhoamiCmd())
 	commands = append(commands, GetAuthTokenCmd())
+	commands = append(commands, GetRobotTokenCmd())
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())

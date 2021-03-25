@@ -22,7 +22,7 @@ func SetIdentityServerConfigCmd() *cobra.Command {
 		Short: "Set the identity server config",
 		Long:  `Set the identity server config`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -45,7 +45,7 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 		Short: "Get the identity server config",
 		Long:  `Get the identity server config`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -67,7 +67,7 @@ func CreateIDPConnectorCmd() *cobra.Command {
 		Short: "Create a new identity provider connector.",
 		Long:  `Create a new identity provider connector.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -118,7 +118,7 @@ func UpdateIDPConnectorCmd() *cobra.Command {
 		Short: "Update an existing identity provider connector.",
 		Long:  `Update an existing identity provider connector. Only fields which are specified are updated.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -165,7 +165,7 @@ func GetIDPConnectorCmd() *cobra.Command {
 		Short: "Get the config for an identity provider connector.",
 		Long:  "Get the config for an identity provider connector.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -187,7 +187,7 @@ func DeleteIDPConnectorCmd() *cobra.Command {
 		Short: "Delete an identity provider connector",
 		Long:  "Delete an identity provider connector",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -205,7 +205,7 @@ func ListIDPConnectorsCmd() *cobra.Command {
 		Short: "List identity provider connectors",
 		Long:  `List identity provider connectors`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -232,7 +232,7 @@ func CreateOIDCClientCmd() *cobra.Command {
 		Short: "Create a new OIDC client.",
 		Long:  `Create a new OIDC client.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -272,7 +272,7 @@ func DeleteOIDCClientCmd() *cobra.Command {
 		Short: "Delete an OIDC client.",
 		Long:  `Delete an OIDC client.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -292,7 +292,7 @@ func GetOIDCClientCmd() *cobra.Command {
 		Short: "Get an OIDC client.",
 		Long:  `Get an OIDC client.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -318,7 +318,7 @@ func UpdateOIDCClientCmd() *cobra.Command {
 		Short: "Update an OIDC client.",
 		Long:  `Update an OIDC client.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -349,7 +349,7 @@ func ListOIDCClientsCmd() *cobra.Command {
 		Short: "List OIDC clients.",
 		Long:  `List OIDC clients.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}

@@ -69,8 +69,11 @@ func (d *driver) compactionWorker() {
 			}
 			ids := []fileset.ID{}
 			for _, input := range task.Inputs {
-				id := fileset.ID(input)
-				ids = append(ids, id)
+				id, err := fileset.ParseID(input)
+				if err != nil {
+					return nil, err
+				}
+				ids = append(ids, *id)
 			}
 			pathRange := &index.PathRange{
 				Lower: task.Range.Lower,

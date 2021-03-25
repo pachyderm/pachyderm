@@ -142,6 +142,7 @@ enum Permission {
   CLUSTER_AUTH_GET_CONFIG                = 104;
   CLUSTER_AUTH_SET_CONFIG                = 105;
   CLUSTER_AUTH_GET_TOKEN                 = 106;
+  CLUSTER_AUTH_GET_ROBOT_TOKEN           = 139;
   CLUSTER_AUTH_EXTEND_TOKEN              = 107;
   CLUSTER_AUTH_MODIFY_GROUP_MEMBERS      = 109;
   CLUSTER_AUTH_GET_GROUPS                = 110;
@@ -331,6 +332,21 @@ message GetAuthTokenResponse {
   string token = 1;
 }
 
+message GetRobotTokenRequest {
+  // The returned token will allow the caller to access resources as this
+  // robot user
+  string robot = 1;
+
+  // ttl indicates the requested (approximate) remaining lifetime of this token,
+  // in seconds
+  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
+}
+
+message GetRobotTokenResponse {
+  // A new auth token for the requested robot
+  string token = 1;
+}
+
 message ExtendAuthTokenRequest {
   // token indicates the Pachyderm token whose TTL is being extended
   string token = 1;
@@ -419,6 +435,7 @@ service API {
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
 
   rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
+  rpc GetRobotToken(GetRobotTokenRequest) returns (GetRobotTokenResponse) {}
   rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 

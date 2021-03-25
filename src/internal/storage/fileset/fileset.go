@@ -1,40 +1,78 @@
 package fileset
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"database/sql/driver"
+	"encoding/hex"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // ID is the unique identifier for a fileset
-// TODO: change this to [16]byte, add ParseID, and HexString methods.
-type ID string
+type ID [16]byte
 
 func newID() ID {
-	return ID(uuid.NewWithoutDashes())
+	id := ID{}
+	if _, err := rand.Read(id[:]); err != nil {
+		panic(err)
+	}
+	return id
 }
 
 // ParseID parses a string into an ID or returns an error
 func ParseID(x string) (*ID, error) {
-	if len(x) < 32 {
-		return nil, errors.Errorf("string (%v) too short to be ID", x)
+	id, err := parseID([]byte(x))
+	if err != nil {
+		return nil, err
 	}
-	id := ID(x)
 	return &id, nil
 }
 
 // HexString returns the ID encoded with the hex alphabet.
 func (id ID) HexString() string {
-	return string(id)
+	return hex.EncodeToString(id[:])
 }
 
-// TrackerID returns the ID of the fileset's tracker object.
+// TrackerID returns the tracker ID for the fileset.
 func (id ID) TrackerID() string {
 	return TrackerPrefix + id.HexString()
+}
+
+// Scan implements sql.Scanner
+func (id *ID) Scan(src interface{}) error {
+	x, ok := src.([]byte)
+	if !ok {
+		return errors.Errorf("scanning fileset.ID: can't turn %T into fileset.ID", src)
+	}
+	var err error
+	*id, err = parseID(x)
+	return err
+}
+
+// Value implements sql.Valuer
+func (id ID) Value() (driver.Value, error) {
+	return id.HexString(), nil
+}
+
+func parseID(x []byte) (ID, error) {
+	x = bytes.Replace(x, []byte{'-'}, []byte{}, -1)
+	id := ID{}
+	if len(x) < 32 {
+		return ID{}, errors.Errorf("parsing fileset.ID: too short to be ID len=%d", len(x))
+	}
+	if len(x) > 32 {
+		return ID{}, errors.Errorf("parsing fileset.ID: too long to be ID len=%d", len(x))
+	}
+	_, err := hex.Decode(id[:], x)
+	if err != nil {
+		return ID{}, err
+	}
+	return id, nil
 }
 
 // PointsTo returns a slice of the chunk.IDs which this fileset immediately points to.
@@ -47,12 +85,16 @@ func (p *Primitive) PointsTo() []chunk.ID {
 }
 
 // PointsTo returns the IDs of the filesets which this composite fileset points to
-func (c *Composite) PointsTo() []ID {
+func (c *Composite) PointsTo() ([]ID, error) {
 	ids := make([]ID, len(c.Layers))
 	for i := range c.Layers {
-		ids[i] = ID(c.Layers[i])
+		id, err := ParseID(c.Layers[i])
+		if err != nil {
+			return nil, err
+		}
+		ids[i] = *id
 	}
-	return ids
+	return ids, nil
 }
 
 // File represents a file.
@@ -80,14 +122,6 @@ type emptyFileSet struct{}
 
 func (efs emptyFileSet) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
 	return nil
-}
-
-func stringsToIDs(xs []string) []ID {
-	ids := make([]ID, len(xs))
-	for i := range xs {
-		ids[i] = ID(xs[i])
-	}
-	return ids
 }
 
 func idsToHex(xs []ID) []string {
