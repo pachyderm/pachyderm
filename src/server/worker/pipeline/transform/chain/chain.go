@@ -189,7 +189,10 @@ func (jdi *JobDatumIterator) withDatumFileset(pachClient *client.APIClient, cb f
 		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
 		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(datum.NewClientFileset(cfsc)))
 	})
-	return resp.FilesetId, err
+	if err != nil {
+		return "", err
+	}
+	return resp.FilesetId, nil
 }
 
 func (jdi *JobDatumIterator) deleteDatum(meta *datum.Meta) error {
