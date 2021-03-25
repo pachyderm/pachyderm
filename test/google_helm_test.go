@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
+	appsV1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -70,14 +71,19 @@ func TestGoogleWorkerServiceAccount(t *testing.T) {
 
 func TestGoogleValues(t *testing.T) {
 	var (
-		bucket                = "fake-bucket"
-		bucketChecked         bool
-		cred                  = `INSERT JSON HERE`
-		credChecked           bool
-		pachdServiceAccount   = "128"
-		serviceAccount        = "a-service-account"
-		serviceAccountChecked bool
-		helmChartPath         = "../pachyderm"
+		bucket              = "fake-bucket"
+		cred                = `INSERT JSON HERE`
+		pachdServiceAccount = "128"
+		serviceAccount      = "a-service-account"
+		helmChartPath       = "../pachyderm"
+		checks              = map[string]bool{
+			"bucket":          false,
+			"cred":            false,
+			"service account": false,
+			"STORAGE_BACKEND": false,
+			"GOOGLE_BUCKET":   false,
+			"GOOGLE_CRED":     false,
+		}
 
 		options = &helm.Options{
 			SetStrValues: map[string]string{
@@ -155,11 +161,11 @@ func TestGoogleValues(t *testing.T) {
 			if b := string(resource.Data["google-bucket"]); b != bucket {
 				t.Errorf("expected bucket to be %q but was %q", bucket, b)
 			}
-			bucketChecked = true
+			checks["bucket"] = true
 			if c := string(resource.Data["google-cred"]); c != cred {
 				t.Errorf("expected cred to be %q but was %q", cred, c)
 			}
-			credChecked = true
+			checks["cred"] = true
 		case *v1.ServiceAccount:
 			if resource.Name != pachdServiceAccount {
 				continue
@@ -167,16 +173,34 @@ func TestGoogleValues(t *testing.T) {
 			if sa := resource.Annotations["iam.gke.io/gcp-service-account"]; sa != serviceAccount {
 				t.Errorf("expected service account to be %q but was %q", serviceAccount, sa)
 			}
-			serviceAccountChecked = true
+			checks["service account"] = true
+		case *appsV1.Deployment:
+			if resource.Name != "pachd" {
+				continue
+			}
+			for _, c := range resource.Spec.Template.Spec.Containers {
+				if c.Name != "pachd" {
+					continue
+				}
+				for _, e := range c.Env {
+					switch e.Name {
+					case "STORAGE_BACKEND":
+						if e.Value != "GOOGLE" {
+							t.Errorf("expected STORAGE_BACKEND to be %q, not %q", "GOOGLE", e.Value)
+						}
+						checks["STORAGE_BACKEND"] = true
+					case "GOOGLE_BUCKET":
+						checks["GOOGLE_BUCKET"] = true
+					case "GOOGLE_CRED":
+						checks["GOOGLE_CRED"] = true
+					}
+				}
+			}
 		}
 	}
-	if !bucketChecked {
-		t.Error("bucket unchecked")
-	}
-	if !credChecked {
-		t.Error("cred unchecked")
-	}
-	if !serviceAccountChecked {
-		t.Error("service account unchecked")
+	for check := range checks {
+		if !checks[check] {
+			t.Errorf("check %q not performed", check)
+		}
 	}
 }
