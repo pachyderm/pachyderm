@@ -5,7 +5,6 @@ import (
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/kubectl/pkg/scheme"
 )
 
 /*
@@ -140,20 +139,11 @@ func TestGoogleValues(t *testing.T) {
 `,
 			},
 		}
-		output  = helm.RenderTemplate(t, options, helmChartPath, "release-name", nil)
-		files   []string
-		objects []interface{}
-		err     error
+		output = helm.RenderTemplate(t, options, helmChartPath, "release-name", nil)
 	)
-	if files, err = splitYAML(output); err != nil {
+	objects, err := manifestToObjects(output)
+	if err != nil {
 		t.Fatal(err)
-	}
-	for _, f := range files {
-		obj, _, err := scheme.Codecs.UniversalDeserializer().Decode([]byte(f), nil, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		objects = append(objects, obj)
 	}
 
 	for _, object := range objects {
