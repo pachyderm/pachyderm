@@ -355,9 +355,9 @@ func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
 			baseDatums = make(chain.DatumSet)
 		}
 
-		if reg.driver.PipelineInfo().S3Out {
-			// When running a pipeline with S3Out, we need to yield every datum for
-			// every job, use a no-skip job chain for this.
+		if reg.driver.PipelineInfo().NoSkip || reg.driver.PipelineInfo().S3Out {
+			// When running a pipeline with S3Out (or with skipping disabled), we need
+			// to yield every datum for every job, use a no-skip job chain for this.
 			reg.jobChain = chain.NewNoSkipJobChain(
 				&hasher{
 					name: reg.driver.PipelineInfo().Pipeline.Name,

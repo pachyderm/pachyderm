@@ -390,27 +390,29 @@ func processDatum(
 	tag := common.HashDatum(driver.PipelineInfo().Pipeline.Name, driver.PipelineInfo().Salt, inputs)
 	datumID := common.DatumID(inputs)
 
-	if _, err := driver.PachClient().InspectTag(driver.PachClient().Ctx(), client.NewTag(tag)); err == nil {
-		buf := &bytes.Buffer{}
-		if err := driver.PachClient().GetTag(tag, buf); err != nil {
-			return stats, recoveredDatums, err
-		}
-		if err := datumCache.Put(uuid.NewWithoutDashes(), buf); err != nil {
-			return stats, recoveredDatums, err
-		}
-		if driver.PipelineInfo().EnableStats {
-			buf.Reset()
-			if err := driver.PachClient().GetTag(tag+statsTagSuffix, buf); err != nil {
-				// We are okay with not finding the stats hashtree. This allows users to
-				// enable stats on a pipeline with pre-existing jobs.
-				return stats, recoveredDatums, nil
-			}
-			if err := datumStatsCache.Put(uuid.NewWithoutDashes(), buf); err != nil {
+	if !driver.PipelineInfo().NoSkip {
+		if _, err := driver.PachClient().InspectTag(driver.PachClient().Ctx(), client.NewTag(tag)); err == nil {
+			buf := &bytes.Buffer{}
+			if err := driver.PachClient().GetTag(tag, buf); err != nil {
 				return stats, recoveredDatums, err
 			}
+			if err := datumCache.Put(uuid.NewWithoutDashes(), buf); err != nil {
+				return stats, recoveredDatums, err
+			}
+			if driver.PipelineInfo().EnableStats {
+				buf.Reset()
+				if err := driver.PachClient().GetTag(tag+statsTagSuffix, buf); err != nil {
+					// We are okay with not finding the stats hashtree. This allows users to
+					// enable stats on a pipeline with pre-existing jobs.
+					return stats, recoveredDatums, nil
+				}
+				if err := datumStatsCache.Put(uuid.NewWithoutDashes(), buf); err != nil {
+					return stats, recoveredDatums, err
+				}
+			}
+			stats.DatumsSkipped++
+			return stats, recoveredDatums, nil
 		}
-		stats.DatumsSkipped++
-		return stats, recoveredDatums, nil
 	}
 
 	statsRoot := path.Join("/", datumID)
