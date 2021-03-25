@@ -162,7 +162,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 		}
 		pachClient := reg.driver.PachClient()
 		if metaCommitInfo.ParentCommit == nil {
-			reg.jobChain = chain.NewJobChain(hasher, opts...)
+			reg.jobChain = chain.NewJobChain(pachClient, hasher, opts...)
 			return nil
 		}
 		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
@@ -175,6 +175,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 		}
 		commit := parentMetaCommitInfo.Commit
 		reg.jobChain = chain.NewJobChain(
+			pachClient,
 			hasher,
 			append(opts, chain.WithBase(datum.NewCommitIterator(pachClient, commit.Repo.Name, commit.ID)))...,
 		)
@@ -521,7 +522,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 
 func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(datum.Client) error, renewer *renew.StringSet) (*work.Task, error) {
 	resp, err := pachClient.WithCreateFilesetClient(func(cfsc *client.CreateFilesetClient) error {
-		return upload(newDatumClientFileset(cfsc))
+		return upload(datum.NewClientFileset(cfsc))
 	})
 	if err != nil {
 		return nil, err

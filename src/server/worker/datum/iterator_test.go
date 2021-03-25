@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -359,12 +360,19 @@ func TestIterators(t *testing.T) {
 
 func validateDI(t testing.TB, di Iterator, datums ...string) {
 	t.Helper()
+	datumMap := make(map[string]struct{})
+	for _, datum := range datums {
+		datumMap[datum] = struct{}{}
+	}
 	require.NoError(t, di.Iterate(func(meta *Meta) error {
-		require.Equal(t, datums[0], computeKey(meta))
-		datums = datums[1:]
+		key := computeKey(meta)
+		if _, ok := datumMap[key]; !ok {
+			return errors.Errorf("unexpected datum: %v", key)
+		}
+		delete(datumMap, key)
 		return nil
 	}))
-	require.Equal(t, 0, len(datums))
+	require.Equal(t, 0, len(datumMap))
 }
 
 func computeKey(meta *Meta) string {

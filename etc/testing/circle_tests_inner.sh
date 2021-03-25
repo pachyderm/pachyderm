@@ -37,6 +37,7 @@ make launch-dev
 echo "Running test suite based on BUCKET=$BUCKET"
 
 pachctl config update context "$(pachctl config get active-context)" --pachd-address="${VM_IP}:${PACH_PORT}"
+pachctl config set active-enterprise-context "$(pachctl config get active-context)"
 
 # should be able to connect to pachyderm via localhost
 pachctl version

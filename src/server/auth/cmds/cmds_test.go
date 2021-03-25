@@ -31,9 +31,11 @@ func TestLogin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
 	// Configure OIDC login
 	tu.ConfigureOIDCProvider(t)
-	defer tu.DeleteAll(t)
 
 	cmd := exec.Command("pachctl", "auth", "login", "--no-browser")
 	out, err := cmd.StdoutPipe()
@@ -52,6 +54,27 @@ func TestLogin(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
+	).Run())
+}
+
+func TestLoginIDToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	// Configure OIDC login
+	tu.ConfigureOIDCProvider(t)
+
+	// Get an ID token for a trusted peer app
+	token := tu.GetOIDCTokenForTrustedApp(t)
+
+	require.NoError(t, tu.BashCmd(`
+		echo '{{.token}}' | pachctl auth login --id-token
+		pachctl auth whoami | match user:{{.user}}`,
+		"user", tu.DexMockConnectorEmail,
+		"token", token,
 	).Run())
 }
 

@@ -104,7 +104,11 @@ func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (Fil
 		case *Metadata_Primitive:
 			fss = append(fss, s.newReader(id, opts...))
 		case *Metadata_Composite:
-			fs, err := s.Open(ctx, stringsToIDs(x.Composite.Layers), opts...)
+			ids, err := x.Composite.PointsTo()
+			if err != nil {
+				return nil, err
+			}
+			fs, err := s.Open(ctx, ids, opts...)
 			if err != nil {
 				return nil, err
 			}
@@ -161,7 +165,11 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
 		case *Metadata_Primitive:
 			flattened = append(flattened, id)
 		case *Metadata_Composite:
-			ids2, err := s.Flatten(ctx, stringsToIDs(x.Composite.Layers))
+			ids, err := x.Composite.PointsTo()
+			if err != nil {
+				return nil, err
+			}
+			ids2, err := s.Flatten(ctx, ids)
 			if err != nil {
 				return nil, err
 			}
@@ -238,7 +246,11 @@ func (s *Storage) SizeOf(ctx context.Context, id ID) (int64, error) {
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
 func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *renew.StringSet) error) error {
 	rf := func(ctx context.Context, idHexStr string, ttl time.Duration) error {
-		_, err := s.SetTTL(ctx, ID(idHexStr), ttl)
+		id, err := ParseID(idHexStr)
+		if err != nil {
+			return err
+		}
+		_, err = s.SetTTL(ctx, *id, ttl)
 		return err
 	}
 	return renew.WithStringSet(ctx, ttl, rf, cb)
@@ -291,7 +303,7 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 	}
 	var pointsTo []string
 	for _, chunkID := range prim.PointsTo() {
-		pointsTo = append(pointsTo, chunk.ObjectID(chunkID))
+		pointsTo = append(pointsTo, chunkID.TrackerID())
 	}
 	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
 		if err := s.store.SetTx(tx, id, md); err != nil {
@@ -312,17 +324,20 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 			Composite: comp,
 		},
 	}
-	var pointsTo []string
-	for _, id := range comp.Layers {
-		pointsTo = append(pointsTo, ID(id).TrackerID())
+	ids, err := comp.PointsTo()
+	if err != nil {
+		return nil, err
 	}
-	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
+	var pointsTo []string
+	for _, id := range ids {
+		pointsTo = append(pointsTo, id.TrackerID())
+	}
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
 		if err := s.store.SetTx(tx, id, md); err != nil {
 			return err
 		}
 		return s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl)
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &id, nil
