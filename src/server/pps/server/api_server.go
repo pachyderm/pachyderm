@@ -2341,6 +2341,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
 		Autoscaling:           request.Autoscaling,
+		NoSkip:                request.NoSkip,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return err

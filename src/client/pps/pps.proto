@@ -463,10 +463,14 @@ message PipelineInfo {
   string pod_patch = 44;
   bool s3_out = 47;
   Metadata metadata = 48;
-  // Set at call time, not stored in etcd
+  // Set at call time, not stored in pfs/etcd
   int64 unclaimed_tasks = 52;
   string worker_rc = 53;
   bool autoscaling = 54;
+
+	// no_skip, if set, disables datum skipping for this pipeline (for pipelines
+  // that have side effects, e.g. deploying a resource)
+  bool no_skip = 55;
 }
 
 message PipelineInfos {
@@ -718,6 +722,7 @@ message CreatePipelineRequest {
   pfs.Commit spec_commit = 34;
   Metadata metadata = 46;
   bool autoscaling = 48;
+  bool no_skip = 49;
 }
 
 message InspectPipelineRequest {

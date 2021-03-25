@@ -13689,6 +13689,80 @@ func monitorReplicas(t testing.TB, pipeline string, n int) {
 	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
 }
 
+func TestNoSkip(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString(t.Name() + "_data")
+	triggerRepo := tu.UniqueString(t.Name() + "_trigger")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateRepo(triggerRepo))
+
+	pipeline := tu.UniqueString(t.Name())
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "busybox:1.32.1", // contains wget (unlike ubuntu)
+				Cmd:   []string{"/bin/sh"},
+				Stdin: []string{
+					// This reads from 'dataRepo' even though it takes 'triggerRepo' as an
+					// input, deliberately violating Pachyderm's provenance guarantees.
+					// This is an antipattern and not the intended use of NoSkip (the
+					// intended use is pipelines that have side effects, e.g. deploying a
+					// resource or triggering an external pipeline system) but it lets us
+					// check that no datum is being skipped by making the datum outputs
+					// change.
+					"wget -O - http://pachd.default.svc.cluster.local:652" +
+						fmt.Sprintf("/v1/pfs/repos/%s/commits/master/files/changing.txt", dataRepo) +
+						" >> /pfs/out/out",
+				},
+			},
+			NoSkip: true,
+			Input:  client.NewPFSInput(triggerRepo, "/*"),
+		})
+	require.NoError(t, err)
+
+	// Test NoSkip on non-append-only workload
+	for i := 0; i < 5; i++ {
+		iStr := fmt.Sprintf("%d", i)
+		_, err := c.PutFileOverwrite(dataRepo, "master", "changing.txt", strings.NewReader(iStr), 0)
+		require.NoError(t, err)
+
+		// modify the datum "0"
+		_, err = c.PutFileOverwrite(triggerRepo, "master", "0", strings.NewReader("f"), 0)
+		require.NoError(t, err)
+		_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(triggerRepo, "master")}, nil)
+		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(pipeline, "master", "out", 0, 0, &buf))
+		require.Equal(t, iStr, buf.String())
+	}
+
+	// Test NoSkip on append-only workload
+	for i := 0; i < 5; i++ {
+		iStr := fmt.Sprintf("%d", i)
+		_, err := c.PutFileOverwrite(dataRepo, "master", "changing.txt", strings.NewReader(iStr), 0)
+		require.NoError(t, err)
+
+		// Append a new datum (or overwrite datum "/0"). Old datum outputs should
+		// change, so /out contains 333 and not 123
+		_, err = c.PutFileOverwrite(triggerRepo, "master", iStr, strings.NewReader("f"), 0)
+		require.NoError(t, err)
+		_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(triggerRepo, "master")}, nil)
+		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(pipeline, "master", "out", 0, 0, &buf))
+		require.Equal(t, strings.Repeat(iStr, i+1), buf.String())
+	}
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)

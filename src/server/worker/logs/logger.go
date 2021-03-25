@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -57,6 +58,8 @@ type TaggedLogger interface {
 }
 
 type taggedLogger struct {
+	// Mutex is used to ensure no loggers are writing to msgCh when it's closed
+	sync.RWMutex
 	template  pps.LogMessage
 	stderrLog *log.Logger
 	marshaler *jsonpb.Marshaler
@@ -214,6 +217,8 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		return
 	}
 	fmt.Println(msg)
+	logger.RLock()
+	defer logger.RUnlock()
 	if logger.putObjClient != nil {
 		logger.msgCh <- msg + "\n"
 	}
@@ -268,8 +273,10 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 // statements to object storage.  Returns a pointer to the generated pfs.Object
 // as well as the total size of all written messages.
 func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
-	close(logger.msgCh)
+	logger.Lock()
+	defer logger.Unlock()
 	if logger.putObjClient != nil {
+		close(logger.msgCh)
 		if err := logger.eg.Wait(); err != nil {
 			return nil, 0, err
 		}
