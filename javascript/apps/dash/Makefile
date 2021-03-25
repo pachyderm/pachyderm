@@ -13,4 +13,4 @@ install:
 	npm install && npm install --prefix ./backend && npm install --prefix ./frontend
 
 graphql:
-	npm run generate-types --prefix ./backend && npm run generate-operations --prefix ./frontend
+	npm run generate-types --prefix ./backend && npm run generate-operations --prefix ./frontend && npm run generate-hooks --prefix ./frontend

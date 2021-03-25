@@ -1,6 +1,9 @@
 schema: ./src/schema.graphqls
 generates:
   ./src/generated/types.ts:
+    documents:
+      - '../frontend/src/queries/*.ts'
+      - '../frontend/src/mutations/*.ts'
     config:
       enumValues:
         PipelineState: \@pachyderm/proto/pb/pps/pps_pb#PipelineState
@@ -15,6 +18,7 @@ generates:
     plugins:
       - typescript
       - typescript-resolvers
+      - typescript-operations
       - add:
           content:
             - "/* eslint-disable @typescript-eslint/naming-convention */"

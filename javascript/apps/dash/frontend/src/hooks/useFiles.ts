@@ -1,11 +1,4 @@
-import {useQuery} from '@apollo/client';
-
-import {GET_FILES_QUERY} from '@dash-frontend/queries/GetFilesQuery';
-import {File} from '@graphqlTypes';
-
-type FilesQueryResponse = {
-  files: File[];
-};
+import {useGetFilesQuery} from '@dash-frontend/generated/hooks';
 
 type UseFilesProps = {
   commitId?: string;
@@ -19,7 +12,7 @@ export const useFiles = ({
   repoName,
 }: UseFilesProps) => {
   // TODO: This might be better as a lazy query with options
-  const {data, error, loading} = useQuery<FilesQueryResponse>(GET_FILES_QUERY, {
+  const {data, error, loading} = useGetFilesQuery({
     variables: {args: {commitId, path, repoName}},
   });
 

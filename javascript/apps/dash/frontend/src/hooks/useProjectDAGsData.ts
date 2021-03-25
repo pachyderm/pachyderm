@@ -1,17 +1,9 @@
-import {useQuery} from '@apollo/client';
-
-import {Dag, QueryDagArgs} from '@graphqlTypes';
-import {GET_DAGS_QUERY} from 'queries/GetDagsQuery';
-
-type DagsQueryResponse = {
-  dags: [Dag];
-};
+import {useGetDagsQuery} from '@dash-frontend/generated/hooks';
 
 export const useProjectDagsData = (projectId = '') => {
-  const {data, error, loading} = useQuery<DagsQueryResponse, QueryDagArgs>(
-    GET_DAGS_QUERY,
-    {variables: {args: {projectId}}},
-  );
+  const {data, error, loading} = useGetDagsQuery({
+    variables: {args: {projectId}},
+  });
 
   return {
     error,

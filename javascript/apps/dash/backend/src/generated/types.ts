@@ -818,3 +818,91 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
  * Use "Resolvers" root object instead. If you wish to get "IResolvers", add "typesPrefix: I" to your config.
  */
 export type IResolvers<ContextType = Context> = Resolvers<ContextType>;
+
+export type ExchangeCodeMutationVariables = Exact<{
+  code: Scalars['String'];
+}>;
+
+export type ExchangeCodeMutation = {__typename?: 'Mutation'} & {
+  exchangeCode: {__typename?: 'Tokens'} & Pick<Tokens, 'pachToken' | 'idToken'>;
+};
+
+export type GetAccountQueryVariables = Exact<{[key: string]: never}>;
+
+export type GetAccountQuery = {__typename?: 'Query'} & {
+  account: {__typename?: 'Account'} & Pick<Account, 'id' | 'email' | 'name'>;
+};
+
+export type GetDagQueryVariables = Exact<{
+  args: DagQueryArgs;
+}>;
+
+export type GetDagQuery = {__typename?: 'Query'} & {
+  dag: {__typename?: 'Dag'} & {
+    nodes: Array<
+      {__typename?: 'Node'} & Pick<Node, 'name' | 'type' | 'access' | 'state'>
+    >;
+    links: Array<
+      {__typename?: 'Link'} & Pick<Link, 'source' | 'target' | 'state'>
+    >;
+  };
+};
+
+export type GetDagsQueryVariables = Exact<{
+  args: DagQueryArgs;
+}>;
+
+export type GetDagsQuery = {__typename?: 'Query'} & {
+  dags: Array<
+    {__typename?: 'Dag'} & {
+      nodes: Array<
+        {__typename?: 'Node'} & Pick<Node, 'name' | 'type' | 'access' | 'state'>
+      >;
+      links: Array<
+        {__typename?: 'Link'} & Pick<Link, 'source' | 'target' | 'state'>
+      >;
+    }
+  >;
+};
+
+export type GetFilesQueryVariables = Exact<{
+  args: FileQueryArgs;
+}>;
+
+export type GetFilesQuery = {__typename?: 'Query'} & {
+  files: Array<
+    {__typename?: 'File'} & Pick<
+      File,
+      | 'commitId'
+      | 'download'
+      | 'hash'
+      | 'path'
+      | 'repoName'
+      | 'sizeBytes'
+      | 'type'
+    > & {
+        committed?: Maybe<
+          {__typename?: 'Timestamp'} & Pick<Timestamp, 'nanos' | 'seconds'>
+        >;
+      }
+  >;
+};
+
+export type GetJobsQueryVariables = Exact<{
+  args: JobQueryArgs;
+}>;
+
+export type GetJobsQuery = {__typename?: 'Query'} & {
+  jobs: Array<{__typename?: 'Job'} & Pick<Job, 'id' | 'state' | 'createdAt'>>;
+};
+
+export type ProjectsQueryVariables = Exact<{[key: string]: never}>;
+
+export type ProjectsQuery = {__typename?: 'Query'} & {
+  projects: Array<
+    {__typename?: 'Project'} & Pick<
+      Project,
+      'id' | 'name' | 'description' | 'createdAt' | 'status'
+    >
+  >;
+};

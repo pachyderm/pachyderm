@@ -1,16 +1,7 @@
-import {useQuery} from '@apollo/client';
-
-import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
-import {Project} from '@graphqlTypes';
-
-type ProjectsQueryResponse = {
-  projects: Project[];
-};
+import {useProjectsQuery} from '@dash-frontend/generated/hooks';
 
 export const useProjects = () => {
-  const {data, error, loading} = useQuery<ProjectsQueryResponse>(
-    GET_PROJECTS_QUERY,
-  );
+  const {data, error, loading} = useProjectsQuery();
 
   return {
     error,

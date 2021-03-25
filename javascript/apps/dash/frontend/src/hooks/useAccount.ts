@@ -1,21 +1,11 @@
-import {useQuery} from '@apollo/client';
-
-import {GET_ACCOUNT_QUERY} from '@dash-frontend/queries/GetAccountQuery';
-import {Account} from '@graphqlTypes';
-
-type AccountQueryResponse = {
-  account: Account;
-};
+import {useGetAccountQuery} from '@dash-frontend/generated/hooks';
 
 interface useAccountArgs {
   skip?: boolean;
 }
 
 const useAccount = ({skip = false}: useAccountArgs = {}) => {
-  const {data, error, loading} = useQuery<AccountQueryResponse>(
-    GET_ACCOUNT_QUERY,
-    {skip},
-  );
+  const {data, error, loading} = useGetAccountQuery({skip});
 
   return {
     error,

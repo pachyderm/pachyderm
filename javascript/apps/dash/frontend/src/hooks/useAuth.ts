@@ -1,20 +1,10 @@
-import {
-  ApolloError,
-  gql,
-  useApolloClient,
-  useMutation,
-  useQuery,
-} from '@apollo/client';
+import {ApolloError, gql, useApolloClient, useQuery} from '@apollo/client';
 import Cookies from 'js-cookie';
 import noop from 'lodash/noop';
 import {useCallback, useEffect} from 'react';
 
-import {MutationExchangeCodeArgs, Tokens} from '@graphqlTypes';
-import {EXCHANGE_CODE_MUTATION} from 'mutations/ExchangeCode';
-
-interface ExchangeCodeMutationResults {
-  exchangeCode: Tokens;
-}
+import {useExchangeCodeMutation} from '@dash-frontend/generated/hooks';
+import {MutationExchangeCodeArgs} from '@graphqlTypes';
 
 interface LogInResponse {
   loggedIn: false;
@@ -37,10 +27,7 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
   const [
     exchangeCodeMutation,
     {data: codeMutationData, error, loading},
-  ] = useMutation<ExchangeCodeMutationResults, MutationExchangeCodeArgs>(
-    EXCHANGE_CODE_MUTATION,
-    {onError},
-  );
+  ] = useExchangeCodeMutation({onError});
   const {data: loggedInData} = useQuery<LogInResponse>(LOGGED_IN_QUERY);
 
   const exchangeCode = useCallback(

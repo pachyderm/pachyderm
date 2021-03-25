@@ -56,6 +56,13 @@ query getFiles($args: FileQueryArgs!) {
     type
   }
 }
+query getJobs($args: JobQueryArgs!) {
+  jobs(args: $args) {
+    id
+    state
+    createdAt
+  }
+}
 query projects {
   projects {
     id
