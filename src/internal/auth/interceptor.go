@@ -250,10 +250,18 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 		return nil, fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	if err := a(pachClient, info.FullMethod); err != nil {
+	authResp, authErr := a(pachClient, info.FullMethod)
+
+	if authErr != nil {
 		logrus.Errorf("denied unary call %q\n", info.FullMethod)
-		return nil, err
+		return nil, authErr
 	}
+
+	// adds a value to the request's context if provided
+	if authResp != nil {
+		ctx = context.WithValue(ctx, authResp.k, authResp.v)
+	}
+
 	return handler(ctx, req)
 }
 
@@ -266,7 +274,7 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 		return fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	if err := a(pachClient, info.FullMethod); err != nil {
+	if _, err := a(pachClient, info.FullMethod); err != nil {
 		logrus.Errorf("denied streaming call %q\n", info.FullMethod)
 		return err
 	}
