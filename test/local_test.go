@@ -6,6 +6,7 @@ import (
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	appsV1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func TestLocal(t *testing.T) {
@@ -21,6 +22,7 @@ func TestLocal(t *testing.T) {
 		checks = map[string]bool{
 			"STORAGE_BACKEND":   false,
 			"STORAGE_HOST_PATH": false,
+			"headless service":  false,
 		}
 	)
 	if err != nil {
@@ -51,6 +53,11 @@ func TestLocal(t *testing.T) {
 					}
 				}
 			}
+		case *v1.Service:
+			if object.Name != "etcd-headless" {
+				continue
+			}
+			checks["headless service"] = true
 		}
 	}
 	for check := range checks {
