@@ -1,0 +1,10 @@
+pachd:
+  storage:
+    backend: "MINIO"
+    minio:
+      bucket: "foo"
+      endpoint: "https://bar.test/"
+      id: "baz"
+      secret: "quux"
+      secure: "quuux"
+      signature: "quuuux"

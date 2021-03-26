@@ -30,27 +30,27 @@ spec:
         - /pachd
         env:
         - name: PACH_ROOT
-          value: /pach
+          value: "/pach"
         - name: ETCD_PREFIX
           #value:
         - name: NUM_SHARDS
-          value: {{ .Values.pachd.numShards | quote }}
+          value: {{ required "number of shards missing" .Values.pachd.numShards | quote }}
         - name: STORAGE_BACKEND
-          value: {{ .Values.pachd.storage.backend }}
+          value: {{ required "storage backend missing" .Values.pachd.storage.backend | quote }}
         - name: STORAGE_HOST_PATH
           {{- if eq .Values.pachd.storage.backend "LOCAL" }}
-          value: /var/pachyderm/pachd
+          value: {{ .Values.pachd.storage.local.hostPath }}pachd
           {{- end }}
         - name: WORKER_IMAGE
           value: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
         - name: IMAGE_PULL_SECRET
-          #value: TODO
+          value: {{ .Values.imagePullSecret | quote }}
         - name: WORKER_SIDECAR_IMAGE
           value: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY
-          value: IfNotPresent #TODO
+          value: {{ .Values.worker.image.pullPolicy | quote }}
         - name: WORKER_SERVICE_ACCOUNT
-          value: {{ .Values.pachd.workerServiceAccount.name }}
+          value: {{ .Values.worker.serviceAccount.name | quote }}
         - name: PACHD_VERSION
           value: "{{ .Values.pachd.image.tag }}"
         - name: METRICS
@@ -65,10 +65,10 @@ spec:
           value: {{ .Values.pachd.blockCacheBytes | quote }}
           {{- if.Values.pachd.storage.amazon.iamRole }}
         - name: IAM_ROLE
-          value: {{ .Values.pachd.storage.amazon.iamRole }}
+          value: {{ .Values.pachd.storage.amazon.iamRole | quote }}
           {{- end }}
         - name: NO_EXPOSE_DOCKER_SOCKET
-          value: {{ .Values.pachd.noExposeDockerSocket | quote }}
+          value: {{ .Values.pachd.exposeDockerSocket | not | quote }}
         - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
           value: {{ .Values.pachd.authenticationDisabledForTesting | quote }}
         - name: PACH_NAMESPACE
@@ -86,7 +86,7 @@ spec:
           value: {{ .Values.pachd.exposeObjectAPI | quote }}
         {{- if .Values.pachd.clusterDeploymentID }}
         - name: CLUSTER_DEPLOYMENT_ID
-          value: {{ .Values.pachd.clusterDeploymentID }}
+          value: {{ .Values.pachd.clusterDeploymentID | quote }}
         {{- end }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
@@ -293,6 +293,9 @@ spec:
           value: "false"
         image: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
+        {{- if .Values.imagePullSecret }}
+        imagePullSecret: {{ .Values.imagePullSecret | quote }}
+        {{- end }}
         name: pachd
         ports:
         - containerPort: 650
@@ -323,7 +326,9 @@ spec:
             command:
             - /pachd
             - --readiness
-        resources: {{- toYaml .Values.pachd.resources | nindent 10 }}
+        {{- if .Values.pachd.resources }}
+        resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - mountPath: /pach
           name: pach-disk
@@ -334,10 +339,15 @@ spec:
           name: pachd-tls-cert
         {{- end }}
       {{- if .Values.pachd.serviceAccount.name }}
-      serviceAccountName: {{ .Values.pachd.serviceAccount.name }}
+      serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
       {{- end }}
       volumes:
       - name: pach-disk
+        {{- if eq .Values.pachd.storage.backend "LOCAL" }}
+        hostPath:
+          path: {{ .Values.pachd.storage.local.hostPath }}pachd
+          type: DirectoryOrCreate
+        {{- end }}
       - name: pachyderm-storage-secret
         secret:
           secretName: pachyderm-storage-secret

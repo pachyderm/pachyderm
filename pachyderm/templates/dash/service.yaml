@@ -10,10 +10,16 @@ metadata:
 spec:
   ports:
   - name: dash-http
+    {{- if eq .Values.dash.service.type "NodePort" }}
+    nodePort: 30080
+    {{- end }}
     port: 8080
   - name: grpc-proxy-http
+    {{- if eq .Values.dash.service.type "NodePort" }}
+    nodePort: 30081
+    {{- end }}
     port: 8081
   selector:
     app: dash
     suite: pachyderm
-  type: ClusterIP
+  type: {{ .Values.dash.service.type }}

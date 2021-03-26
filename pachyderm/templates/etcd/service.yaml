@@ -10,7 +10,12 @@ metadata:
 spec:
   ports:
   - name: client-port
+    {{- if eq .Values.etcd.service.type "NodePort" }}
+    nodePort: 32379
+    {{- end }}
     port: 2379
+    targetPort: client-port
+
   selector:
     app: etcd
-  type: ClusterIP
+  type: {{ .Values.etcd.service.type }}

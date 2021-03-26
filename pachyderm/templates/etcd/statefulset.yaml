@@ -1,4 +1,6 @@
----
+{{- if le .Values.etcd.dynamicNodes 0.0 -}}
+{{ fail "dynamicNodes must be > 0" }}
+{{ end -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -8,7 +10,7 @@ metadata:
   name: etcd
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.etcd.dynamicNodes }}
   selector:
     matchLabels:
       app: etcd
@@ -28,7 +30,7 @@ spec:
           "--data-dir=/var/data/etcd" "--auto-compaction-retention=1" "--max-txn-ops=10000"
           "--max-request-bytes=52428800" "--quota-backend-bytes=8589934592" "--listen-peer-urls=http://0.0.0.0:2380"
           "--initial-cluster-token=pach-cluster" "--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380"
-          "--initial-cluster=etcd-0=http://etcd-0.etcd-headless.${NAMESPACE}.svc.cluster.local:2380"'
+          "--initial-cluster={{ range $i, $e := until (.Values.etcd.dynamicNodes | int) }}etcd-{{$e}}=http://etcd-{{$e}}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380{{ end }}"'
         command:
         - /bin/sh
         - -c
@@ -45,21 +47,38 @@ spec:
               fieldPath: metadata.namespace
         image: "{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}"
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
+        {{- if .Values.imagePullSecret }}
+        imagePullSecret: {{ .Values.imagePullSecret | quote }}
+        {{- end }}
         name: etcd
         ports:
         - containerPort: 2379
           name: client-port
         - containerPort: 2380
           name: peer-port
-        resources: {{- toYaml .Values.etcd.resources | nindent 10 }}
+        {{- if .Values.etcd.resources }}
+        resources: {{ toYaml .Values.etcd.resources | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
+      {{- if eq .Values.pachd.storage.backend "LOCAL" }}
+      volumes:
+      - hostPath:
+          path: /var/pachyderm/etcd
+          type: DirectoryOrCreate
+        name: etcd-storage
+      {{- end }}
+  {{- if not (eq .Values.pachd.storage.backend "LOCAL") }}
   volumeClaimTemplates:
   - metadata:
   {{- if or (eq .Values.pachd.storage.backend "AMAZON") (eq .Values.pachd.storage.backend "GOOGLE") }}
       annotations:
-        volume.beta.kubernetes.io/storage-class: etcd-storage-class
+        volume.beta.kubernetes.io/storage-class: {{ if .Values.etcd.storageClass -}}
+        {{ .Values.etcd.storageClass }}
+        {{- else -}}
+        etcd-storage-class
+        {{- end }}
   {{- end }}
       labels:
         app: etcd
@@ -72,3 +91,4 @@ spec:
       resources:
         requests:
           storage: {{ .Values.etcd.storageSize }}
+  {{- end }}

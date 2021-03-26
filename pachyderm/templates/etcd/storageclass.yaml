@@ -1,0 +1,21 @@
+{{- if not (or .Values.etcd.storageClass (eq .Values.pachd.storage.backend "LOCAL" )) -}}
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  labels:
+    app: etcd
+    suite: pachyderm
+  name: etcd-storage-class
+parameters:
+  type: {{ if eq .Values.pachd.storage.backend "GOOGLE" -}}
+  pd-ssd
+  {{- else if eq .Values.pachd.storage.backend "AMAZON" -}}
+  gp2
+  {{- end }}
+provisioner: {{ if eq .Values.pachd.storage.backend "GOOGLE" -}}
+  kubernetes.io/gce-pd
+  {{- else if eq .Values.pachd.storage.backend "AMAZON" -}}
+  kubernetes.io/aws-ebs
+  {{- end }}
+{{ end -}}

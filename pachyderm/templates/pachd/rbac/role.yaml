@@ -1,6 +1,6 @@
-{{- if and .Values.rbac.create .Values.rbac.clusterRBAC -}}
+{{- if and .Values.rbac.create (not .Values.rbac.clusterRBAC) -}}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   labels:
     app: ""
@@ -23,7 +23,6 @@ rules:
   - ""
   resources:
   - replicationcontrollers
-  - replicationcontrollers/scale
   - services
   verbs:
   - get

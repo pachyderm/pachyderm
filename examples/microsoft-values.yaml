@@ -1,0 +1,7 @@
+pachd:
+  storage:
+    backend: "MICROSOFT"
+    microsoft:
+      container: "foo"
+      id: "bar"
+      secret: "baz"

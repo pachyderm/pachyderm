@@ -4,5 +4,10 @@ pachd:
   storage:
     backend: GOOGLE
     google:
-      googleBucket: "fake-bucket"
-      googleCred: "fake-creds"
+      bucket: "fake-bucket"
+      cred: |
+        INSERT JSON HERE
+
+tls:
+  crt: ""
+  key: ""

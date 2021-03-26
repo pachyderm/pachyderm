@@ -18,7 +18,7 @@ spec:
     nodePort: 30653
     {{- end }}
     port: 653
-    targetPort: peer-port    
+    targetPort: peer-port
   - name: api-grpc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30650
@@ -62,6 +62,9 @@ spec:
     port: 600
     targetPort: s3gateway-port
   - name: prom-metrics
+    {{- if eq .Values.pachd.service.type "NodePort" }}
+    nodePort: 30656
+    {{- end }}
     port: 656
     protocol: TCP
     targetPort: prom-metrics
