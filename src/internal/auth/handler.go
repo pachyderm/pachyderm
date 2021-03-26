@@ -18,7 +18,6 @@ func authDisabledOr(h authHandler) authHandler {
 	return func(pachClient *client.APIClient, fullMethod string) (string, error) {
 		username, err := h(pachClient, fullMethod)
 
-		// TODO: check this
 		if auth.IsErrNotActivated(err) {
 			return "", nil
 		}

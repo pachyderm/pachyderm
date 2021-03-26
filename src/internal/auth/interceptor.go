@@ -236,32 +236,33 @@ func NewInterceptor(env *serviceenv.ServiceEnv) *Interceptor {
 	}
 }
 
-type CustomContextServerStream struct {
+// we use ServerStreamWrapper to set the stream's Context with added values
+type ServerStreamWrapper struct {
 	stream grpc.ServerStream
 	ctx    context.Context
 }
 
-func (s CustomContextServerStream) Context() context.Context {
+func (s ServerStreamWrapper) Context() context.Context {
 	return s.ctx
 }
 
-func (s CustomContextServerStream) SetHeader(md metadata.MD) error {
+func (s ServerStreamWrapper) SetHeader(md metadata.MD) error {
 	return s.stream.SetHeader(md)
 }
 
-func (s CustomContextServerStream) SendHeader(md metadata.MD) error {
+func (s ServerStreamWrapper) SendHeader(md metadata.MD) error {
 	return s.stream.SendHeader(md)
 }
 
-func (s CustomContextServerStream) SetTrailer(md metadata.MD) {
+func (s ServerStreamWrapper) SetTrailer(md metadata.MD) {
 	s.stream.SetTrailer(md)
 }
 
-func (s CustomContextServerStream) SendMsg(m interface{}) error {
+func (s ServerStreamWrapper) SendMsg(m interface{}) error {
 	return s.stream.SendMsg(m)
 }
 
-func (s CustomContextServerStream) RecvMsg(m interface{}) error {
+func (s ServerStreamWrapper) RecvMsg(m interface{}) error {
 	return s.stream.RecvMsg(m)
 }
 
@@ -287,7 +288,7 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 		if username != "" {
 			logUser = username
 		}
-		logrus.Errorf("denied unary call %q to user %q\n", info.FullMethod, logUser)
+		logrus.Errorf("denied unary call %q to user %v\n", info.FullMethod, logUser)
 		return nil, err
 	}
 
@@ -315,13 +316,13 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 		if username != "" {
 			logUser = username
 		}
-		logrus.Errorf("denied streaming call %q to user %q\n", info.FullMethod, logUser)
+		logrus.Errorf("denied streaming call %q to user %v\n", info.FullMethod, logUser)
 		return err
 	}
 
 	if username != "" {
 		ctx = context.WithValue(ctx, WhoAmIResultKey, username)
-		stream = CustomContextServerStream{stream, ctx}
+		stream = ServerStreamWrapper{stream, ctx}
 	}
 	return handler(srv, stream)
 }
