@@ -61,11 +61,16 @@ deployment options and related topics:
           Deploy on OpenShift
           </a>
           </li>
+          <li><a href="helm_install/" class="md-typeset md-link">
+          Helm install / uninstall
+          </a>
+          </li>
         </ul>
        </div>
      </div>
   </div>
 </div>
+
 <div class="row">
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">

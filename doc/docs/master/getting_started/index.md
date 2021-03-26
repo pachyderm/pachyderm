@@ -1,8 +1,9 @@
 # Getting Started
 
-Pachyderm provides multiple easy ways to get up and running quickly.
-You can deploy Pachyderm on your local machine, in your favorite cloud
-provider, or in our fully managed service, Hub.
+Our fully managed **SaaS platform** [Hub](../hub/hub_getting_started)
+provides a fast and easy way to get Pachyderm up and running quickly.
+You can also deploy Pachyderm on your local machine or in your favorite cloud
+provider. 
 
 <div class="row">
   <div class="column-2">
