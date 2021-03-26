@@ -77,6 +77,7 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
     <"pfs", "cross", "union", "join", "group", "cron", or "git" see below>
   },
   "s3_out": bool,
+  "no_skip": bool,
   "output_branch": string,
   "egress": {
     "URL": "s3://bucket/dir"
@@ -888,10 +889,8 @@ For more information, see [Exporting Data by using egress](../how-tos/export-dat
 ### Standby (optional)
 
 `standby` indicates that the pipeline should be put into "standby" when there's
-no data for it to process.  A pipeline in standby will have no pods running and
-thus will consume no resources, it's state will be displayed as "standby".
-
-Standby replaces `scale_down_threshold` from releases prior to 1.7.1.
+no data for it to process. A pipeline in standby will have no pods running and
+thus will consume no resources. The pipeline's state will be displayed as "standby".
 
 ### Cache Size (optional)
 
@@ -939,6 +938,13 @@ exists, the storage space used by the stats cannot be released.
     However, stats do not use as much extra storage as it might appear because
     snapshots of the `/pfs` directory that are the largest stored assets
     do not require extra space.
+
+### No Skip Datums (optional)
+
+`no_skip` will avoid skipping datums that are already processed for this pipeline. This is useful for pipelines that make an external call to other resources, such as deployment or triggering an external pipeline system. Set `"no_skip": true` in order to enable this behavior. `"no_skip": false` is the default behavior.
+
+!!! Warning
+    `no_skip` violates Pachyderm's [provenance guarantees](../concepts/data-concepts/provenance) and will make tracking data more difficult. Caution should be used with this setting to ensure this is a worthwhile tradeoff.
 
 ### Service (optional)
 
