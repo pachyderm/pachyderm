@@ -41,7 +41,7 @@ type PostgresModel interface {
 
 type postgresCollection struct {
 	db         *sqlx.DB
-	listener   watch.PostgresListener
+	listener   PostgresListener
 	model      PostgresModel
 	template   proto.Message
 	sqlInfo    *SQLInfo
@@ -180,7 +180,7 @@ func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(db *sqlx.DB, listener watch.PostgresListener, model PostgresModel, template proto.Message) PostgresCollection {
+func NewPostgresCollection(db *sqlx.DB, listener PostgresListener, model PostgresModel, template proto.Message) PostgresCollection {
 	sqlInfo, err := parseModel(model)
 	if err != nil {
 		panic(err)
@@ -393,14 +393,10 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watche
 	return nil, errors.New("Watch is not supported on read-only postgres collections")
 }
 
-func (c *postgresReadOnlyCollection) initialWatchList(cb func(key string, val proto.Message) error) {
-	return c.List(val, opts, cb)
-}
-
 func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error {
 	// TODO support filter options (probably can't support the sort option)
 	channelNames := []string{c.tableWatchChannel()}
-	watcher, err := c.listener.Listen(channelNames, c.template, initialWatchList)
+	watcher, err := c.listener.Listen(channelNames, c.template)
 	if err != nil {
 		return err
 	}
@@ -470,8 +466,8 @@ func (c *postgresCollection) tableWatchChannel() string {
 }
 
 func (c *postgresReadWriteCollection) notify(key string, row reflect.Value, evType watch.EventType) error {
-	payload := &watch.NotifyPayload{Info: &watch.NotifyInfo{Table: c.sqlInfo.Table}, Key: key, Type: uint32(evType)}
-	if err := watch.PublishNotification(c.tx, c.tableWatchChannel(), payload); err != nil {
+	payload := &NotifyPayload{Info: &NotifyInfo{Table: c.sqlInfo.Table}, Key: key, Type: uint32(evType)}
+	if err := publishNotification(c.tx, c.tableWatchChannel(), payload); err != nil {
 		return c.mapSQLError(err, key)
 	}
 
@@ -495,7 +491,7 @@ func (c *postgresReadWriteCollection) notify(key string, row reflect.Value, evTy
 		hashBase64 := pgIdentBase64Encoding.EncodeToString(hash[:])
 		indexChannel := fmt.Sprintf("%s_%s", watchBaseName, hashBase64)
 
-		if err := watch.PublishNotification(c.tx, indexChannel, payload); err != nil {
+		if err := publishNotification(c.tx, indexChannel, payload); err != nil {
 			return c.mapSQLError(err, key)
 		}
 	}

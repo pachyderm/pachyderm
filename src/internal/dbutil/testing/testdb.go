@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -30,12 +30,12 @@ var maxOpenConnsPerPool = postgresMaxConnections / runtime.GOMAXPROCS(0)
 // TestDatabaseDeployment represents a deployment of postgres, and databases may
 // be created for individual tests.
 type TestDatabaseDeployment interface {
-	NewDatabase(t testing.TB) (*sqlx.DB, watch.PostgresListener)
+	NewDatabase(t testing.TB) (*sqlx.DB, col.PostgresListener)
 }
 
 type postgresDeployment struct {
 	db      *sqlx.DB
-	connect func(testing.TB, string) (*sqlx.DB, watch.PostgresListener)
+	connect func(testing.TB, string) (*sqlx.DB, col.PostgresListener)
 }
 
 // NewPostgresDeployment creates a kubernetes namespaces containing a
@@ -126,7 +126,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	}
 	require.NotEqual(t, "", address)
 
-	connect := func(t testing.TB, databaseName string) (*sqlx.DB, watch.PostgresListener) {
+	connect := func(t testing.TB, databaseName string) (*sqlx.DB, col.PostgresListener) {
 		options := []dbutil.Option{
 			dbutil.WithHostPort(address, port),
 			dbutil.WithDBName(databaseName),
@@ -144,7 +144,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 			require.NoError(t, db.Close())
 		})
 
-		listener := watch.NewPostgresListener(dbutil.GetDSN(options...))
+		listener := col.NewPostgresListener(dbutil.GetDSN(options...))
 		t.Cleanup(func() {
 			require.NoError(t, listener.Close())
 		})
@@ -161,7 +161,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	return &postgresDeployment{connect: connect, db: db}
 }
 
-func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, watch.PostgresListener) {
+func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, col.PostgresListener) {
 	dbName := ephemeralDBName(t)
 	_, err := pd.db.Exec("CREATE DATABASE " + dbName)
 	require.NoError(t, err)

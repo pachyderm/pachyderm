@@ -1,4 +1,4 @@
-package watch
+package collection
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
 const (
@@ -22,7 +23,7 @@ const (
 
 type postgresWatcher struct {
 	l            *listener
-	c            chan *Event
+	c            chan *watch.Event
 	closeMutex   sync.Mutex
 	closed       bool
 	template     proto.Message
@@ -38,13 +39,13 @@ func newPostgresWatch(l *listener, channelNames []string, template proto.Message
 
 	return &postgresWatcher{
 		l:            l,
-		c:            make(chan *Event),
+		c:            make(chan *watch.Event),
 		template:     template,
 		channelNames: namesCopy,
 	}
 }
 
-func (pw *postgresWatcher) Watch() <-chan *Event {
+func (pw *postgresWatcher) Watch() <-chan *watch.Event {
 	return pw.c
 }
 
@@ -61,7 +62,7 @@ func (pw *postgresWatcher) Close() {
 }
 
 type PostgresListener interface {
-	Listen(channelNames []string, template proto.Message) (Watcher, error)
+	Listen(channelNames []string, template proto.Message) (watch.Watcher, error)
 	Close() error
 }
 
@@ -151,7 +152,7 @@ func (l *listener) reset(err error) {
 	}
 }
 
-func (l *listener) Listen(channelNames []string, template proto.Message) (Watcher, error) {
+func (l *listener) Listen(channelNames []string, template proto.Message) (watch.Watcher, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -210,7 +211,7 @@ func (l *listener) unregister(pw *postgresWatcher) error {
 // Send the given event to the watcher, but abort the watcher if the send would
 // block. If this happens, the watcher is not keeping up with events. Spawn a
 // goroutine to write an error, then close the watcher.
-func sendToWatcher(watcher *postgresWatcher, ev *Event) {
+func sendToWatcher(watcher *postgresWatcher, ev *watch.Event) {
 	select {
 	case watcher.c <- ev:
 	default:
@@ -219,14 +220,14 @@ func sendToWatcher(watcher *postgresWatcher, ev *Event) {
 		watcher.l.unregister(watcher)
 
 		go func() {
-			watcher.c <- &Event{Err: errors.New("watcher channel is full, aborting watch"), Type: EventError}
+			watcher.c <- &watch.Event{Err: errors.New("watcher channel is full, aborting watch"), Type: watch.EventError}
 			watcher.Close()
 		}()
 	}
 }
 
 func sendError(watchers watcherSet, err error) {
-	ev := &Event{Err: err, Type: EventError}
+	ev := &watch.Event{Err: err, Type: watch.EventError}
 	for watcher := range watchers {
 		sendToWatcher(watcher, ev)
 	}
@@ -248,14 +249,14 @@ func (l *listener) routeNotification(n *pq.Notification) {
 			for watcher := range watchers {
 				// TODO: verify this watcher was interested in this data (since there may have been a hash collision)
 				// TODO: load the value from the payload (if we decide to store it inline) or from the database
-				ev := &Event{Key: []byte(payload.Key), Value: nil, Type: EventType(payload.Type), Template: watcher.template}
+				ev := &watch.Event{Key: []byte(payload.Key), Value: nil, Type: watch.EventType(payload.Type), Template: watcher.template}
 				sendToWatcher(watcher, ev)
 			}
 		}
 	}
 }
 
-func PublishNotification(tx *sqlx.Tx, channelName string, payload *NotifyPayload) error {
+func publishNotification(tx *sqlx.Tx, channelName string, payload *NotifyPayload) error {
 	payloadData, err := payload.Marshal()
 	if err != nil {
 		return errors.EnsureStack(err)
