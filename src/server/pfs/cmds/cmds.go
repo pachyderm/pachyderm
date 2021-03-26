@@ -936,7 +936,11 @@ $ {{alias}} foo@master^:XXX
 
 # get file "XXX" in the grandparent of the current head of branch "master"
 # in repo "foo"
-$ {{alias}} foo@master^2:XXX`,
+$ {{alias}} foo@master^2:XXX
+
+# get file test[].txt on branch "master" in repo "foo"
+# the path is interpreted as a glob pattern: quote and protect regex characters
+$ {{alias}} 'foo@master:/test\[\].txt'`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			if !enableProgress {
 				progress.Disable()
@@ -1033,7 +1037,11 @@ $ {{alias}} foo@master^2
 $ {{alias}} foo@master --history n
 
 # list all versions of top-level files on branch "master" in repo "foo"
-$ {{alias}} foo@master --history all`,
+$ {{alias}} foo@master --history all
+
+# list file under directory dir[1] on branch "master" in repo "foo"
+# the path is interpreted as a glob pattern: quote and protect regex characters
+$ {{alias}} 'foo@master:dir\[1\]'`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
