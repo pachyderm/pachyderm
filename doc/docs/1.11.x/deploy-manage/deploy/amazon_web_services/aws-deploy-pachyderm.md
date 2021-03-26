@@ -22,7 +22,7 @@ Pachyderm requires the following types of persistent storage:
 * An **Elastic Block Storage (EBS) persistent volume (PV) for Pachyderm metadata**.
  
 !!! Warning
-      The metadata service generally requires a small persistent volume size (i.e. 10GB) **but high IOPS (1500)****, therefore, depending on your disk choice, you may need to oversize the volume significantly to insure enough IOPS.
+      The metadata service generally requires a small persistent volume size (i.e. 10GB) **but high IOPS (1500)****, therefore, depending on your disk choice, you may need to oversize the volume significantly to ensure enough IOPS.
 
 Pachyderm recommends that you **assign at least 1500
 IOPS** (which requires provisioning **at least 500 GB of space on gp2 volumes**, the

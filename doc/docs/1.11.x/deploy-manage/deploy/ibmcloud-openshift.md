@@ -25,7 +25,7 @@ You will need a storage class as defined in IBM Cloud OpenShift cluster. You wou
 A custom deploy can also create storage. 
 
 !!! Warning
-    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your disk choice, you may need to oversize the volume significantly to insure enough IOPS.
+    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your disk choice, you may need to oversize the volume significantly to ensure enough IOPS.
 
 ### Object store
 

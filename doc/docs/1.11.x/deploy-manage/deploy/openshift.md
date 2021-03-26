@@ -23,7 +23,7 @@ A custom deploy can also create storage.
 We will show you below how to take out the PV that is automatically created, in case you want to create it outside of the Pachyderm deployment and just consume it.
 
 !!! Warning
-    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your cloud provider, and disk generation, you may need to oversize the volume significantly to insure enough IOPS.
+    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your cloud provider, and disk generation, you may need to oversize the volume significantly to ensure enough IOPS.
 
 ### Object store
 

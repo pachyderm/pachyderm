@@ -91,7 +91,7 @@ you will need to find out the particulars of your cluster's PV configuration and
 You will need to use a PV with enough space for the metadata associated with the data you plan to store in Pachyderm. 
 
 !!! Warning
-    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your cloud provider, and disk generation, you may need to oversize the volume significantly to insure enough IOPS (i.e. 500G for EBS gp2, 50G for GCP ssd).
+    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your cloud provider, and disk generation, you may need to oversize the volume significantly to ensure enough IOPS (i.e. 500G for EBS gp2, 50G for GCP ssd).
 
 ##### Creating the PV
 
