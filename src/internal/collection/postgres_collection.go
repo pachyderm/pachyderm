@@ -412,10 +412,6 @@ func (c *postgresReadOnlyCollection) WatchOneF(key string, f func(*watch.Event) 
 	return errors.New("WatchOneF is not supported on read-only postgres collections")
 }
 
-func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, val interface{}) (watch.Watcher, error) {
-	return nil, errors.New("WatchByIndex is not supported on read-only postgres collections")
-}
-
 type postgresReadWriteCollection struct {
 	*postgresCollection
 	tx *sqlx.Tx

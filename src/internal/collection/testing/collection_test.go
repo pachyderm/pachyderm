@@ -45,6 +45,19 @@ func intRange(start int, end int) []int {
 	return result
 }
 
+func doWrite(id int) func(rw col.ReadWriteCollection) error {
+	return func(rw col.ReadWriteCollection) error {
+		testProto := makeProto(id)
+		return rw.Put(testProto.ID, testProto)
+	}
+}
+
+func doDelete(id int) func(rw col.ReadWriteCollection) error {
+	return func(rw col.ReadWriteCollection) error {
+		return rw.Delete(makeID(id))
+	}
+}
+
 // populateCollection writes a standard set of rows to the collection for use by
 // individual tests.
 func populateCollection(rw col.ReadWriteCollection) error {
@@ -341,49 +354,42 @@ func collectionTests(
 			})
 		})
 
+		// 'Watch' functions with callbacks don't have a good hook to trigger
+		// events. This is a bit racy, but we can sleep a bit to let the listen get
+		// started, then trigger some writes.
+		asyncWrite := func(t *testing.T, writer WriteCallback, cbs ...func(rw col.ReadWriteCollection) error) {
+			go func() {
+				time.Sleep(100 * time.Millisecond)
+				for _, cb := range cbs {
+					require.NoError(t, writer(cb))
+				}
+			}()
+		}
+
+		// Helper function for checking watch events
+		extractKey := func(ev interface{}) interface{} {
+			return string(ev.(*watch.Event).Key)
+		}
+
+		// Helper function for checking watch events
+		extractEventType := func(ev interface{}) interface{} {
+			return ev.(*watch.Event).Type
+		}
+
+		// Helper function for checking watch events
+		collectEvents := func(count int, out *[]*watch.Event) func(*watch.Event) error {
+			return func(ev *watch.Event) error {
+				*out = append(*out, ev)
+				fmt.Printf("got watch event: %v\n", ev)
+				if len(*out) == count {
+					return errutil.ErrBreak
+				}
+				return nil
+			}
+		}
+
 		suite.Run("WatchF", func(subsuite *testing.T) {
 			subsuite.Parallel()
-
-			doWrite := func(id int) func(rw col.ReadWriteCollection) error {
-				return func(rw col.ReadWriteCollection) error {
-					testProto := makeProto(id)
-					return rw.Put(testProto.ID, testProto)
-				}
-			}
-
-			doDelete := func(id int) func(rw col.ReadWriteCollection) error {
-				return func(rw col.ReadWriteCollection) error {
-					return rw.Delete(makeID(id))
-				}
-			}
-
-			asyncWrite := func(t *testing.T, writer WriteCallback, cbs ...func(rw col.ReadWriteCollection) error) {
-				go func() {
-					time.Sleep(100 * time.Millisecond)
-					for _, cb := range cbs {
-						require.NoError(t, writer(cb))
-					}
-				}()
-			}
-
-			collectEvents := func(count int, out *[]*watch.Event) func(*watch.Event) error {
-				return func(ev *watch.Event) error {
-					*out = append(*out, ev)
-					fmt.Printf("got watch event: %v\n", ev)
-					if len(*out) == count {
-						return errutil.ErrBreak
-					}
-					return nil
-				}
-			}
-
-			extractKey := func(ev interface{}) interface{} {
-				return string(ev.(*watch.Event).Key)
-			}
-
-			extractEventType := func(ev interface{}) interface{} {
-				return ev.(*watch.Event).Type
-			}
 
 			subsuite.Run("Delete", func(t *testing.T) {
 				t.Parallel()
@@ -455,13 +461,6 @@ func collectionTests(
 			subsuite.Run("ErrNotFound", func(t *testing.T) {
 				t.Parallel()
 			})
-			subsuite.Run("Success", func(t *testing.T) {
-				t.Parallel()
-			})
-		})
-
-		suite.Run("WatchByIndex", func(subsuite *testing.T) {
-			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 			})
