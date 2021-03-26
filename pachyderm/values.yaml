@@ -245,6 +245,7 @@ worker:
   image:
     repository: "pachyderm/worker"
     tag: "1.12.4"
+    pullPolicy: "IfNotPresent"
   serviceAccount:
     create: true
     # name sets the name of the worker service account.  Analogous to

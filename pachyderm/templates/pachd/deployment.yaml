@@ -48,7 +48,7 @@ spec:
         - name: WORKER_SIDECAR_IMAGE
           value: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY
-          value: IfNotPresent #TODO
+          value: {{ .Values.worker.image.pullPolicy | quote }}
         - name: WORKER_SERVICE_ACCOUNT
           value: {{ .Values.worker.serviceAccount.name | quote }}
         - name: PACHD_VERSION
