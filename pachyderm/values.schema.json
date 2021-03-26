@@ -402,6 +402,9 @@
                 "image": {
                     "type": "object",
                     "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
                         "repository": {
                             "type": "string"
                         },

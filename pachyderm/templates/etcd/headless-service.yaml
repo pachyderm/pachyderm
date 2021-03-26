@@ -1,4 +1,3 @@
-{{- if eq .Values.pachd.storage.backend "LOCAL" | not -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,4 +13,3 @@ spec:
     port: 2380
   selector:
     app: etcd
-{{ end -}}
