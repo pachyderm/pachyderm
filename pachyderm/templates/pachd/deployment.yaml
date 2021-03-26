@@ -50,7 +50,7 @@ spec:
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent #TODO
         - name: WORKER_SERVICE_ACCOUNT
-          value: {{ .Values.pachd.workerServiceAccount.name }}
+          value: {{ .Values.worker.serviceAccount.name }}
         - name: PACHD_VERSION
           value: "{{ .Values.pachd.image.tag }}"
         - name: METRICS

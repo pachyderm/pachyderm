@@ -371,17 +371,6 @@
                             "type": "integer"
                         }
                     }
-                },
-                "workerServiceAccount": {
-                    "type": "object",
-                    "properties": {
-                        "create": {
-                            "type": "boolean"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    }
                 }
             }
         },
@@ -417,6 +406,17 @@
                             "type": "string"
                         },
                         "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean"
+                        },
+                        "name": {
                             "type": "string"
                         }
                     }
