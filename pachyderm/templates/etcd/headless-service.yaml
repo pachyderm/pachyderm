@@ -1,4 +1,4 @@
-{{- if and (gt .Values.etcd.dynamicNodes 0.0) (eq .Values.pachd.storage.backend "LOCAL" | not) -}}
+{{- if eq .Values.pachd.storage.backend "LOCAL" | not -}}
 apiVersion: v1
 kind: Service
 metadata:
