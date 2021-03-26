@@ -2,7 +2,7 @@
 
 Pachyderm Community Edition **limits the number of pipelines** users can deploy and **caps the parallelism** settings of those pipelines.  
 
-If your DAGs require more than what our Community Edition allows you to run, [ask for a free trial and receive a time-limited enterprise license token](http://pachdm.com/enterprise). 
+If your DAGs require more than what our Community Edition allows you to run, [ask for a free trial and receive a time-limited enterprise license token](https://www.pachyderm.com/trial). 
 
 ## Scaling Limits
 
@@ -14,10 +14,10 @@ Are you hitting those limits? You are likely to be needing our assistance in opt
 
 ## Lift the limitations
 
-To experiment with Pachyderm without limit, we provide an easy way to request an [**Enterprise Edition trial token**](http://pachdm.com/enterprise). Fill in the form (link provided) and receive an enterprise license token.
+To experiment with Pachyderm without limit, we provide an easy way to request an [**Enterprise Edition trial token**](https://www.pachyderm.com/trial). Fill in the form (link provided) and receive an enterprise license token.
 
 !!! Info "You might qualify for a free Enterprise license." 
-    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](http://pachdm.com/enterprise). 
+    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](https://www.pachyderm.com/trial). 
 
 ## What happens when you exceed those limits?
 

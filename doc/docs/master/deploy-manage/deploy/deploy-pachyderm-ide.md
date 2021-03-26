@@ -1,7 +1,7 @@
 # Deploy the Pachyderm IDE
 
 !!! Note
-    The Pachyderm IDE is an enterprise feature. Request an [**Enterprise Edition trial token**](http://pachdm.com/enterprise).
+    The Pachyderm IDE is an enterprise feature. Request an [**Enterprise Edition trial token**](https://www.pachyderm.com/trial).
 
 The Pachyderm Integrated Development Environment (IDE) is
 an optional extension to Pachyderm clusters that provides a
