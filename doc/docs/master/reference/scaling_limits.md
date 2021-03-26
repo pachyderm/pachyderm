@@ -17,13 +17,13 @@ Are you hitting those limits? You are likely to be needing our assistance in opt
 To experiment with Pachyderm without limit, we provide an easy way to request an [**Enterprise Edition trial token**](http://pachdm.com/enterprise). Fill in the form (link provided) and receive an enterprise license token.
 
 !!! Info "You might qualify for a free Enterprise license." 
-    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Get in touch](http://pachdm.com/enterprise). 
+    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](http://pachdm.com/enterprise). 
 
 ## What happens when you exceed those limits?
 
 As a general rule, Pachyderm provides a message in the STDERR whenever a limit is encountered.
 
-For example, each `pachctl` command invoking an enterprise feature (such as `pachctl auth,` `pachctl deploy ide`...) logs an alert message in your STDERR with a link to the [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/) for more information. 
+For example, each `pachctl` command invoking an enterprise feature (such as `pachctl auth,` `pachctl deploy ide`...) logs an alert message in your STDERR with a link to the [Enterprise Edition documentation](https://docs.pachyderm.com/latest/enterprise/) for more information. 
 
 ### Limit on the number of pipelines
 When exceeding the number of pipelines:
