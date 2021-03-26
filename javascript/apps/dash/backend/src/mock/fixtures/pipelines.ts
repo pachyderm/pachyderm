@@ -92,6 +92,7 @@ const pipelines: {[projectId: string]: PipelineInfo[]} = {
   '3': tutorial,
   '4': customerTeam,
   '5': tutorial,
+  default: [...tutorial, ...customerTeam],
 };
 
 export default pipelines;

@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 
+import {Metadata, StatusBuilder, status} from '@grpc/grpc-js';
+import {callErrorFromStatus} from '@grpc/grpc-js/build/src/call';
 import {ApolloError} from 'apollo-server-errors';
 import {sign} from 'jsonwebtoken';
 import fetch from 'node-fetch';
@@ -89,4 +91,32 @@ export const generateIdTokenForAccount = ({id, ...rest}: Account) => {
   );
 };
 
-export {mockServer, graphqlServer, executeOperation, createOperation};
+const createServiceError = (statusArgs: {
+  code: status;
+  details?: string;
+  metadata?: Metadata;
+}) => {
+  const defaultStatusArgs = {
+    code: status.INTERNAL,
+    details: 'error',
+    metadata: new Metadata(),
+  };
+
+  const statusObj = new StatusBuilder()
+    .withCode(statusArgs.code)
+    .withDetails(statusArgs.details || defaultStatusArgs.details)
+    .withMetadata(statusArgs.metadata || defaultStatusArgs.metadata)
+    .build();
+
+  // callErrorFromStatus expects a StatusObject but StatusBuilder returns Partial<StatusObject>
+  return callErrorFromStatus({...defaultStatusArgs, ...statusObj});
+};
+
+export {
+  status,
+  createServiceError,
+  mockServer,
+  graphqlServer,
+  executeOperation,
+  createOperation,
+};

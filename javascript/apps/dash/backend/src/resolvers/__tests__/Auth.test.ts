@@ -1,5 +1,11 @@
+import {status} from '@grpc/grpc-js';
+
 import accounts from '@dash-backend/mock/fixtures/accounts';
-import {mockServer, executeOperation} from '@dash-backend/testHelpers';
+import {
+  mockServer,
+  executeOperation,
+  createServiceError,
+} from '@dash-backend/testHelpers';
 import {Account, Tokens} from '@graphqlTypes';
 
 describe('Auth resolver', () => {
@@ -16,7 +22,9 @@ describe('Auth resolver', () => {
     });
 
     it('should return an error if there is a problem exchanging the id token', async () => {
-      mockServer.setHasInvalidIdToken(true);
+      const error = createServiceError({code: status.UNAUTHENTICATED});
+
+      mockServer.setAuthError(error);
 
       const {data, errors = []} = await executeOperation<{
         exchangeCode: Tokens;

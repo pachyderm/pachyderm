@@ -144,6 +144,13 @@ type Project {
   createdAt: Int!
 }
 
+type ProjectDetails {
+  repoCount: Int!
+  pipelineCount: Int!
+  sizeGBytes: Float!
+  jobs: [Job!]!
+}
+
 enum FileType {
   RESERVED
   DIR
@@ -172,6 +179,10 @@ input FileQueryArgs {
   repoName: String!
 }
 
+input ProjectDetailsQueryArgs {
+  projectId: String!
+}
+
 type Tokens {
   pachToken: String!
   idToken: String!
@@ -191,6 +202,7 @@ type Query {
   projects: [Project!]!
   pipelines: [Pipeline!]!
   repos: [Repo!]!
+  projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
   jobs(args: JobQueryArgs!): [Job!]!
   dag(args: DagQueryArgs!): Dag!
   dags(args: DagQueryArgs!): [Dag!]!

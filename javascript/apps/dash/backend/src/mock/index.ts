@@ -35,7 +35,7 @@ const createServer = () => {
   grpcServer.addService(PPSService, pps);
   grpcServer.addService(PFSService, pfs);
   grpcServer.addService(AuthService, auth.getService());
-  grpcServer.addService(ProjectsService, projects);
+  grpcServer.addService(ProjectsService, projects.getService());
 
   authApp.get('/.well-known/openid-configuration', (_, res) => {
     const issuer = process.env.ISSUER_URI;
@@ -122,10 +122,12 @@ const createServer = () => {
     },
 
     // mock methods
-    setHasInvalidIdToken: auth.setHasInvalidIdToken,
+    setAuthError: auth.setError,
+    setProjectsError: projects.setError,
     setTokenError: (tokenError: boolean) => (state.tokenError = tokenError),
     resetState: () => {
       auth.resetState();
+      projects.resetState();
       // Add additional handler resets here
 
       state = {...defaultState};

@@ -2,6 +2,12 @@ import {render, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
+import {BYTES_IN_GIG} from '@dash-backend/lib/constants';
+import {
+  createServiceError,
+  mockServer,
+  status,
+} from '@dash-backend/testHelpers';
 import {withContextProviders} from '@dash-frontend/testHelpers';
 
 import LandingComponent from '../Landing';
@@ -177,5 +183,33 @@ describe('Landing', () => {
 
     expect(await findAllByText('Healthy')).toHaveLength(4);
     expect(await findAllByText('Unhealthy')).toHaveLength(1);
+  });
+
+  it('should display an all tab when viewing just the default project', async () => {
+    const error = createServiceError({code: status.UNIMPLEMENTED});
+    mockServer.setProjectsError(error);
+
+    const {findByText} = render(<Landing />);
+
+    expect(await findByText('All')).toBeInTheDocument();
+  });
+
+  it('should display the project details', async () => {
+    const error = createServiceError({code: status.UNIMPLEMENTED});
+    mockServer.setProjectsError(error);
+
+    const {findByLabelText} = render(<Landing />);
+
+    const repoPipelineCount = await findByLabelText(
+      'Total No. of Repos/Pipelines',
+    );
+    const dataSize = await findByLabelText('Total Data Size');
+    const pipelineStatus = await findByLabelText('Pipeline Status');
+
+    expect(repoPipelineCount.textContent).toEqual('17/17');
+    expect(dataSize.textContent).toEqual(
+      `${(3000 / BYTES_IN_GIG).toFixed(8)}GB`,
+    );
+    expect(pipelineStatus.textContent).toEqual('Healthy');
   });
 });

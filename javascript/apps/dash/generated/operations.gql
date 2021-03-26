@@ -63,6 +63,18 @@ query getJobs($args: JobQueryArgs!) {
     createdAt
   }
 }
+query projectDetails($args: ProjectDetailsQueryArgs!) {
+  projectDetails(args: $args) {
+    sizeGBytes
+    repoCount
+    pipelineCount
+    jobs {
+      id
+      state
+      createdAt
+    }
+  }
+}
 query projects {
   projects {
     id

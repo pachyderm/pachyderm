@@ -363,6 +363,71 @@ export type GetJobsQueryResult = Apollo.QueryResult<
   Types.GetJobsQuery,
   Types.GetJobsQueryVariables
 >;
+export const ProjectDetailsDocument = gql`
+  query projectDetails($args: ProjectDetailsQueryArgs!) {
+    projectDetails(args: $args) {
+      sizeGBytes
+      repoCount
+      pipelineCount
+      jobs {
+        id
+        state
+        createdAt
+      }
+    }
+  }
+`;
+
+/**
+ * __useProjectDetailsQuery__
+ *
+ * To run a query within a React component, call `useProjectDetailsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useProjectDetailsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useProjectDetailsQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useProjectDetailsQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.ProjectDetailsQuery,
+    Types.ProjectDetailsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.ProjectDetailsQuery,
+    Types.ProjectDetailsQueryVariables
+  >(ProjectDetailsDocument, options);
+}
+export function useProjectDetailsLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.ProjectDetailsQuery,
+    Types.ProjectDetailsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.ProjectDetailsQuery,
+    Types.ProjectDetailsQueryVariables
+  >(ProjectDetailsDocument, options);
+}
+export type ProjectDetailsQueryHookResult = ReturnType<
+  typeof useProjectDetailsQuery
+>;
+export type ProjectDetailsLazyQueryHookResult = ReturnType<
+  typeof useProjectDetailsLazyQuery
+>;
+export type ProjectDetailsQueryResult = Apollo.QueryResult<
+  Types.ProjectDetailsQuery,
+  Types.ProjectDetailsQueryVariables
+>;
 export const ProjectsDocument = gql`
   query projects {
     projects {

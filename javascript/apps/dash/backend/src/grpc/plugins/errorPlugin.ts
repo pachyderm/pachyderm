@@ -17,7 +17,10 @@ const errorPlugin: GRPCPlugin = {
 
       // We can transform additional error types below.
       // Unhandled errors will be returned as an INTERNAL_SERVER_ERROR
-      throw new ApolloError(error.details);
+      throw new ApolloError(error.details, '500', {
+        ...error,
+        grpcCode: error.code,
+      });
     }
 
     throw new ApolloError(`Something went wrong requesting ${requestName}`);

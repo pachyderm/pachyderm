@@ -1,10 +1,13 @@
 .PHONY: launch-dev launch-prod setup-auth
 
 launch-dev:
-	npm run mock-and-start --prefix ./backend & npm run start --prefix ./frontend
+	npm run start:dev --prefix ./backend & npm run start --prefix ./frontend
 
 launch-prod:
 	npm run build --prefix ./frontend && npm run build --prefix ./backend && npm start --prefix ./backend
+
+launch-mock:
+	npm run mock-and-start --prefix ./backend & npm run start:mock  --prefix ./frontend
 
 setup-auth:
 	npm run setup

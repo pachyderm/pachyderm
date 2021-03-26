@@ -20,12 +20,12 @@ const executePachCommand = (command) => {
 };
 
 const writeToEnv = (variable, value) => {
-  const environment = readFileSync('.env.test.local', 'utf8');
+  const environment = readFileSync('.env.dev.local', 'utf8');
   const envObject = parse(environment) || {};
 
   envObject[variable] = value;
   return new Promise((res, rej) => {
-    writeFile('.env.test.local', stringify(envObject), (err) => {
+    writeFile('.env.dev.local', stringify(envObject), (err) => {
       if (err) {
         rej(err);
       } else {
@@ -73,12 +73,12 @@ const checkPachVersion = async () => {
 }
 
 const writePachdAddress = async () => {
-  console.log('Writing pachd address to .env.test.local...');
+  console.log('Writing pachd address to .env.dev.local...');
   try {
     await writeToEnv('REACT_APP_PACHD_ADDRESS', LOCAL_PACHD_ADDRESS);
     console.log(`${LOCAL_PACHD_ADDRESS} ✅`);
   } catch (e) {
-    console.error('Problem writing pachd address to .env.test.local:', e);
+    console.error('Problem writing pachd address to .env.dev.local:', e);
     exit(1);
   }
 }

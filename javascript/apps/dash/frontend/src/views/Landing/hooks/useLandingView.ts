@@ -2,7 +2,7 @@ import {SortableItem, stringComparator, useSort} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import every from 'lodash/every';
 import reduce from 'lodash/reduce';
-import {useCallback, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
 import {useProjects} from '@dash-frontend/hooks/useProjects';
@@ -43,7 +43,8 @@ export const useLandingView = () => {
 
   const [searchValue, setSearchValue] = useState('');
   const [sortButtonText, setSortButtonText] = useState('Created On');
-  const [selectedProject, setSelectedProject] = useState(0);
+  const [selectedProject, setSelectedProject] = useState<Project>();
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
 
   const handleSortSelect = useCallback(
     (id: string) => {
@@ -95,11 +96,19 @@ export const useLandingView = () => {
     });
   }, [filters, searchValue, sortedProjects]);
 
+  useEffect(() => {
+    if (!loading && !projectsLoaded) {
+      setSelectedProject(filteredProjects[0]);
+      setProjectsLoaded(true);
+    }
+  }, [loading, filteredProjects, projectsLoaded]);
+
   return {
     filterStatus,
     filterFormCtx,
     handleSortSelect,
     loading,
+    multiProject: projects.length > 1,
     projects: filteredProjects,
     projectCount: projects.length,
     searchValue,

@@ -1,3 +1,4 @@
 .env.local
 .env.test.local
+.env.dev.local
 .env.production.local

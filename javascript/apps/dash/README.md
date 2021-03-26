@@ -10,7 +10,7 @@ make install
 ### Against the mock gRPC
 To run the development environment against the mock gRPC server, run:
 
-`make launch-dev`
+`make launch-mock`
 
 This will start the UI server, API server, mock gRPC server, and a mock IDP. You can access the UI in the browser at `localhost:4000`.
 
@@ -24,9 +24,9 @@ This feature is still under development, and will likely change.
 1. Run `make setup-auth`. This will walk you through the setup for your local cluster.
 1. Run `pachctl port-forward`
 1. (Optional) Use `pachctl auth login` to login via Github. If you opt not to do this, you will continue as the root user when creating resources.
-1. Run `npm run start:dev` from the /backend directory, and `npm run start` from the /frontend directory.
-1. Make sure to delete any existing `auth-token` from the mock-server in `localStorage`.
-1. Navigate to `localhost:4000` in the browser.
+2. Run `make launch-dev`.
+3. Make sure to delete any existing `auth-token` from the mock-server in `localStorage`.
+4. Navigate to `localhost:4000` in the browser.
 
 ## Running the production server
 

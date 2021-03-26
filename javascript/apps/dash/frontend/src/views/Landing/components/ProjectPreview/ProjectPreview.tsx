@@ -2,7 +2,7 @@ import {Info, Group, InfoSVG} from '@pachyderm/components';
 import React from 'react';
 import {Link} from 'react-router-dom';
 
-import {useJobs} from '@dash-frontend/hooks/useJobs';
+import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {Project} from '@graphqlTypes';
 
 import ProjectStatus from '../ProjectStatus';
@@ -14,10 +14,10 @@ type ProjectPreviewProps = {
   project: Project;
 };
 
-const ProjectRow: React.FC<ProjectPreviewProps> = ({project}) => {
-  const {jobs, loading} = useJobs(project.id);
+const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
+  const {projectDetails, loading} = useProjectDetails(project.id);
 
-  if (loading) return null; // TODO loading view
+  if (!projectDetails || loading) return null; // TODO loading view
 
   return (
     <div className={styles.base}>
@@ -28,14 +28,12 @@ const ProjectRow: React.FC<ProjectPreviewProps> = ({project}) => {
             header="Total No. of Repos/Pipelines"
             headerId="total-repos-and-pipelines"
           >
-            {/* TODO: get from API */}
-            120 / 56
+            {projectDetails.repoCount}/{projectDetails.repoCount}
           </Info>
           <Info header="Total Data Size" headerId="total-data-size">
-            {/* TODO: get from API */}
-            85GM
+            {projectDetails.sizeGBytes.toFixed(8)}GB
           </Info>
-          <Info header="Project Status" headerId="pipeline-status">
+          <Info header="Pipeline Status" headerId="pipeline-status">
             <div className={styles.inline}>
               <ProjectStatus status={project.status} />
               {project.status.toString() === 'UNHEALTHY' && (
@@ -54,11 +52,11 @@ const ProjectRow: React.FC<ProjectPreviewProps> = ({project}) => {
           <h4 className={styles.subTitle}>Last 30 Jobs</h4>
         </Group>
       </div>
-      {jobs.map((job) => (
+      {projectDetails.jobs.map((job) => (
         <JobListItem job={job} key={job.id} />
       ))}
     </div>
   );
 };
 
-export default ProjectRow;
+export default ProjectPreview;

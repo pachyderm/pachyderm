@@ -49,6 +49,7 @@ const jobs: {[projectId: string]: JobInfo[]} = {
   '3': tutorial,
   '4': customerTeam,
   '5': tutorial,
+  default: [...tutorial, ...customerTeam],
 };
 
 export default jobs;

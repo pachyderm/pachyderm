@@ -14,6 +14,7 @@ const Landing: React.FC = () => {
     filterStatus,
     handleSortSelect,
     loading,
+    multiProject,
     projects,
     projectCount,
     searchValue,
@@ -30,7 +31,10 @@ const Landing: React.FC = () => {
       <div className={styles.tableWrapper}>
         <TableView title="Projects" errorMessage="Error loading projects">
           <TableView.Header heading="Projects" headerButtonHidden />
-          <TableView.Body initialActiveTabId="Team" showSkeleton={false}>
+          <TableView.Body
+            initialActiveTabId={multiProject ? 'Team' : 'All'}
+            showSkeleton={false}
+          >
             <TableView.Body.Header>
               <TableView.Body.Tabs
                 placeholder=""
@@ -38,15 +42,23 @@ const Landing: React.FC = () => {
                 onSearch={setSearchValue}
                 showSearch
               >
-                <TableView.Body.Tabs.Tab id="Team" count={projectCount}>
-                  Team
-                </TableView.Body.Tabs.Tab>
-                <TableView.Body.Tabs.Tab id="Personal" count={0}>
-                  Personal
-                </TableView.Body.Tabs.Tab>
-                <TableView.Body.Tabs.Tab id="Playground" count={0}>
-                  Playground
-                </TableView.Body.Tabs.Tab>
+                {multiProject ? (
+                  <>
+                    <TableView.Body.Tabs.Tab id="Team" count={projectCount}>
+                      Team
+                    </TableView.Body.Tabs.Tab>
+                    <TableView.Body.Tabs.Tab id="Personal" count={0}>
+                      Personal
+                    </TableView.Body.Tabs.Tab>
+                    <TableView.Body.Tabs.Tab id="Playground" count={0}>
+                      Playground
+                    </TableView.Body.Tabs.Tab>
+                  </>
+                ) : (
+                  <TableView.Body.Tabs.Tab id="All" count={projectCount}>
+                    All
+                  </TableView.Body.Tabs.Tab>
+                )}
               </TableView.Body.Tabs>
               <Group spacing={32}>
                 <Dropdown
@@ -83,15 +95,15 @@ const Landing: React.FC = () => {
                 </TableView.Body.Dropdown>
               </Group>
             </TableView.Body.Header>
-            <TableView.Body.Content id="Team">
+            <TableView.Body.Content id={multiProject ? 'Team' : 'All'}>
               <table className={styles.table}>
                 <tbody>
-                  {projects.map((project, index) => (
+                  {projects.map((project) => (
                     <ProjectRow
                       project={project}
                       key={project.id}
-                      setSelectedProject={() => setSelectedProject(index)}
-                      isSelected={index === selectedProject}
+                      setSelectedProject={() => setSelectedProject(project)}
+                      isSelected={project.id === selectedProject?.id}
                     />
                   ))}
                 </tbody>
@@ -103,9 +115,7 @@ const Landing: React.FC = () => {
         </TableView>
       </div>
       <Sidebar>
-        {projects[selectedProject] && (
-          <ProjectPreview project={projects[selectedProject]} />
-        )}
+        {selectedProject && <ProjectPreview project={selectedProject} />}
       </Sidebar>
     </div>
   );

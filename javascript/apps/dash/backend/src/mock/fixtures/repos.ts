@@ -1,9 +1,9 @@
 import {Repo, RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 const tutorial = [
-  new RepoInfo().setRepo(new Repo().setName('montage')),
-  new RepoInfo().setRepo(new Repo().setName('edges')),
-  new RepoInfo().setRepo(new Repo().setName('images')),
+  new RepoInfo().setRepo(new Repo().setName('montage')).setSizeBytes(1000),
+  new RepoInfo().setRepo(new Repo().setName('edges')).setSizeBytes(1000),
+  new RepoInfo().setRepo(new Repo().setName('images')).setSizeBytes(1000),
 ];
 
 const customerTeam = [
@@ -29,6 +29,7 @@ const repos: {[projectId: string]: RepoInfo[]} = {
   '3': tutorial,
   '4': customerTeam,
   '5': tutorial,
+  default: [...tutorial, ...customerTeam],
 };
 
 export default repos;

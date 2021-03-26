@@ -160,6 +160,14 @@ export type Project = {
   createdAt: Scalars['Int'];
 };
 
+export type ProjectDetails = {
+  __typename?: 'ProjectDetails';
+  repoCount: Scalars['Int'];
+  pipelineCount: Scalars['Int'];
+  sizeGBytes: Scalars['Float'];
+  jobs: Array<Job>;
+};
+
 export {FileType};
 
 export type Timestamp = {
@@ -186,6 +194,10 @@ export type FileQueryArgs = {
   repoName: Scalars['String'];
 };
 
+export type ProjectDetailsQueryArgs = {
+  projectId: Scalars['String'];
+};
+
 export type Tokens = {
   __typename?: 'Tokens';
   pachToken: Scalars['String'];
@@ -209,12 +221,17 @@ export type Query = {
   projects: Array<Project>;
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
+  projectDetails: ProjectDetails;
   jobs: Array<Job>;
   dag: Dag;
   dags: Array<Dag>;
   files: Array<File>;
   account: Account;
   searchResults: SearchResults;
+};
+
+export type QueryProjectDetailsArgs = {
+  args: ProjectDetailsQueryArgs;
 };
 
 export type QueryJobsArgs = {
@@ -389,11 +406,13 @@ export type ResolversTypes = ResolversObject<{
   DagQueryArgs: DagQueryArgs;
   JobQueryArgs: JobQueryArgs;
   Project: ResolverTypeWrapper<Project>;
+  ProjectDetails: ResolverTypeWrapper<ProjectDetails>;
+  Float: ResolverTypeWrapper<Scalars['Float']>;
   FileType: FileType;
   Timestamp: ResolverTypeWrapper<Timestamp>;
   File: ResolverTypeWrapper<File>;
-  Float: ResolverTypeWrapper<Scalars['Float']>;
   FileQueryArgs: FileQueryArgs;
+  ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
   Tokens: ResolverTypeWrapper<Tokens>;
   Account: ResolverTypeWrapper<Account>;
   SearchResults: ResolverTypeWrapper<SearchResults>;
@@ -422,10 +441,12 @@ export type ResolversParentTypes = ResolversObject<{
   DagQueryArgs: DagQueryArgs;
   JobQueryArgs: JobQueryArgs;
   Project: Project;
+  ProjectDetails: ProjectDetails;
+  Float: Scalars['Float'];
   Timestamp: Timestamp;
   File: File;
-  Float: Scalars['Float'];
   FileQueryArgs: FileQueryArgs;
+  ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
   Tokens: Tokens;
   Account: Account;
   SearchResults: SearchResults;
@@ -662,6 +683,17 @@ export type ProjectResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ProjectDetailsResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['ProjectDetails'] = ResolversParentTypes['ProjectDetails']
+> = ResolversObject<{
+  repoCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  pipelineCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeGBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type FileTypeResolvers = EnumResolverSignature<
   {RESERVED?: any; DIR?: any; FILE?: any},
   ResolversTypes['FileType']
@@ -741,6 +773,12 @@ export type QueryResolvers<
     ContextType
   >;
   repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
+  projectDetails?: Resolver<
+    ResolversTypes['ProjectDetails'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryProjectDetailsArgs, 'args'>
+  >;
   jobs?: Resolver<
     Array<ResolversTypes['Job']>,
     ParentType,
@@ -803,6 +841,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Link?: LinkResolvers<ContextType>;
   Dag?: DagResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
+  ProjectDetails?: ProjectDetailsResolvers<ContextType>;
   FileType?: FileTypeResolvers;
   Timestamp?: TimestampResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
@@ -894,6 +933,21 @@ export type GetJobsQueryVariables = Exact<{
 
 export type GetJobsQuery = {__typename?: 'Query'} & {
   jobs: Array<{__typename?: 'Job'} & Pick<Job, 'id' | 'state' | 'createdAt'>>;
+};
+
+export type ProjectDetailsQueryVariables = Exact<{
+  args: ProjectDetailsQueryArgs;
+}>;
+
+export type ProjectDetailsQuery = {__typename?: 'Query'} & {
+  projectDetails: {__typename?: 'ProjectDetails'} & Pick<
+    ProjectDetails,
+    'sizeGBytes' | 'repoCount' | 'pipelineCount'
+  > & {
+      jobs: Array<
+        {__typename?: 'Job'} & Pick<Job, 'id' | 'state' | 'createdAt'>
+      >;
+    };
 };
 
 export type ProjectsQueryVariables = Exact<{[key: string]: never}>;

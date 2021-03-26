@@ -2,6 +2,7 @@ import {render, waitFor} from '@testing-library/react';
 import React from 'react';
 import {Route} from 'react-router';
 
+import {createServiceError, status} from '@dash-backend/testHelpers';
 import AuthenticatedRoute from '@dash-frontend/components/AuthenticatedRoute';
 import {mockServer, withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -48,7 +49,8 @@ describe('AuthenticatedRoute', () => {
   });
 
   it('should redirect the user to the error page if there is an issue with redeeming the auth code', async () => {
-    mockServer.setHasInvalidIdToken(true);
+    const error = createServiceError({code: status.UNAUTHENTICATED});
+    mockServer.setAuthError(error);
     window.localStorage.setItem('oauthCode', 'code');
 
     render(<TestBed />);

@@ -1,8 +1,9 @@
+import {ServiceError, status} from '@grpc/grpc-js';
 import {IAPIServer} from '@pachyderm/proto/pb/auth/auth_grpc_pb';
 import {AuthenticateResponse} from '@pachyderm/proto/pb/auth/auth_pb';
 
-const defaultState = {
-  hasInvalidIdToken: false,
+const defaultState: {error: ServiceError | null} = {
+  error: null,
 };
 
 const auth = () => {
@@ -12,7 +13,7 @@ const auth = () => {
     getService: (): Pick<IAPIServer, 'authenticate'> => {
       return {
         authenticate: (_, callback) => {
-          if (state.hasInvalidIdToken) {
+          if (state.error?.code === status.UNAUTHENTICATED) {
             return callback(new Error('Invalid ID token'), null);
           }
 
@@ -20,8 +21,8 @@ const auth = () => {
         },
       };
     },
-    setHasInvalidIdToken: (hasInvalidToken: boolean) => {
-      state.hasInvalidIdToken = hasInvalidToken;
+    setError: (error: ServiceError | null) => {
+      state.error = error;
     },
     resetState: () => {
       state = {...defaultState};

@@ -37,11 +37,11 @@
   line-height: 25px;
 }
 
-.row.healthySelected td:first-child {
+.row.HEALTHYSelected td:first-child {
   border-left: solid 6px var(--banner-green);
   padding-left: calc(1.5rem - 6px);
 }
-.row.unhealthySelected td:first-child {
+.row.UNHEALTHYSelected td:first-child {
   border-left: solid 6px var(--error-red);
   padding-left: calc(1.5rem - 6px);
 }
