@@ -44,13 +44,13 @@ spec:
         - name: WORKER_IMAGE
           value: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
         - name: IMAGE_PULL_SECRET
-          #value: TODO
+          value: {{ .Values.imagePullSecret | quote }}
         - name: WORKER_SIDECAR_IMAGE
           value: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent #TODO
         - name: WORKER_SERVICE_ACCOUNT
-          value: {{ .Values.worker.serviceAccount.name }}
+          value: {{ .Values.worker.serviceAccount.name | quote }}
         - name: PACHD_VERSION
           value: "{{ .Values.pachd.image.tag }}"
         - name: METRICS
@@ -65,7 +65,7 @@ spec:
           value: {{ .Values.pachd.blockCacheBytes | quote }}
           {{- if.Values.pachd.storage.amazon.iamRole }}
         - name: IAM_ROLE
-          value: {{ .Values.pachd.storage.amazon.iamRole }}
+          value: {{ .Values.pachd.storage.amazon.iamRole | quote }}
           {{- end }}
         - name: NO_EXPOSE_DOCKER_SOCKET
           value: {{ .Values.pachd.exposeDockerSocket | not | quote }}
@@ -86,7 +86,7 @@ spec:
           value: {{ .Values.pachd.exposeObjectAPI | quote }}
         {{- if .Values.pachd.clusterDeploymentID }}
         - name: CLUSTER_DEPLOYMENT_ID
-          value: {{ .Values.pachd.clusterDeploymentID }}
+          value: {{ .Values.pachd.clusterDeploymentID | quote }}
         {{- end }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
