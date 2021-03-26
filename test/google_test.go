@@ -6,6 +6,7 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	appsV1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	storageV1 "k8s.io/api/storage/v1"
 )
 
 /*
@@ -76,6 +77,7 @@ func TestGoogleValues(t *testing.T) {
 		pachdServiceAccount = "128"
 		serviceAccount      = "a-service-account"
 		helmChartPath       = "../pachyderm"
+		provisioner         = "kubernetes.io/gce-pd"
 		checks              = map[string]bool{
 			"bucket":                false,
 			"cred":                  false,
@@ -84,6 +86,7 @@ func TestGoogleValues(t *testing.T) {
 			"GOOGLE_BUCKET":         false,
 			"GOOGLE_CRED":           false,
 			"volume claim template": false,
+			"storage class":         false,
 		}
 
 		options = &helm.Options{
@@ -207,6 +210,14 @@ func TestGoogleValues(t *testing.T) {
 				}
 				checks["volume claim template"] = true
 			}
+		case *storageV1.StorageClass:
+			if resource.Name != "etcd-storage-class" {
+				continue
+			}
+			if resource.Provisioner != provisioner {
+				t.Errorf("expected storageclass provisioner to be %q but it was %q", provisioner, resource.Provisioner)
+			}
+			checks["storage class"] = true
 		}
 	}
 	for check := range checks {
