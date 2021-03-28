@@ -776,7 +776,7 @@ func collectionTests(
 				subsuite.Parallel()
 				subsuite.Run("UpsertError", func(t *testing.T) {
 					t.Parallel()
-					notExistsID := 10
+					existsID := 3
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
 						testProto := &TestItem{}
 						if err := rw.Upsert(makeID(6), testProto, func() error {
@@ -784,10 +784,10 @@ func collectionTests(
 						}); err != nil {
 							return err
 						}
-						return rw.Create(makeID(3), testProto)
+						return rw.Create(makeID(existsID), testProto)
 					})
-					require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
-					require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: makeID(notExistsID)}), "Incorrect error: %v", err)
+					require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
+					require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: makeID(existsID)}), "Incorrect error: %v", err)
 				})
 
 				subsuite.Run("UserError", func(t *testing.T) {

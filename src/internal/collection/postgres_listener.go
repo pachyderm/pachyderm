@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
@@ -240,28 +240,27 @@ func (l *listener) routeNotification(n *pq.Notification) {
 	// Ignore any messages from channels we have no watchers for
 	watchers, ok := l.channels[n.Channel]
 	if ok {
-		payload := &NotifyPayload{}
-		if payloadData, err := base64.StdEncoding.DecodeString(n.Extra); err != nil {
+		fmt.Printf("n.Extra: %s\n", n.Extra)
+		parts := strings.Split(n.Extra, " ") // key, type, date, data
+
+		eventType := watch.EventError
+		switch parts[1] {
+		case "INSERT", "UPDATE":
+			eventType = watch.EventPut
+		case "DELETE":
+			eventType = watch.EventDelete
+		}
+
+		if eventType == watch.EventError {
+			sendError(watchers, errors.Errorf("failed to decode notification payload operation type: %s", parts[1]))
+		} else if protoData, err := base64.StdEncoding.DecodeString(parts[3]); err != nil {
 			sendError(watchers, errors.Wrap(err, "failed to decode notification payload base64"))
-		} else if err := payload.Unmarshal(payloadData); err != nil {
-			sendError(watchers, errors.Wrap(err, "failed to parse notification payload protobuf"))
 		} else {
 			for watcher := range watchers {
 				// TODO: verify this watcher was interested in this data (since there may have been a hash collision)
-				// TODO: load the value from the payload (if we decide to store it inline) or from the database
-				ev := &watch.Event{Key: []byte(payload.Key), Value: nil, Type: watch.EventType(payload.Type), Template: watcher.template}
+				ev := &watch.Event{Key: []byte(parts[0]), Value: protoData, Type: eventType, Template: watcher.template}
 				sendToWatcher(watcher, ev)
 			}
 		}
 	}
-}
-
-func publishNotification(tx *sqlx.Tx, channelName string, payload *NotifyPayload) error {
-	payloadData, err := payload.Marshal()
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	payloadString := base64.StdEncoding.EncodeToString(payloadData)
-	_, err = tx.Exec(fmt.Sprintf("notify %s, '%s'", channelName, payloadString))
-	return err
 }

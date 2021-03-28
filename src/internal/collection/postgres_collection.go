@@ -142,7 +142,7 @@ begin
 	  raise exception 'Unrecognized tg_op: "%%"', tg_op;
 	end case;
 
-	payload := row.updatedat::text || ' ' || encode(row.proto, 'base64');
+	payload := row.key || ' ' || tg_op || ' ' || date_part('epoch', row.updatedat)::text || ' ' || encode(row.proto, 'base64');
 	base_channel := 'pwc_' || tg_table_name;
 
 	if tg_argv is not null then
@@ -498,6 +498,7 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 
 	params := map[string]interface{}{
 		"version": version.PrettyVersion(),
+		"key":     key,
 		"proto":   data,
 	}
 	updateFields := []string{}
@@ -566,8 +567,17 @@ func (c *postgresReadWriteCollection) Create(key string, val proto.Message) erro
 
 func (c *postgresReadWriteCollection) Delete(key string) error {
 	query := fmt.Sprintf("delete from %s where key = $1;", c.sqlInfo.Table)
-	_, err := c.tx.Exec(query, key)
-	return c.mapSQLError(err, key)
+	res, err := c.tx.Exec(query, key)
+	if err != nil {
+		return c.mapSQLError(err, key)
+	}
+
+	if count, err := res.RowsAffected(); err != nil {
+		return c.mapSQLError(err, key)
+	} else if count == 0 {
+		return errors.WithStack(ErrNotFound{c.sqlInfo.Table, key})
+	}
+	return nil
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
