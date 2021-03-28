@@ -42,7 +42,7 @@ type PostgresModel interface {
 
 type postgresCollection struct {
 	db         *sqlx.DB
-	listener   PostgresListener
+	listener   *PostgresListener
 	model      PostgresModel
 	template   proto.Message
 	sqlInfo    *SQLInfo
@@ -149,11 +149,11 @@ begin
 		foreach field in array tg_argv loop
 			execute 'select ($1).' || field || '::text;' into value using new;
 			channel := base_channel || '_' || md5(value);
-			perform pg_notify(channel, payload);
+			perform pg_notify(channel, field || ' ' || value || ' ' || payload);
 		end loop;
 	end if;
 
-  perform pg_notify(base_channel, payload);
+  perform pg_notify(base_channel, 'key' || ' ' || row.key || ' ' || payload);
 	return row;
 end;
 $$ language 'plpgsql';
@@ -185,8 +185,8 @@ type model struct {
 // Ensure the table and all indices exist
 func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 	columns := []string{
-		"createdat timestamp default current_timestamp",
-		"updatedat timestamp default current_timestamp",
+		"createdat timestamp with time zone default current_timestamp",
+		"updatedat timestamp with time zone default current_timestamp",
 		"proto bytea",
 		"version text",
 		"key text primary key",
@@ -241,7 +241,7 @@ func parseProto(template proto.Message, indexes []*Index) (*SQLInfo, error) {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(db *sqlx.DB, listener PostgresListener, template proto.Message, indexes []*Index) (PostgresCollection, error) {
+func NewPostgresCollection(db *sqlx.DB, listener *PostgresListener, template proto.Message, indexes []*Index) (PostgresCollection, error) {
 	sqlInfo, err := parseProto(template, indexes)
 	if err != nil {
 		return nil, err
@@ -391,7 +391,7 @@ func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string
 	return "", errors.Errorf("unsupported sort target for postgres collections: %d", target)
 }
 
-func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func() error) error {
+func (c *postgresReadOnlyCollection) list(opts *Options, f func(*model) error) error {
 	query := fmt.Sprintf("select * from %s", c.sqlInfo.Table)
 
 	if opts.Order != SortNone {
@@ -416,19 +416,27 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 			return c.mapSQLError(err, "")
 		}
 
-		if err := proto.Unmarshal(result.Proto, val); err != nil {
-			return errors.EnsureStack(err)
-		}
-
-		if err := f(); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
+		if err := f(result); err != nil {
 			return err
 		}
 	}
 
 	return c.mapSQLError(rows.Close(), "")
+}
+
+func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func() error) error {
+	err := c.list(opts, func(m *model) error {
+		if err := proto.Unmarshal(m.Proto, val); err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		return f()
+	})
+
+	if errors.Is(err, errutil.ErrBreak) {
+		return nil
+	}
+	return err
 }
 
 func (c *postgresReadOnlyCollection) Count() (int64, error) {
@@ -449,14 +457,60 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watche
 	return nil, errors.New("Watch is not supported on read-only postgres collections")
 }
 
+func forwardNotifications(watcher *postgresWatcher, startTime time.Time) {
+	watcher.mu.Lock()
+	defer watcher.mu.Unlock()
+
+	close(watcher.buf)
+	defer func() { watcher.buf = nil }()
+
+	for eventData := range watcher.buf {
+		// This allows for double notification on a matching timestamp which is
+		// better than missing a notification.
+		// TODO: this will _always_ happen on the last put event if one is made
+		// while doing the list
+		if !eventData.time.Before(startTime) {
+			// TODO: if this would block, error out
+			watcher.c <- eventData.WatchEvent(watcher.template)
+		}
+	}
+}
+
 func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error {
 	// TODO support filter options (probably can't support the sort option)
 	channelNames := []string{c.tableWatchChannel()}
-	watcher, err := c.listener.Listen(channelNames, c.template)
+	watcher, err := c.listener.listen(channelNames, c.template, nil, nil)
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
+
+	// Do a List of the collection to get the initial state
+	lastUpdated := &time.Time{}
+	val := cloneProtoMsg(c.template)
+	if err := c.list(&Options{Target: SortByModRevision, Order: SortAscend}, func(m *model) error {
+		if err := proto.Unmarshal(m.Proto, val); err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		lastUpdated = &m.UpdatedAt
+
+		return f(&watch.Event{
+			Key:      []byte(m.Key),
+			Value:    m.Proto,
+			Type:     watch.EventPut,
+			Template: c.template,
+		})
+	}); err != nil {
+		if errors.Is(err, errutil.ErrBreak) {
+			return nil
+		}
+		return err
+	}
+
+	// Forward all buffered notifications from while we were listing
+	forwardNotifications(watcher, *lastUpdated)
+
 	return watchF(context.Background(), watcher, f)
 }
 

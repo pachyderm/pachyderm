@@ -3,7 +3,8 @@ package collection
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,15 +23,21 @@ const (
 )
 
 type postgresWatcher struct {
-	l            *listener
+	l            *PostgresListener
 	c            chan *watch.Event
-	closeMutex   sync.Mutex
+	buf          chan *postgresEvent // buffer for messages before the initial table list is complete
+	mu           sync.Mutex
 	closed       bool
 	template     proto.Message
 	channelNames []string
+
+	// Filtering variables:
+	index     *string    // only set if the watch filters by an index (for dealing with hash collisions)
+	value     *string    // only set if 'index' is set
+	startTime *time.Time // only set once the initial list has completed and we know the start time for the watch
 }
 
-func newPostgresWatch(l *listener, channelNames []string, template proto.Message) *postgresWatcher {
+func newPostgresWatch(l *PostgresListener, channelNames []string, template proto.Message, index *string, value *string) *postgresWatcher {
 	// Copy the channel names since it could be mutated
 	namesCopy := make([]string, 0, len(channelNames))
 	for _, name := range channelNames {
@@ -40,8 +47,11 @@ func newPostgresWatch(l *listener, channelNames []string, template proto.Message
 	return &postgresWatcher{
 		l:            l,
 		c:            make(chan *watch.Event),
+		buf:          make(chan *postgresEvent),
 		template:     template,
 		channelNames: namesCopy,
+		index:        index,
+		value:        value,
 	}
 }
 
@@ -50,25 +60,103 @@ func (pw *postgresWatcher) Watch() <-chan *watch.Event {
 }
 
 func (pw *postgresWatcher) Close() {
-	pw.closeMutex.Lock()
-	defer pw.closeMutex.Unlock()
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
 
 	pw.l.unregister(pw)
 
-	if !pw.closed {
-		pw.closed = true
+	if pw.c != nil {
 		close(pw.c)
+		pw.c = nil
+	}
+	if pw.buf != nil {
+		close(pw.buf)
+		pw.buf = nil
 	}
 }
 
-type PostgresListener interface {
-	Listen(channelNames []string, template proto.Message) (watch.Watcher, error)
-	Close() error
+type postgresEvent struct {
+	index     string // the index that was notified by this event
+	value     string // the value of the index for the notified row
+	key       string // the primary key of the notified row
+	eventType watch.EventType
+	time      time.Time // the time that this event was created in postgres
+	protoData []byte    // the serialized protobuf of the row data
+	err       error     // any error that occurred in parsing
+}
+
+func parsePostgresEpoch(s string) (time.Time, error) {
+	parts := strings.Split(s, ".")
+	sec, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return time.Time{}, errors.EnsureStack(err)
+	}
+	if len(parts) == 1 {
+		return time.Unix(sec, 0), nil
+	}
+
+	nsec, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return time.Time{}, errors.EnsureStack(err)
+	}
+	nsec = int64(float64(nsec) * math.Pow10(9-len(parts[1])))
+
+	return time.Unix(sec, nsec), nil
+}
+
+func parsePostgresEvent(payload string) *postgresEvent {
+	// TODO: do this in a streaming manner rather than copying the string
+	parts := strings.Split(payload, " ") // index, value, key, type, date, data
+	if len(parts) != 6 {
+		return &postgresEvent{err: errors.Errorf("failed to parse notification payload, wrong number of parts: %d", len(parts))}
+	}
+
+	eventType := watch.EventError
+	switch parts[3] {
+	case "INSERT", "UPDATE":
+		eventType = watch.EventPut
+	case "DELETE":
+		eventType = watch.EventDelete
+	}
+	if eventType == watch.EventError {
+		return &postgresEvent{err: errors.Errorf("failed to decode notification payload operation type: %s", parts[3])}
+	}
+
+	eventTime, err := parsePostgresEpoch(parts[4])
+	if err != nil {
+		return &postgresEvent{err: errors.Wrapf(err, "failed to decode notification payload timestamp: %s", parts[4])}
+	}
+
+	protoData, err := base64.StdEncoding.DecodeString(parts[5])
+	if err != nil {
+		return &postgresEvent{err: errors.Wrap(err, "failed to decode notification payload base64")}
+	}
+
+	return &postgresEvent{
+		index:     parts[0],
+		value:     parts[1],
+		key:       parts[2],
+		eventType: eventType,
+		time:      eventTime,
+		protoData: protoData,
+	}
+}
+
+func (pe *postgresEvent) WatchEvent(template proto.Message) *watch.Event {
+	if pe.err != nil {
+		return &watch.Event{Err: pe.err, Type: watch.EventError}
+	}
+	return &watch.Event{
+		Key:      []byte(pe.key),
+		Value:    pe.protoData,
+		Type:     pe.eventType,
+		Template: template,
+	}
 }
 
 type watcherSet = map[*postgresWatcher]struct{}
 
-type listener struct {
+type PostgresListener struct {
 	dsn    string
 	pql    *pq.Listener
 	mu     sync.Mutex
@@ -78,10 +166,10 @@ type listener struct {
 	channels map[string]watcherSet
 }
 
-func NewPostgresListener(dsn string) PostgresListener {
+func NewPostgresListener(dsn string) *PostgresListener {
 	eg, _ := errgroup.WithContext(context.Background())
 
-	l := &listener{
+	l := &PostgresListener{
 		dsn:      dsn,
 		eg:       eg,
 		channels: make(map[string]watcherSet),
@@ -90,7 +178,7 @@ func NewPostgresListener(dsn string) PostgresListener {
 	return l
 }
 
-func (l *listener) Close() error {
+func (l *PostgresListener) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -115,7 +203,7 @@ func (l *listener) Close() error {
 // Lazily generate the pq.Listener because we don't want to trigger a race
 // condition where an unused pq.Listener can't be closed properly. The mutex
 // must be locked before calling this.
-func (l *listener) getPQL() *pq.Listener {
+func (l *PostgresListener) getPQL() *pq.Listener {
 	if l.pql == nil {
 		l.pql = pq.NewListener(l.dsn, minReconnectInterval, maxReconnectInterval, nil)
 		l.eg.Go(func() error {
@@ -125,7 +213,7 @@ func (l *listener) getPQL() *pq.Listener {
 	return l.pql
 }
 
-func (l *listener) multiplex(notifyChan chan *pq.Notification) error {
+func (l *PostgresListener) multiplex(notifyChan chan *pq.Notification) error {
 	for {
 		notification, ok := <-notifyChan
 		if !ok {
@@ -141,7 +229,7 @@ func (l *listener) multiplex(notifyChan chan *pq.Notification) error {
 	}
 }
 
-func (l *listener) reset(err error) {
+func (l *PostgresListener) reset(err error) {
 	for _, watchers := range l.channels {
 		sendError(watchers, err)
 	}
@@ -152,7 +240,7 @@ func (l *listener) reset(err error) {
 	}
 }
 
-func (l *listener) Listen(channelNames []string, template proto.Message) (watch.Watcher, error) {
+func (l *PostgresListener) listen(channelNames []string, template proto.Message, index *string, value *string) (*postgresWatcher, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -160,7 +248,7 @@ func (l *listener) Listen(channelNames []string, template proto.Message) (watch.
 		return nil, errors.New("PostgresListener has been closed")
 	}
 
-	pw := newPostgresWatch(l, channelNames, template)
+	pw := newPostgresWatch(l, channelNames, template, index, value)
 
 	// Subscribe the watch to the given channels
 	for _, name := range pw.channelNames {
@@ -182,7 +270,7 @@ func (l *listener) Listen(channelNames []string, template proto.Message) (watch.
 	return pw, nil
 }
 
-func (l *listener) unregister(pw *postgresWatcher) error {
+func (l *PostgresListener) unregister(pw *postgresWatcher) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -211,56 +299,67 @@ func (l *listener) unregister(pw *postgresWatcher) error {
 // Send the given event to the watcher, but abort the watcher if the send would
 // block. If this happens, the watcher is not keeping up with events. Spawn a
 // goroutine to write an error, then close the watcher.
-func sendToWatcher(watcher *postgresWatcher, ev *watch.Event) {
-	select {
-	case watcher.c <- ev:
-	default:
-		// Unregister the watcher first, so we stop attempting to send it events
-		// (this will happen again in watcher.Close(), but be a no-op).
-		watcher.l.unregister(watcher)
+func sendToWatcher(watcher *postgresWatcher, eventData *postgresEvent) {
+	// TODO: when copying all the events from watcher.buf to watcher.c, the
+	// watcher.c channel could fill up and hang, causing this to block all other
+	// watcher events until that situation clears up
+	watcher.mu.Lock()
+	defer watcher.mu.Unlock()
 
-		go func() {
-			watcher.c <- &watch.Event{Err: errors.New("watcher channel is full, aborting watch"), Type: watch.EventError}
-			watcher.Close()
-		}()
+	indexMatch := watcher.index == nil || (*watcher.index == eventData.index && *watcher.value == eventData.value)
+	interested := eventData.err != nil || indexMatch
+
+	// TODO: this is ugly as fuck
+	if interested {
+		if watcher.buf != nil {
+			select {
+			case watcher.buf <- eventData:
+			default:
+				// Unregister the watcher first, so we stop attempting to send it events
+				// (this will happen again in watcher.Close(), but be a no-op).
+				watcher.l.unregister(watcher)
+
+				go func() {
+					watcher.buf <- &postgresEvent{err: errors.New("watcher channel is full, aborting watch")}
+					watcher.Close()
+				}()
+			}
+		} else {
+			// The buffer channel has been removed, it is safe to write events directly
+			// to the watcher.c channel
+			select {
+			case watcher.c <- eventData.WatchEvent(watcher.template):
+			default:
+				// Unregister the watcher first, so we stop attempting to send it events
+				// (this will happen again in watcher.Close(), but be a no-op).
+				watcher.l.unregister(watcher)
+
+				go func() {
+					watcher.c <- &watch.Event{Err: errors.New("watcher channel is full, aborting watch"), Type: watch.EventError}
+					watcher.Close()
+				}()
+			}
+		}
 	}
 }
 
 func sendError(watchers watcherSet, err error) {
-	ev := &watch.Event{Err: err, Type: watch.EventError}
+	eventData := &postgresEvent{err: err}
 	for watcher := range watchers {
-		sendToWatcher(watcher, ev)
+		sendToWatcher(watcher, eventData)
 	}
 }
 
-func (l *listener) routeNotification(n *pq.Notification) {
+func (l *PostgresListener) routeNotification(n *pq.Notification) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	// Ignore any messages from channels we have no watchers for
 	watchers, ok := l.channels[n.Channel]
 	if ok {
-		fmt.Printf("n.Extra: %s\n", n.Extra)
-		parts := strings.Split(n.Extra, " ") // key, type, date, data
-
-		eventType := watch.EventError
-		switch parts[1] {
-		case "INSERT", "UPDATE":
-			eventType = watch.EventPut
-		case "DELETE":
-			eventType = watch.EventDelete
-		}
-
-		if eventType == watch.EventError {
-			sendError(watchers, errors.Errorf("failed to decode notification payload operation type: %s", parts[1]))
-		} else if protoData, err := base64.StdEncoding.DecodeString(parts[3]); err != nil {
-			sendError(watchers, errors.Wrap(err, "failed to decode notification payload base64"))
-		} else {
-			for watcher := range watchers {
-				// TODO: verify this watcher was interested in this data (since there may have been a hash collision)
-				ev := &watch.Event{Key: []byte(parts[0]), Value: protoData, Type: eventType, Template: watcher.template}
-				sendToWatcher(watcher, ev)
-			}
+		eventData := parsePostgresEvent(n.Extra)
+		for watcher := range watchers {
+			sendToWatcher(watcher, eventData)
 		}
 	}
 }

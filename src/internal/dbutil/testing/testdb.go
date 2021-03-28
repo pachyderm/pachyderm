@@ -30,12 +30,12 @@ var maxOpenConnsPerPool = postgresMaxConnections / runtime.GOMAXPROCS(0)
 // TestDatabaseDeployment represents a deployment of postgres, and databases may
 // be created for individual tests.
 type TestDatabaseDeployment interface {
-	NewDatabase(t testing.TB) (*sqlx.DB, col.PostgresListener)
+	NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener)
 }
 
 type postgresDeployment struct {
 	db      *sqlx.DB
-	connect func(testing.TB, string) (*sqlx.DB, col.PostgresListener)
+	connect func(testing.TB, string) (*sqlx.DB, *col.PostgresListener)
 }
 
 // NewPostgresDeployment creates a kubernetes namespaces containing a
@@ -126,7 +126,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	}
 	require.NotEqual(t, "", address)
 
-	connect := func(t testing.TB, databaseName string) (*sqlx.DB, col.PostgresListener) {
+	connect := func(t testing.TB, databaseName string) (*sqlx.DB, *col.PostgresListener) {
 		options := []dbutil.Option{
 			dbutil.WithHostPort(address, port),
 			dbutil.WithDBName(databaseName),
@@ -161,7 +161,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	return &postgresDeployment{connect: connect, db: db}
 }
 
-func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, col.PostgresListener) {
+func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener) {
 	dbName := ephemeralDBName(t)
 	_, err := pd.db.Exec("CREATE DATABASE " + dbName)
 	require.NoError(t, err)
