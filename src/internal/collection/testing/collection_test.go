@@ -778,10 +778,13 @@ func collectionTests(
 					t.Parallel()
 					notExistsID := 10
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
-						if err := rw.Delete(makeID(6)); err != nil {
+						testProto := &TestItem{}
+						if err := rw.Upsert(makeID(6), testProto, func() error {
+							return nil
+						}); err != nil {
 							return err
 						}
-						return rw.Delete(makeID(notExistsID))
+						return rw.Create(makeID(3), testProto)
 					})
 					require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
 					require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: makeID(notExistsID)}), "Incorrect error: %v", err)

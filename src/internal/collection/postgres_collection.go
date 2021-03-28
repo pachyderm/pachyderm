@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -16,8 +17,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 const (
@@ -83,9 +84,7 @@ func (sf *SQLField) fromRow(row reflect.Value) interface{} {
 
 type SQLInfo struct {
 	Table   string
-	Pkey    *SQLField
-	Fields  []SQLField
-	Indexes []*Index
+	Indexes []*SQLField
 }
 
 func forEachField(modelType reflect.Type, cb func(reflect.StructField) error) error {
@@ -95,47 +94,6 @@ func forEachField(modelType reflect.Type, cb func(reflect.StructField) error) er
 		}
 	}
 	return nil
-}
-
-func parseModel(model PostgresModel) (*SQLInfo, error) {
-	modelType := reflect.TypeOf(model).Elem()
-
-	pkey := []*SQLField{}
-	sqlFields := []SQLField{}
-	if err := forEachField(modelType, func(field reflect.StructField) error {
-		// Get the field tag value
-		tag := field.Tag.Get("collection")
-
-		goType := fmt.Sprintf("%v", field.Type)
-		sqlType, err := toSQLType(goType)
-		if err != nil {
-			return err
-		}
-		sqlFields = append(sqlFields, SQLField{
-			SQLName: toSQLName(field.Name),
-			SQLType: sqlType,
-			GoName:  field.Name,
-			GoType:  goType,
-		})
-
-		for _, prop := range strings.Split(tag, ",") {
-			switch prop {
-			case "primaryKey":
-				pkey = append(pkey, &sqlFields[len(sqlFields)-1])
-			}
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if len(pkey) == 0 {
-		return nil, errors.Errorf("%v has no field tagged with collection:\"primaryKey\"", modelType)
-	} else if len(pkey) != 1 {
-		return nil, errors.Errorf("%v has multiple fields tagged with collection:\"primaryKey\": %v", modelType, pkey[0].GoName)
-	}
-
-	return &SQLInfo{model.TableName(), pkey[0], sqlFields, model.Indexes()}, nil
 }
 
 func ensureModifiedTrigger(tx *sqlx.Tx, info *SQLInfo) error {
@@ -150,24 +108,90 @@ func ensureModifiedTrigger(tx *sqlx.Tx, info *SQLInfo) error {
 		return errors.EnsureStack(err)
 	}
 
-	createTrigger := fmt.Sprintf("create trigger %s before update or insert on %s for each row execute procedure %s();", modifiedTriggerName, info.Table, modifiedFunctionName)
+	createTrigger := fmt.Sprintf("create trigger %s before insert or update or delete on %s for each row execute procedure %s();", modifiedTriggerName, info.Table, modifiedFunctionName)
 	if _, err := tx.Exec(createTrigger); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return nil
 }
 
+func ensureNotifyTrigger(tx *sqlx.Tx, info *SQLInfo) error {
+	triggerName := "notify_watches"
+	functionName := "func_" + triggerName
+	dropTrigger := fmt.Sprintf("drop trigger if exists %s on %s;", triggerName, info.Table)
+	if _, err := tx.Exec(dropTrigger); err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	createFunction := fmt.Sprintf(`
+create or replace function %s() returns trigger as $$
+declare
+  row record;
+	payload text;
+	base_channel text;
+	channel text;
+	field text;
+	value text;
+begin
+  case tg_op
+	when 'INSERT', 'UPDATE' then
+	  row := new;
+	when 'DELETE' then
+	  row := old;
+	else
+	  raise exception 'Unrecognized tg_op: "%%"', tg_op;
+	end case;
+
+	payload := row.updatedat::text || ' ' || encode(row.proto, 'base64');
+	base_channel := 'pwc_' || tg_table_name;
+
+	if tg_argv is not null then
+		foreach field in array tg_argv loop
+			execute 'select ($1).' || field || '::text;' into value using new;
+			channel := base_channel || '_' || md5(value);
+			perform pg_notify(channel, payload);
+		end loop;
+	end if;
+
+  perform pg_notify(base_channel, payload);
+	return row;
+end;
+$$ language 'plpgsql';
+	`, functionName)
+	if _, err := tx.Exec(createFunction); err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	indexFields := []string{}
+	for _, field := range info.Indexes {
+		indexFields = append(indexFields, "'"+field.SQLName+"'")
+	}
+
+	createTrigger := fmt.Sprintf("create trigger %s after insert or update or delete on %s for each row execute procedure %s(%s);", triggerName, info.Table, functionName, strings.Join(indexFields, ", "))
+	if _, err := tx.Exec(createTrigger); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
+}
+
+type model struct {
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Version   string
+	Key       string
+	Proto     []byte
+}
+
 // Ensure the table and all indices exist
 func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
-	columns := []string{}
-	for _, field := range info.Fields {
-		if field.GoName == "CreatedAt" || field.GoName == "UpdatedAt" {
-			columns = append(columns, fmt.Sprintf("%s %s default current_timestamp", field.SQLName, field.SQLType))
-		} else {
-			columns = append(columns, fmt.Sprintf("%s %s", field.SQLName, field.SQLType))
-		}
+	columns := []string{
+		"createdat timestamp default current_timestamp",
+		"updatedat timestamp default current_timestamp",
+		"proto bytea",
+		"version text",
+		"key text primary key",
 	}
-	columns = append(columns, fmt.Sprintf("primary key(%s)", info.Pkey.SQLName))
+	// TODO: add secondary indexes - make primary index just the first index, allow compound?
 
 	// TODO: use actual context
 	return NewSQLTx(context.Background(), db, func(tx *sqlx.Tx) error {
@@ -175,32 +199,66 @@ func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 		if _, err := tx.Exec(createTable); err != nil {
 			return errors.EnsureStack(err)
 		}
+		// TODO: drop all existing triggers/functions on this collection to make
+		// sure we don't leave any hanging around due to a rename
+		if err := ensureModifiedTrigger(tx, info); err != nil {
+			return err
+		}
+		if err := ensureNotifyTrigger(tx, info); err != nil {
+			return err
+		}
 		return nil
 	})
 }
 
+func parseProto(template proto.Message, indexes []*Index) (*SQLInfo, error) {
+	templateType := reflect.TypeOf(template).Elem()
+
+	sqlIndexes := []*SQLField{}
+	for _, idx := range indexes {
+		field, ok := templateType.FieldByName(idx.Field)
+		if !ok {
+			return nil, errors.Errorf("Index field '%v.%s' not found", templateType, idx.Field)
+		}
+
+		goType := fmt.Sprintf("%v", field.Type)
+		sqlType, err := toSQLType(goType)
+		if err != nil {
+			return nil, err
+		}
+		sqlIndexes = append(sqlIndexes, &SQLField{
+			SQLType: sqlType,
+			SQLName: toSQLName(field.Name),
+			GoType:  goType,
+			GoName:  field.Name,
+		})
+	}
+
+	return &SQLInfo{
+		Table:   toSQLName(templateType.Name()) + "s",
+		Indexes: sqlIndexes,
+	}, nil
+}
+
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(db *sqlx.DB, listener PostgresListener, model PostgresModel, template proto.Message) PostgresCollection {
-	sqlInfo, err := parseModel(model)
+func NewPostgresCollection(db *sqlx.DB, listener PostgresListener, template proto.Message, indexes []*Index) (PostgresCollection, error) {
+	sqlInfo, err := parseProto(template, indexes)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	if err := ensureCollection(db, sqlInfo); err != nil {
-		panic(err)
+		return nil, err
 	}
-
-	// TODO: handle error
 
 	c := &postgresCollection{
 		db:         db,
 		listener:   listener,
-		model:      model,
 		template:   template,
 		sqlInfo:    sqlInfo,
 		withFields: make(map[string]interface{}),
 	}
-	return c
+	return c, nil
 }
 
 func (c *postgresCollection) With(field string, value interface{}) PostgresCollection {
@@ -292,22 +350,15 @@ type postgresReadOnlyCollection struct {
 	ctx context.Context
 }
 
-func writeToProtobuf(result reflect.Value, val proto.Message) error {
-	writeResults := result.MethodByName("WriteToProtobuf").Call([]reflect.Value{reflect.ValueOf(val)})
-	if !writeResults[0].IsNil() {
-		return writeResults[0].Interface().(error)
-	}
-	return nil
-}
-
 func (c *postgresCollection) getInternal(key string, val proto.Message, q sqlx.Queryer) error {
-	queryString := fmt.Sprintf("select * from %s where %s = $1;", c.sqlInfo.Table, c.sqlInfo.Pkey.SQLName)
-	result := reflect.New(reflect.ValueOf(c.model).Elem().Type())
+	queryString := fmt.Sprintf("select * from %s where key = $1;", c.sqlInfo.Table)
+	result := &model{}
 
-	if err := sqlx.Get(q, result.Interface(), queryString, key); err != nil {
+	if err := sqlx.Get(q, result, queryString, key); err != nil {
 		return c.mapSQLError(err, key)
 	}
-	return writeToProtobuf(result, val)
+
+	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
 }
 
 func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
@@ -335,7 +386,7 @@ func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string
 	case SortByModRevision:
 		return "updatedat", nil
 	case SortByKey:
-		return c.sqlInfo.Pkey.SQLName, nil
+		return "key", nil
 	}
 	return "", errors.Errorf("unsupported sort target for postgres collections: %d", target)
 }
@@ -359,14 +410,14 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 	}
 	defer rows.Close()
 
-	result := reflect.New(reflect.ValueOf(c.model).Elem().Type())
+	result := &model{}
 	for rows.Next() {
-		if err := rows.StructScan(result.Interface()); err != nil {
+		if err := rows.StructScan(result); err != nil {
 			return c.mapSQLError(err, "")
 		}
 
-		if err := writeToProtobuf(result, val); err != nil {
-			return err
+		if err := proto.Unmarshal(result.Proto, val); err != nil {
+			return errors.EnsureStack(err)
 		}
 
 		if err := f(); err != nil {
@@ -387,6 +438,11 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 	var result int64
 	err := row.Scan(&result)
 	return result, c.mapSQLError(err, "")
+}
+
+// TODO: unify with trigger function
+func (c *postgresCollection) tableWatchChannel() string {
+	return watchBaseName + "_" + c.sqlInfo.Table
 }
 
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error) {
@@ -435,81 +491,45 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 		return err
 	}
 
-	row := reflect.New(reflect.ValueOf(c.model).Elem().Type())
-	row.MethodByName("LoadFromProtobuf").Call([]reflect.Value{reflect.ValueOf(val)})
+	data, err := proto.Marshal(val)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
 
-	params := map[string]interface{}{}
+	params := map[string]interface{}{
+		"version": version.PrettyVersion(),
+		"proto":   data,
+	}
 	updateFields := []string{}
-	for _, field := range c.sqlInfo.Fields {
-		if field.GoName == "UpdatedAt" || field.GoName == "CreatedAt" {
-			continue
-		}
-		params[field.SQLName] = reflect.Indirect(row).FieldByName(field.GoName).Interface()
-		updateFields = append(updateFields, fmt.Sprintf("%s = :%s", field.SQLName, field.SQLName))
+	for k := range params {
+		updateFields = append(updateFields, fmt.Sprintf("%s = :%s", k, k))
 	}
 
-	query := fmt.Sprintf("update %s set %s where %s = :%s", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey.SQLName, c.sqlInfo.Pkey.SQLName)
+	query := fmt.Sprintf("update %s set %s where key = :key", c.sqlInfo.Table, strings.Join(updateFields, ", "))
 
-	if _, err := c.tx.NamedExec(query, params); err != nil {
-		return c.mapSQLError(err, key)
-	}
-
-	return c.notify(key, row, watch.EventPut)
-}
-
-func (c *postgresCollection) tableWatchChannel() string {
-	return watchBaseName + "_" + c.sqlInfo.Table
-}
-
-func (c *postgresReadWriteCollection) notify(key string, row reflect.Value, evType watch.EventType) error {
-	payload := &NotifyPayload{Info: &NotifyInfo{Table: c.sqlInfo.Table}, Key: key, Type: uint32(evType)}
-	if err := publishNotification(c.tx, c.tableWatchChannel(), payload); err != nil {
-		return c.mapSQLError(err, key)
-	}
-
-	for _, idx := range c.sqlInfo.Indexes {
-		payload.Info.Fields = []string{}
-		payload.Info.Values = []string{}
-
-		// TODO: protobuf serialization isn't guaranteed to be deterministic, use json or something
-		value := reflect.Indirect(row).FieldByName(idx.Field).Interface()
-		payload.Info.Fields = append(payload.Info.Fields, idx.Field)
-		payload.Info.Values = append(payload.Info.Values, fmt.Sprintf("%v", value))
-
-		// We can't store the entire index value in the channel name as some of
-		// these are unbounded and identifiers are limited to 64 bytes. Instead,
-		// compute the hash of the data that would make up the channel name.
-		data, err := payload.Info.Marshal()
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		hash := pachhash.Sum(data)
-		hashBase64 := pgIdentBase64Encoding.EncodeToString(hash[:])
-		indexChannel := fmt.Sprintf("%s_%s", watchBaseName, hashBase64)
-
-		if err := publishNotification(c.tx, indexChannel, payload); err != nil {
-			return c.mapSQLError(err, key)
-		}
-	}
-	return nil
+	_, err = c.tx.NamedExec(query, params)
+	return c.mapSQLError(err, key)
 }
 
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
-	row := reflect.New(reflect.ValueOf(c.model).Elem().Type())
-	row.MethodByName("LoadFromProtobuf").Call([]reflect.Value{reflect.ValueOf(val)})
-
-	columns := []string{}
-	paramNames := []string{}
-	params := map[string]interface{}{}
-	for _, field := range c.sqlInfo.Fields {
-		if field.GoName == "UpdatedAt" || field.GoName == "CreatedAt" {
-			continue
-		}
-		columns = append(columns, field.SQLName)
-		paramNames = append(paramNames, ":"+field.SQLName)
-		params[field.SQLName] = reflect.Indirect(row).FieldByName(field.GoName).Interface()
+	data, err := proto.Marshal(val)
+	if err != nil {
+		return errors.EnsureStack(err)
 	}
 
+	params := map[string]interface{}{
+		"version": version.PrettyVersion(),
+		"key":     key,
+		"proto":   data,
+	}
+
+	// TODO: these are static, no need to rebuild them each time
+	columns := []string{}
+	paramNames := []string{}
+	for k := range params {
+		columns = append(columns, k)
+		paramNames = append(paramNames, ":"+k)
+	}
 	columnList := strings.Join(columns, ", ")
 	paramList := strings.Join(paramNames, ", ")
 
@@ -519,14 +539,11 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		for _, column := range columns {
 			upsertFields = append(upsertFields, fmt.Sprintf("%s = :%s", column, column))
 		}
-		query = fmt.Sprintf("%s on conflict (%s) do update set (%s) = (%s)", query, c.sqlInfo.Pkey.SQLName, columnList, paramList)
+		query = fmt.Sprintf("%s on conflict (key) do update set (%s) = (%s)", query, columnList, paramList)
 	}
 
-	if _, err := c.tx.NamedExec(query, params); err != nil {
-		return c.mapSQLError(err, key)
-	}
-
-	return c.notify(key, row, watch.EventPut)
+	_, err = c.tx.NamedExec(query, params)
+	return c.mapSQLError(err, key)
 }
 
 // Insert on conflict update all values (except createdat)
@@ -543,27 +560,18 @@ func (c *postgresReadWriteCollection) Upsert(key string, val proto.Message, f fu
 // Insert
 func (c *postgresReadWriteCollection) Create(key string, val proto.Message) error {
 	// TODO: require that the proto pkey matches key or override it in the insert
-	// longer term - get rid of key parameter and just use the annotated proto message
+	// longer term - get rid of key parameter and just use an annotated proto message
 	return c.insert(key, val, false)
 }
 
 func (c *postgresReadWriteCollection) Delete(key string) error {
-	// For delete notifications we need to load the deleted row
-	query := fmt.Sprintf("delete from %s where %s = $1 returning *;", c.sqlInfo.Table, c.sqlInfo.Pkey.SQLName)
-	row := reflect.New(reflect.ValueOf(c.model).Elem().Type())
-
-	if err := sqlx.Get(c.tx, row.Interface(), query, key); err != nil {
-		return c.mapSQLError(err, key)
-	}
-
-	return c.notify(key, row, watch.EventDelete)
+	query := fmt.Sprintf("delete from %s where key = $1;", c.sqlInfo.Table)
+	_, err := c.tx.Exec(query, key)
+	return c.mapSQLError(err, key)
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
-	// TODO: delete notifications are tough here, can we use a trigger?
-	// Otherwise we need to load each row to notify the right channel.
-	// It's easier for collection-level watches but not for indexed watches.
 	query := fmt.Sprintf("delete from %s;", c.sqlInfo.Table)
-	_, err := c.db.Exec(query)
+	_, err := c.tx.Exec(query)
 	return c.mapSQLError(err, "")
 }
