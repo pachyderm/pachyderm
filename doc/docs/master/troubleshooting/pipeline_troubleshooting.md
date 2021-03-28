@@ -2,8 +2,9 @@
 
 ## Introduction
 
-Job failures can occur for a variety of reasons, but they generally categorize into 3 failure types: 
+Job failures can occur for a variety of reasons, but they generally categorize into 4 failure types: 
 
+1. You [hit the Community Edition Scaling Limit](#community-edition-scaling-limit).
 1. [User-code-related](#user-code-failures): An error in the user code running inside the container or the json pipeline config.
 1. [Data-related](#data-failures): A problem with the input data such as incorrect file type or file name.
 1. [System- or infrastructure-related](#system-level-failures): An error in Pachyderm or Kubernetes such as missing credentials, transient network errors, or resource constraints (for example, out-of-memory--OOM--killed).
@@ -22,6 +23,38 @@ At the bottom of the document, we'll provide specific troubleshooting steps for 
 ### Determining the kind of failure
 
 First off, you can see the status of Pachyderm's jobs with `pachctl list job`, which will show you the status of all jobs.  For a failed job, use `pachctl inspect job <job-id>` to find out more about the failure.  The different categories of failures are addressed below.
+
+### Community Edition Scaling Limit
+
+If you are running on the Community Edition, you might have **hit the limit set on the number of pipelines and/or parallel workers**.
+
+That scenario is quite easy to troubleshoot:
+
+1. Check your number of pipelines and parallelism settings (`"parallelism_spec"` attribute in your pipeline specification files) against our [limits](../../reference/scaling_limits).
+1. Additionally, your stderr and pipeline logs (`pachctl log -p <pipeline name> --master` or `pachctl log -p <pipeline name> --worker`) should contain one or both of those messages:
+    - number of pipelines limit exceeded:
+        ```
+        Pachyderm Community Edition requires an activation key to create more than 16 total pipelines (you have X).  Use the command `pachctl enterprise activate` to enter your key.
+
+        Pachyderm offers readily available activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. Tell us about your project to get one.
+
+        Get a key here:
+        → https://www.pachyderm.com/trial
+        ```
+    - max number of workers exceeded:
+        ```
+        This pipeline will only create a total of 8 workers (you specified X). Pachyderm Community Edition requires an activation key to create pipelines with constant parallelism greater than 8. Use the command `pachctl enterprise activate` to enter your key.
+
+        Pachyderm offers readily available activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. Tell us about your project to get one.
+
+        Get a key here:
+        → https://www.pachyderm.com/trial
+        ```
+
+
+To lift those limitations, Request an [**Enterprise Edition trial token**](https://www.pachyderm.com/trial). 
+Check out our [Enterprise features](https://docs.pachyderm.com/latest/enterprise/) for more details on our Enterprise Offer. 
+
 
 ### User Code Failures
 

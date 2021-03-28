@@ -1,15 +1,12 @@
 # Use the Pachyderm IDE with `python-pachyderm`
 
-!!! note
-    The Pachyderm IDE is an enterprise feature,
-    which is also available for testing during
-    the 14-day free trial.
-    Contact sales@pachyderm.com for more information.
+!!! Note
+    The Pachyderm IDE is an enterprise feature. Request an [**Enterprise Edition trial token**](https://www.pachyderm.com/trial).
 
 This section describes how you can use the `python-pachyderm`
 client from within the Pachyderm IDE.
 
-!!! note
+!!! Note
     You need to have Pachyderm IDE installed as described in
     [Deploy the Pachyderm IDE](../../deploy-manage/deploy/deploy-pachyderm-ide.md).
 
