@@ -17,13 +17,11 @@ Are you hitting those limits? You are likely to be needing our assistance in opt
 To experiment with Pachyderm without limit, we provide an easy way to request an [**Enterprise Edition trial token**](https://www.pachyderm.com/trial). Fill in the form (link provided) and receive an enterprise license token.
 
 !!! Info "You might qualify for a free Enterprise license." 
-    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](https://www.pachyderm.com/trial). 
+    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](https://www.pachyderm.com/trial)
 
 ## What happens when you exceed those limits?
 
-As a general rule, Pachyderm provides a message in the STDERR whenever a limit is encountered.
-
-For example, each `pachctl` command invoking an enterprise feature (such as `pachctl auth,` `pachctl deploy ide`...) logs an alert message in your STDERR with a link to the [Enterprise Edition documentation](https://docs.pachyderm.com/latest/enterprise/) for more information. 
+As a general rule, Pachyderm provides **an error message in the STDERR** whenever a limit is encountered that prevents you from successfully running a command. In that case, the alert message links to a free trial request form.
 
 ### Limit on the number of pipelines
 When exceeding the number of pipelines:
@@ -49,7 +47,7 @@ When `constant` parallelism > 8:
 
 The previous behavior differs for a `coefficient` parallelism:
 
-- `pachctl create, update, edit pipeline` will succeed. However, Pachyderm will scale the number of workers up to the Community Edition limit, and ignore the remaining workers if the value set on `coefficient` results in more than 8 workers.  A message to STDERR and pachd logs is generated.
+- `pachctl create, update, edit pipeline` will succeed. **However, Pachyderm will scale the number of workers up to the Community Edition limit**, and ignore the remaining workers if the value set on `coefficient` results in a request for more than 8 workers.  A message is logged in pachd logs.
 
 ## What happens when you upgrade to 1.13 and have more than 16 pipelines?
 All existing pipelines **continue to work** after an upgrade to 1.13. pachd logs will mention the successful startup above the "update pipeline message". However, you will not be able to create additional pipelines.

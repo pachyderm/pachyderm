@@ -39,7 +39,7 @@ That scenario is quite easy to troubleshoot:
         Pachyderm offers readily available activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. Tell us about your project to get one.
 
         Get a key here:
-        /n <URL> → (Get a Key form)
+        → https://www.pachyderm.com/trial
         ```
     - max number of workers exceeded:
         ```
@@ -48,7 +48,7 @@ That scenario is quite easy to troubleshoot:
         Pachyderm offers readily available activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. Tell us about your project to get one.
 
         Get a key here:
-        /n <URL  → (Get a Key form)
+        → https://www.pachyderm.com/trial
         ```
 
 
