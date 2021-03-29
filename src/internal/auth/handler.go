@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -11,7 +12,7 @@ type authHandler func(*client.APIClient, string) (string, error)
 
 type ContextKey string
 
-const WhoAmIResultKey = ContextKey("WhoAmI")
+const whoAmIResultKey = ContextKey("WhoAmI")
 
 // authDisabledOr wraps an authHandler and permits the RPC if authHandler succeeds or
 // if auth is disabled on the cluster
@@ -33,13 +34,14 @@ func unauthenticated(pachClient *client.APIClient, fullMethod string) (string, e
 
 // authenticated permits an RPC if auth is fully enabled and the user is authenticated
 func authenticated(pachClient *client.APIClient, fullMethod string) (string, error) {
-	// consider the request authenticated if WhoAmI has a value
-	if v := pachClient.Ctx().Value(WhoAmIResultKey); v != nil {
-		return fmt.Sprintf("%v", v), nil
+	// consider the request authenticated if WhoAmI is set in the client's context
+	if v := GetWhoAmI(pachClient.Ctx()); v != "" {
+		return v, nil
 	}
+
 	r, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
 
-	var username = ""
+	var username string
 	if r != nil {
 		username = r.Username
 	}
@@ -67,4 +69,15 @@ func clusterPermissions(permissions ...auth.Permission) authHandler {
 			Required: permissions,
 		}
 	}
+}
+
+func GetWhoAmI(ctx context.Context) string {
+	if v := ctx.Value(whoAmIResultKey); v != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return ""
+}
+
+func setWhoAmI(ctx context.Context, username string) context.Context {
+	return context.WithValue(ctx, whoAmIResultKey, username)
 }

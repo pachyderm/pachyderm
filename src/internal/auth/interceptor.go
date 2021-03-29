@@ -284,16 +284,13 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 	username, err := a(pachClient, info.FullMethod)
 
 	if err != nil {
-		logUser := "unauthenticated"
-		if username != "" {
-			logUser = username
-		}
-		logrus.Errorf("denied unary call %q to user %v\n", info.FullMethod, logUser)
+		logrus.Errorf("denied unary call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
 		return nil, err
 	}
 
-	if username != "" {
-		ctx = context.WithValue(ctx, WhoAmIResultKey, username)
+	// add username to context if provided
+	if canSetWhoAmI(ctx, username) {
+		ctx = setWhoAmI(ctx, username)
 	}
 
 	return handler(ctx, req)
@@ -312,17 +309,27 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 	username, err := a(pachClient, info.FullMethod)
 
 	if err != nil {
-		logUser := "unauthenticated"
-		if username != "" {
-			logUser = username
-		}
-		logrus.Errorf("denied streaming call %q to user %v\n", info.FullMethod, logUser)
+		logrus.Errorf("denied streaming call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
 		return err
 	}
 
-	if username != "" {
-		ctx = context.WithValue(ctx, WhoAmIResultKey, username)
-		stream = ServerStreamWrapper{stream, ctx}
+	// add username to context if it's provided and hasn't been previously set
+	if canSetWhoAmI(ctx, username) {
+		newCtx := setWhoAmI(ctx, username)
+		stream = ServerStreamWrapper{stream, newCtx}
 	}
 	return handler(srv, stream)
+}
+
+func nameOrUnauthenticated(name string) string {
+	if name == "" {
+		return "unauthenticated"
+	}
+	return name
+}
+
+// set username in context if value is provided, and one hasn't previously been set.
+// this function implies that WhoAmI value is not expected to change within a request's processing.
+func canSetWhoAmI(ctx context.Context, username string) bool {
+	return username != "" && GetWhoAmI(ctx) == ""
 }
