@@ -6,12 +6,12 @@
   "description": "Benchmark: A pipeline equivalent to no-skip.json in everyway BUT the no-skip field.",
   "input": {
     "pfs": {
-      "glob": "/",
+      "glob": "/*",
       "repo": "model"
     }
   },
   "transform": {
     "cmd": [ "python3", "main.py" ],
-    "image": "pachyderm/example-no-skip:12"
+    "image": "pachyderm/example-no-skip:11"
   }
 }

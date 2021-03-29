@@ -1,7 +1,7 @@
 # Set as you wish
 DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := example-no-skip
-CONTAINER_VERSION := 12
+CONTAINER_VERSION := 11
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
 docker-image:
@@ -27,5 +27,11 @@ update:
 	printf "modifying file 2 again" \
 	>./model/file2.txt
 	cd model && pachctl put file model@master -f file2.txt -o
+
+addnewfile:
+	printf "this is file 4" \
+	>./model/file4.txt
+	cd model && pachctl put file model@master -f file4.txt 
+
 
 

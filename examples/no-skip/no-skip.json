@@ -6,13 +6,13 @@
   "description": "A pipeline that tests the no-skip field.",
   "input": {
     "pfs": {
-      "glob": "/",
+      "glob": "/*",
       "repo": "model"
     }
   },
   "no_skip": true,
   "transform": {
     "cmd": [ "python3", "main.py" ],
-    "image": "pachyderm/example-no-skip:12"
+    "image": "pachyderm/example-no-skip:11"
   }
 }
