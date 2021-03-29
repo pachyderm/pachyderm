@@ -10,6 +10,7 @@ export * from './ButtonLink';
 export * from './Card';
 export * from './Circle';
 export * from './Checkbox';
+export * from './Chip';
 export * from './Dropdown';
 export * from './ErrorRetry';
 export * from './Form';
