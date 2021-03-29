@@ -127,15 +127,15 @@ begin
 	payload := row.key || ' ' || tg_op || ' ' || date_part('epoch', now())::text || ' ' || encode(row.proto, 'base64');
 	base_channel := '%s_' || tg_table_name;
 
-	/*
 	if tg_argv is not null then
 		foreach field in array tg_argv loop
 			execute 'select ($1).' || field || '::text;' into value using new;
-			channel := base_channel || '_' || md5(value);
-			perform pg_notify(channel, field || ' ' || value || ' ' || payload);
+			if value is not null then
+				channel := base_channel || '_' || md5(value);
+				perform pg_notify(channel, field || ' ' || value || ' ' || payload);
+			end if;
 		end loop;
 	end if;
-	*/
 
   perform pg_notify(base_channel, 'key' || ' ' || row.key || ' ' || payload);
 	return row;
@@ -545,6 +545,27 @@ func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
 	return c.insert(key, val, true)
 }
 
+func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Message) (map[string]interface{}, error) {
+	data, err := proto.Marshal(val)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	params := map[string]interface{}{
+		"version": version.PrettyVersion(),
+		"key":     key,
+		"proto":   data,
+	}
+
+	reflVal := reflect.ValueOf(val)
+	for _, idx := range c.sqlInfo.Indexes {
+		fieldValue := reflect.Indirect(reflVal).FieldByName(idx.GoName).Interface()
+		params[indexFieldName(idx)] = fieldValue
+	}
+
+	return params, nil
+}
+
 // Get then update all values
 func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f func() error) error {
 	if err := c.Get(key, val); err != nil {
@@ -554,16 +575,11 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 		return err
 	}
 
-	data, err := proto.Marshal(val)
+	params, err := c.getWriteParams(key, val)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 
-	params := map[string]interface{}{
-		"version": version.PrettyVersion(),
-		"key":     key,
-		"proto":   data,
-	}
 	updateFields := []string{}
 	for k := range params {
 		updateFields = append(updateFields, fmt.Sprintf("%s = :%s", k, k))
@@ -576,18 +592,11 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 }
 
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
-	data, err := proto.Marshal(val)
+	params, err := c.getWriteParams(key, val)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 
-	params := map[string]interface{}{
-		"version": version.PrettyVersion(),
-		"key":     key,
-		"proto":   data,
-	}
-
-	// TODO: these are static, no need to rebuild them each time
 	columns := []string{}
 	paramNames := []string{}
 	for k := range params {
