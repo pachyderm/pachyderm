@@ -8,14 +8,14 @@ site_dir: site/master/
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
 repo_branch: master
-repo_docs_dir: doc/docs/1.13.x
+repo_docs_dir: doc/docs/2.0.x
 edit_uri: ""
 
 # Copyright
-copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '1.13.1'
-pach_latest_version: '1.13.3'
-pach_major_minor_version: '1.13'
+copyright: 'Copyright Pachyderm Inc, 2020'
+pach_featured_version: '2.0.0'
+pach_latest_version: '2.0.0'
+pach_major_minor_version: '2.0'
 
 # Configuration
 theme:
@@ -402,6 +402,16 @@ nav:
         - Overview: enterprise/index.md
         - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
+        - Authentication:
+            - Overview: enterprise/auth2/authentication/index.md
+            - Configure Pachyderm with an IdP:
+                - Configure Pachyderm with Okta:
+                - Configure Pachyderm with Keycloak:       
+        - Authorization:
+            - Overview: enterprise/auth2/authorization/index.md
+        - License Server:
+            - Overview: enterprise/auth2/license-server/index.md
+        
         - Configure Access Controls:
             - Overview: enterprise/auth/index.md
             - Enable Access Controls: enterprise/auth/enable-auth.md
