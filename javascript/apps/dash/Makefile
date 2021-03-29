@@ -1,4 +1,4 @@
-.PHONY: launch-dev launch-prod setup-auth
+.PHONY: launch-dev launch-prod setup-auth test graphql install
 
 launch-dev:
 	npm run start:dev --prefix ./backend & npm run start --prefix ./frontend
@@ -17,3 +17,6 @@ install:
 
 graphql:
 	npm run generate-types --prefix ./backend && npm run generate-operations --prefix ./frontend && npm run generate-hooks --prefix ./frontend
+
+test:
+	npm test --prefix ./backend && npm test --prefix ./frontend

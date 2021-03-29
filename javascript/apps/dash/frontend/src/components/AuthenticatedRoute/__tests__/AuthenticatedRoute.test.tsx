@@ -84,14 +84,24 @@ describe('AuthenticatedRoute', () => {
     await waitFor(() =>
       expect(window.location.assign).toBeCalledWith(
         [
-          'http://localhost:30658/auth',
-          `?client_id=${process.env.REACT_APP_OAUTH_CLIENT_ID}`,
+          `http://localhost:${mockServer.state.authPort}/auth`,
+          `?client_id=${process.env.OAUTH_CLIENT_ID}`,
           '&redirect_uri=http://localhost/oauth/callback/?inline=true',
           '&response_type=code',
-          '&scope=openid+email+profile+audience:server:client_id:pachd',
+          `&scope=openid+email+profile+audience:server:client_id:${process.env.OAUTH_PACHD_CLIENT_ID}`,
           '&state=AAAAAAAAAAAAAAAAAAAA',
         ].join(''),
       ),
     );
+  });
+
+  it('should redirect the user to the error page if the OIDC provider is misconfigured', async () => {
+    window.localStorage.removeItem('auth-token');
+    window.localStorage.removeItem('id-token');
+    mockServer.setAuthConfigurationError(true);
+
+    render(<TestBed />);
+
+    await waitFor(() => expect(window.location.pathname).toBe('/error'));
   });
 });

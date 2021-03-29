@@ -1,20 +1,14 @@
-import {ApolloError, gql, useApolloClient, useQuery} from '@apollo/client';
+import {ApolloError, useApolloClient} from '@apollo/client';
 import Cookies from 'js-cookie';
 import noop from 'lodash/noop';
 import {useCallback, useEffect} from 'react';
 
 import {useExchangeCodeMutation} from '@dash-frontend/generated/hooks';
+import useAuthConfig from '@dash-frontend/hooks/useAuthConfig';
+import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
 import {MutationExchangeCodeArgs} from '@graphqlTypes';
 
-interface LogInResponse {
-  loggedIn: false;
-}
-
-export const LOGGED_IN_QUERY = gql`
-  query Login {
-    loggedIn @client
-  }
-`;
+import useLoggedIn from './useLoggedIn';
 
 const COOKIE_EXPIRES = 365; // TODO: align with api token expiry
 
@@ -24,11 +18,14 @@ interface UseAuthArgs {
 
 const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
   const client = useApolloClient();
+  const loggedIn = useLoggedIn();
+  const {authConfig, error: authConfigError} = useAuthConfig({
+    skip: loggedIn,
+  });
   const [
     exchangeCodeMutation,
     {data: codeMutationData, error, loading},
   ] = useExchangeCodeMutation({onError});
-  const {data: loggedInData} = useQuery<LogInResponse>(LOGGED_IN_QUERY);
 
   const exchangeCode = useCallback(
     (code: MutationExchangeCodeArgs['code']) => {
@@ -71,7 +68,7 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
       });
 
       client.writeQuery({
-        query: LOGGED_IN_QUERY,
+        query: GET_LOGGED_IN_QUERY,
         data: {
           loggedIn: Boolean(
             window.localStorage.getItem('auth-token') &&
@@ -86,7 +83,9 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
     exchangeCode,
     exchangeCodeError: error,
     exchangeCodeLoading: loading,
-    loggedIn: Boolean(loggedInData?.loggedIn),
+    loggedIn,
+    authConfig,
+    authConfigError,
   };
 };
 

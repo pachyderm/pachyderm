@@ -13,12 +13,6 @@ declare module '*.svg' {
   export default src;
 }
 
-declare interface Window {
-  REACT_APP_OAUTH_URL: string | undefined;
-  REACT_APP_OAUTH_CLIENT_ID: string | undefined;
-  REACT_APP_OAUTH_PACHD_CLIENT_ID: string | undefined;
-}
-
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
@@ -27,6 +21,7 @@ declare global {
       OAUTH_REDIRECT_URI: string;
       OAUTH_CLIENT_ID: string;
       OAUTH_CLIENT_SECRET: string;
+      OAUTH_PACHD_CLIENT_ID: string;
     }
   }
 }

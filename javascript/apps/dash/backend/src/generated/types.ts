@@ -12,13 +12,13 @@ import {GraphQLResolveInfo} from 'graphql';
 import {Context} from '@dash-backend/lib/types';
 export type Maybe<T> = T | null;
 export type Exact<T extends {[key: string]: unknown}> = {[K in keyof T]: T[K]};
-export type EnumResolverSignature<T, AllowedValues = any> = {
-  [key in keyof T]?: AllowedValues;
-};
 export type RequireFields<T, K extends keyof T> = {
   [X in Exclude<keyof T, K>]?: T[X];
 } &
   {[P in K]-?: NonNullable<T[P]>};
+export type EnumResolverSignature<T, AllowedValues = any> = {
+  [key in keyof T]?: AllowedValues;
+};
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
   ID: string;
@@ -26,6 +26,46 @@ export type Scalars = {
   Boolean: boolean;
   Int: number;
   Float: number;
+};
+
+export type Query = {
+  __typename?: 'Query';
+  account: Account;
+  authConfig: AuthConfig;
+  dag: Dag;
+  dags: Array<Dag>;
+  files: Array<File>;
+  jobs: Array<Job>;
+  loggedIn: Scalars['Boolean'];
+  pipelines: Array<Pipeline>;
+  projectDetails: ProjectDetails;
+  projects: Array<Project>;
+  repos: Array<Repo>;
+  searchResults: SearchResults;
+};
+
+export type QueryDagArgs = {
+  args: DagQueryArgs;
+};
+
+export type QueryDagsArgs = {
+  args: DagQueryArgs;
+};
+
+export type QueryFilesArgs = {
+  args: FileQueryArgs;
+};
+
+export type QueryJobsArgs = {
+  args: JobQueryArgs;
+};
+
+export type QueryProjectDetailsArgs = {
+  args: ProjectDetailsQueryArgs;
+};
+
+export type QuerySearchResultsArgs = {
+  query: Scalars['String'];
 };
 
 export type PfsInput = {
@@ -216,42 +256,11 @@ export type SearchResults = {
   pipelines: Array<Maybe<Pipeline>>;
 };
 
-export type Query = {
-  __typename?: 'Query';
-  projects: Array<Project>;
-  pipelines: Array<Pipeline>;
-  repos: Array<Repo>;
-  projectDetails: ProjectDetails;
-  jobs: Array<Job>;
-  dag: Dag;
-  dags: Array<Dag>;
-  files: Array<File>;
-  account: Account;
-  searchResults: SearchResults;
-};
-
-export type QueryProjectDetailsArgs = {
-  args: ProjectDetailsQueryArgs;
-};
-
-export type QueryJobsArgs = {
-  args: JobQueryArgs;
-};
-
-export type QueryDagArgs = {
-  args: DagQueryArgs;
-};
-
-export type QueryDagsArgs = {
-  args: DagQueryArgs;
-};
-
-export type QueryFilesArgs = {
-  args: FileQueryArgs;
-};
-
-export type QuerySearchResultsArgs = {
-  query: Scalars['String'];
+export type AuthConfig = {
+  __typename?: 'AuthConfig';
+  authUrl: Scalars['String'];
+  clientId: Scalars['String'];
+  pachdClientId: Scalars['String'];
 };
 
 export type Mutation = {
@@ -382,8 +391,10 @@ export type DirectiveResolverFn<
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
-  PFSInput: ResolverTypeWrapper<PfsInput>;
+  Query: ResolverTypeWrapper<{}>;
+  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   String: ResolverTypeWrapper<Scalars['String']>;
+  PFSInput: ResolverTypeWrapper<PfsInput>;
   CronInput: ResolverTypeWrapper<CronInput>;
   GitInput: ResolverTypeWrapper<GitInput>;
   InputType: InputType;
@@ -394,7 +405,6 @@ export type ResolversTypes = ResolversObject<{
   ProjectStatus: ProjectStatus;
   Pipeline: ResolverTypeWrapper<Pipeline>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
-  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
   Repo: ResolverTypeWrapper<Repo>;
   Pach: ResolverTypeWrapper<Pach>;
@@ -416,21 +426,22 @@ export type ResolversTypes = ResolversObject<{
   Tokens: ResolverTypeWrapper<Tokens>;
   Account: ResolverTypeWrapper<Account>;
   SearchResults: ResolverTypeWrapper<SearchResults>;
-  Query: ResolverTypeWrapper<{}>;
+  AuthConfig: ResolverTypeWrapper<AuthConfig>;
   Mutation: ResolverTypeWrapper<{}>;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
-  PFSInput: PfsInput;
+  Query: {};
+  Boolean: Scalars['Boolean'];
   String: Scalars['String'];
+  PFSInput: PfsInput;
   CronInput: CronInput;
   GitInput: GitInput;
   Input: Input;
   ID: Scalars['ID'];
   Pipeline: Pipeline;
   Int: Scalars['Int'];
-  Boolean: Scalars['Boolean'];
   InputPipeline: InputPipeline;
   Repo: Repo;
   Pach: Pach;
@@ -450,8 +461,64 @@ export type ResolversParentTypes = ResolversObject<{
   Tokens: Tokens;
   Account: Account;
   SearchResults: SearchResults;
-  Query: {};
+  AuthConfig: AuthConfig;
   Mutation: {};
+}>;
+
+export type QueryResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']
+> = ResolversObject<{
+  account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
+  authConfig?: Resolver<ResolversTypes['AuthConfig'], ParentType, ContextType>;
+  dag?: Resolver<
+    ResolversTypes['Dag'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryDagArgs, 'args'>
+  >;
+  dags?: Resolver<
+    Array<ResolversTypes['Dag']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryDagsArgs, 'args'>
+  >;
+  files?: Resolver<
+    Array<ResolversTypes['File']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryFilesArgs, 'args'>
+  >;
+  jobs?: Resolver<
+    Array<ResolversTypes['Job']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryJobsArgs, 'args'>
+  >;
+  loggedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  pipelines?: Resolver<
+    Array<ResolversTypes['Pipeline']>,
+    ParentType,
+    ContextType
+  >;
+  projectDetails?: Resolver<
+    ResolversTypes['ProjectDetails'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryProjectDetailsArgs, 'args'>
+  >;
+  projects?: Resolver<
+    Array<ResolversTypes['Project']>,
+    ParentType,
+    ContextType
+  >;
+  repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
+  searchResults?: Resolver<
+    ResolversTypes['SearchResults'],
+    ParentType,
+    ContextType,
+    RequireFields<QuerySearchResultsArgs, 'query'>
+  >;
 }>;
 
 export type PfsInputResolvers<
@@ -758,58 +825,14 @@ export type SearchResultsResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type QueryResolvers<
+export type AuthConfigResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']
+  ParentType extends ResolversParentTypes['AuthConfig'] = ResolversParentTypes['AuthConfig']
 > = ResolversObject<{
-  projects?: Resolver<
-    Array<ResolversTypes['Project']>,
-    ParentType,
-    ContextType
-  >;
-  pipelines?: Resolver<
-    Array<ResolversTypes['Pipeline']>,
-    ParentType,
-    ContextType
-  >;
-  repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
-  projectDetails?: Resolver<
-    ResolversTypes['ProjectDetails'],
-    ParentType,
-    ContextType,
-    RequireFields<QueryProjectDetailsArgs, 'args'>
-  >;
-  jobs?: Resolver<
-    Array<ResolversTypes['Job']>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryJobsArgs, 'args'>
-  >;
-  dag?: Resolver<
-    ResolversTypes['Dag'],
-    ParentType,
-    ContextType,
-    RequireFields<QueryDagArgs, 'args'>
-  >;
-  dags?: Resolver<
-    Array<ResolversTypes['Dag']>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryDagsArgs, 'args'>
-  >;
-  files?: Resolver<
-    Array<ResolversTypes['File']>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryFilesArgs, 'args'>
-  >;
-  account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
-  searchResults?: Resolver<
-    ResolversTypes['SearchResults'],
-    ParentType,
-    ContextType,
-    RequireFields<QuerySearchResultsArgs, 'query'>
-  >;
+  authUrl?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  clientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  pachdClientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type MutationResolvers<
@@ -825,6 +848,7 @@ export type MutationResolvers<
 }>;
 
 export type Resolvers<ContextType = Context> = ResolversObject<{
+  Query?: QueryResolvers<ContextType>;
   PFSInput?: PfsInputResolvers<ContextType>;
   CronInput?: CronInputResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
@@ -848,7 +872,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Tokens?: TokensResolvers<ContextType>;
   Account?: AccountResolvers<ContextType>;
   SearchResults?: SearchResultsResolvers<ContextType>;
-  Query?: QueryResolvers<ContextType>;
+  AuthConfig?: AuthConfigResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
 }>;
 
@@ -870,6 +894,15 @@ export type GetAccountQueryVariables = Exact<{[key: string]: never}>;
 
 export type GetAccountQuery = {__typename?: 'Query'} & {
   account: {__typename?: 'Account'} & Pick<Account, 'id' | 'email' | 'name'>;
+};
+
+export type AuthConfigQueryVariables = Exact<{[key: string]: never}>;
+
+export type AuthConfigQuery = {__typename?: 'Query'} & {
+  authConfig: {__typename?: 'AuthConfig'} & Pick<
+    AuthConfig,
+    'authUrl' | 'clientId' | 'pachdClientId'
+  >;
 };
 
 export type GetDagQueryVariables = Exact<{
@@ -934,6 +967,10 @@ export type GetJobsQueryVariables = Exact<{
 export type GetJobsQuery = {__typename?: 'Query'} & {
   jobs: Array<{__typename?: 'Job'} & Pick<Job, 'id' | 'state' | 'createdAt'>>;
 };
+
+export type LoggedInQueryVariables = Exact<{[key: string]: never}>;
+
+export type LoggedInQuery = {__typename?: 'Query'} & Pick<Query, 'loggedIn'>;
 
 export type ProjectDetailsQueryVariables = Exact<{
   args: ProjectDetailsQueryArgs;

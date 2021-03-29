@@ -23,7 +23,9 @@ import projects from './handlers/projects';
 
 const defaultState = {
   tokenError: false,
+  authConfigurationError: false,
   account: accounts['1'],
+  authPort: 0,
 };
 
 const createServer = () => {
@@ -39,6 +41,10 @@ const createServer = () => {
 
   authApp.get('/.well-known/openid-configuration', (_, res) => {
     const issuer = process.env.ISSUER_URI;
+
+    if (state.authConfigurationError) {
+      return res.send({});
+    }
 
     return res.send({
       issuer,
@@ -83,6 +89,7 @@ const createServer = () => {
           const address = authServer.address() as AddressInfo;
 
           log.info(`auth server listening on ${address.port}`);
+          state.authPort = address.port;
 
           grpcServer.bindAsync(
             `localhost:${process.env.MOCK_GRPC_PORT || 0}`,
@@ -125,6 +132,8 @@ const createServer = () => {
     setAuthError: auth.setError,
     setProjectsError: projects.setError,
     setTokenError: (tokenError: boolean) => (state.tokenError = tokenError),
+    setAuthConfigurationError: (authConfigurationError: boolean) =>
+      (state.authConfigurationError = authConfigurationError),
     resetState: () => {
       auth.resetState();
       projects.resetState();

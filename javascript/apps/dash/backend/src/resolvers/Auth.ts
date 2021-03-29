@@ -1,16 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import {AuthenticationError} from 'apollo-server-express';
+import {ApolloError, AuthenticationError} from 'apollo-server-express';
 
 import client from '@dash-backend/grpc/client';
-import {getOIDCClient} from '@dash-backend/lib/auth';
-import log from '@dash-backend/lib/log';
+import {getOIDCClient, getTokenIssuer} from '@dash-backend/lib/auth';
 import {UnauthenticatedContext} from '@dash-backend/lib/types';
-import authenticated from '@dash-backend/middleware/authenticated';
-import {MutationResolvers, QueryResolvers} from '@graphqlTypes';
+import {AuthConfig, MutationResolvers, QueryResolvers} from '@graphqlTypes';
 
 interface AuthResolver {
   Query: {
     account: QueryResolvers['account'];
+    authConfig: QueryResolvers<UnauthenticatedContext>['authConfig'];
   };
   Mutation: {
     exchangeCode: MutationResolvers<UnauthenticatedContext>['exchangeCode'];
@@ -19,21 +18,46 @@ interface AuthResolver {
 
 const authResolver: AuthResolver = {
   Query: {
-    account: authenticated(async (_field, _args, {account}) => {
+    account: async (_field, _args, {account}) => {
       return account;
-    }),
+    },
+    authConfig: async (_field, _args, {log}) => {
+      try {
+        const issuer = await getTokenIssuer();
+
+        const config: AuthConfig = {
+          authUrl: issuer.metadata.authorization_endpoint || '',
+          clientId: process.env.OAUTH_CLIENT_ID || '',
+          pachdClientId: process.env.OAUTH_PACHD_CLIENT_ID || '',
+        };
+
+        if (!config.authUrl || !config.clientId || !config.pachdClientId) {
+          log.error(
+            {eventSource: 'authUrl resolver', meta: {config}},
+            'Issuer is missing authorization_endpoint configuration',
+          );
+          throw new ApolloError('Issuer is misconfigured');
+        }
+
+        return config;
+      } catch (e) {
+        throw new ApolloError(e);
+      }
+    },
   },
   Mutation: {
-    exchangeCode: async (_field, {code}, {pachdAddress = ''}) => {
+    exchangeCode: async (_field, {code}, {pachdAddress = '', log}) => {
       const {OAUTH_REDIRECT_URI: redirectUri = ''} = process.env;
 
       try {
         const oidcClient = await getOIDCClient();
 
-        log.info({
-          eventSource: 'exchangeCode resolver',
-          event: 'retreiving token from issuer',
-        });
+        log.info(
+          {
+            eventSource: 'exchangeCode resolver',
+          },
+          'retreiving token from issuer',
+        );
 
         const {id_token: idToken = ''} = await oidcClient.callback(
           redirectUri,

@@ -33,7 +33,7 @@ const resolvers: Resolvers = merge(
 );
 
 // NOTE: This does not support field level resolvers
-const unauthenticated = ['exchangeCode'];
+const unauthenticated = ['exchangeCode', 'authConfig'];
 
 Object.keys(resolvers.Query || {}).forEach((resolver) => {
   if (!unauthenticated.includes(resolver) && resolvers.Query) {

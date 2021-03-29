@@ -52,7 +52,7 @@
     "@graphql-codegen/typescript-operations": "1.17.13",
     "@graphql-codegen/typescript-react-apollo": "2.2.3",
     "@pachyderm/config": "0.5.0",
-    "@pachyderm/scripts": "0.5.3",
+    "@pachyderm/scripts": "0.5.4",
     "@sentry/cli": "1.55.0",
     "@testing-library/cypress": "7.0.4",
     "@testing-library/dom": "7.29.4",

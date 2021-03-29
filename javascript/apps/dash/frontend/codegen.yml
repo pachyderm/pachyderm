@@ -1,4 +1,6 @@
-schema: ../backend/src/schema.graphqls
+schema:
+  - ../backend/src/schema.graphqls
+  - ./src/client.schema.graphqls
 hooks:
   afterOneFileWrite:
     - npx eslint --fix

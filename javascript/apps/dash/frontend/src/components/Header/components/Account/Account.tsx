@@ -2,12 +2,12 @@ import {SkeletonDisplayText} from '@pachyderm/components';
 import React from 'react';
 
 import useAccount from '@dash-frontend/hooks/useAccount';
-import useAuth from '@dash-frontend/hooks/useAuth';
+import useLoggedIn from '@dash-frontend/hooks/useLoggedIn';
 
 import styles from './Account.module.css';
 
 const Account: React.FC = () => {
-  const {loggedIn} = useAuth();
+  const loggedIn = useLoggedIn();
   const {displayName, loading} = useAccount({skip: !loggedIn});
 
   if (loading || !loggedIn) {

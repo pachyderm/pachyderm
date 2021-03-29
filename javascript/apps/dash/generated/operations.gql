@@ -11,6 +11,13 @@ query getAccount {
     name
   }
 }
+query authConfig {
+  authConfig {
+    authUrl
+    clientId
+    pachdClientId
+  }
+}
 query getDag($args: DagQueryArgs!) {
   dag(args: $args) {
     nodes {

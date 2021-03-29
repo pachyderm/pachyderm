@@ -198,6 +198,12 @@ type SearchResults {
   pipelines: [Pipeline]!
 }
 
+type AuthConfig {
+  authUrl: String!
+  clientId: String!
+  pachdClientId: String!
+}
+
 type Query {
   projects: [Project!]!
   pipelines: [Pipeline!]!
@@ -209,6 +215,7 @@ type Query {
   files(args: FileQueryArgs!): [File!]!
   account: Account!
   searchResults(query: String!): SearchResults!
+  authConfig: AuthConfig!
 }
 
 type Mutation {

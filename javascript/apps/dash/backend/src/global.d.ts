@@ -6,6 +6,7 @@ declare global {
       OAUTH_REDIRECT_URI: string;
       OAUTH_CLIENT_ID: string;
       OAUTH_CLIENT_SECRET: string;
+      OAUTH_PACHD_CLIENT_ID: string;
     }
   }
 }

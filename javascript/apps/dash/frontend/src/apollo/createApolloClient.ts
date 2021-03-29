@@ -7,7 +7,7 @@ import {
 import {History as BrowserHistory} from 'history';
 
 import {errorLink} from '@dash-frontend/apollo/links/errorLink';
-import {LOGGED_IN_QUERY} from '@dash-frontend/hooks/useAuth';
+import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
 
 import {contextLink} from './links/contextLink';
 import {httpLink} from './links/httpLink';
@@ -30,7 +30,7 @@ const createApolloClient = (
           window.localStorage.getItem('id-token'),
       ),
     },
-    query: LOGGED_IN_QUERY,
+    query: GET_LOGGED_IN_QUERY,
   });
 
   client.onResetStore(() =>
@@ -42,7 +42,7 @@ const createApolloClient = (
               window.localStorage.getItem('id-token'),
           ),
         },
-        query: LOGGED_IN_QUERY,
+        query: GET_LOGGED_IN_QUERY,
       }),
     ),
   );

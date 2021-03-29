@@ -1,4 +1,6 @@
-schema: ./src/schema.graphqls
+schema:
+  - ./src/schema.graphqls
+  - ../frontend/src/client.schema.graphqls
 generates:
   ./src/generated/types.ts:
     documents:
