@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 )
@@ -34,10 +35,15 @@ func unauthenticated(pachClient *client.APIClient, fullMethod string) (string, e
 func authenticated(pachClient *client.APIClient, fullMethod string) (string, error) {
 	// consider the request authenticated if WhoAmI has a value
 	if v := pachClient.Ctx().Value(WhoAmIResultKey); v != nil {
-		return "", nil
+		return fmt.Sprintf("%v", v), nil
 	}
 	r, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
-	return r.Username, err
+
+	var username = ""
+	if r != nil {
+		username = r.Username
+	}
+	return username, err
 }
 
 // clusterPermissions permits an RPC if the user is authorized with the given permissions on the cluster
