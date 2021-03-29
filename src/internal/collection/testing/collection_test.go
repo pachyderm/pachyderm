@@ -20,8 +20,7 @@ const (
 )
 
 var (
-	TestPrimaryIndex   = &col.Index{Field: "ID"}
-	TestSecondaryIndex = &col.Index{Field: "Value"}
+	TestIndex = &col.Index{Field: "Value"}
 )
 
 type TestError struct{}
@@ -734,18 +733,64 @@ func collectionTests(
 
 			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
 				subsuite.Parallel()
+
+				subsuite.Run("ErrorInCallback", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &TestItem{}
+						if err := rw.Update(makeID(2), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						}); err != nil {
+							return err
+						}
+						return rw.Update(makeID(2), testProto, func() error {
+							return &TestError{}
+						})
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+
 				subsuite.Run("UpdateError", func(t *testing.T) {
 					t.Parallel()
+					notExistsID := makeID(10)
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &TestItem{}
+						if err := rw.Update(makeID(3), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						}); err != nil {
+							return err
+						}
+						return rw.Update(notExistsID, testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						})
+					})
+					require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
+					require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: notExistsID}), "Incorrect error: %v", err)
 				})
 
 				subsuite.Run("UserError", func(t *testing.T) {
 					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &TestItem{}
+						if err := rw.Update(makeID(6), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						}); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
 				})
 			})
 		})
 
 		suite.Run("Upsert", func(subsuite *testing.T) {
 			subsuite.Parallel()
+
 			subsuite.Run("Insert", func(t *testing.T) {
 				t.Parallel()
 				newID := makeID(10)
@@ -806,6 +851,7 @@ func collectionTests(
 
 			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
 				subsuite.Parallel()
+
 				subsuite.Run("UpsertError", func(t *testing.T) {
 					t.Parallel()
 					existsID := makeID(3)
@@ -858,6 +904,7 @@ func collectionTests(
 
 		suite.Run("Delete", func(subsuite *testing.T) {
 			subsuite.Parallel()
+
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 				deleteID := makeID(3)
@@ -884,6 +931,7 @@ func collectionTests(
 
 			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
 				subsuite.Parallel()
+
 				subsuite.Run("DeleteError", func(t *testing.T) {
 					t.Parallel()
 					notExistsID := makeID(10)
@@ -912,6 +960,7 @@ func collectionTests(
 
 		suite.Run("DeleteAll", func(subsuite *testing.T) {
 			subsuite.Parallel()
+
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 				readOnly, writer := initCollection(t)
@@ -923,6 +972,17 @@ func collectionTests(
 				count, err := readOnly.Count()
 				require.NoError(t, err)
 				require.Equal(t, int64(0), count)
+			})
+
+			subsuite.Run("TransactionRollback", func(t *testing.T) {
+				t.Parallel()
+				err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					if err := rw.DeleteAll(); err != nil {
+						return err
+					}
+					return &TestError{}
+				})
+				require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
 			})
 		})
 	})
