@@ -632,8 +632,6 @@ func (c *postgresReadWriteCollection) Upsert(key string, val proto.Message, f fu
 
 // Insert
 func (c *postgresReadWriteCollection) Create(key string, val proto.Message) error {
-	// TODO: require that the proto pkey matches key or override it in the insert
-	// longer term - get rid of key parameter and just use an annotated proto message
 	return c.insert(key, val, false)
 }
 
