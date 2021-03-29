@@ -454,26 +454,40 @@ func (c *postgresCollection) tableWatchChannel() string {
 }
 
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error) {
-	return nil, errors.New("Watch is not supported on read-only postgres collections")
-}
-
-func forwardNotifications(watcher *postgresWatcher, startTime time.Time) {
-	watcher.mu.Lock()
-	defer watcher.mu.Unlock()
-
-	close(watcher.buf)
-	defer func() { watcher.buf = nil }()
-
-	for eventData := range watcher.buf {
-		// This allows for double notification on a matching timestamp which is
-		// better than missing a notification.
-		// TODO: this will _always_ happen on the last put event if one is made
-		// while doing the list
-		if !eventData.time.Before(startTime) {
-			// TODO: if this would block, error out
-			watcher.c <- eventData.WatchEvent(watcher.template)
-		}
+	// TODO support filter options (probably can't support the sort option)
+	channelNames := []string{c.tableWatchChannel()}
+	watcher, err := c.listener.listen(channelNames, c.template, nil, nil)
+	if err != nil {
+		return nil, err
 	}
+
+	go func() {
+		// Do a List of the collection to get the initial state
+		lastUpdated := &time.Time{}
+		val := cloneProtoMsg(c.template)
+		if err := c.list(&Options{Target: SortByModRevision, Order: SortAscend}, func(m *model) error {
+			if err := proto.Unmarshal(m.Proto, val); err != nil {
+				return errors.EnsureStack(err)
+			}
+			lastUpdated = &m.UpdatedAt
+
+			return watcher.sendInitial(&watch.Event{
+				Key:      []byte(m.Key),
+				Value:    m.Proto,
+				Type:     watch.EventPut,
+				Template: c.template,
+			})
+		}); err != nil {
+			// Ignore any additional error here - we're already attempting to send an error to the user
+			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
+			return
+		}
+
+		// Forward all buffered notifications until the watcher is closed
+		watcher.forwardNotifications(*lastUpdated)
+	}()
+
+	return watcher, nil
 }
 
 func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error {
@@ -486,6 +500,7 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 	defer watcher.Close()
 
 	// Do a List of the collection to get the initial state
+	// TODO: cancel list if watch is closed
 	lastUpdated := &time.Time{}
 	val := cloneProtoMsg(c.template)
 	if err := c.list(&Options{Target: SortByModRevision, Order: SortAscend}, func(m *model) error {
@@ -494,6 +509,12 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 		}
 
 		lastUpdated = &m.UpdatedAt
+
+		// watcher may be closed by the listener due to a connection error, parse
+		// error, or full channel - check if it's closed and abort
+		if watcher.isClosed() {
+			return errors.New("watcher was closed")
+		}
 
 		return f(&watch.Event{
 			Key:      []byte(m.Key),
@@ -508,9 +529,8 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 		return err
 	}
 
-	// Forward all buffered notifications from while we were listing
-	forwardNotifications(watcher, *lastUpdated)
-
+	// Forward all buffered notifications until the watcher is closed
+	go watcher.forwardNotifications(*lastUpdated)
 	return watchF(context.Background(), watcher, f)
 }
 

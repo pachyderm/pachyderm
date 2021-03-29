@@ -26,7 +26,7 @@ type postgresWatcher struct {
 	l            *PostgresListener
 	c            chan *watch.Event
 	buf          chan *postgresEvent // buffer for messages before the initial table list is complete
-	mu           sync.Mutex
+	done         chan struct{}       // closed when the watcher is closed to interrupt selects
 	closed       bool
 	template     proto.Message
 	channelNames []string
@@ -48,6 +48,7 @@ func newPostgresWatch(l *PostgresListener, channelNames []string, template proto
 		l:            l,
 		c:            make(chan *watch.Event),
 		buf:          make(chan *postgresEvent),
+		done:         make(chan struct{}),
 		template:     template,
 		channelNames: namesCopy,
 		index:        index,
@@ -60,18 +61,82 @@ func (pw *postgresWatcher) Watch() <-chan *watch.Event {
 }
 
 func (pw *postgresWatcher) Close() {
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-
+	// Close the 'done' channel to interrupt any waiting writes
+	close(pw.done)
 	pw.l.unregister(pw)
+}
 
-	if pw.c != nil {
-		close(pw.c)
-		pw.c = nil
+func (pw *postgresWatcher) isClosed() bool {
+	select {
+	case <-pw.done:
+		return true
+	default:
+		return false
 	}
-	if pw.buf != nil {
-		close(pw.buf)
-		pw.buf = nil
+}
+
+// `forwardNotifications` is a blocking call that will forward all messages on
+// the 'buf' channel to the 'c' channel until the watcher is closed. It will
+// apply the 'startTime' timestamp as a lower bound on forwarded notifications.
+func (pw *postgresWatcher) forwardNotifications(startTime time.Time) {
+	for {
+		// This allows for double notification on a matching timestamp which is
+		// better than missing a notification. This will _always_ happen on the last
+		// put event if a change is made while doing the list.
+		// We could try to use the postgres xmin value instead of the modified
+		// timestamp, but that has to detect wraparounds, which is non-trivial.
+		select {
+		case eventData := <-pw.buf:
+			if !eventData.time.Before(startTime) {
+				// This may block, but that is fine, it will put back pressure on the 'buf' channel
+				pw.c <- eventData.WatchEvent(pw.template)
+			}
+		case <-pw.done:
+			// watcher has been closed, safe to abort
+			return
+		}
+	}
+}
+
+func (pw *postgresWatcher) sendInitial(event *watch.Event) error {
+	select {
+	case pw.c <- event:
+		return nil
+	case <-pw.done:
+		return errors.New("failed to send initial event, watcher has been closed")
+	}
+}
+
+// Send the given event to the watcher, but abort the watcher if the send would
+// block. If this happens, the watcher is not keeping up with events. Spawn a
+// goroutine to write an error, then close the watcher.
+func (pw *postgresWatcher) sendChange(eventData *postgresEvent) {
+	// TODO: when copying all the events from pw.buf to pw.c, the
+	// pw.c channel could fill up and hang, causing this to block all other
+	// watcher events until that situation clears up
+
+	indexMatch := pw.index == nil || (*pw.index == eventData.index && *pw.value == eventData.value)
+
+	if eventData.err != nil || indexMatch {
+		select {
+		case pw.buf <- eventData:
+		default:
+			// Sending would block which means the user is not keeping up with events
+			// and the buffer is full. We have no option but to abort the watch.
+			// Do this all in a separate goroutine because we need to avoid
+			// recursively locking the listener.
+			go func() {
+				// Unregister the watcher first, so we stop attempting to send it events
+				// (this will happen again in pw.Close(), but it will be a no-op).
+				pw.l.unregister(pw)
+
+				select {
+				case pw.buf <- &postgresEvent{err: errors.New("watcher channel is full, aborting watch")}:
+					pw.Close()
+				case <-pw.done:
+				}
+			}()
+		}
 	}
 }
 
@@ -213,25 +278,15 @@ func (l *PostgresListener) getPQL() *pq.Listener {
 	return l.pql
 }
 
-func (l *PostgresListener) multiplex(notifyChan chan *pq.Notification) error {
-	for {
-		notification, ok := <-notifyChan
-		if !ok {
-			return nil
-		}
-		if notification == nil {
-			// A 'nil' notification means that the connection was lost - error out all
-			// current watchers so they can rebuild state.
-			l.reset(errors.Errorf("lost connection to database"))
-		} else {
-			l.routeNotification(notification)
-		}
-	}
-}
-
 func (l *PostgresListener) reset(err error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	for _, watchers := range l.channels {
-		sendError(watchers, err)
+		eventData := &postgresEvent{err: err}
+		for watcher := range watchers {
+			watcher.sendChange(eventData)
+		}
 	}
 
 	l.channels = make(map[string]watcherSet)
@@ -274,10 +329,6 @@ func (l *PostgresListener) unregister(pw *postgresWatcher) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if l.closed {
-		return errors.New("PostgresListener has been closed")
-	}
-
 	// Remove the watch from the given channels, unlisten if any are empty
 	for _, name := range pw.channelNames {
 		watchers := l.channels[name]
@@ -296,57 +347,19 @@ func (l *PostgresListener) unregister(pw *postgresWatcher) error {
 	return nil
 }
 
-// Send the given event to the watcher, but abort the watcher if the send would
-// block. If this happens, the watcher is not keeping up with events. Spawn a
-// goroutine to write an error, then close the watcher.
-func sendToWatcher(watcher *postgresWatcher, eventData *postgresEvent) {
-	// TODO: when copying all the events from watcher.buf to watcher.c, the
-	// watcher.c channel could fill up and hang, causing this to block all other
-	// watcher events until that situation clears up
-	watcher.mu.Lock()
-	defer watcher.mu.Unlock()
-
-	indexMatch := watcher.index == nil || (*watcher.index == eventData.index && *watcher.value == eventData.value)
-	interested := eventData.err != nil || indexMatch
-
-	// TODO: this is ugly as fuck
-	if interested {
-		if watcher.buf != nil {
-			select {
-			case watcher.buf <- eventData:
-			default:
-				// Unregister the watcher first, so we stop attempting to send it events
-				// (this will happen again in watcher.Close(), but be a no-op).
-				watcher.l.unregister(watcher)
-
-				go func() {
-					watcher.buf <- &postgresEvent{err: errors.New("watcher channel is full, aborting watch")}
-					watcher.Close()
-				}()
-			}
-		} else {
-			// The buffer channel has been removed, it is safe to write events directly
-			// to the watcher.c channel
-			select {
-			case watcher.c <- eventData.WatchEvent(watcher.template):
-			default:
-				// Unregister the watcher first, so we stop attempting to send it events
-				// (this will happen again in watcher.Close(), but be a no-op).
-				watcher.l.unregister(watcher)
-
-				go func() {
-					watcher.c <- &watch.Event{Err: errors.New("watcher channel is full, aborting watch"), Type: watch.EventError}
-					watcher.Close()
-				}()
-			}
+func (l *PostgresListener) multiplex(notifyChan chan *pq.Notification) error {
+	for {
+		notification, ok := <-notifyChan
+		if !ok {
+			return nil
 		}
-	}
-}
-
-func sendError(watchers watcherSet, err error) {
-	eventData := &postgresEvent{err: err}
-	for watcher := range watchers {
-		sendToWatcher(watcher, eventData)
+		if notification == nil {
+			// A 'nil' notification means that the connection was lost - error out all
+			// current watchers so they can rebuild state.
+			l.reset(errors.Errorf("lost connection to database"))
+		} else {
+			l.routeNotification(notification)
+		}
 	}
 }
 
@@ -359,7 +372,7 @@ func (l *PostgresListener) routeNotification(n *pq.Notification) {
 	if ok {
 		eventData := parsePostgresEvent(n.Extra)
 		for watcher := range watchers {
-			sendToWatcher(watcher, eventData)
+			watcher.sendChange(eventData)
 		}
 	}
 }
