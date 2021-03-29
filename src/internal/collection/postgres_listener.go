@@ -20,6 +20,7 @@ import (
 const (
 	minReconnectInterval = time.Second * 1
 	maxReconnectInterval = time.Second * 30
+	channelBufferSize    = 1000
 )
 
 type postgresWatcher struct {
@@ -54,7 +55,7 @@ func newPostgresWatch(
 	return &postgresWatcher{
 		listener:     listener,
 		c:            make(chan *watch.Event),
-		buf:          make(chan *postgresEvent),
+		buf:          make(chan *postgresEvent, channelBufferSize),
 		done:         make(chan struct{}),
 		template:     template,
 		channelNames: namesCopy,
@@ -95,7 +96,7 @@ func (pw *postgresWatcher) forwardNotifications(startTime time.Time) {
 		// timestamp, but that has to detect wraparounds, which is non-trivial.
 		select {
 		case eventData := <-pw.buf:
-			if !eventData.time.Before(startTime) {
+			if !eventData.time.Before(startTime) || eventData.err != nil {
 				// This may block, but that is fine, it will put back pressure on the 'buf' channel
 				pw.c <- eventData.WatchEvent(pw.template)
 			}
@@ -164,7 +165,7 @@ func parsePostgresEpoch(s string) (time.Time, error) {
 		return time.Time{}, errors.EnsureStack(err)
 	}
 	if len(parts) == 1 {
-		return time.Unix(sec, 0), nil
+		return time.Unix(sec, 0).In(time.UTC), nil
 	}
 
 	nsec, err := strconv.ParseInt(parts[1], 10, 64)
@@ -173,7 +174,7 @@ func parsePostgresEpoch(s string) (time.Time, error) {
 	}
 	nsec = int64(float64(nsec) * math.Pow10(9-len(parts[1])))
 
-	return time.Unix(sec, nsec), nil
+	return time.Unix(sec, nsec).In(time.UTC), nil
 }
 
 func parsePostgresEvent(payload string) *postgresEvent {
@@ -370,14 +371,14 @@ func (l *PostgresListener) multiplex(notifyChan chan *pq.Notification) error {
 	}
 }
 
-func (l *PostgresListener) routeNotification(n *pq.Notification) {
+func (l *PostgresListener) routeNotification(notification *pq.Notification) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	// Ignore any messages from channels we have no watchers for
-	watchers, ok := l.channels[n.Channel]
+	watchers, ok := l.channels[notification.Channel]
 	if ok {
-		eventData := parsePostgresEvent(n.Extra)
+		eventData := parsePostgresEvent(notification.Extra)
 		for watcher := range watchers {
 			watcher.sendChange(eventData)
 		}

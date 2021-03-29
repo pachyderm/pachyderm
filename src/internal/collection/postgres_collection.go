@@ -119,7 +119,7 @@ begin
 	  raise exception 'Unrecognized tg_op: "%%"', tg_op;
 	end case;
 
-	payload := row.key || ' ' || tg_op || ' ' || date_part('epoch', row.updatedat)::text || ' ' || encode(row.proto, 'base64');
+	payload := row.key || ' ' || tg_op || ' ' || date_part('epoch', now())::text || ' ' || encode(row.proto, 'base64');
 	base_channel := '%s_' || tg_table_name;
 
 	if tg_argv is not null then
@@ -437,13 +437,16 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 
 	go func() {
 		// Do a List of the collection to get the initial state
-		lastUpdated := &time.Time{}
+		lastUpdated := time.Time{}
 		val := cloneProtoMsg(c.template)
 		if err := c.list(&Options{Target: options.SortTarget, Order: options.SortOrder}, func(m *model) error {
 			if err := proto.Unmarshal(m.Proto, val); err != nil {
 				return errors.EnsureStack(err)
 			}
-			lastUpdated = &m.UpdatedAt
+
+			if lastUpdated.Before(m.UpdatedAt) {
+				lastUpdated = m.UpdatedAt
+			}
 
 			return watcher.sendInitial(&watch.Event{
 				Key:      []byte(m.Key),
@@ -458,7 +461,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 		}
 
 		// Forward all buffered notifications until the watcher is closed
-		watcher.forwardNotifications(*lastUpdated)
+		watcher.forwardNotifications(lastUpdated)
 	}()
 
 	return watcher, nil
@@ -474,14 +477,16 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 	defer watcher.Close()
 
 	// Do a List of the collection to get the initial state
-	lastUpdated := &time.Time{}
+	lastUpdated := time.Time{}
 	val := cloneProtoMsg(c.template)
 	if err := c.list(&Options{Target: options.SortTarget, Order: options.SortOrder}, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
 
-		lastUpdated = &m.UpdatedAt
+		if lastUpdated.Before(m.UpdatedAt) {
+			lastUpdated = m.UpdatedAt
+		}
 
 		// watcher may be closed by the listener due to a connection error, parse
 		// error, or full channel - check if it's closed and abort
@@ -503,7 +508,7 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 	}
 
 	// Forward all buffered notifications until the watcher is closed
-	go watcher.forwardNotifications(*lastUpdated)
+	go watcher.forwardNotifications(lastUpdated)
 	return watchF(context.Background(), watcher, f)
 }
 

@@ -394,7 +394,6 @@ func collectionTests(
 		collectEvents := func(count int, out *[]*watch.Event) func(*watch.Event) error {
 			return func(ev *watch.Event) error {
 				*out = append(*out, ev)
-				fmt.Printf("got watch event: %v\n", ev)
 				if len(*out) == count {
 					return errutil.ErrBreak
 				}
