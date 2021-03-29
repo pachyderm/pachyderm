@@ -33,7 +33,6 @@ something similar to the following:
 We use [helm-schema-gen](https://github.com/karuppiah7890/helm-schema-gen)
 to manage the JSON schema.  It can be installed with:
 
-<<<<<<< HEAD
 ```shell
 $ helm plugin install https://github.com/karuppiah7890/helm-schema-gen.git
 ```
