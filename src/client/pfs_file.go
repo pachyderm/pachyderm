@@ -64,8 +64,11 @@ type ModifyFileClient interface {
 }
 
 // WithModifyFileClient creates a new ModifyFileClient that is scoped to the passed in callback.
+// TODO: Context should be a parameter, not stored in the pach client.
 func (c APIClient) WithModifyFileClient(repo, commit string, cb func(ModifyFileClient) error) (retErr error) {
-	mfc, err := c.NewModifyFileClient(repo, commit)
+	cancelCtx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	mfc, err := c.WithCtx(cancelCtx).NewModifyFileClient(repo, commit)
 	if err != nil {
 		return err
 	}
@@ -254,7 +257,9 @@ func (c APIClient) WithRenewer(cb func(context.Context, *renew.StringSet) error)
 
 // WithCreateFilesetClient provides a scoped fileset client.
 func (c APIClient) WithCreateFilesetClient(cb func(*CreateFilesetClient) error) (resp *pfs.CreateFilesetResponse, retErr error) {
-	ctfsc, err := c.NewCreateFilesetClient()
+	cancelCtx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	ctfsc, err := c.WithCtx(cancelCtx).NewCreateFilesetClient()
 	if err != nil {
 		return nil, err
 	}
