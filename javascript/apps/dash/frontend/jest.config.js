@@ -16,4 +16,6 @@ baseConfig.moduleNameMapper = {
   ...moduleNameMapper,
 };
 
+baseConfig.timers = 'real';
+
 module.exports = baseConfig;
