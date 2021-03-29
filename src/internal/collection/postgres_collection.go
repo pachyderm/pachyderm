@@ -32,18 +32,9 @@ var (
 	pgIdentBase64Encoding = base64.NewEncoding(pgIdentBase64Values).WithPadding(base64.NoPadding)
 )
 
-// PostgresModel is the interface that all models must fulfill to be used in a postgres collection
-type PostgresModel interface {
-	TableName() string
-	Indexes() []*Index
-	WriteToProtobuf(proto.Message) error
-	LoadFromProtobuf(proto.Message) error
-}
-
 type postgresCollection struct {
 	db         *sqlx.DB
 	listener   *PostgresListener
-	model      PostgresModel
 	template   proto.Message
 	sqlInfo    *SQLInfo
 	withFields map[string]interface{}
@@ -77,23 +68,9 @@ type SQLField struct {
 	GoName  string
 }
 
-// TODO: would be better if we just serialize this field in the protobuf to a byte array?
-func (sf *SQLField) fromRow(row reflect.Value) interface{} {
-	return reflect.Indirect(row).FieldByName(sf.GoName).Interface()
-}
-
 type SQLInfo struct {
 	Table   string
 	Indexes []*SQLField
-}
-
-func forEachField(modelType reflect.Type, cb func(reflect.StructField) error) error {
-	for i := 0; i < modelType.NumField(); i++ {
-		if err := cb(modelType.Field(i)); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func ensureModifiedTrigger(tx *sqlx.Tx, info *SQLInfo) error {
@@ -143,7 +120,7 @@ begin
 	end case;
 
 	payload := row.key || ' ' || tg_op || ' ' || date_part('epoch', row.updatedat)::text || ' ' || encode(row.proto, 'base64');
-	base_channel := 'pwc_' || tg_table_name;
+	base_channel := '%s_' || tg_table_name;
 
 	if tg_argv is not null then
 		foreach field in array tg_argv loop
@@ -157,7 +134,7 @@ begin
 	return row;
 end;
 $$ language 'plpgsql';
-	`, functionName)
+	`, functionName, watchBaseName)
 	if _, err := tx.Exec(createFunction); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -269,7 +246,6 @@ func (c *postgresCollection) With(field string, value interface{}) PostgresColle
 
 	return &postgresCollection{
 		db:         c.db,
-		model:      c.model,
 		listener:   c.listener,
 		template:   c.template,
 		sqlInfo:    c.sqlInfo,
@@ -298,7 +274,6 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 			return true, errors.EnsureStack(err)
 		}
 
-		// TODO: log something on failed rollback?
 		defer tx.Rollback()
 
 		err = apply(tx)
@@ -309,7 +284,6 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 		return true, errors.EnsureStack(tx.Commit())
 	}
 
-	// TODO: try indefinitely?  time out?
 	for i := 0; i < 3; i++ {
 		if done, err := attemptTx(); done {
 			return err
@@ -448,15 +422,15 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 	return result, c.mapSQLError(err, "")
 }
 
-// TODO: unify with trigger function
 func (c *postgresCollection) tableWatchChannel() string {
 	return watchBaseName + "_" + c.sqlInfo.Table
 }
 
-func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error) {
-	// TODO support filter options (probably can't support the sort option)
+func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
+	options := watch.SumOptions(opts...)
+
 	channelNames := []string{c.tableWatchChannel()}
-	watcher, err := c.listener.listen(channelNames, c.template, nil, nil)
+	watcher, err := c.listener.listen(channelNames, c.template, nil, nil, options)
 	if err != nil {
 		return nil, err
 	}
@@ -465,7 +439,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watche
 		// Do a List of the collection to get the initial state
 		lastUpdated := &time.Time{}
 		val := cloneProtoMsg(c.template)
-		if err := c.list(&Options{Target: SortByModRevision, Order: SortAscend}, func(m *model) error {
+		if err := c.list(&Options{Target: options.SortTarget, Order: options.SortOrder}, func(m *model) error {
 			if err := proto.Unmarshal(m.Proto, val); err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -490,20 +464,19 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watche
 	return watcher, nil
 }
 
-func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error {
-	// TODO support filter options (probably can't support the sort option)
+func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...watch.Option) error {
+	options := watch.SumOptions(opts...)
 	channelNames := []string{c.tableWatchChannel()}
-	watcher, err := c.listener.listen(channelNames, c.template, nil, nil)
+	watcher, err := c.listener.listen(channelNames, c.template, nil, nil, options)
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
 
 	// Do a List of the collection to get the initial state
-	// TODO: cancel list if watch is closed
 	lastUpdated := &time.Time{}
 	val := cloneProtoMsg(c.template)
-	if err := c.list(&Options{Target: SortByModRevision, Order: SortAscend}, func(m *model) error {
+	if err := c.list(&Options{Target: options.SortTarget, Order: options.SortOrder}, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -534,11 +507,11 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 	return watchF(context.Background(), watcher, f)
 }
 
-func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error) {
+func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
 	return nil, errors.New("WatchOne is not supported on read-only postgres collections")
 }
 
-func (c *postgresReadOnlyCollection) WatchOneF(key string, f func(*watch.Event) error, opts ...watch.OpOption) error {
+func (c *postgresReadOnlyCollection) WatchOneF(key string, f func(*watch.Event) error, opts ...watch.Option) error {
 	return errors.New("WatchOneF is not supported on read-only postgres collections")
 }
 

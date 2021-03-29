@@ -34,7 +34,8 @@ type Options struct {
 	Order  SortOrder
 }
 
-// DefaultOptions are the default sort options when iterating through etcd key/values.
+// DefaultOptions are the default sort options when iterating through etcd
+// key/values.
 func DefaultOptions() *Options {
 	return &Options{SortByCreateRevision, SortDescend}
 }

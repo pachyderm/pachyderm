@@ -293,12 +293,12 @@ func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 }
 
 func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessFunc) error {
-	claimWatch, err := w.claimCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterPut())
+	claimWatch, err := w.claimCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.IgnorePut)
 	if err != nil {
 		return err
 	}
 	defer claimWatch.Close()
-	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterDelete())
+	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.IgnoreDelete)
 	if err != nil {
 		return err
 	}

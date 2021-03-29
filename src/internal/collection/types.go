@@ -111,10 +111,10 @@ type ReadOnlyCollection interface {
 	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error
 	List(val proto.Message, opts *Options, f func() error) error
 	Count() (int64, error)
-	Watch(opts ...watch.OpOption) (watch.Watcher, error)
-	WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error
-	WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error)
-	WatchOneF(key string, f func(*watch.Event) error, opts ...watch.OpOption) error
+	Watch(opts ...watch.Option) (watch.Watcher, error)
+	WatchF(f func(*watch.Event) error, opts ...watch.Option) error
+	WatchOne(key string, opts ...watch.Option) (watch.Watcher, error)
+	WatchOneF(key string, f func(*watch.Event) error, opts ...watch.Option) error
 }
 
 type PostgresReadOnlyCollection interface {

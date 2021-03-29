@@ -497,12 +497,12 @@ func (c *etcdReadOnlyCollection) Count() (int64, error) {
 
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
-func (c *etcdReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template, opts...)
+func (c *etcdReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
+	return watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template, opts...)
 }
 
 // WatchF watches a collection and executes a callback function each time an event occurs.
-func (c *etcdReadOnlyCollection) WatchF(f func(e *watch.Event) error, opts ...watch.OpOption) error {
+func (c *etcdReadOnlyCollection) WatchF(f func(e *watch.Event) error, opts ...watch.Option) error {
 	watcher, err := c.Watch(opts...)
 	if err != nil {
 		return err
@@ -537,7 +537,7 @@ func watchF(ctx context.Context, watcher watch.Watcher, f func(e *watch.Event) e
 func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template)
+	watcher, err := watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template)
 	if err != nil {
 		return nil, err
 	}
@@ -597,19 +597,19 @@ func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val interface{}) (wa
 			eventCh <- directEv
 		}
 	}()
-	return watch.MakeWatcher(eventCh, done), nil
+	return watch.MakeEtcdWatcher(eventCh, done), nil
 }
 
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
-func (c *etcdReadOnlyCollection) WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.path(key), c.template, opts...)
+func (c *etcdReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
+	return watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.path(key), c.template, opts...)
 }
 
 // WatchOneF watches a given item and executes a callback function each time an event occurs.
 // The first value returned from the watch will be the current value of the item.
-func (c *etcdReadOnlyCollection) WatchOneF(key string, f func(e *watch.Event) error, opts ...watch.OpOption) error {
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.path(key), c.template, opts...)
+func (c *etcdReadOnlyCollection) WatchOneF(key string, f func(e *watch.Event) error, opts ...watch.Option) error {
+	watcher, err := watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.path(key), c.template, opts...)
 	if err != nil {
 		return err
 	}

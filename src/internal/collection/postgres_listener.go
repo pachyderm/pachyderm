@@ -23,21 +23,28 @@ const (
 )
 
 type postgresWatcher struct {
-	l            *PostgresListener
+	listener     *PostgresListener
 	c            chan *watch.Event
 	buf          chan *postgresEvent // buffer for messages before the initial table list is complete
 	done         chan struct{}       // closed when the watcher is closed to interrupt selects
-	closed       bool
 	template     proto.Message
 	channelNames []string
 
 	// Filtering variables:
-	index     *string    // only set if the watch filters by an index (for dealing with hash collisions)
-	value     *string    // only set if 'index' is set
-	startTime *time.Time // only set once the initial list has completed and we know the start time for the watch
+	opts      watch.WatchOptions // may filter by the operation type (put or delete)
+	index     *string            // only set if the watch filters by an index (for dealing with hash collisions)
+	value     *string            // only set if 'index' is set
+	startTime *time.Time         // only set once the initial list has completed and we know the start time for the watch
 }
 
-func newPostgresWatch(l *PostgresListener, channelNames []string, template proto.Message, index *string, value *string) *postgresWatcher {
+func newPostgresWatch(
+	listener *PostgresListener,
+	channelNames []string,
+	template proto.Message,
+	index *string,
+	value *string,
+	opts watch.WatchOptions,
+) *postgresWatcher {
 	// Copy the channel names since it could be mutated
 	namesCopy := make([]string, 0, len(channelNames))
 	for _, name := range channelNames {
@@ -45,12 +52,13 @@ func newPostgresWatch(l *PostgresListener, channelNames []string, template proto
 	}
 
 	return &postgresWatcher{
-		l:            l,
+		listener:     listener,
 		c:            make(chan *watch.Event),
 		buf:          make(chan *postgresEvent),
 		done:         make(chan struct{}),
 		template:     template,
 		channelNames: namesCopy,
+		opts:         opts,
 		index:        index,
 		value:        value,
 	}
@@ -63,7 +71,7 @@ func (pw *postgresWatcher) Watch() <-chan *watch.Event {
 func (pw *postgresWatcher) Close() {
 	// Close the 'done' channel to interrupt any waiting writes
 	close(pw.done)
-	pw.l.unregister(pw)
+	pw.listener.unregister(pw)
 }
 
 func (pw *postgresWatcher) isClosed() bool {
@@ -111,13 +119,12 @@ func (pw *postgresWatcher) sendInitial(event *watch.Event) error {
 // block. If this happens, the watcher is not keeping up with events. Spawn a
 // goroutine to write an error, then close the watcher.
 func (pw *postgresWatcher) sendChange(eventData *postgresEvent) {
-	// TODO: when copying all the events from pw.buf to pw.c, the
-	// pw.c channel could fill up and hang, causing this to block all other
-	// watcher events until that situation clears up
-
 	indexMatch := pw.index == nil || (*pw.index == eventData.index && *pw.value == eventData.value)
+	typeMatch := (pw.opts.IncludePut && eventData.eventType == watch.EventPut) ||
+		(pw.opts.IncludeDelete && eventData.eventType == watch.EventDelete)
+	interested := indexMatch && typeMatch
 
-	if eventData.err != nil || indexMatch {
+	if interested || eventData.err != nil {
 		select {
 		case pw.buf <- eventData:
 		default:
@@ -128,7 +135,7 @@ func (pw *postgresWatcher) sendChange(eventData *postgresEvent) {
 			go func() {
 				// Unregister the watcher first, so we stop attempting to send it events
 				// (this will happen again in pw.Close(), but it will be a no-op).
-				pw.l.unregister(pw)
+				pw.listener.unregister(pw)
 
 				select {
 				case pw.buf <- &postgresEvent{err: errors.New("watcher channel is full, aborting watch")}:
@@ -141,13 +148,13 @@ func (pw *postgresWatcher) sendChange(eventData *postgresEvent) {
 }
 
 type postgresEvent struct {
-	index     string // the index that was notified by this event
-	value     string // the value of the index for the notified row
-	key       string // the primary key of the notified row
-	eventType watch.EventType
-	time      time.Time // the time that this event was created in postgres
-	protoData []byte    // the serialized protobuf of the row data
-	err       error     // any error that occurred in parsing
+	index     string          // the index that was notified by this event
+	value     string          // the value of the index for the notified row
+	key       string          // the primary key of the notified row
+	eventType watch.EventType // the type of operation that generated the event
+	time      time.Time       // the time that this event was created in postgres
+	protoData []byte          // the serialized protobuf of the row data
+	err       error           // any error that occurred in parsing
 }
 
 func parsePostgresEpoch(s string) (time.Time, error) {
@@ -295,7 +302,7 @@ func (l *PostgresListener) reset(err error) {
 	}
 }
 
-func (l *PostgresListener) listen(channelNames []string, template proto.Message, index *string, value *string) (*postgresWatcher, error) {
+func (l *PostgresListener) listen(channelNames []string, template proto.Message, index *string, value *string, opts watch.WatchOptions) (*postgresWatcher, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -303,7 +310,7 @@ func (l *PostgresListener) listen(channelNames []string, template proto.Message,
 		return nil, errors.New("PostgresListener has been closed")
 	}
 
-	pw := newPostgresWatch(l, channelNames, template, index, value)
+	pw := newPostgresWatch(l, channelNames, template, index, value, opts)
 
 	// Subscribe the watch to the given channels
 	for _, name := range pw.channelNames {

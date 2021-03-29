@@ -405,7 +405,6 @@ func collectionTests(
 			})
 
 			subsuite.Run("DeleteAll", func(t *testing.T) {
-				// TODO: DeleteAll notifications can't be supported in postgres?
 			})
 
 			subsuite.Run("Create", func(t *testing.T) {
