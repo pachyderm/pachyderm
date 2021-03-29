@@ -336,7 +336,7 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 		var bytesRead int64
 		if err := a.driver.modifyFile(pachClient, request.Commit, func(uw *fileset.UnorderedWriter) error {
 			var err error
-			bytesRead, err = a.modifyFile(server.Context(), server, uw)
+			bytesRead, err = a.modifyFile(server.Context(), uw, server, request)
 			return err
 		}); err != nil {
 			return bytesRead, err
@@ -349,44 +349,46 @@ type modifyFileSource interface {
 	Recv() (*pfs.ModifyFileRequest, error)
 }
 
-func (a *apiServer) modifyFile(ctx context.Context, server modifyFileSource, uw *fileset.UnorderedWriter) (int64, error) {
+func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.ModifyFileRequest) (int64, error) {
 	pachClient := a.env.GetPachClient(ctx)
 	var bytesRead int64
 	for {
-		req, err := server.Recv()
+		// TODO Validation.
+		if req != nil && req.Modification != nil {
+			switch mod := req.Modification.(type) {
+			case *pfs.ModifyFileRequest_PutFile:
+				var err error
+				var n int64
+				switch mod.PutFile.Source.(type) {
+				case *pfs.PutFile_RawFileSource:
+					n, err = putFileRaw(uw, server, mod.PutFile)
+				case *pfs.PutFile_TarFileSource:
+					n, err = putFileTar(uw, server, mod.PutFile)
+				case *pfs.PutFile_UrlFileSource:
+					n, err = putFileURL(ctx, uw, mod.PutFile)
+				}
+				if err != nil {
+					return bytesRead, err
+				}
+				bytesRead += n
+			case *pfs.ModifyFileRequest_DeleteFile:
+				if err := deleteFile(uw, mod.DeleteFile); err != nil {
+					return bytesRead, err
+				}
+			case *pfs.ModifyFileRequest_CopyFile:
+				cf := mod.CopyFile
+				if err := a.driver.copyFile(pachClient, uw, cf.Dst, cf.Src, cf.Append, cf.Tag); err != nil {
+					return bytesRead, err
+				}
+			}
+		}
+		var err error
+		req, err = server.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return bytesRead, nil
 			}
 			return bytesRead, err
-		}
-
-		// TODO Validation.
-		switch mod := req.Modification.(type) {
-		case *pfs.ModifyFileRequest_PutFile:
-			var err error
-			var n int64
-			switch mod.PutFile.Source.(type) {
-			case *pfs.PutFile_RawFileSource:
-				n, err = putFileRaw(uw, server, mod.PutFile)
-			case *pfs.PutFile_TarFileSource:
-				n, err = putFileTar(uw, server, mod.PutFile)
-			case *pfs.PutFile_UrlFileSource:
-				n, err = putFileURL(ctx, uw, mod.PutFile)
-			}
-			if err != nil {
-				return bytesRead, err
-			}
-			bytesRead += n
-		case *pfs.ModifyFileRequest_DeleteFile:
-			if err := deleteFile(uw, mod.DeleteFile); err != nil {
-				return bytesRead, err
-			}
-		case *pfs.ModifyFileRequest_CopyFile:
-			cf := mod.CopyFile
-			if err := a.driver.copyFile(pachClient, uw, cf.Dst, cf.Src, cf.Append, cf.Tag); err != nil {
-				return bytesRead, err
-			}
 		}
 	}
 }
@@ -501,6 +503,7 @@ func putFileRaw(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.P
 	rfsr := &rawFileSourceReader{
 		server: server,
 		r:      bytes.NewReader(src.Data),
+		done:   src.EOF,
 	}
 	err := uw.Put(src.Path, req.Append, rfsr, req.Tag)
 	return rfsr.bytesRead, err
@@ -713,7 +716,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 // CreateFileset implements the pfs.CreateFileset RPC
 func (a *apiServer) CreateFileset(server pfs.API_CreateFilesetServer) error {
 	fsID, err := a.driver.createFileset(server.Context(), func(uw *fileset.UnorderedWriter) error {
-		_, err := a.modifyFile(server.Context(), server, uw)
+		_, err := a.modifyFile(server.Context(), uw, server, nil)
 		return err
 	})
 	if err != nil {
