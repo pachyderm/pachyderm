@@ -426,6 +426,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 }
 
 // NewForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
 func NewForTest() (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
@@ -444,6 +445,35 @@ func NewForTest() (*APIClient, error) {
 
 	if pachdAddress == nil {
 		pachdAddress = &grpcutil.DefaultPachdAddress
+	}
+
+	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
+	}
+	return client, nil
+}
+
+// NewEnterpriseClientForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
+func NewEnterpriseClientForTest() (*APIClient, error) {
+	cfg, err := config.Read(false, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveEnterpriseContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+
+	// create new pachctl client
+	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	if err != nil {
+		return nil, err
+	}
+
+	if pachdAddress == nil {
+		return nil, errors.New("no enterprise server configured")
 	}
 
 	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
@@ -655,6 +685,31 @@ func (c APIClient) DeleteAll() error {
 		c.Ctx(),
 		&transaction.DeleteAllRequest{},
 	); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return nil
+}
+
+// DeleteAllEnterprise deletes everything in the enterprise server.
+// Use with caution, there is no undo.
+// TODO: rewrite this to use transactions
+func (c APIClient) DeleteAllEnterprise() error {
+	if _, err := c.IdentityAPIClient.DeleteAll(
+		c.Ctx(),
+		&identity.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.AuthAPIClient.Deactivate(
+		c.Ctx(),
+		&auth.DeactivateRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return nil

@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/images"
@@ -56,6 +57,8 @@ const (
 
 	defaultIDEVersion      = "1.1.0"
 	defaultIDEChartVersion = "0.9.1" // see https://jupyterhub.github.io/helm-chart/
+
+	etcdNodePort = 32379
 
 	ideNotes = `
 Thanks for installing the Pachyderm IDE!
@@ -557,8 +560,10 @@ func standardDeployCmds() []*cobra.Command {
 				opts.ExposeObjectAPI = true
 
 				// Set the postgres and etcd nodeports explicitly for developers
-				opts.PostgresOpts.Port = 32228
-				opts.EtcdOpts.Port = 32379
+				if !enterpriseServer {
+					opts.PostgresOpts.Port = dbutil.DefaultPort
+					opts.EtcdOpts.Port = etcdNodePort
+				}
 			}
 
 			// Put the enterprise server backing data in a different path,
