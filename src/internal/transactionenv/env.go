@@ -111,7 +111,10 @@ func (t *TransactionContext) finish() error {
 			return err
 		}
 	}
-	return t.pfsPropagater.Run()
+	if t.pfsPropagater != nil {
+		return t.pfsPropagater.Run()
+	}
+	return nil
 }
 
 // FinishPipelineCommits saves a pipeline output branch to have its commits
