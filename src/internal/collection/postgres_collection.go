@@ -25,6 +25,7 @@ const (
 	modifiedTriggerName  = "update_modified_trigger"
 	modifiedFunctionName = "update_modified_time"
 	watchBaseName        = "pwc" // "Pachyderm Watch Channel"
+	indexBaseName        = "idx"
 	pgIdentBase64Values  = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_$"
 )
 
@@ -71,6 +72,10 @@ type SQLField struct {
 type SQLInfo struct {
 	Table   string
 	Indexes []*SQLField
+}
+
+func indexFieldName(field *SQLField) string {
+	return indexBaseName + "_" + field.SQLName
 }
 
 func ensureModifiedTrigger(tx *sqlx.Tx, info *SQLInfo) error {
@@ -122,6 +127,7 @@ begin
 	payload := row.key || ' ' || tg_op || ' ' || date_part('epoch', now())::text || ' ' || encode(row.proto, 'base64');
 	base_channel := '%s_' || tg_table_name;
 
+	/*
 	if tg_argv is not null then
 		foreach field in array tg_argv loop
 			execute 'select ($1).' || field || '::text;' into value using new;
@@ -129,6 +135,7 @@ begin
 			perform pg_notify(channel, field || ' ' || value || ' ' || payload);
 		end loop;
 	end if;
+	*/
 
   perform pg_notify(base_channel, 'key' || ' ' || row.key || ' ' || payload);
 	return row;
@@ -141,7 +148,7 @@ $$ language 'plpgsql';
 
 	indexFields := []string{}
 	for _, field := range info.Indexes {
-		indexFields = append(indexFields, "'"+field.SQLName+"'")
+		indexFields = append(indexFields, "'"+indexFieldName(field)+"'")
 	}
 
 	createTrigger := fmt.Sprintf("create trigger %s after insert or update or delete on %s for each row execute procedure %s(%s);", triggerName, info.Table, functionName, strings.Join(indexFields, ", "))
@@ -168,7 +175,11 @@ func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 		"version text",
 		"key text primary key",
 	}
-	// TODO: add secondary indexes - make primary index just the first index, allow compound?
+
+	for _, field := range info.Indexes {
+		columns = append(columns, fmt.Sprintf("%s text", indexFieldName(field)))
+	}
+	// TODO: create indexes on table
 
 	// TODO: use actual context
 	return NewSQLTx(context.Background(), db, func(tx *sqlx.Tx) error {
@@ -253,6 +264,10 @@ func (c *postgresCollection) With(field string, value interface{}) PostgresColle
 	}
 }
 
+func (c *postgresCollection) tableWatchChannel() string {
+	return watchBaseName + "_" + c.sqlInfo.Table
+}
+
 func (c *postgresCollection) ReadOnly(ctx context.Context) PostgresReadOnlyCollection {
 	return &postgresReadOnlyCollection{c, ctx}
 }
@@ -325,7 +340,7 @@ type postgresReadOnlyCollection struct {
 }
 
 func (c *postgresCollection) getInternal(key string, val proto.Message, q sqlx.Queryer) error {
-	queryString := fmt.Sprintf("select * from %s where key = $1;", c.sqlInfo.Table)
+	queryString := fmt.Sprintf("select proto from %s where key = $1;", c.sqlInfo.Table)
 	result := &model{}
 
 	if err := sqlx.Get(q, result, queryString, key); err != nil {
@@ -366,7 +381,7 @@ func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string
 }
 
 func (c *postgresReadOnlyCollection) list(opts *Options, f func(*model) error) error {
-	query := fmt.Sprintf("select * from %s", c.sqlInfo.Table)
+	query := fmt.Sprintf("select key, createdat, updatedat, proto from %s", c.sqlInfo.Table)
 
 	if opts.Order != SortNone {
 		if order, err := orderToSQL(opts.Order); err != nil {
@@ -420,10 +435,6 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 	var result int64
 	err := row.Scan(&result)
 	return result, c.mapSQLError(err, "")
-}
-
-func (c *postgresCollection) tableWatchChannel() string {
-	return watchBaseName + "_" + c.sqlInfo.Table
 }
 
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {

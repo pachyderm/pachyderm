@@ -36,7 +36,7 @@ func TestEtcdCollections(suite *testing.T) {
 	etcdEnv := testetcd.NewEnv(suite)
 	newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
 		prefix := testutil.UniqueString("test-etcd-collections-")
-		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, nil, &TestItem{}, nil, nil)
+		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, []*col.Index{TestSecondaryIndex}, &TestItem{}, nil, nil)
 
 		writeCallback := func(f func(col.ReadWriteCollection) error) error {
 			_, err := col.NewSTM(context.Background(), etcdEnv.EtcdClient, func(stm col.STM) (retErr error) {

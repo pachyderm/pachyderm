@@ -17,7 +17,7 @@ func TestPostgresCollections(suite *testing.T) {
 
 	newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
 		db, listener := postgres.NewDatabase(t)
-		testCol, err := col.NewPostgresCollection(db, listener, &TestItem{}, nil)
+		testCol, err := col.NewPostgresCollection(db, listener, &TestItem{}, []*col.Index{TestSecondaryIndex})
 		require.NoError(t, err)
 
 		writeCallback := func(f func(col.ReadWriteCollection) error) error {
@@ -31,5 +31,5 @@ func TestPostgresCollections(suite *testing.T) {
 
 	collectionTests(suite, newCollection)
 
-	// TODO: postgres-specific collection tests
+	// TODO: postgres-specific collection tests - With()
 }

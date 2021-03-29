@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -20,7 +22,7 @@ const (
 )
 
 var (
-	TestIndex = &col.Index{Field: "Value"}
+	TestSecondaryIndex = &col.Index{Field: "Value"}
 )
 
 type TestError struct{}
@@ -349,13 +351,6 @@ func collectionTests(
 			})
 		})
 
-		suite.Run("Watch", func(subsuite *testing.T) {
-			subsuite.Parallel()
-			subsuite.Run("Success", func(t *testing.T) {
-				t.Parallel()
-			})
-		})
-
 		// 'Watch' functions with callbacks don't have a good hook to trigger
 		// events. This is a bit racy, but we can sleep a bit to let the listen get
 		// started, then trigger some writes.
@@ -369,24 +364,6 @@ func collectionTests(
 		}
 
 		// Helper function for checking watch events
-		extractKey := func(events []*watch.Event) []string {
-			result := []string{}
-			for _, ev := range events {
-				result = append(result, string(ev.Key))
-			}
-			return result
-		}
-
-		// Helper function for checking watch events
-		extractEventType := func(events []*watch.Event) []watch.EventType {
-			result := []watch.EventType{}
-			for _, ev := range events {
-				result = append(result, ev.Type)
-			}
-			return result
-		}
-
-		// Helper function for checking watch events
 		collectEvents := func(count int, out *[]*watch.Event) func(*watch.Event) error {
 			return func(ev *watch.Event) error {
 				*out = append(*out, ev)
@@ -397,10 +374,38 @@ func collectionTests(
 			}
 		}
 
+		type testEvent struct {
+			Type  watch.EventType
+			Key   string
+			Value *TestItem
+		}
+
+		checkEvents := func(t *testing.T, actual []*watch.Event, expected []testEvent) {
+			require.Equal(t, len(actual), len(expected), "Incorrect number of watch events")
+			for i := 0; i < len(actual); i++ {
+				require.Equal(t, expected[i].Type, actual[i].Type)
+				if actual[i].Type != watch.EventError {
+					require.Equal(t, expected[i].Key, string(actual[i].Key))
+				}
+				if actual[i].Type == watch.EventPut {
+					actualProto := &TestItem{}
+					require.NoError(t, proto.Unmarshal(actual[i].Value, actualProto))
+					require.Equal(t, expected[i].Value, actualProto)
+				}
+			}
+		}
+
+		// TODO: inject errors into watches
+
+		suite.Run("Watch", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+			})
+		})
+
 		suite.Run("WatchF", func(subsuite *testing.T) {
 			subsuite.Parallel()
-
-			// TODO: test proto values returned by watch
 
 			subsuite.Run("Delete", func(t *testing.T) {
 				t.Parallel()
@@ -412,8 +417,10 @@ func collectionTests(
 				events := []*watch.Event{}
 				err := watchCol.WatchF(collectEvents(2, &events))
 				require.NoError(t, err)
-				require.Equal(t, []string{id, id}, extractKey(events))
-				require.Equal(t, []watch.EventType{watch.EventPut, watch.EventDelete}, extractEventType(events))
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, id, makeProto(id)},
+					{watch.EventDelete, id, nil},
+				})
 			})
 
 			subsuite.Run("DeleteAll", func(t *testing.T) {
@@ -428,8 +435,12 @@ func collectionTests(
 				events := []*watch.Event{}
 				err := watchCol.WatchF(collectEvents(4, &events))
 				require.NoError(t, err)
-				require.Equal(t, []string{idA, idB, idA, idB}, extractKey(events))
-				require.Equal(t, []watch.EventType{watch.EventPut, watch.EventPut, watch.EventDelete, watch.EventDelete}, extractEventType(events))
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, idA, makeProto(idA)},
+					{watch.EventPut, idB, makeProto(idB)},
+					{watch.EventDelete, idA, nil}, // TODO: deleteAll order isn't well-defined?
+					{watch.EventDelete, idB, nil},
+				})
 			})
 
 			subsuite.Run("Create", func(t *testing.T) {
@@ -442,8 +453,10 @@ func collectionTests(
 				events := []*watch.Event{}
 				err := watchCol.WatchF(collectEvents(2, &events))
 				require.NoError(t, err)
-				require.Equal(t, []string{idA, idB}, extractKey(events))
-				require.Equal(t, []watch.EventType{watch.EventPut, watch.EventPut}, extractEventType(events))
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, idA, makeProto(idA)},
+					{watch.EventPut, idB, makeProto(idB)},
+				})
 			})
 
 			subsuite.Run("Overwrite", func(t *testing.T) {
@@ -456,8 +469,10 @@ func collectionTests(
 				events := []*watch.Event{}
 				err := watchCol.WatchF(collectEvents(2, &events))
 				require.NoError(t, err)
-				require.Equal(t, []string{id, id}, extractKey(events))
-				require.Equal(t, []watch.EventType{watch.EventPut, watch.EventPut}, extractEventType(events))
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, id, makeProto(id)},
+					{watch.EventPut, id, makeProto(id)},
+				})
 			})
 
 			subsuite.Run("ErrBreak", func(t *testing.T) {
@@ -471,8 +486,9 @@ func collectionTests(
 				events := []*watch.Event{}
 				err := watchCol.WatchF(collectEvents(1, &events))
 				require.NoError(t, err)
-				require.Equal(t, []string{idA}, extractKey(events))
-				require.Equal(t, []watch.EventType{watch.EventPut}, extractEventType(events))
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, idA, makeProto(idA)},
+				})
 			})
 		})
 
