@@ -426,6 +426,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 }
 
 // NewForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
 func NewForTest() (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
@@ -454,6 +455,7 @@ func NewForTest() (*APIClient, error) {
 }
 
 // NewEnterpriseClientForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
 func NewEnterpriseClientForTest() (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
