@@ -455,27 +455,38 @@ func (ds *datumStream) Priority() int {
 }
 
 // NewIterator creates a new datum iterator.
-func NewIterator(pachClient *client.APIClient, input *pps.Input) (iterator Iterator, retErr error) {
-	defer func() {
-		if retErr == nil {
-			iterator = newIndexIterator(iterator)
-		}
-	}()
+func NewIterator(pachClient *client.APIClient, input *pps.Input) (Iterator, error) {
+	var iterator Iterator
+	var err error
 	switch {
 	case input.Pfs != nil:
-		return newPFSIterator(pachClient, input.Pfs), nil
+		iterator = newPFSIterator(pachClient, input.Pfs)
 	case input.Union != nil:
-		return newUnionIterator(pachClient, input.Union)
+		iterator, err = newUnionIterator(pachClient, input.Union)
+		if err != nil {
+			return nil, err
+		}
 	case input.Cross != nil:
-		return newCrossIterator(pachClient, input.Cross)
+		iterator, err = newCrossIterator(pachClient, input.Cross)
+		if err != nil {
+			return nil, err
+		}
 	case input.Join != nil:
-		return newJoinIterator(pachClient, input.Join)
+		iterator, err = newJoinIterator(pachClient, input.Join)
+		if err != nil {
+			return nil, err
+		}
 	case input.Group != nil:
-		return newGroupIterator(pachClient, input.Group)
+		iterator, err = newGroupIterator(pachClient, input.Group)
+		if err != nil {
+			return nil, err
+		}
 	case input.Cron != nil:
-		return newCronIterator(pachClient, input.Cron), nil
+		iterator = newCronIterator(pachClient, input.Cron)
+	default:
+		return nil, errors.Errorf("unrecognized input type: %v", input)
 	}
-	return nil, errors.Errorf("unrecognized input type: %v", input)
+	return newIndexIterator(iterator), nil
 }
 
 type indexIterator struct {

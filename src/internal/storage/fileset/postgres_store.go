@@ -34,10 +34,10 @@ func (s *postgresStore) SetTx(tx *sqlx.Tx, id ID, md *Metadata) error {
 		return err
 	}
 	res, err := tx.Exec(
-		`INSERT INTO storage.filesets (path, metadata_pb)
+		`INSERT INTO storage.filesets (id, metadata_pb)
 		VALUES ($1, $2)
-		ON CONFLICT (path) DO NOTHING
-		`, id.HexString(), data)
+		ON CONFLICT (id) DO NOTHING
+		`, id, data)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (s *postgresStore) SetTx(tx *sqlx.Tx, id ID, md *Metadata) error {
 
 func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 	var mdData []byte
-	if err := s.db.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE path = $1`, id.HexString()); err != nil {
+	if err := s.db.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrFileSetNotExists
 		}
@@ -67,13 +67,13 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 }
 
 func (s *postgresStore) DeleteTx(tx *sqlx.Tx, id ID) error {
-	_, err := tx.Exec(`DELETE FROM storage.filesets WHERE path = $1`, id.HexString())
+	_, err := tx.Exec(`DELETE FROM storage.filesets WHERE id = $1`, id)
 	return err
 }
 
 const schema = `
 	CREATE TABLE IF NOT EXISTS storage.filesets (
-		path VARCHAR(250) PRIMARY KEY,
+		id UUID NOT NULL PRIMARY KEY,
 		metadata_pb BYTEA NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);

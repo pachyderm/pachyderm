@@ -22,11 +22,6 @@ func (c APIClient) PutFile(repo, commit, path string, r io.Reader, opts ...PutFi
 	})
 }
 
-// PutFileWriter sets up a writer for putting a file in PFS.
-func (c APIClient) PutFileWriter(repo, commit, path string, opts ...PutFileOption) (io.WriteCloser, error) {
-	return nil, errV1NotImplemented
-}
-
 // PutFileTar puts a set of files into PFS from a tar stream.
 func (c APIClient) PutFileTar(repo, commit string, r io.Reader, opts ...PutFileOption) error {
 	return c.WithModifyFileClient(repo, commit, func(mf ModifyFile) error {
@@ -63,17 +58,25 @@ func (c APIClient) CopyFile(dstRepo, dstCommit, dstPath, srcRepo, srcCommit, src
 // ModifyFileClient is not thread safe. Multiple ModifyFileClients
 // should be used for concurrent modifications.
 type ModifyFile interface {
+	// PutFile puts a file into PFS from a reader.
 	PutFile(path string, r io.Reader, opts ...PutFileOption) error
-	PutFileWriter(path string, opts ...PutFileOption) (io.WriteCloser, error)
+	// PutFileTar puts a set of files into PFS from a tar stream.
 	PutFileTar(r io.Reader, opts ...PutFileOption) error
+	// PutFileURL puts a file into PFS using the content found at a URL.
+	// recursive allows for recursive scraping of some types of URLs.
 	PutFileURL(path, url string, recursive bool, opts ...PutFileOption) error
+	// DeleteFile deletes a file from PFS.
 	DeleteFile(path string, opts ...DeleteFileOption) error
+	// CopyFile copies a file from src to dst.
 	CopyFile(dst string, src *pfs.File, opts ...CopyFileOption) error
 }
 
 // WithModifyFileClient creates a new ModifyFileClient that is scoped to the passed in callback.
+// TODO: Context should be a parameter, not stored in the pach client.
 func (c APIClient) WithModifyFileClient(repo, commit string, cb func(ModifyFile) error) (retErr error) {
-	mfc, err := c.NewModifyFileClient(repo, commit)
+	cancelCtx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	mfc, err := c.WithCtx(cancelCtx).NewModifyFileClient(repo, commit)
 	if err != nil {
 		return err
 	}
@@ -174,12 +177,6 @@ func (mfc *modifyFileCore) sendPutFile(req *pfs.PutFile) error {
 			PutFile: req,
 		},
 	})
-}
-
-var errV1NotImplemented = errors.Errorf("V1 method not implemented")
-
-func (mfc *modifyFileCore) PutFileWriter(path string, opts ...PutFileOption) (io.WriteCloser, error) {
-	return nil, errV1NotImplemented
 }
 
 func (mfc *modifyFileCore) PutFileTar(r io.Reader, opts ...PutFileOption) error {
@@ -289,7 +286,9 @@ func (c APIClient) WithRenewer(cb func(context.Context, *renew.StringSet) error)
 
 // WithCreateFilesetClient provides a scoped fileset client.
 func (c APIClient) WithCreateFilesetClient(cb func(ModifyFile) error) (resp *pfs.CreateFilesetResponse, retErr error) {
-	ctfsc, err := c.NewCreateFilesetClient()
+	cancelCtx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	ctfsc, err := c.WithCtx(cancelCtx).NewCreateFilesetClient()
 	if err != nil {
 		return nil, err
 	}

@@ -86,7 +86,7 @@ func (jdi *JobDatumIterator) SetDeleter(deleter func(*datum.Meta) error) {
 
 // Iterate iterates through the datums for the job.
 // This algorithm is split into two parts: before the parent job finishes and after.
-// For each part, we create an output datum fileset that is lexicographically ordered with respect to the order in which the datums where output by the datum iterator (this is implemented through the datum index prefix).
+// For each part, we create an output datum fileset that is lexicographically ordered with respect to the order in which the datums were output by the datum iterator (this is implemented through the datum index prefix).
 // For the part before the parent job finishes, we create an output datum fileset for the datums that only exist in the current job and record the datums we could potentially skip in a datum fileset.
 // For the part after the parent job finishes, we use the potentially skipped datum fileset and check it against the parent's output datum fileset to see if we can actually skip the datums. We create an output datum fileset for the datums that we are unable to skip.
 // TODO: There is probably a clean way to cache the output datum filesets so we do not need to recompute them across iterations.
@@ -189,7 +189,10 @@ func (jdi *JobDatumIterator) withDatumFileset(pachClient *client.APIClient, cb f
 		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
 		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(mf))
 	})
-	return resp.FilesetId, err
+	if err != nil {
+		return "", err
+	}
+	return resp.FilesetId, nil
 }
 
 func (jdi *JobDatumIterator) deleteDatum(meta *datum.Meta) error {

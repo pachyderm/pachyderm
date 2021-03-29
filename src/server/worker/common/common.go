@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -26,7 +27,9 @@ func DatumID(inputs []*Input) string {
 	hash := pfs.NewHash()
 	for _, input := range inputs {
 		hash.Write([]byte(input.Name))
+		binary.Write(hash, binary.BigEndian, int64(len(input.Name)))
 		hash.Write([]byte(input.FileInfo.File.Path))
+		binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path)))
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }
