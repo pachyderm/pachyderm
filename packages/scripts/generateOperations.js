@@ -15,8 +15,12 @@ const outputFile = args[0];
 const operations = globSync(
   path.join(process.cwd(), '/src/**/+(queries|mutations|fragments)/*.ts'),
 ).reduce((acc, filePath) => {
-  acc +=
-    gqlPluckFromCodeStringSync(filePath, fs.readFileSync(filePath, 'utf8')) + '\n';
+  const codeString = gqlPluckFromCodeStringSync(filePath, fs.readFileSync(filePath, 'utf8'));
+
+  // ignore client queries
+  if (!codeString.includes('@client')) {
+    acc += codeString + '\n';
+  }
 
   return acc;
 }, '');
