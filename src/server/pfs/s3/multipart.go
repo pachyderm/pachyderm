@@ -171,7 +171,7 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 
 	uploadID := uuid.NewWithoutDashes()
 
-	if err := pc.PutFileOverwrite(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID), strings.NewReader("")); err != nil {
+	if err := pc.PutFile(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID), strings.NewReader("")); err != nil {
 		return "", err
 	}
 
@@ -279,7 +279,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 			return nil, s2.EntityTooSmallError(r)
 		}
 
-		err = pc.CopyFile(c.repo, "master", srcPath, bucket.Repo, bucket.Commit, key, false)
+		err = pc.CopyFile(c.repo, "master", srcPath, bucket.Repo, bucket.Commit, key, client.WithAppendCopyFile())
 		if err != nil {
 			if errutil.IsWriteToOutputBranchError(err) {
 				return nil, writeToOutputBranchError(r)
@@ -386,7 +386,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 	}
 
 	path := chunkPath(bucket.Repo, bucket.Commit, key, uploadID, partNumber)
-	if err := pc.PutFileOverwrite(c.repo, "master", path, reader); err != nil {
+	if err := pc.PutFile(c.repo, "master", path, reader); err != nil {
 		return "", err
 	}
 

@@ -61,11 +61,11 @@ func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery) err
 	// Start of writing
 	log.Print("Writing messages...")
 
-	pfc, err := pc.NewPutFileClient()
+	mfc, err := pc.NewModifyFileClient()
 	if err != nil {
 		return fmt.Errorf("unable to create new PutFileClient: %v", err)
 	}
-	defer pfc.Close()
+	defer mfc.Close()
 
 	// Name - to be used for groupby operations
 	name := opts.topic + "-" + hex.EncodeToString(groupHash.Sum(nil)) + "." + opts.ext
@@ -89,12 +89,12 @@ func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery) err
 
 	// Write to PFS.
 	if opts.overwrite {
-		_, err := pfc.PutFileOverwrite(opts.repoName, opts.commitBranch, name, reader, 0)
+		_, err := mfc.PutFile(opts.repoName, opts.commitBranch, name, reader)
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err := pfc.PutFile(opts.repoName, opts.commitBranch, name, reader)
+		_, err := mfc.PutFile(opts.repoName, opts.commitBranch, name, reader, client.WithAppendPutFile())
 		if err != nil {
 			return err
 		}

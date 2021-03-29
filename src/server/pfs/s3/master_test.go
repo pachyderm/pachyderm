@@ -97,7 +97,7 @@ func masterStatObject(t *testing.T, pachClient *client.APIClient, minioClient *m
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-	require.NoError(t, pachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("new-content")))
+	require.NoError(t, pachClient.PutFile(repo, "master", "file", strings.NewReader("new-content")))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 	info, err := minioClient.StatObject(fmt.Sprintf("master.%s", repo), "file", minio.StatObjectOptions{})
@@ -118,7 +118,7 @@ func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *mi
 	_, err := minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
-	// this should act as a PFS PutFileOverwrite
+	// this should act as a PFS PutFile
 	r2 := strings.NewReader("content2")
 	_, err = minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)

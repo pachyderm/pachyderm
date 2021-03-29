@@ -30,7 +30,7 @@ func TestSpoutPachctl(t *testing.T) {
 		return fmt.Sprintf("pachctl put file $PPS_PIPELINE_NAME@%s %s -f %s", branch, flags, file)
 	}
 	basicPutFile := func(file string) string {
-		return putFileCommand("master", "", file)
+		return putFileCommand("master", "-a", file)
 	}
 
 	t.Run("SpoutAuth", func(t *testing.T) {
@@ -195,7 +195,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 	}
 
 	basicPutFile := func(file string) string {
-		return putFileCommand("master", "", file)
+		return putFileCommand("master", "-a", file)
 	}
 
 	t.Run("SpoutBasic", func(t *testing.T) {
@@ -297,7 +297,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 						"do",
 						"sleep 2",
 						"date > date",
-						putFileCommand("master", "-o", "./date*"),
+						putFileCommand("master", "", "./date*"),
 						"done"},
 				},
 				Spout: &pps.Spout{},
@@ -444,7 +444,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 		pipeline := tu.UniqueString("pipelinespoutservice")
 		if usePachctl {
-			netcatCommand = fmt.Sprintf("netcat -l -s 0.0.0.0 -p 8000  | tar -x --to-command 'pachctl put file %s@master:$TAR_FILENAME'", pipeline)
+			netcatCommand = fmt.Sprintf("netcat -l -s 0.0.0.0 -p 8000  | tar -x --to-command 'pachctl put file -a %s@master:$TAR_FILENAME'", pipeline)
 		} else {
 			netcatCommand = "netcat -l -s 0.0.0.0 -p 8000 >/pfs/out"
 		}

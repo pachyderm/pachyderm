@@ -104,7 +104,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 		return "", s2.NotImplementedError(r)
 	}
 
-	if err = pc.CopyFile(srcBucket.Repo, srcBucket.Commit, srcFile, destBucket.Repo, destBucket.Commit, destFile, true); err != nil {
+	if err = pc.CopyFile(srcBucket.Repo, srcBucket.Commit, srcFile, destBucket.Repo, destBucket.Commit, destFile); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return "", writeToOutputBranchError(r)
 		} else if errutil.IsNotADirectoryError(err) {
@@ -151,7 +151,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 		return nil, s2.NotImplementedError(r)
 	}
 
-	if err := pc.PutFileOverwrite(bucket.Repo, bucket.Commit, file, reader); err != nil {
+	if err := pc.PutFile(bucket.Repo, bucket.Commit, file, reader); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
 		} else if errutil.IsNotADirectoryError(err) {

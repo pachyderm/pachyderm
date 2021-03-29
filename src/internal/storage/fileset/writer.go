@@ -22,8 +22,8 @@ type FileWriter struct {
 	idx *index.Index
 }
 
-// Append sets an append tag for the next set of bytes.
-func (fw *FileWriter) Append(tag string) {
+// Add sets an add tag for the next set of bytes.
+func (fw *FileWriter) Add(tag string) {
 	fw.idx.File.Parts = append(fw.idx.File.Parts, &index.Part{Tag: tag})
 }
 
@@ -73,9 +73,9 @@ func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chu
 	return w
 }
 
-// Append creates an append operation for a file and provides a scoped file writer.
-// TODO: change to `Append(p string, tag string, r io.Reader) error`, remove FileWriter object from API.
-func (w *Writer) Append(p string, cb func(*FileWriter) error) error {
+// Add creates an add operation for a file and provides a scoped file writer.
+// TODO: change to `Add(p string, tag string, r io.Reader) error`, remove FileWriter object from API.
+func (w *Writer) Add(p string, cb func(*FileWriter) error) error {
 	fw, err := w.newFileWriter(p, w.cw)
 	if err != nil {
 		return err
@@ -122,8 +122,10 @@ func (w *Writer) Delete(p string, tags ...string) error {
 		Path: p,
 		File: &index.File{},
 	}
-	for _, tag := range tags {
-		idx.File.Parts = append(idx.File.Parts, &index.Part{Tag: tag})
+	if len(tags) > 0 && tags[0] != "" {
+		for _, tag := range tags {
+			idx.File.Parts = append(idx.File.Parts, &index.Part{Tag: tag})
+		}
 	}
 	return w.deletive.WriteIndex(idx)
 }

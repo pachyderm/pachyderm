@@ -79,10 +79,10 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup file operation client for output meta commit.
 	metaCommit := datumSet.MetaCommit
-	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta *client.ModifyFileClient) error {
+	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta client.ModifyFileClient) error {
 		// Setup file operation client for output PFS commit.
 		outputCommit := datumSet.OutputCommit
-		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS *client.ModifyFileClient) (retErr error) {
+		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS client.ModifyFileClient) (retErr error) {
 			opts := []datum.SetOption{
 				datum.WithMetaOutput(datum.NewClient(mfcMeta, pachClient, metaCommit)),
 				datum.WithPFSOutput(datum.NewClient(mfcPFS, pachClient, outputCommit)),

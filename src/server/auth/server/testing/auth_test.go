@@ -73,7 +73,7 @@ func TestGetSetBasic(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// Add data to repo (alice can write). Make sure alice can read also.
-	err := aliceClient.PutFile(dataRepo, "master", "/file", strings.NewReader("1"))
+	err := aliceClient.PutFile(dataRepo, "master", "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, aliceClient.GetFile(dataRepo, "master", "/file", buf))
@@ -86,7 +86,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// bob can't write (check both the standalone form of PutFile and StartCommit)
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("lorem ipsum"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("lorem ipsum"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
@@ -110,7 +110,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "1", buf.String())
 	// bob can't write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
@@ -134,7 +134,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "1", buf.String())
 	// bob can write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err := bobClient.StartCommit(dataRepo, "master")
@@ -157,7 +157,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "12", buf.String())
 	// bob can write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("3"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(dataRepo, "master")
@@ -192,7 +192,7 @@ func TestGetSetReverse(t *testing.T) {
 	// Add data to repo (alice can write). Make sure alice can read also.
 	commit, err := aliceClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	err = aliceClient.PutFile(dataRepo, commit.ID, "/file", strings.NewReader("1"))
+	err = aliceClient.PutFile(dataRepo, commit.ID, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit.ID)) // # commits = 1
 	buf := &bytes.Buffer{}
@@ -207,7 +207,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "1", buf.String())
 	// bob can write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(dataRepo, "master")
@@ -234,7 +234,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "12", buf.String())
 	// bob can write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("3"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(dataRepo, "master")
@@ -257,7 +257,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "123", buf.String())
 	// bob can't write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("4"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	_, err = bobClient.StartCommit(dataRepo, "master")
@@ -280,7 +280,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// bob can't write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("4"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	_, err = bobClient.StartCommit(dataRepo, "master")
