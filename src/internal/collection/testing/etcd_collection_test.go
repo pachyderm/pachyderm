@@ -440,7 +440,7 @@ func TestIteration(t *testing.T) {
 		numVals := 1000
 		for i := 0; i < numVals; i++ {
 			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-				testProto := makeProto(i)
+				testProto := makeProto(makeID(i))
 				return c.ReadWrite(stm).Put(testProto.ID, testProto)
 			})
 			require.NoError(t, err)
@@ -462,7 +462,7 @@ func TestIteration(t *testing.T) {
 		for i := 0; i < numBatches; i++ {
 			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 				for j := 0; j < valsPerBatch; j++ {
-					testProto := makeProto(i*valsPerBatch + j)
+					testProto := makeProto(makeID(i*valsPerBatch + j))
 					if err := c.ReadWrite(stm).Put(testProto.ID, testProto); err != nil {
 						return err
 					}
