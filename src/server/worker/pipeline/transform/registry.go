@@ -157,7 +157,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 			salt: pi.Salt,
 		}
 		var opts []chain.JobChainOption
-		if pi.NoSkip || pi.S3Out {
+		if pi.ReprocessSpec == client.ReprocessSpecEveryCommit || pi.S3Out {
 			opts = append(opts, chain.WithNoSkip())
 		}
 		pachClient := reg.driver.PachClient()
