@@ -58,6 +58,12 @@ func doDelete(id int) func(rw col.ReadWriteCollection) error {
 	}
 }
 
+func doDeleteAll() func(rw col.ReadWriteCollection) error {
+	return func(rw col.ReadWriteCollection) error {
+		return rw.DeleteAll()
+	}
+}
+
 // populateCollection writes a standard set of rows to the collection for use by
 // individual tests.
 func populateCollection(rw col.ReadWriteCollection) error {
@@ -367,13 +373,21 @@ func collectionTests(
 		}
 
 		// Helper function for checking watch events
-		extractKey := func(ev interface{}) interface{} {
-			return string(ev.(*watch.Event).Key)
+		extractKey := func(events []*watch.Event) []string {
+			result := []string{}
+			for _, ev := range events {
+				result = append(result, string(ev.Key))
+			}
+			return result
 		}
 
 		// Helper function for checking watch events
-		extractEventType := func(ev interface{}) interface{} {
-			return ev.(*watch.Event).Type
+		extractEventType := func(events []*watch.Event) []watch.EventType {
+			result := []watch.EventType{}
+			for _, ev := range events {
+				result = append(result, ev.Type)
+			}
+			return result
 		}
 
 		// Helper function for checking watch events
@@ -391,6 +405,8 @@ func collectionTests(
 		suite.Run("WatchF", func(subsuite *testing.T) {
 			subsuite.Parallel()
 
+			// TODO: test proto values returned by watch
+
 			subsuite.Run("Delete", func(t *testing.T) {
 				t.Parallel()
 				watchCol, writer := newCollection(suite)
@@ -400,11 +416,22 @@ func collectionTests(
 				events := []*watch.Event{}
 				err := watchCol.WatchF(collectEvents(2, &events))
 				require.NoError(t, err)
-				require.ElementsEqualUnderFn(t, []string{"1", "1"}, events, extractKey)
-				require.ElementsEqualUnderFn(t, []watch.EventType{watch.EventPut, watch.EventDelete}, events, extractEventType)
+				require.Equal(t, []string{"1", "1"}, extractKey(events))
+				require.Equal(t, []watch.EventType{watch.EventPut, watch.EventDelete}, extractEventType(events))
 			})
 
 			subsuite.Run("DeleteAll", func(t *testing.T) {
+				t.Parallel()
+				watchCol, writer := newCollection(suite)
+				writer(doWrite(1))
+				writer(doWrite(2))
+				asyncWrite(t, writer, doDeleteAll())
+
+				events := []*watch.Event{}
+				err := watchCol.WatchF(collectEvents(4, &events))
+				require.NoError(t, err)
+				require.Equal(t, []string{"1", "2", "1", "2"}, extractKey(events))
+				require.Equal(t, []watch.EventType{watch.EventPut, watch.EventPut, watch.EventDelete, watch.EventDelete}, extractEventType(events))
 			})
 
 			subsuite.Run("Create", func(t *testing.T) {
@@ -415,8 +442,8 @@ func collectionTests(
 				events := []*watch.Event{}
 				err := watchCol.WatchF(collectEvents(2, &events))
 				require.NoError(t, err)
-				require.ElementsEqualUnderFn(t, []string{"1", "2"}, events, extractKey)
-				require.ElementsEqualUnderFn(t, []watch.EventType{watch.EventPut, watch.EventPut}, events, extractEventType)
+				require.Equal(t, []string{"1", "2"}, extractKey(events))
+				require.Equal(t, []watch.EventType{watch.EventPut, watch.EventPut}, extractEventType(events))
 			})
 
 			subsuite.Run("Overwrite", func(t *testing.T) {
@@ -428,8 +455,8 @@ func collectionTests(
 				events := []*watch.Event{}
 				err := watchCol.WatchF(collectEvents(2, &events))
 				require.NoError(t, err)
-				require.ElementsEqualUnderFn(t, []string{"1", "1"}, events, extractKey)
-				require.ElementsEqualUnderFn(t, []watch.EventType{watch.EventPut, watch.EventPut}, events, extractEventType)
+				require.Equal(t, []string{"1", "1"}, extractKey(events))
+				require.Equal(t, []watch.EventType{watch.EventPut, watch.EventPut}, extractEventType(events))
 			})
 
 			subsuite.Run("ErrBreak", func(t *testing.T) {
@@ -441,7 +468,8 @@ func collectionTests(
 				events := []*watch.Event{}
 				err := watchCol.WatchF(collectEvents(1, &events))
 				require.NoError(t, err)
-				require.Equal(t, 1, len(events), "List callback was called multiple times despite aborting")
+				require.Equal(t, []string{"1"}, extractKey(events))
+				require.Equal(t, []watch.EventType{watch.EventPut}, extractEventType(events))
 			})
 		})
 
@@ -895,7 +923,6 @@ func collectionTests(
 	})
 }
 
-// test watches
 // test indexes
 // test multiple changes to the same row in one txn
 // test interruption
