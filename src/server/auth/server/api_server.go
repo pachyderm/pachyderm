@@ -1302,14 +1302,6 @@ func setToList(set map[string]bool) []string {
 }
 
 func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, error) {
-	// first try to lookup pre-computed subject
-	if subject := internalauth.GetWhoAmI(ctx); subject != "" {
-		return &auth.TokenInfo{
-			Subject: subject,
-			Source:  auth.TokenInfo_GET_TOKEN,
-		}, nil
-	}
-
 	token, err := auth.GetAuthToken(ctx)
 	if err != nil {
 		return nil, err
@@ -1321,6 +1313,14 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		// this check should happen in authorize
 		return &auth.TokenInfo{
 			Subject: auth.PpsUser,
+			Source:  auth.TokenInfo_GET_TOKEN,
+		}, nil
+	}
+
+	// try to lookup pre-computed subject
+	if subject := internalauth.GetWhoAmI(ctx); subject != "" {
+		return &auth.TokenInfo{
+			Subject: subject,
 			Source:  auth.TokenInfo_GET_TOKEN,
 		}, nil
 	}
