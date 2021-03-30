@@ -288,8 +288,7 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 		return nil, err
 	}
 
-	// add username to context if provided
-	if canSetWhoAmI(ctx, username) {
+	if username != "" {
 		ctx = setWhoAmI(ctx, username)
 	}
 
@@ -313,8 +312,7 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 		return err
 	}
 
-	// add username to context if it's provided and hasn't been previously set
-	if canSetWhoAmI(ctx, username) {
+	if username != "" {
 		newCtx := setWhoAmI(ctx, username)
 		stream = ServerStreamWrapper{stream, newCtx}
 	}
@@ -326,10 +324,4 @@ func nameOrUnauthenticated(name string) string {
 		return "unauthenticated"
 	}
 	return name
-}
-
-// set username in context if value is provided, and one hasn't previously been set.
-// this function implies that WhoAmI value is not expected to change within a request's processing.
-func canSetWhoAmI(ctx context.Context, username string) bool {
-	return username != "" && GetWhoAmI(ctx) == ""
 }
