@@ -1428,7 +1428,8 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.Transform == nil {
 		return errors.Errorf("pipeline must specify a transform")
 	}
-	if request.ReprocessSpec != client.ReprocessSpecUntilSuccess &&
+	if request.ReprocessSpec != "" &&
+		request.ReprocessSpec != client.ReprocessSpecUntilSuccess &&
 		request.ReprocessSpec != client.ReprocessSpecEveryCommit {
 		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of '%s' or '%s'",
 			client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryCommit)
