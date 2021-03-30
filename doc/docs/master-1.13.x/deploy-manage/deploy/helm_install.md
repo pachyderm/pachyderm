@@ -9,7 +9,7 @@ However, you can now deploy Pachyderm using the package manager [Helm](https://h
      - Changes coming with Helm:
         For improved security, **Pachyderm services are now exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
 
-This page gives you a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm).
+This page gives you a high level view of the steps to follow to install Pachyderm using Helm. Find our charts on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm).
 
 ## Install
 ### Prerequisites
@@ -52,6 +52,9 @@ See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob
     ```shell
     $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
     ```
+You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
+Each version of a chart is associated with a given version of Pachyderm. No mention of the version will install the latest available version of Pachyderm by default. 
+[Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) lists all available chart versions and their associated version of Pachyderm. 
 
 ### Check your installation
 
