@@ -44,7 +44,6 @@ rules:
   resources:
   - replicationcontrollers
   - services
-  - replicationcontrollers/scale
   verbs:
   - get
   - list
@@ -280,11 +279,6 @@ spec:
     nodePort: 30600
     port: 600
     targetPort: 0
-  - name: prometheus-metrics
-    nodePort: 30656
-    port: 656
-    protocol: TCP
-    targetPort: 656
   selector:
     app: pachd
   type: NodePort
@@ -351,16 +345,16 @@ spec:
           value: AMAZON
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.13.0
+          value: pachyderm/worker:1.12.1
         - name: IMAGE_PULL_SECRET
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.13.0
+          value: pachyderm/pachd:1.12.1
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
         - name: WORKER_SERVICE_ACCOUNT
           value: pachyderm-worker
         - name: PACHD_VERSION
-          value: 1.13.0
+          value: 1.12.1
         - name: METRICS
           value: "true"
         - name: LOG_LEVEL
@@ -582,7 +576,7 @@ spec:
           value: "100"
         - name: STORAGE_V2
           value: "false"
-        image: pachyderm/pachd:1.13.0
+        image: pachyderm/pachd:1.12.1
         imagePullPolicy: IfNotPresent
         name: pachd
         ports:
