@@ -5,3 +5,6 @@
 /testdata
 perf.*
 out
+pachd
+worker
+pachctl
