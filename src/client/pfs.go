@@ -5,6 +5,8 @@ import (
 	"context"
 	"io"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -1053,6 +1055,21 @@ func (c *putFileClient) PutFileOverwrite(repoName string, commitID string, path 
 	return int(written), grpcutil.ScrubGRPC(err)
 }
 
+var (
+	BytesSent, TimeTaken int64
+)
+
+type charReader struct{}
+
+func (_ charReader) Read(b []byte) (int, error) {
+	var n int
+	for i := range b {
+		b[i] = 'A'
+		n++
+	}
+	return n, nil
+}
+
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
 func (c *putFileClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
@@ -1065,9 +1082,12 @@ func (c *putFileClient) PutFileSplit(repoName string, commitID string, path stri
 			retErr = err
 		}
 	}()
+	start := time.Now()
 	buf := grpcutil.GetBuffer()
 	defer grpcutil.PutBuffer(buf)
 	written, err := io.CopyBuffer(writer, reader, buf)
+	atomic.AddInt64(&TimeTaken, time.Since(start).Nanoseconds())
+	atomic.AddInt64(&BytesSent, written)
 	return int(written), grpcutil.ScrubGRPC(err)
 }
 
@@ -1562,7 +1582,7 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 		// Buffer the write so that we don't exceed the grpc
 		// MaxMsgSize. This value includes the whole payload
 		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + grpcutil.MaxMsgSize/2
+		ceil := bytesWritten + (grpcutil.MaxMsgSize - 1024000)
 		if ceil > len(p) {
 			ceil = len(p)
 		}
