@@ -77,6 +77,7 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
     <"pfs", "cross", "union", "join", "group", "cron", or "git" see below>
   },
   "s3_out": bool,
+  "reprocess_spec": string,
   "output_branch": string,
   "egress": {
     "URL": "s3://bucket/dir"
@@ -888,10 +889,8 @@ For more information, see [Exporting Data by using egress](../how-tos/export-dat
 ### Standby (optional)
 
 `standby` indicates that the pipeline should be put into "standby" when there's
-no data for it to process.  A pipeline in standby will have no pods running and
-thus will consume no resources, it's state will be displayed as "standby".
-
-Standby replaces `scale_down_threshold` from releases prior to 1.7.1.
+no data for it to process. A pipeline in standby will have no pods running and
+thus will consume no resources. The pipeline's state will be displayed as "standby".
 
 ### Cache Size (optional)
 
@@ -939,6 +938,29 @@ exists, the storage space used by the stats cannot be released.
     However, stats do not use as much extra storage as it might appear because
     snapshots of the `/pfs` directory that are the largest stored assets
     do not require extra space.
+
+### Reprocess Datums (optional)
+
+Per default, Pachyderm avoids repeated processing of unchanged datums (i.e., it processes only the datums that have changed and skip the unchanged datums). This [**incremental behavior**](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#example-1-one-file-in-the-input-datum-one-file-in-the-output-datum) ensures efficient resource utilization. However, you might need to alter this behavior for specific use cases and **force the reprocessing of all of your datums systematically**. This is especially useful when your pipeline makes an external call to other resources, such as a deployment or triggering an external pipeline system.  Set `"reprocess_spec": "every_commit"` in order to enable this behavior. 
+
+!!! Note "About the default behavior: "
+    `"reprocess_spec": "until_success"` is the default behavior.
+    To mitigate datums failing for transient connection reasons,
+    Pachyderm automatically [retries user code three (3) times before marking a datum as failed](https://docs.pachyderm.com/latest/troubleshooting/pipeline_troubleshooting/#introduction). Additionally, you can [set the  `datum_tries`](https://docs.pachyderm.com/latest/reference/pipeline_spec/#datum-tries-optional) field to determine the number of times a job attempts to run on a datum when a failure occurs.
+
+
+Let's compare `"until_success"` and `"every_commit"`:
+
+  Say we have 2 identical pipelines (`reprocess_until_success.json` and `reprocess_at_every_commit.json`) but for the `"reprocess_spec"` field set to `"every_commit"` in reprocess_at_every_commit.json. 
+  Both use the same input repo and have a glob pattern set to `/*`. 
+
+  - When adding 3 text files to the input repo (file1.txt, file2.txt, file3.txt), the 2 pipelines (reprocess_until_success and reprocess_at_every_commit) will process the 3 datums (here, the glob pattern `/*` created one datum per file).
+  - Now, let's add a 4th file file4.txt to our input repo or modify the content of file2.txt for example.
+      - **Case of our default `reprocess_until_success.json pipeline`**: A quick check of the [list datum for the job id](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/#running-list-datum-on-a-past-job) shows 4 datums, of which 3 were skipped. (Only the changed file was processed)
+      - **Case of `reprocess_at_every_commit.json`**: A quick check of the list datum for the job id shows that all 4 datums were reprocessed, none were skipped.
+
+!!! Warning
+    `"reprocess_spec": "every_commit` will not take advantage of Pachyderm's default de-duplication. In effect, this can lead to slower pipeline performance. Before using this setting, consider other options such as including metadata in your file, naming your files with a timestamp, UUID, or other unique identifiers in order to take advantage of de-duplication. Review how [datum processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/) works to understand more.
 
 ### Service (optional)
 
