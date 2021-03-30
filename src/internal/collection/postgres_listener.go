@@ -303,6 +303,7 @@ func (l *PostgresListener) reset(err error) {
 	}
 }
 
+// TODO: I don't think we actually ever need to listen to multiple channels for a watch?
 func (l *PostgresListener) listen(channelNames []string, template proto.Message, index *string, value *string, opts watch.WatchOptions) (*postgresWatcher, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

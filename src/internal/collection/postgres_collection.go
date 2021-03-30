@@ -24,6 +24,7 @@ import (
 const (
 	modifiedTriggerName  = "update_modified_trigger"
 	modifiedFunctionName = "update_modified_time"
+	watchTriggerName     = "notify_watch_trigger"
 	watchBaseName        = "pwc" // "Pachyderm Watch Channel"
 	indexBaseName        = "idx"
 	pgIdentBase64Values  = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_$"
@@ -98,9 +99,8 @@ func ensureModifiedTrigger(tx *sqlx.Tx, info *SQLInfo) error {
 }
 
 func ensureNotifyTrigger(tx *sqlx.Tx, info *SQLInfo) error {
-	triggerName := "notify_watches"
-	functionName := "func_" + triggerName
-	dropTrigger := fmt.Sprintf("drop trigger if exists %s on %s;", triggerName, info.Table)
+	functionName := "func_" + watchTriggerName
+	dropTrigger := fmt.Sprintf("drop trigger if exists %s on %s;", watchTriggerName, info.Table)
 	if _, err := tx.Exec(dropTrigger); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -124,6 +124,8 @@ begin
 	  raise exception 'Unrecognized tg_op: "%%"', tg_op;
 	end case;
 
+	/* TODO: the key could contain spaces, need a better delimiter or to encode it */
+	/* TODO: get the updatedat value from the row instead of using now() - they should be equivalent */
 	payload := row.key || ' ' || tg_op || ' ' || date_part('epoch', now())::text || ' ' || encode(row.proto, 'base64');
 	base_channel := '%s_' || tg_table_name;
 
@@ -137,6 +139,9 @@ begin
 		end loop;
 	end if;
 
+	/* TODO: we could _probably_ get rid of the index field and value items from
+	 * the payload as those can be fetched from the protobuf. May need to get rid
+	 * of the 'key' parameter ~everywhere. */
   perform pg_notify(base_channel, 'key' || ' ' || row.key || ' ' || payload);
 	return row;
 end;
@@ -146,12 +151,12 @@ $$ language 'plpgsql';
 		return errors.EnsureStack(err)
 	}
 
-	indexFields := []string{}
+	indexFields := []string{"key"}
 	for _, field := range info.Indexes {
 		indexFields = append(indexFields, "'"+indexFieldName(field)+"'")
 	}
 
-	createTrigger := fmt.Sprintf("create trigger %s after insert or update or delete on %s for each row execute procedure %s(%s);", triggerName, info.Table, functionName, strings.Join(indexFields, ", "))
+	createTrigger := fmt.Sprintf("create trigger %s after insert or update or delete on %s for each row execute procedure %s(%s);", watchTriggerName, info.Table, functionName, strings.Join(indexFields, ", "))
 	if _, err := tx.Exec(createTrigger); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -296,7 +301,7 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 			return true, err
 		}
 
-		return true, errors.EnsureStack(tx.Commit())
+		return false, errors.EnsureStack(tx.Commit())
 	}
 
 	for i := 0; i < 3; i++ {

@@ -154,6 +154,8 @@ func (c *etcdCollection) indexDir(index *Index, indexVal interface{}) string {
 		if indexValBytes, err := marshaller.Marshal(); err == nil {
 			// use marshalled proto as index. This way we can rename fields without
 			// breaking our index.
+			// TODO: protobuf serialization is not guaranteed to be deterministic -
+			// this could cause queries to be flaky
 			indexValStr = string(indexValBytes)
 		} else {
 			// log error but keep going (this used to be the only codepath)

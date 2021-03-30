@@ -23,7 +23,7 @@ type PostgresCollection interface {
 	// https://coreos.com/blog/transactional-memory-with-etcd3.html
 	ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection
 
-	// For read-only operatons, use the ReadOnly for better performance
+	// For read-only operations, use the ReadOnly for better performance
 	ReadOnly(ctx context.Context) PostgresReadOnlyCollection
 
 	// With returns a new collection with the given predicate
@@ -39,7 +39,7 @@ type EtcdCollection interface {
 	// https://coreos.com/blog/transactional-memory-with-etcd3.html
 	ReadWrite(stm STM) EtcdReadWriteCollection
 
-	// For read-only operatons, use the ReadOnly for better performance
+	// For read-only operations, use the ReadOnly for better performance
 	ReadOnly(ctx context.Context) EtcdReadOnlyCollection
 
 	// Claim attempts to claim a key and run the passed in callback with
