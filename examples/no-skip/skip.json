@@ -11,7 +11,7 @@
     }
   },
   "transform": {
-    "cmd": [ "python3", "main.py" ],
-    "image": "pachyderm/example-no-skip:11"
+    "cmd": [ "bash"],
+    "stdin": [ "if [ -a /pfs/model/file1.txt ]; then exit 1 ; fi ; exit 0" ]
   }
 }
