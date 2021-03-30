@@ -83,6 +83,7 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
     "URL": "s3://bucket/dir"
   },
   "standby": bool,
+  "autoscaling": bool,
   "cache_size": string,
   "enable_stats": bool,
   "service": {
@@ -454,7 +455,7 @@ The `gpu` field is a number that describes how many GPUs each worker needs.
 Only whole number are supported, Kubernetes does not allow multiplexing of
 GPUs. Unlike the other resource fields, GPUs only have meaning in Limits, by
 requesting a GPU the worker will have sole access to that GPU while it is
-running. It's recommended to enable `standby` if you are using GPUs so other
+running. It's recommended to enable `autoscaling` if you are using GPUs so other
 processes in the cluster will have access to the GPUs while the pipeline has
 nothing to process. For more information about scheduling GPUs see the
 [Kubernetes docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
@@ -891,6 +892,14 @@ For more information, see [Exporting Data by using egress](../how-tos/export-dat
 `standby` indicates that the pipeline should be put into "standby" when there's
 no data for it to process. A pipeline in standby will have no pods running and
 thus will consume no resources. The pipeline's state will be displayed as "standby".
+
+### Autoscaling (optional)
+`autoscaling` indicates that the pipeline should automatically scale the worker
+pool based on the datums it has to process. A pipeline with no outstanding jobs
+will go into `standby` and have no workers.
+
+`autoscaling` is a more sophisticated version of `standby` that was introduced
+in 1.13.0.
 
 ### Cache Size (optional)
 

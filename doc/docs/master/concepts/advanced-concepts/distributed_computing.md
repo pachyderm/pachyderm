@@ -56,6 +56,8 @@ the datum processing:
 <!--TBA: the chunk_size property explanation article. Probably in a separate
 How-to, but need to add a link to it here-->
 
+## Parallelism
+
 You can control the number of worker pods that Pachyderm runs in a
 pipeline by defining the `parallelism` parameter in the
 [pipeline specification](../../../reference/pipeline_spec/).
@@ -78,6 +80,13 @@ can set in the pipeline spec:
 
 By default, Pachyderm sets `parallelism` to `“constant": 1`, which means
 that it spawns one worker per Kubernetes node for this pipeline.
+
+## Autoscaling 
+
+Pipelines which won't have a constant flow of data to process should use the `autoscaling` feature by setting `"autoscaling": true` in the pipeline spec. Doing so will cause the pipeline to go into standby when there's nothing for the workers to do. In `standby` a pipeline will have no workers and will consume no resources, it will just wait for data to come in for it to process.
+When data does come in the pipeline will exit standby and spin up workers to process the new data. Initially a single worker will spin up and lay out a distributed processing plan for the job. Then it will start working on the job and if there's more work that could happen in parallel it will spin up more workers to run in parallel, up to the limit defined by the `parallelism_spec`.
+Multiple jobs can run in parallel and cause new workers to spin up. For example if a job comes in with a single datum it will cause a single worker to spin up, if another job with a single datum comes in while the first job is still running another worker will spin up to work on the second job. Again this is bounded by the limit defined in the `parallelism_spec`.
+One limitation of autoscaling is that it can't dynamically scale down. Suppose a job with a large number of datums is near completion, only one worker is still working while the others are idle. Pachyderm doesn't yet have a way for the idle workers to steal work and there are a few issues that prevent us from spinning down the idle workers. Kubernetes doesn't have a good way to scale down a controller and specify which pods should be killed, so scaling down may kill the worker pod that's still doing work. This means another worker will have to restart that work from scratch and the job will take longer. The other issue is that we want to keep the workers around to participate in the distributed merge process that happens at the end of the job.
 
 !!! note "See Also:"
 
