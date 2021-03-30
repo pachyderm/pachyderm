@@ -783,6 +783,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 									Protocol:      "TCP",
 									Name:          "oidc-port",
 								},
+								{
+									ContainerPort: int32(PrometheusPort),
+									Protocol:      "TCP",
+									Name:          "prom-metrics",
+								},
 							},
 							VolumeMounts:    volumeMounts,
 							ImagePullPolicy: "IfNotPresent",
@@ -862,7 +867,7 @@ func PachdService(opts *AssetOpts) *v1.Service {
 				},
 				{
 					Port:       656,
-					Name:       "prometheus-metrics",
+					Name:       "prom-metrics",
 					NodePort:   30656,
 					Protocol:   v1.ProtocolTCP,
 					TargetPort: intstr.FromInt(656),
