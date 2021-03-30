@@ -24,7 +24,7 @@ At the bottom of the document, we'll provide specific troubleshooting steps for 
 
 First off, you can see the status of Pachyderm's jobs with `pachctl list job`, which will show you the status of all jobs.  For a failed job, use `pachctl inspect job <job-id>` to find out more about the failure.  The different categories of failures are addressed below.
 
-### Community Edition Scaling Limit
+### Community Edition Scaling Limits
 
 If you are running on the Community Edition, you might have **hit the limit set on the number of pipelines and/or parallel workers**.
 
