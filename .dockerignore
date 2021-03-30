@@ -2,3 +2,6 @@
 /doc
 /etc
 /examples
+/testdata
+perf.*
+out
