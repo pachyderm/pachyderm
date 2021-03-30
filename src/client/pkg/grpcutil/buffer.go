@@ -34,7 +34,7 @@ func (b *BufPool) PutBuffer(buf []byte) {
 // 2. Small enough that having hundreds of these buffers won't
 // overwhelm the node
 // 3. Large enough for message-sending to be efficient
-var bufPool = NewBufPool(MaxMsgSize / 10)
+var bufPool = NewBufPool(MaxMsgSize - 1024000)
 
 // GetBuffer returns a buffer.  The buffer may or may not be freshly
 // allocated, and it may or may not be zero-ed.
