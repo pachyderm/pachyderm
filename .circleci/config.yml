@@ -10,7 +10,7 @@ workflows:
       - build:
           filters:
             tags:
-              only: /^pachyderm-\d+\.\d+\.\d+$/
+              only: /^pachyderm-\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
       - publish:
           requires:
             - build
@@ -18,7 +18,7 @@ workflows:
             branches:
               ignore: /.*/
             tags:
-              only: /^pachyderm-\d+\.\d+\.\d+$/
+              only: /^pachyderm-\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
 
 jobs:
   build:
@@ -36,7 +36,7 @@ jobs:
       - run: mkdir /home/circleci/bin
       - restore_cache:
           keys:
-            - go-mod-v4-{{ checksum "go.sum" }}      
+            - go-mod-v4-{{ checksum "go.sum" }}
       - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
       - run: wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
       - run: make lint
