@@ -67,7 +67,7 @@ const (
 	PeerPortEnv = "PEER_PORT"
 
 	ReprocessSpecUntilSuccess = "until_success"
-	ReprocessSpecEveryCommit  = "every_commit"
+	ReprocessSpecEveryJob     = "every_job"
 )
 
 // NewJob creates a pps.Job.

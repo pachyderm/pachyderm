@@ -1430,9 +1430,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	if request.ReprocessSpec != "" &&
 		request.ReprocessSpec != client.ReprocessSpecUntilSuccess &&
-		request.ReprocessSpec != client.ReprocessSpecEveryCommit {
+		request.ReprocessSpec != client.ReprocessSpecEveryJob {
 		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of '%s' or '%s'",
-			client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryCommit)
+			client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryJob)
 	}
 	return nil
 }
