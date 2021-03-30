@@ -7,14 +7,8 @@ edition of Pachyderm.
     To try our enterprise features, fill in [this form](https://www.pachyderm.com/trial) or log in to the Pachyderm UI and
     provide your email address. 
 
-
-If you are interested in
-purchasing Pachyderm Enterprise, contact our sales team.
-<div class="btn">
-  <div class="center-screen">
-    <a href="https://share.hsforms.com/1kC3bWgvMQve902wrlyh8RA2ttwt">Contact Sales</a>
-  </div>
-</div>
+If you are interested in Pachyderm Enterprise, 
+[schedule some time with one of our experts](https://www.pachyderm.com/request-a-demo/).
 
 Read about how you can use Pachyderm Enterprise features in the following
 sections.

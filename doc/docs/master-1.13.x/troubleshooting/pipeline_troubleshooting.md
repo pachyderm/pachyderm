@@ -4,7 +4,7 @@
 
 Job failures can occur for a variety of reasons, but they generally categorize into 4 failure types: 
 
-1. You [hit the Community Edition Scaling Limit](#community-edition-scaling-limit).
+1. You [hit one of the Pachyderm Community Edition Scaling Limits](#community-edition-scaling-limit).
 1. [User-code-related](#user-code-failures): An error in the user code running inside the container or the json pipeline config.
 1. [Data-related](#data-failures): A problem with the input data such as incorrect file type or file name.
 1. [System- or infrastructure-related](#system-level-failures): An error in Pachyderm or Kubernetes such as missing credentials, transient network errors, or resource constraints (for example, out-of-memory--OOM--killed).
