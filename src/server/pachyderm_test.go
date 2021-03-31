@@ -12517,6 +12517,8 @@ func TestExtractPipeline(t *testing.T) {
 			}
 		})
 	}
+	// ReprocessSpec must be an enumerated string or unset
+	request.ReprocessSpec = client.ReprocessSpecEveryJob
 
 	// Create the pipeline
 	_, err := c.PpsAPIClient.CreatePipeline(
