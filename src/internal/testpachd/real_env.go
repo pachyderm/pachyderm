@@ -36,7 +36,7 @@ type RealEnv struct {
 // server instances for supported operations. PPS requires a kubernetes
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
-func WithRealEnv(db *sqlx.DB, cb func(*RealEnv) error, customConfig ...serviceenv.PachdFullConfiguration) error {
+func WithRealEnv(db *sqlx.DB, cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullConfiguration) error {
 	return WithMockEnv(func(mockEnv *MockEnv) (err error) {
 		realEnv := &RealEnv{MockEnv: *mockEnv}
 		config := serviceenv.NewConfiguration(NewDefaultConfig())
@@ -97,7 +97,7 @@ func WithRealEnv(db *sqlx.DB, cb func(*RealEnv) error, customConfig ...serviceen
 }
 
 // NewDefaultConfig creates a new default pachd configuration.
-func NewDefaultConfig() serviceenv.PachdFullConfiguration {
+func NewDefaultConfig() *serviceenv.PachdFullConfiguration {
 	config := &serviceenv.PachdFullConfiguration{}
 	config.StorageMemoryThreshold = units.GB
 	config.StorageShardThreshold = units.GB

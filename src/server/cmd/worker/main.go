@@ -87,7 +87,7 @@ func do(config interface{}) error {
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.PPSEtcdPrefix, pipelineInfo, env.PodName, env.Namespace, "/")
+	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.Config().PPSEtcdPrefix, pipelineInfo, env.Config().PodName, env.Config().Namespace, "/")
 	if err != nil {
 		return err
 	}
@@ -100,10 +100,10 @@ func do(config interface{}) error {
 
 	workerserver.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.PodName, pachClient))
+	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient))
 
 	// Put our IP address into etcd, so pachd can discover us
-	key := path.Join(env.PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)
+	key := path.Join(env.Config().PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.Config().PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
@@ -128,7 +128,7 @@ func do(config interface{}) error {
 	}
 
 	// If server ever exits, return error
-	if _, err := server.ListenTCP("", env.PPSWorkerPort); err != nil {
+	if _, err := server.ListenTCP("", env.Config().PPSWorkerPort); err != nil {
 		return err
 	}
 	return server.Wait()
