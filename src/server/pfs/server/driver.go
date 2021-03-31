@@ -37,7 +37,6 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -2385,7 +2384,7 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 		if _, err := rand.Read(secret); err != nil {
 			return nil, err
 		}
-		logrus.Infof("generated new secret: %q", name)
+		log.Infof("generated new secret: %q", name)
 		if err := keyStore.Create(ctx, name, secret); err != nil {
 			return nil, err
 		}
