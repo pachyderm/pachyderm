@@ -1,18 +1,18 @@
 # Upgrade Pachyderm
 
-If you need to upgrade Pachyderm from one major version
+If you need to upgrade Pachyderm from one minor version
 to another, such as from `1.11.x` to `1.12.x`, follow the
-instructions in the [Migrate between major versions](./migrations.md).
+instructions in the [Migrate between major/minor versions](./migrations.md).
 
-Upgrades from one minor version to another, such as from version `1.12.0` to
+Upgrades from one point release (patch) to another, such as from version `1.12.0` to
 version `1.12.2` do not introduce breaking changes. Therefore, the upgrade
 procedure is simple and requires little to no downtime.
 
-!!! warning
-    Do not use these steps to upgrade between major versions because
+!!! Warning
+    Do not use these steps to upgrade between major/minor versions because
     it might result in data corruption.
 
-To upgrade Pachyderm to a minor version, complete the following steps:
+To upgrade Pachyderm from one point release to another, complete the following steps:
 
 1. Back up your cluster as described in the [Backup and Restore](../backup_restore/#backup-your-cluster)
 section.
@@ -40,9 +40,9 @@ section.
       ...
       ```
 
-      **Note:** You need to specify the version of `pachctl` to which
+      **Note:** You need to specify the major/minor version of `pachctl` to which
       you want to upgrade. For example, if you want to upgrade `1.12.0` to
-      `1.12.2`, add `@1.12` at the end of the upgrade path.
+      the latest point release of the 1.12, add `@1.12` at the end of the upgrade path.
 
 1. Confirm that the new version has been successfully installed by running
 the following command:
@@ -119,7 +119,7 @@ of Pachyderm:
 
       The `pachd` and `pachctl` versions must both match the new version.
 
-## Troubleshooting Minor Upgrades
+## Troubleshooting point release Upgrades
 
 <!-- We might want to move this section to Troubleshooting -->
 

@@ -1,7 +1,7 @@
-# Migrate to a Minor or Major Version
+# Migrate to a Major or Minor Version
 
-!!! info
-    If you need to upgrade Pachyderm from one patch
+!!! Info
+    If you need to upgrade Pachyderm from one point release
     to another, such as from x.xx.0 to x.xx.1, see
     [Upgrade Pachyderm](upgrades.md).
 
@@ -11,7 +11,7 @@ cluster to get access to bug fixes and new features.
 Migrations involve moving between major releases, such as 1.x.x to
 2.x.x or minor releases, such as 1.11.x to 1.12.0.
 
-!!! tip
+!!! Tip
     Pachyderm follows the [Semantic Versioning](https://semver.org/)
     specification to manage the release process.
 
@@ -35,9 +35,9 @@ in a separate namespace or in a separate Kubernetes cluster.
 1. Restore the old cluster's repos, commits, and pipelines into the new
    cluster.
 
-!!! warning
+!!! Warning
     Whether you are upgrading or migrating your cluster, you must back it up
-    to guarantee that you can restore it after migration.
+    to guarantee that you can restore it after an upgrade/migration.
 
 ## Step 1 - Back up Your Cluster
 
