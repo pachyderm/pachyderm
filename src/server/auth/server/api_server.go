@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -1301,19 +1302,25 @@ func setToList(set map[string]bool) []string {
 }
 
 func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, error) {
-	// TODO(msteffen) cache these lookups, especially since users always authorize
-	// themselves at the beginning of a request. Don't want to look up the same
-	// token -> username entry twice.
 	token, err := auth.GetAuthToken(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	if token == a.ppsToken {
 		// TODO(msteffen): This is a hack. The idea is that there is a logical user
 		// entry mapping ppsToken to ppsUser. Soon, ppsUser will go away and
 		// this check should happen in authorize
 		return &auth.TokenInfo{
 			Subject: auth.PpsUser,
+			Source:  auth.TokenInfo_GET_TOKEN,
+		}, nil
+	}
+
+	// try to lookup pre-computed subject
+	if subject := internalauth.GetWhoAmI(ctx); subject != "" {
+		return &auth.TokenInfo{
+			Subject: subject,
 			Source:  auth.TokenInfo_GET_TOKEN,
 		}, nil
 	}
