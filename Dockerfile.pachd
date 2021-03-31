@@ -10,7 +10,8 @@ RUN apt update && apt install ca-certificates
 #     CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o pachd "src/server/cmd/pachd/main.go" && \
 #     CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o worker "src/server/cmd/worker/main.go"
 
-FROM scratch
+#FROM scratch
+FROM debian:unstable
 COPY ./pachd /pachd
 COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/pachd"]
