@@ -30,7 +30,7 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	api := newDexAPI(dex_memory.New(logger), logger)
+	api := newDexAPI(dex_memory.New(logger))
 
 	// Create a new connector
 	err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: conn1})
@@ -120,7 +120,7 @@ func TestCreateInvalidConnector(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	api := newDexAPI(dex_memory.New(logger), logger)
+	api := newDexAPI(dex_memory.New(logger))
 
 	for _, c := range cases {
 		err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: c.conn})
@@ -221,7 +221,7 @@ func TestUpdateConnector(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	api := newDexAPI(dex_memory.New(logger), logger)
+	api := newDexAPI(dex_memory.New(logger))
 
 	// Create the initial  connector
 	err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: conn})
@@ -259,7 +259,7 @@ func TestClientCreateListGetDelete(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	api := newDexAPI(dex_memory.New(logger), logger)
+	api := newDexAPI(dex_memory.New(logger))
 
 	// Create a new connector
 	resp, err := api.createClient(context.Background(), &identity.CreateOIDCClientRequest{Client: client1})
@@ -317,7 +317,7 @@ func TestCreateInvalidClient(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	api := newDexAPI(dex_memory.New(logger), logger)
+	api := newDexAPI(dex_memory.New(logger))
 
 	for _, c := range cases {
 		_, err := api.createClient(context.Background(), &identity.CreateOIDCClientRequest{Client: c.client})
@@ -404,7 +404,7 @@ func TestUpdateClient(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	api := newDexAPI(dex_memory.New(logger), logger)
+	api := newDexAPI(dex_memory.New(logger))
 
 	// Create the initial  connector
 	_, err := api.createClient(context.Background(), &identity.CreateOIDCClientRequest{Client: client})

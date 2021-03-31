@@ -54,6 +54,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	dex_sql "github.com/dexidp/dex/storage/sql"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -156,14 +157,21 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		return errors.Wrapf(err, "getClusterID")
 	}
 
-	identityStorageProvider := identity_server.NewLazyPostgresStorage(
-		env.Config().PostgresServiceHost,
-		env.Config().IdentityServerDatabase,
-		env.Config().IdentityServerUser,
-		env.Config().IdentityServerPassword,
-		env.Config().PostgresServiceSSL,
-		env.Config().PostgresServicePort,
-	)
+	identityStorageProvider, err := (&dex_sql.Postgres{
+		NetworkDB: dex_sql.NetworkDB{
+			Database: env.IdentityServerDatabase,
+			User:     env.IdentityServerUser,
+			Password: env.IdentityServerPassword,
+			Host:     env.PostgresServiceHost,
+			Port:     uint16(env.PostgresServicePort),
+		},
+		SSL: dex_sql.SSL{
+			Mode: env.PostgresServiceSSL,
+		},
+	}).Open(log.NewEntry(log.New()).WithField("source", "identity-db"))
+	if err != nil {
+		return err
+	}
 
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
@@ -235,13 +243,11 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
+				identityStorageProvider,
 				true,
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -333,13 +339,11 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
+				identityStorageProvider,
 				false,
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -571,6 +575,23 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return errors.Wrapf(err, "getClusterID")
 	}
+
+	identityStorageProvider, err := (&dex_sql.Postgres{
+		NetworkDB: dex_sql.NetworkDB{
+			Database: env.IdentityServerDatabase,
+			User:     env.IdentityServerUser,
+			Password: env.IdentityServerPassword,
+			Host:     env.PostgresServiceHost,
+			Port:     uint16(env.PostgresServicePort),
+		},
+		SSL: dex_sql.SSL{
+			Mode: env.PostgresServiceSSL,
+		},
+	}).Open(log.NewEntry(log.New()).WithField("source", "identity-db"))
+	if err != nil {
+		return err
+	}
+
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
@@ -651,15 +672,11 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				true,
-				path.Join(env.Config().EtcdPrefix, env.Config().IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -813,15 +830,11 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				false,
-				path.Join(env.Config().EtcdPrefix, env.Config().IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {

@@ -25,9 +25,12 @@ import (
 func TestLazyStartWebServer(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
+	db := dbutil.NewTestDB(t)
+	env := 
+	api := 
 
 	// server is instantiated but hasn't started
-	server := newDexWeb(dex_memory.New(logger), logger, dbutil.NewTestDB(t), api)
+	server := newDexWeb(dex_memory.New(logger), db, api)
 	defer server.stopWebServer()
 
 	// request the well-known endpoint, this should return a 500 because the database is failing
@@ -67,7 +70,7 @@ func TestConfigureIssuer(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
 
-	server := newDexWeb(sp, logger, dbutil.NewTestDB(t), api)
+	server := newDexWeb(sp, dbutil.NewTestDB(t), api)
 	defer server.stopWebServer()
 
 	err := sp.provider.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
@@ -104,7 +107,7 @@ func TestLogApprovedUsers(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState))
 	require.NoError(t, migrations.BlockUntil(context.Background(), db, clusterstate.DesiredClusterState))
 
-	server := newDexWeb(sp, logger, db, api)
+	server := newDexWeb(sp, db, api)
 	defer server.stopWebServer()
 
 	err := sp.provider.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})

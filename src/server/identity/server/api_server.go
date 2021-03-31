@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	dex_sql "github.com/dexidp/dex/storage/sql"
+	dex_storage "github.com/dexidp/dex/storage"
 	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -46,41 +46,23 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env serviceenv.ServiceEnv, sp StorageProvider, public bool) (identity.APIServer, error) {
-	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex")
-
-	storage, err := &dex_sql.Postgres{
-		NetworkDB: dex_sql.NetworkDB{
-			Database: pgDatabase,
-			User:     pgUser,
-			Password: pgPwd,
-			Host:     pgHost,
-			Port:     uint16(pgPort),
-		},
-		SSL: dex_sql.SSL{
-			Mode: pgSSL,
-		},
-	}.Open(logger)
-	if err != nil {
-		return nil, err
-	}
-
+func NewIdentityServer(env *serviceenv.ServiceEnv, storage dex_storage.Storage, public bool) identity.APIServer {
 	server := &apiServer{
 		env:        env,
-		pachLogger: logger,
-		api:        newDexAPI(storage, logger),
+		pachLogger: log.NewLogger("identity.API"),
+		api:        newDexAPI(storage),
 	}
 
 	if public {
-		web := newDexWeb(storage, logger, env.GetDBClient(), server)
+		web := newDexWeb(storage, env.GetDBClient(), server)
 		go func() {
 			if err := http.ListenAndServe(dexHTTPPort, web); err != nil {
-				logger.WithError(err).Error("Dex web server stopped")
+				logrus.WithError(err).Fatalf("error setting up and/or running the identity server")
 			}
 		}()
 	}
 
-	return server, nil
+	return server
 }
 
 func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {

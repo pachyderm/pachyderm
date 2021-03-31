@@ -39,7 +39,8 @@ type dexWeb struct {
 	apiServer       identity.APIServer
 }
 
-func newDexWeb(sp dex_storage.Storage, logger *logrus.Entry, db *sqlx.DB, apiServer identity.APIServer) *dexWeb {
+func newDexWeb(sp dex_storage.Storage, db *sqlx.DB, apiServer identity.APIServer) *dexWeb {
+	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex-web")
 	return &dexWeb{
 		logger:          logger,
 		storageProvider: sp,
