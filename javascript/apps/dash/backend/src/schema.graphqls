@@ -205,6 +205,7 @@ type AuthConfig {
 }
 
 type Query {
+  project(id: ID!): Project!
   projects: [Project!]!
   pipelines: [Pipeline!]!
   repos: [Repo!]!

@@ -1,7 +1,7 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
 import {AuthenticationError, ApolloError} from 'apollo-server-errors';
 
-import {GRPCPlugin} from '@dash-backend/lib/types';
+import {GRPCPlugin, NotFoundError} from '@dash-backend/lib/types';
 
 import isServiceError from '../utils/isServiceError';
 
@@ -13,6 +13,10 @@ const errorPlugin: GRPCPlugin = {
     if (isServiceError(error)) {
       if (error.code === Status.UNAUTHENTICATED) {
         throw new AuthenticationError(error.details);
+      }
+
+      if (error.code === Status.NOT_FOUND) {
+        throw new NotFoundError(error.details);
       }
 
       // We can transform additional error types below.

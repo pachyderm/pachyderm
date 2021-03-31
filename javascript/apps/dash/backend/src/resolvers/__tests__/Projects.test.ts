@@ -1,14 +1,80 @@
 import {status} from '@grpc/grpc-js';
 
 import {BYTES_IN_GIG} from '@dash-backend/lib/constants';
+import projects from '@dash-backend/mock/fixtures/projects';
 import {
   mockServer,
   executeOperation,
   createServiceError,
+  createOperation,
 } from '@dash-backend/testHelpers';
 import {Project, ProjectDetails} from '@graphqlTypes';
 
+import {DEFAULT_PROJECT_ID} from '../Projects';
+
 describe('Projects Resolver', () => {
+  describe('project', () => {
+    it('should return a project for a given id', async () => {
+      const {data, errors = []} = await createOperation<{project: Project}>(
+        `
+        query project($id: ID!) {
+          project(id: $id) {
+            id
+            name
+            status
+            description
+            createdAt
+          }
+        }
+      `,
+        {id: '1'},
+      );
+
+      expect(errors?.length).toBe(0);
+      expect(data?.project.name).toBe(projects['1'].getName());
+    });
+
+    it('should return a NOT_FOUND error if a project cannot be found', async () => {
+      const {data, errors = []} = await createOperation<{project: Project}>(
+        `
+        query project($id: ID!) {
+          project(id: $id) {
+            id
+            name
+            status
+            description
+            createdAt
+          }
+        }
+      `,
+        {id: 'bologna'},
+      );
+
+      expect(data).toBeFalsy();
+      expect(errors?.length).toBe(1);
+      expect(errors[0].extensions.code).toBe('NOT_FOUND');
+    });
+
+    it('should return the default project', async () => {
+      const {data, errors = []} = await createOperation<{project: Project}>(
+        `
+        query project($id: ID!) {
+          project(id: $id) {
+            id
+            name
+            status
+            description
+            createdAt
+          }
+        }
+      `,
+        {id: DEFAULT_PROJECT_ID},
+      );
+
+      expect(errors?.length).toBe(0);
+      expect(data?.project.name).toBe('Default');
+    });
+  });
   describe('projects', () => {
     const operationName = 'projects';
 

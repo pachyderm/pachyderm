@@ -6,7 +6,7 @@
     "outDir": "./dist",
     "strict": true,
     "strictPropertyInitialization": false,
-    "target": "ES5",
+    "target": "ES6",
     "paths": {
       "@graphqlTypes": [ "generated/types.ts" ],
       "@dash-backend/*": ["./*"],

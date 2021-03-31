@@ -1,4 +1,5 @@
 import {ServiceError} from '@grpc/grpc-js';
+import {Status} from '@grpc/grpc-js/build/src/constants';
 import {IAPIServer} from '@pachyderm/proto/pb/projects/projects_grpc_pb';
 
 import {
@@ -17,9 +18,17 @@ const projects = () => {
     getService: (): Pick<IAPIServer, 'inspectProject' | 'listProject'> => {
       return {
         inspectProject: (call, callback) => {
+          if (state.error) {
+            return callback(state.error);
+          }
+
           const projectId = call.request.getProjectid();
 
-          callback(null, projectFixtures[projectId]);
+          if (projectFixtures[projectId]) {
+            callback(null, projectFixtures[projectId]);
+          } else {
+            callback({code: Status.NOT_FOUND, details: 'Project not found'});
+          }
         },
         listProject: (_call, callback) => {
           if (state.error) {

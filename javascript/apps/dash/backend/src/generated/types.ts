@@ -38,6 +38,7 @@ export type Query = {
   jobs: Array<Job>;
   loggedIn: Scalars['Boolean'];
   pipelines: Array<Pipeline>;
+  project: Project;
   projectDetails: ProjectDetails;
   projects: Array<Project>;
   repos: Array<Repo>;
@@ -58,6 +59,10 @@ export type QueryFilesArgs = {
 
 export type QueryJobsArgs = {
   args: JobQueryArgs;
+};
+
+export type QueryProjectArgs = {
+  id: Scalars['ID'];
 };
 
 export type QueryProjectDetailsArgs = {
@@ -393,13 +398,13 @@ export type DirectiveResolverFn<
 export type ResolversTypes = ResolversObject<{
   Query: ResolverTypeWrapper<{}>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
+  ID: ResolverTypeWrapper<Scalars['ID']>;
   String: ResolverTypeWrapper<Scalars['String']>;
   PFSInput: ResolverTypeWrapper<PfsInput>;
   CronInput: ResolverTypeWrapper<CronInput>;
   GitInput: ResolverTypeWrapper<GitInput>;
   InputType: InputType;
   Input: ResolverTypeWrapper<Input>;
-  ID: ResolverTypeWrapper<Scalars['ID']>;
   PipelineState: PipelineState;
   JobState: JobState;
   ProjectStatus: ProjectStatus;
@@ -434,12 +439,12 @@ export type ResolversTypes = ResolversObject<{
 export type ResolversParentTypes = ResolversObject<{
   Query: {};
   Boolean: Scalars['Boolean'];
+  ID: Scalars['ID'];
   String: Scalars['String'];
   PFSInput: PfsInput;
   CronInput: CronInput;
   GitInput: GitInput;
   Input: Input;
-  ID: Scalars['ID'];
   Pipeline: Pipeline;
   Int: Scalars['Int'];
   InputPipeline: InputPipeline;
@@ -500,6 +505,12 @@ export type QueryResolvers<
     Array<ResolversTypes['Pipeline']>,
     ParentType,
     ContextType
+  >;
+  project?: Resolver<
+    ResolversTypes['Project'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryProjectArgs, 'id'>
   >;
   projectDetails?: Resolver<
     ResolversTypes['ProjectDetails'],

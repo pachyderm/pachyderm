@@ -1,6 +1,8 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
+import {ApolloError} from 'apollo-server-errors';
 import Logger from 'bunyan';
 
+import client from '@dash-backend/grpc/client';
 import {Node, JobState, Account} from '@graphqlTypes';
 
 export interface UnauthenticatedContext {
@@ -40,3 +42,15 @@ export interface GRPCPlugin {
 
 export type ServiceHandlerFunction = (...args: never[]) => Promise<unknown>;
 export type ServiceDefinition = Record<string, ServiceHandlerFunction>;
+
+export class NotFoundError extends ApolloError {
+  constructor(message: string) {
+    super(message, 'NOT_FOUND');
+
+    // Note: We must redefine this property, as ApolloError's
+    // "name" attribute is read-only by default
+    Object.defineProperty(this, 'name', {value: 'NotFoundError'});
+  }
+}
+
+export type GRPCClient = typeof client;
