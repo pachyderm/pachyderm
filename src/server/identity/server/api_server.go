@@ -3,16 +3,12 @@ package server
 import (
 	"context"
 	"net/http"
-	"path"
-	"sync"
 	"time"
 
+	dex_sql "github.com/dexidp/dex/storage/sql"
 	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 )
@@ -20,20 +16,14 @@ import (
 const (
 	dexHTTPPort = ":658"
 
-	configPrefix = "/config"
-	configKey    = "config"
+	configKey = 1
 )
 
 type apiServer struct {
 	pachLogger log.Logger
 	env        serviceenv.ServiceEnv
 
-	config         col.Collection
-	configCacheMtx sync.RWMutex
-	configCache    identity.IdentityServerConfig
-
 	api *dexAPI
-	web *dexWeb
 }
 
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
@@ -56,77 +46,51 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env serviceenv.ServiceEnv, sp StorageProvider, public bool, etcdPrefix string) (identity.APIServer, error) {
+func NewIdentityServer(env serviceenv.ServiceEnv, sp StorageProvider, public bool) (identity.APIServer, error) {
 	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex")
+
+	storage, err := &dex_sql.Postgres{
+		NetworkDB: dex_sql.NetworkDB{
+			Database: pgDatabase,
+			User:     pgUser,
+			Password: pgPwd,
+			Host:     pgHost,
+			Port:     uint16(pgPort),
+		},
+		SSL: dex_sql.SSL{
+			Mode: pgSSL,
+		},
+	}.Open(logger)
+	if err != nil {
+		return nil, err
+	}
 
 	server := &apiServer{
 		env:        env,
-		pachLogger: log.NewLogger("identity.API"),
-		api:        newDexAPI(sp, logger),
-		config: col.NewCollection(
-			env.GetEtcdClient(),
-			path.Join(etcdPrefix, configPrefix),
-			nil,
-			&identity.IdentityServerConfig{},
-			nil,
-			nil,
-		),
+		pachLogger: logger,
+		api:        newDexAPI(storage, logger),
 	}
 
 	if public {
-		server.web = newDexWeb(sp, logger, env.GetDBClient())
+		web := newDexWeb(storage, logger, env.GetDBClient(), server)
 		go func() {
-			if err := http.ListenAndServe(dexHTTPPort, server.web); err != nil {
+			if err := http.ListenAndServe(dexHTTPPort, web); err != nil {
 				logger.WithError(err).Error("Dex web server stopped")
 			}
 		}()
-
-		go server.watchConfig()
 	}
 
 	return server, nil
-}
-
-func (a *apiServer) watchConfig() {
-	b := backoff.NewExponentialBackOff()
-	backoff.RetryNotify(func() error {
-		configWatcher, err := a.config.ReadOnly(context.Background()).Watch()
-		if err != nil {
-			return err
-		}
-		defer configWatcher.Close()
-
-		var key string
-		var config identity.IdentityServerConfig
-		for {
-			ev, ok := <-configWatcher.Watch()
-			if !ok {
-				return errors.New("admin watch closed unexpectedly")
-			}
-			b.Reset()
-
-			ev.Unmarshal(&key, &config)
-
-			a.configCacheMtx.Lock()
-			a.web.updateConfig(config)
-			a.configCache = config
-			a.configCacheMtx.Unlock()
-		}
-	}, b, func(err error, d time.Duration) error {
-		logrus.Errorf("error watching identity config: %v; retrying in %v", err, d)
-		return nil
-	})
 }
 
 func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.config.ReadWrite(stm).Put(configKey, req.Config)
-	}); err != nil {
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO identity.config (id, issuer) VALUES ($1, $2) ON DUPLICATE KEY(id) SET issuer=$2 `, configKey, req.Config.Issuer); err != nil {
 		return nil, err
 	}
+
 	return &identity.SetIdentityServerConfigResponse{}, nil
 }
 
@@ -134,11 +98,13 @@ func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.G
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	// Serve the cached version from the watcher - this ensures the version matches the one being used by the web server
-	a.configCacheMtx.RLock()
-	defer a.configCacheMtx.RUnlock()
+	var config identity.IdentityServerConfig
+	err := a.env.GetDBClient().SelectContext(ctx, &config, "SELECT issuer FROM identity.config WHERE id=$1;", configKey)
+	if err != nil {
+		return nil, err
+	}
 
-	return &identity.GetIdentityServerConfigResponse{Config: &a.configCache}, nil
+	return &identity.GetIdentityServerConfigResponse{Config: &config}, nil
 }
 
 func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (resp *identity.CreateIDPConnectorResponse, retErr error) {
@@ -285,14 +251,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 		}
 	}
 
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		if err := a.config.ReadWrite(stm).Delete(configKey); err != nil && !col.IsErrNotFound(err) {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
+	// TODO: delete config
 
 	return &identity.DeleteAllResponse{}, nil
 }

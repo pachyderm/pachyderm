@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -11,75 +10,6 @@ import (
 	dex_memory "github.com/dexidp/dex/storage/memory"
 	logrus "github.com/sirupsen/logrus"
 )
-
-// TestLazyStartAPI tests that the API server tries to connect to the database on each request
-func TestLazyStartAPI(t *testing.T) {
-	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{err: errors.New("unable to connect to database")}
-
-	// api fails to connect to the database initially
-	api := newDexAPI(sp, logger)
-	req := &identity.CreateIDPConnectorRequest{
-		Connector: &identity.IDPConnector{
-			Id:            "id",
-			Name:          "name",
-			Type:          "github",
-			ConfigVersion: 0,
-			JsonConfig:    "{}",
-		},
-	}
-	err := api.createConnector(req)
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	// try every api to make sure they all handle the error
-	err = api.updateConnector(&identity.UpdateIDPConnectorRequest{})
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	_, err = api.getConnector("")
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	_, err = api.listConnectors()
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	err = api.deleteConnector("")
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	_, err = api.createClient(context.Background(), &identity.CreateOIDCClientRequest{})
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	err = api.updateClient(context.Background(), &identity.UpdateOIDCClientRequest{})
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	_, err = api.getClient("")
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	_, err = api.listClients()
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	err = api.deleteClient(context.Background(), "")
-	require.YesError(t, err)
-	require.Equal(t, "unable to connect to database", err.Error())
-
-	// once the database is available the API requests succeed
-	sp.provider = dex_memory.New(logger)
-	sp.err = nil
-	err = api.createConnector(req)
-	require.NoError(t, err)
-
-	// use the cached API and database connection
-	req.Connector.Id = "id2"
-	err = api.createConnector(req)
-	require.NoError(t, err)
-}
 
 // TestConnectorCreateListGet tests creating, listing, getting and deleting IDP connectors.
 func TestConnectorCreateListGetDelete(t *testing.T) {
@@ -100,8 +30,7 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
-	api := newDexAPI(sp, logger)
+	api := newDexAPI(dex_memory.New(logger), logger)
 
 	// Create a new connector
 	err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: conn1})
@@ -191,8 +120,7 @@ func TestCreateInvalidConnector(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
-	api := newDexAPI(sp, logger)
+	api := newDexAPI(dex_memory.New(logger), logger)
 
 	for _, c := range cases {
 		err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: c.conn})
@@ -293,8 +221,7 @@ func TestUpdateConnector(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
-	api := newDexAPI(sp, logger)
+	api := newDexAPI(dex_memory.New(logger), logger)
 
 	// Create the initial  connector
 	err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: conn})
@@ -332,8 +259,7 @@ func TestClientCreateListGetDelete(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
-	api := newDexAPI(sp, logger)
+	api := newDexAPI(dex_memory.New(logger), logger)
 
 	// Create a new connector
 	resp, err := api.createClient(context.Background(), &identity.CreateOIDCClientRequest{Client: client1})
@@ -391,8 +317,7 @@ func TestCreateInvalidClient(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
-	api := newDexAPI(sp, logger)
+	api := newDexAPI(dex_memory.New(logger), logger)
 
 	for _, c := range cases {
 		_, err := api.createClient(context.Background(), &identity.CreateOIDCClientRequest{Client: c.client})
@@ -479,8 +404,7 @@ func TestUpdateClient(t *testing.T) {
 	}
 
 	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
-	api := newDexAPI(sp, logger)
+	api := newDexAPI(dex_memory.New(logger), logger)
 
 	// Create the initial  connector
 	_, err := api.createClient(context.Background(), &identity.CreateOIDCClientRequest{Client: client})

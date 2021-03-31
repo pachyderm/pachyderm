@@ -16,3 +16,14 @@ CREATE TABLE IF NOT EXISTS identity.users (
 `)
 	return err
 }
+
+// CreateConfigTable sets up the postgres table which stores IDP configuration
+func CreateConfigTable(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+CREATE TABLE IF NOT EXISTS identity.config (
+	id INT PRIMARY KEY,
+	issuer VARCHAR(4096)
+);
+`)
+	return err
+}

@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,42 +17,23 @@ import (
 
 	dex_storage "github.com/dexidp/dex/storage"
 	dex_memory "github.com/dexidp/dex/storage/memory"
+	"github.com/stretchr/testify/mock"
 )
 
-type InMemoryStorageProvider struct {
-	provider dex_storage.Storage
-	err      error
-}
-
-func (p *InMemoryStorageProvider) GetStorage(logger *logrus.Entry) (dex_storage.Storage, error) {
-	return p.provider, p.err
-}
-
-// TestLazyStartWebServer tests that the web server returns a 500 when the database isn't available,
-// redirects to a static page when no connectors are configured, and redirects to a real connector when
-// one is configured
+// TestLazyStartWebServer tests that the web server redirects to a static page when no connectors are configured,
+// and redirects to a real connector when one is configured
 func TestLazyStartWebServer(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{err: errors.New("unable to connect to database")}
 
 	// server is instantiated but hasn't started
-	server := newDexWeb(sp, logger, dbutil.NewTestDB(t))
+	server := newDexWeb(dex_memory.New(logger), logger, dbutil.NewTestDB(t), api)
 	defer server.stopWebServer()
 
 	// request the well-known endpoint, this should return a 500 because the database is failing
 	req := httptest.NewRequest("GET", "/.well-known/openid-configuration", nil)
 
-	// attempt to start the server but the database is unavailable
-	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, req)
-	require.Equal(t, http.StatusInternalServerError, recorder.Result().StatusCode)
-
-	// attempt to start the server again, this time the database is available but no connectors are available
-	// so we should get a redirect to a static page
-	sp.provider = dex_memory.New(logger)
-	sp.err = nil
-
+	// attempt to start the server, no connectors are available so we should get a redirect to a static page
 	require.NoError(t, sp.provider.CreateClient(dex_storage.Client{
 		ID:           "test",
 		RedirectURIs: []string{"http://example.com/callback"},
@@ -65,8 +45,9 @@ func TestLazyStartWebServer(t *testing.T) {
 	require.Equal(t, http.StatusFound, recorder.Result().StatusCode)
 	require.Matches(t, "/placeholder", recorder.Result().Header.Get("Location"))
 
-	// configure a connector so the server should redirect to github automatically - the placeholder
-	// provider shouldn't be enabled anymore
+	// configure a connector so the server should redirect to github automatically - the placeholder provider shouldn't be enabled anymore
+	api.On("ListIDPConnectors", mock.AnythingOfType("*context.emptyCtx"), &identity.ListIDPConnectorsRequest{}).Return(&identity.ListIDPConnectorsResponse{Connectors: []*identity.IDPConnector{}}, nil).Twice()
+	listConnectorsResp.Connectors = []*identity.IDPConnector{}
 	err := sp.provider.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
 	require.NoError(t, err)
 	recorder = httptest.NewRecorder()
@@ -85,9 +66,8 @@ func TestLazyStartWebServer(t *testing.T) {
 func TestConfigureIssuer(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
 
-	server := newDexWeb(sp, logger, dbutil.NewTestDB(t))
+	server := newDexWeb(sp, logger, dbutil.NewTestDB(t), api)
 	defer server.stopWebServer()
 
 	err := sp.provider.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
@@ -104,7 +84,7 @@ func TestConfigureIssuer(t *testing.T) {
 	require.Equal(t, "", oidcConfig["issuer"].(string))
 
 	// reconfigure the issuer, the server should reload and serve the new issuer value
-	server.updateConfig(identity.IdentityServerConfig{Issuer: "http://example.com:1234"})
+	//server.updateConfig(identity.IdentityServerConfig{Issuer: "http://example.com:1234"})
 
 	recorder = httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
@@ -119,13 +99,12 @@ func TestConfigureIssuer(t *testing.T) {
 func TestLogApprovedUsers(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
-	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
 	db := dbutil.NewTestDB(t)
 
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState))
 	require.NoError(t, migrations.BlockUntil(context.Background(), db, clusterstate.DesiredClusterState))
 
-	server := newDexWeb(sp, logger, db)
+	server := newDexWeb(sp, logger, db, api)
 	defer server.stopWebServer()
 
 	err := sp.provider.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})

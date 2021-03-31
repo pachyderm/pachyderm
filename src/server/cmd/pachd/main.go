@@ -237,9 +237,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer, err := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				true,
-				path.Join(env.Config().EtcdPrefix, env.Config().IdentityEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -337,9 +335,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer, err := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				false,
-				path.Join(env.Config().EtcdPrefix, env.Config().IdentityEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -606,15 +602,6 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-
-	identityStorageProvider := identity_server.NewLazyPostgresStorage(
-		env.Config().PostgresServiceHost,
-		env.Config().IdentityServerDatabase,
-		env.Config().IdentityServerUser,
-		env.Config().IdentityServerPassword,
-		env.Config().PostgresServiceSSL,
-		env.Config().PostgresServicePort,
-	)
 
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
