@@ -34,9 +34,9 @@ spec:
         - name: ETCD_PREFIX
           #value:
         - name: NUM_SHARDS
-          value: {{ required "number of shards missing" .Values.pachd.numShards | quote }}
+          value: {{ required ".Values.pachd.numShards is required." .Values.pachd.numShards | quote }}
         - name: STORAGE_BACKEND
-          value: {{ required "storage backend missing" .Values.pachd.storage.backend | quote }}
+          value: {{ required ".Values.pachd.storage.backend is required." .Values.pachd.storage.backend | quote }}
         - name: STORAGE_HOST_PATH
           {{- if eq .Values.pachd.storage.backend "LOCAL" }}
           value: {{ .Values.pachd.storage.local.hostPath }}pachd
