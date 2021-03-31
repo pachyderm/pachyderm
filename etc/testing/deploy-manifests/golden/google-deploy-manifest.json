@@ -67,7 +67,8 @@
       ],
       "resources": [
         "replicationcontrollers",
-        "services"
+        "services",
+        "replicationcontrollers/scale"
       ]
     },
     {
@@ -419,6 +420,13 @@
         "port": 600,
         "targetPort": 0,
         "nodePort": 30600
+      },
+      {
+        "name": "prom-metrics",
+        "protocol": "TCP",
+        "port": 656,
+        "targetPort": 656,
+        "nodePort": 30656
       }
     ],
     "selector": {
@@ -507,7 +515,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.12.1",
+            "image": "pachyderm/pachd:1.13.0",
             "command": [
               "/pachd"
             ],
@@ -545,6 +553,11 @@
                 "name": "oidc-port",
                 "containerPort": 657,
                 "protocol": "TCP"
+              },
+              {
+                "name": "prom-metrics",
+                "containerPort": 656,
+                "protocol": "TCP"
               }
             ],
             "env": [
@@ -568,14 +581,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.12.1"
+                "value": "pachyderm/worker:1.13.0"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.12.1"
+                "value": "pachyderm/pachd:1.13.0"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -587,7 +600,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.12.1"
+                "value": "1.13.0"
               },
               {
                 "name": "METRICS",
