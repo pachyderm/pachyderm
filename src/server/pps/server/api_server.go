@@ -1860,6 +1860,12 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.Transform == nil {
 		return errors.Errorf("pipeline must specify a transform")
 	}
+	if request.ReprocessSpec != "" &&
+		request.ReprocessSpec != client.ReprocessSpecUntilSuccess &&
+		request.ReprocessSpec != client.ReprocessSpecEveryJob {
+		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of '%s' or '%s'",
+			client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryJob)
+	}
 	return nil
 }
 
@@ -2341,7 +2347,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
 		Autoscaling:           request.Autoscaling,
-		NoSkip:                request.NoSkip,
+		ReprocessSpec:         request.ReprocessSpec,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return err
@@ -2821,6 +2827,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	}
 	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil && pipelineInfo.Spout.Service.Type == "" {
 		pipelineInfo.Spout.Service.Type = string(v1.ServiceTypeNodePort)
+	}
+	if pipelineInfo.ReprocessSpec == "" {
+		pipelineInfo.ReprocessSpec = client.ReprocessSpecUntilSuccess
 	}
 	return nil
 }

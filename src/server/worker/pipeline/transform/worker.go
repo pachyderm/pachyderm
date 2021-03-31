@@ -390,7 +390,7 @@ func processDatum(
 	tag := common.HashDatum(driver.PipelineInfo().Pipeline.Name, driver.PipelineInfo().Salt, inputs)
 	datumID := common.DatumID(inputs)
 
-	if !driver.PipelineInfo().NoSkip {
+	if driver.PipelineInfo().ReprocessSpec != client.ReprocessSpecEveryJob {
 		if _, err := driver.PachClient().InspectTag(driver.PachClient().Ctx(), client.NewTag(tag)); err == nil {
 			buf := &bytes.Buffer{}
 			if err := driver.PachClient().GetTag(tag, buf); err != nil {

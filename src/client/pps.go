@@ -65,6 +65,9 @@ const (
 	OutputCommitIDEnv = "PACH_OUTPUT_COMMIT_ID"
 	// PeerPortEnv is the env var that sets a custom peer port
 	PeerPortEnv = "PEER_PORT"
+
+	ReprocessSpecUntilSuccess = "until_success"
+	ReprocessSpecEveryJob     = "every_job"
 )
 
 // NewJob creates a pps.Job.
