@@ -55,7 +55,7 @@ AWS_REGION=[the AWS region of your Kubernetes cluster. e.g. "us-west-2" (not us-
 AWS_AVAILABILITY_ZONE=[the AWS availability zone of your Kubernetes cluster. e.g. "us-west-2a"]
 
 # Create the volume.
-aws ec2 create-volume --size ${STORAGE_SIZE} --region ${AWS_REGION} --availability-zone ${AWS_AVAILABILITY_ZONE} --volume-type gp2
+aws ec2 create-volume --size ${STORAGE_SIZE} --region ${AWS_REGION} --availability-zone ${AWS_AVAILABILITY_ZONE} --volume-type gp3
 
 # Store the volume ID.
 aws ec2 describe-volumes

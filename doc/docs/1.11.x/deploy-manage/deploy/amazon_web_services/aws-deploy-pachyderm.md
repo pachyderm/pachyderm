@@ -25,8 +25,7 @@ Pachyderm requires the following types of persistent storage:
       The metadata service generally requires a small persistent volume size (i.e. 10GB) **but high IOPS (1500)****, therefore, depending on your disk choice, you may need to oversize the volume significantly to ensure enough IOPS.
 
 Pachyderm recommends that you **assign at least 1500
-IOPS** (which requires provisioning **at least 500 GB of space on gp2 volumes**, the
-default [volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html))
+IOPS** (which is standard for gp3 but requires provisioning **at least 500 GB of space on gp2 volumes**. See [volume types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html))
 for this persistent EBS volume. If you expect your cluster to be very long
 running or scale to thousands of jobs per commits, you might need to go add
 more storage.  However, you can easily increase the size of the persistent
