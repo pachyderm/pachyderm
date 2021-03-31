@@ -78,7 +78,7 @@ func GetBasicConfig() *serviceenv.Configuration {
 // GetPachClient initializes a new PFSAPIServer and blockAPIServer and begins
 // serving requests for them on a new port, and then returns a client connected
 // to the new servers (allows PFS tests to run in parallel without conflict)
-func GetPachClient(t testing.TB, config serviceenv.Configuration) *client.APIClient {
+func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APIClient {
 	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 	// Try to establish a connection before proceeding with the test (which will
 	// fail if the connection can't be established)
