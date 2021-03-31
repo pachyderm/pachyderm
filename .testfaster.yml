@@ -58,10 +58,15 @@ base:
     # Warm up go mod cache and go build cache we set CIRCLE_BRANCH so that
     # Makefile uses cacheable build params (version).  Also cache the go deps
     # the linter uses (we don't really care if the linter passes)
-    ARG GITHUB_DEPLOY_KEY # This is set in https://testfaster.ci/secrets
-    RUN echo $GITHUB_DEPLOY_KEY > ~/.ssh/id_rsa
-    RUN ssh git@github.com
-    RUN git clone git@github.com:pachyderm/pachyderm && \
+
+    # This is set in https://testfaster.ci/secrets
+    ARG GITHUB_DEPLOY_KEY
+    RUN mkdir -p ~/.ssh
+    RUN echo $GITHUB_DEPLOY_KEY > ~/.ssh/id_rsa && chmod 0600 ~/.ssh/id_rsa && ls -alh ~/.ssh
+    RUN echo "====================="; cat ~/.ssh/id_rsa; echo "=================="
+    RUN ssh -tt -o StrictHostKeyChecking=no git@github.com
+    RUN GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" \
+        git clone git@github.com:pachyderm/pachyderm && \
         cd pachyderm && \
         git checkout bb4c26d7c838e61cff5b99c56f44662eea920c6b && \
         CIRCLE_BRANCH=1 make install && \
