@@ -1,7 +1,7 @@
-# Migrate to a Minor or Major Version
+# Migrate to a Major or Minor Version
 
-!!! info
-    If you need to upgrade Pachyderm from one patch
+!!! Info
+    If you need to upgrade Pachyderm from one point release
     to another, such as from x.xx.0 to x.xx.1, see
     [Upgrade Pachyderm](upgrades.md).
 
@@ -11,7 +11,7 @@ cluster to get access to bug fixes and new features.
 Migrations involve moving between major releases, such as 1.x.x to
 2.x.x or minor releases, such as 1.11.x to 1.12.0.
 
-!!! tip
+!!! Tip
     Pachyderm follows the [Semantic Versioning](https://semver.org/)
     specification to manage the release process.
 
@@ -35,9 +35,9 @@ in a separate namespace or in a separate Kubernetes cluster.
 1. Restore the old cluster's repos, commits, and pipelines into the new
    cluster.
 
-!!! warning
+!!! Warning
     Whether you are upgrading or migrating your cluster, you must back it up
-    to guarantee that you can restore it after migration.
+    to guarantee that you can restore it after an upgrade/migration.
 
 ## Step 1 - Back up Your Cluster
 
@@ -107,36 +107,36 @@ To restore all paused pipelines, complete the following steps:
       * If you have switched the ports to stop data loading from outside sources,
       change the ports back:
 
-         1. Back up the current configuration:
+      1. Back up the current configuration:
 
-            ```shell
-            kubectl get svc/pachd -o json >pachd_service_backup_30649.json
-            kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
-            kubectl get svc/dash -o json >dash_svc_backup_30080.json
-            ```
+         ```shell
+         kubectl get svc/pachd -o json >pachd_service_backup_30649.json
+         kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
+         kubectl get svc/dash -o json >dash_svc_backup_30080.json
+         ```
 
-         1. Modify the services to accept traffic on the corresponding ports to
-         avoid collisions with the migration cluster:
+      1. Modify the services to accept traffic on the corresponding ports to
+      avoid collisions with the migration cluster:
 
-            ```shell
-            # Modify the pachd API endpoint to run on 30650:
-            kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
-            # Modify the pachd trace port to run on 30651:
-            kubectl get svc/pachd -o json | sed 's/30648/30651/g' | kubectl apply -f -
-            # Modify the pachd api-over-http port to run on 30652:
-            kubectl get svc/pachd -o json | sed 's/30647/30652/g' | kubectl apply -f -
-            # Modify the pachd SAML authentication port to run on 30654:
-            kubectl get svc/pachd -o json | sed 's/30646/30654/g' | kubectl apply -f -
-            # Modify the pachd git API callback port to run on 30655:
-            kubectl get svc/pachd -o json | sed 's/30644/30655/g' | kubectl apply -f -
-            # Modify the pachd s3 port to run on 30600:
-            kubectl get svc/pachd -o json | sed 's/30611/30600/g' | kubectl apply -f -
-            # Modify the etcd client port to run on 32378:
-            kubectl get svc/etcd -o json | sed 's/32378/32379/g' | kubectl apply -f -
-            # Modify the dashboard ports to run on 30081 and 30080:
-            kubectl get svc/dash -o json | sed 's/30079/30080/g' | kubectl apply -f -
-            kubectl get svc/dash -o json | sed 's/30078/30081/g' | kubectl apply -f -
-            ```
+         ```shell
+         # Modify the pachd API endpoint to run on 30650:
+         kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
+         # Modify the pachd trace port to run on 30651:
+         kubectl get svc/pachd -o json | sed 's/30648/30651/g' | kubectl apply -f -
+         # Modify the pachd api-over-http port to run on 30652:
+         kubectl get svc/pachd -o json | sed 's/30647/30652/g' | kubectl apply -f -
+         # Modify the pachd SAML authentication port to run on 30654:
+         kubectl get svc/pachd -o json | sed 's/30646/30654/g' | kubectl apply -f -
+         # Modify the pachd git API callback port to run on 30655:
+         kubectl get svc/pachd -o json | sed 's/30644/30655/g' | kubectl apply -f -
+         # Modify the pachd s3 port to run on 30600:
+         kubectl get svc/pachd -o json | sed 's/30611/30600/g' | kubectl apply -f -
+         # Modify the etcd client port to run on 32378:
+         kubectl get svc/etcd -o json | sed 's/32378/32379/g' | kubectl apply -f -
+         # Modify the dashboard ports to run on 30081 and 30080:
+         kubectl get svc/dash -o json | sed 's/30079/30080/g' | kubectl apply -f -
+         kubectl get svc/dash -o json | sed 's/30078/30081/g' | kubectl apply -f -
+         ```
 
 1. Modify your environment so that you can access `pachd` on the old port:
 
@@ -204,22 +204,22 @@ steps:
 cluster by using a `pachctl deploy` command for your cloud provider with the
 `--namespace` flag.
 
-      **Examples:**
+   **Examples:**
 
       - AWS EKS
-         ```shell
-         pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
-         ```
+      ```shell
+      pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
+      ```
 
       - GKE
-         ```shell
-         pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>
-         ```
+      ```shell
+      pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>
+      ```
 
       - Azure
-         ```shell
-         pachctl deploy microsoft <account-name> <storage-account> <storage-key> <storage-size> --dynamic-etcd-nodes=<number> --namespace=<namespace-name>
-         ```
+      ```shell
+      pachctl deploy microsoft <account-name> <storage-account> <storage-key> <storage-size> --dynamic-etcd-nodes=<number> --namespace=<namespace-name>
+      ```
 
       **Note:** Parameters for your Pachyderm cluster deployment might be different.
       For more information, see [Deploy Pachyderm](../../deploy/).
@@ -235,6 +235,7 @@ cluster by using a `pachctl deploy` command for your cloud provider with the
          ```shell
          kubectl get pod
          ```
+
       If you have deployed your new cluster in a namespace, Pachyderm should
       have created a new context for this deployement. Verify that you are
       using this.
@@ -254,23 +255,23 @@ To restore your cluster, complete the following steps:
 1. If you deployed your new cluster into a different namespace on the same
    Kubernetes cluster as your old cluster, verify that you on the correct namespace:
 
-      ```shell
-      pachctl config get context `pachctl config get active-context`
-      ```
+   ```shell
+   $ pachctl config get context `pachctl config get active-context`
+   ```
 
-      **Example System Response:**
+   **Example System Response:**
 
-      ``` json
-      {
-         "source": "IMPORTED",
-         "cluster_name": "test-migration.us-east-1.eksctl.io",
-         "auth_info": "user@test-migration.us-east-1.eksctl.io",
-         "namespace": "new-cluster"
-      }
-      ```
+   ``` json
+   {
+      "source": "IMPORTED",
+      "cluster_name": "test-migration.us-east-1.eksctl.io",
+      "auth_info": "user@test-migration.us-east-1.eksctl.io",
+      "namespace": "new-cluster"
+   }
+   ```
 
-      Your active context must have the namespace you have deployed your new
-      cluster into.
+   Your active context must have the namespace you have deployed your new
+   cluster into.
 
 1. Check that the cluster does not have any existing Pachyderm objects:
 
@@ -285,14 +286,14 @@ To restore your cluster, complete the following steps:
 [Step 1](#step-1-back-up-your-cluster):
 
       - Local File
-         ```shell
-         pachctl restore < path/to/your/backup/file
-         ```
+      ```shell
+      pachctl restore < path/to/your/backup/file
+      ```
 
       - S3 Bucket
-         ```shell
-         pachctl restore --url s3://path/to/backup
-         ```
+      ```shell
+      pachctl restore --url s3://path/to/backup
+      ```
 
       This S3 bucket is different from the s3 bucket to which you cloned
       your Pachyderm data. This is merely a bucket you allocated to hold
@@ -306,7 +307,7 @@ Confirm that the data output is as expected and the new cluster is operating as 
 
 1. Disable the old cluster:
 
-   - If you have deployed the new cluster on the same Kubernetes cluster,
+   -  If you have deployed the new cluster on the same Kuberenetes cluster
    switch to the old cluster's Pachyderm context:
 
       ```shell
@@ -320,13 +321,13 @@ Confirm that the data output is as expected and the new cluster is operating as 
       kubectl config use-context <old cluster>
       ```
 
-1. Undeploy your old cluster:
+   1. Undeploy your old cluster:
 
       ```shell
       pachctl undeploy
       ```
 
-1. Reconfigure the new cluster as necessary.
+1. Reconfigure new cluster as necessary
    You may need to reconfigure the following:
 
    - Data loading operations from Pachyderm to processes outside
