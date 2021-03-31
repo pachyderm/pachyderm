@@ -36,6 +36,7 @@ func NewAPIServer(
 	treeCache *hashtree.Cache,
 	storageRoot string,
 	memoryRequest int64,
+	blockAPIServer BlockAPIServer,
 ) (APIServer, error) {
 	if env.StorageV2 {
 		a, err := newAPIServerV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
@@ -44,7 +45,8 @@ func NewAPIServer(
 		}
 		return newValidatedAPIServer(a, env), nil
 	}
-	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	directBlockAPIServer := blockAPIServer.(*objBlockAPIServer)
+	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest, directBlockAPIServer)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in

@@ -1462,12 +1462,14 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 				return nil
 			}
 			childDest := filepath.Join(path, strings.TrimPrefix(filePath, source))
+			limiter.Acquire()
 			eg.Go(func() error {
+				defer limiter.Release()
 				// don't do a second recursive 'put file', just put the one file at
 				// filePath into childDest, and then this walk loop will go on to the
 				// next one
 				return putFileHelper(c, pfc, repo, commit, childDest, filePath, false,
-					overwrite, limiter, split, targetFileDatums, targetFileBytes,
+					overwrite, limit.New(0), split, targetFileDatums, targetFileBytes,
 					headerRecords, filesPut)
 			})
 			return nil

@@ -117,6 +117,8 @@ type driver struct {
 	putObjectLimiter limit.ConcurrencyLimiter
 	// limits the total parallelism for uploading files over GRPC or loading from external sources
 	putFileLimiter limit.ConcurrencyLimiter
+
+	directBlockAPIServer *objBlockAPIServer
 }
 
 // newDriver is used to create a new Driver instance
@@ -127,6 +129,7 @@ func newDriver(
 	treeCache *hashtree.Cache,
 	storageRoot string,
 	memoryRequest int64,
+	directBlockAPIServer *objBlockAPIServer,
 ) (*driver, error) {
 	// Validate arguments
 	if treeCache == nil {
@@ -167,6 +170,7 @@ func newDriver(
 		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
 		putFileLimiter:   limit.New(env.StoragePutFileConcurrencyLimit),
 		// TODO: set maxFanIn based on downward API.
+		directBlockAPIServer: directBlockAPIServer,
 	}
 
 	// Create spec repo (default repo)
@@ -2862,7 +2866,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	if delimiter == pfs.Delimiter_NONE {
 		d.putObjectLimiter.Acquire()
 		defer d.putObjectLimiter.Release()
-		objects, size, err := pachClient.PutObjectSplit(reader)
+		objects, size, err := d.directBlockAPIServer.putObjectSplit(pachClient.Ctx(), reader)
 		if err != nil {
 			return nil, err
 		}
@@ -2986,7 +2990,14 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 					eg.Go(func() error {
 						defer d.putObjectLimiter.Release()
 						defer d.memoryLimiter.Release(_bufferLen)
-						object, size, err := pachClient.PutObject(_buffer)
+						var size int64
+						object, err := d.directBlockAPIServer.putObject(pachClient.Ctx(), _buffer, func(w io.Writer, r io.Reader) (int64, error) {
+							buf := grpcutil.GetBuffer()
+							defer grpcutil.PutBuffer(buf)
+							bytesWritten, err := io.CopyBuffer(w, r, buf)
+							size += bytesWritten
+							return bytesWritten, err
+						})
 						if err != nil {
 							return err
 						}
@@ -4640,19 +4651,21 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 			if err := pl.start(req.File.Path); err != nil {
 				return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
 			}
+			fileReader := io.MultiReader(bytes.NewReader(req.Value), pr)
 			eg.Go(func() (retErr error) {
 				defer func() {
 					if err := pl.finish(req.File.Path); err != nil && retErr == nil {
 						retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
 					}
 				}()
-				if err := f(req, pr); err != nil {
+				if err := f(req, fileReader); err != nil {
 					// needed so the parent goroutine doesn't block
 					pr.CloseWithError(err)
 					return err
 				}
 				return nil
 			})
+			continue
 		}
 		if pw == nil {
 			return false, "", "", errors.New("must send a request with a file first")

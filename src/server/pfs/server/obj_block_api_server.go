@@ -286,21 +286,31 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	return server.SendAndClose(object)
 }
 
-func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectSplitServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) {
-		tracing.TagAnySpan(server.Context(), "err", retErr)
-		s.Log(nil, nil, retErr, time.Since(start))
-	}(time.Now())
+func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectSplitServer) error {
 	defer drainObjectServer(server)
-	var objects []*pfsclient.Object
 	putObjectReader := &putObjectReader{
 		server: server,
 	}
+	objects, _, err := s.putObjectSplit(server.Context(), putObjectReader)
+	if err != nil {
+		return err
+	}
+	return server.SendAndClose(&pfsclient.Objects{Objects: objects})
+}
+
+func (s *objBlockAPIServer) putObjectSplit(ctx context.Context, r io.Reader) (_ []*pfsclient.Object, _ int64, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) {
+		tracing.TagAnySpan(ctx, "err", retErr)
+		s.Log(nil, nil, retErr, time.Since(start))
+	}(time.Now())
+	var objects []*pfsclient.Object
+	var bytesWritten int64
 	var done bool
 	for !done {
-		object, err := s.putObject(server.Context(), putObjectReader, func(w io.Writer, r io.Reader) (int64, error) {
+		object, err := s.putObject(ctx, r, func(w io.Writer, r io.Reader) (int64, error) {
 			size, err := io.CopyN(w, r, pfsclient.ChunkSize)
+			bytesWritten += size
 			if errors.Is(err, io.EOF) {
 				done = true
 				return size, nil
@@ -308,11 +318,11 @@ func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectS
 			return size, err
 		})
 		if err != nil {
-			return err
+			return nil, bytesWritten, err
 		}
 		objects = append(objects, object)
 	}
-	return server.SendAndClose(&pfsclient.Objects{Objects: objects})
+	return objects, bytesWritten, nil
 }
 
 func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader, f func(io.Writer, io.Reader) (int64, error)) (_ *pfsclient.Object, retErr error) {

@@ -43,8 +43,9 @@ func newAPIServer(
 	treeCache *hashtree.Cache,
 	storageRoot string,
 	memoryRequest int64,
+	directBlockAPIServer *objBlockAPIServer,
 ) (*apiServer, error) {
-	d, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	d, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest, directBlockAPIServer)
 	if err != nil {
 		return nil, err
 	}
