@@ -17,7 +17,7 @@ type APIServer interface {
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	namespace string,
@@ -74,7 +74,7 @@ func NewAPIServer(
 // and is meant to be run as a worker sidecar.  It cannot, for instance,
 // create pipelines.
 func NewSidecarAPIServer(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	namespace string,

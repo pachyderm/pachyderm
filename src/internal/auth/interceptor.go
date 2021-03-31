@@ -230,7 +230,7 @@ var authHandlers = map[string]authHandler{
 }
 
 // NewInterceptor instantiates a new Interceptor
-func NewInterceptor(env *serviceenv.ServiceEnv) *Interceptor {
+func NewInterceptor(env serviceenv.ServiceEnv) *Interceptor {
 	return &Interceptor{
 		env: env,
 	}
@@ -269,7 +269,7 @@ func (s ServerStreamWrapper) RecvMsg(m interface{}) error {
 // Interceptor checks the authentication metadata in unary and streaming RPCs
 // and prevents unknown or unauthorized calls.
 type Interceptor struct {
-	env *serviceenv.ServiceEnv
+	env serviceenv.ServiceEnv
 }
 
 // InterceptUnary applies authentication rules to unary RPCs

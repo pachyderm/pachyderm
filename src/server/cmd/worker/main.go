@@ -50,15 +50,15 @@ func main() {
 // worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
 // which is necessary to get the PipelineInfo from pfs.
-func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
+func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	resp, err := env.GetEtcdClient().Get(ctx, path.Join(env.PPSEtcdPrefix, "pipelines", env.PPSPipelineName))
+	resp, err := env.GetEtcdClient().Get(ctx, path.Join(env.Config().PPSEtcdPrefix, "pipelines", env.Config().PPSPipelineName))
 	if err != nil {
 		return nil, err
 	}
 	if len(resp.Kvs) != 1 {
-		return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.PPSPipelineName, len(resp.Kvs), resp)
+		return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.Config().PPSPipelineName, len(resp.Kvs), resp)
 	}
 	var pipelinePtr pps.EtcdPipelineInfo
 	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
@@ -69,8 +69,8 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 	// because the value in etcd might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	pipelinePtr.SpecCommit.ID = env.PPSSpecCommitID
-	return ppsutil.GetPipelineInfo(pachClient, env.PPSPipelineName, &pipelinePtr)
+	pipelinePtr.SpecCommit.ID = env.Config().PPSSpecCommitID
+	return ppsutil.GetPipelineInfo(pachClient, env.Config().PPSPipelineName, &pipelinePtr)
 }
 
 func do(config interface{}) error {

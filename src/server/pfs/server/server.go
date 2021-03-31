@@ -24,7 +24,7 @@ type APIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (APIServer, error) {
+func NewAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (APIServer, error) {
 	a, err := newAPIServer(env, txnEnv, etcdPrefix, db)
 	if err != nil {
 		return nil, err

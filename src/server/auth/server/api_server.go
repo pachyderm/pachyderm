@@ -71,7 +71,7 @@ type APIServer interface {
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
-	env        *serviceenv.ServiceEnv
+	env        serviceenv.ServiceEnv
 	txnEnv     *txnenv.TransactionEnv
 	pachLogger log.Logger
 
@@ -129,7 +129,7 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 
 // NewAuthServer returns an implementation of auth.APIServer.
 func NewAuthServer(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	public bool,

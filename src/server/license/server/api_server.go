@@ -31,7 +31,7 @@ var defaultRecord = &ec.LicenseRecord{}
 
 type apiServer struct {
 	pachLogger log.Logger
-	env        *serviceenv.ServiceEnv
+	env        serviceenv.ServiceEnv
 
 	enterpriseTokenCache *keycache.Cache
 
@@ -45,7 +45,7 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // New returns an implementation of license.APIServer.
-func New(env *serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
+func New(env serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
 	enterpriseToken := col.NewCollection(
 		env.GetEtcdClient(),
 		etcdPrefix,

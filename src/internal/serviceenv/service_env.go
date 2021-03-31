@@ -92,13 +92,13 @@ func InitPachOnlyEnv(config *Configuration) *NonblockingServiceEnv {
 	return env // env is not ready yet
 }
 
-// InitNonblockingServiceEnv initializes this service environment. This dials a GRPC
+// InitServiceEnv initializes this service environment. This dials a GRPC
 // connection to pachd and etcd (in a background goroutine), and creates the
 // template pachClient used by future calls to GetPachClient.
 //
 // This call returns immediately, but GetPachClient and GetEtcdClient block
 // until their respective clients are ready.
-func InitNonblockingServiceEnv(config *Configuration) *NonblockingServiceEnv {
+func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env := InitPachOnlyEnv(config)
 	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.config.EtcdHost, env.config.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
@@ -114,7 +114,7 @@ func InitNonblockingServiceEnv(config *Configuration) *NonblockingServiceEnv {
 // InitWithKube is like InitNonblockingServiceEnv, but also assumes that it's run inside
 // a kubernetes cluster and tries to connect to the kubernetes API server.
 func InitWithKube(config *Configuration) *NonblockingServiceEnv {
-	env := InitNonblockingServiceEnv(config)
+	env := InitServiceEnv(config)
 	env.kubeEg.Go(env.initKubeClient)
 	return env // env is not ready yet
 }

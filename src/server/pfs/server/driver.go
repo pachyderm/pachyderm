@@ -72,7 +72,7 @@ type CommitStream interface {
 type collectionFactory func(string) col.Collection
 
 type driver struct {
-	env *serviceenv.ServiceEnv
+	env serviceenv.ServiceEnv
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -89,10 +89,10 @@ type driver struct {
 	compactionQueue *work.TaskQueue
 }
 
-func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (*driver, error) {
+func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (*driver, error) {
 	// Setup etcd, object storage, and database clients.
 	etcdClient := env.GetEtcdClient()
-	objClient, err := NewObjClient(env.Configuration)
+	objClient, err := NewObjClient(env.Config())
 	if err != nil {
 		return nil, err
 	}
@@ -114,11 +114,11 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(db)
-	chunkStorageOpts, err := env.ChunkStorageOptions()
+	chunkStorageOpts, err := env.Config().ChunkStorageOptions()
 	if err != nil {
 		return nil, err
 	}
-	memCache := env.ChunkMemoryCache()
+	memCache := env.Config().ChunkMemoryCache()
 	keyStore := chunk.NewPostgresKeyStore(db)
 	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
 	if err != nil {
@@ -126,7 +126,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	}
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, db, tracker, chunkStorageOpts...)
-	d.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
+	d.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.Config().FileSetStorageOptions()...)
 	// Setup compaction queue and worker.
 	d.compactionQueue, err = work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)
 	if err != nil {
@@ -872,7 +872,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
-	if d.env.DisableCommitProgressCounter {
+	if d.env.Config().DisableCommitProgressCounter {
 		return nil
 	}
 	for _, provC := range ci.Provenance {
@@ -2305,7 +2305,7 @@ func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pf
 		Lower: subvCommitInfo.Commit,
 		Upper: subvCommitInfo.Commit,
 	})
-	if !d.env.DisableCommitProgressCounter {
+	if !d.env.Config().DisableCommitProgressCounter {
 		commitInfo.SubvenantCommitsTotal++
 	}
 }

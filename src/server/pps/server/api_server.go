@@ -99,7 +99,7 @@ type errGithookServiceNotFound struct {
 type apiServer struct {
 	log.Logger
 	etcdPrefix            string
-	env                   *serviceenv.ServiceEnv
+	env                   serviceenv.ServiceEnv
 	txnEnv                *txnenv.TransactionEnv
 	namespace             string
 	workerImage           string
