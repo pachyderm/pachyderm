@@ -48,7 +48,7 @@ etcd:
   # StorageClass for its storage.  It is analogous to the
   # --etcd-storage-class argument to pachctl deploy.
   storageClass: ""
-  storageSize: "10Gi"
+  storageSize: "100Gi"
   service:
     type: ClusterIP
 

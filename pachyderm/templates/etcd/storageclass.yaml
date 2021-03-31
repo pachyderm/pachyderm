@@ -11,7 +11,7 @@ parameters:
   type: {{ if eq .Values.pachd.storage.backend "GOOGLE" -}}
   pd-ssd
   {{- else if eq .Values.pachd.storage.backend "AMAZON" -}}
-  gp2
+  gp3
   {{- end }}
 provisioner: {{ if eq .Values.pachd.storage.backend "GOOGLE" -}}
   kubernetes.io/gce-pd
