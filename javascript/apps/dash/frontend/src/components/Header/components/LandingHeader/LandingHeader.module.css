@@ -1,0 +1,38 @@
+.dashboard {
+  margin-left: 0.5rem;
+  height: 1.25rem;
+  width: 5.875rem;
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.divider {
+  box-sizing: border-box;
+  height: 2.6875rem;
+  width: 1px;
+  border: 1px solid var(--placeholder-grey);
+}
+
+a.logo {
+  text-decoration: none;
+}
+
+.support {
+  text-decoration: underline;
+  color: var(--white);
+  font-weight: bold;
+}
+
+.support:not(:disabled):hover,
+.support:not(:disabled):active,
+.support:not(:disabled):focus {
+  color: var(--pachyderm-orange);
+}
+
+.workspaceName {
+  color: var(--white);
+  font-size: 0.75rem;
+  font-weight: bold;
+}

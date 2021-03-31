@@ -1,0 +1,64 @@
+.seeJobs {
+  margin-left: auto;
+  font-weight: bold;
+  font-size: 0.75rem;
+  color: var(--white);
+  text-decoration: none;
+}
+
+.seeJobsContent {
+  display: flex;
+  align-items: center;
+}
+
+.seeJobsText {
+  margin-left: 5px;
+  text-decoration: underline;
+}
+
+.seeJobs:hover,
+.seeJobs:active,
+.seeJobs:focus {
+  color: var(--white);
+  text-decoration: none;
+}
+
+.seeJobs:hover .seeJobsText,
+.seeJobs:active .seeJobsText,
+.seeJobs:focus .seeJobsText {
+  color: var(--pachyderm-orange);
+}
+
+.seeJobs:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.goBack {
+  margin-right: 25px;
+}
+
+.goBack:hover .goBackSvg path,
+.goBack:active .goBackSvg path,
+.goBack:focus .goBackSvg path {
+  fill: var(--pachyderm-orange);
+}
+
+.goBack:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.projectName {
+  font-size: 0.875rem;
+  color: var(--white);
+  margin-bottom: 0;
+  padding-left: 1.5625rem;
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
+  font-weight: bold;
+  border-left: 1px solid var(--placeholder-grey);
+}
+
+.projectNameLoader {
+  width: 10rem;
+  margin-bottom: 0;
+}

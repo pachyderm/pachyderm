@@ -18,7 +18,6 @@ const DashUI: React.FC = () => {
 
             <Route
               path="/project/:projectId"
-              exact
               component={AuthenticatedRoute(Project)}
             />
 
