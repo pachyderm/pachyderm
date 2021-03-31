@@ -1,20 +1,20 @@
 # Upgrade Pachyderm
 
-If you need to upgrade Pachyderm from one major version
-to another, such as from `1.10.x` to `1.11.x`, follow the
-instructions in the [Migrate between major versions](./migrations.md).
+If you need to upgrade Pachyderm from one minor version
+to another, such as from `1.11.x` to `1.12.x`, follow the
+instructions in the [Migrate between major/minor versions](./migrations.md).
 
-Upgrades from one minor version to another, such as from version `1.11.0` to
-version `{{ config.pach_latest_version }}` do not introduce breaking changes. Therefore, the upgrade
+Upgrades from one point release (patch) to another, such as from version `1.12.0` to
+version `1.12.2` do not introduce breaking changes. Therefore, the upgrade
 procedure is simple and requires little to no downtime.
 
-!!! warning
-    Do not use these steps to upgrade between major versions because
+!!! Warning
+    Do not use these steps to upgrade between major/minor versions because
     it might result in data corruption.
 
-To upgrade Pachyderm to a minor version, complete the following steps:
+To upgrade Pachyderm from one point release to another, complete the following steps:
 
-1. Back up your cluster as described in the [Backup and Restore](../backup_restore/#general-backup-procedure)
+1. Back up your cluster as described in the [Backup and Restore](../backup_restore/#backup-your-cluster)
 section.
 
 1. Destroy your Pachyderm cluster:
@@ -40,9 +40,9 @@ section.
       ...
       ```
 
-      **Note:** You need to specify the version of `pachctl` to which
-      you want to upgrade. For example, if you want to upgrade `1.11.0` to
-      `1.11.2`, add `@1.11` at the end of the upgrade path.
+      **Note:** You need to specify the major/minor version of `pachctl` to which
+      you want to upgrade. For example, if you want to upgrade `1.12.0` to
+      the latest point release of the 1.12, add `@1.12` at the end of the upgrade path.
 
 1. Confirm that the new version has been successfully installed by running
 the following command:
@@ -119,7 +119,7 @@ of Pachyderm:
 
       The `pachd` and `pachctl` versions must both match the new version.
 
-## Troubleshooting Minor Upgrades
+## Troubleshooting point release Upgrades
 
 <!-- We might want to move this section to Troubleshooting -->
 
@@ -134,9 +134,10 @@ It can use Persistent Volume Provisioning or pre-provisioned PV’s,
 both of which are dynamically allocated from Pachyderm's point of view.
 Thus, the `--dynamic-etcd-nodes` flag to `pachctl deploy` is used to deploy Pachyderm using StatefulSets.
 
-!!! tip It is recommended that you deploy Pachyderm using StatefulSets when possible. 
-All of the instructions for cloud provider deployments do this by default.
-We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
+!!! Tip 
+      It is recommended that you deploy Pachyderm using StatefulSets when possible. 
+      All of the instructions for cloud provider deployments do this by default.
+      We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
 
 If you have deployed Pachyderm using StatefulSets, 
 you can still use the *same* deploy command to re-deploy Pachyderm. 
@@ -168,9 +169,9 @@ the IP address for Pachyderm may have changed.
 
 To fix problems with connections to `pachd` after upgrading, you can perform the appropriate remedy for your situation:
 
-- Re-run `pachctl port-forward `, or
-- Set the pachd address config value to the updated value, e.g.: 
-
+- Re-run `pachctl port-forward`, or
+- Set the pachd address config value to the updated value, e.g.:
+ 
 ```shell
 pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
 ```

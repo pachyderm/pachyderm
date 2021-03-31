@@ -204,25 +204,25 @@ steps:
 cluster by using a `pachctl deploy` command for your cloud provider with the
 `--namespace` flag.
 
-   **Examples:**
+      **Examples:**
 
-      - AWS EKS
-      ```shell
-      pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
-      ```
+         - AWS EKS
+         ```shell
+         pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
+         ```
 
-      - GKE
-      ```shell
-      pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>
-      ```
+         - GKE
+         ```shell
+         pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>
+         ```
 
-      - Azure
-      ```shell
-      pachctl deploy microsoft <account-name> <storage-account> <storage-key> <storage-size> --dynamic-etcd-nodes=<number> --namespace=<namespace-name>
-      ```
+         - Azure
+         ```shell
+         pachctl deploy microsoft <account-name> <storage-account> <storage-key> <storage-size> --dynamic-etcd-nodes=<number> --namespace=<namespace-name>
+         ```
 
-      **Note:** Parameters for your Pachyderm cluster deployment might be different.
-      For more information, see [Deploy Pachyderm](../../deploy/).
+         **Note:** Parameters for your Pachyderm cluster deployment might be different.
+         For more information, see [Deploy Pachyderm](../../deploy/).
 
 1. Verify that your cluster has been deployed:
 
@@ -252,26 +252,25 @@ this new context to access the correct cluster. Before you run the
 
 To restore your cluster, complete the following steps:
 
-1. If you deployed your new cluster into a different namespace on the same
-   Kubernetes cluster as your old cluster, verify that you on the correct namespace:
+1. If you deployed your new cluster into a different namespace on the same Kubernetes cluster as your old cluster, verify that you on the correct namespace:
 
-   ```shell
-   $ pachctl config get context `pachctl config get active-context`
-   ```
+      ```shell
+      $ pachctl config get context `pachctl config get active-context`
+      ```
 
-   **Example System Response:**
+      **Example System Response:**
 
-   ``` json
-   {
-      "source": "IMPORTED",
-      "cluster_name": "test-migration.us-east-1.eksctl.io",
-      "auth_info": "user@test-migration.us-east-1.eksctl.io",
-      "namespace": "new-cluster"
-   }
-   ```
+      ``` json
+      {
+         "source": "IMPORTED",
+         "cluster_name": "test-migration.us-east-1.eksctl.io",
+         "auth_info": "user@test-migration.us-east-1.eksctl.io",
+         "namespace": "new-cluster"
+      }
+      ```
 
-   Your active context must have the namespace you have deployed your new
-   cluster into.
+      Your active context must have the namespace you have deployed your new
+      cluster into.
 
 1. Check that the cluster does not have any existing Pachyderm objects:
 

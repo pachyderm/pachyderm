@@ -134,9 +134,10 @@ It can use Persistent Volume Provisioning or pre-provisioned PV’s,
 both of which are dynamically allocated from Pachyderm's point of view.
 Thus, the `--dynamic-etcd-nodes` flag to `pachctl deploy` is used to deploy Pachyderm using StatefulSets.
 
-!!! tip It is recommended that you deploy Pachyderm using StatefulSets when possible. 
-All of the instructions for cloud provider deployments do this by default.
-We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
+!!! Tip 
+      It is recommended that you deploy Pachyderm using StatefulSets when possible. 
+      All of the instructions for cloud provider deployments do this by default.
+      We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
 
 If you have deployed Pachyderm using StatefulSets, 
 you can still use the *same* deploy command to re-deploy Pachyderm. 
