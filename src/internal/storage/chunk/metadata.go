@@ -1,6 +1,7 @@
 package chunk
 
 import (
+	"context"
 	"encoding/hex"
 
 	"github.com/jmoiron/sqlx"
@@ -64,6 +65,44 @@ func SetupPostgresStoreV0(tx *sqlx.Tx) error {
 
 		PRIMARY KEY(chunk_id, gen)
 	);
+
+	CREATE TABLE storage.keys (
+		name VARCHAR(128) NOT NULL,
+		data BYTEA NOT NULL,
+
+		PRIMARY KEY(name)
+	)
 	`)
 	return err
+}
+
+// KeyStore is a store for named secret keys
+type KeyStore interface {
+	Create(ctx context.Context, name string, data []byte) error
+	Get(ctx context.Context, name string) ([]byte, error)
+}
+
+type postgresKeyStore struct {
+	db *sqlx.DB
+}
+
+func NewPostgresKeyStore(db *sqlx.DB) *postgresKeyStore {
+	return &postgresKeyStore{
+		db: db,
+	}
+}
+
+func (s *postgresKeyStore) Create(ctx context.Context, name string, data []byte) error {
+	_, err := s.db.ExecContext(ctx, `
+	INSERT INTO storage.keys (name, data) VALUES ($1, $2)
+	`, name, data)
+	return err
+}
+
+func (s *postgresKeyStore) Get(ctx context.Context, name string) ([]byte, error) {
+	var data []byte
+	if err := s.db.GetContext(ctx, &data, `SELECT data FROM storage.keys WHERE name = $1 LIMIT 1`, name); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
