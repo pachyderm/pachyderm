@@ -1,0 +1,32 @@
+Pachyderm Community License
+
+This Pachyderm License Agreement Version 1.0 (the “Agreement”) sets forth the terms on which Pachyderm Inc. (“Pachyderm”) makes available certain software made available by Pachyderm under this Agreement (the “Software”). BY INSTALLING, DOWNLOADING, ACCESSING, USING OR DISTRIBUTING ANY OF THE SOFTWARE, YOU AGREE TO THE TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE TO SUCH TERMS AND CONDITIONS, YOU MUST NOT USE THE SOFTWARE. IF YOU ARE RECEIVING THE SOFTWARE ON BEHALF OF A LEGAL ENTITY, YOU REPRESENT AND WARRANT THAT YOU HAVE THE ACTUAL AUTHORITY TO AGREE TO THE TERMS AND CONDITIONS OF THIS AGREEMENT ON BEHALF OF SUCH ENTITY. “Licensee” means you, an individual, or the entity on whose behalf you are receiving the Software.
+
+1. LICENSE GRANT AND CONDITIONS.
+
+1.1 License. Subject to the terms and conditions of this Section 1, Pachyderm hereby grants to Licensee (the “License”): a non-exclusive, royalty-free, worldwide, non-transferable, non-sublicenseable license during the term of this Agreement to: (a) use the Software; (b) prepare modifications and derivative works of the Software; and (c) reproduce copies of the Software as necessary to exercise the rights granted above. The License excludes use in a product that competes with the Software, where, for clarity: (x) without limitation, a product is competitive with the Software where a product is marketed as a substitute for the functionality or value of the Software; (y) a product may compete regardless how it is designed or deployed, including if it is ported to different platforms or programming languages, and whether or not it is provided free of charge; and (z) a “product” includes any product, service (such as software-as-a-service) or other good.
+
+1.2 Conditions.  Licensee must cause any Software modified by Licensee to carry prominent notices stating that Licensee modified the Software. Licensee must not remove any proprietary notices on copies of the Software.
+
+2. TERM AND TERMINATION.
+
+This Agreement will continue unless and until earlier terminated as set forth herein. If Licensee breaches any of its conditions or obligations under this Agreement, this Agreement will terminate automatically and the License will terminate automatically and permanently.
+
+3. INTELLECTUAL PROPERTY.
+
+As between the parties, Pachyderm will retain all right, title, and interest in the Software, and all intellectual property rights therein. Pachyderm hereby reserves all rights not expressly granted to Licensee in this Agreement. Pachyderm hereby reserves all rights in its trademarks and service marks, and no licenses therein are granted in this Agreement.
+
+4. DISCLAIMER.
+
+PACHYDERM HEREBY DISCLAIMS ANY AND ALL WARRANTIES AND CONDITIONS, EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, AND SPECIFICALLY DISCLAIMS ANY WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, WITH RESPECT TO THE SOFTWARE.
+
+5. LIMITATION OF LIABILITY.
+
+PACHYDERM WILL NOT BE LIABLE FOR ANY DAMAGES OF ANY KIND, INCLUDING BUT NOT LIMITED TO, LOST PROFITS OR ANY CONSEQUENTIAL, SPECIAL, INCIDENTAL, INDIRECT, OR DIRECT DAMAGES, HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, ARISING OUT OF THIS AGREEMENT. THE FOREGOING SHALL APPLY TO THE EXTENT PERMITTED BY APPLICABLE LAW.
+
+6. GENERAL.
+
+6.1  Governing Law. This Agreement will be governed by and interpreted in accordance with the laws of the state of California, without reference to its conflict of laws principles. All disputes arising out of this Agreement are subject to the exclusive jurisdiction of courts located in San Francisco, California, USA.
+
+6.2.  Assignment. Licensee is not authorized to assign its rights under this Agreement to any third party. Pachyderm may freely assign its rights under this Agreement to any third party.
+6.3.  Other.  This Agreement is the entire agreement between the parties regarding the subject matter hereof. No amendment or modification of this Agreement will be valid or binding upon the parties unless made in writing and signed by the duly authorized representatives of both parties. In the event that any provision, including without limitation any condition, of this Agreement is held to be unenforceable, this Agreement and all licenses and rights granted hereunder will immediately terminate. Waiver by Pachyderm of a breach of any provision of this Agreement or the failure by Pachyderm to exercise any right hereunder will not be construed as a waiver of any subsequent breach of that right or as a waiver of any other right.
