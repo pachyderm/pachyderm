@@ -1,9 +1,7 @@
 import React from 'react';
 import {render} from 'react-dom';
 
-// TODO: move these to base polyfill library
-import 'focus-visible';
-import 'url-search-params-polyfill';
+import '@pachyderm/polyfills';
 import '@pachyderm/components/dist/style.css';
 
 import 'styles/index.css';

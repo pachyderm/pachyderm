@@ -25,11 +25,11 @@
   "dependencies": {
     "@apollo/client": "3.3.1",
     "@pachyderm/components": "0.11.1",
+    "@pachyderm/polyfills": "0.0.1",
     "@sentry/browser": "5.19.1",
     "classnames": "2.2.6",
     "d3": "6.3.1",
     "date-fns": "2.14.0",
-    "focus-visible": "5.1.0",
     "graphql": "14.7.0",
     "graphql-anywhere": "4.2.7",
     "js-cookie": "2.2.1",
@@ -40,8 +40,7 @@
     "react-helmet": "6.1.0",
     "react-hook-form": "6.15.4",
     "react-router": "5.2.0",
-    "react-router-dom": "5.2.0",
-    "url-search-params-polyfill": "8.1.0"
+    "react-router-dom": "5.2.0"
   },
   "devDependencies": {
     "@cypress/code-coverage": "3.9.2",
