@@ -12517,6 +12517,8 @@ func TestExtractPipeline(t *testing.T) {
 			}
 		})
 	}
+	// ReprocessSpec must be an enumerated string or unset
+	request.ReprocessSpec = client.ReprocessSpecEveryJob
 
 	// Create the pipeline
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -13689,7 +13691,7 @@ func monitorReplicas(t testing.TB, pipeline string, n int) {
 	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
 }
 
-func TestNoSkip(t *testing.T) {
+func TestReprocessEveryJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -13712,22 +13714,22 @@ func TestNoSkip(t *testing.T) {
 				Stdin: []string{
 					// This reads from 'dataRepo' even though it takes 'triggerRepo' as an
 					// input, deliberately violating Pachyderm's provenance guarantees.
-					// This is an antipattern and not the intended use of NoSkip (the
-					// intended use is pipelines that have side effects, e.g. deploying a
-					// resource or triggering an external pipeline system) but it lets us
-					// check that no datum is being skipped by making the datum outputs
-					// change.
+					// This is an antipattern and not the intended use of
+					// ReprocessSpecEveryJob (the intended use is pipelines that have side
+					// effects, e.g. deploying a resource or triggering an external
+					// pipeline system) but it lets us check that no datum is being
+					// skipped by making the datum outputs change.
 					"wget -O - http://pachd.default.svc.cluster.local:652" +
 						fmt.Sprintf("/v1/pfs/repos/%s/commits/master/files/changing.txt", dataRepo) +
 						" >> /pfs/out/out",
 				},
 			},
-			NoSkip: true,
-			Input:  client.NewPFSInput(triggerRepo, "/*"),
+			ReprocessSpec: client.ReprocessSpecEveryJob,
+			Input:         client.NewPFSInput(triggerRepo, "/*"),
 		})
 	require.NoError(t, err)
 
-	// Test NoSkip on non-append-only workload
+	// Test on non-append-only workload
 	for i := 0; i < 5; i++ {
 		iStr := fmt.Sprintf("%d", i)
 		_, err := c.PutFileOverwrite(dataRepo, "master", "changing.txt", strings.NewReader(iStr), 0)
@@ -13744,7 +13746,7 @@ func TestNoSkip(t *testing.T) {
 		require.Equal(t, iStr, buf.String())
 	}
 
-	// Test NoSkip on append-only workload
+	// Test on append-only workload
 	for i := 0; i < 5; i++ {
 		iStr := fmt.Sprintf("%d", i)
 		_, err := c.PutFileOverwrite(dataRepo, "master", "changing.txt", strings.NewReader(iStr), 0)
