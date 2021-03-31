@@ -12,7 +12,9 @@
   },
   "no_skip": true,
   "transform": {
-    "cmd": [ "python3", "main.py" ],
-    "image": "pachyderm/example-no-skip:11"
-  }
+    "cmd": [ "bash"],
+    "stdin": ["if [ -a /pfs/input/file1.txt ]; then exit 1 ; fi ; exit 0"],
+    "err_cmd": [ "bash" ],
+    "err_stdin": ["if [ -a /pfs/input/file3.txt ]; then exit 0 ; fi ; exit 1"]
+}
 }
