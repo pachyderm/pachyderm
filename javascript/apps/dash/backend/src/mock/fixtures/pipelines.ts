@@ -1,4 +1,5 @@
 import {
+  CronInput,
   Input,
   PFSInput,
   Pipeline,
@@ -97,10 +98,16 @@ const customerTeam = [
     .setState(PipelineState.PIPELINE_STANDBY),
 ];
 
+const cron = [
+  new PipelineInfo()
+    .setPipeline(new Pipeline().setName('processor'))
+    .setInput(new Input().setCron(new CronInput().setRepo('cron'))),
+];
+
 const pipelines: {[projectId: string]: PipelineInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
-  '3': tutorial,
+  '3': cron,
   '4': customerTeam,
   '5': tutorial,
   default: [...tutorial, ...customerTeam],

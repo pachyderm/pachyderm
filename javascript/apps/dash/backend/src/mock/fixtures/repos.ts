@@ -23,10 +23,15 @@ const customerTeam = [
   new RepoInfo().setRepo(new Repo().setName('images')),
 ];
 
+const cron = [
+  new RepoInfo().setRepo(new Repo().setName('cron')),
+  new RepoInfo().setRepo(new Repo().setName('processor')),
+];
+
 const repos: {[projectId: string]: RepoInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
-  '3': tutorial,
+  '3': cron,
   '4': customerTeam,
   '5': tutorial,
   default: [...tutorial, ...customerTeam],

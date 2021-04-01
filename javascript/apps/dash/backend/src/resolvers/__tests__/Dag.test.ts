@@ -47,6 +47,22 @@ describe('Dag resolver', () => {
     ).toBe(true);
   });
 
+  it('should correctly render cron inputs', async () => {
+    const {data} = await executeOperation<{dag: Dag}>('getDag', {
+      args: {projectId: '3'},
+    });
+
+    const dag = data?.dag;
+
+    expect(dag?.links.length).toBe(2);
+    expect(
+      doesLinkExistInDag({source: 'cron_repo', target: 'processor'}, dag),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'processor', target: 'processor_repo'}, dag),
+    ).toBe(true);
+  });
+
   it('should resolve disconnected components of a dag', async () => {
     const {data} = await executeOperation<{dags: Dag[]}>('getDags', {
       args: {projectId: '2'},

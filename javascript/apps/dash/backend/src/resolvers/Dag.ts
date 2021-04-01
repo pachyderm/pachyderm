@@ -19,9 +19,12 @@ interface DagResolver {
 const flattenPipelineInput = (input: Input.AsObject): string[] => {
   const result = [];
 
-  // TODO: Deal with git and cron input types
   if (input.pfs) {
     result.push(`${input.pfs.repo}_repo`);
+  }
+
+  if (input.cron) {
+    result.push(`${input.cron.repo}_repo`);
   }
 
   // TODO: Update to indicate which elemets are crossed, unioned, joined, grouped, with.
