@@ -1871,7 +1871,13 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	pachClient := a.env.GetPachClient(ctx)
-	if _, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name); err == nil {
+	if prevPi, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name); err == nil {
+		if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > enterpriselimits.Parallelism &&
+			(prevPi.ParallelismSpec == nil || prevPi.ParallelismSpec.Constant < pipelineInfo.ParallelismSpec.Constant) {
+			enterprisemetrics.IncEnterpriseFailures()
+			return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
+				enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+		}
 		// Pipeline already exists so we allow people to update it even if
 		// they're over the limits.
 		return nil
