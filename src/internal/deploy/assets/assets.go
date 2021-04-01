@@ -1115,14 +1115,11 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 		}
 	}
 
-<<<<<<< HEAD
 	if err := WriteEtcdAssets(encoder, opts, objectStoreBackend, persistentDiskBackend, volumeSize, hostPath); err != nil {
 		return err
 	}
 
 	if err := WritePostgresAssets(encoder, opts, objectStoreBackend, persistentDiskBackend, volumeSize, hostPath); err != nil {
-=======
->>>>>>> master
 		return err
 	}
 

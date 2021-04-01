@@ -8,6 +8,8 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 func join(names ...string) string {

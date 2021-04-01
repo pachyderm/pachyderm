@@ -13,6 +13,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/itchyny/gojq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -2526,26 +2527,16 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 		return true
 	}
 	// the mess below is so we can lookup the PFS info for each pipeline concurrently.
-	type etcdInfo struct {
-		name string
-		ptr  *pps.EtcdPipelineInfo
-	}
 	eg, ctx := errgroup.WithContext(pachClient.Ctx())
-	etcdInfos := make(chan etcdInfo)
+	etcdInfos := make(chan *pps.EtcdPipelineInfo)
 	// stream these out of etcd
 	eg.Go(func() error {
 		defer close(etcdInfos)
-		return a.listPipelinePtr(pachClient, request.Pipeline, request.History, func(name string, ptr *pps.EtcdPipelineInfo) error {
-			// copy
-			data, _ := ptr.Marshal()
-			ptr2 := &pps.EtcdPipelineInfo{}
-			if err := ptr2.Unmarshal(data); err != nil {
-				panic(err)
-			}
+		return a.listPipelinePtr(pachClient, request.Pipeline, request.History, func(ptr *pps.EtcdPipelineInfo) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case etcdInfos <- etcdInfo{name: name, ptr: ptr2}:
+			case etcdInfos <- proto.Clone(ptr).(*pps.EtcdPipelineInfo):
 				return nil
 			}
 		})
@@ -2556,7 +2547,7 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 	for i := 0; i < 20; i++ {
 		eg.Go(func() error {
 			for info := range etcdInfos {
-				pinfo, err := a.resolvePipelineInfo(pachClient, request.AllowIncomplete, info.name, info.ptr)
+				pinfo, err := a.resolvePipelineInfo(pachClient, request.AllowIncomplete, info)
 				if err != nil {
 					return err
 				}
@@ -2586,11 +2577,11 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 }
 
 // resolvePipelineInfo looks up additional pipeline info in PFS needed to turn a EtcdPipelineInfo into a PipelineInfo
-func (a *apiServer) resolvePipelineInfo(pachClient *client.APIClient, allowIncomplete bool, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+func (a *apiServer) resolvePipelineInfo(pachClient *client.APIClient, allowIncomplete bool, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	if allowIncomplete {
-		return ppsutil.GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+		return ppsutil.GetPipelineInfoAllowIncomplete(pachClient, ptr)
 	}
-	return ppsutil.GetPipelineInfo(pachClient, name, ptr)
+	return ppsutil.GetPipelineInfo(pachClient, ptr)
 }
 
 // listPipelinePtr enumerates all PPS pipelines in etcd, filters them based on

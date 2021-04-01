@@ -454,13 +454,13 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 	}
 	pachClient.SetAuthToken(op.ptr.AuthToken)
 
-	if err := pachClient.ListCommitF(op.name, op.pipelineInfo.OutputBranch, "", 0, false, func(commitInfo *pfs.CommitInfo) error {
+	if err := pachClient.ListCommitF(op.ptr.Pipeline.Name, op.pipelineInfo.OutputBranch, "", 0, false, func(commitInfo *pfs.CommitInfo) error {
 		return pachClient.StopJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 	}); err != nil {
 		if isNotFoundErr(err) {
 			return nil // already deleted
 		}
-		return errors.Wrapf(err, "could not finish output commits of pipeline %q", op.name)
+		return errors.Wrapf(err, "could not finish output commits of pipeline %q", op.ptr.Pipeline.Name)
 	}
 	return nil
 }
