@@ -3,6 +3,7 @@ import {
   PFSInput,
   Pipeline,
   PipelineInfo,
+  PipelineState,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 const tutorial = [
@@ -14,12 +15,14 @@ const tutorial = [
         new Input().setPfs(new PFSInput().setRepo('images')),
       ]),
     )
-    .setDescription('Not my favorite pipeline'),
+    .setDescription('Not my favorite pipeline')
+    .setState(PipelineState.PIPELINE_FAILURE),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('edges'))
     .setInput(new Input().setPfs(new PFSInput().setRepo('images')))
-    .setDescription('Very cool edges description'),
+    .setDescription('Very cool edges description')
+    .setState(PipelineState.PIPELINE_RUNNING),
 ];
 
 const customerTeam = [
@@ -30,11 +33,13 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('samples')),
         new Input().setPfs(new PFSInput().setRepo('reference')),
       ]),
-    ),
+    )
+    .setState(PipelineState.PIPELINE_STANDBY),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('models'))
-    .setInput(new Input().setPfs(new PFSInput().setRepo('training'))),
+    .setInput(new Input().setPfs(new PFSInput().setRepo('training')))
+    .setState(PipelineState.PIPELINE_RUNNING),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('joint_call'))
@@ -43,11 +48,13 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('reference')),
         new Input().setPfs(new PFSInput().setRepo('likelihoods')),
       ]),
-    ),
+    )
+    .setState(PipelineState.PIPELINE_FAILURE),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('split'))
-    .setInput(new Input().setPfs(new PFSInput().setRepo('raw_data'))),
+    .setInput(new Input().setPfs(new PFSInput().setRepo('raw_data')))
+    .setState(PipelineState.PIPELINE_STANDBY),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('model'))
@@ -56,7 +63,8 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('split')),
         new Input().setPfs(new PFSInput().setRepo('parameters')),
       ]),
-    ),
+    )
+    .setState(PipelineState.PIPELINE_STANDBY),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('test'))
@@ -65,7 +73,8 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('split')),
         new Input().setPfs(new PFSInput().setRepo('model')),
       ]),
-    ),
+    )
+    .setState(PipelineState.PIPELINE_STANDBY),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('select'))
@@ -74,7 +83,8 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('test')),
         new Input().setPfs(new PFSInput().setRepo('model')),
       ]),
-    ),
+    )
+    .setState(PipelineState.PIPELINE_STANDBY),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('detect'))
@@ -83,7 +93,8 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('model')),
         new Input().setPfs(new PFSInput().setRepo('images')),
       ]),
-    ),
+    )
+    .setState(PipelineState.PIPELINE_STANDBY),
 ];
 
 const pipelines: {[projectId: string]: PipelineInfo[]} = {

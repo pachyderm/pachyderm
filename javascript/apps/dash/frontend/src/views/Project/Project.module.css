@@ -1,17 +1,10 @@
 .base {
-    display: inline-flex;
-    overflow-x: hidden;
-}
-
-.base > *:last-child {
-    flex: 1;
-}
-
-.leftPane {
-    width: 400px;
+    height: 100%;
+    display: flex;
 }
 
 .wrapper {
     background-color: var(--background-grey);
     padding: 1.25rem 2.5rem;
+    flex: 1;
 }

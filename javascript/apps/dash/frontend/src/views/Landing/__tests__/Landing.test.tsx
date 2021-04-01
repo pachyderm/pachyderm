@@ -210,6 +210,6 @@ describe('Landing', () => {
     expect(dataSize.textContent).toEqual(
       `${(3000 / BYTES_IN_GIG).toFixed(8)}GB`,
     );
-    expect(pipelineStatus.textContent).toEqual('Healthy');
+    expect(pipelineStatus.textContent).toEqual('UnhealthyInspect');
   });
 });

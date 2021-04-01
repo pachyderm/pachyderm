@@ -1,87 +1,95 @@
 .base {
-    box-shadow: 0 1px 2px 0 var(--border-grey);
-    border-radius: 3px;
-    font-size: var(--font-size-body-medium);
-    background-color: var(--white);
-    margin-bottom: 1.25rem;
+  box-shadow: 0 1px 2px 0 var(--border-grey);
+  border-radius: 3px;
+  font-size: var(--font-size-body-medium);
+  margin-bottom: 1.25rem;
 }
 .base.draggable:hover {
-    cursor: grab;
+  cursor: grab;
 }
 
 .base.draggable:active {
-    cursor: grabbing;
+  cursor: grabbing;
 }
 
 .base :global .node {
-    fill: #FAFAFA;
-    border-radius: 2.7px;
-    border-radius: 2.7px;
+  overflow: initial;
+}
+
+.base :global .node .label {
+  border-radius: 2px;
+  box-shadow: 0 1px 2px 0 var(--border-grey);
+  background-color: white;
+  fill: var(--white);
 }
   
 .base :global .nodeGroup.draggable:hover{
-    cursor: grab;
+  cursor: grab;
 }
   
-.base :global .nodeGroup.draggable:hover .node{
-    fill:#ECF5F7;
+.base :global .nodeGroup.idle.draggable:hover .node .label, .base :global .nodeGroup.selected.idle .node .label {
+  background-color: var(--background-blue);
+}
+
+.base :global .nodeGroup.error.draggable:hover .node .label, .base :global .nodeGroup.selected.error .node .label {
+  background-color: var(--background-pink);
+}
+
+.base :global .nodeGroup.busy.draggable:hover, .base :global .nodeGroup.selected.busy {
+  opacity: 0.5;
 }
   
 .base :global .nodeGroup.draggable:active{
-    cursor: grabbing;
+  cursor: grabbing;
 }
 
 .base :global .pipeline {
-    pointer-events: none;
+  pointer-events: none;
 }
 
 .base :global .label {
-    font-size: 10.8px;
-    font-weight: 600;
-    text-align: center;
-    user-select: none;
-    pointer-events: none;
+  font-size: 10.var(--font-size-body-small);;
+  font-weight: 600;
+  text-align: center;
+  user-select: none;
+  line-height: 1rem;
+  overflow: hidden;
+  pointer-events: none;
+  padding: 0.5rem;
+  padding-top: 1.5rem;
+  fill: var(--pachyderm-black);
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .base :global .link {
-    stroke: #083D49;
-    stroke-width: 1.5px;
-    marker-end: url(#end-arrow);
+  stroke: var(--pachyderm-black);
+  stroke-width: 1.5px;
+  marker-end: url(#end-arrow);
 }
 
 .base :global .link:hover {
-    cursor: pointer;
+  cursor: pointer;
 }
 
-.base :global .link.transferring {
-    stroke: #5ba3b1;
-    stroke-width: 2px;
-    marker-end: url(#end-arrow-active);
+.base :global .link.transferring, .base :global .link.selected{
+  stroke: var(--pachyderm-green);
+  stroke-width: 2px;
+  marker-end: url(#end-arrow-active);
 }
 
-.base :global .link.error {
-    stroke: #E02020;
-    stroke-width: 2px;
-    marker-end: url(#end-arrow-error);
+.base :global .link.errorTarget.selected, .base :global .link.errorSource.selected {
+  stroke: var(--error-red);
+  stroke-width: 2px;
+  marker-end: url(#end-arrow-error);
+}
+
+.base :global .link.errorSource, .base :global .link.busySource {
+  stroke-dasharray: 0.25rem;
 }
 
 .base :global .circle {
-    fill: #00dbb4
-}
-
-.base :global .linkNode {
-    opacity: 0;
-    user-select: none;
-    pointer-events: none;
-}
-  
-
-.base::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  
-.base::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.1);
-    border-radius: 10px;
+  fill: var(--success-green)
 }
