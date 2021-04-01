@@ -33,6 +33,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 // Environment variables for determining storage backend and pathing
@@ -1496,14 +1497,25 @@ type putObjReader struct {
 
 func (r *putObjReader) Read(p []byte) (int, error) {
 	if r.buffer.Len() == 0 {
-		request, err := r.server.Recv()
+		data, err := r.server.ReadRaw()
 		if err != nil {
 			return 0, err
 		}
 		r.buffer.Reset()
-		// buffer.Write cannot error
-		n, _ := r.buffer.Write(request.Value)
-		r.bytesRead += n
+		offset := 0
+		for {
+			num, typ, len := protowire.ConsumeTag(data[offset:])
+			offset += len
+			if num == 1 {
+				data, _ := protowire.ConsumeBytes(data[offset:])
+				n, _ := r.buffer.Write(data)
+				r.bytesRead += n
+				break
+			} else {
+				len := protowire.ConsumeFieldValue(num, typ, data[offset:])
+				offset += len
+			}
+		}
 	}
 	return r.buffer.Read(p)
 }
