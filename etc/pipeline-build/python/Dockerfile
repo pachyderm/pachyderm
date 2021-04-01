@@ -1,5 +1,10 @@
 FROM python:3
 
+LABEL name="Pachyderm" \
+      vendor="Pachyderm"
+
+COPY LICENSE /licenses
+
 RUN apt update && apt install -y libgl1-mesa-glx
 
 WORKDIR /app
