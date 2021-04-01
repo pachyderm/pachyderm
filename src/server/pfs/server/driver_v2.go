@@ -51,7 +51,7 @@ type driverV2 struct {
 
 // newDriver is used to create a new Driver instance
 func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*driverV2, error) {
-	d1, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	d1, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest, nil)
 	if err != nil {
 		return nil, err
 	}

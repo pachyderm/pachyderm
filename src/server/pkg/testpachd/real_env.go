@@ -107,6 +107,7 @@ func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullC
 			realEnv.treeCache,
 			realEnv.LocalStorageDirectory,
 			64*1024*1024,
+			realEnv.PFSBlockServer,
 		)
 		if err != nil {
 			return err

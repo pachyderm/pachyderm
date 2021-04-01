@@ -27,7 +27,7 @@ type apiServerV2 struct {
 }
 
 func newAPIServerV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*apiServerV2, error) {
-	s1, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	s1, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest, nil)
 	if err != nil {
 		return nil, err
 	}
