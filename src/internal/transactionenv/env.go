@@ -193,7 +193,7 @@ type PpsTransactionServer interface {
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
-	serviceEnv *serviceenv.ServiceEnv
+	serviceEnv serviceenv.ServiceEnv
 	txnServer  TransactionServer
 	authServer AuthTransactionServer
 	pfsServer  PfsTransactionServer
@@ -202,7 +202,7 @@ type TransactionEnv struct {
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (env *TransactionEnv) Initialize(
-	serviceEnv *serviceenv.ServiceEnv,
+	serviceEnv serviceenv.ServiceEnv,
 	txnServer TransactionServer,
 	authServer AuthTransactionServer,
 	pfsServer PfsTransactionServer,

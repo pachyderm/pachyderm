@@ -39,10 +39,10 @@ type apiServer struct {
 	txnEnv *txnenv.TransactionEnv
 
 	// env generates clients for pachyderm's downstream services
-	env *serviceenv.ServiceEnv
+	env serviceenv.ServiceEnv
 }
 
-func newAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (*apiServer, error) {
+func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (*apiServer, error) {
 	d, err := newDriver(env, txnEnv, etcdPrefix, db)
 	if err != nil {
 		return nil, err
