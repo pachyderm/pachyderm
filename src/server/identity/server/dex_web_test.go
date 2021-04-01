@@ -93,7 +93,9 @@ func TestConfigureIssuer(t *testing.T) {
 	require.Equal(t, "", oidcConfig["issuer"].(string))
 
 	//reconfigure the issuer, the server should reload and serve the new issuer value
-	_, err = api.SetIdentityServerConfig(context.Background(), &identity.SetIdentityServerConfigRequest{Config: &identity.IdentityServerConfig{Issuer: "http://example.com:1234"}})
+	_, err = api.SetIdentityServerConfig(context.Background(), &identity.SetIdentityServerConfigRequest{
+		Config: &identity.IdentityServerConfig{Issuer: "http://example.com:1234"},
+	})
 	require.NoError(t, err)
 
 	recorder = httptest.NewRecorder()
@@ -133,7 +135,9 @@ func TestUpdateIDP(t *testing.T) {
 	require.Equal(t, "https://github.com/login/oauth/authorize?client_id=test1&redirect_uri=%2Fcallback&response_type=code&scope=user%3Aemail&state=testreq", recorder.Result().Header.Get("Location"))
 
 	// update the connector config
-	_, err = api.UpdateIDPConnector(context.Background(), &identity.UpdateIDPConnectorRequest{Connector: &identity.IDPConnector{Id: "conn", Type: "github", JsonConfig: `{"clientID": "test2", "redirectURI": "/callback"}`, ConfigVersion: 1}})
+	_, err = api.UpdateIDPConnector(context.Background(), &identity.UpdateIDPConnectorRequest{
+		Connector: &identity.IDPConnector{Id: "conn", Type: "github", JsonConfig: `{"clientID": "test2", "redirectURI": "/callback"}`, ConfigVersion: 1},
+	})
 	require.NoError(t, err)
 
 	// make a second request with the updated client id
