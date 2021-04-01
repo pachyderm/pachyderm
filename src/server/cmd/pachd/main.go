@@ -159,14 +159,14 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	identityStorageProvider, err := (&dex_sql.Postgres{
 		NetworkDB: dex_sql.NetworkDB{
-			Database: env.IdentityServerDatabase,
-			User:     env.IdentityServerUser,
-			Password: env.IdentityServerPassword,
-			Host:     env.PostgresServiceHost,
-			Port:     uint16(env.PostgresServicePort),
+			Database: env.Config().IdentityServerDatabase,
+			User:     env.Config().IdentityServerUser,
+			Password: env.Config().IdentityServerPassword,
+			Host:     env.Config().PostgresServiceHost,
+			Port:     uint16(env.Config().PostgresServicePort),
 		},
 		SSL: dex_sql.SSL{
-			Mode: env.PostgresServiceSSL,
+			Mode: env.Config().PostgresServiceSSL,
 		},
 	}).Open(log.NewEntry(log.New()).WithField("source", "identity-db"))
 	if err != nil {
@@ -578,14 +578,14 @@ func doFullMode(config interface{}) (retErr error) {
 
 	identityStorageProvider, err := (&dex_sql.Postgres{
 		NetworkDB: dex_sql.NetworkDB{
-			Database: env.IdentityServerDatabase,
-			User:     env.IdentityServerUser,
-			Password: env.IdentityServerPassword,
-			Host:     env.PostgresServiceHost,
-			Port:     uint16(env.PostgresServicePort),
+			Database: env.Config().IdentityServerDatabase,
+			User:     env.Config().IdentityServerUser,
+			Password: env.Config().IdentityServerPassword,
+			Host:     env.Config().PostgresServiceHost,
+			Port:     uint16(env.Config().PostgresServicePort),
 		},
 		SSL: dex_sql.SSL{
-			Mode: env.PostgresServiceSSL,
+			Mode: env.Config().PostgresServiceSSL,
 		},
 	}).Open(log.NewEntry(log.New()).WithField("source", "identity-db"))
 	if err != nil {

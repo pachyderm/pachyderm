@@ -46,7 +46,7 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env *serviceenv.ServiceEnv, storage dex_storage.Storage, public bool) identity.APIServer {
+func NewIdentityServer(env serviceenv.ServiceEnv, storage dex_storage.Storage, public bool) identity.APIServer {
 	server := &apiServer{
 		env:        env,
 		pachLogger: log.NewLogger("identity.API"),
@@ -54,7 +54,7 @@ func NewIdentityServer(env *serviceenv.ServiceEnv, storage dex_storage.Storage, 
 	}
 
 	if public {
-		web := newDexWeb(storage, env.GetDBClient(), server)
+		web := newDexWeb(env, storage, server)
 		go func() {
 			if err := http.ListenAndServe(dexHTTPPort, web); err != nil {
 				logrus.WithError(err).Fatalf("error setting up and/or running the identity server")

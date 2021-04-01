@@ -7,11 +7,11 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/gogo/protobuf/proto"
-	"github.com/jmoiron/sqlx"
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -24,6 +24,8 @@ var webDir = "/dex-assets"
 type dexWeb struct {
 	sync.RWMutex
 
+	env serviceenv.ServiceEnv
+
 	// Rather than restart the server on every request, we cache it
 	// along with the config and set of connectors. If either of these
 	// change we restart the server because Dex doesn't support
@@ -33,18 +35,17 @@ type dexWeb struct {
 	server            *dex_server.Server
 	serverCancel      context.CancelFunc
 
-	db              *sqlx.DB
 	logger          *logrus.Entry
 	storageProvider dex_storage.Storage
 	apiServer       identity.APIServer
 }
 
-func newDexWeb(sp dex_storage.Storage, db *sqlx.DB, apiServer identity.APIServer) *dexWeb {
+func newDexWeb(env serviceenv.ServiceEnv, sp dex_storage.Storage, apiServer identity.APIServer) *dexWeb {
 	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex-web")
 	return &dexWeb{
+		env:             env,
 		logger:          logger,
 		storageProvider: sp,
-		db:              db,
 		apiServer:       apiServer,
 	}
 }
@@ -167,7 +168,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		tx, err := w.db.BeginTxx(r.Context(), &sql.TxOptions{})
+		tx, err := w.env.GetDBClient().BeginTxx(r.Context(), &sql.TxOptions{})
 		if err != nil {
 			w.logger.WithError(err).Error("failed to start transaction")
 			rw.WriteHeader(http.StatusInternalServerError)
