@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -19,21 +20,25 @@ import (
 	dex_memory "github.com/dexidp/dex/storage/memory"
 )
 
+func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
+	env := &serviceenv.TestServiceEnv{DBClient: dbutil.NewTestDB(t)}
+	require.NoError(t, migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState))
+	require.NoError(t, migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState))
+	return env
+}
+
 // TestLazyStartWebServer tests that the web server redirects to a static page when no connectors are configured,
 // and redirects to a real connector when one is configured
 func TestLazyStartWebServer(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
 	sp := dex_memory.New(logger)
-	env := &serviceenv.TestServiceEnv{DBClient: dbutil.NewTestDB(t)}
+	env := getTestEnv(t)
 	api := NewIdentityServer(env, sp, false)
 
 	// server is instantiated but hasn't started
 	server := newDexWeb(env, sp, api)
 	defer server.stopWebServer()
-
-	// request the well-known endpoint, this should return a 500 because the database is failing
-	req := httptest.NewRequest("GET", "/.well-known/openid-configuration", nil)
 
 	// attempt to start the server, no connectors are available so we should get a redirect to a static page
 	require.NoError(t, sp.CreateClient(dex_storage.Client{
@@ -41,7 +46,7 @@ func TestLazyStartWebServer(t *testing.T) {
 		RedirectURIs: []string{"http://example.com/callback"},
 	}))
 
-	req = httptest.NewRequest("GET", "/auth?client_id=test&nonce=abc&redirect_uri=http%3A%2F%2Fexample.com%2Fcallback&response_type=code&scope=openid+profile+email&state=abcd", nil)
+	req := httptest.NewRequest("GET", "/auth?client_id=test&nonce=abc&redirect_uri=http%3A%2F%2Fexample.com%2Fcallback&response_type=code&scope=openid+profile+email&state=abcd", nil)
 
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
@@ -68,7 +73,7 @@ func TestConfigureIssuer(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
 	sp := dex_memory.New(logger)
-	env := &serviceenv.TestServiceEnv{DBClient: dbutil.NewTestDB(t)}
+	env := getTestEnv(t)
 	api := NewIdentityServer(env, sp, false)
 
 	server := newDexWeb(env, sp, api)
@@ -87,8 +92,9 @@ func TestConfigureIssuer(t *testing.T) {
 	require.NoError(t, json.NewDecoder(recorder.Result().Body).Decode(&oidcConfig))
 	require.Equal(t, "", oidcConfig["issuer"].(string))
 
-	// reconfigure the issuer, the server should reload and serve the new issuer value
-	//server.updateConfig(identity.IdentityServerConfig{Issuer: "http://example.com:1234"})
+	//reconfigure the issuer, the server should reload and serve the new issuer value
+	_, err = api.SetIdentityServerConfig(context.Background(), &identity.SetIdentityServerConfigRequest{Config: &identity.IdentityServerConfig{Issuer: "http://example.com:1234"}})
+	require.NoError(t, err)
 
 	recorder = httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
@@ -98,17 +104,53 @@ func TestConfigureIssuer(t *testing.T) {
 	require.Equal(t, "http://example.com:1234", oidcConfig["issuer"].(string))
 }
 
+// TestUpdateIDP tests that the web server is restarted when an IDP is reconfigured
+func TestUpdateIDP(t *testing.T) {
+	webDir = "../../../../dex-assets"
+	logger := logrus.NewEntry(logrus.New())
+	sp := dex_memory.New(logger)
+	env := getTestEnv(t)
+	api := NewIdentityServer(env, sp, false)
+
+	server := newDexWeb(env, sp, api)
+	defer server.stopWebServer()
+
+	// Configure a connector with a given ID
+	err := sp.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github", Config: []byte(`{"clientID": "test1", "redirectURI": "/callback"}`)})
+	require.NoError(t, err)
+
+	// Create an auth request that hasn't done the flow
+	require.NoError(t, sp.CreateAuthRequest(dex_storage.AuthRequest{
+		ID:       "testreq",
+		ClientID: "testclient",
+	}))
+
+	// make a request to authenticate
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/auth/conn?req=testreq", nil)
+	server.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusFound, recorder.Result().StatusCode)
+	require.Equal(t, "https://github.com/login/oauth/authorize?client_id=test1&redirect_uri=%2Fcallback&response_type=code&scope=user%3Aemail&state=testreq", recorder.Result().Header.Get("Location"))
+
+	// update the connector config
+	_, err = api.UpdateIDPConnector(context.Background(), &identity.UpdateIDPConnectorRequest{Connector: &identity.IDPConnector{Id: "conn", Type: "github", JsonConfig: `{"clientID": "test2", "redirectURI": "/callback"}`, ConfigVersion: 1}})
+	require.NoError(t, err)
+
+	// make a second request with the updated client id
+	recorder = httptest.NewRecorder()
+	server.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusFound, recorder.Result().StatusCode)
+	require.Equal(t, "https://github.com/login/oauth/authorize?client_id=test2&redirect_uri=%2Fcallback&response_type=code&scope=user%3Aemail&state=testreq", recorder.Result().Header.Get("Location"))
+}
+
 // TestLogApprovedUsers tests that the web server intercepts approvals and records the email
 // in the database.
 func TestLogApprovedUsers(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
 	sp := dex_memory.New(logger)
-	env := &serviceenv.TestServiceEnv{DBClient: dbutil.NewTestDB(t)}
+	env := getTestEnv(t)
 	api := NewIdentityServer(env, sp, false)
-
-	require.NoError(t, migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState))
-	require.NoError(t, migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState))
 
 	server := newDexWeb(env, sp, api)
 	defer server.stopWebServer()

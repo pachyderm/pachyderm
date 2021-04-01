@@ -69,7 +69,7 @@ func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.S
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO identity.config (id, issuer) VALUES ($1, $2) ON DUPLICATE KEY(id) SET issuer=$2 `, configKey, req.Config.Issuer); err != nil {
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO identity.config (id, issuer) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET issuer=$2 `, configKey, req.Config.Issuer); err != nil {
 		return nil, err
 	}
 
@@ -80,13 +80,16 @@ func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.G
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	var config identity.IdentityServerConfig
+	var config []*identity.IdentityServerConfig
 	err := a.env.GetDBClient().SelectContext(ctx, &config, "SELECT issuer FROM identity.config WHERE id=$1;", configKey)
 	if err != nil {
 		return nil, err
 	}
+	if len(config) == 0 {
+		return &identity.GetIdentityServerConfigResponse{Config: &identity.IdentityServerConfig{}}, nil
+	}
 
-	return &identity.GetIdentityServerConfigResponse{Config: &config}, nil
+	return &identity.GetIdentityServerConfigResponse{Config: config[0]}, nil
 }
 
 func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (resp *identity.CreateIDPConnectorResponse, retErr error) {
