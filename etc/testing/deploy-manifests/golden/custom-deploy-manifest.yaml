@@ -280,7 +280,7 @@ spec:
     nodePort: 30600
     port: 600
     targetPort: 0
-  - name: prometheus-metrics
+  - name: prom-metrics
     nodePort: 30656
     port: 656
     protocol: TCP
@@ -605,6 +605,9 @@ spec:
           protocol: TCP
         - containerPort: 657
           name: oidc-port
+          protocol: TCP
+        - containerPort: 656
+          name: prom-metrics
           protocol: TCP
         readinessProbe:
           exec:

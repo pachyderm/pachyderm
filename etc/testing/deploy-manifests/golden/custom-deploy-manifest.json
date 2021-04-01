@@ -405,7 +405,7 @@
         "nodePort": 30600
       },
       {
-        "name": "prometheus-metrics",
+        "name": "prom-metrics",
         "protocol": "TCP",
         "port": 656,
         "targetPort": 656,
@@ -535,6 +535,11 @@
               {
                 "name": "oidc-port",
                 "containerPort": 657,
+                "protocol": "TCP"
+              },
+              {
+                "name": "prom-metrics",
+                "containerPort": 656,
                 "protocol": "TCP"
               }
             ],
