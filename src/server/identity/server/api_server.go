@@ -236,7 +236,9 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 		}
 	}
 
-	// TODO: delete config
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM identity.config`); err != nil {
+		return nil, err
+	}
 
 	return &identity.DeleteAllResponse{}, nil
 }
