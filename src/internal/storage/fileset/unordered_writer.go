@@ -37,7 +37,7 @@ func newMemFileSet() *memFileSet {
 	}
 }
 
-func (mfs *memFileSet) appendFile(p string, tag string) io.Writer {
+func (mfs *memFileSet) addFile(p string, tag string) io.Writer {
 	return mfs.createMemPart(p, tag)
 }
 
@@ -86,7 +86,7 @@ func (mfs *memFileSet) serialize(w *Writer) error {
 
 func (mfs *memFileSet) serializeAdditive(w *Writer) error {
 	for _, mf := range sortMemFiles(mfs.additive) {
-		if err := w.Append(mf.path, func(fw *FileWriter) error {
+		if err := w.Add(mf.path, func(fw *FileWriter) error {
 			return serializeParts(fw, mf)
 		}); err != nil {
 			return err
@@ -97,7 +97,7 @@ func (mfs *memFileSet) serializeAdditive(w *Writer) error {
 
 func serializeParts(fw *FileWriter, mf *memFile) error {
 	for _, mp := range sortMemParts(mf.parts) {
-		fw.Append(mp.tag)
+		fw.Add(mp.tag)
 		if _, err := fw.Write(mp.buf.Bytes()); err != nil {
 			return err
 		}
@@ -170,8 +170,7 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 	return uw, nil
 }
 
-// Append appends a file to the file set.
-func (uw *UnorderedWriter) Append(p string, overwrite bool, r io.Reader, customTag ...string) error {
+func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag ...string) error {
 	// TODO: Validate
 	//if err := ppath.ValidatePath(hdr.Name); err != nil {
 	//	return nil, err
@@ -182,10 +181,10 @@ func (uw *UnorderedWriter) Append(p string, overwrite bool, r io.Reader, customT
 		tag = customTag[0]
 	}
 	// TODO: Tag overwrite?
-	if overwrite {
+	if !appendFile {
 		uw.memFileSet.deleteFile(p, "")
 	}
-	w := uw.memFileSet.appendFile(p, tag)
+	w := uw.memFileSet.addFile(p, tag)
 	for {
 		n, err := io.CopyN(w, r, uw.memAvailable)
 		uw.memAvailable -= n
@@ -199,7 +198,7 @@ func (uw *UnorderedWriter) Append(p string, overwrite bool, r io.Reader, customT
 			if err := uw.serialize(); err != nil {
 				return err
 			}
-			w = uw.memFileSet.appendFile(p, tag)
+			w = uw.memFileSet.addFile(p, tag)
 		}
 	}
 }
@@ -234,7 +233,7 @@ func (uw *UnorderedWriter) serialize() error {
 	}
 	uw.layers = append(uw.layers, *id)
 	if uw.renewer != nil {
-		uw.renewer.Add(filesetObjectID(*id))
+		uw.renewer.Add(id.TrackerID())
 	}
 	// Reset in-memory file set.
 	uw.memFileSet = newMemFileSet()

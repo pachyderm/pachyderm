@@ -7,6 +7,8 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -37,7 +39,7 @@ var (
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
 	tracker                      track.Tracker
-	store                        Store
+	store                        MetadataStore
 	chunks                       *chunk.Storage
 	memThreshold, shardThreshold int64
 	levelFactor                  int64
@@ -45,9 +47,9 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(store Store, tr track.Tracker, chunks *chunk.Storage, opts ...StorageOption) *Storage {
+func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts ...StorageOption) *Storage {
 	s := &Storage{
-		store:          store,
+		store:          mds,
 		tracker:        tr,
 		chunks:         chunks,
 		memThreshold:   DefaultMemoryThreshold,
@@ -62,14 +64,6 @@ func NewStorage(store Store, tr track.Tracker, chunks *chunk.Storage, opts ...St
 		panic("level factor cannot be < 1")
 	}
 	return s
-}
-
-// Store returns the underlying store.
-// TODO Store is just used to poke through the information about file set sizes.
-// I think there might be a cleaner way to handle this through the file set interface, and changing
-// the metadata we expose for a file set as a set of metadata entries.
-func (s *Storage) Store() Store {
-	return s.store
 }
 
 // ChunkStorage returns the underlying chunk storage instance for this storage instance.
@@ -110,7 +104,11 @@ func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (Fil
 		case *Metadata_Primitive:
 			fss = append(fss, s.newReader(id, opts...))
 		case *Metadata_Composite:
-			fs, err := s.Open(ctx, stringsToIDs(x.Composite.Layers), opts...)
+			ids, err := x.Composite.PointsTo()
+			if err != nil {
+				return nil, err
+			}
+			fs, err := s.Open(ctx, ids, opts...)
 			if err != nil {
 				return nil, err
 			}
@@ -167,7 +165,11 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
 		case *Metadata_Primitive:
 			flattened = append(flattened, id)
 		case *Metadata_Composite:
-			ids2, err := s.Flatten(ctx, stringsToIDs(x.Composite.Layers))
+			ids, err := x.Composite.PointsTo()
+			if err != nil {
+				return nil, err
+			}
+			ids2, err := s.Flatten(ctx, ids)
 			if err != nil {
 				return nil, err
 			}
@@ -220,7 +222,7 @@ func (s *Storage) Drop(ctx context.Context, id ID) error {
 
 // SetTTL sets the time-to-live for the fileset at id
 func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Time, error) {
-	oid := filesetObjectID(id)
+	oid := id.TrackerID()
 	return s.tracker.SetTTLPrefix(ctx, oid, ttl)
 }
 
@@ -244,7 +246,11 @@ func (s *Storage) SizeOf(ctx context.Context, id ID) (int64, error) {
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
 func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *renew.StringSet) error) error {
 	rf := func(ctx context.Context, idHexStr string, ttl time.Duration) error {
-		_, err := s.SetTTL(ctx, ID(idHexStr), ttl)
+		id, err := ParseID(idHexStr)
+		if err != nil {
+			return err
+		}
+		_, err = s.SetTTL(ctx, *id, ttl)
 		return err
 	}
 	return renew.WithStringSet(ctx, ttl, rf, cb)
@@ -297,12 +303,15 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 	}
 	var pointsTo []string
 	for _, chunkID := range prim.PointsTo() {
-		pointsTo = append(pointsTo, chunk.ObjectID(chunkID))
+		pointsTo = append(pointsTo, chunkID.TrackerID())
 	}
-	if err := s.tracker.CreateObject(ctx, filesetObjectID(id), pointsTo, ttl); err != nil {
-		return nil, err
-	}
-	if err := s.store.Set(ctx, id, md); err != nil {
+	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
+		if err := s.store.SetTx(tx, id, md); err != nil {
+			return err
+		}
+		return s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &id, nil
@@ -315,14 +324,20 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 			Composite: comp,
 		},
 	}
-	var pointsTo []string
-	for _, id := range comp.Layers {
-		pointsTo = append(pointsTo, filesetObjectID(ID(id)))
-	}
-	if err := s.tracker.CreateObject(ctx, filesetObjectID(id), pointsTo, ttl); err != nil {
+	ids, err := comp.PointsTo()
+	if err != nil {
 		return nil, err
 	}
-	if err := s.store.Set(ctx, id, md); err != nil {
+	var pointsTo []string
+	for _, id := range ids {
+		pointsTo = append(pointsTo, id.TrackerID())
+	}
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
+		if err := s.store.SetTx(tx, id, md); err != nil {
+			return err
+		}
+		return s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl)
+	}); err != nil {
 		return nil, err
 	}
 	return &id, nil
@@ -340,23 +355,19 @@ func (s *Storage) getPrimitive(ctx context.Context, id ID) (*Primitive, error) {
 	return prim, nil
 }
 
-func filesetObjectID(id ID) string {
-	return TrackerPrefix + id.HexString()
-}
-
 var _ track.Deleter = &deleter{}
 
 type deleter struct {
-	store Store
+	store MetadataStore
 }
 
-func (d *deleter) Delete(ctx context.Context, oid string) error {
+func (d *deleter) DeleteTx(tx *sqlx.Tx, oid string) error {
 	if !strings.HasPrefix(oid, TrackerPrefix) {
-		return errors.Errorf("don't know how to delete object %s", oid)
+		return errors.Errorf("don't know how to delete %v", oid)
 	}
-	fsid, err := ParseID(oid[len(TrackerPrefix):])
+	id, err := ParseID(oid[len(TrackerPrefix):])
 	if err != nil {
 		return err
 	}
-	return d.store.Delete(ctx, *fsid)
+	return d.store.DeleteTx(tx, *id)
 }

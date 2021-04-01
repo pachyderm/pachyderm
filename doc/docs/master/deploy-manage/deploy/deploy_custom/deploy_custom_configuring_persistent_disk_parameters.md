@@ -45,9 +45,9 @@ that uses the standard `etcd-storage-class`.
     If you need to use a different than the default setting,
     you can use the `--etcd-storage-class` flag to specify the StorageClass.
 
-* `--static-etc-volume`. The `--static-etc-volume` flag is used when
+* `--static-etcd-volume`. The `--static-etcd-volume` flag is used when
 your Kubernetes installation has not been configured to use StatefulSets.
-When you specify `--static-etc-volume` flag, Pachyderm creates a static
+When you specify `--static-etcd-volume` flag, Pachyderm creates a static
 volume for `etcd`. Pachyderm creates a PV with a spec appropriate
 for each of the cloud providers:
 

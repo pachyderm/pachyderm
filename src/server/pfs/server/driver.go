@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"database/sql"
 	"fmt"
 	"math"
 	"os"
@@ -117,7 +119,13 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 		return nil, err
 	}
 	memCache := env.ChunkMemoryCache()
-	chunkStorage := chunk.NewStorage(objClient, memCache, chunk.NewPostgresStore(db), tracker, chunkStorageOpts...)
+	keyStore := chunk.NewPostgresKeyStore(db)
+	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
+	if err != nil {
+		return nil, err
+	}
+	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
+	chunkStorage := chunk.NewStorage(objClient, memCache, db, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
 	// Setup compaction queue and worker.
 	d.compactionQueue, err = work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)
@@ -141,6 +149,21 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	go d.master(env, db)
 	go d.compactionWorker()
 	return d, nil
+}
+
+func (d *driver) activateAuth(txnCtx *txnenv.TransactionContext) error {
+	repos := d.repos.ReadOnly(txnCtx.ClientContext)
+	repoInfo := &pfs.RepoInfo{}
+	return repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
+		err := txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
+			Type: auth.ResourceType_REPO,
+			Name: repoInfo.Repo.Name,
+		})
+		if err != nil && !col.IsErrExists(err) {
+			return err
+		}
+		return nil
+	})
 }
 
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
@@ -198,13 +221,8 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 		if authIsActivated {
 			// Create ACL for new repo. Make caller the sole owner. If the ACL already
 			// exists with a different owner, this will fail.
-			_, err := txnCtx.Auth().ModifyRoleBindingInTransaction(txnCtx, &auth.ModifyRoleBindingRequest{
-				Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
-				Principal: whoAmI.Username,
-				Roles:     []string{auth.RepoOwnerRole},
-			})
-			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
+			if err := txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, whoAmI.Username, []string{auth.RepoOwnerRole}, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo \"%s\"", repo.Name)
 			}
 		}
 		return repos.Create(repo.Name, &pfs.RepoInfo{
@@ -256,6 +274,9 @@ func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 		},
 	})
 	if err != nil {
@@ -2354,4 +2375,22 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
+}
+
+func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) ([]byte, error) {
+	secret, err := keyStore.Get(ctx, name)
+	if err != sql.ErrNoRows {
+		return secret, err
+	}
+	if err == sql.ErrNoRows {
+		secret = make([]byte, 32)
+		if _, err := rand.Read(secret); err != nil {
+			return nil, err
+		}
+		log.Infof("generated new secret: %q", name)
+		if err := keyStore.Create(ctx, name, secret); err != nil {
+			return nil, err
+		}
+	}
+	return keyStore.Get(ctx, name)
 }

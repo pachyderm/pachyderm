@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -31,12 +32,14 @@ func ActivateAuth(tb testing.TB) {
 	if err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 		tb.Fatalf("could not activate auth service: %v", err.Error())
 	}
-	config.WritePachTokenToConfig(RootToken)
+	config.WritePachTokenToConfig(RootToken, false)
 
 	// Activate auth for PPS
 	client = client.WithCtx(context.Background())
 	client.SetAuthToken(RootToken)
-	_, err = client.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
+	_, err = client.PfsAPIClient.ActivateAuth(client.Ctx(), &pfs.ActivateAuthRequest{})
+	require.NoError(tb, err)
+	_, err = client.PpsAPIClient.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
 	require.NoError(tb, err)
 }
 
@@ -50,7 +53,7 @@ func GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient
 	if subject == auth.RootUser {
 		return rootClient
 	}
-	token, err := rootClient.GetAuthToken(rootClient.Ctx(), &auth.GetAuthTokenRequest{Subject: subject})
+	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject})
 	require.NoError(tb, err)
 	client := GetUnauthenticatedPachClient(tb)
 	client.SetAuthToken(token.Token)

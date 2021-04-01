@@ -17,7 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	dbtesting "github.com/pachyderm/pachyderm/v2/src/internal/dbutil/testing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -173,6 +173,9 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 	})
 
 	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
+		if etcdJobInfo.OutputCommit == nil {
+			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
+		}
 		outputCommitInfo, err := env.PachClient.InspectCommit(etcdJobInfo.OutputCommit.Repo.Name, etcdJobInfo.OutputCommit.ID)
 		require.NoError(t, err)
 
@@ -254,7 +257,7 @@ func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 		}
 		return nil
 	}))
-	require.NoError(t, env.PachClient.AppendFileTar(pi.Input.Pfs.Repo, commit.ID, false, buf))
+	require.NoError(t, env.PachClient.PutFileTar(pi.Input.Pfs.Repo, commit.ID, buf, client.WithAppendPutFile()))
 	require.NoError(t, env.PachClient.FinishCommit(pi.Input.Pfs.Repo, commit.ID))
 }
 
@@ -288,7 +291,7 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 
 func TestTransformPipeline(suite *testing.T) {
 	suite.Parallel()
-	postgres := dbtesting.NewPostgresDeployment(suite)
+	postgres := dbutil.NewPostgresDeployment(suite)
 
 	suite.Run("TestJobSuccess", func(t *testing.T) {
 		t.Parallel()
@@ -306,17 +309,10 @@ func TestTransformPipeline(suite *testing.T) {
 		pi := defaultPipelineInfo()
 		pi.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", bucket)}
 
-		db := postgres.NewDatabase(t)
-		env := newWorkerSpawnerPair(t, db, pi)
-
-		files := []tarutil.File{
-			tarutil.NewMemFile("/file1", []byte("foo")),
-			tarutil.NewMemFile("/file2", []byte("bar")),
-		}
-		testJobSuccess(t, env, pi, files)
-
-		for _, file := range files {
-			hdr, err := file.Header()
+		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
+		require.NoError(t, err)
+		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
+			ok, err := tarutil.Equal(files[0], file)
 			require.NoError(t, err)
 			r, err := objC.Reader(context.Background(), hdr.Name, 0, 0)
 			require.NoError(t, err)
@@ -377,7 +373,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetTarFile(pi.Pipeline.Name, outputCommitID, "/*")
+		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[0], file)
@@ -421,7 +417,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetTarFile(pi.Pipeline.Name, outputCommitID, "/*")
+		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[0], file)
@@ -471,7 +467,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetTarFile(pi.Pipeline.Name, outputCommitID, "/*")
+		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[1], file)

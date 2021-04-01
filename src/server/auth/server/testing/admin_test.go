@@ -54,8 +54,7 @@ func robot(robot string) string {
 
 func buildClusterBindings(s ...string) *auth.RoleBinding {
 	return buildBindings(append(s,
-		auth.RootUser, auth.ClusterAdminRole,
-		auth.PpsUser, auth.ClusterAdminRole)...)
+		auth.RootUser, auth.ClusterAdminRole)...)
 }
 
 func buildBindings(s ...string) *auth.RoleBinding {
@@ -488,8 +487,12 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoError(t, err)
 	rootClient.SetAuthToken(resp.PachToken)
 
+	// activate auth in PFS
+	_, err = rootClient.PfsAPIClient.ActivateAuth(rootClient.Ctx(), &pfs.ActivateAuthRequest{})
+	require.NoError(t, err)
+
 	// activate auth in PPS
-	_, err = rootClient.ActivateAuth(rootClient.Ctx(), &pps.ActivateAuthRequest{})
+	_, err = rootClient.PpsAPIClient.ActivateAuth(rootClient.Ctx(), &pps.ActivateAuthRequest{})
 	require.NoError(t, err)
 
 	// re-authenticate, as old tokens were deleted
@@ -638,7 +641,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	infos, err = rootClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.Equal(t, []auth.Permission{
+		require.ElementsEqual(t, []auth.Permission{
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_MODIFY_BINDINGS,
@@ -651,6 +654,9 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 		}, info.AuthInfo.Permissions)
 	}
 }
@@ -778,6 +784,75 @@ func TestGetTokenForRootUser(t *testing.T) {
 	require.Equal(t, "rpc error: code = Unknown desc = GetAuthTokenRequest.Subject is invalid", err.Error())
 }
 
+// TestGetIndefiniteRobotToken tests that an admin can generate a robot token that never
+// times out - this is the default behaviour
+func TestGetIndefiniteRobotToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// Generate auth credentials
+	robotUser := tu.UniqueString("rock-em-sock-em")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser})
+	require.NoError(t, err)
+	token1 := resp.Token
+	robotClient1 := tu.GetUnauthenticatedPachClient(t)
+	robotClient1.SetAuthToken(token1)
+
+	// Confirm identity tied to 'token1'
+	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robot(robotUser), who.Username)
+	require.Equal(t, int64(-1), who.TTL)
+}
+
+// TestGetTemporaryRobotToken tests that an admin can generate a robot token that expires
+func TestGetTemporaryRobotToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// Generate auth credentials
+	robotUser := tu.UniqueString("rock-em-sock-em")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, TTL: 600})
+	require.NoError(t, err)
+	token1 := resp.Token
+	robotClient1 := tu.GetUnauthenticatedPachClient(t)
+	robotClient1.SetAuthToken(token1)
+
+	// Confirm identity tied to 'token1'
+	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robot(robotUser), who.Username)
+	require.True(t, who.TTL > 0)
+	require.True(t, who.TTL <= 600)
+}
+
+// TestGetRobotTokenErrorNonAdminUser tests that non-admin users can't call
+// GetRobotToken
+func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	alice := robot(tu.UniqueString("alice"))
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	resp, err := aliceClient.GetRobotToken(aliceClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: tu.UniqueString("t-1000"),
+	})
+	require.Nil(t, resp)
+	require.YesError(t, err)
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_ROBOT_TOKEN\\] on CLUSTER", err.Error())
+}
+
 // TestGetIndefiniteAuthToken tests that an admin can generate an auth token that never
 // times out if explicitly requested (e.g. for a daemon)
 func TestGetIndefiniteAuthToken(t *testing.T) {
@@ -818,9 +893,9 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := robot(tu.UniqueString("r2d2"))
-	resp, err := rootClient.GetAuthToken(rootClient.Ctx(),
-		&auth.GetAuthTokenRequest{Subject: robotUser})
+	robotUser := tu.UniqueString("r2d2")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(),
+		&auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
 	// copy client & use resp token
 	robotClient := rootClient.WithCtx(context.Background())
@@ -828,7 +903,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 
 	who, err := robotClient.WhoAmI(robotClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, robotUser, who.Username)
+	require.Equal(t, robot(robotUser), who.Username)
 	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
 }
 
@@ -842,9 +917,9 @@ func TestRobotUserACL(t *testing.T) {
 	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := robot(tu.UniqueString("voltron"))
-	resp, err := rootClient.GetAuthToken(rootClient.Ctx(),
-		&auth.GetAuthTokenRequest{Subject: robotUser})
+	robotUser := tu.UniqueString("voltron")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(),
+		&auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
 	// copy client & use resp token
 	robotClient := rootClient.WithCtx(context.Background())
@@ -853,10 +928,10 @@ func TestRobotUserACL(t *testing.T) {
 	// robotUser creates a repo and adds alice as a writer
 	repo := tu.UniqueString("TestRobotUserACL")
 	require.NoError(t, robotClient.CreateRepo(repo))
-	require.Equal(t, buildBindings(robotUser, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
+	require.Equal(t, buildBindings(robot(robotUser), auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 
 	require.NoError(t, robotClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoWriterRole}))
-	require.Equal(t, buildBindings(alice, auth.RepoWriterRole, robotUser, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoWriterRole, robot(robotUser), auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 
 	// test that alice can commit to the robot user's repo
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -867,8 +942,8 @@ func TestRobotUserACL(t *testing.T) {
 	repo2 := tu.UniqueString("TestRobotUserACL")
 	require.NoError(t, aliceClient.CreateRepo(repo2))
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo2))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo2, robotUser, []string{auth.RepoWriterRole}))
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robotUser, auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, repo2))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo2, robot(robotUser), []string{auth.RepoWriterRole}))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot(robotUser), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, repo2))
 
 	// test that the robot can commit to alice's repo
 	commit, err = robotClient.StartCommit(repo2, "master")
@@ -892,25 +967,25 @@ func TestRobotUserAdmin(t *testing.T) {
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := robot(tu.UniqueString("bender"))
-	resp, err := rootClient.GetAuthToken(rootClient.Ctx(),
-		&auth.GetAuthTokenRequest{Subject: robotUser})
+	robotUser := tu.UniqueString("bender")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(),
+		&auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
 	// copy client & use resp token
 	robotClient := rootClient.WithCtx(context.Background())
 	robotClient.SetAuthToken(resp.Token)
 
 	// make robotUser an admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(robotUser, []string{auth.ClusterAdminRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(robot(robotUser), []string{auth.ClusterAdminRole}))
 	// wait until robotUser shows up in admin list
 	bindings, err := rootClient.GetClusterRoleBinding()
 	require.NoError(t, err)
-	require.Equal(t, buildClusterBindings(robotUser, auth.ClusterAdminRole), bindings)
+	require.Equal(t, buildClusterBindings(robot(robotUser), auth.ClusterAdminRole), bindings)
 
 	// robotUser mints a token for robotUser2
-	robotUser2 := robot(tu.UniqueString("robocop"))
-	resp, err = robotClient.GetAuthToken(robotClient.Ctx(), &auth.GetAuthTokenRequest{
-		Subject: robotUser2,
+	robotUser2 := tu.UniqueString("robocop")
+	resp, err = robotClient.GetRobotToken(robotClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: robotUser2,
 	})
 	require.NoError(t, err)
 	require.NotEqual(t, "", resp.Token)
@@ -925,9 +1000,9 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, robotClient.FinishCommit(repo, commit.ID))
 
 	// robotUser adds alice to the repo, and checks that the ACL is updated
-	require.Equal(t, buildBindings(robotUser2, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
+	require.Equal(t, buildBindings(robot(robotUser2), auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 	require.NoError(t, robotClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoWriterRole}))
-	require.Equal(t, buildBindings(robotUser2, auth.RepoOwnerRole, alice, auth.RepoWriterRole), getRepoRoleBinding(t, robotClient, repo))
+	require.Equal(t, buildBindings(robot(robotUser2), auth.RepoOwnerRole, alice, auth.RepoWriterRole), getRepoRoleBinding(t, robotClient, repo))
 	commit, err = aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
@@ -1052,9 +1127,9 @@ func TestTokenRevoke(t *testing.T) {
 	repo := tu.UniqueString("TestTokenRevoke")
 	require.NoError(t, rootClient.CreateRepo(repo))
 
-	alice := robot(tu.UniqueString("alice"))
-	resp, err := rootClient.GetAuthToken(rootClient.Ctx(), &auth.GetAuthTokenRequest{
-		Subject: alice,
+	alice := tu.UniqueString("alice")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: alice,
 	})
 	require.NoError(t, err)
 	aliceClient := rootClient.WithCtx(context.Background())
@@ -1093,7 +1168,7 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
-	require.Matches(t, "needs permissions \\[CLUSTER_ADMIN\\] on CLUSTER", err.Error())
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_TOKEN\\] on CLUSTER", err.Error())
 }
 
 // TestGetAuthTokenErrorFSAdminUser tests that FS admin users can't call
@@ -1123,7 +1198,7 @@ func TestGetAuthTokenErrorFSAdminUser(t *testing.T) {
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
-	require.Matches(t, "needs permissions \\[CLUSTER_ADMIN\\] on CLUSTER", err.Error())
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_TOKEN\\] on CLUSTER", err.Error())
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)

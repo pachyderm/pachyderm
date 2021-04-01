@@ -111,7 +111,10 @@ func (t *TransactionContext) finish() error {
 			return err
 		}
 	}
-	return t.pfsPropagater.Run()
+	if t.pfsPropagater != nil {
+		return t.pfsPropagater.Run()
+	}
+	return nil
 }
 
 // FinishPipelineCommits saves a pipeline output branch to have its commits
@@ -140,6 +143,15 @@ type AuthTransactionServer interface {
 
 	ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 	GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
+
+	// Methods to add and remove pipelines from input and output repos. These do their own auth checks
+	// for specific permissions required to use a repo as a pipeline input/output.
+	AddPipelineReaderToRepoInTransaction(*TransactionContext, string, string) error
+	AddPipelineWriterToRepoInTransaction(*TransactionContext, string) error
+	RemovePipelineReaderFromRepoInTransaction(*TransactionContext, string, string) error
+
+	// Create and Delete are internal-only APIs used by other services when creating/destroying resources.
+	CreateRoleBindingInTransaction(*TransactionContext, string, []string, *auth.Resource) error
 	DeleteRoleBindingInTransaction(*TransactionContext, *auth.Resource) error
 
 	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
@@ -162,6 +174,7 @@ type PfsTransactionServer interface {
 	StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
 	FinishCommitInTransaction(*TransactionContext, *pfs.FinishCommitRequest) error
 	SquashCommitInTransaction(*TransactionContext, *pfs.SquashCommitRequest) error
+	InspectCommitInTransaction(*TransactionContext, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
 	InspectBranchInTransaction(*TransactionContext, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
@@ -387,10 +400,12 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 			Client:        pachClient,
 			ClientContext: pachClient.Ctx(),
 			Stm:           stm,
-			pfsPropagater: env.pfsServer.NewPropagater(stm),
 			txnEnv:        env,
 		}
-		txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
+		if env.pfsServer != nil {
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
+			txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
+		}
 
 		err := cb(txnCtx)
 		if err != nil {
@@ -411,9 +426,11 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 			Client:         pachClient,
 			ClientContext:  pachClient.Ctx(),
 			Stm:            stm,
-			pfsPropagater:  env.pfsServer.NewPropagater(stm),
 			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 			txnEnv:         env,
+		}
+		if env.pfsServer != nil {
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
 		}
 
 		err := cb(txnCtx)

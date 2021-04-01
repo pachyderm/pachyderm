@@ -73,7 +73,7 @@ func TestGetSetBasic(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// Add data to repo (alice can write). Make sure alice can read also.
-	err := aliceClient.PutFile(dataRepo, "master", "/file", strings.NewReader("1"))
+	err := aliceClient.PutFile(dataRepo, "master", "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, aliceClient.GetFile(dataRepo, "master", "/file", buf))
@@ -86,7 +86,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// bob can't write (check both the standalone form of PutFile and StartCommit)
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("lorem ipsum"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("lorem ipsum"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
@@ -110,7 +110,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "1", buf.String())
 	// bob can't write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
@@ -134,7 +134,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "1", buf.String())
 	// bob can write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err := bobClient.StartCommit(dataRepo, "master")
@@ -157,7 +157,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "12", buf.String())
 	// bob can write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("3"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(dataRepo, "master")
@@ -192,7 +192,7 @@ func TestGetSetReverse(t *testing.T) {
 	// Add data to repo (alice can write). Make sure alice can read also.
 	commit, err := aliceClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	err = aliceClient.PutFile(dataRepo, commit.ID, "/file", strings.NewReader("1"))
+	err = aliceClient.PutFile(dataRepo, commit.ID, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit.ID)) // # commits = 1
 	buf := &bytes.Buffer{}
@@ -207,7 +207,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "1", buf.String())
 	// bob can write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(dataRepo, "master")
@@ -234,7 +234,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "12", buf.String())
 	// bob can write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("3"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(dataRepo, "master")
@@ -257,7 +257,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
 	require.Equal(t, "123", buf.String())
 	// bob can't write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("4"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	_, err = bobClient.StartCommit(dataRepo, "master")
@@ -280,7 +280,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// bob can't write
-	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("4"))
+	err = bobClient.PutFile(dataRepo, "master", "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	_, err = bobClient.StartCommit(dataRepo, "master")
@@ -1121,6 +1121,9 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_INSPECT_FILE,
 		},
 		repoWriter: []auth.Permission{
@@ -1133,6 +1136,9 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_INSPECT_FILE,
 		},
 		repoReader: []auth.Permission{
@@ -1141,11 +1147,12 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_COMMIT,
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_INSPECT_FILE,
 		},
 	}
 	for _, info := range listResp.RepoInfo {
-		require.Equal(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
+		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
 	}
 
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
@@ -1154,7 +1161,7 @@ func TestListAndInspectRepo(t *testing.T) {
 				Repo: &pfs.Repo{Name: name},
 			})
 		require.NoError(t, err)
-		require.Equal(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)
+		require.ElementsEqual(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)
 	}
 }
 
@@ -2231,8 +2238,11 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	}
 
 	// generate auth credentials
-	aliceClient := tu.GetAuthenticatedPachClient(t, robot(tu.UniqueString("alice")))
-	authResp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{})
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	alice := tu.UniqueString("alice")
+	authResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: alice,
+	})
 	require.NoError(t, err)
 	authToken := authResp.Token
 
@@ -2389,8 +2399,12 @@ func TestExtractAuthToken(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
-	// Create a token with the default TTL and confirm it is extracted with an expiration
-	tokenResp, err := adminClient.GetAuthToken(adminClient.Ctx(), &auth.GetAuthTokenRequest{Subject: "robot:other"})
+	// Create a token with a TTL and confirm it is extracted with an expiration
+	tokenResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "other", TTL: 1000})
+	require.NoError(t, err)
+
+	// Create a token without a TTL and confirm it is extracted
+	tokenRespTwo, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "otherTwo"})
 	require.NoError(t, err)
 
 	// admins can extract auth tokens
@@ -2417,6 +2431,7 @@ func TestExtractAuthToken(t *testing.T) {
 	}
 
 	require.NoError(t, containsToken(tokenResp.Token, "robot:other", true))
+	require.NoError(t, containsToken(tokenRespTwo.Token, "robot:otherTwo", false))
 }
 
 // TestRestoreAuthToken tests that admins can restore hashed auth tokens that have been extracted
@@ -2500,6 +2515,11 @@ func TestDebug(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
+	// Get all the authenticated clients at the beginning of the test.
+	// GetAuthenticatedPachClient will always re-activate auth, which
+	// causes PPS to rotate all the pipeline tokens. This makes the RCs
+	// change and recreates all the pods, which used to race with collecting logs.
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
@@ -2564,7 +2584,6 @@ func TestDebug(t *testing.T) {
 	// Only admins can collect a debug dump.
 	buf := &bytes.Buffer{}
 	require.YesError(t, aliceClient.Dump(nil, 0, buf))
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	require.NoError(t, adminClient.Dump(nil, 0, buf))
 	gr, err := gzip.NewReader(buf)
 	require.NoError(t, err)

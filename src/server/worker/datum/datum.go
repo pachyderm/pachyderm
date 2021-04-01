@@ -43,8 +43,8 @@ const (
 
 // Client is the standard interface for a datum client.
 type Client interface {
-	// AppendFileTar puts a tar stream.
-	AppendFileTar(overwrite bool, r io.Reader, datum ...string) error
+	// PutFileTar puts a tar stream.
+	PutFileTar(r io.Reader, opts ...client.PutFileOption) error
 	// CopyFile copies a file from src to dst.
 	CopyFile(dst string, src *pfs.File, tag string) error
 }
@@ -82,8 +82,7 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(Client) error
 	return upload(func(c Client) error {
 		return WithSet(nil, storageRoot, func(s *Set) error {
 			for _, meta := range metas {
-				d := newDatum(s, meta)
-				if err := d.uploadMetaOutput(); err != nil {
+				if err := s.UploadMeta(meta, WithPrefixIndex()); err != nil {
 					return err
 				}
 			}
@@ -119,6 +118,12 @@ func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) err
 		}
 	}()
 	return cb(s)
+}
+
+// UploadMeta uploads the meta file for a datum.
+func (s *Set) UploadMeta(meta *Meta, opts ...Option) error {
+	d := newDatum(s, meta, opts...)
+	return d.uploadMetaOutput()
 }
 
 // WithDatum provides a scoped environment for a datum within the datum set.
@@ -157,7 +162,6 @@ type Datum struct {
 }
 
 func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
-	// TODO: ID needs more discussion.
 	ID := common.DatumID(meta.Inputs)
 	d := &Datum{
 		set:         set,
@@ -349,7 +353,7 @@ func (d *Datum) upload(c Client, storageRoot string, cb ...func(*tar.Header) err
 	if _, err := f.Seek(0, 0); err != nil {
 		return err
 	}
-	return c.AppendFileTar(false, f, d.ID)
+	return c.PutFileTar(f, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
 }
 
 func (d *Datum) handleSymlink(c Client, dst, src string, copyFunc func() error) error {
@@ -375,17 +379,11 @@ func (d *Datum) handleSymlink(c Client, dst, src string, copyFunc func() error) 
 // TODO: I think these types would be unecessary if the dependencies were shuffled around a bit.
 type fileWalkerFunc func(string) ([]string, error)
 
-// DeleteClient is the standard interface for a client that implements DeleteFile.
-type DeleteClient interface {
-	// DeleteFile deletes a file.
-	DeleteFile(file string, datum ...string) error
-}
-
 // Deleter deletes a datum.
 type Deleter func(*Meta) error
 
 // NewDeleter creates a new deleter.
-func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient DeleteClient) Deleter {
+func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient client.ModifyFileClient) Deleter {
 	return func(meta *Meta) error {
 		ID := common.DatumID(meta.Inputs)
 		// Delete the datum directory in the meta output.
@@ -410,10 +408,43 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 			if err != nil {
 				return err
 			}
-			if err := pfsOutputClient.DeleteFile(file, ID); err != nil {
+			if err := pfsOutputClient.DeleteFile(file, client.WithTagDeleteFile(ID)); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
+}
+
+// TODO: This should be removed when CopyFile is a part of ModifyFile.
+type datumClient struct {
+	client.ModifyFileClient
+	pachClient *client.APIClient
+	commit     *pfs.Commit
+}
+
+func NewClient(mfc client.ModifyFileClient, pachClient *client.APIClient, commit *pfs.Commit) Client {
+	return &datumClient{
+		ModifyFileClient: mfc,
+		pachClient:       pachClient,
+		commit:           commit,
+	}
+}
+
+func (dc *datumClient) CopyFile(dst string, srcFile *pfs.File, tag string) error {
+	return dc.pachClient.CopyFile(srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path, dc.commit.Repo.Name, dc.commit.ID, dst, client.WithAppendCopyFile(), client.WithTagCopyFile(tag))
+}
+
+type datumClientFileset struct {
+	*client.CreateFilesetClient
+}
+
+func NewClientFileset(cfc *client.CreateFilesetClient) Client {
+	return &datumClientFileset{
+		CreateFilesetClient: cfc,
+	}
+}
+
+func (dcf *datumClientFileset) CopyFile(_ string, _ *pfs.File, _ string) error {
+	panic("attempted copy file in fileset datum client")
 }

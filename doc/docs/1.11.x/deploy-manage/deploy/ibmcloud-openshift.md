@@ -21,11 +21,11 @@ Pachyderm needs a few things to install and run successfully in IBM Cloud OpenSh
 
 ### Stateful Set
 
-You'll need a storage class as defined in IBM Cloud OpenShift cluster. You would need to specify the number of replica pods needed in the configuration.
+You will need a storage class as defined in IBM Cloud OpenShift cluster. You would need to specify the number of replica pods needed in the configuration.
 A custom deploy can also create storage. 
 
-We're currently developing good rules of thumb for scaling this storage as your Pachyderm deployment grows,
-but it looks like 10G of disk space is sufficient for most purposes.
+!!! Warning
+    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your disk choice, you may need to oversize the volume significantly to ensure enough IOPS.
 
 ### Object store
 

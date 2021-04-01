@@ -88,47 +88,7 @@ func ExampleAPIClient_ListRepo() {
 	fmt.Println(repos)
 }
 
-func ExampleAPIClient_PutFileWriter() {
-
-	// This method enables you to put data into a
-	// Pachyderm repo by using an "io.Writer" API.
-
-	c, err := NewFromAddress("127.0.0.1:30650")
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err := c.PfsAPIClient.CreateRepo(
-		c.Ctx(),
-		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
-			Description: "A test repo",
-			Update:      true,
-		},
-	); err != nil {
-		panic(err)
-	}
-	w, err := c.PutFileWriter("test", "master", "file")
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if err := w.Close(); err != nil {
-			panic(err)
-		}
-	}()
-	if _, err := w.Write([]byte("foo\n")); err != nil {
-		panic(err)
-	}
-
-	files, err := c.ListFileAll("test", "master", "/")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(files)
-}
-
-func ExampleAPIClient_NewPutFileClient() {
+func ExampleAPIClient_NewModifyFileClient() {
 
 	// This method enables you to group multiple "put file" operations into one
 	// request.
@@ -148,16 +108,16 @@ func ExampleAPIClient_NewPutFileClient() {
 	); err != nil {
 		panic(err)
 	}
-	pfc, err := c.NewPutFileClient()
+	mfc, err := c.NewModifyFileClient("test", "master")
 	if err != nil {
 		panic(err)
 	}
 	defer func() {
-		if err := pfc.Close(); err != nil {
+		if err := mfc.Close(); err != nil {
 			panic(err)
 		}
 	}()
-	if err := pfc.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := mfc.PutFile("file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
 	files, err := c.ListFileAll("test", "master", "/")

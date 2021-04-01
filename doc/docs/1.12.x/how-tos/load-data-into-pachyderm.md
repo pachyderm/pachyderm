@@ -67,7 +67,6 @@ See [Using the S3 Gateway](../../deploy-manage/manage/s3gateway/).
 
 * By using the Pachyderm dashboard. The Pachyderm Enterprise dashboard
 provides a convenient way to upload data right from the UI.
-<!--TBA link to the PachHub tutorial-->
 
 !!! note
     In the Pachyderm UI, you can only specify an S3 data source.

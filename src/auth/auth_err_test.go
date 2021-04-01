@@ -67,6 +67,15 @@ func TestIsErrNotAuthorized(t *testing.T) {
 	})))
 }
 
+func TestErrNoRoleBinding(t *testing.T) {
+	require.True(t, IsErrNoRoleBinding(&ErrNoRoleBinding{
+		Resource{Type: ResourceType_REPO, Name: "test"},
+	}))
+	require.True(t, IsErrNoRoleBinding(grpcify(&ErrNoRoleBinding{
+		Resource{Type: ResourceType_REPO, Name: "test"},
+	})))
+}
+
 func TestIsErrInvalidPrincipal(t *testing.T) {
 	require.False(t, IsErrInvalidPrincipal(nil))
 	require.True(t, IsErrInvalidPrincipal(&ErrInvalidPrincipal{

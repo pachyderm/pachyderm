@@ -2,7 +2,6 @@ package cmds
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -14,10 +13,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func newClient(enterprise bool) (*client.APIClient, error) {
+	if enterprise {
+		return client.NewEnterpriseClientOnUserMachine("user")
+	}
+	return client.NewOnUserMachine("user")
+}
+
 // ActivateCmd returns a cobra.Command to activate the license service,
 // register the current pachd and activate enterprise features.
-// This only makes sense in a single-cluster enterprise environment where
-// this is one pachd acting as the Enterprise Server.
+// This always runs against the current enterprise context, and can
+// be used to activate a single-node pachd deployment or the enterprise
+// server in a multi-node deployment.
 func ActivateCmd() *cobra.Command {
 	activate := &cobra.Command{
 		Use:   "{{alias}}",
@@ -29,7 +36,7 @@ func ActivateCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not read enterprise key")
 			}
 
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient(true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -99,29 +106,40 @@ func DeactivateCmd() *cobra.Command {
 
 // RegisterCmd returns a cobra.Command that registers this cluster with a remote Enterprise Server.
 func RegisterCmd() *cobra.Command {
-	var server, id string
+	var id, pachdAddr, enterpriseAddr string
 	register := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Register the cluster with an enterprise license server",
 		Long:  "Register the cluster with an enterprise license server",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			secret, err := cmdutil.ReadPassword("Secret: ")
-			if err != nil {
-				return errors.Wrapf(err, "could not read shared secret")
-			}
-
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 
+			ec, err := client.NewEnterpriseClientOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer ec.Close()
+
+			// Register the pachd with the license server
+			resp, err := ec.License.AddCluster(ec.Ctx(),
+				&license.AddClusterRequest{
+					Id:      id,
+					Address: pachdAddr,
+				})
+			if err != nil {
+				return errors.Wrapf(err, "could not register pachd with the license service")
+			}
+
 			// activate the Enterprise service
 			_, err = c.Enterprise.Activate(c.Ctx(),
 				&enterprise.ActivateRequest{
 					Id:            id,
-					Secret:        strings.TrimSpace(secret),
-					LicenseServer: server,
+					Secret:        resp.Secret,
+					LicenseServer: enterpriseAddr,
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not register with the license server")
@@ -130,8 +148,9 @@ func RegisterCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	register.PersistentFlags().StringVar(&server, "server", "", "the Enterprise Server to register with")
 	register.PersistentFlags().StringVar(&id, "id", "", "the id for this cluster")
+	register.PersistentFlags().StringVar(&pachdAddr, "pachd-address", "", "the address for the enterprise server to reach this pachd")
+	register.PersistentFlags().StringVar(&enterpriseAddr, "enterprise-server-address", "", "the address for the pachd to reach the enterprise server")
 
 	return cmdutil.CreateAlias(register, "enterprise register")
 }

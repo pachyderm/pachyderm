@@ -411,7 +411,7 @@ func (op *pipelineOp) createPipelineResources() error {
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
 	op.stopCrashingPipelineMonitor()
-	op.m.startMonitor(op.pipelineInfo)
+	op.m.startMonitor(op.pipelineInfo, op.ptr)
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
@@ -452,31 +452,17 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 	} else {
 		pachClient = op.opClient
 	}
+	pachClient.SetAuthToken(op.ptr.AuthToken)
 
-	return op.m.a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		commitInfos, err := superUserClient.ListCommit(op.ptr.Pipeline.Name, op.pipelineInfo.OutputBranch, "", 0)
+	if err := pachClient.ListCommitF(op.name, op.pipelineInfo.OutputBranch, "", 0, false, func(commitInfo *pfs.CommitInfo) error {
+		return pachClient.StopJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+	}); err != nil {
 		if isNotFoundErr(err) {
 			return nil // already deleted
 		}
-		if err != nil {
-			return errors.Wrapf(err, "could not list output commits of %q to finish them", op.ptr.Pipeline.Name)
-		}
-
-		var finishCommitErr error
-		for _, ci := range commitInfos {
-			if ci.Finished != nil {
-				continue // nothing needs to be done
-			}
-			if _, err := superUserClient.PfsAPIClient.FinishCommit(superUserClient.Ctx(),
-				&pfs.FinishCommitRequest{
-					Commit: client.NewCommit(op.ptr.Pipeline.Name, ci.Commit.ID),
-					Empty:  true,
-				}); err != nil && finishCommitErr == nil {
-				finishCommitErr = err
-			}
-		}
-		return finishCommitErr
-	})
+		return errors.Wrapf(err, "could not finish output commits of pipeline %q", op.name)
+	}
+	return nil
 }
 
 // deletePipelineResources deletes the RC and services associated with op's

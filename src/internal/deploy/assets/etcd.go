@@ -62,6 +62,9 @@ type EtcdOpts struct {
 	// creating a StatefulSet for dynamic etcd storage. If unset, a new
 	// StorageClass will be created for the StatefulSet.
 	StorageClassName string
+
+	// Port is the port for the Nodeport service
+	Port int32
 }
 
 // WriteEtcdAssets generates all of the etcd-related parts of the kubernetes
@@ -117,7 +120,7 @@ func WriteEtcdAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend 
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	if err := encoder.Encode(EtcdNodePortService(persistentDiskBackend == LocalBackend, opts)); err != nil {
+	if err := encoder.Encode(EtcdNodePortService(opts)); err != nil {
 		return err
 	}
 
@@ -417,11 +420,7 @@ func EtcdVolumeClaim(size int, opts *AssetOpts) *v1.PersistentVolumeClaim {
 
 // EtcdNodePortService returns a NodePort etcd service. This will let non-etcd
 // pods talk to etcd
-func EtcdNodePortService(local bool, opts *AssetOpts) *v1.Service {
-	var clientNodePort int32
-	if local {
-		clientNodePort = 32379
-	}
+func EtcdNodePortService(opts *AssetOpts) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -437,7 +436,7 @@ func EtcdNodePortService(local bool, opts *AssetOpts) *v1.Service {
 				{
 					Port:     2379,
 					Name:     "client-port",
-					NodePort: clientNodePort,
+					NodePort: opts.EtcdOpts.Port,
 				},
 			},
 		},

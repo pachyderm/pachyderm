@@ -11,10 +11,8 @@
 
 # Pachyderm: Data Versioning, Data Pipelines, and Data Lineage
 
-Pachyderm is a tool for production data pipelines. If you need to chain
-together data scraping, ingestion, cleaning, munging, wrangling, processing,
-modeling, and analysis in a sane way, then Pachyderm is for you. If you have an
-existing set of scripts which do this in an ad-hoc fashion and you're looking
+Pachyderm is a tool for version-controlled, automated, end-to-end data pipelines for data science. If you need to chain together data scraping, ingestion, cleaning, munging, wrangling, processing,
+modeling, and analysis in a sane way, while ensuring the traceability and provenance of your data, Pachyderm is for you. If you have an existing set of scripts which do this in an ad-hoc fashion and you're looking
 for a way to "productionize" them, Pachyderm can make this easy for you.
 
 ## Features
@@ -32,7 +30,7 @@ for a way to "productionize" them, Pachyderm can make this easy for you.
   is smart enough to only process the new data.
 
 ## Getting Started
-[Install Pachyderm locally](https://docs.pachyderm.com/latest/getting_started/local_installation/) or [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
+To start deploying your end-to-end version-controlled data pipelines, try us for free on [Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) with little to no setup or run Pachyderm [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/). You can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
 
 You can also refer to our complete [documentation](https://docs.pachyderm.com) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
@@ -51,7 +49,6 @@ Keep up to date and get Pachyderm support via:
 - [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](https://slack.pachyderm.io) Join our community [Slack Channel](https://slack.pachyderm.io) to get help from the Pachyderm team and other users.
 
 ## Contributing
-
 To get started, sign the [Contributor License Agreement](https://cla-assistant.io/pachyderm/pachyderm).
 
 You should also check out our [contributing guide](https://docs.pachyderm.com/latest/contributing/setup/).

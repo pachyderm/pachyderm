@@ -48,6 +48,9 @@ type PostgresOpts struct {
 	// creating a StatefulSet for dynamic postgres storage. If unset, a new
 	// StorageClass will be created for the StatefulSet.
 	StorageClassName string
+
+	// Port is the port to use for the NodePort service
+	Port int32
 }
 
 // WritePostgresAssets generates all of the postgres-related parts of the
@@ -108,7 +111,7 @@ func WritePostgresAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBack
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-postgres-nodes or --static-postgres-volume needs to be provided")
 	}
-	if err := encoder.Encode(PostgresService(persistentDiskBackend == LocalBackend, opts)); err != nil {
+	if err := encoder.Encode(PostgresService(opts)); err != nil {
 		return err
 	}
 	return nil
@@ -411,11 +414,7 @@ func PostgresVolumeClaim(size int, opts *AssetOpts) *v1.PersistentVolumeClaim {
 }
 
 // PostgresService generates a Service for the pachyderm postgres instance.
-func PostgresService(local bool, opts *AssetOpts) *v1.Service {
-	var clientNodePort int32
-	if local {
-		clientNodePort = 32228
-	}
+func PostgresService(opts *AssetOpts) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -431,7 +430,7 @@ func PostgresService(local bool, opts *AssetOpts) *v1.Service {
 				{
 					Port:     5432,
 					Name:     "client-port",
-					NodePort: clientNodePort,
+					NodePort: opts.PostgresOpts.Port,
 				},
 			},
 		},

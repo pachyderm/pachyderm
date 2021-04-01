@@ -6,7 +6,7 @@ This document is broken down into the following sections, available at the links
 - [Customizing your Pachyderm deployment for on-premises use](deploy_custom/index.md) details the various options of the `pachctl deploy custom ...` command for an on-premises deployment.
 - [Single-node Pachyderm deployment](./single-node.md) is the document you should read when deploying Pachyderm for personal, low-volume usage.
 - [Registries](./docker_registries.md) takes you through on-premises, private Docker registry configuration.
-- [Ingress](./configuring_k8s_ingress.md) details the Kubernetes ingress configuration you'd need for using `pachctl` and the dashboard outside of the Kubernetes cluster
+- [Ingress](https://docs.pachyderm.com/latest/deploy-manage/deploy/ingress/) details the Kubernetes ingress configuration you'd need for using `pachctl` and the dashboard outside of the Kubernetes cluster
 - [Non-cloud object stores](./non-cloud-object-stores.md) discusses common configurations for on-premises object stores.
 
 Need information on a particular flavor of Kubernetes or object store?  Check out the [see also](#see-also) section.
@@ -88,9 +88,10 @@ you will need to find out the particulars of your cluster's PV configuration and
 #### Common tasks to all types of PV deployments
 ##### Sizing the PV
 
-You'll need to use a PV with enough space for the metadata associated with the data you plan to store in Pachyderm. 
-We're currently developing good rules of thumb for scaling this storage as your Pachyderm deployment grows,
-but it looks like 10G of disk space is sufficient for most purposes.
+You will need to use a PV with enough space for the metadata associated with the data you plan to store in Pachyderm. 
+
+!!! Warning
+    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your cloud provider, and disk generation, you may need to oversize the volume significantly to ensure enough IOPS (i.e. 500G for EBS gp2, 50G for GCP ssd).
 
 ##### Creating the PV
 

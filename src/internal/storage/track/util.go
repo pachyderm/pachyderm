@@ -1,11 +1,29 @@
 package track
 
-import "context"
+import (
+	"context"
+	"time"
 
-// Drop makes an object eligible for deletion, if nothing is referencing it.
-// It does this with a negative TTL, but if that strategy ever becomes deprecated
-// callers of Drop will benefit from the new strategy.
-func Drop(ctx context.Context, track Tracker, id string) error {
-	_, err := track.SetTTLPrefix(ctx, id, -1)
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+)
+
+// Create creates uses tracker to create the object id.
+func Create(ctx context.Context, tr Tracker, id string, pointsTo []string, ttl time.Duration) error {
+	return dbutil.WithTx(ctx, tr.DB(), func(tx *sqlx.Tx) error {
+		return tr.CreateTx(tx, id, pointsTo, ttl)
+	})
+}
+
+// Delete deletes id from the tracker
+func Delete(ctx context.Context, tr Tracker, id string) error {
+	return dbutil.WithTx(ctx, tr.DB(), func(tx *sqlx.Tx) error {
+		return tr.DeleteTx(tx, id)
+	})
+}
+
+// Drop sets the object at id to expire now
+func Drop(ctx context.Context, tr Tracker, id string) error {
+	_, err := tr.SetTTLPrefix(ctx, id, ExpireNow)
 	return err
 }

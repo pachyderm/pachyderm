@@ -55,6 +55,8 @@ var (
 	// PrometheusPort hosts the prometheus stats for scraping
 	PrometheusPort = 656
 
+	enterpriseServerName = "pach-enterprise"
+
 	// Role & binding names, used for Roles or ClusterRoles and their associated
 	// bindings.
 	roleName        = "pachyderm"
@@ -244,6 +246,9 @@ type AssetOpts struct {
 	// WorkerServiceAccountName is the name of the service account that will be
 	// used in the worker pods for creating S3 gateways.
 	WorkerServiceAccountName string
+
+	// EnterpriseServer deploys the enterprise server when set.
+	EnterpriseServer bool
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -657,26 +662,34 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)
+
+	name := pachdName
+	command := []string{"/pachd"}
+	if opts.EnterpriseServer {
+		name = enterpriseServerName
+		command = append(command, "--mode=enterprise")
+	}
+
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
 			APIVersion: "apps/v1",
 		},
-		ObjectMeta: objectMeta(pachdName, labels(pachdName), nil, opts.Namespace),
+		ObjectMeta: objectMeta(name, labels(name), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
 			Replicas: replicas(1),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels(pachdName),
+				MatchLabels: labels(name),
 			},
 			Template: v1.PodTemplateSpec{
-				ObjectMeta: objectMeta(pachdName, labels(pachdName),
+				ObjectMeta: objectMeta(name, labels(name),
 					map[string]string{IAMAnnotation: opts.IAMRole}, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
 							Name:    pachdName,
 							Image:   image,
-							Command: []string{"/pachd"},
+							Command: command,
 							Env:     envVars,
 							Ports: []v1.ContainerPort{
 								{
@@ -1076,7 +1089,9 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 			return err
 		}
 	}
-	if !opts.NoRBAC {
+	// Don't apply the cluster role binding for the enterprise server,
+	// because it doesn't interact with the k8s API.
+	if !opts.NoRBAC && !opts.EnterpriseServer {
 		if opts.LocalRoles {
 			if err := encoder.Encode(Role(opts)); err != nil {
 				return err
@@ -1100,16 +1115,26 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 		}
 	}
 
+<<<<<<< HEAD
 	if err := WriteEtcdAssets(encoder, opts, objectStoreBackend, persistentDiskBackend, volumeSize, hostPath); err != nil {
 		return err
 	}
 
 	if err := WritePostgresAssets(encoder, opts, objectStoreBackend, persistentDiskBackend, volumeSize, hostPath); err != nil {
+=======
+>>>>>>> master
 		return err
 	}
 
-	if err := encoder.Encode(PachdService(opts)); err != nil {
-		return err
+	// If we're deploying the enterprise server, use a different service definition with the correct ports.
+	if opts.EnterpriseServer {
+		if err := encoder.Encode(EnterpriseService(opts)); err != nil {
+			return err
+		}
+	} else {
+		if err := encoder.Encode(PachdService(opts)); err != nil {
+			return err
+		}
 	}
 	if err := encoder.Encode(PachdPeerService(opts)); err != nil {
 		return err

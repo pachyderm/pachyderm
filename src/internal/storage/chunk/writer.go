@@ -50,7 +50,7 @@ type chunkSize struct {
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
-	client     *Client
+	client     Client
 	memCache   kv.GetPut
 	cb         WriterCallback
 	chunkSize  *chunkSize
@@ -71,7 +71,7 @@ type Writer struct {
 	first, last             bool
 }
 
-func newWriter(ctx context.Context, client *Client, memCache kv.GetPut, createOpts CreateOptions, cb WriterCallback, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, client Client, memCache kv.GetPut, createOpts CreateOptions, cb WriterCallback, opts ...WriterOption) *Writer {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	w := &Writer{
 		cb:         cb,

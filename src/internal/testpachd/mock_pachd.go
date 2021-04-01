@@ -81,6 +81,7 @@ type authorizeFunc func(context.Context, *auth.AuthorizeRequest) (*auth.Authoriz
 type whoAmIFunc func(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 type getOIDCLoginFunc func(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error)
 type getAuthTokenFunc func(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
+type getRobotTokenFunc func(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error)
 type extendAuthTokenFunc func(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error)
 type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
 type setGroupsForUserFunc func(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error)
@@ -102,6 +103,7 @@ type mockAuthorize struct{ handler authorizeFunc }
 type mockWhoAmI struct{ handler whoAmIFunc }
 type mockGetOIDCLogin struct{ handler getOIDCLoginFunc }
 type mockGetAuthToken struct{ handler getAuthTokenFunc }
+type mockGetRobotToken struct{ handler getRobotTokenFunc }
 type mockExtendAuthToken struct{ handler extendAuthTokenFunc }
 type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
 type mockSetGroupsForUser struct{ handler setGroupsForUserFunc }
@@ -122,6 +124,7 @@ func (mock *mockAuthorize) Use(cb authorizeFunc)                 { mock.handler 
 func (mock *mockWhoAmI) Use(cb whoAmIFunc)                       { mock.handler = cb }
 func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)           { mock.handler = cb }
 func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)           { mock.handler = cb }
+func (mock *mockGetRobotToken) Use(cb getRobotTokenFunc)         { mock.handler = cb }
 func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)     { mock.handler = cb }
 func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)     { mock.handler = cb }
 func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)   { mock.handler = cb }
@@ -148,6 +151,7 @@ type mockAuthServer struct {
 	WhoAmI            mockWhoAmI
 	GetOIDCLogin      mockGetOIDCLogin
 	GetAuthToken      mockGetAuthToken
+	GetRobotToken     mockGetRobotToken
 	ExtendAuthToken   mockExtendAuthToken
 	RevokeAuthToken   mockRevokeAuthToken
 	SetGroupsForUser  mockSetGroupsForUser
@@ -223,6 +227,12 @@ func (api *authServerAPI) GetAuthToken(ctx context.Context, req *auth.GetAuthTok
 		return api.mock.GetAuthToken.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetAuthToken")
+}
+func (api *authServerAPI) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error) {
+	if api.mock.GetRobotToken.handler != nil {
+		return api.mock.GetRobotToken.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetRobotToken")
 }
 func (api *authServerAPI) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error) {
 	if api.mock.ExtendAuthToken.handler != nil {
@@ -341,6 +351,7 @@ func (api *enterpriseServerAPI) Heartbeat(ctx context.Context, req *enterprise.H
 
 /* PFS Server Mocks */
 
+type activateAuthPFSFunc func(context.Context, *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error)
 type createRepoFunc func(context.Context, *pfs.CreateRepoRequest) (*types.Empty, error)
 type inspectRepoFunc func(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 type listRepoFunc func(context.Context, *pfs.ListRepoRequest) (*pfs.ListRepoResponse, error)
@@ -372,6 +383,7 @@ type addFilesetFunc func(context.Context, *pfs.AddFilesetRequest) (*types.Empty,
 type getFilesetFunc func(context.Context, *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error)
 type renewFilesetFunc func(context.Context, *pfs.RenewFilesetRequest) (*types.Empty, error)
 
+type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
 type mockListRepo struct{ handler listRepoFunc }
@@ -403,6 +415,7 @@ type mockAddFileset struct{ handler addFilesetFunc }
 type mockGetFileset struct{ handler getFilesetFunc }
 type mockRenewFileset struct{ handler renewFilesetFunc }
 
+func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc) { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)           { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)         { mock.handler = cb }
 func (mock *mockListRepo) Use(cb listRepoFunc)               { mock.handler = cb }
@@ -440,6 +453,7 @@ type pfsServerAPI struct {
 
 type mockPFSServer struct {
 	api             pfsServerAPI
+	ActivateAuth    mockActivateAuthPFS
 	CreateRepo      mockCreateRepo
 	InspectRepo     mockInspectRepo
 	ListRepo        mockListRepo
@@ -472,6 +486,12 @@ type mockPFSServer struct {
 	RenewFileset    mockRenewFileset
 }
 
+func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
+	if api.mock.ActivateAuth.handler != nil {
+		return api.mock.ActivateAuth.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ActivateAuth")
+}
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
 	if api.mock.CreateRepo.handler != nil {
 		return api.mock.CreateRepo.handler(ctx, req)

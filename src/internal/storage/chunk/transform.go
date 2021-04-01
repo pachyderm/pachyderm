@@ -41,6 +41,7 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 		SizeBytes:       int64(len(buf)),
 		Dek:             dek,
 		CompressionAlgo: compressAlgo,
+		EncryptionAlgo:  EncryptionAlgo_CHACHA20,
 	}, nil
 }
 
@@ -49,6 +50,9 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 func Get(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer, getFunc func(ctx context.Context, id ID, cb kv.ValueCallback) error) error {
 	if err := getFromCache(ctx, cache, ref, w); err == nil {
 		return nil
+	}
+	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
+		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
 	}
 	return getFunc(ctx, ref.Id, func(ctext []byte) error {
 		if err := verifyData(ref.Id, ctext); err != nil {

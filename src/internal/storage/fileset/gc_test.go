@@ -5,20 +5,20 @@ import (
 	"testing"
 	"time"
 
-	dbtesting "github.com/pachyderm/pachyderm/v2/src/internal/dbutil/testing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
 func TestGC(t *testing.T) {
 	ctx := context.Background()
-	db := dbtesting.NewTestDB(t)
+	db := dbutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
 	s := NewTestStorage(t, db, tr)
 	gc := s.newGC()
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
-	err := w.Append("a.txt", func(fw *FileWriter) error {
-		fw.Append("tag1")
+	err := w.Add("a.txt", func(fw *FileWriter) error {
+		fw.Add("tag1")
 		_, err := fw.Write([]byte("test data"))
 		return err
 	})

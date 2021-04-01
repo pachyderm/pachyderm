@@ -43,6 +43,26 @@ func (a *InactiveAPIServer) ModifyRoleBindingInTransaction(*txnenv.TransactionCo
 	return nil, auth.ErrNotActivated
 }
 
+// AddPipelineReaderToRepoInTransaction implements the AddPipelineReaderToRepoInTransaction internal API
+func (a *InactiveAPIServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+	return auth.ErrNotActivated
+}
+
+// AddPipelineWriterToRepoInTransaction implements the AddPipelineWriterToRepoInTransaction internal API
+func (a *InactiveAPIServer) AddPipelineWriterToRepoInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) error {
+	return auth.ErrNotActivated
+}
+
+// RemovePipelineReaderToRepoInTransaction implements the RemovePipelineReaderToRepoInTransaction internal API
+func (a *InactiveAPIServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+	return auth.ErrNotActivated
+}
+
+// CreateRoleBindingInTransaction implements the CreateRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) CreateRoleBindingInTransaction(*txnenv.TransactionContext, string, []string, *auth.Resource) error {
+	return auth.ErrNotActivated
+}
+
 // DeleteRoleBindingInTransaction implements the DeleteRoleBinding RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) DeleteRoleBindingInTransaction(*txnenv.TransactionContext, *auth.Resource) error {
 	return auth.ErrNotActivated
@@ -66,6 +86,11 @@ func (a *InactiveAPIServer) AuthorizeInTransaction(*txnenv.TransactionContext, *
 
 // WhoAmI implements the WhoAmI RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetRobotToken implements the GetRobotToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetRobotToken(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

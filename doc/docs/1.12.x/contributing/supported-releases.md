@@ -10,10 +10,11 @@ Pachyderm supports the latest Generally Available (GA) release and the previous 
 
 | Version  | Release Status | Support |
 | -------- | -------------- | ------- |
-| 2.0.0    | beta           | No      |
-| 1.12.1   | GA             | Yes     |
-| 1.11.9   | GA             | Yes     |
-| 1.10.5   | GA             | Yes     |
+| 2.0.0    | alpha          | No      |
+| 1.13.x   | RC             | No      |
+| 1.12.x   | GA             | Yes     |
+| 1.11.x   | GA             | Yes     |
+| 1.10.x   | GA             | Yes     |
 | < 1.9.11 | EOL            | No      |
 
 ## Releases Under Development
@@ -97,6 +98,7 @@ A release under development may undergo several pre-release stages before becomi
 | Feature             | Version | EOL Date   |
 | ------------------- | --------| ---------- |
 | Spouts: Named Pipes | 1.12.0  | 2021-07-05 |
+| Vault Plugin        | 1.12.5  | 2021-09-12 |
 
 ## End of Life (EOL) Features
 

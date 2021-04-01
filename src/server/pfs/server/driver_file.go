@@ -119,7 +119,7 @@ func (d *driver) getDefaultTag() string {
 	return fmt.Sprintf("%012d", time.Now().UnixNano())
 }
 
-func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, opts ...index.Option) (*pfs.Commit, fileset.FileSet, error) {
+func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, opts ...index.Option) (*pfs.CommitInfo, fileset.FileSet, error) {
 	if commit.Repo.Name == fileSetsRepo {
 		fsid, err := fileset.ParseID(commit.ID)
 		if err != nil {
@@ -129,7 +129,7 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 		if err != nil {
 			return nil, nil, err
 		}
-		return commit, fs, nil
+		return &pfs.CommitInfo{Commit: commit}, fs, nil
 	}
 	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, err
@@ -146,10 +146,10 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 	if err != nil {
 		return nil, nil, err
 	}
-	return commitInfo.Commit, fs, nil
+	return commitInfo, fs, nil
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool, tag string) (retErr error) {
+func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, appendFile bool, tag string) (retErr error) {
 	ctx := pachClient.Ctx()
 	srcCommitInfo, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -164,10 +164,6 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		return pfsserver.ErrCommitFinished{dstCommitInfo.Commit}
 	}
 	dstCommit := dstCommitInfo.Commit
-	if overwrite {
-		// TODO: after delete merging is sorted out add overwrite support
-		return errors.New("overwrite not yet supported")
-	}
 	srcPath := cleanPath(src.Path)
 	dstPath := cleanPath(dst.Path)
 	pathTransform := func(x string) string {
@@ -191,8 +187,13 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	})
 	return d.withCommitWriter(pachClient, dstCommit, func(tag string, dstW *fileset.Writer) error {
 		return fs.Iterate(ctx, func(f fileset.File) error {
-			return dstW.Append(f.Index().Path, func(fw *fileset.FileWriter) error {
-				fw.Append(tag)
+			if !appendFile {
+				if err := dstW.Delete(f.Index().Path, tag); err != nil {
+					return err
+				}
+			}
+			return dstW.Add(f.Index().Path, func(fw *fileset.FileWriter) error {
+				fw.Add(tag)
 				return f.Content(fw)
 			})
 		})
@@ -204,7 +205,7 @@ func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob 
 	if err != nil {
 		return nil, err
 	}
-	_, fs, err := d.openCommit(pachClient, commit, indexOpt)
+	commitInfo, fs, err := d.openCommit(pachClient, commit, indexOpt)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +221,7 @@ func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob 
 		}
 		return match
 	})
-	return NewSource(commit, fs, false), nil
+	return NewSource(commitInfo, fs, false), nil
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {
@@ -229,7 +230,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs
 	if p == "/" {
 		p = ""
 	}
-	commit, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p))
+	commitInfo, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p))
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +239,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 	})
-	s := NewSource(commit, fs, true)
+	s := NewSource(commitInfo, fs, true)
 	var ret *pfs.FileInfo
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
@@ -256,25 +257,25 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs
 func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, cb func(*pfs.FileInfo) error) error {
 	ctx := pachClient.Ctx()
 	name := cleanPath(file.Path)
-	commit, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(name))
+	commitInfo, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(name))
 	if err != nil {
 		return err
 	}
 	fs = d.storage.NewIndexResolver(fs)
 	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-		if idx.Path == "/" {
+		// Check for directory match (don't return directory in list)
+		if idx.Path == fileset.Clean(name, true) {
 			return false
 		}
+		// Check for file match.
 		if idx.Path == name {
 			return true
 		}
-		if idx.Path == name+"/" {
-			return false
-		}
-		return strings.HasPrefix(idx.Path, name)
+		// Check for sub directory / file match.
+		return strings.HasPrefix(idx.Path, fileset.Clean(name, true))
 	})
-	s := NewSource(commit, fs, true)
+	s := NewSource(commitInfo, fs, true)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(name, cleanPath(fi.File.Path)) {
 			return cb(fi)
@@ -289,7 +290,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(
 	if p == "/" {
 		p = ""
 	}
-	commit, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p))
+	commitInfo, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p))
 	if err != nil {
 		return err
 	}
@@ -297,7 +298,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 	})
-	s := NewSource(commit, fs, false)
+	s := NewSource(commitInfo, fs, false)
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)
@@ -310,13 +311,13 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, glob
 	if err != nil {
 		return err
 	}
-	commit, fs, err := d.openCommit(pachClient, commit, indexOpt)
+	commitInfo, fs, err := d.openCommit(pachClient, commit, indexOpt)
 	if err != nil {
 		return err
 	}
 	fs = d.storage.NewIndexResolver(fs)
 	fs = fileset.NewDirInserter(fs)
-	s := NewSource(commit, fs, true)
+	s := NewSource(commitInfo, fs, true)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		if !mf(fi.File.Path) {
 			return nil
@@ -370,7 +371,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 	}
 	var old Source = emptySource{}
 	if oldCommit != nil {
-		oldCommit, fs, err := d.openCommit(pachClient, oldCommit, index.WithPrefix(oldName))
+		oldCommitInfo, fs, err := d.openCommit(pachClient, oldCommit, index.WithPrefix(oldName))
 		if err != nil {
 			return err
 		}
@@ -379,9 +380,9 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 			return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
 		})
-		old = NewSource(oldCommit, fs, true)
+		old = NewSource(oldCommitInfo, fs, true)
 	}
-	newCommit, fs, err := d.openCommit(pachClient, newCommit, index.WithPrefix(newName))
+	newCommitInfo, fs, err := d.openCommit(pachClient, newCommit, index.WithPrefix(newName))
 	if err != nil {
 		return err
 	}
@@ -390,7 +391,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
 	})
-	new := NewSource(newCommit, fs, true)
+	new := NewSource(newCommitInfo, fs, true)
 	diff := NewDiffer(old, new)
 	return diff.Iterate(pachClient.Ctx(), cb)
 }

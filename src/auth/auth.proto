@@ -136,21 +136,66 @@ message RoleBinding {
 enum Permission {
   UNKNOWN = 0;
 
-  // CLUSTER_ADMIN encompasses all "admin" APIs, which are generally cluster configuration
-  CLUSTER_ADMIN        = 100;
+  CLUSTER_MODIFY_BINDINGS                = 100;
+  CLUSTER_GET_BINDINGS                   = 101;
 
-  REPO_READ            = 200;
-  REPO_WRITE           = 201;
-  REPO_MODIFY_BINDINGS = 202;
-  REPO_DELETE          = 203;
-  REPO_INSPECT_COMMIT  = 204;
-  REPO_LIST_COMMIT     = 205;
-  REPO_DELETE_COMMIT   = 206;
-  REPO_CREATE_BRANCH   = 207;
-  REPO_LIST_BRANCH     = 208;
-  REPO_DELETE_BRANCH   = 209;
-  REPO_INSPECT_FILE    = 210;
-  REPO_LIST_FILE       = 211;
+  CLUSTER_AUTH_ACTIVATE                  = 102;
+  CLUSTER_AUTH_DEACTIVATE                = 103;
+  CLUSTER_AUTH_GET_CONFIG                = 104;
+  CLUSTER_AUTH_SET_CONFIG                = 105;
+  CLUSTER_AUTH_GET_TOKEN                 = 106;
+  CLUSTER_AUTH_GET_ROBOT_TOKEN           = 139;
+  CLUSTER_AUTH_EXTEND_TOKEN              = 107;
+  CLUSTER_AUTH_MODIFY_GROUP_MEMBERS      = 109;
+  CLUSTER_AUTH_GET_GROUPS                = 110;
+  CLUSTER_AUTH_GET_GROUP_USERS           = 111;
+  CLUSTER_AUTH_EXTRACT_TOKENS            = 112;
+  CLUSTER_AUTH_RESTORE_TOKEN             = 113;
+
+  CLUSTER_ENTERPRISE_ACTIVATE            = 114;
+  CLUSTER_ENTERPRISE_HEARTBEAT           = 115;
+  CLUSTER_ENTERPRISE_GET_CODE            = 116;
+  CLUSTER_ENTERPRISE_DEACTIVATE          = 117;
+
+  CLUSTER_IDENTITY_SET_CONFIG            = 118;
+  CLUSTER_IDENTITY_GET_CONFIG            = 119;
+  CLUSTER_IDENTITY_CREATE_IDP            = 120;
+  CLUSTER_IDENTITY_UPDATE_IDP            = 121;
+  CLUSTER_IDENTITY_LIST_IDPS             = 122;
+  CLUSTER_IDENTITY_GET_IDP               = 123;
+  CLUSTER_IDENTITY_DELETE_IDP            = 124;
+  CLUSTER_IDENTITY_CREATE_OIDC_CLIENT    = 125;
+  CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT    = 126;
+  CLUSTER_IDENTITY_LIST_OIDC_CLIENTS     = 127;
+  CLUSTER_IDENTITY_GET_OIDC_CLIENT       = 128;
+  CLUSTER_IDENTITY_DELETE_OIDC_CLIENT    = 129;
+
+  CLUSTER_DEBUG_DUMP                     = 131;
+
+  CLUSTER_LICENSE_ACTIVATE               = 132;
+  CLUSTER_LICENSE_GET_CODE               = 133;
+  CLUSTER_LICENSE_ADD_CLUSTER            = 134;
+  CLUSTER_LICENSE_UPDATE_CLUSTER         = 135;
+  CLUSTER_LICENSE_DELETE_CLUSTER         = 136;
+  CLUSTER_LICENSE_LIST_CLUSTERS          = 137;
+
+  CLUSTER_DELETE_ALL             = 138;
+
+  REPO_READ                   = 200;
+  REPO_WRITE                  = 201;
+  REPO_MODIFY_BINDINGS        = 202;
+  REPO_DELETE                 = 203;
+  REPO_INSPECT_COMMIT         = 204;
+  REPO_LIST_COMMIT            = 205;
+  REPO_DELETE_COMMIT          = 206;
+  REPO_CREATE_BRANCH          = 207;
+  REPO_LIST_BRANCH            = 208;
+  REPO_DELETE_BRANCH          = 209;
+  REPO_INSPECT_FILE           = 210;
+  REPO_LIST_FILE              = 211;
+  REPO_ADD_PIPELINE_READER    = 212;
+  REPO_REMOVE_PIPELINE_READER = 213;
+  REPO_ADD_PIPELINE_WRITER    = 214;
 
   PIPELINE_LIST_JOB     = 301;
 }
@@ -290,6 +335,21 @@ message GetAuthTokenResponse {
   string token = 1;
 }
 
+message GetRobotTokenRequest {
+  // The returned token will allow the caller to access resources as this
+  // robot user
+  string robot = 1;
+
+  // ttl indicates the requested (approximate) remaining lifetime of this token,
+  // in seconds
+  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
+}
+
+message GetRobotTokenResponse {
+  // A new auth token for the requested robot
+  string token = 1;
+}
+
 message ExtendAuthTokenRequest {
   // token indicates the Pachyderm token whose TTL is being extended
   string token = 1;
@@ -378,6 +438,7 @@ service API {
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
 
   rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
+  rpc GetRobotToken(GetRobotTokenRequest) returns (GetRobotTokenResponse) {}
   rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 

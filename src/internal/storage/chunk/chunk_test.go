@@ -9,7 +9,7 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
-	dbtesting "github.com/pachyderm/pachyderm/v2/src/internal/dbutil/testing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -196,7 +196,7 @@ func readAnnotations(t *testing.T, chunks *Storage, annotations []*testAnnotatio
 // newTestStorage is like NewTestStorage except it doesn't need an external tracker
 // it is for testing this package, not for reuse.
 func newTestStorage(t testing.TB) (obj.Client, *Storage) {
-	db := dbtesting.NewTestDB(t)
+	db := dbutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
 	return NewTestStorage(t, db, tr)
 }

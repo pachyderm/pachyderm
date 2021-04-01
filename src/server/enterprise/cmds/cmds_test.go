@@ -27,11 +27,10 @@ func TestManuallyJoinLicenseServer(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	//defer tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl license activate
-		pachctl license add-cluster --id {{.id}} --address localhost:653 --secret testsecret
-		echo testsecret | pachctl enterprise register --id {{.id}} --server localhost:650
+		pachctl enterprise register --id {{.id}} --enterprise-server-address localhost:650 --pachd-address localhost:650
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \
 		  | match 'id: {{.id}}' \

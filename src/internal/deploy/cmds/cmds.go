@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -23,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/images"
@@ -55,6 +57,8 @@ const (
 
 	defaultIDEVersion      = "1.1.0"
 	defaultIDEChartVersion = "0.9.1" // see https://jupyterhub.github.io/helm-chart/
+
+	etcdNodePort = 32379
 
 	ideNotes = `
 Thanks for installing the Pachyderm IDE!
@@ -221,7 +225,7 @@ func findEquivalentContext(cfg *config.Config, to *config.Context) (string, *con
 	return "", nil
 }
 
-func contextCreate(namePrefix, namespace, serverCert string) error {
+func contextCreate(namePrefix, namespace, serverCert string, enterpriseServer bool) error {
 	kubeConfig, err := config.RawKubeConfig()
 	if err != nil {
 		return err
@@ -265,7 +269,16 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 	}
 
 	cfg.V2.Contexts[newContextName] = newContext
-	cfg.V2.ActiveContext = newContextName
+	if enterpriseServer {
+		cfg.V2.ActiveEnterpriseContext = newContextName
+	} else {
+		// If the user deploys a pachd and they don't have an enterprise server, they probably want
+		// a single-server deployment. Default to using the new pachd as the enterprise server as well.
+		if cfg.V2.ActiveEnterpriseContext == "" || cfg.V2.ActiveEnterpriseContext == cfg.V2.ActiveContext {
+			cfg.V2.ActiveEnterpriseContext = newContextName
+		}
+		cfg.V2.ActiveContext = newContextName
+	}
 	return cfg.Write()
 }
 
@@ -318,6 +331,7 @@ func standardDeployCmds() []*cobra.Command {
 	var clusterDeploymentID string
 	var requireCriticalServersOnly bool
 	var workerServiceAccountName string
+	var enterpriseServer bool
 	appendGlobalFlags := func(cmd *cobra.Command) {
 		cmd.Flags().IntVar(&pachdShards, "shards", 16, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
 		cmd.Flags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
@@ -344,6 +358,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
 		cmd.Flags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
 		cmd.Flags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
+		cmd.Flags().BoolVar(&enterpriseServer, "enterprise-server", false, "Deploy the Enterprise Server.")
 		cmd.Flags().StringVar(&workerServiceAccountName, "worker-service-account", assets.DefaultWorkerServiceAccountName, "The Kubernetes service account for workers to use when creating S3 gateways.")
 
 		// Flags for setting pachd resource requests. These should rarely be set --
@@ -427,6 +442,11 @@ func standardDeployCmds() []*cobra.Command {
 			}
 		}
 
+		// When deploying the enterprise server don't ever install dash.
+		if enterpriseServer {
+			noDash = true
+		}
+
 		if dashImage == "" {
 			dashImage = fmt.Sprintf("%s:%s", defaultDashImage, getCompatibleVersion("dash", "", defaultDashVersion))
 		}
@@ -471,6 +491,7 @@ func standardDeployCmds() []*cobra.Command {
 			ClusterDeploymentID:        clusterDeploymentID,
 			RequireCriticalServersOnly: requireCriticalServersOnly,
 			WorkerServiceAccountName:   workerServiceAccountName,
+			EnterpriseServer:           enterpriseServer,
 		}
 		if opts.PostgresOpts.Volume == "" {
 			opts.PostgresOpts.Nodes = 1
@@ -537,7 +558,21 @@ func standardDeployCmds() []*cobra.Command {
 				// Serve the Pachyderm object/block API locally, as this is needed by
 				// our tests (and authentication is disabled anyway)
 				opts.ExposeObjectAPI = true
+
+				// Set the postgres and etcd nodeports explicitly for developers
+				if !enterpriseServer {
+					opts.PostgresOpts.Port = dbutil.DefaultPort
+					opts.EtcdOpts.Port = etcdNodePort
+				}
 			}
+
+			// Put the enterprise server backing data in a different path,
+			// so a user can deploy a pachd and enterprise server in the same minikube
+			// in different namespaces
+			if enterpriseServer {
+				hostPath = filepath.Join(hostPath, "enterprise")
+			}
+
 			var buf bytes.Buffer
 			if err := assets.WriteLocalAssets(
 				encoder(outputFormat, &buf), opts, hostPath,
@@ -551,7 +586,7 @@ func standardDeployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "local"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}
@@ -607,7 +642,7 @@ func standardDeployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "gcs"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}
@@ -668,7 +703,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "custom"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}
@@ -805,7 +840,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "aws"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}
@@ -869,7 +904,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "azure"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}

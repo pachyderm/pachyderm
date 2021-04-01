@@ -22,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -30,6 +29,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform/chain"
 	"golang.org/x/sync/errgroup"
 )
+
+// TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
 
 type hasher struct {
 	name string
@@ -52,23 +53,7 @@ type pendingJob struct {
 
 func (pj *pendingJob) writeJobInfo() error {
 	pj.logger.Logf("updating job info, state: %s", pj.ji.State)
-	return writeJobInfo(pj.driver.PachClient(), pj.ji)
-}
-
-func writeJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
-	_, err := pachClient.PpsAPIClient.UpdateJobState(pachClient.Ctx(), &pps.UpdateJobStateRequest{
-		Job:           jobInfo.Job,
-		State:         jobInfo.State,
-		Reason:        jobInfo.Reason,
-		Restart:       jobInfo.Restart,
-		DataProcessed: jobInfo.DataProcessed,
-		DataSkipped:   jobInfo.DataSkipped,
-		DataTotal:     jobInfo.DataTotal,
-		DataFailed:    jobInfo.DataFailed,
-		DataRecovered: jobInfo.DataRecovered,
-		Stats:         jobInfo.Stats,
-	})
-	return err
+	return ppsutil.WriteJobInfo(pj.driver.PachClient(), pj.ji)
 }
 
 // TODO: The job info should eventually just have a field with type *datum.Stats
@@ -89,10 +74,10 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error)
 	defer pj.jdit.SetDeleter(nil)
 	// Setup file operation client for output Meta commit.
 	metaCommit := pj.metaCommitInfo.Commit
-	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta *client.ModifyFileClient) error {
+	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta client.ModifyFileClient) error {
 		// Setup file operation client for output PFS commit.
 		outputCommit := pj.commitInfo.Commit
-		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS *client.ModifyFileClient) error {
+		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS client.ModifyFileClient) error {
 			parentMetaCommit := pj.metaCommitInfo.ParentCommit
 			metaFileWalker := func(path string) ([]string, error) {
 				var files []string
@@ -122,7 +107,6 @@ type registry struct {
 }
 
 // TODO:
-// s3 input / gateway stuff (need more information here).
 // Prometheus stats? (previously in the driver, which included testing we should reuse if possible)
 // capture logs (reuse driver tests and reintroduce tagged logger).
 func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, error) {
@@ -146,38 +130,39 @@ func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, err
 
 func (reg *registry) succeedJob(pj *pendingJob) error {
 	pj.logger.Logf("job successful, closing commits")
+	defer pj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, pps.JobState_JOB_SUCCESS, "")
+	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_SUCCESS, "")
 }
 
 func (reg *registry) failJob(pj *pendingJob, reason string) error {
 	pj.logger.Logf("failing job with reason: %s", reason)
+	defer pj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, pps.JobState_JOB_FAILURE, reason)
+	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason)
 }
 
 func (reg *registry) killJob(pj *pendingJob, reason string) error {
 	pj.logger.Logf("killing job with reason: %s", reason)
+	defer pj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, pps.JobState_JOB_KILLED, reason)
+	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_KILLED, reason)
 }
 
-func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
+func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 	if reg.jobChain == nil {
+		pi := reg.driver.PipelineInfo()
 		hasher := &hasher{
-			name: reg.driver.PipelineInfo().Pipeline.Name,
-			salt: reg.driver.PipelineInfo().Salt,
+			name: pi.Pipeline.Name,
+			salt: pi.Salt,
+		}
+		var opts []chain.JobChainOption
+		if pi.ReprocessSpec == client.ReprocessSpecEveryJob || pi.S3Out {
+			opts = append(opts, chain.WithNoSkip())
 		}
 		pachClient := reg.driver.PachClient()
-		metaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
-			&pfs.InspectCommitRequest{
-				Commit: metaCommit,
-			})
-		if err != nil {
-			return err
-		}
 		if metaCommitInfo.ParentCommit == nil {
-			reg.jobChain = chain.NewJobChain(hasher)
+			reg.jobChain = chain.NewJobChain(pachClient, hasher, opts...)
 			return nil
 		}
 		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
@@ -190,43 +175,39 @@ func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
 		}
 		commit := parentMetaCommitInfo.Commit
 		reg.jobChain = chain.NewJobChain(
+			pachClient,
 			hasher,
-			datum.NewCommitIterator(pachClient, commit.Repo.Name, commit.ID),
+			append(opts, chain.WithBase(datum.NewCommitIterator(pachClient, commit.Repo.Name, commit.ID)))...,
 		)
 	}
 	return nil
 }
 
-// ensureJob loads an existing job for the given commit in the pipeline, or
-// creates it if there is none. If more than one such job exists, an error will
-// be generated.
-func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) (*pps.JobInfo, error) {
+func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.JobInfo, error) {
 	pachClient := reg.driver.PachClient()
-	// Check if a job was previously created for this commit. If not, make one
-	jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
+	pipelineInfo := reg.driver.PipelineInfo()
+	jobInfo, err := pachClient.InspectJobOutputCommit(pipelineInfo.Pipeline.Name, commitInfo.Commit.ID, false)
 	if err != nil {
+		// TODO: It would be better for this to be a structured error.
+		if strings.Contains(err.Error(), "not found") {
+			job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, ppsutil.GetStatsCommit(commitInfo))
+			if err != nil {
+				return nil, err
+			}
+			jobInfo, err = pachClient.InspectJob(job.ID, false)
+			if err != nil {
+				return nil, err
+			}
+			reg.logger.Logf("created new job %q for output commit %q", jobInfo.Job.ID, jobInfo.OutputCommit.ID)
+			return jobInfo, nil
+		}
 		return nil, err
 	}
-	if len(jobInfos) > 1 {
-		return nil, errors.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
-	} else if len(jobInfos) < 1 {
-		job, err := pachClient.CreateJob(reg.driver.PipelineInfo().Pipeline.Name, commitInfo.Commit, metaCommit)
-		if err != nil {
-			return nil, err
-		}
-		reg.logger.Logf("created new job %q for output commit %q", job.ID, commitInfo.Commit.ID)
-		// get jobInfo to look up spec commit, pipeline version, etc (if this
-		// worker is stale and about to be killed, the new job may have a newer
-		// pipeline version than the master. Or if the commit is stale, it may
-		// have an older pipeline version than the master)
-		return pachClient.InspectJob(job.ID, false)
-	}
-	// Get latest job state.
-	reg.logger.Logf("found existing job %q for output commit %q", jobInfos[0].Job.ID, commitInfo.Commit.ID)
-	return pachClient.InspectJob(jobInfos[0].Job.ID, false)
+	reg.logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
+	return jobInfo, nil
 }
 
-func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) error {
+func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 	var asyncEg *errgroup.Group
 	reg.limiter.Acquire()
 	defer func() {
@@ -235,30 +216,15 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 			reg.limiter.Release()
 		}
 	}()
-	jobInfo, err := reg.ensureJob(commitInfo, metaCommit)
+	jobInfo, err := reg.ensureJob(commitInfo)
 	if err != nil {
 		return err
 	}
-	switch {
-	case commitInfo.Finished != nil:
-		if !ppsutil.IsTerminal(jobInfo.State) {
-			jobInfo.State = pps.JobState_JOB_KILLED
-		}
-		return recoverJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), jobInfo, true)
-	case jobInfo.PipelineVersion < reg.driver.PipelineInfo().Version:
-		jobInfo.State = pps.JobState_JOB_KILLED
-		jobInfo.Reason = "pipeline has been updated"
-		return recoverJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), jobInfo, true)
-	case jobInfo.PipelineVersion > reg.driver.PipelineInfo().Version:
-		return errors.Errorf("job %s's version (%d) greater than pipeline's "+
-			"version (%d), this should automatically resolve when the worker "+
-			"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, reg.driver.PipelineInfo().Version)
-	}
-	if err := reg.initializeJobChain(metaCommit); err != nil {
+	metaCommitInfo, err := reg.driver.PachClient().InspectCommit(jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)
+	if err != nil {
 		return err
 	}
-	metaCommitInfo, err := reg.driver.PachClient().InspectCommit(metaCommit.Repo.Name, metaCommit.ID)
-	if err != nil {
+	if err := reg.initializeJobChain(metaCommitInfo); err != nil {
 		return err
 	}
 	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
@@ -467,6 +433,15 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	pachClient = pachClient.WithCtx(ctx)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 
+	// TODO: We need to delete the output for S3Out since we don't have a clear way to track the output in the stats commit (which means datums cannot be skipped with S3Out).
+	// If we had a way to map the output added through the S3 gateway back to the datums, and stored this in the appropriate place in the stats commit, then we would be able
+	// handle datums the same way we handle normal pipelines.
+	if pj.driver.PipelineInfo().S3Out {
+		if err := pachClient.DeleteFile(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID, "/"); err != nil {
+			return err
+		}
+	}
+
 	// TODO: This is a hack to ensure that deletions are generated before any output is uploaded.
 	// This may be resolved by either explicitly generating deletes first (somewhat similar to this hack) or
 	// relying on temporary fileset identifiers being associated with the commit after the datumsets have been
@@ -540,14 +515,14 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	}
 	if pj.ji.Egress != nil {
 		pj.ji.State = pps.JobState_JOB_EGRESSING
-		return writeJobInfo(pj.driver.PachClient(), pj.ji)
+		return pj.writeJobInfo()
 	}
 	return reg.succeedJob(pj)
 }
 
 func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(datum.Client) error, renewer *renew.StringSet) (*work.Task, error) {
 	resp, err := pachClient.WithCreateFilesetClient(func(cfsc *client.CreateFilesetClient) error {
-		return upload(newDatumClientFileset(cfsc))
+		return upload(datum.NewClientFileset(cfsc))
 	})
 	if err != nil {
 		return nil, err
@@ -629,73 +604,4 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 		}
 	})
 	return failed, vistErr
-}
-
-// TODO: Errors that can occur while finishing jobs needs more thought.
-// TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
-func finishJob(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, pj *pendingJob, state pps.JobState, reason string) error {
-	jobInfo := pj.ji
-	// Optimistically update the local state and reason - if any errors occur the
-	// local state will be reloaded way up the stack
-	jobInfo.State = state
-	jobInfo.Reason = reason
-	var empty bool
-	if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
-		empty = true
-	}
-	if _, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: jobInfo.StatsCommit,
-			Empty:  empty,
-		}); err != nil {
-			return err
-		}
-		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
-			Empty:  empty,
-		}); err != nil {
-			return err
-		}
-		return writeJobInfo(&builder.APIClient, jobInfo)
-	}); err != nil {
-		if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
-			if err := recoverJob(pipelineInfo, pachClient, jobInfo, empty); err != nil {
-				return err
-			}
-			// TODO: How to handle errors without causing subsequent jobs to get stuck.
-			pj.jdit.Finish()
-			return nil
-		}
-		// For other types of errors, we want to fail the job supervision and let it
-		// reattempt later
-		return err
-	}
-	// TODO: How to handle errors without causing subsequent jobs to get stuck.
-	pj.jdit.Finish()
-	return nil
-}
-
-func recoverJob(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, jobInfo *pps.JobInfo, empty bool) error {
-	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-		Commit: jobInfo.StatsCommit,
-		Empty:  empty,
-	}); err != nil {
-		if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
-			return err
-		}
-	}
-	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-		Commit: jobInfo.OutputCommit,
-		Empty:  empty,
-	}); err != nil {
-		if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
-			return err
-		}
-	}
-	if err := writeJobInfo(pachClient, jobInfo); err != nil {
-		if !ppsserver.IsJobFinishedErr(err) {
-			return err
-		}
-	}
-	return nil
 }

@@ -332,6 +332,9 @@ func unsupportedError(name string) error {
 	return errors.Errorf("the '%s' API call is not supported in transactions", name)
 }
 
+func (c *pfsBuilderClient) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest, opts ...grpc.CallOption) (*pfs.ActivateAuthResponse, error) {
+	return nil, unsupportedError("ActivateAuth")
+}
 func (c *pfsBuilderClient) InspectRepo(ctx context.Context, req *pfs.InspectRepoRequest, opts ...grpc.CallOption) (*pfs.RepoInfo, error) {
 	return nil, unsupportedError("InspectRepo")
 }
@@ -507,6 +510,9 @@ func (c *authBuilderClient) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest,
 }
 func (c *authBuilderClient) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest, opts ...grpc.CallOption) (*auth.GetAuthTokenResponse, error) {
 	return nil, unsupportedError("GetAuthToken")
+}
+func (c *authBuilderClient) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRequest, opts ...grpc.CallOption) (*auth.GetRobotTokenResponse, error) {
+	return nil, unsupportedError("GetRobotToken")
 }
 func (c *authBuilderClient) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest, opts ...grpc.CallOption) (*auth.GetOIDCLoginResponse, error) {
 	return nil, unsupportedError("GetOIDCLogin")

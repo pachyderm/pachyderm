@@ -57,6 +57,18 @@ func newAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etc
 	return s, nil
 }
 
+// ActivateAuth implements the protobuf pfs.ActivateAuth RPC
+func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return a.driver.activateAuth(txnCtx)
+	}); err != nil {
+		return nil, err
+	}
+	return &pfs.ActivateAuthResponse{}, nil
+}
+
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CreateRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.CreateRepoRequest) error {
@@ -179,6 +191,12 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// InspectCommitInTransaction is identical to InspectCommit (some features excluded) except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServer) InspectCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
+	return a.driver.resolveCommit(txnCtx.Stm, request.Commit)
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
@@ -327,16 +345,16 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 				}
 				// TODO Validation.
 				switch mod := req.Modification.(type) {
-				case *pfs.ModifyFileRequest_AppendFile:
+				case *pfs.ModifyFileRequest_PutFile:
 					var n int64
 					var err error
-					switch mod.AppendFile.Source.(type) {
-					case *pfs.AppendFile_RawFileSource:
-						n, err = appendFileRaw(uw, server, mod.AppendFile)
-					case *pfs.AppendFile_TarFileSource:
-						n, err = appendFileTar(uw, server, mod.AppendFile)
-					case *pfs.AppendFile_UrlFileSource:
-						n, err = appendFileURL(server.Context(), uw, mod.AppendFile)
+					switch mod.PutFile.Source.(type) {
+					case *pfs.PutFile_RawFileSource:
+						n, err = putFileRaw(uw, server, mod.PutFile)
+					case *pfs.PutFile_TarFileSource:
+						n, err = putFileTar(uw, server, mod.PutFile)
+					case *pfs.PutFile_UrlFileSource:
+						n, err = putFileURL(server.Context(), uw, mod.PutFile)
 					}
 					bytesRead += n
 					if err != nil {
@@ -356,33 +374,11 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 	})
 }
 
-func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
-	pachClient := a.env.GetPachClient(ctx)
-	fsid, err := fileset.ParseID(req.FilesetId)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.addFileset(pachClient, req.Commit, *fsid); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
-func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error) {
-	filesetID, err := a.driver.getFileset(a.env.GetPachClient(ctx), req.Commit)
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.CreateFilesetResponse{
-		FilesetId: filesetID.HexString(),
-	}, nil
-}
-
 // CopyFile implements the protobuf pfs.CopyFile RPC
 func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite, request.Tag); err != nil {
+	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Append, request.Tag); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -564,6 +560,28 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	return nil
 }
 
+func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
+	pachClient := a.env.GetPachClient(ctx)
+	fsid, err := fileset.ParseID(req.FilesetId)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.addFileset(pachClient, req.Commit, *fsid); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error) {
+	filesetID, err := a.driver.getFileset(a.env.GetPachClient(ctx), req.Commit)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.CreateFilesetResponse{
+		FilesetId: filesetID.HexString(),
+	}, nil
+}
+
 // CreateFileset implements the pfs.CreateFileset RPC
 func (a *apiServer) CreateFileset(server pfs.API_CreateFilesetServer) error {
 	fsID, err := a.driver.createFileset(server.Context(), func(uw *fileset.UnorderedWriter) error {
@@ -603,16 +621,16 @@ func modifyFile(ctx context.Context, server modifyFileSource, uw *fileset.Unorde
 
 		// TODO Validation.
 		switch mod := req.Modification.(type) {
-		case *pfs.ModifyFileRequest_AppendFile:
+		case *pfs.ModifyFileRequest_PutFile:
 			var err error
 			var n int64
-			switch mod.AppendFile.Source.(type) {
-			case *pfs.AppendFile_RawFileSource:
-				n, err = appendFileRaw(uw, server, mod.AppendFile)
-			case *pfs.AppendFile_TarFileSource:
-				n, err = appendFileTar(uw, server, mod.AppendFile)
-			case *pfs.AppendFile_UrlFileSource:
-				n, err = appendFileURL(ctx, uw, mod.AppendFile)
+			switch mod.PutFile.Source.(type) {
+			case *pfs.PutFile_RawFileSource:
+				n, err = putFileRaw(uw, server, mod.PutFile)
+			case *pfs.PutFile_TarFileSource:
+				n, err = putFileTar(uw, server, mod.PutFile)
+			case *pfs.PutFile_UrlFileSource:
+				n, err = putFileURL(ctx, uw, mod.PutFile)
 			}
 			if err != nil {
 				return bytesRead, err
@@ -626,8 +644,8 @@ func modifyFile(ctx context.Context, server modifyFileSource, uw *fileset.Unorde
 	}
 }
 
-func appendFileTar(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.AppendFile) (int64, error) {
-	src := req.Source.(*pfs.AppendFile_TarFileSource).TarFileSource
+func putFileTar(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.PutFile) (int64, error) {
+	src := req.Source.(*pfs.PutFile_TarFileSource).TarFileSource
 	tfsr := &tarFileSourceReader{
 		server: server,
 		r:      bytes.NewReader(src.Data),
@@ -644,7 +662,7 @@ func appendFileTar(uw *fileset.UnorderedWriter, server modifyFileSource, req *pf
 		if hdr.Typeflag == tar.TypeDir {
 			continue
 		}
-		if err := uw.Append(hdr.Name, req.Overwrite, tr, req.Tag); err != nil {
+		if err := uw.Put(hdr.Name, req.Append, tr, req.Tag); err != nil {
 			return tfsr.bytesRead, err
 		}
 	}
@@ -662,8 +680,8 @@ func (tfsr *tarFileSourceReader) Read(data []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		mod := req.Modification.(*pfs.ModifyFileRequest_AppendFile).AppendFile
-		src := mod.Source.(*pfs.AppendFile_TarFileSource).TarFileSource
+		mod := req.Modification.(*pfs.ModifyFileRequest_PutFile).PutFile
+		src := mod.Source.(*pfs.PutFile_TarFileSource).TarFileSource
 		tfsr.r = bytes.NewReader(src.Data)
 	}
 	n, err := tfsr.r.Read(data)
@@ -672,8 +690,8 @@ func (tfsr *tarFileSourceReader) Read(data []byte) (int, error) {
 }
 
 // TODO: Collect and return bytes read and figure out parallel download (task chain in chunk package might be helpful).
-func appendFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.AppendFile) (_ int64, retErr error) {
-	src := req.Source.(*pfs.AppendFile_UrlFileSource).UrlFileSource
+func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.PutFile) (_ int64, retErr error) {
+	src := req.Source.(*pfs.PutFile_UrlFileSource).UrlFileSource
 	url, err := url.Parse(src.URL)
 	if err != nil {
 		return 0, err
@@ -693,7 +711,7 @@ func appendFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.Ap
 				retErr = err
 			}
 		}()
-		return 0, uw.Append(src.Path, req.Overwrite, resp.Body, req.Tag)
+		return 0, uw.Put(src.Path, req.Append, resp.Body, req.Tag)
 	default:
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
@@ -715,7 +733,7 @@ func appendFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.Ap
 						retErr = err
 					}
 				}()
-				return uw.Append(filepath.Join(src.Path, strings.TrimPrefix(name, path)), req.Overwrite, r, req.Tag)
+				return uw.Put(filepath.Join(src.Path, strings.TrimPrefix(name, path)), req.Append, r, req.Tag)
 			})
 		}
 		r, err := objClient.Reader(ctx, url.Object, 0, 0)
@@ -727,7 +745,7 @@ func appendFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.Ap
 				retErr = err
 			}
 		}()
-		return 0, uw.Append(src.Path, req.Overwrite, r, req.Tag)
+		return 0, uw.Put(src.Path, req.Append, r, req.Tag)
 	}
 }
 
@@ -735,13 +753,13 @@ type modifyFileSource interface {
 	Recv() (*pfs.ModifyFileRequest, error)
 }
 
-func appendFileRaw(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.AppendFile) (int64, error) {
-	src := req.Source.(*pfs.AppendFile_RawFileSource).RawFileSource
+func putFileRaw(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.PutFile) (int64, error) {
+	src := req.Source.(*pfs.PutFile_RawFileSource).RawFileSource
 	rfsr := &rawFileSourceReader{
 		server: server,
 		r:      bytes.NewReader(src.Data),
 	}
-	err := uw.Append(src.Path, req.Overwrite, rfsr, req.Tag)
+	err := uw.Put(src.Path, req.Append, rfsr, req.Tag)
 	return rfsr.bytesRead, err
 }
 
@@ -758,8 +776,8 @@ func (rfsr *rawFileSourceReader) Read(data []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		mod := req.Modification.(*pfs.ModifyFileRequest_AppendFile).AppendFile
-		src := mod.Source.(*pfs.AppendFile_RawFileSource).RawFileSource
+		mod := req.Modification.(*pfs.ModifyFileRequest_PutFile).PutFile
+		src := mod.Source.(*pfs.PutFile_RawFileSource).RawFileSource
 		rfsr.r = bytes.NewReader(src.Data)
 		rfsr.done = src.EOF
 	}

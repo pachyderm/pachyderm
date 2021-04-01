@@ -103,7 +103,6 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	require.Equal(t, true, proto.Equal(&authserver.DefaultOIDCConfig, configResp.GetConfiguration()))
 
 	alice := robot(tu.UniqueString("alice"))
-	anonClient := tu.GetUnauthenticatedPachClient(t)
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
 	// Alice tries to set the current configuration and fails
@@ -120,7 +119,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 		})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Matches(t, "needs permissions \\[CLUSTER_ADMIN\\] on CLUSTER", err.Error())
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_SET_CONFIG\\] on CLUSTER", err.Error())
 
 	// Confirm that alice didn't modify the configuration by retrieving the empty
 	// config
@@ -131,26 +130,21 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 
 	tu.ConfigureOIDCProvider(t)
 
-	// Modify the configuration and make sure anon can't read it, but alice and
-	// admin can
+	// Modify the configuration and make sure alice can't read it, but admin can
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{
 			Configuration: conf,
 		})
 	require.NoError(t, err)
 
-	// Confirm that anon can't read the config
-	_, err = anonClient.GetConfiguration(anonClient.Ctx(),
+	// Confirm that alice can't read the config
+	_, err = aliceClient.GetConfiguration(aliceClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.YesError(t, err)
-	require.Matches(t, "no authentication token", err.Error())
+	require.Matches(t, "not authorized", err.Error())
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_CONFIG\\] on CLUSTER", err.Error())
 
-	// Confirm that alice and admin can read the config
-	configResp, err = aliceClient.GetConfiguration(aliceClient.Ctx(),
-		&auth.GetConfigurationRequest{})
-	require.NoError(t, err)
-	require.Equal(t, true, proto.Equal(conf, configResp.Configuration))
-
+	// Confirm that admin can read the config
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)

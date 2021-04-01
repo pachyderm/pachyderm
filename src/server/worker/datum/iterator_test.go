@@ -6,7 +6,8 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	dbtesting "github.com/pachyderm/pachyderm/v2/src/internal/dbutil/testing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -14,7 +15,7 @@ import (
 
 func TestIterators(t *testing.T) {
 	t.Parallel()
-	postgres := dbtesting.NewPostgresDeployment(t)
+	postgres := dbutil.NewPostgresDeployment(t)
 	db := postgres.NewDatabase(t)
 	env := testpachd.NewRealEnv(t, db)
 
@@ -190,119 +191,40 @@ func TestIterators(t *testing.T) {
 	in25 := client.NewGroupInput(in24)
 	in26 := client.NewUnionInput(in23, in25)
 
-	t.Run("UnionGroup", func(t *testing.T) {
-		unionGroup1, err := NewIterator(c, in26)
+	// in27 is an S3 input
+	in27 := client.NewS3PFSInput("", dataRepo, "")
+	in27.Pfs.Commit = commit.ID
+	t.Run("PlainS3", func(t *testing.T) {
+		di, err := NewIterator(c, in27)
 		require.NoError(t, err)
-		validateDI(t, unionGroup1,
-			"/foo10/foo20/foo30/foo40",
-			"/foo11/foo21/foo31/foo41",
-			"/foo12/foo22/foo32/foo42",
-			"/foo13/foo23/foo33/foo43",
-			"/foo14/foo24/foo34/foo44",
-			"/foo15/foo25/foo35/foo45",
-			"/foo16/foo26/foo36/foo46",
-			"/foo17/foo27/foo37/foo47",
-			"/foo18/foo28/foo38/foo48",
-			"/foo19/foo29/foo39/foo49",
-			"/foo10",
-			"/foo11",
-			"/foo12",
-			"/foo13",
-			"/foo14",
-			"/foo15",
-			"/foo16",
-			"/foo17",
-			"/foo18",
-			"/foo19",
-			"/foo20",
-			"/foo21",
-			"/foo22",
-			"/foo23",
-			"/foo24",
-			"/foo25",
-			"/foo26",
-			"/foo27",
-			"/foo28",
-			"/foo29",
-			"/foo30",
-			"/foo31",
-			"/foo32",
-			"/foo33",
-			"/foo34",
-			"/foo35",
-			"/foo36",
-			"/foo37",
-			"/foo38",
-			"/foo39",
-			"/foo40",
-			"/foo41",
-			"/foo42",
-			"/foo43",
-			"/foo44",
-			"/foo45",
-			"/foo46",
-			"/foo47",
-			"/foo48",
-			"/foo49")
+		validateDI(t, di, "/")
+		// Check that every datum has an S3 input
+		require.NoError(t, di.Iterate(func(meta *Meta) error {
+			require.True(t, meta.Inputs[0].S3)
+			return nil
+		}))
 	})
 
-	//      TODO: Convert these tests when s3 inputs are supported.
-	//// in11 is an S3 input
-	//in11 := client.NewS3PFSInput("", dataRepo, "")
-	//in11.Pfs.Commit = commit.ID
-	//t.Run("PlainS3", func(t *testing.T) {
-	//	s3itr, err := NewIterator(c, in11)
-	//	require.NoError(t, err)
-	//	validateDI(t, s3itr, "/")
+	// in28 is a cross that contains an S3 input and two non-s3 inputs
+	in28 := client.NewCrossInput(in1, in2, in27)
+	t.Run("S3MixedCross", func(t *testing.T) {
+		di, err := NewIterator(c, in28)
+		require.NoError(t, err)
+		validateDI(t, di,
+			"/foo11/foo12/", "/foo11/foo2/", "/foo11/foo22/", "/foo11/foo32/", "/foo11/foo42/",
+			"/foo21/foo12/", "/foo21/foo2/", "/foo21/foo22/", "/foo21/foo32/", "/foo21/foo42/",
+			"/foo31/foo12/", "/foo31/foo2/", "/foo31/foo22/", "/foo31/foo32/", "/foo31/foo42/",
+			"/foo41/foo12/", "/foo41/foo2/", "/foo41/foo22/", "/foo41/foo32/", "/foo41/foo42/",
+		)
+	})
 
-	//	// Check that every datum has an S3 input
-	//	s3itr, _ = NewIterator(c, in11)
-	//	var checked, s3Count int
-	//	for s3itr.Next() {
-	//		checked++
-	//		require.Equal(t, 1, len(s3itr.Datum()))
-	//		if s3itr.Datum()[0].S3 {
-	//			s3Count++
-	//			break
-	//		}
-	//	}
-	//	require.True(t, checked > 0 && checked == s3Count,
-	//		"checked: %v, s3Count: %v", checked, s3Count)
-	//})
-
-	//// in12 is a cross that contains an S3 input and two non-s3 inputs
-	//in12 := client.NewCrossInput(in1, in2, in11)
-	//t.Run("S3MixedCross", func(t *testing.T) {
-	//	s3CrossItr, err := NewIterator(c, in12)
-	//	require.NoError(t, err)
-	//	validateDI(t, s3CrossItr,
-	//		"/foo11/foo12/", "/foo21/foo12/", "/foo31/foo12/", "/foo41/foo12/",
-	//		"/foo11/foo2/", "/foo21/foo2/", "/foo31/foo2/", "/foo41/foo2/",
-	//		"/foo11/foo22/", "/foo21/foo22/", "/foo31/foo22/", "/foo41/foo22/",
-	//		"/foo11/foo32/", "/foo21/foo32/", "/foo31/foo32/", "/foo41/foo32/",
-	//		"/foo11/foo42/", "/foo21/foo42/", "/foo31/foo42/", "/foo41/foo42/",
-	//	)
-
-	//	s3CrossItr, _ = NewIterator(c, in12)
-	//	var checked, s3Count int
-	//	for s3CrossItr.Next() {
-	//		checked++
-	//		for _, d := range s3CrossItr.Datum() {
-	//			if d.S3 {
-	//				s3Count++
-	//			}
-	//		}
-	//	}
-	//	require.True(t, checked > 0 && checked == s3Count,
-	//		"checked: %v, s3Count: %v", checked, s3Count)
-	//})
-
-	//// in13 is a cross consisting of exclusively S3 inputs
-	//in13 := client.NewCrossInput(in11, in11, in11)
-	//t.Run("S3OnlyCrossUnionJoin", func(t *testing.T) {
-	//	s3CrossItr, err := NewIterator(c, in13)
-	//	require.NoError(t, err)
-	//	validateDI(t, s3CrossItr, "///")
+	// in29 is a cross consisting of exclusively S3 inputs
+	in29 := client.NewCrossInput(in27, in27, in27)
+	t.Run("S3OnlyCrossUnionJoin", func(t *testing.T) {
+		di, err := NewIterator(c, in29)
+		require.NoError(t, err)
+		validateDI(t, di, "///")
+	})
 
 	//	s3CrossItr, _ = NewIterator(c, in13)
 	//	var checked, s3Count int
@@ -328,7 +250,7 @@ func TestIterators(t *testing.T) {
 // Make work with V2.
 //func TestJoinTrailingSlash(t *testing.T) {
 //	t.Parallel()
-//	db := dbtesting.NewTestDB(t)
+//	db := dbutil.NewTestDB(t)
 //  env := testpachd.NewRealEnv(t, db)
 //
 //	c := env.PachClient
@@ -394,12 +316,19 @@ func TestIterators(t *testing.T) {
 
 func validateDI(t testing.TB, di Iterator, datums ...string) {
 	t.Helper()
+	datumMap := make(map[string]struct{})
+	for _, datum := range datums {
+		datumMap[datum] = struct{}{}
+	}
 	require.NoError(t, di.Iterate(func(meta *Meta) error {
-		require.Equal(t, datums[0], computeKey(meta))
-		datums = datums[1:]
+		key := computeKey(meta)
+		if _, ok := datumMap[key]; !ok {
+			return errors.Errorf("unexpected datum: %v", key)
+		}
+		delete(datumMap, key)
 		return nil
 	}))
-	require.Equal(t, 0, len(datums))
+	require.Equal(t, 0, len(datumMap))
 }
 
 func computeKey(meta *Meta) string {
