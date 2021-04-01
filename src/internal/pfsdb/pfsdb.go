@@ -3,7 +3,6 @@ package pfsdb
 
 import (
 	"path"
-	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -52,16 +50,16 @@ func TestEtcdCollections(suite *testing.T) {
 }
 
 func TestDryrun(t *testing.T) {
-	etcdClient := getEtcdClient()
+	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	job := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
 		Pipeline: client.NewPipeline("p1"),
 	}
-	err := col.NewDryrunSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	err := col.NewDryrunSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(job.Job.ID, job)
 		return nil
@@ -74,10 +72,10 @@ func TestDryrun(t *testing.T) {
 }
 
 func TestDeletePrefix(t *testing.T) {
-	etcdClient := getEtcdClient()
+	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("prefix/suffix/job"),
@@ -96,7 +94,7 @@ func TestDeletePrefix(t *testing.T) {
 		Pipeline: client.NewPipeline("p"),
 	}
 
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		jobInfos.Put(j2.Job.ID, j2)
@@ -106,7 +104,7 @@ func TestDeletePrefix(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		job := &pps.JobInfo{}
 		jobInfos := jobInfos.ReadWrite(stm)
 
@@ -168,10 +166,10 @@ func TestDeletePrefix(t *testing.T) {
 }
 
 func TestIndex(t *testing.T) {
-	etcdClient := getEtcdClient()
+	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
@@ -185,7 +183,7 @@ func TestIndex(t *testing.T) {
 		Job:      client.NewJob("j3"),
 		Pipeline: client.NewPipeline("p2"),
 	}
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		jobInfos.Put(j2.Job.ID, j2)
@@ -225,16 +223,16 @@ func TestIndex(t *testing.T) {
 }
 
 func TestIndexWatch(t *testing.T) {
-	etcdClient := getEtcdClient()
+	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
 		Pipeline: client.NewPipeline("p1"),
 	}
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		return nil
@@ -257,7 +255,7 @@ func TestIndexWatch(t *testing.T) {
 
 	// Now we will put j1 again, unchanged.  We want to make sure
 	// that we do not receive an event.
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		return nil
@@ -275,7 +273,7 @@ func TestIndexWatch(t *testing.T) {
 		Pipeline: client.NewPipeline("p1"),
 	}
 
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j2.Job.ID, j2)
 		return nil
@@ -293,7 +291,7 @@ func TestIndexWatch(t *testing.T) {
 		Job:      client.NewJob("j1"),
 		Pipeline: client.NewPipeline("p3"),
 	}
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1Prime)
 		return nil
@@ -306,7 +304,7 @@ func TestIndexWatch(t *testing.T) {
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j1.Job.ID, ID)
 
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Delete(j2.Job.ID)
 		return nil
@@ -321,9 +319,9 @@ func TestIndexWatch(t *testing.T) {
 }
 
 func TestBoolIndex(t *testing.T) {
-	etcdClient := getEtcdClient()
+	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
-	boolValues := col.NewEtcdCollection(etcdClient, uuidPrefix, []*col.Index{{
+	boolValues := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{{
 		Field: "Value",
 	}}, &types.BoolValue{}, nil, nil)
 
@@ -333,7 +331,7 @@ func TestBoolIndex(t *testing.T) {
 	r2 := &types.BoolValue{
 		Value: false,
 	}
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		boolValues := boolValues.ReadWrite(stm)
 		boolValues.Put("true", r1)
 		boolValues.Put("false", r2)
@@ -342,7 +340,7 @@ func TestBoolIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test that we don't format the index string incorrectly
-	resp, err := etcdClient.Get(context.Background(), uuidPrefix, etcd.WithPrefix())
+	resp, err := env.EtcdClient.Get(context.Background(), uuidPrefix, etcd.WithPrefix())
 	require.NoError(t, err)
 	for _, kv := range resp.Kvs {
 		if !bytes.Contains(kv.Key, []byte("__index_")) {
@@ -357,18 +355,18 @@ func TestBoolIndex(t *testing.T) {
 var epsilon = &types.BoolValue{Value: true}
 
 func TestTTL(t *testing.T) {
-	etcdClient := getEtcdClient()
+	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
 	})
 	require.NoError(t, err)
 
 	var actualTTL int64
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		var err error
 		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
 		return err
@@ -378,12 +376,12 @@ func TestTTL(t *testing.T) {
 }
 
 func TestTTLExpire(t *testing.T) {
-	etcdClient := getEtcdClient()
+	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
 	})
 	require.NoError(t, err)
@@ -396,19 +394,19 @@ func TestTTLExpire(t *testing.T) {
 }
 
 func TestTTLExtend(t *testing.T) {
-	etcdClient := getEtcdClient()
+	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
 	// Put value with short TLL & check that it was set
-	clxn := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
 	})
 	require.NoError(t, err)
 
 	var actualTTL int64
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		var err error
 		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
 		return err
@@ -418,12 +416,12 @@ func TestTTLExtend(t *testing.T) {
 
 	// Put value with new, longer TLL and check that it was set
 	const LongerTTL = 15
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, LongerTTL)
 	})
 	require.NoError(t, err)
 
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		var err error
 		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
 		return err
@@ -433,13 +431,13 @@ func TestTTLExtend(t *testing.T) {
 }
 
 func TestIteration(t *testing.T) {
-	etcdClient := getEtcdClient()
+	env := testetcd.NewEnv(t)
 	t.Run("one-val-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &col.TestItem{}, nil, nil)
+		c := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &col.TestItem{}, nil, nil)
 		numVals := 1000
 		for i := 0; i < numVals; i++ {
-			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+			_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 				testProto := makeProto(makeID(i))
 				return c.ReadWrite(stm).Put(testProto.ID, testProto)
 			})
@@ -456,11 +454,11 @@ func TestIteration(t *testing.T) {
 	})
 	t.Run("many-vals-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &col.TestItem{}, nil, nil)
+		c := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &col.TestItem{}, nil, nil)
 		numBatches := 10
 		valsPerBatch := 7
 		for i := 0; i < numBatches; i++ {
-			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+			_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 				for j := 0; j < valsPerBatch; j++ {
 					testProto := makeProto(makeID(i*valsPerBatch + j))
 					if err := c.ReadWrite(stm).Put(testProto.ID, testProto); err != nil {
@@ -483,26 +481,24 @@ func TestIteration(t *testing.T) {
 	})
 	t.Run("large-vals", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, nil, nil)
+		c := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &col.TestItem{}, nil, nil)
 		numVals := 100
-		longString := strings.Repeat("foo\n", 1024*256) // 1 MB worth of foo
+		longString := strings.Repeat("foo\n", 10) // 1 MB worth of foo
 		for i := 0; i < numVals; i++ {
-			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-				if err := c.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &pfs.Repo{Name: longString}); err != nil {
-					return err
-				}
-				return nil
+			_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
+				id := fmt.Sprintf("%d", i)
+				return c.ReadWrite(stm).Put(id, &col.TestItem{ID: id, Value: longString})
 			})
 			require.NoError(t, err)
 		}
 		ro := c.ReadOnly(context.Background())
-		val := &pfs.Repo{}
+		val := &col.TestItem{}
 		vals := make(map[string]bool)
 		valsOrder := []string{}
 		require.NoError(t, ro.List(val, col.DefaultOptions(), func() error {
-			require.False(t, vals[val.Name], "saw value %s twice", val.Name)
-			vals[val.Name] = true
-			valsOrder = append(valsOrder, val.Name)
+			require.False(t, vals[val.ID], "saw value %s twice", val.ID)
+			vals[val.ID] = true
+			valsOrder = append(valsOrder, val.ID)
 			return nil
 		}))
 		for i, key := range valsOrder {
@@ -511,10 +507,10 @@ func TestIteration(t *testing.T) {
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 		vals = make(map[string]bool)
 		valsOrder = []string{}
-		require.NoError(t, ro.List(val, &col.Options{SortByCreateRevision, SortAscend}, func() error {
-			require.False(t, vals[val.Name], "saw value %s twice", val.Name)
-			vals[val.Name] = true
-			valsOrder = append(valsOrder, val.Name)
+		require.NoError(t, ro.List(val, &col.Options{col.SortByCreateRevision, col.SortAscend}, func() error {
+			require.False(t, vals[val.ID], "saw value %s twice", val.ID)
+			vals[val.ID] = true
+			valsOrder = append(valsOrder, val.ID)
 			return nil
 		}))
 		for i, key := range valsOrder {
@@ -522,21 +518,4 @@ func TestIteration(t *testing.T) {
 		}
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 	})
-}
-
-var etcdClient *etcd.Client
-var etcdClientOnce sync.Once
-
-func getEtcdClient() *etcd.Client {
-	etcdClientOnce.Do(func() {
-		var err error
-		etcdClient, err = etcd.New(etcd.Config{
-			Endpoints:   []string{"localhost:32379"},
-			DialOptions: client.DefaultDialOptions(),
-		})
-		if err != nil {
-			panic(err)
-		}
-	})
-	return etcdClient
 }

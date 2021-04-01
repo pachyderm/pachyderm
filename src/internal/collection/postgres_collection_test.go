@@ -7,13 +7,13 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestPostgresCollections(suite *testing.T) {
 	suite.Parallel()
-	postgres := dbutil.NewPostgresDeployment(suite)
+	postgres := testutil.NewPostgresDeployment(suite)
 
 	newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
 		db, listener := postgres.NewDatabase(t)

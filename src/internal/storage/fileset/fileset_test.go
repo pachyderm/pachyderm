@@ -10,11 +10,11 @@ import (
 	units "github.com/docker/go-units"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 const (
@@ -85,9 +85,9 @@ func checkFile(t *testing.T, f File, tf *testFile) {
 // newTestStorage creates a storage object with a test db and test tracker
 // both of those components are kept hidden, so this is only appropriate for testing this package.
 func newTestStorage(t *testing.T) *Storage {
-	db := dbutil.NewTestDB(t)
+	db := testutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	return NewTestStorage(t, db, tr)
+	return testutil.NewFilesetStorage(t, db, tr)
 }
 
 func TestWriteThenRead(t *testing.T) {

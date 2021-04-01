@@ -3,12 +3,12 @@ package fileset
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestPostgresStore(t *testing.T) {
 	StoreTestSuite(t, func(t testing.TB) MetadataStore {
-		db := dbutil.NewTestDB(t)
-		return NewTestStore(t, db)
+		db := testutil.NewTestDB(t)
+		return testutil.NewFilesetStore(t, db)
 	})
 }

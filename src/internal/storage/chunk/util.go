@@ -1,26 +1,8 @@
 package chunk
 
 import (
-	"context"
 	"math/rand"
-	"testing"
-
-	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
-
-// NewTestStorage creates a local storage instance for testing during the lifetime of
-// the callback.
-func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
-	objC, _ := obj.NewTestClient(t)
-	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
-	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))
-	return objC, NewStorage(objC, kv.NewMemCache(10), db, tr, opts...)
-}
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 

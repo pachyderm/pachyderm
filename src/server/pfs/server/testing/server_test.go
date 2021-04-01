@@ -5248,7 +5248,7 @@ func TestPutFilesObjURL(t *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		objC, bucket := obj.NewTestClient(t)
+		objC, bucket := tu.NewObjectClient(t)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
 			writeObj(t, objC, path, path)
@@ -5303,7 +5303,7 @@ func TestGetFilesObjURL(t *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(repo, commit.ID, path, strings.NewReader(path)))
 		}
 		check := func() {
-			objC, bucket := obj.NewTestClient(t)
+			objC, bucket := tu.NewObjectClient(t)
 			for _, path := range paths {
 				url := fmt.Sprintf("local://%s/", bucket)
 				require.NoError(t, env.PachClient.GetFileURL(repo, commit.ID, path, url))

@@ -1,4 +1,4 @@
-package dbutil_test
+package testutil
 
 import (
 	"crypto/rand"
@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -46,7 +45,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	encoder, err := serde.GetEncoder("json", manifest, serde.WithIndent(2), serde.WithOrigName(true))
 	require.NoError(t, err)
 
-	namespaceName := tu.UniqueString("postgres-test-")
+	namespaceName := UniqueString("postgres-test-")
 	assetOpts := &assets.AssetOpts{
 		PostgresOpts: assets.PostgresOpts{
 			Nodes:      1,
@@ -69,12 +68,12 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	statefulSet := assets.PostgresStatefulSet(assetOpts, assets.LocalBackend, 1)
 	require.NoError(t, encoder.Encode(statefulSet))
 
-	service := assets.PostgresService(true, assetOpts)
+	service := assets.PostgresService(assetOpts)
 	service.Spec.Ports[0].NodePort = 0
 	require.NoError(t, encoder.Encode(service))
 
 	// Connect to kubernetes and create the postgres items in their namespace
-	kubeClient := tu.GetKubeClient(t)
+	kubeClient := GetKubeClient(t)
 	namespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
 	_, err = kubeClient.CoreV1().Namespaces().Create(namespace)
 	require.NoError(t, err)
@@ -86,7 +85,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 		})
 	}
 
-	cmd := tu.Cmd("kubectl", "apply", "--namespace", namespaceName, "-f", "-")
+	cmd := Cmd("kubectl", "apply", "--namespace", namespaceName, "-f", "-")
 	cmd.Stdin = strings.NewReader(manifest.String())
 	err = cmd.Run()
 	require.NoError(t, err)

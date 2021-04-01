@@ -3,11 +3,9 @@ package fileset
 import (
 	"context"
 	"database/sql"
-	"testing"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 var _ MetadataStore = &postgresStore{}
@@ -83,14 +81,4 @@ const schema = `
 func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, schema)
 	return err
-}
-
-// NewTestStore returns a Store scoped to the lifetime of the test.
-func NewTestStore(t testing.TB, db *sqlx.DB) MetadataStore {
-	ctx := context.Background()
-	tx := db.MustBegin()
-	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
-	require.NoError(t, SetupPostgresStoreV0(ctx, tx))
-	require.NoError(t, tx.Commit())
-	return NewPostgresStore(db)
 }

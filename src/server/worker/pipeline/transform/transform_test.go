@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
@@ -305,7 +306,7 @@ func TestTransformPipeline(suite *testing.T) {
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
 		t.Parallel()
-		objC, bucket := obj.NewTestClient(t)
+		objC, bucket := testutil.NewObjectClient(t)
 		pi := defaultPipelineInfo()
 		pi.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", bucket)}
 
