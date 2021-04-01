@@ -24,12 +24,12 @@ const (
 )
 
 type postgresWatcher struct {
-	listener     *PostgresListener
-	c            chan *watch.Event
-	buf          chan *postgresEvent // buffer for messages before the initial table list is complete
-	done         chan struct{}       // closed when the watcher is closed to interrupt selects
-	template     proto.Message
-	channelNames []string
+	listener   *PostgresListener
+	c          chan *watch.Event
+	buf        chan *postgresEvent // buffer for messages before the initial table list is complete
+	done       chan struct{}       // closed when the watcher is closed to interrupt selects
+	template   proto.Message
+	sqlChannel string
 
 	// Filtering variables:
 	opts      watch.WatchOptions // may filter by the operation type (put or delete)
@@ -40,28 +40,22 @@ type postgresWatcher struct {
 
 func newPostgresWatch(
 	listener *PostgresListener,
-	channelNames []string,
+	sqlChannel string,
 	template proto.Message,
 	index *string,
 	value *string,
 	opts watch.WatchOptions,
 ) *postgresWatcher {
-	// Copy the channel names since it could be mutated
-	namesCopy := make([]string, 0, len(channelNames))
-	for _, name := range channelNames {
-		namesCopy = append(namesCopy, name)
-	}
-
 	return &postgresWatcher{
-		listener:     listener,
-		c:            make(chan *watch.Event),
-		buf:          make(chan *postgresEvent, channelBufferSize),
-		done:         make(chan struct{}),
-		template:     template,
-		channelNames: namesCopy,
-		opts:         opts,
-		index:        index,
-		value:        value,
+		listener:   listener,
+		c:          make(chan *watch.Event),
+		buf:        make(chan *postgresEvent, channelBufferSize),
+		done:       make(chan struct{}),
+		template:   template,
+		sqlChannel: sqlChannel,
+		opts:       opts,
+		index:      index,
+		value:      value,
 	}
 }
 
@@ -179,9 +173,19 @@ func parsePostgresEpoch(s string) (time.Time, error) {
 
 func parsePostgresEvent(payload string) *postgresEvent {
 	// TODO: do this in a streaming manner rather than copying the string
-	parts := strings.Split(payload, " ") // index, value, key, type, date, data
+	parts := strings.Split(payload, " ") // index, type, date, data
 	if len(parts) != 6 {
 		return &postgresEvent{err: errors.Errorf("failed to parse notification payload, wrong number of parts: %d", len(parts))}
+	}
+
+	value, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		return &postgresEvent{err: errors.Wrap(err, "failed to decode notification payload index value base64")}
+	}
+
+	key, err := base64.StdEncoding.DecodeString(parts[2])
+	if err != nil {
+		return &postgresEvent{err: errors.Wrap(err, "failed to decode notification payload key base64")}
 	}
 
 	eventType := watch.EventError
@@ -202,13 +206,13 @@ func parsePostgresEvent(payload string) *postgresEvent {
 
 	protoData, err := base64.StdEncoding.DecodeString(parts[5])
 	if err != nil {
-		return &postgresEvent{err: errors.Wrap(err, "failed to decode notification payload base64")}
+		return &postgresEvent{err: errors.Wrap(err, "failed to decode notification payload proto base64")}
 	}
 
 	return &postgresEvent{
 		index:     parts[0],
-		value:     parts[1],
-		key:       parts[2],
+		value:     string(value),
+		key:       string(key),
 		eventType: eventType,
 		time:      eventTime,
 		protoData: protoData,
@@ -304,7 +308,7 @@ func (l *PostgresListener) reset(err error) {
 }
 
 // TODO: I don't think we actually ever need to listen to multiple channels for a watch?
-func (l *PostgresListener) listen(channelNames []string, template proto.Message, index *string, value *string, opts watch.WatchOptions) (*postgresWatcher, error) {
+func (l *PostgresListener) listen(sqlChannel string, template proto.Message, index *string, value *string, opts watch.WatchOptions) (*postgresWatcher, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -312,24 +316,22 @@ func (l *PostgresListener) listen(channelNames []string, template proto.Message,
 		return nil, errors.New("PostgresListener has been closed")
 	}
 
-	pw := newPostgresWatch(l, channelNames, template, index, value, opts)
+	pw := newPostgresWatch(l, sqlChannel, template, index, value, opts)
 
-	// Subscribe the watch to the given channels
-	for _, name := range pw.channelNames {
-		watchers, ok := l.channels[name]
-		if !ok {
-			watchers = make(watcherSet)
-			l.channels[name] = watchers
-			if err := l.getPQL().Listen(name); err != nil {
-				// If an error occurs, error out all watches and reset the state of the
-				// listener to prevent desyncs
-				err = errors.EnsureStack(err)
-				l.reset(err)
-				return nil, err
-			}
+	// Subscribe the watch to the given channel
+	watchers, ok := l.channels[sqlChannel]
+	if !ok {
+		watchers = make(watcherSet)
+		l.channels[sqlChannel] = watchers
+		if err := l.getPQL().Listen(sqlChannel); err != nil {
+			// If an error occurs, error out all watches and reset the state of the
+			// listener to prevent desyncs
+			err = errors.EnsureStack(err)
+			l.reset(err)
+			return nil, err
 		}
-		watchers[pw] = struct{}{}
 	}
+	watchers[pw] = struct{}{}
 
 	return pw, nil
 }
@@ -339,18 +341,16 @@ func (l *PostgresListener) unregister(pw *postgresWatcher) error {
 	defer l.mu.Unlock()
 
 	// Remove the watch from the given channels, unlisten if any are empty
-	for _, name := range pw.channelNames {
-		watchers := l.channels[name]
-		delete(watchers, pw)
-		if len(watchers) == 0 {
-			delete(l.channels, name)
-			if err := l.getPQL().Unlisten(name); err != nil {
-				// If an error occurs, error out all watches and reset the state of the
-				// listener to prevent desyncs
-				err = errors.EnsureStack(err)
-				l.reset(err)
-				return err
-			}
+	watchers := l.channels[pw.sqlChannel]
+	delete(watchers, pw)
+	if len(watchers) == 0 {
+		delete(l.channels, pw.sqlChannel)
+		if err := l.getPQL().Unlisten(pw.sqlChannel); err != nil {
+			// If an error occurs, error out all watches and reset the state of the
+			// listener to prevent desyncs
+			err = errors.EnsureStack(err)
+			l.reset(err)
+			return err
 		}
 	}
 	return nil

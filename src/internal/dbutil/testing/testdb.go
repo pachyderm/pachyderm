@@ -1,4 +1,4 @@
-package dbutil
+package dbutil_test
 
 import (
 	"crypto/rand"

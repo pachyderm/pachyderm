@@ -10,7 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
@@ -38,34 +37,19 @@ func NewCache(c col.EtcdCollection, key string, defaultValue proto.Message) *Cac
 // Watch should be called in a goroutine to start the watcher
 func (c *Cache) Watch() {
 	backoff.RetryNotify(func() error {
-		watcher, err := c.c.ReadOnly(context.Background()).Watch()
-		if err != nil {
-			return err
-		}
-		defer watcher.Close()
-		for {
-			ev, ok := <-watcher.Watch()
-			if !ok {
-				return errors.New("watch closed unexpectedly")
-			}
-
-			if ev.Type == watch.EventError {
-				return ev.Err
-			}
-
-			if string(ev.Key) == c.key {
-				switch ev.Type {
-				case watch.EventPut:
-					val := proto.Clone(c.defaultValue)
-					if err := proto.Unmarshal(ev.Value, val); err != nil {
-						return err
-					}
-					c.value.Store(val)
-				case watch.EventDelete:
-					c.value.Store(c.defaultValue)
+		return c.c.ReadOnly(context.Background()).WatchOneF(c.key, func(ev *watch.Event) error {
+			switch ev.Type {
+			case watch.EventPut:
+				val := proto.Clone(c.defaultValue)
+				if err := proto.Unmarshal(ev.Value, val); err != nil {
+					return err
 				}
+				c.value.Store(val)
+			case watch.EventDelete:
+				c.value.Store(c.defaultValue)
 			}
-		}
+			return nil
+		})
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logrus.Printf("error from watcher for %v: %v; retrying in %v", c.key, err, d)
 		return nil
@@ -74,5 +58,5 @@ func (c *Cache) Watch() {
 
 // Load retrieves the current cached value
 func (c *Cache) Load() interface{} {
-	return c.value.Load()
+	return proto.Clone(c.value.Load().(proto.Message))
 }
