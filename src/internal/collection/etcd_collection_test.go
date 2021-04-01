@@ -1,4 +1,4 @@
-package testing
+package collection_test
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ func TestEtcdCollections(suite *testing.T) {
 	etcdEnv := testetcd.NewEnv(suite)
 	newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
 		prefix := testutil.UniqueString("test-etcd-collections-")
-		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, []*col.Index{TestSecondaryIndex}, &TestItem{}, nil, nil)
+		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, []*col.Index{TestSecondaryIndex}, &col.TestItem{}, nil, nil)
 
 		writeCallback := func(f func(col.ReadWriteCollection) error) error {
 			_, err := col.NewSTM(context.Background(), etcdEnv.EtcdClient, func(stm col.STM) (retErr error) {
@@ -436,7 +436,7 @@ func TestIteration(t *testing.T) {
 	etcdClient := getEtcdClient()
 	t.Run("one-val-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &TestItem{}, nil, nil)
+		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &col.TestItem{}, nil, nil)
 		numVals := 1000
 		for i := 0; i < numVals; i++ {
 			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
@@ -446,7 +446,7 @@ func TestIteration(t *testing.T) {
 			require.NoError(t, err)
 		}
 		ro := c.ReadOnly(context.Background())
-		testProto := &TestItem{}
+		testProto := &col.TestItem{}
 		i := numVals - 1
 		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
 			require.Equal(t, fmt.Sprintf("%d", i), testProto.ID)
@@ -456,7 +456,7 @@ func TestIteration(t *testing.T) {
 	})
 	t.Run("many-vals-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &TestItem{}, nil, nil)
+		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &col.TestItem{}, nil, nil)
 		numBatches := 10
 		valsPerBatch := 7
 		for i := 0; i < numBatches; i++ {
@@ -473,7 +473,7 @@ func TestIteration(t *testing.T) {
 		}
 		vals := make(map[string]bool)
 		ro := c.ReadOnly(context.Background())
-		testProto := &TestItem{}
+		testProto := &col.TestItem{}
 		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
 			require.False(t, vals[testProto.ID], "saw value %s twice", testProto.ID)
 			vals[testProto.ID] = true
@@ -511,7 +511,7 @@ func TestIteration(t *testing.T) {
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 		vals = make(map[string]bool)
 		valsOrder = []string{}
-		require.NoError(t, ro.List(val, &col.Options{col.SortByCreateRevision, col.SortAscend}, func() error {
+		require.NoError(t, ro.List(val, &col.Options{SortByCreateRevision, SortAscend}, func() error {
 			require.False(t, vals[val.Name], "saw value %s twice", val.Name)
 			vals[val.Name] = true
 			valsOrder = append(valsOrder, val.Name)

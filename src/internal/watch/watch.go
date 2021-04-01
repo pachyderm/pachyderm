@@ -39,7 +39,7 @@ type Event struct {
 // Unmarshal unmarshals the item in an event into a protobuf message.
 func (e *Event) Unmarshal(key *string, val proto.Message) error {
 	if e.Value == nil {
-		return errors.Errorf("")
+		return errors.Errorf("Cannot unmarshal an event with a null value, type: %v", e.Type)
 	}
 	if err := CheckType(e.Template, val); err != nil {
 		return err

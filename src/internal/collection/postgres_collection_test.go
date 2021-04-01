@@ -1,4 +1,4 @@
-package testing
+package collection_test
 
 import (
 	"context"
@@ -17,7 +17,7 @@ func TestPostgresCollections(suite *testing.T) {
 
 	newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
 		db, listener := postgres.NewDatabase(t)
-		testCol, err := col.NewPostgresCollection(context.Background(), db, listener, &TestItem{}, []*col.Index{TestSecondaryIndex})
+		testCol, err := col.NewPostgresCollection(context.Background(), db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
 		require.NoError(t, err)
 
 		writeCallback := func(f func(col.ReadWriteCollection) error) error {

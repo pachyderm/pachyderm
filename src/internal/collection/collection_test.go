@@ -1,4 +1,4 @@
-package testing
+package collection_test
 
 import (
 	"fmt"
@@ -84,8 +84,8 @@ func makeID(i int) string {
 }
 
 // Helper function to instantiate the proto for a row by ID
-func makeProto(id string) *TestItem {
-	return &TestItem{ID: id, Value: changedValue}
+func makeProto(id string) *col.TestItem {
+	return &col.TestItem{ID: id, Value: changedValue}
 }
 
 type RowDiff struct {
@@ -126,7 +126,7 @@ func checkDefaultCollection(t *testing.T, ro col.ReadOnlyCollection, diff RowDif
 	checkCollection(t, ro, expected)
 }
 
-func checkItem(t *testing.T, item *TestItem, id string, value string) error {
+func checkItem(t *testing.T, item *col.TestItem, id string, value string) error {
 	if item.ID != id {
 		return errors.Errorf("Item has incorrect ID, expected: %s, actual: %s", id, item.ID)
 	}
@@ -137,7 +137,7 @@ func checkItem(t *testing.T, item *TestItem, id string, value string) error {
 }
 
 func checkCollection(t *testing.T, ro col.ReadOnlyCollection, expected map[string]string) {
-	testProto := &TestItem{}
+	testProto := &col.TestItem{}
 	actual := map[string]string{}
 	require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
 		actual[testProto.ID] = testProto.Value
@@ -170,14 +170,14 @@ func collectionTests(
 			subsuite.Parallel()
 			subsuite.Run("ErrNotFound", func(t *testing.T) {
 				t.Parallel()
-				itemProto := &TestItem{}
+				itemProto := &col.TestItem{}
 				err := defaultCol.Get("baz", itemProto)
 				require.True(t, errors.Is(err, col.ErrNotFound{}), "Incorrect error: %v", err)
 				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
 			})
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
-				itemProto := &TestItem{}
+				itemProto := &col.TestItem{}
 				require.NoError(t, defaultCol.Get("5", itemProto))
 				require.Equal(t, "5", itemProto.ID)
 			})
@@ -197,7 +197,7 @@ func collectionTests(
 			subsuite.Parallel()
 			subsuite.Run("Empty", func(t *testing.T) {
 				t.Parallel()
-				testProto := &TestItem{}
+				testProto := &col.TestItem{}
 				err := emptyCol.List(testProto, col.DefaultOptions(), func() error {
 					return errors.Errorf("List callback should not have been called for an empty collection")
 				})
@@ -207,7 +207,7 @@ func collectionTests(
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 				items := map[string]string{}
-				testProto := &TestItem{}
+				testProto := &col.TestItem{}
 				err := defaultCol.List(testProto, col.DefaultOptions(), func() error {
 					items[testProto.ID] = testProto.Value
 					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
@@ -234,7 +234,7 @@ func collectionTests(
 
 					collect := func(order col.SortOrder) []string {
 						keys := []string{}
-						testProto := &TestItem{}
+						testProto := &col.TestItem{}
 						err := ro.List(testProto, &col.Options{Target: target, Order: order}, func() error {
 							keys = append(keys, testProto.ID)
 							return nil
@@ -274,7 +274,7 @@ func collectionTests(
 					createKeys := []string{"0", "6", "7", "9", "3", "8", "4", "1", "2", "5"}
 					for _, k := range createKeys {
 						err := writer(func(rw col.ReadWriteCollection) error {
-							testProto := &TestItem{ID: k, Value: originalValue}
+							testProto := &col.TestItem{ID: k, Value: originalValue}
 							return rw.Create(k, testProto)
 						})
 						require.NoError(t, err)
@@ -292,7 +292,7 @@ func collectionTests(
 					modKeys := []string{"5", "7", "2", "9", "1", "0", "8", "4", "3", "6"}
 					for _, k := range modKeys {
 						err := writer(func(rw col.ReadWriteCollection) error {
-							testProto := &TestItem{}
+							testProto := &col.TestItem{}
 							if err := rw.Update(k, testProto, func() error {
 								testProto.Value = changedValue
 								return nil
@@ -314,7 +314,7 @@ func collectionTests(
 			subsuite.Run("ErrorInCallback", func(t *testing.T) {
 				t.Parallel()
 				count := 0
-				testProto := &TestItem{}
+				testProto := &col.TestItem{}
 				err := defaultCol.List(testProto, col.DefaultOptions(), func() error {
 					count++
 					return &TestError{}
@@ -327,7 +327,7 @@ func collectionTests(
 			subsuite.Run("ErrBreak", func(t *testing.T) {
 				t.Parallel()
 				count := 0
-				testProto := &TestItem{}
+				testProto := &col.TestItem{}
 				err := defaultCol.List(testProto, col.DefaultOptions(), func() error {
 					count++
 					return errutil.ErrBreak
@@ -377,7 +377,7 @@ func collectionTests(
 		type testEvent struct {
 			Type  watch.EventType
 			Key   string
-			Value *TestItem
+			Value *col.TestItem
 		}
 
 		checkEvents := func(t *testing.T, actual []*watch.Event, expected []testEvent) {
@@ -388,7 +388,7 @@ func collectionTests(
 					require.Equal(t, expected[i].Key, string(actual[i].Key))
 				}
 				if actual[i].Type == watch.EventPut {
-					actualProto := &TestItem{}
+					actualProto := &col.TestItem{}
 					require.NoError(t, proto.Unmarshal(actual[i].Value, actualProto))
 					require.Equal(t, expected[i].Value, actualProto)
 				}
@@ -538,7 +538,7 @@ func collectionTests(
 				readOnly, writer := initCollection(t)
 
 				err := writer(func(rw col.ReadWriteCollection) error {
-					itemProto := &TestItem{}
+					itemProto := &col.TestItem{}
 					if err := rw.Get(makeID(8), itemProto); err != nil {
 						return err
 					}
@@ -556,7 +556,7 @@ func collectionTests(
 				readOnly, writer := initCollection(t)
 
 				err := writer(func(rw col.ReadWriteCollection) error {
-					testProto := &TestItem{}
+					testProto := &col.TestItem{}
 					if err := rw.Get(makeID(1), testProto); err != nil {
 						return err
 					}
@@ -697,7 +697,7 @@ func collectionTests(
 				updateID := makeID(1)
 				readOnly, writer := initCollection(t)
 				err := writer(func(rw col.ReadWriteCollection) error {
-					testProto := &TestItem{}
+					testProto := &col.TestItem{}
 					if err := rw.Upsert(updateID, testProto, func() error {
 						if err := checkItem(t, testProto, updateID, originalValue); err != nil {
 							return err
@@ -721,7 +721,7 @@ func collectionTests(
 				updateID := makeID(2)
 				readOnly, writer := initCollection(t)
 				err := writer(func(rw col.ReadWriteCollection) error {
-					testProto := &TestItem{}
+					testProto := &col.TestItem{}
 					return rw.Update(updateID, testProto, func() error {
 						return &TestError{}
 					})
@@ -736,7 +736,7 @@ func collectionTests(
 				notExistsID := makeID(10)
 				readOnly, writer := initCollection(t)
 				err := writer(func(rw col.ReadWriteCollection) error {
-					testProto := &TestItem{}
+					testProto := &col.TestItem{}
 					return rw.Update(notExistsID, testProto, func() error {
 						return nil
 					})
@@ -753,7 +753,7 @@ func collectionTests(
 				subsuite.Run("ErrorInCallback", func(t *testing.T) {
 					t.Parallel()
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
-						testProto := &TestItem{}
+						testProto := &col.TestItem{}
 						if err := rw.Update(makeID(2), testProto, func() error {
 							testProto.Value = changedValue
 							return nil
@@ -771,7 +771,7 @@ func collectionTests(
 					t.Parallel()
 					notExistsID := makeID(10)
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
-						testProto := &TestItem{}
+						testProto := &col.TestItem{}
 						if err := rw.Update(makeID(3), testProto, func() error {
 							testProto.Value = changedValue
 							return nil
@@ -790,7 +790,7 @@ func collectionTests(
 				subsuite.Run("UserError", func(t *testing.T) {
 					t.Parallel()
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
-						testProto := &TestItem{}
+						testProto := &col.TestItem{}
 						if err := rw.Update(makeID(6), testProto, func() error {
 							testProto.Value = changedValue
 							return nil
@@ -812,7 +812,7 @@ func collectionTests(
 				newID := makeID(10)
 				readOnly, writer := initCollection(t)
 				err := writer(func(rw col.ReadWriteCollection) error {
-					testProto := &TestItem{}
+					testProto := &col.TestItem{}
 					return rw.Upsert(newID, testProto, func() error {
 						if testProto.ID != "" {
 							return errors.Errorf("Upsert of new row modified the ID, new value: %s", testProto.ID)
@@ -834,7 +834,7 @@ func collectionTests(
 				newID := makeID(10)
 				readOnly, writer := initCollection(t)
 				err := writer(func(rw col.ReadWriteCollection) error {
-					testProto := &TestItem{}
+					testProto := &col.TestItem{}
 					return rw.Upsert(newID, testProto, func() error {
 						return &TestError{}
 					})
@@ -849,7 +849,7 @@ func collectionTests(
 				overwriteID := makeID(5)
 				readOnly, writer := initCollection(t)
 				err := writer(func(rw col.ReadWriteCollection) error {
-					testProto := &TestItem{}
+					testProto := &col.TestItem{}
 					return rw.Upsert(overwriteID, testProto, func() error {
 						if testProto.ID != overwriteID {
 							return errors.Errorf("Upsert of existing row does not pass through the ID, expected: %s, actual: %s", overwriteID, testProto.ID)
@@ -872,7 +872,7 @@ func collectionTests(
 					t.Parallel()
 					existsID := makeID(3)
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
-						testProto := &TestItem{}
+						testProto := &col.TestItem{}
 						if err := rw.Upsert(makeID(6), testProto, func() error {
 							return nil
 						}); err != nil {
@@ -887,7 +887,7 @@ func collectionTests(
 				subsuite.Run("UserError", func(t *testing.T) {
 					t.Parallel()
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
-						testProto := &TestItem{}
+						testProto := &col.TestItem{}
 						if err := rw.Upsert(makeID(6), testProto, func() error {
 							return nil
 						}); err != nil {
@@ -901,7 +901,7 @@ func collectionTests(
 				subsuite.Run("UserErrorInCallback", func(t *testing.T) {
 					t.Parallel()
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
-						testProto := &TestItem{}
+						testProto := &col.TestItem{}
 						if err := rw.Upsert(makeID(5), testProto, func() error {
 							testProto.Value = changedValue
 							return nil
