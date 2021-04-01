@@ -54,7 +54,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	dex_sql "github.com/dexidp/dex/storage/sql"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -157,18 +156,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		return errors.Wrapf(err, "getClusterID")
 	}
 
-	identityStorageProvider, err := (&dex_sql.Postgres{
-		NetworkDB: dex_sql.NetworkDB{
-			Database: env.Config().IdentityServerDatabase,
-			User:     env.Config().IdentityServerUser,
-			Password: env.Config().IdentityServerPassword,
-			Host:     env.Config().PostgresServiceHost,
-			Port:     uint16(env.Config().PostgresServicePort),
-		},
-		SSL: dex_sql.SSL{
-			Mode: env.Config().PostgresServiceSSL,
-		},
-	}).Open(log.NewEntry(log.New()).WithField("source", "identity-db"))
+	identityStorageProvider, err := identity_server.NewStorageProvider(env)
 	if err != nil {
 		return err
 	}
@@ -576,18 +564,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return errors.Wrapf(err, "getClusterID")
 	}
 
-	identityStorageProvider, err := (&dex_sql.Postgres{
-		NetworkDB: dex_sql.NetworkDB{
-			Database: env.Config().IdentityServerDatabase,
-			User:     env.Config().IdentityServerUser,
-			Password: env.Config().IdentityServerPassword,
-			Host:     env.Config().PostgresServiceHost,
-			Port:     uint16(env.Config().PostgresServicePort),
-		},
-		SSL: dex_sql.SSL{
-			Mode: env.Config().PostgresServiceSSL,
-		},
-	}).Open(log.NewEntry(log.New()).WithField("source", "identity-db"))
+	identityStorageProvider, err := identity_server.NewStorageProvider(env)
 	if err != nil {
 		return err
 	}
