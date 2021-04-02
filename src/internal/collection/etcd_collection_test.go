@@ -32,18 +32,22 @@ var (
 func TestEtcdCollections(suite *testing.T) {
 	suite.Parallel()
 	etcdEnv := testetcd.NewEnv(suite)
-	newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
+	newCollection := func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		prefix := testutil.UniqueString("test-etcd-collections-")
 		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, []*col.Index{TestSecondaryIndex}, &col.TestItem{}, nil, nil)
 
-		writeCallback := func(f func(col.ReadWriteCollection) error) error {
-			_, err := col.NewSTM(context.Background(), etcdEnv.EtcdClient, func(stm col.STM) (retErr error) {
+		readCallback := func(ctx context.Context) col.ReadOnlyCollection {
+			return testCol.ReadOnly(ctx)
+		}
+
+		writeCallback := func(ctx context.Context, f func(col.ReadWriteCollection) error) error {
+			_, err := col.NewSTM(ctx, etcdEnv.EtcdClient, func(stm col.STM) (retErr error) {
 				return f(testCol.ReadWrite(stm))
 			})
 			return errors.EnsureStack(err)
 		}
 
-		return testCol.ReadOnly(context.Background()), writeCallback
+		return readCallback, writeCallback
 	}
 
 	collectionTests(suite, newCollection)
@@ -301,8 +305,8 @@ func TestIndexWatch(t *testing.T) {
 	event = <-eventCh
 	require.NoError(t, event.Err)
 	require.Equal(t, event.Type, watch.EventDelete)
-	require.NoError(t, event.Unmarshal(&ID, job))
-	require.Equal(t, j1.Job.ID, ID)
+	require.Nil(t, event.Value)
+	require.Equal(t, j1.Job.ID, string(event.Key))
 
 	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
@@ -314,8 +318,8 @@ func TestIndexWatch(t *testing.T) {
 	event = <-eventCh
 	require.NoError(t, event.Err)
 	require.Equal(t, event.Type, watch.EventDelete)
-	require.NoError(t, event.Unmarshal(&ID, job))
-	require.Equal(t, j2.Job.ID, ID)
+	require.Nil(t, event.Value)
+	require.Equal(t, j2.Job.ID, string(event.Key))
 }
 
 func TestBoolIndex(t *testing.T) {
