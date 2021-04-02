@@ -401,15 +401,16 @@ nav:
         - Overview: enterprise/index.md
         - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
-        - Authentication:
-            - Overview: enterprise/auth2/authentication/index.md
-            - Configure Pachyderm with an IdP:
-                - Configure Pachyderm with Okta:
-                - Configure Pachyderm with Keycloak:       
-        - Authorization:
-            - Overview: enterprise/auth2/authorization/index.md
-        - License Server:
-            - Overview: enterprise/auth2/license-server/index.md
+        - Authentication & Authorization:
+            - Overview: enterprise/auth2/index.md
+            - Authentication:
+                - Overview: enterprise/auth2/authentication/index.md
+                - Configure Pachyderm with an IdP:
+                    - Configure Pachyderm with Okta:
+                    - Configure Pachyderm with Keycloak:       
+            - Authorization: enterprise/auth2/authorization/index.md
+            - License Server:
+                - Overview: enterprise/auth2/license-server/index.md
         
         - Configure Access Controls:
             - Overview: enterprise/auth/index.md
