@@ -56,12 +56,3 @@ func pathIsChild(parent, child string) bool {
 func cleanPath(x string) string {
 	return "/" + strings.Trim(x, "/")
 }
-
-// TODO: Readd?
-//func checkFilePath(path string) error {
-//	path = filepath.Clean(path)
-//	if strings.HasPrefix(path, "../") {
-//		return errors.Errorf("path (%s) invalid: traverses above root", path)
-//	}
-//	return nil
-//}
