@@ -1,7 +1,28 @@
 @import url('https://fonts.googleapis.com/css?family=Montserrat:400,500,600,800&display=swap');
 
+:root {
+  --header-height: 4.25rem;
+}
+
 .tooltip.show {
   opacity: 1;
+}
+
+*,
+*::after,
+*::before {
+  box-sizing: inherit;
+}
+
+body {
+  color: var(--pachyderm-black);
+  box-sizing: border-box;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-grey);
 }
 
 body, div[id=root], html, main {

@@ -3,5 +3,28 @@
   max-width: 19rem;
   width: 100%;
   display: flex;
+  flex-direction: column;
   border-left: solid 1px var(--line-grey);
+}
+
+.overlay {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: auto;
+  max-width: none;
+}
+
+.closeContainer {
+  padding: 1rem 1.375rem;
+}
+
+.closeButton {
+  display: block;
+  margin-left: auto;
+}
+
+.closeSvg path {
+  fill: var(--placeholder-grey);
 }

@@ -1,6 +1,6 @@
 .base {
   background-color: var(--background-black);
-  height: 4.25rem;
+  height: var(--header-height);
   display: flex;
   align-items: center;
   justify-content: space-between;

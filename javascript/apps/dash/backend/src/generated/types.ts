@@ -998,6 +998,17 @@ export type ProjectDetailsQuery = {__typename?: 'Query'} & {
     };
 };
 
+export type ProjectQueryVariables = Exact<{
+  id: Scalars['ID'];
+}>;
+
+export type ProjectQuery = {__typename?: 'Query'} & {
+  project: {__typename?: 'Project'} & Pick<
+    Project,
+    'id' | 'name' | 'description' | 'createdAt' | 'status'
+  >;
+};
+
 export type ProjectsQueryVariables = Exact<{[key: string]: never}>;
 
 export type ProjectsQuery = {__typename?: 'Query'} & {

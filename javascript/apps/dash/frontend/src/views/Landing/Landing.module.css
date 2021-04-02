@@ -1,6 +1,5 @@
 .base {
   background-color: var(--background-grey);
-  height: 100%;
   display: flex;
 }
 

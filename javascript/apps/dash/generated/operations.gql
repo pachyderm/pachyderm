@@ -82,6 +82,15 @@ query projectDetails($args: ProjectDetailsQueryArgs!) {
     }
   }
 }
+query project($id: ID!) {
+  project(id: $id) {
+    id
+    name
+    description
+    createdAt
+    status
+  }
+}
 query projects {
   projects {
     id

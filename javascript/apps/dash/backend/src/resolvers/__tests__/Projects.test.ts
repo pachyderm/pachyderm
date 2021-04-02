@@ -6,7 +6,6 @@ import {
   mockServer,
   executeOperation,
   createServiceError,
-  createOperation,
 } from '@dash-backend/testHelpers';
 import {Project, ProjectDetails} from '@graphqlTypes';
 
@@ -14,19 +13,11 @@ import {DEFAULT_PROJECT_ID} from '../Projects';
 
 describe('Projects Resolver', () => {
   describe('project', () => {
+    const operationName = 'project';
+
     it('should return a project for a given id', async () => {
-      const {data, errors = []} = await createOperation<{project: Project}>(
-        `
-        query project($id: ID!) {
-          project(id: $id) {
-            id
-            name
-            status
-            description
-            createdAt
-          }
-        }
-      `,
+      const {data, errors = []} = await executeOperation<{project: Project}>(
+        operationName,
         {id: '1'},
       );
 
@@ -35,18 +26,8 @@ describe('Projects Resolver', () => {
     });
 
     it('should return a NOT_FOUND error if a project cannot be found', async () => {
-      const {data, errors = []} = await createOperation<{project: Project}>(
-        `
-        query project($id: ID!) {
-          project(id: $id) {
-            id
-            name
-            status
-            description
-            createdAt
-          }
-        }
-      `,
+      const {data, errors = []} = await executeOperation<{project: Project}>(
+        operationName,
         {id: 'bologna'},
       );
 
@@ -56,18 +37,8 @@ describe('Projects Resolver', () => {
     });
 
     it('should return the default project', async () => {
-      const {data, errors = []} = await createOperation<{project: Project}>(
-        `
-        query project($id: ID!) {
-          project(id: $id) {
-            id
-            name
-            status
-            description
-            createdAt
-          }
-        }
-      `,
+      const {data, errors = []} = await executeOperation<{project: Project}>(
+        operationName,
         {id: DEFAULT_PROJECT_ID},
       );
 

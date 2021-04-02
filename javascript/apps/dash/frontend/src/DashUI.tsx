@@ -11,8 +11,8 @@ const DashUI: React.FC = () => {
   return (
     <BrowserRouter>
       <ApolloProvider>
+        <Header />
         <main id="main">
-          <Header />
           <Switch>
             <Route path="/" exact component={AuthenticatedRoute(Landing)} />
 

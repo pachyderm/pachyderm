@@ -2,12 +2,12 @@ import {Info, Group, InfoSVG} from '@pachyderm/components';
 import React from 'react';
 import {Link} from 'react-router-dom';
 
+import JobList from '@dash-frontend/components/JobList';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {Project} from '@graphqlTypes';
 
 import ProjectStatus from '../ProjectStatus';
 
-import JobListItem from './components/JobListItem';
 import styles from './ProjectPreview.module.css';
 
 type ProjectPreviewProps = {
@@ -52,9 +52,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
           <h4 className={styles.subTitle}>Last 30 Jobs</h4>
         </Group>
       </div>
-      {projectDetails.jobs.map((job) => (
-        <JobListItem job={job} key={job.id} />
-      ))}
+      <JobList projectId={project.id} />
     </div>
   );
 };

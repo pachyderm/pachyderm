@@ -1,0 +1,29 @@
+.base {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  min-width: 18.75rem;
+  width: 100%;
+}
+
+.base.expandActions {
+  min-width: 32.1875rem;
+}
+
+.skeleton {
+  margin-bottom: 0;
+  max-width: none;
+}
+
+.item {
+  width: 100%;
+  display: block;
+  font-size: 0.75rem;
+  color: var(--pachyderm-black);
+  padding: 0.75rem;
+}
+
+.base.expandActions .item {
+  padding-left: 1.625rem;
+  padding-right: 3.875rem;
+}

@@ -1,20 +1,12 @@
-import {useMemo} from 'react';
-import {useParams} from 'react-router';
-
-import {ProjectRouteParams} from '@dash-frontend/lib/types';
-
-import {useProjects} from './useProjects';
+import useProject from './useProject';
+import useProjectParams from './useProjectParams';
 
 const useCurrentProject = () => {
-  const params = useParams<ProjectRouteParams>();
-  const {projects, loading} = useProjects();
-
-  const currentProject = useMemo(() => {
-    return projects.find((project) => project.id === params.projectId);
-  }, [params.projectId, projects]);
+  const {projectId} = useProjectParams();
+  const {project, loading} = useProject({id: projectId});
 
   return {
-    currentProject,
+    currentProject: project,
     loading,
   };
 };
