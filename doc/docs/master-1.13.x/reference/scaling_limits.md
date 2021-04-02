@@ -1,23 +1,15 @@
 # Pipeline Scaling Limits in Community Edition
 
-Pachyderm Community Edition **limits the number of pipelines** users can deploy and **caps the parallelism** settings of those pipelines.  
+Our free Pachyderm Community Edition contains **built-in scaling limitations and parallelism thresholds**. If you want to scale beyond these limits, request your FREE 30-Day [Pachyderm Enterprise token](https://www.pachyderm.com/trial) and enjoy unlimited scaling, JupyterHub integration, and more.
 
-If your DAGs require more than what our Community Edition allows you to run, [ask for a free trial and receive a time-limited enterprise license token](https://www.pachyderm.com/trial). 
+!!! Info "You might qualify for a free Enterprise license." 
+    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](https://www.pachyderm.com/trial)
 
 ## Scaling Limits
 
 |**Number of pipelines** deployed| **Number of workers** for each pipeline|
 |------|------|
 |Community Users can deploy **up to 16 pipelines**.| Community Users can run **up to 8 workers in parallel** on each pipeline.|
-
-Are you hitting those limits? You are likely to be needing our assistance in optimizing your DAGs. We are here to help! See [Lift the limitation](#lift-the-limitation) and request a free trial of our Enterprise Edition.
-
-## Lift the limitations
-
-To experiment with Pachyderm without limit, we provide an easy way to request an [**Enterprise Edition trial token**](https://www.pachyderm.com/trial). Fill in the form (link provided) and receive an enterprise license token.
-
-!!! Info "You might qualify for a free Enterprise license." 
-    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](https://www.pachyderm.com/trial)
 
 ## What happens when you exceed those limits?
 

@@ -20,11 +20,16 @@ enum CompressionAlgo {
   GZIP_BEST_SPEED = 1;  
 }
 
+enum EncryptionAlgo {
+  CHACHA20 = 0;
+}
+
 message Ref {
   bytes id = 1;
   int64 size_bytes = 2;
   bool edge = 3;
 
   bytes dek = 4;
-  CompressionAlgo compression_algo = 5;
+  EncryptionAlgo encryption_algo = 5;
+  CompressionAlgo compression_algo = 6;
 }

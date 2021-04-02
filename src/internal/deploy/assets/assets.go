@@ -1089,7 +1089,9 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 			return err
 		}
 	}
-	if !opts.NoRBAC {
+	// Don't apply the cluster role binding for the enterprise server,
+	// because it doesn't interact with the k8s API.
+	if !opts.NoRBAC && !opts.EnterpriseServer {
 		if opts.LocalRoles {
 			if err := encoder.Encode(Role(opts)); err != nil {
 				return err

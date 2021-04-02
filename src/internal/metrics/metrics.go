@@ -24,15 +24,15 @@ import (
 type Reporter struct {
 	router    *router
 	clusterID string
-	env       *serviceenv.ServiceEnv
+	env       serviceenv.ServiceEnv
 }
 
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
-func NewReporter(clusterID string, env *serviceenv.ServiceEnv) *Reporter {
+func NewReporter(clusterID string, env serviceenv.ServiceEnv) *Reporter {
 	var r *router
-	if env.MetricsEndpoint != "" {
-		r = newRouter(env.MetricsEndpoint)
+	if env.Config().MetricsEndpoint != "" {
+		r = newRouter(env.Config().MetricsEndpoint)
 	} else {
 		r = newRouter()
 	}

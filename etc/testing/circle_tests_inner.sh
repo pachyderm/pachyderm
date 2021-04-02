@@ -9,6 +9,8 @@ VM_IP="localhost"
 export VM_IP
 PACH_PORT="30650"
 export PACH_PORT
+ENTERPRISE_PORT="31650"
+export ENTERPRISE_PORT
 GOPATH=/root/go
 export GOPATH
 PATH="${GOPATH}/bin:${PATH}"
@@ -120,6 +122,11 @@ case "${BUCKET}" in
   ENTERPRISE)
     make test-license
     make test-enterprise
+    # Launch a stand-alone enterprise server in a separate namespace
+    make launch-enterprise
+    echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite 
+    pachctl config set active-enterprise-context enterprise
+    make test-enterprise-integration
     ;;
   *)
     echo "Unknown bucket"

@@ -4,7 +4,7 @@
 
 Job failures can occur for a variety of reasons, but they generally categorize into 4 failure types: 
 
-1. You [hit the Community Edition Scaling Limit](#community-edition-scaling-limit).
+1. You [hit one of the Pachyderm Community Edition Scaling Limits](#community-edition-scaling-limit).
 1. [User-code-related](#user-code-failures): An error in the user code running inside the container or the json pipeline config.
 1. [Data-related](#data-failures): A problem with the input data such as incorrect file type or file name.
 1. [System- or infrastructure-related](#system-level-failures): An error in Pachyderm or Kubernetes such as missing credentials, transient network errors, or resource constraints (for example, out-of-memory--OOM--killed).
@@ -24,7 +24,7 @@ At the bottom of the document, we'll provide specific troubleshooting steps for 
 
 First off, you can see the status of Pachyderm's jobs with `pachctl list job`, which will show you the status of all jobs.  For a failed job, use `pachctl inspect job <job-id>` to find out more about the failure.  The different categories of failures are addressed below.
 
-### Community Edition Scaling Limit
+### Community Edition Scaling Limits
 
 If you are running on the Community Edition, you might have **hit the limit set on the number of pipelines and/or parallel workers**.
 

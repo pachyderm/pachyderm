@@ -99,7 +99,7 @@ type errGithookServiceNotFound struct {
 type apiServer struct {
 	log.Logger
 	etcdPrefix            string
-	env                   *serviceenv.ServiceEnv
+	env                   serviceenv.ServiceEnv
 	txnEnv                *txnenv.TransactionEnv
 	namespace             string
 	workerImage           string
@@ -1104,7 +1104,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
-	if a.env.LokiLogging || request.UseLokiBackend {
+	if a.env.Config().LokiLogging || request.UseLokiBackend {
 		resp, err := pachClient.Enterprise.GetState(context.Background(),
 			&enterpriseclient.GetStateRequest{})
 		if err != nil {
@@ -1427,6 +1427,12 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	if request.Transform == nil {
 		return errors.Errorf("pipeline must specify a transform")
+	}
+	if request.ReprocessSpec != "" &&
+		request.ReprocessSpec != client.ReprocessSpecUntilSuccess &&
+		request.ReprocessSpec != client.ReprocessSpecEveryJob {
+		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of '%s' or '%s'",
+			client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryJob)
 	}
 	return nil
 }
@@ -1860,7 +1866,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		PodPatch:              request.PodPatch,
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
-		NoSkip:                request.NoSkip,
+		ReprocessSpec:         request.ReprocessSpec,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return err
@@ -2318,6 +2324,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	}
 	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil && pipelineInfo.Spout.Service.Type == "" {
 		pipelineInfo.Spout.Service.Type = string(v1.ServiceTypeNodePort)
+	}
+	if pipelineInfo.ReprocessSpec == "" {
+		pipelineInfo.ReprocessSpec = client.ReprocessSpecUntilSuccess
 	}
 	return nil
 }

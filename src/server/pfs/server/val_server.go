@@ -17,10 +17,10 @@ var _ APIServer = &validatedAPIServer{}
 
 type validatedAPIServer struct {
 	APIServer
-	env *serviceenv.ServiceEnv
+	env serviceenv.ServiceEnv
 }
 
-func newValidatedAPIServer(embeddedServer APIServer, env *serviceenv.ServiceEnv) *validatedAPIServer {
+func newValidatedAPIServer(embeddedServer APIServer, env serviceenv.ServiceEnv) *validatedAPIServer {
 	return &validatedAPIServer{
 		APIServer: embeddedServer,
 		env:       env,

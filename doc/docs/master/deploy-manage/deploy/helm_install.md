@@ -52,6 +52,9 @@ See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob
     ```shell
     $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
     ```
+You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
+Each version of a chart is associated with a given version of Pachyderm. No mention of the version will install the latest available version of Pachyderm by default. 
+[Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) lists all available chart versions and their associated version of Pachyderm. 
 
 ### Check your installation
 

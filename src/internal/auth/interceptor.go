@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // authHandlers is a mapping of RPCs to authorization levels required to access them.
@@ -202,16 +203,46 @@ var authHandlers = map[string]authHandler{
 }
 
 // NewInterceptor instantiates a new Interceptor
-func NewInterceptor(env *serviceenv.ServiceEnv) *Interceptor {
+func NewInterceptor(env serviceenv.ServiceEnv) *Interceptor {
 	return &Interceptor{
 		env: env,
 	}
 }
 
+// we use ServerStreamWrapper to set the stream's Context with added values
+type ServerStreamWrapper struct {
+	stream grpc.ServerStream
+	ctx    context.Context
+}
+
+func (s ServerStreamWrapper) Context() context.Context {
+	return s.ctx
+}
+
+func (s ServerStreamWrapper) SetHeader(md metadata.MD) error {
+	return s.stream.SetHeader(md)
+}
+
+func (s ServerStreamWrapper) SendHeader(md metadata.MD) error {
+	return s.stream.SendHeader(md)
+}
+
+func (s ServerStreamWrapper) SetTrailer(md metadata.MD) {
+	s.stream.SetTrailer(md)
+}
+
+func (s ServerStreamWrapper) SendMsg(m interface{}) error {
+	return s.stream.SendMsg(m)
+}
+
+func (s ServerStreamWrapper) RecvMsg(m interface{}) error {
+	return s.stream.RecvMsg(m)
+}
+
 // Interceptor checks the authentication metadata in unary and streaming RPCs
 // and prevents unknown or unauthorized calls.
 type Interceptor struct {
-	env *serviceenv.ServiceEnv
+	env serviceenv.ServiceEnv
 }
 
 // InterceptUnary applies authentication rules to unary RPCs
@@ -223,25 +254,47 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 		return nil, fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	if err := a(pachClient, info.FullMethod); err != nil {
-		logrus.Errorf("denied unary call %q\n", info.FullMethod)
+	username, err := a(pachClient, info.FullMethod)
+
+	if err != nil {
+		logrus.Errorf("denied unary call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
 		return nil, err
 	}
+
+	if username != "" {
+		ctx = setWhoAmI(ctx, username)
+	}
+
 	return handler(ctx, req)
 }
 
 // InterceptStream applies authentication rules to streaming RPCs
 func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	pachClient := i.env.GetPachClient(stream.Context())
+	ctx := stream.Context()
+	pachClient := i.env.GetPachClient(ctx)
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
 		return fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	if err := a(pachClient, info.FullMethod); err != nil {
-		logrus.Errorf("denied streaming call %q\n", info.FullMethod)
+	username, err := a(pachClient, info.FullMethod)
+
+	if err != nil {
+		logrus.Errorf("denied streaming call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
 		return err
 	}
+
+	if username != "" {
+		newCtx := setWhoAmI(ctx, username)
+		stream = ServerStreamWrapper{stream, newCtx}
+	}
 	return handler(srv, stream)
+}
+
+func nameOrUnauthenticated(name string) string {
+	if name == "" {
+		return "unauthenticated"
+	}
+	return name
 }

@@ -217,6 +217,14 @@ launch-dev: check-kubectl check-kubectl-connection install
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
+launch-enterprise: check-kubectl check-kubectl-connection install
+	$(eval STARTTIME := $(shell date +%s))
+	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
+	$(GOBIN)/pachctl deploy local --no-guaranteed -d --enterprise-server --namespace enterprise  --pachd-memory-request 128M --postgres-memory-request 128M --etcd-memory-request 128M --pachd-cpu-request 100m --postgres-cpu-request 100m --etcd-cpu-request 100m --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	# wait for the pachyderm to come up
+	until timeout 1s ./etc/kube/check_ready.sh app=pach-enterprise enterprise; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+
 clean-launch: check-kubectl install
 	yes | $(GOBIN)/pachctl undeploy
 
@@ -337,6 +345,10 @@ test-admin:
 
 test-enterprise:
 	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT)
+
+test-enterprise-integration:
+	go install ./src/testing/match
+	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT)
 
 test-tls:
 	./etc/testing/test_tls.sh
@@ -539,6 +551,7 @@ spellcheck:
 	clean-launch-loki \
 	launch-dex \
 	clean-launch-dex \
+	launch-enterprise \
 	logs \
 	follow-logs \
 	google-cluster-manifest \
