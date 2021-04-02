@@ -406,12 +406,11 @@ nav:
             - Authentication:
                 - Overview: enterprise/auth2/authentication/index.md
                 - Configure Pachyderm with an IdP:
-                    - Configure Pachyderm with Okta:
-                    - Configure Pachyderm with Keycloak:       
+                    - Configure Pachyderm with Okta: enterprise/auth2/authentication/index.md
+                    - Configure Pachyderm with Keycloak: enterprise/auth2/authentication/index.md
             - Authorization: enterprise/auth2/authorization/index.md
-            - License Server:
-                - Overview: enterprise/auth2/license-server/index.md
-        
+        - License Server:
+            - Overview: enterprise/auth2/license-server/index.md       
         - Configure Access Controls:
             - Overview: enterprise/auth/index.md
             - Enable Access Controls: enterprise/auth/enable-auth.md
