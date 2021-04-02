@@ -14,6 +14,7 @@ pachctl debug dump <file> [flags]
 
 ```
   -h, --help              help for dump
+  -l, --limit int         Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.
       --pachd             Only collect the dump from pachd.
   -p, --pipeline string   Only collect the dump from the worker pods for the given pipeline.
   -w, --worker string     Only collect the dump from the given worker pod.
