@@ -20,12 +20,12 @@ const executePachCommand = (command) => {
 };
 
 const writeToEnv = (variable, value) => {
-  const environment = readFileSync('.env.dev.local', 'utf8');
+  const environment = readFileSync('.env.development.local', 'utf8');
   const envObject = parse(environment) || {};
 
   envObject[variable] = value;
   return new Promise((res, rej) => {
-    writeFile('.env.dev.local', stringify(envObject), (err) => {
+    writeFile('.env.development.local', stringify(envObject), (err) => {
       if (err) {
         rej(err);
       } else {

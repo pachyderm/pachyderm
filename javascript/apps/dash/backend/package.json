@@ -8,7 +8,7 @@
     "generate-types": "graphql-codegen",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "start": "NODE_PATH=dist/ NODE_ENV=production DOTENV_FLOW_PATH=../ node -r dotenv-flow/config dist/index.js",
-    "start:dev": "LOG_LEVEL=debug NODE_ENV=dev DOTENV_FLOW_PATH=../ nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
+    "start:dev": "LOG_LEVEL=debug NODE_ENV=development DOTENV_FLOW_PATH=../ nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
     "start:test": "LOG_LEVEL=debug NODE_ENV=test DOTENV_FLOW_PATH=../ nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
     "start:mock": "LOG_LEVEL=debug NODE_PATH=dist/ NODE_ENV=test DOTENV_FLOW_PATH=../ MOCK_AUTH_PORT=30658 MOCK_GRPC_PORT=50051 nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/mock/index.ts",
     "mock-and-start": "npm run start:test & npm run start:mock",
