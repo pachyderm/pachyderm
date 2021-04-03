@@ -35,6 +35,7 @@ $ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
       --master            Return log messages from the master process (pipeline must be set).
   -p, --pipeline string   Filter the log for lines from this pipeline (accepts pipeline name)
       --raw               Return log messages verbatim from server.
+      --since string      Return log messages more recent than "since". (default "24h")
   -t, --tail int          Lines of recent logs to display.
       --worker            Return log messages from the worker process.
 ```
