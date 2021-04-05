@@ -394,7 +394,6 @@ func collectionTests(
 		// Helper function for checking watch events
 		collectEventsCallback := func(count int, out *[]*watch.Event) func(*watch.Event) error {
 			return func(ev *watch.Event) error {
-				fmt.Printf("got event: %v\n", ev)
 				*out = append(*out, ev)
 				if len(*out) == count {
 					return errutil.ErrBreak

@@ -140,7 +140,7 @@ begin
 
 	if tg_argv is not null then
 		foreach field in array tg_argv loop
-			execute 'select ($1).' || field || '::text;' into value using new;
+			execute 'select ($1).' || field || '::text;' into value using row;
 			if value is not null then
 				payload := field || ' ' || encode(value::bytea, 'base64') || ' ' || base_payload;
 				channel := base_channel || '_' || md5(field || ' ' || value);
