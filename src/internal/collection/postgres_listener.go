@@ -64,7 +64,8 @@ func (pw *postgresWatcher) Watch() <-chan *watch.Event {
 }
 
 func (pw *postgresWatcher) Close() {
-	// Close the 'done' channel to interrupt any waiting writes
+	// Close the 'done' channel to interrupt any waiting writes - because of this,
+	// a postgres watcher should not be closed multiple times.
 	close(pw.done)
 	pw.listener.unregister(pw)
 }
@@ -81,7 +82,7 @@ func (pw *postgresWatcher) isClosed() bool {
 // `forwardNotifications` is a blocking call that will forward all messages on
 // the 'buf' channel to the 'c' channel until the watcher is closed. It will
 // apply the 'startTime' timestamp as a lower bound on forwarded notifications.
-func (pw *postgresWatcher) forwardNotifications(startTime time.Time) {
+func (pw *postgresWatcher) forwardNotifications(ctx context.Context, startTime time.Time) {
 	for {
 		// This allows for double notification on a matching timestamp which is
 		// better than missing a notification. This will _always_ happen on the last
@@ -96,6 +97,12 @@ func (pw *postgresWatcher) forwardNotifications(startTime time.Time) {
 			}
 		case <-pw.done:
 			// watcher has been closed, safe to abort
+			return
+		case <-ctx.Done():
+			// watcher (or the read collection that created it) has been canceled -
+			// unregister the watcher and stop forwarding notifications
+			pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}
+			pw.listener.unregister(pw)
 			return
 		}
 	}
@@ -134,7 +141,6 @@ func (pw *postgresWatcher) sendChange(eventData *postgresEvent) {
 
 				select {
 				case pw.buf <- &postgresEvent{err: errors.New("watcher channel is full, aborting watch")}:
-					pw.Close()
 				case <-pw.done:
 				}
 			}()
@@ -342,15 +348,17 @@ func (l *PostgresListener) unregister(pw *postgresWatcher) error {
 
 	// Remove the watch from the given channels, unlisten if any are empty
 	watchers := l.channels[pw.sqlChannel]
-	delete(watchers, pw)
-	if len(watchers) == 0 {
-		delete(l.channels, pw.sqlChannel)
-		if err := l.getPQL().Unlisten(pw.sqlChannel); err != nil {
-			// If an error occurs, error out all watches and reset the state of the
-			// listener to prevent desyncs
-			err = errors.EnsureStack(err)
-			l.reset(err)
-			return err
+	if len(watchers) > 0 {
+		delete(watchers, pw)
+		if len(watchers) == 0 {
+			delete(l.channels, pw.sqlChannel)
+			if err := l.getPQL().Unlisten(pw.sqlChannel); err != nil {
+				// If an error occurs, error out all watches and reset the state of the
+				// listener to prevent desyncs
+				err = errors.EnsureStack(err)
+				l.reset(err)
+				return err
+			}
 		}
 	}
 	return nil

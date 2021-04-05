@@ -67,6 +67,13 @@ func doDeleteAll() func(rw col.ReadWriteCollection) error {
 	}
 }
 
+// canceledContext is a helper function to provide a context that is already canceled
+func canceledContext() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	return ctx
+}
+
 // populateCollection writes a standard set of rows to the collection for use by
 // individual tests.
 func populateCollection(rw col.ReadWriteCollection) error {
@@ -278,7 +285,7 @@ func collectionTests(
 				subsuite.Run("CreatedAt", func(t *testing.T) {
 					// The default collection was written in a single transaction, so all
 					// the rows have the same created time - make our own
-					createReader, writer := newCollection(context.Background(), suite)
+					createReader, writer := newCollection(context.Background(), t)
 					createCol := createReader(context.Background())
 
 					createKeys := []string{"0", "6", "7", "9", "3", "8", "4", "1", "2", "5"}
@@ -296,7 +303,7 @@ func collectionTests(
 
 				subsuite.Run("UpdatedAt", func(t *testing.T) {
 					// Create a new collection that we can modify to get a different ordering here
-					reader, writer := newCollection(context.Background(), suite)
+					reader, writer := newCollection(context.Background(), t)
 					modRead := reader(context.Background())
 					require.NoError(suite, writer(context.Background(), populateCollection))
 
@@ -375,13 +382,19 @@ func collectionTests(
 		}
 
 		// Helper function for checking watch events
-		collectEvents := func(count int, out *[]*watch.Event) func(*watch.Event) error {
+		collectEventsCallback := func(count int, out *[]*watch.Event) func(*watch.Event) error {
 			return func(ev *watch.Event) error {
 				*out = append(*out, ev)
 				if len(*out) == count {
 					return errutil.ErrBreak
 				}
 				return nil
+			}
+		}
+
+		collectEventsChannel := func(watcher watch.Watcher, count int, out *[]*watch.Event) {
+			for len(*out) < count {
+				*out = append(*out, <-watcher.Watch())
 			}
 		}
 
@@ -411,7 +424,73 @@ func collectionTests(
 		suite.Run("Watch", func(subsuite *testing.T) {
 			subsuite.Parallel()
 
-			subsuite.Run("Success", func(t *testing.T) {
+			subsuite.Run("Interruption", func(t *testing.T) {
+				t.Parallel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(canceledContext())
+				writer(context.Background(), doWrite(makeID(3)))
+
+				watcher, err := watchRead.Watch()
+				// Difference between postgres and etcd - etcd will error at the `Watch` call, postgres will error in the channel
+				if err != nil {
+					require.True(t, errors.Is(err, context.Canceled))
+					return
+				}
+				defer watcher.Close()
+
+				events := []*watch.Event{}
+				collectEventsChannel(watcher, 1, &events)
+				checkEvents(t, events, []testEvent{{watch.EventError, "", nil}})
+				require.YesError(t, events[0].Err)
+				require.True(t, errors.Is(events[0].Err, context.Canceled))
+			})
+
+			subsuite.Run("InterruptionAfterInitial", func(t *testing.T) {
+				t.Parallel()
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(ctx)
+				id := makeID(4)
+				writer(context.Background(), doWrite(id))
+				asyncWrite(t, writer, doDelete(id))
+
+				watcher, err := watchRead.Watch()
+				require.NoError(t, err)
+				defer watcher.Close()
+
+				events := []*watch.Event{}
+				for {
+					events = append(events, <-watcher.Watch())
+					if events[len(events)-1].Type == watch.EventError {
+						break
+					}
+					if len(events) == 2 {
+						cancel()
+					}
+				}
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, id, makeProto(id)},
+					{watch.EventDelete, id, nil},
+					{watch.EventError, "", nil},
+				})
+				require.YesError(t, events[2].Err)
+				require.True(t, errors.Is(events[2].Err, context.Canceled))
+			})
+
+			subsuite.Run("Delete", func(t *testing.T) {
+				t.Parallel()
+			})
+
+			subsuite.Run("DeleteAll", func(t *testing.T) {
+				t.Parallel()
+			})
+
+			subsuite.Run("Create", func(t *testing.T) {
+				t.Parallel()
+			})
+
+			subsuite.Run("Overwrite", func(t *testing.T) {
 				t.Parallel()
 			})
 		})
@@ -419,22 +498,57 @@ func collectionTests(
 		suite.Run("WatchF", func(subsuite *testing.T) {
 			subsuite.Parallel()
 
+			// TODO: options: filter, initial sort
+
 			subsuite.Run("Interruption", func(t *testing.T) {
+				t.Parallel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(canceledContext())
+				writer(context.Background(), doWrite(makeID(1)))
+
+				events := []*watch.Event{}
+				err := watchRead.WatchF(collectEventsCallback(1, &events))
+				require.YesError(t, err)
+				require.True(t, errors.Is(err, context.Canceled))
+				require.Equal(t, 0, len(events))
 			})
 
-			subsuite.Run("Interruption2", func(t *testing.T) {
+			subsuite.Run("InterruptionAfterInitial", func(t *testing.T) {
+				t.Parallel()
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(ctx)
+				id := makeID(1)
+				writer(context.Background(), doWrite(id))
+				asyncWrite(t, writer, doDelete(id))
+
+				events := []*watch.Event{}
+				err := watchRead.WatchF(func(ev *watch.Event) error {
+					events = append(events, ev)
+					if len(events) == 2 {
+						cancel() // Stop iteration via cancel once we're out of the initial value stage
+					}
+					return nil
+				})
+				require.YesError(t, err)
+				require.True(t, errors.Is(err, context.Canceled))
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, id, makeProto(id)},
+					{watch.EventDelete, id, nil},
+				})
 			})
 
 			subsuite.Run("Delete", func(t *testing.T) {
 				t.Parallel()
-				reader, writer := newCollection(context.Background(), suite)
+				reader, writer := newCollection(context.Background(), t)
 				watchRead := reader(context.Background())
 				id := makeID(1)
 				writer(context.Background(), doWrite(id))
 				asyncWrite(t, writer, doDelete(id))
 
 				events := []*watch.Event{}
-				err := watchRead.WatchF(collectEvents(2, &events))
+				err := watchRead.WatchF(collectEventsCallback(2, &events))
 				require.NoError(t, err)
 				checkEvents(t, events, []testEvent{
 					{watch.EventPut, id, makeProto(id)},
@@ -444,7 +558,7 @@ func collectionTests(
 
 			subsuite.Run("DeleteAll", func(t *testing.T) {
 				t.Parallel()
-				reader, writer := newCollection(context.Background(), suite)
+				reader, writer := newCollection(context.Background(), t)
 				watchRead := reader(context.Background())
 				idA := makeID(1)
 				idB := makeID(2)
@@ -453,7 +567,7 @@ func collectionTests(
 				asyncWrite(t, writer, doDeleteAll())
 
 				events := []*watch.Event{}
-				err := watchRead.WatchF(collectEvents(4, &events))
+				err := watchRead.WatchF(collectEventsCallback(4, &events))
 				require.NoError(t, err)
 				checkEvents(t, events, []testEvent{
 					{watch.EventPut, idA, makeProto(idA)},
@@ -465,14 +579,14 @@ func collectionTests(
 
 			subsuite.Run("Create", func(t *testing.T) {
 				t.Parallel()
-				reader, writer := newCollection(context.Background(), suite)
+				reader, writer := newCollection(context.Background(), t)
 				watchRead := reader(context.Background())
 				idA := makeID(1)
 				idB := makeID(2)
 				asyncWrite(t, writer, doWrite(idA), doWrite(idB))
 
 				events := []*watch.Event{}
-				err := watchRead.WatchF(collectEvents(2, &events))
+				err := watchRead.WatchF(collectEventsCallback(2, &events))
 				require.NoError(t, err)
 				checkEvents(t, events, []testEvent{
 					{watch.EventPut, idA, makeProto(idA)},
@@ -482,14 +596,14 @@ func collectionTests(
 
 			subsuite.Run("Overwrite", func(t *testing.T) {
 				t.Parallel()
-				reader, writer := newCollection(context.Background(), suite)
+				reader, writer := newCollection(context.Background(), t)
 				watchRead := reader(context.Background())
 				id := makeID(1)
 				writer(context.Background(), doWrite(id))
 				asyncWrite(t, writer, doWrite(id))
 
 				events := []*watch.Event{}
-				err := watchRead.WatchF(collectEvents(2, &events))
+				err := watchRead.WatchF(collectEventsCallback(2, &events))
 				require.NoError(t, err)
 				checkEvents(t, events, []testEvent{
 					{watch.EventPut, id, makeProto(id)},
@@ -499,7 +613,7 @@ func collectionTests(
 
 			subsuite.Run("ErrBreak", func(t *testing.T) {
 				t.Parallel()
-				reader, writer := newCollection(context.Background(), suite)
+				reader, writer := newCollection(context.Background(), t)
 				watchRead := reader(context.Background())
 				idA := makeID(1)
 				idB := makeID(2)
@@ -507,7 +621,7 @@ func collectionTests(
 				writer(context.Background(), doWrite(idB))
 
 				events := []*watch.Event{}
-				err := watchRead.WatchF(collectEvents(1, &events))
+				err := watchRead.WatchF(collectEventsCallback(1, &events))
 				require.NoError(t, err)
 				checkEvents(t, events, []testEvent{
 					{watch.EventPut, idA, makeProto(idA)},

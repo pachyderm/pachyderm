@@ -507,7 +507,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 		}
 
 		// Forward all buffered notifications until the watcher is closed
-		watcher.forwardNotifications(lastUpdated)
+		watcher.forwardNotifications(c.ctx, lastUpdated)
 	}()
 
 	return watcher, nil
@@ -520,49 +520,6 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 	}
 	defer watcher.Close()
 	return watchF(c.ctx, watcher, f)
-	/*
-		options := watch.SumOptions(opts...)
-		watcher, err := c.listener.listen(c.tableWatchChannel(), c.template, nil, nil, options)
-		if err != nil {
-			return err
-		}
-		defer watcher.Close()
-
-		// Do a List of the collection to get the initial state
-		lastUpdated := time.Time{}
-		val := cloneProtoMsg(c.template)
-		if err := c.list(&Options{Target: options.SortTarget, Order: options.SortOrder}, func(m *model) error {
-			if err := proto.Unmarshal(m.Proto, val); err != nil {
-				return errors.EnsureStack(err)
-			}
-
-			if lastUpdated.Before(m.UpdatedAt) {
-				lastUpdated = m.UpdatedAt
-			}
-
-			// watcher may be closed by the listener due to a connection error, parse
-			// error, or full channel - check if it's closed and abort
-			if watcher.isClosed() {
-				return errors.New("watcher was closed")
-			}
-
-			return f(&watch.Event{
-				Key:      []byte(m.Key),
-				Value:    m.Proto,
-				Type:     watch.EventPut,
-				Template: c.template,
-			})
-		}); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-
-		// Forward all buffered notifications until the watcher is closed
-		go watcher.forwardNotifications(lastUpdated)
-		return watchF(c.ctx, watcher, f)
-	*/
 }
 
 func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
