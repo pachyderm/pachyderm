@@ -2,6 +2,7 @@ package collection
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"encoding/base64"
 	"fmt"
@@ -285,6 +286,11 @@ func (c *postgresCollection) tableWatchChannel() string {
 	return watchBaseName + "_" + c.sqlInfo.Table
 }
 
+func (c *postgresCollection) indexWatchChannel(field string, value string) string {
+	data := fmt.Sprintf("%s %s", field, value)
+	return c.tableWatchChannel() + "_" + fmt.Sprintf("%x", md5.Sum([]byte(data)))
+}
+
 func (c *postgresCollection) ReadOnly(ctx context.Context) PostgresReadOnlyCollection {
 	return &postgresReadOnlyCollection{c, ctx}
 }
@@ -360,7 +366,7 @@ type postgresReadOnlyCollection struct {
 	ctx context.Context
 }
 
-func (c *postgresCollection) get(key string, val proto.Message, q sqlx.Queryer) error {
+func (c *postgresCollection) get(key string, q sqlx.Queryer) (*model, error) {
 	fields := []string{"key = $1"}
 	params := []interface{}{key}
 	for k, v := range c.withFields {
@@ -368,18 +374,21 @@ func (c *postgresCollection) get(key string, val proto.Message, q sqlx.Queryer) 
 		params = append(params, v)
 	}
 
-	queryString := fmt.Sprintf("select proto from %s where %s;", c.sqlInfo.Table, strings.Join(fields, " and "))
+	queryString := fmt.Sprintf("select proto, updatedat from %s where %s;", c.sqlInfo.Table, strings.Join(fields, " and "))
 	result := &model{}
 
 	if err := sqlx.Get(q, result, queryString, params...); err != nil {
-		return c.mapSQLError(err, key)
+		return nil, c.mapSQLError(err, key)
 	}
-
-	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
+	return result, nil
 }
 
 func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
-	return c.get(key, val, c.db)
+	result, err := c.get(key, c.db)
+	if err != nil {
+		return err
+	}
+	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
 }
 
 func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error {
@@ -503,6 +512,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 		}); err != nil {
 			// Ignore any additional error here - we're already attempting to send an error to the user
 			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
+			watcher.listener.unregister(watcher)
 			return
 		}
 
@@ -523,11 +533,49 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 }
 
 func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
-	return nil, errors.New("WatchOne is not supported on read-only postgres collections")
+	options := watch.SumOptions(opts...)
+
+	watcher, err := c.listener.listen(c.indexWatchChannel("key", key), c.template, nil, nil, options)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		// Load the initial state of the row
+		lastUpdated := time.Time{}
+		if m, err := c.get(key, c.db); err != nil {
+			if !errors.Is(err, ErrNotFound{}) {
+				watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
+				watcher.listener.unregister(watcher)
+				return
+			}
+		} else {
+			lastUpdated = m.UpdatedAt
+			if err := watcher.sendInitial(&watch.Event{
+				Key:      []byte(key),
+				Value:    m.Proto,
+				Type:     watch.EventPut,
+				Template: c.template,
+			}); err != nil {
+				watcher.listener.unregister(watcher)
+				return
+			}
+		}
+
+		// Forward all buffered notifications until the watcher is closed
+		watcher.forwardNotifications(c.ctx, lastUpdated)
+	}()
+
+	return watcher, nil
 }
 
 func (c *postgresReadOnlyCollection) WatchOneF(key string, f func(*watch.Event) error, opts ...watch.Option) error {
-	return errors.New("WatchOneF is not supported on read-only postgres collections")
+	watcher, err := c.WatchOne(key, opts...)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	return watchF(c.ctx, watcher, f)
 }
 
 type postgresReadWriteCollection struct {
@@ -536,7 +584,11 @@ type postgresReadWriteCollection struct {
 }
 
 func (c *postgresReadWriteCollection) Get(key string, val proto.Message) error {
-	return c.get(key, val, c.tx)
+	result, err := c.get(key, c.tx)
+	if err != nil {
+		return err
+	}
+	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
 }
 
 func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
