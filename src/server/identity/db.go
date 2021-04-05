@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS identity.users (
 	return err
 }
 
-// CreateConfigTable sets up the postgres table which stores IDP configuration
+// CreateConfigTable sets up the postgres table which stores IDP configuration.
+// Dex usually loads config from a file, but reconfiguring via RPCs makes it
+// faster for users to iterate on finding the correct values.
+// `issuer` must be a well-known URL where all pachds can reach this server.
 func CreateConfigTable(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 CREATE TABLE IF NOT EXISTS identity.config (
