@@ -638,6 +638,9 @@ message ListDatumRequest {
   Input input = 4;
   int64 page_size = 2;
   int64 page = 3;
+  // Enables retrieving only status information for datums, rather than including the
+  // inputs and time spent, which improves performance.
+  bool status_only = 5;
 }
 
 message ListDatumResponse {

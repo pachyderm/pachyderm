@@ -1085,7 +1085,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 // listDatum contains our internal implementation of ListDatum, which is shared
 // between ListDatum and ListDatumStream. When ListDatum is removed, this should
 // be inlined into ListDatumStream
-func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input *pps.Input, page, pageSize int64) (response *pps.ListDatumResponse, retErr error) {
+func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input *pps.Input, page, pageSize int64, statusOnly bool) (response *pps.ListDatumResponse, retErr error) {
 	if _, err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
@@ -1257,9 +1257,13 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 		}
 		datumFileInfos = append(datumFileInfos, f)
 	}
+	statusFiles, err := getDatumStatusFiles(ctx, pfsClient, statsCommit, "*")
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	datumInfos := make([]*pps.DatumInfo, len(datumFileInfos))
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
-	datumInfos := make([]*pps.DatumInfo, len(datumFileInfos))
 	for index, fileInfo := range datumFileInfos {
 		fileInfo := fileInfo
 		index := index
@@ -1271,7 +1275,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 				// not a datum
 				return nil
 			}
-			datum, err := a.getDatum(pachClient, statsCommit.Repo.Name, statsCommit, job.ID, datumHash, dit)
+			datum, err := a.getDatum(pachClient, statsCommit.Repo.Name, statsCommit, job.ID, datumHash, dit, statusFiles[datumHash], statusOnly)
 			if err != nil {
 				return err
 			}
@@ -1315,7 +1319,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	return a.listDatum(a.env.GetPachClient(ctx), request.Job, request.Input, request.Page, request.PageSize)
+	return a.listDatum(a.env.GetPachClient(ctx), request.Job, request.Input, request.Page, request.PageSize, request.StatusOnly)
 }
 
 // ListDatumStream implements the protobuf pps.ListDatumStream RPC
@@ -1325,7 +1329,7 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	defer func(start time.Time) {
 		a.Log(req, fmt.Sprintf("stream containing %d DatumInfos", sent), retErr, time.Since(start))
 	}(time.Now())
-	ldr, err := a.listDatum(a.env.GetPachClient(resp.Context()), req.Job, req.Input, req.Page, req.PageSize)
+	ldr, err := a.listDatum(a.env.GetPachClient(resp.Context()), req.Job, req.Input, req.Page, req.PageSize, req.StatusOnly)
 	if err != nil {
 		return err
 	}
@@ -1346,7 +1350,31 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	return nil
 }
 
-func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, dit datum.Iterator) (datumInfo *pps.DatumInfo, retErr error) {
+// getDatumStatusFiles retrieves files from statsCommit for the given datumID (or * for all)
+// which allow getDatum to determine the datum status or identify certain error conditions
+func getDatumStatusFiles(ctx context.Context, client client.PfsAPIClient, statsCommit *pfs.Commit, datumID string) (map[string][]string, error) {
+	fs, err := client.GlobFileStream(ctx, &pfs.GlobFileRequest{
+		Commit:  statsCommit,
+		Pattern: fmt.Sprintf("/%s/(failure|job:*)", datumID),
+	})
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	statusFiles := make(map[string][]string)
+	for {
+		f, err := fs.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+		parts := strings.Split(f.File.Path, "/")
+		statusFiles[parts[1]] = append(statusFiles[parts[1]], parts[2])
+	}
+	return statusFiles, nil
+}
+
+func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, dit datum.Iterator, statusFiles []string, statusOnly bool) (datumInfo *pps.DatumInfo, retErr error) {
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
@@ -1354,31 +1382,32 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 		},
 		State: pps.DatumState_SUCCESS,
 	}
-	ctx := pachClient.Ctx()
-	pfsClient := pachClient.PfsAPIClient
 
-	// Check if skipped
-	fileInfos, err := pachClient.GlobFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/job:*", datumID))
-	if err != nil {
-		return nil, err
-	}
-	if len(fileInfos) != 1 {
-		return nil, errors.Errorf("couldn't find job file")
-	}
-	if strings.Split(fileInfos[0].File.Path, ":")[1] != jobID {
-		datumInfo.State = pps.DatumState_SKIPPED
+	var jobFileCount int
+	for _, path := range statusFiles {
+		if strings.HasSuffix(path, "failure") {
+			datumInfo.State = pps.DatumState_FAILED
+		} else {
+			jobFileCount++
+			if strings.Split(path, ":")[1] != jobID {
+				datumInfo.State = pps.DatumState_SKIPPED
+			}
+		}
 	}
 
-	// Check if failed
-	stateFile := &pfs.File{
+	if jobFileCount == 0 {
+		return nil, errors.Errorf("couldn't find job file for %s", datumID)
+	} else if jobFileCount > 1 {
+		return nil, errors.Errorf("duplicate job file for %s", datumID)
+	}
+
+	datumInfo.PfsState = &pfs.File{
 		Commit: commit,
-		Path:   fmt.Sprintf("/%v/failure", datumID),
+		Path:   fmt.Sprintf("/%v/pfs", datumID),
 	}
-	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{File: stateFile})
-	if err == nil {
-		datumInfo.State = pps.DatumState_FAILED
-	} else if !isNotFoundErr(err) {
-		return nil, err
+
+	if statusOnly {
+		return datumInfo, nil
 	}
 
 	// Populate stats
@@ -1387,7 +1416,7 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 		return nil, err
 	}
 	stats := &pps.ProcessStats{}
-	err = jsonpb.Unmarshal(&buffer, stats)
+	err := jsonpb.Unmarshal(&buffer, stats)
 	if err != nil {
 		return nil, err
 	}
@@ -1406,10 +1435,6 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	inputs := dit.DatumN(i)
 	for _, input := range inputs {
 		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
-	}
-	datumInfo.PfsState = &pfs.File{
-		Commit: commit,
-		Path:   fmt.Sprintf("/%v/pfs", datumID),
 	}
 
 	return datumInfo, nil
@@ -1444,8 +1469,14 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 		return nil, err
 	}
 
+	statusFiles, err := getDatumStatusFiles(ctx, pachClient.PfsAPIClient, jobInfo.StatsCommit, request.Datum.ID)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, dit)
+	datumInfo, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit,
+		request.Datum.Job.ID, request.Datum.ID, dit, statusFiles[request.Datum.ID], false /* full datum info */)
 	if err != nil {
 		return nil, err
 	}

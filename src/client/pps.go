@@ -457,23 +457,29 @@ func (c APIClient) listDatum(job *pps.Job, input *pps.Input, pageSize, page int6
 
 // ListDatumF returns info about datums in a Job, calling f with each datum info.
 func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(di *pps.DatumInfo) error) error {
-	return c.listDatumF(NewJob(jobID), nil, pageSize, page, f)
+	return c.listDatumF(NewJob(jobID), nil, pageSize, page, false, f)
+}
+
+// ListDatumStatusF returns only status info about datums in a Job, calling f with each datum info.
+func (c APIClient) ListDatumStatusF(jobID string, pageSize int64, page int64, f func(di *pps.DatumInfo) error) error {
+	return c.listDatumF(NewJob(jobID), nil, pageSize, page, true, f)
 }
 
 // ListDatumInputF returns info about datums for a pipeline with input, calling
 // f with each datum info. The pipeline doesn't need to exist.
 func (c APIClient) ListDatumInputF(input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
-	return c.listDatumF(nil, input, pageSize, page, f)
+	return c.listDatumF(nil, input, pageSize, page, false /* no extra fetches, so statusOnly has no effect */, f)
 }
 
-func (c APIClient) listDatumF(job *pps.Job, input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
+func (c APIClient) listDatumF(job *pps.Job, input *pps.Input, pageSize, page int64, statusOnly bool, f func(di *pps.DatumInfo) error) error {
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Input:    input,
-			PageSize: pageSize,
-			Page:     page,
-			Job:      job,
+			Input:      input,
+			PageSize:   pageSize,
+			Page:       page,
+			Job:        job,
+			StatusOnly: statusOnly,
 		},
 	)
 	if err != nil {
