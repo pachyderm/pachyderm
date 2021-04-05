@@ -19,6 +19,14 @@ const errorPlugin: GRPCPlugin = {
         throw new NotFoundError(error.details);
       }
 
+      //TODO: temporary fix until Status.NOT_FOUND is added to pachyderm
+      if (
+        error.code === Status.UNKNOWN &&
+        error.details.includes('not found')
+      ) {
+        throw new NotFoundError(error.details);
+      }
+
       // We can transform additional error types below.
       // Unhandled errors will be returned as an INTERNAL_SERVER_ERROR
       throw new ApolloError(error.details, '500', {
