@@ -431,8 +431,9 @@ each datum.`,
 				}
 				return client.ListDatumInputF(request.Input, pageSize, page, printF)
 			} else if len(args) == 1 {
+				var options []pachdclient.ListDatumOption
 				if statusOnly {
-					return client.ListDatumStatusF(args[0], pageSize, page, printF)
+					options = append(options, pachdclient.WithStatusOnly())
 				}
 				return client.ListDatumF(args[0], pageSize, page, printF)
 			} else {
