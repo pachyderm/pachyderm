@@ -435,7 +435,7 @@ each datum.`,
 				if statusOnly {
 					options = append(options, pachdclient.WithStatusOnly())
 				}
-				return client.ListDatumF(args[0], pageSize, page, printF)
+				return client.ListDatumF(args[0], pageSize, page, printF, options...)
 			} else {
 				return errors.Errorf("must specify either a job or a pipeline spec")
 			}
