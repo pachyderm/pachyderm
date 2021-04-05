@@ -265,7 +265,12 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 
 func (env *NonblockingServiceEnv) initDBClient() error {
 	return backoff.Retry(func() error {
+		user, ok := os.LookupEnv("POSTGRES_USER")
+		if !ok {
+			return errors.Errorf("POSTGRES_USER env var not set")
+		}
 		db, err := dbutil.NewDB(
+			dbutil.WithUserPassword(user, "elephantastic"),
 			dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
 			dbutil.WithDBName(env.config.PostgresDBName),
 		)

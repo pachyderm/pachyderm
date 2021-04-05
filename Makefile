@@ -322,8 +322,7 @@ test-local:
 test-auth:
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
-test-identity:
-	etc/testing/forward-postgres.sh
+test-identity: test-postgres
 	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-license:
