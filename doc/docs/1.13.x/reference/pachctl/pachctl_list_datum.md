@@ -19,6 +19,7 @@ pachctl list datum <job> [flags]
       --page int        Specify the page of results to send
       --pageSize int    Specify the number of results sent back in a single page
       --raw             Disable pretty printing; serialize data structures to an encoding such as json or yaml
+      --status-only     Only retrieve status info for datums, improving performance
 ```
 
 ### Options inherited from parent commands
