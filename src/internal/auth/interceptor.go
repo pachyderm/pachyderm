@@ -31,8 +31,6 @@ var authHandlers = map[string]authHandler{
 	// Activate only has an effect when auth is not enabled
 	// Authenticate, Authorize and WhoAmI check auth status themselves
 	// GetOIDCLogin is necessary to authenticate
-	// GetAuthToken and Deactivate are necessary in the partial activation state
-	// and have their own auth logic
 	"/auth.API/Activate":     unauthenticated,
 	"/auth.API/Authenticate": unauthenticated,
 	"/auth.API/Authorize":    unauthenticated,
@@ -49,9 +47,7 @@ var authHandlers = map[string]authHandler{
 
 	"/auth.API/GetConfiguration":  clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_CONFIG),
 	"/auth.API/SetConfiguration":  clusterPermissions(auth.Permission_CLUSTER_AUTH_SET_CONFIG),
-	"/auth.API/GetAuthToken":      clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_TOKEN),
 	"/auth.API/GetRobotToken":     clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_ROBOT_TOKEN),
-	"/auth.API/ExtendAuthToken":   clusterPermissions(auth.Permission_CLUSTER_AUTH_EXTEND_TOKEN),
 	"/auth.API/SetGroupsForUser":  clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),
 	"/auth.API/ModifyMembers":     clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),
 	"/auth.API/GetUsers":          clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_GROUP_USERS),
