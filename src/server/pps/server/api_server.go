@@ -3108,16 +3108,16 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	// make a tick on each cron input
 	for _, cron := range crons {
 		// TODO: This isn't transactional, we could support a transactional modify file through the fileset API though.
-		if err := txnClient.WithModifyFileClient(cron.Repo, "master", func(mfc client.ModifyFileClient) error {
+		if err := txnClient.WithModifyFileClient(cron.Repo, "master", func(mf client.ModifyFile) error {
 			if cron.Overwrite {
 				// get rid of any files, so the new file "overwrites" previous runs
-				err = mfc.DeleteFile("/")
+				err = mf.DeleteFile("/")
 				if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 					return errors.Wrapf(err, "delete error")
 				}
 			}
 			// Put in an empty file named by the timestamp
-			if err := mfc.PutFile(time.Now().Format(time.RFC3339), strings.NewReader("")); err != nil {
+			if err := mf.PutFile(time.Now().Format(time.RFC3339), strings.NewReader("")); err != nil {
 				return errors.Wrapf(err, "put error")
 			}
 			return nil
