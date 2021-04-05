@@ -1,4 +1,4 @@
-import {JobState, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
+import {JobInfo, JobState, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
 import fromPairs from 'lodash/fromPairs';
 
 export const pipelineInfoToGQLPipeline = (
@@ -25,5 +25,13 @@ export const pipelineInfoToGQLPipeline = (
 
     //TODO: Map this field
     inputs: [],
+  };
+};
+
+export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject) => {
+  return {
+    id: jobInfo.job?.id || '',
+    state: jobInfo.state,
+    createdAt: jobInfo.started?.seconds || 0,
   };
 };

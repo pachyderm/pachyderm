@@ -196,6 +196,7 @@ type Account {
 
 type SearchResults {
   pipelines: [Pipeline]!
+  job: Job
 }
 
 type AuthConfig {

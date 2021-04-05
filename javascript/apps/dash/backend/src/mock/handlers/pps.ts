@@ -8,7 +8,7 @@ import pipelines from '@dash-backend/mock/fixtures/pipelines';
 
 import {pipelineInfoFromObject} from '../../grpc/builders/pps';
 
-const pps: Pick<IAPIServer, 'listPipeline' | 'listJob'> = {
+const pps: Pick<IAPIServer, 'listPipeline' | 'listJob' | 'inspectJob'> = {
   listPipeline: (call, callback) => {
     const [projectId] = call.metadata.get('project-id');
     const [authToken] = call.metadata.get('authn-token');
@@ -61,6 +61,18 @@ const pps: Pick<IAPIServer, 'listPipeline' | 'listJob'> = {
     const replyJobs = projectId ? jobs[projectId.toString()] : jobs['1'];
     replyJobs.forEach((job) => call.write(job));
     call.end();
+  },
+  inspectJob: (call, callback) => {
+    const [projectId] = call.metadata.get('project-id');
+    const replyJobs = projectId ? jobs[projectId.toString()] : jobs['1'];
+    const foundJob = replyJobs.find(
+      (job) => job.getJob()?.getId() === call.request.getJob()?.getId(),
+    );
+    if (foundJob) {
+      callback(null, foundJob);
+    } else {
+      callback({code: Status.NOT_FOUND, details: 'job not found'});
+    }
   },
 };
 

@@ -18,6 +18,7 @@ import {
   tfJobFromObject,
   transformFromObject,
   jobInfoFromObject,
+  jobFromObject,
 } from '@dash-backend/grpc/builders/pps';
 
 describe('grpc/builders/pps', () => {
@@ -621,6 +622,12 @@ describe('grpc/builders/pps', () => {
       pipelineInfos.getPipelineInfoList()[1]?.getPipeline()?.getName(),
     ).toBe('pipeline_two');
   });
+});
+
+it('should create Job from an object', () => {
+  const job = jobFromObject({id: '23efw4ef098few0'});
+
+  expect(job.getId()).toBe('23efw4ef098few0');
 });
 
 it('should create JobInfo from an object', () => {

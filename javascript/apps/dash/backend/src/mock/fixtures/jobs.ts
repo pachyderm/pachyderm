@@ -5,13 +5,13 @@ import {jobInfoFromObject} from '@dash-backend/grpc/builders/pps';
 const tutorial = [
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1614126189, nanos: 0},
-    id: '1',
+    createdAt: {seconds: 1616533099, nanos: 0},
+    id: '23b9af7d5d4343219bc8e02ff44cd55a',
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
     createdAt: {seconds: 1614126189, nanos: 0},
-    id: '2',
+    id: '23b9af7d5d4343219bc8e02ff4acd33a',
   }),
 ];
 

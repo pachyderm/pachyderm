@@ -77,4 +77,49 @@ describe('Search resolver', () => {
       expect(searchResults?.pipelines?.length).toBe(0);
     });
   });
+
+  describe('Job id search', () => {
+    it('should return job when a job id is matched', async () => {
+      const {data} = await createOperation<{
+        searchResults: SearchResults;
+      }>(`
+      query {
+        searchResults(query: "23b9af7d5d4343219bc8e02ff44cd55a") {
+          pipelines{
+            name
+          }
+          job{
+            id
+            createdAt
+          }
+        }
+      }
+    `);
+      const searchResults = data?.searchResults;
+      expect(searchResults?.pipelines?.length).toBe(0);
+      expect(searchResults?.job?.id).toBe('23b9af7d5d4343219bc8e02ff44cd55a');
+      expect(searchResults?.job?.createdAt).toBe(1616533099);
+    });
+
+    it('should not return job when a job id is not matched', async () => {
+      const {data} = await createOperation<{
+        searchResults: SearchResults;
+      }>(`
+      query {
+        searchResults(query: "23b9af7d5d4343219bc8e02ff44cd33a") {
+          pipelines{
+            name
+          }
+          job{
+            id
+            createdAt
+          }
+        }
+      }
+    `);
+      const searchResults = data?.searchResults;
+      expect(searchResults?.pipelines?.length).toBe(0);
+      expect(searchResults?.job).toBe(null);
+    });
+  });
 });

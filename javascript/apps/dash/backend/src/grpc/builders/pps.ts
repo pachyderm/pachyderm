@@ -207,6 +207,10 @@ export type PipelineInfosObject = {
   pipelineInfoList: PipelineInfoObject[];
 };
 
+export type JobObject = {
+  id: Job.AsObject['id'];
+};
+
 export type JobInfoObject = {
   id: Job.AsObject['id'];
   createdAt: JobInfo.AsObject['started'];
@@ -633,6 +637,13 @@ export const pipelineInfosFromObject = ({
   }
 
   return pipelineInfos;
+};
+
+export const jobFromObject = ({id}: JobObject) => {
+  const job = new Job();
+  job.setId(id);
+
+  return job;
 };
 
 export const jobInfoFromObject = ({id, createdAt, state}: JobInfoObject) => {

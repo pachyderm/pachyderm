@@ -259,6 +259,7 @@ export type Account = {
 export type SearchResults = {
   __typename?: 'SearchResults';
   pipelines: Array<Maybe<Pipeline>>;
+  job?: Maybe<Job>;
 };
 
 export type AuthConfig = {
@@ -833,6 +834,7 @@ export type SearchResultsResolvers<
     ParentType,
     ContextType
   >;
+  job?: Resolver<Maybe<ResolversTypes['Job']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 

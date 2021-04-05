@@ -1,6 +1,8 @@
 import {QueryResolvers} from '@dash-backend/generated/types';
 import client from '@dash-backend/grpc/client';
 
+import {jobInfoToGQLJob} from './builders/pps';
+
 interface JobResolver {
   Query: {
     jobs: QueryResolvers['jobs'];
@@ -18,11 +20,7 @@ const jobResolver: JobResolver = {
         .pps()
         .listJobs();
 
-      return jobs.map((job) => ({
-        id: job.job?.id || '',
-        state: job.state,
-        createdAt: job.started?.seconds || 0,
-      }));
+      return jobs.map(jobInfoToGQLJob);
     },
   },
 };
