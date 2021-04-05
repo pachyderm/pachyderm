@@ -1,0 +1,11 @@
+.base {
+  padding-left: 2rem;
+  padding-right: 5.4375rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--line-grey);
+}
+
+.label {
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+}

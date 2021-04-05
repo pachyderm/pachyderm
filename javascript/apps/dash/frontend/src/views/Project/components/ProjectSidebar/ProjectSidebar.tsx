@@ -13,7 +13,7 @@ const ProjectSidebar = () => {
     <Sidebar overlay onClose={handleClose}>
       <Switch>
         <Route path={path} exact>
-          <JobList projectId={projectId} expandActions />
+          <JobList projectId={projectId} expandActions showStatusFilter />
         </Route>
       </Switch>
     </Sidebar>
