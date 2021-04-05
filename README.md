@@ -1,7 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2021 Pachyderm, Inc. <info@pachyderm.com>
-SPDX-License-Identifier: Apache-2.0
--->
 # Pachyderm Helm Chart
 
 The repo contains the pachyderm helm chart.
@@ -55,3 +51,6 @@ $ helm schema-gen values.yaml > values.schema.json
 go install github.com/instrumenta/kubeval
 kubeval helmmanifest.yaml
 ```
+
+<!-- SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0 -->
