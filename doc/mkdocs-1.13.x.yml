@@ -2,13 +2,13 @@ site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
 site_url: https://docs.pachyderm.com/master/
-docs_dir: docs/master-1.13.x/
-site_dir: site/master-1.13.x/
+docs_dir: docs/1.13.x/
+site_dir: site/1.13.x/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
 repo_branch: master
-repo_docs_dir: doc/docs/master-1.13.x
+repo_docs_dir: doc/docs/1.13.x
 edit_uri: ""
 
 # Copyright
