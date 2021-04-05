@@ -243,7 +243,7 @@ func (a *apiServer) getClusterRoleBinding(ctx context.Context) (*auth.RoleBindin
 	}
 
 	var binding auth.RoleBinding
-	if err := a.tokens.ReadOnly(ctx).Get(clusterRoleBindingKey, &binding); err != nil {
+	if err := a.roleBindings.ReadOnly(ctx).Get(clusterRoleBindingKey, &binding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrNotActivated
 		}
