@@ -28,6 +28,7 @@ import (
 	debugcmds "github.com/pachyderm/pachyderm/v2/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
 	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
+	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
@@ -534,6 +535,9 @@ This resets the cluster to its initial state.`,
 	var uiWebsocketPort uint16
 	var pfsPort uint16
 	var s3gatewayPort uint16
+	var dexPort uint16
+	var remoteDexPort uint16
+	var idePort, remoteIDEPort uint16
 	var namespace string
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
@@ -635,6 +639,26 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
+			fmt.Println("Forwarding the identity service port...")
+			port, err = fw.RunForDex(dexPort, remoteDexPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dex"] = uint32(port)
+				successCount++
+			}
+
+			fmt.Println("Forwarding the IDE service port...")
+			port, err = fw.RunForIDE(idePort, remoteIDEPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["ide"] = uint32(port)
+				successCount++
+			}
+
 			if successCount == 0 {
 				return errors.New("failed to start port forwarders")
 			}
@@ -678,6 +702,10 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
 	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
+	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
+	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 658, "The local port to bind the identity service to.")
+	portForward.Flags().Uint16Var(&idePort, "ide-port", 30659, "The local port to bind the IDE service to.")
+	portForward.Flags().Uint16Var(&remoteIDEPort, "remote-ide-port", 8000, "The local port to bind the IDE service to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
@@ -832,6 +860,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, deploycmds.Cmds()...)
 	subcommands = append(subcommands, authcmds.Cmds()...)
 	subcommands = append(subcommands, enterprisecmds.Cmds()...)
+	subcommands = append(subcommands, licensecmds.Cmds()...)
 	subcommands = append(subcommands, identitycmds.Cmds()...)
 	subcommands = append(subcommands, admincmds.Cmds()...)
 	subcommands = append(subcommands, debugcmds.Cmds()...)

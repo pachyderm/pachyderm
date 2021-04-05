@@ -390,13 +390,13 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
        
 We encourage you to run our [group example](https://github.com/pachyderm/pachyderm/tree/master/examples/group) to understand more of the differences between join and group. Look for the `retail_group.json` pipeline.
 
-You can also follow the quick following steps:
+You can also follow those quick steps:
 ```shell
 $ cd ../group
 $ pachctl list datum -f retail_group.json
 ```
 
-In this pipeline, we have grouped `purchases`, `returns` and `stores` repos on STOREID. Look at the datums created.
+In this last pipeline, we have grouped `purchases`, `returns`, and `stores` repos on STOREID. Look at the datums created.
 
 ![pach_logo](./img/pachctl_list_datum_retail_group.png)
 

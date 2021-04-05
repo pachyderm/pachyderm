@@ -80,7 +80,7 @@ func (m *ppsMaster) cancelPipelineEtcdPoller() {
 func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 	ctx := pollClient.Ctx()
 	etcdPipelines := map[string]bool{}
-	if err := backoff.RetryUntilCancel(ctx, func() error {
+	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		if len(etcdPipelines) == 0 {
 			// 1. Get the current set of pipeline RCs.
 			//
@@ -90,7 +90,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 			// CreatePipeline(foo) were to run between querying etcd and querying k8s,
 			// then we might delete the RC for brand-new pipeline 'foo'). Even if we
 			// do delete a live pipeline's RC, it'll be fixed in the next cycle)
-			kc := m.a.env.GetKubeClient().CoreV1().ReplicationControllers(m.a.env.Namespace)
+			kc := m.a.env.GetKubeClient().CoreV1().ReplicationControllers(m.a.env.Config().Namespace)
 			rcs, err := kc.List(metav1.ListOptions{
 				LabelSelector: "suite=pachyderm,pipelineName",
 			})
@@ -149,16 +149,19 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 
 		// generate a pipeline event for 'pipeline'
 		log.Debugf("PPS master: polling pipeline %q", pipeline)
-		m.eventCh <- &pipelineEvent{eventType: writeEv, pipeline: pipeline}
-
-		// move to next pipeline (after 2s sleep)
-		return backoff.ErrContinue
-	}, backoff.NewConstantBackOff(pollBackoffTime),
-		backoff.NotifyContinue("pollPipelines"),
-	); err != nil {
-		if ctx.Err() == nil {
-			panic("pollPipelines is exiting prematurely which should not happen; restarting pod...")
+		select {
+		case m.eventCh <- &pipelineEvent{eventType: writeEv, pipeline: pipeline}:
+			break
+		case <-ctx.Done():
+			break
 		}
+
+		// 5. move to next pipeline (after 2s sleep)
+		return nil
+	}), backoff.NewConstantBackOff(pollBackoffTime),
+		backoff.NotifyContinue("pollPipelines"),
+	); err != nil && ctx.Err() == nil {
+		log.Fatalf("pollPipelines is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }
 
@@ -170,7 +173,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 // to CRASHING
 func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 	ctx := pollClient.Ctx()
-	if err := backoff.RetryUntilCancel(ctx, func() error {
+	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		kubePipelineWatch, err := m.a.env.GetKubeClient().CoreV1().Pods(m.a.namespace).Watch(
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -218,9 +221,9 @@ func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 			}
 		}
 		return backoff.ErrContinue // keep polling until cancelled (RetryUntilCancel)
-	}, backoff.NewExponentialBackOff(), backoff.NotifyContinue("pollPipelinePods"),
+	}), backoff.NewInfiniteBackOff(), backoff.NotifyContinue("pollPipelinePods"),
 	); err != nil && ctx.Err() == nil {
-		panic("pollPipelinePods is exiting prematurely which should not happen; restarting pod...")
+		log.Fatalf("pollPipelinePods is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }
 
@@ -242,7 +245,7 @@ func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 // watch below)
 func (m *ppsMaster) pollPipelinesEtcd(pollClient *client.APIClient) {
 	ctx := pollClient.Ctx()
-	if err := backoff.RetryUntilCancel(ctx, func() error {
+	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
 		pipelineWatcher, err := m.a.pipelines.ReadOnly(ctx).Watch()
@@ -272,9 +275,9 @@ func (m *ppsMaster) pollPipelinesEtcd(pollClient *client.APIClient) {
 				}
 			}
 		}
-		return backoff.ErrContinue // reset until ctx is cancelled (RetryUntilCancel)
-	}, &backoff.ZeroBackOff{}, backoff.NotifyContinue("pollPipelinesEtcd"),
+		return nil // reset until ctx is cancelled (RetryUntilCancel)
+	}), &backoff.ZeroBackOff{}, backoff.NotifyContinue("pollPipelinesEtcd"),
 	); err != nil && ctx.Err() == nil {
-		panic("pollPipelinesEtcd is exiting prematurely which should not happen; restarting pod...")
+		log.Fatalf("pollPipelinesEtcd is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }

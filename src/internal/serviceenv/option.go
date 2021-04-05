@@ -7,39 +7,46 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // ChunkStorageOptions returns the chunk storage options for the service environment.
-func (env *ServiceEnv) ChunkStorageOptions() ([]chunk.StorageOption, error) {
+func (conf *Configuration) ChunkStorageOptions() ([]chunk.StorageOption, error) {
 	var opts []chunk.StorageOption
-	if env.StorageUploadConcurrencyLimit > 0 {
-		opts = append(opts, chunk.WithMaxConcurrentObjects(0, env.StorageUploadConcurrencyLimit))
+	if conf.StorageUploadConcurrencyLimit > 0 {
+		opts = append(opts, chunk.WithMaxConcurrentObjects(0, conf.StorageUploadConcurrencyLimit))
 	}
-	if env.StorageDiskCacheSize > 0 {
+	if conf.StorageDiskCacheSize > 0 {
 		diskCache, err := obj.NewLocalClient(filepath.Join(os.TempDir(), "pfs-cache", uuid.NewWithoutDashes()))
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, chunk.WithObjectCache(diskCache, env.StorageDiskCacheSize))
+		opts = append(opts, chunk.WithObjectCache(diskCache, conf.StorageDiskCacheSize))
 	}
 	return opts, nil
 }
 
 // FileSetStorageOptions returns the fileset storage options for the service environment.
-func (env *ServiceEnv) FileSetStorageOptions() []fileset.StorageOption {
+func (conf *Configuration) FileSetStorageOptions() []fileset.StorageOption {
 	var opts []fileset.StorageOption
-	if env.StorageMemoryThreshold > 0 {
-		opts = append(opts, fileset.WithMemoryThreshold(env.StorageMemoryThreshold))
+	if conf.StorageMemoryThreshold > 0 {
+		opts = append(opts, fileset.WithMemoryThreshold(conf.StorageMemoryThreshold))
 	}
-	if env.StorageShardThreshold > 0 {
-		opts = append(opts, fileset.WithShardThreshold(env.StorageShardThreshold))
+	if conf.StorageShardThreshold > 0 {
+		opts = append(opts, fileset.WithShardThreshold(conf.StorageShardThreshold))
 	}
-	if env.StorageLevelZeroSize > 0 {
-		opts = append(opts, fileset.WithLevelZeroSize(env.StorageLevelZeroSize))
-	}
-	if env.StorageLevelSizeBase > 0 {
-		opts = append(opts, fileset.WithLevelSizeBase(env.StorageLevelSizeBase))
+	if conf.StorageLevelFactor > 0 {
+		opts = append(opts, fileset.WithLevelFactor(conf.StorageLevelFactor))
 	}
 	return opts
+}
+
+// ChunkMemoryCache returns the in memory cache for chunks, pre-configured to the desired size
+func (conf *Configuration) ChunkMemoryCache() kv.GetPut {
+	size := conf.StorageMemoryCacheSize
+	if size < 1 {
+		size = 1
+	}
+	return kv.NewMemCache(size)
 }

@@ -2,23 +2,25 @@ package datum
 
 import (
 	"context"
+	"fmt"
+	"path"
 	"time"
 )
 
 // SetOption configures a set.
 type SetOption func(*Set)
 
-// WithMetaOutput sets the AppendFileTarClient for the meta output.
-func WithMetaOutput(aftc AppendFileTarClient) SetOption {
+// WithMetaOutput sets the Client for the meta output.
+func WithMetaOutput(c Client) SetOption {
 	return func(s *Set) {
-		s.metaOutputClient = aftc
+		s.metaOutputClient = c
 	}
 }
 
-// WithPFSOutput sets the AppendFileTarClient for the pfs output.
-func WithPFSOutput(aftc AppendFileTarClient) SetOption {
+// WithPFSOutput sets the Client for the pfs output.
+func WithPFSOutput(c Client) SetOption {
 	return func(s *Set) {
-		s.pfsOutputClient = aftc
+		s.pfsOutputClient = c
 	}
 }
 
@@ -50,5 +52,12 @@ func WithRecoveryCallback(cb func(context.Context) error) Option {
 func WithTimeout(timeout time.Duration) Option {
 	return func(d *Datum) {
 		d.timeout = timeout
+	}
+}
+
+// WithPrefixIndex prefixes the datum directory name (both locally and in PFS) with its index value.
+func WithPrefixIndex() Option {
+	return func(d *Datum) {
+		d.storageRoot = path.Join(d.set.storageRoot, fmt.Sprintf("%016d", d.meta.Index)+"-"+d.ID)
 	}
 }

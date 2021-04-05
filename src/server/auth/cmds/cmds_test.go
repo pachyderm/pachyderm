@@ -21,28 +21,32 @@ import (
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
 func loginAsUser(t *testing.T, user string) {
 	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
-	token, err := rootClient.GetAuthToken(rootClient.Ctx(), &auth.GetAuthTokenRequest{Subject: user})
+	robot := strings.TrimPrefix(user, auth.RobotPrefix)
+	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(t, err)
-	config.WritePachTokenToConfig(token.Token)
+	config.WritePachTokenToConfig(token.Token, false)
 }
 
 func TestLogin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
 	// Configure OIDC login
 	tu.ConfigureOIDCProvider(t)
-	defer tu.DeleteAll(t)
 
 	cmd := exec.Command("pachctl", "auth", "login", "--no-browser")
 	out, err := cmd.StdoutPipe()
 	require.NoError(t, err)
 
+	c := tu.GetUnauthenticatedPachClient(t)
 	require.NoError(t, cmd.Start())
 	sc := bufio.NewScanner(out)
 	for sc.Scan() {
 		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
-			tu.DoOAuthExchange(t, sc.Text())
+			tu.DoOAuthExchange(t, c, c, sc.Text())
 			break
 		}
 	}
@@ -51,6 +55,27 @@ func TestLogin(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
+	).Run())
+}
+
+func TestLoginIDToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	// Configure OIDC login
+	tu.ConfigureOIDCProvider(t)
+
+	// Get an ID token for a trusted peer app
+	token := tu.GetOIDCTokenForTrustedApp(t)
+
+	require.NoError(t, tu.BashCmd(`
+		echo '{{.token}}' | pachctl auth login --id-token
+		pachctl auth whoami | match user:{{.user}}`,
+		"user", tu.DexMockConnectorEmail,
+		"token", token,
 	).Run())
 }
 
@@ -79,11 +104,9 @@ func TestCheckGetSet(t *testing.T) {
 	loginAsUser(t, alice)
 	require.NoError(t, tu.BashCmd(`
 		pachctl create repo {{.repo}}
-		pachctl auth check owner {{.repo}}
-		pachctl auth get {{.repo}} \
+		pachctl auth check repo REPO_MODIFY_BINDINGS {{.repo}}
+		pachctl auth get repo {{.repo}} \
 			| match {{.alice}}
-		pachctl auth get {{.bob}} {{.repo}} \
-			| match NONE
 		`,
 		"alice", alice,
 		"bob", bob,
@@ -92,9 +115,10 @@ func TestCheckGetSet(t *testing.T) {
 
 	// Test 'pachctl auth set'
 	require.NoError(t, tu.BashCmd(`pachctl create repo {{.repo}}
-		pachctl auth set {{.bob}} reader {{.repo}}
-		pachctl auth get {{.bob}} {{.repo}} \
-			| match READER
+		pachctl auth set repo {{.repo}} repoReader {{.bob}}
+		pachctl auth get repo {{.repo}}\
+			| match "{{.bob}}: \[repoReader\]" \
+			| match "{{.alice}}: \[repoOwner\]"
 		`,
 		"alice", alice,
 		"bob", bob,
@@ -111,18 +135,19 @@ func TestAdmins(t *testing.T) {
 
 	// Modify the list of admins to add 'admin2'
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth list-admins \
+		pachctl auth get cluster \
 			| match "pach:root"
-		pachctl auth modify-admins --add robot:admin,robot:admin2
-		pachctl auth list-admins \
-			| match "^robot:admin2$" \
-			| match "^robot:admin$" 
-		pachctl auth modify-admins --remove robot:admin
+		pachctl auth set cluster clusterAdmin robot:admin
+		pachctl auth set cluster clusterAdmin robot:admin2
+		pachctl auth get cluster \
+			| match "^robot:admin2: \[clusterAdmin\]$" \
+			| match "^robot:admin: \[clusterAdmin\]$" 
+		pachctl auth set cluster none robot:admin
 
 		# as 'admin' is a substr of 'admin2', use '^admin$' regex...
-		pachctl auth list-admins \
+		pachctl auth get cluster \
 			| match -v "^robot:admin$" \
-			| match "^robot:admin2$"
+			| match "^robot:admin2: \[clusterAdmin\]$"
 		`).Run())
 
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
@@ -130,10 +155,11 @@ func TestAdmins(t *testing.T) {
 	// works for non-admins)
 	loginAsUser(t, "robot:admin2")
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth modify-admins --add robot:admin --remove robot:admin2
+		pachctl auth set cluster clusterAdmin robot:admin 
+		pachctl auth set cluster none robot:admin2
 	`).Run())
 	require.NoError(t, backoff.Retry(func() error {
-		return tu.BashCmd(`pachctl auth list-admins \
+		return tu.BashCmd(`pachctl auth get cluster \
 			| match -v "robot:admin2" \
 			| match "robot:admin"
 		`).Run()
@@ -150,6 +176,22 @@ func TestGetAndUseAuthToken(t *testing.T) {
 	// Test both get-auth-token and use-auth-token; make sure that they work
 	// together with -q
 	require.NoError(t, tu.BashCmd(`pachctl auth get-auth-token -q robot:marvin \
+	  | pachctl auth use-auth-token
+	pachctl auth whoami \
+	  | match 'robot:marvin'
+		`).Run())
+}
+
+func TestGetAndUseRobotToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	// Test both get-robot-token and use-auth-token; make sure that they work
+	// together with -q
+	require.NoError(t, tu.BashCmd(`pachctl auth get-robot-token -q marvin \
 	  | pachctl auth use-auth-token
 	pachctl auth whoami \
 	  | match 'robot:marvin'
@@ -192,23 +234,28 @@ func TestConfig(t *testing.T) {
 		`).Run())
 }
 
-// TestGetAuthTokenNoSubject tests that 'pachctl get-auth-token' infers the
-// subject from the currently logged-in user if none is specified on the command
-// line
-func TestGetAuthTokenNoSubject(t *testing.T) {
+// TestGetRobotTokenTTL tests that the --ttl argument to 'pachctl get-robot-token'
+// correctly limits the lifetime of the returned token
+func TestGetRobotTokenTTL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.ActivateAuth(t)
 	defer tu.DeleteAll(t)
 
-	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
-	require.NoError(t, tu.BashCmd(`pachctl auth get-auth-token -q | pachctl auth use-auth-token
-		pachctl auth whoami | match {{.alice}}
-		`,
-		"alice", alice,
-	).Run())
+	alice := tu.UniqueString("alice")
+
+	var tokenBuf bytes.Buffer
+	tokenCmd := tu.BashCmd(`pachctl auth get-robot-token {{.alice}} --ttl=1h -q`, "alice", alice)
+	tokenCmd.Stdout = &tokenBuf
+	require.NoError(t, tokenCmd.Run())
+	token := strings.TrimSpace(tokenBuf.String())
+
+	login := tu.BashCmd(`echo {{.token}} | pachctl auth use-auth-token
+		pachctl auth whoami | \
+		match 'session expires: '
+	`, "token", token)
+	require.NoError(t, login.Run())
 }
 
 // TestGetAuthTokenTTL tests that the --ttl argument to 'pachctl get-auth-token'
@@ -221,10 +268,9 @@ func TestGetAuthTokenTTL(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
 
 	var tokenBuf bytes.Buffer
-	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token --ttl=5s -q`)
+	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token {{.alice}} --ttl=5s -q`, "alice", alice)
 	tokenCmd.Stdout = &tokenBuf
 	require.NoError(t, tokenCmd.Run())
 	token := strings.TrimSpace(tokenBuf.String())
@@ -237,57 +283,6 @@ func TestGetAuthTokenTTL(t *testing.T) {
 	login.Stderr = &errMsg
 	require.YesError(t, login.Run())
 	require.Matches(t, "try logging in", errMsg.String())
-}
-
-// TestGetOneTimePasswordNoSubject tests that 'pachctl get-otp' infers the
-// subject from the currently logged-in user if none is specified on the command
-// line
-func TestGetOneTimePasswordNoSubject(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
-
-	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
-
-	require.NoError(t, tu.BashCmd(`
-		otp="$(pachctl auth get-otp)"
-		echo "${otp}" | pachctl auth login --one-time-password
-		pachctl auth whoami | match {{.alice}}
-		`,
-		"alice", alice,
-	).Run())
-}
-
-// TestGetOneTimePasswordTTL tests that the --ttl argument to 'pachctl get-otp'
-// correctly limits the lifetime of the returned token
-func TestGetOneTimePasswordTTL(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
-
-	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
-
-	var otpBuf bytes.Buffer
-	otpCmd := tu.BashCmd(`pachctl auth get-otp --ttl=5s`)
-	otpCmd.Stdout = &otpBuf
-	require.NoError(t, otpCmd.Run())
-	otp := strings.TrimSpace(otpBuf.String())
-
-	// wait for OTP to expire
-	time.Sleep(6 * time.Second)
-	var errMsg bytes.Buffer
-	login := tu.BashCmd(`
-		echo {{.otp}} | pachctl auth login --one-time-password
-	`, "otp", otp)
-	login.Stderr = &errMsg
-	require.YesError(t, login.Run())
-	require.Matches(t, "otp is invalid or has expired", errMsg.String())
 }
 
 func TestMain(m *testing.M) {

@@ -1,3 +1,13 @@
+# Set as you wish
+DOCKER_ACCOUNT := pachyderm
+CONTAINER_NAME := example-group
+CONTAINER_VERSION := 1.12.2
+CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
+
+docker-image:
+	@docker build -t $(CONTAINER_TAG) .
+	@docker push $(CONTAINER_TAG)
+
 setup-lab:
 	mkdir -p ./labresults 
 	printf "PID|PATID1\nORC|ORD777888\nOBX|1|NM|2093-3^Cholesterol|196|mg/dL\nOBX|2|NM|2571-8^Triglyceride|100|mg/dL" \

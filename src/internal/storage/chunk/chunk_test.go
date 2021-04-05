@@ -61,7 +61,7 @@ func TestCopy(t *testing.T) {
 			writeAnnotations(t, chunks, as2, msg)
 			// Initial chunk count.
 			var initialChunkCount int64
-			require.NoError(t, chunks.List(context.Background(), func(_ string) error {
+			require.NoError(t, chunks.List(context.Background(), func(_ ID) error {
 				initialChunkCount++
 				return nil
 			}), msg)
@@ -83,7 +83,7 @@ func TestCopy(t *testing.T) {
 			readAnnotations(t, chunks, as, msg)
 			// Check that at least one chunk was copied when connecting the two sets of annotations.
 			var finalChunkCount int64
-			require.NoError(t, chunks.List(context.Background(), func(_ string) error {
+			require.NoError(t, chunks.List(context.Background(), func(_ ID) error {
 				finalChunkCount++
 				return nil
 			}), msg)

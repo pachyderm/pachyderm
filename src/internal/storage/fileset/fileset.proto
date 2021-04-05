@@ -6,8 +6,18 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/storage/file
 import "internal/storage/fileset/index/index.proto";
 
 message Metadata {
-  string path = 1;
+  oneof value {
+    Primitive primitive = 1;
+    Composite composite = 2;
+  }
+}
+
+message Composite {
+  repeated string layers = 1;
+}
+
+message Primitive {
+  index.Index deletive = 1;
   index.Index additive = 2;
-  index.Index deletive = 3;
-  int64 size_bytes = 4;
+  int64 size_bytes = 3;
 }

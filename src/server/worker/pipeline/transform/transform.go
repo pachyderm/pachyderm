@@ -1,7 +1,11 @@
 package transform
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
@@ -13,33 +17,26 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		return err
 	}
 	logger.Logf("transform spawner started")
-	return forEachCommit(driver, func(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) error {
-		return reg.startJob(commitInfo, metaCommit)
-	})
+	return forEachCommit(driver, reg.startJob)
 }
 
-func getStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
-	for _, commitRange := range commitInfo.Subvenance {
-		if commitRange.Lower.Repo.Name == commitInfo.Commit.Repo.Name {
-			return commitRange.Lower
-		}
-	}
-	return nil
-}
-
-func forEachCommit(driver driver.Driver, cb func(*pfs.CommitInfo, *pfs.Commit) error) error {
+func forEachCommit(driver driver.Driver, cb func(*pfs.CommitInfo) error) error {
 	pachClient := driver.PachClient()
-	pi := driver.PipelineInfo()
-	// TODO: Readd subscribe on spec commit provenance. Current code simplifies correctness in terms
-	// of commits being closed / jobs being finished.
-	return pachClient.SubscribeCommitF(
-		pi.Pipeline.Name,
+	pipelineInfo := driver.PipelineInfo()
+	return pachClient.SubscribeCommit(
+		pipelineInfo.Pipeline.Name,
 		"",
-		nil,
+		client.NewCommitProvenance(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name, pipelineInfo.SpecCommit.ID),
 		"",
 		pfs.CommitState_READY,
-		func(ci *pfs.CommitInfo) error {
-			return cb(ci, getStatsCommit(ci))
+		func(commitInfo *pfs.CommitInfo) error {
+			err := cb(commitInfo)
+			// TODO: Figure out how to clean up jobs after deleted commit. Just cleaning up here is not a good solution because
+			// we are not guaranteed to hit this code path after a deletion.
+			if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) || ppsserver.IsJobFinishedErr(err) {
+				return nil
+			}
+			return err
 		},
 	)
 }

@@ -61,7 +61,7 @@ const crashingBackoff = time.Second * 15
 // corresponding goroutine running monitorPipeline() that puts the pipeline in
 // and out of standby in response to new output commits appearing in that
 // pipeline's output repo.
-func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo, ptr *pps.EtcdPipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	m.monitorCancelsMu.Lock()
 	defer m.monitorCancelsMu.Unlock()
@@ -70,14 +70,8 @@ func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo) {
 			"monitorPipeline for "+pipeline, func(pachClient *client.APIClient) {
 				// monitorPipeline needs auth privileges to call subscribeCommit and
 				// blockCommit
-				// TODO(msteffen): run the pipeline monitor as the pipeline user, rather
-				// than as the PPS superuser
-				if err := m.a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					m.monitorPipeline(superUserClient, pipelineInfo)
-					return nil
-				}); err != nil {
-					log.Errorf("error monitoring %q: %v", pipeline, err)
-				}
+				pachClient.SetAuthToken(ptr.AuthToken)
+				m.monitorPipeline(pachClient, pipelineInfo)
 			})
 	}
 }
@@ -175,7 +169,7 @@ func (m *ppsMaster) startMonitorThread(name string, f func(pachClient *client.AP
 		case <-time.After(time.Minute):
 			// restart pod rather than permanently locking up the PPS master (which
 			// would break the PPS API)
-			panic(name + " blocked for over a minute after cancellation; restarting pod")
+			panic(name + " blocked for over a minute after cancellation; restarting container")
 		}
 	}
 }
@@ -201,7 +195,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		eg.Go(func() error {
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
-				return pachClient.SubscribeCommitF(pipeline, "",
+				return pachClient.SubscribeCommit(pipeline, "",
 					client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
 					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 						ciChan <- ci
@@ -346,12 +340,12 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 
 func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
-	ctx := pachClient.Ctx()
+	ctx, cancelInner := context.WithCancel(pachClient.Ctx())
 	if parallelism == 0 {
 		parallelism = 1
 	}
 	pipelineRCName := ppsutil.PipelineRcName(pipeline, pipelineInfo.Version)
-	if err := backoff.RetryUntilCancel(ctx, func() error {
+	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		workerStatus, err := workerserver.Status(ctx, pipelineRCName,
 			m.a.env.GetEtcdClient(), m.a.etcdPrefix, m.a.workerGrpcPort)
 		if err != nil {
@@ -363,15 +357,15 @@ func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parall
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 				return errors.Wrap(err, "could not transition pipeline to RUNNING")
 			}
-			return nil // done--pipeline is out of CRASHING
+			cancelInner() // done--pipeline is out of CRASHING
 		}
-		return backoff.ErrContinue // loop again to check for new workers
-	}, backoff.NewConstantBackOff(crashingBackoff),
+		return nil // loop again to check for new workers
+	}), backoff.NewConstantBackOff(crashingBackoff),
 		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
 		// unreachable (restart master if not)
-		panic("monitorCrashingPipeline is exiting early, this should never happen")
+		log.Fatalf("monitorCrashingPipeline is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }
 
@@ -388,7 +382,7 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
-		if err = pachClient.DeleteCommit(in.Cron.Repo, commitInfo.Commit.ID); err != nil {
+		if err = pachClient.SquashCommit(in.Cron.Repo, commitInfo.Commit.ID); err != nil {
 			return err
 		}
 	}

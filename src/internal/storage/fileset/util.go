@@ -6,9 +6,8 @@ import (
 	"io"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -16,9 +15,7 @@ import (
 )
 
 // NewTestStorage constructs a local storage instance scoped to the lifetime of the test
-func NewTestStorage(t testing.TB) *Storage {
-	db := dbutil.NewTestDB(t)
-	tr := track.NewTestTracker(t, db)
+func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker) *Storage {
 	_, chunks := chunk.NewTestStorage(t, db, tr)
 	store := NewTestStore(t, db)
 	return NewStorage(store, tr, chunks)
@@ -155,17 +152,4 @@ func getDataRefs(parts []*index.Part) []*chunk.DataRef {
 		dataRefs = append(dataRefs, part.DataRefs...)
 	}
 	return dataRefs
-}
-
-func createTrackerObject(ctx context.Context, p string, idxs []*index.Index, tracker track.Tracker, ttl time.Duration) error {
-	var pointsTo []string
-	for _, idx := range idxs {
-		for _, cid := range index.PointsTo(idx) {
-			pointsTo = append(pointsTo, chunk.ObjectID(cid))
-		}
-	}
-	if err := tracker.CreateObject(ctx, filesetObjectID(p), pointsTo, ttl); err != nil && err != track.ErrObjectExists {
-		return err
-	}
-	return nil
 }

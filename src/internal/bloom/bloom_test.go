@@ -6,8 +6,8 @@ import (
 	mathrand "math/rand"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/hash"
 )
 
 func maxValue(f *BloomFilter) int {
@@ -26,7 +26,8 @@ func makeHash(t *testing.T) []byte {
 	n, err := rand.Read(data)
 	require.NoError(t, err)
 	require.Equal(t, 128, n)
-	return hash.Sum(data)
+	sum := pachhash.Sum(data)
+	return sum[:]
 }
 
 const maxFilterSize = 1048576
@@ -126,7 +127,8 @@ func TestFalsePositiveRate(t *testing.T) {
 		n, err := mathrand.Read(data)
 		require.NoError(t, err)
 		require.Equal(t, 128, n)
-		return hash.Sum(data)
+		s := pachhash.Sum(data)
+		return s[:]
 	}
 
 	filter := NewFilterWithFalsePositiveRate(0.1, elementCount, maxFilterSize)

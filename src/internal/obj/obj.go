@@ -515,7 +515,8 @@ func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, 
 		// In Azure, the first part of the path is the container name.
 		c, err = NewMicrosoftClientFromSecret(url.Bucket)
 	case "local":
-		c, err = NewLocalClient("/" + url.Bucket)
+		root := strings.ReplaceAll(url.Bucket, ".", "/")
+		c, err = NewLocalClient("/" + root)
 	}
 	switch {
 	case err != nil:
@@ -523,7 +524,7 @@ func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, 
 	case c != nil:
 		return TracingObjClient(url.Store, c), nil
 	default:
-		return nil, errors.Errorf("unrecognized object store: %s", url.Bucket)
+		return nil, errors.Errorf("unrecognized object store: %s", url.Store)
 	}
 }
 

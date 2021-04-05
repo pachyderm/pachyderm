@@ -26,7 +26,7 @@ const (
 
 type apiServer struct {
 	pachLogger log.Logger
-	env        *serviceenv.ServiceEnv
+	env        serviceenv.ServiceEnv
 
 	config         col.Collection
 	configCacheMtx sync.RWMutex
@@ -56,7 +56,7 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bool, etcdPrefix string) (identity.APIServer, error) {
+func NewIdentityServer(env serviceenv.ServiceEnv, sp StorageProvider, public bool, etcdPrefix string) (identity.APIServer, error) {
 	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex")
 
 	server := &apiServer{
@@ -74,7 +74,7 @@ func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bo
 	}
 
 	if public {
-		server.web = newDexWeb(sp, logger)
+		server.web = newDexWeb(sp, logger, env.GetDBClient())
 		go func() {
 			if err := http.ListenAndServe(dexHTTPPort, server.web); err != nil {
 				logger.WithError(err).Error("Dex web server stopped")

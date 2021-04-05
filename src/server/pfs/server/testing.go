@@ -48,14 +48,13 @@ func generateRandomString(n int) string {
 	return string(b)
 }
 
-// runServers starts serving requests for the given apiServer & blockAPIServer
+// runServers starts serving requests for the given apiServer
 // in a separate goroutine. Helper for getPachClient()
-func runServers(t testing.TB, port int32, apiServer APIServer, blockAPIServer BlockAPIServer) {
+func runServers(t testing.TB, port int32, apiServer APIServer) {
 	server, err := grpcutil.NewServer(context.Background(), false)
 	require.NoError(t, err)
 
 	pfs.RegisterAPIServer(server.Server, apiServer)
-	pfs.RegisterObjectAPIServer(server.Server, blockAPIServer)
 	auth.RegisterAPIServer(server.Server, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
 	versionpb.RegisterAPIServer(server.Server,
 		version.NewAPIServer(version.Version, version.APIServerOptions{}))
@@ -104,12 +103,6 @@ func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APICl
 
 	// initialize new BlockAPIServier
 	env := serviceenv.InitServiceEnv(config)
-	blockAPIServer, err := newLocalBlockAPIServer(
-		root,
-		localBlockServerCacheBytes,
-		net.JoinHostPort(etcdHost, etcdPort),
-		true /* duplicate--see comment in newObjBlockAPIServer */)
-	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
 
 	txnEnv := &txnenv.TransactionEnv{}
@@ -120,6 +113,6 @@ func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APICl
 
 	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer, txnenv.NewMockPpsTransactionServer())
 
-	runServers(t, pfsPort, apiServer, blockAPIServer)
+	runServers(t, pfsPort, apiServer)
 	return env.GetPachClient(context.Background())
 }

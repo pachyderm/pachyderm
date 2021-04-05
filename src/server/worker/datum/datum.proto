@@ -21,6 +21,7 @@ message Meta {
   State state = 4;
   string reason = 5;
   pps.ProcessStats stats = 6;
+  int64 index = 7;
 }
 
 message Stats {

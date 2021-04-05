@@ -13,9 +13,10 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2020'
-pach_featured_version: '1.12.1'
-pach_latest_version: '1.12.1'
+pach_featured_version: '1.12.5'
+pach_latest_version: '1.12.5'
 pach_major_minor_version: '1.12'
+search_index_version: 'latest'
 
 # Configuration
 theme:
@@ -99,10 +100,11 @@ nav:
         - Welcome: index.md
         - Contributing:
             - Setup for Contributors: contributing/setup.md
-            - Gcloud Cluster Setup: contributing/gcloud-setup.md
             - Repo Layout: contributing/repo-layout.md
+            - Supported releases: contributing/supported-releases.md   
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
+            - Gcloud Cluster Setup: contributing/gcloud-setup.md 
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
@@ -178,18 +180,19 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Getting Started with Pachyderm Hub: pachhub/pachhub_getting_started.md
-            - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
-            - Deploy on AWS:
-                - Overview: deploy-manage/deploy/amazon_web_services/index.md
-                - Deploy Pachyderm on Amazon EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
-                - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
-                - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
-                - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
-            - Deploy on Azure: deploy-manage/deploy/azure.md
-            - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
-            - Deploy on OpenShift: deploy-manage/deploy/openshift.md
-            - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+            - Getting Started with Pachyderm Hub: hub/hub_getting_started.md
+            - Deploy on ...:
+                - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
+                - Deploy on AWS:
+                    - Overview: deploy-manage/deploy/amazon_web_services/index.md
+                    - Deploy Pachyderm on Amazon EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
+                    - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
+                    - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
+                    - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
+                - Deploy on Azure: deploy-manage/deploy/azure.md
+                - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
+                - Deploy on OpenShift: deploy-manage/deploy/openshift.md
+                - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
@@ -205,16 +208,20 @@ nav:
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
+            - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
+            - Configure Ingress:
+                - Overview: deploy-manage/deploy/ingress/index.md
+                - Pachyderm UI (Dash) Ingress: deploy-manage/deploy/ingress/pach-ui-ingress.md
             - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
             - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
-            - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
+            - Monitor your cluster metrics with Prometheus: 
+                - Set up Prometheus: deploy-manage/deploy/prometheus/index.md
+                - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
+                - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
             - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
-            - Configure External Access:
-                - Overview: deploy-manage/manage/configure-external-access.md
-                - deploy-manage/manage/expose-pach-ui-ingress.md 
             - Using Pachctl Shell: deploy-manage/manage/pachctl_shell.md
             - Autoscale your Cluster: deploy-manage/manage/autoscaling.md
             - Backup and Restore: deploy-manage/manage/backup_restore.md
@@ -396,11 +403,11 @@ nav:
             - Manage Users and Groups: enterprise/auth/manage-users-groups.md
             - Manage Authentication Config: enterprise/auth/auth-config.md
             - Configure a SAML Provider:
-              - Overview: enterprise/auth/saml/saml.md
-              - Configure SAML: enterprise/auth/saml/saml_setup.md
+              - Configure SAML: enterprise/auth/saml/index.md
               - Use SAML: enterprise/auth/saml/saml_usage.md
             - Configure an OIDC Provider:
               - Overview: enterprise/auth/oidc/index.md
+              - Configure Pachyderm with Okta: enterprise/auth/oidc/configure-with-okta.md
               - Configure Pachyderm with Keycloak: enterprise/auth/oidc/configure-keycloak.md
               - Configure Pachyderm with Auth0: enterprise/auth/oidc/configure-auth0.md
               - Configure Pachyderm with Google OAuth 2.0: enterprise/auth/oidc/configure-google-oidc.md

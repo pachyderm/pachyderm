@@ -621,7 +621,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline> [<repo>@[<branch>|<commit>|<branch>=<commit>]...]",
 		Short: "Run an existing Pachyderm pipeline on the specified commits-branch pairs.",
-		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If you only specify a branch, Pachyderm uses the HEAD commit to complete the pair. Similarly, if you only specify a commit, Pachyderm will try to use the branch the commit originated on. Note: Pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. The datums that were successfully processed in previous runs will not be processed unless you specify the --reprocess flag.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If you only specify a branch, Pachyderm uses the HEAD commit to complete the pair. Similarly, if you only specify a commit, Pachyderm will try to use the branch the commit originated on. Note: Pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data.",
 		Example: `
 		# Rerun the latest job for the "filter" pipeline
 		$ {{alias}} filter
@@ -1226,9 +1226,9 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 	if _, err := os.Stat(buildPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("build path %q does not exist", buildPath)
+			return fmt.Errorf("build path %s does not exist", buildPath)
 		}
-		return errors.Wrapf(err, "could not stat build path %q", buildPath)
+		return errors.Wrapf(err, "could not stat build path %s", buildPath)
 	}
 
 	buildPipelineName := fmt.Sprintf("%s_build", request.Pipeline.Name)
@@ -1280,67 +1280,62 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	if _, err := os.Stat(ignorePath); err == nil {
 		f, err := os.Open(ignorePath)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read build step ignore file %q", ignorePath)
+			return errors.Wrapf(err, "failed to read build step ignore file %s", ignorePath)
 		}
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := scanner.Text()
 			g, err := glob.Compile(line)
 			if err != nil {
-				return errors.Wrapf(err, "build step ignore file %q: failed to compile glob %q", ignorePath, line)
+				return errors.Wrapf(err, "build step ignore file %s: failed to compile glob %s", ignorePath, line)
 			}
 			ignores = append(ignores, g)
 		}
 	}
 
 	// insert the source code
-	pfc, err := pc.NewPutFileClient()
-	if err != nil {
-		return errors.Wrapf(err, "failed to construct put file client for source code in build step-enabled pipeline")
-	}
-	if update {
-		if err = pfc.DeleteFile(buildPipelineName, "source", "/"); err != nil {
-			return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+	if err := pc.WithModifyFileClient(buildPipelineName, "source", func(mfc pachdclient.ModifyFileClient) error {
+		if update {
+			if err := mfc.DeleteFile("/"); err != nil {
+				return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+			}
 		}
-	}
-	if err := filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
-		if info == nil {
-			return errors.Errorf("%q doesn't exist", srcFilePath)
-		}
-		if info.IsDir() {
-			return nil
-		}
-
-		destFilePath, err := filepath.Rel(buildPath, srcFilePath)
-		if err != nil {
-			return errors.Wrapf(err, "failed to discover relative path for %s", srcFilePath)
-		}
-		for _, g := range ignores {
-			if g.Match(destFilePath) {
+		return filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
+			if info == nil {
+				return errors.Errorf("%s doesn't exist", srcFilePath)
+			}
+			if info.IsDir() {
 				return nil
 			}
-		}
 
-		f, err := progress.Open(srcFilePath)
-		if err != nil {
-			return errors.Wrapf(err, "failed to open file %q for source code in build step-enabled pipeline", srcFilePath)
-		}
-		defer func() {
-			if err := f.Close(); err != nil && retErr == nil {
-				retErr = err
+			destFilePath, err := filepath.Rel(buildPath, srcFilePath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to discover relative path for %s", srcFilePath)
 			}
-		}()
+			for _, g := range ignores {
+				if g.Match(destFilePath) {
+					return nil
+				}
+			}
 
-		if err := pfc.PutFileOverwrite(buildPipelineName, "source", destFilePath, f); err != nil {
-			return errors.Wrapf(err, "failed to put file %q->%q for source code in build step-enabled pipeline", srcFilePath, destFilePath)
-		}
+			f, err := progress.Open(srcFilePath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to open file %s for source code in build step-enabled pipeline", srcFilePath)
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 
-		return nil
+			if err := mfc.PutFile(destFilePath, f); err != nil {
+				return errors.Wrapf(err, "failed to put file %s->%s for source code in build step-enabled pipeline", srcFilePath, destFilePath)
+			}
+
+			return nil
+		})
 	}); err != nil {
 		return err
-	}
-	if err := pfc.Close(); err != nil {
-		return errors.Wrapf(err, "failed to close put file client for source code in build step-enabled pipeline")
 	}
 
 	// modify the pipeline to use the build assets

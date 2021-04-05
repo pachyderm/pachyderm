@@ -34,7 +34,7 @@ type driver struct {
 }
 
 func newDriver(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 ) (*driver, error) {
@@ -126,7 +126,7 @@ func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transac
 			}
 			commit := info.Responses[i].Commit
 			if commit != nil {
-				if err := directTxn.DeleteCommit(&pfs.DeleteCommitRequest{Commit: commit}); err != nil {
+				if err := directTxn.SquashCommit(&pfs.SquashCommitRequest{Commit: commit}); err != nil {
 					return err
 				}
 			}
@@ -200,8 +200,8 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
 			response = &transaction.TransactionResponse{}
-		} else if request.DeleteCommit != nil {
-			err = directTxn.DeleteCommit(request.DeleteCommit)
+		} else if request.SquashCommit != nil {
+			err = directTxn.SquashCommit(request.SquashCommit)
 			response = &transaction.TransactionResponse{}
 		} else if request.CreateBranch != nil {
 			err = directTxn.CreateBranch(request.CreateBranch)

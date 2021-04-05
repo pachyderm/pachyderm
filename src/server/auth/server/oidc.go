@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	goerr "errors"
 	"fmt"
 	"net/http"
@@ -13,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 
 	oidc "github.com/coreos/go-oidc"
@@ -43,26 +42,6 @@ func scopes(additionalScopes []string) []string {
 	return append([]string{oidc.ScopeOpenID, "profile", "email"}, additionalScopes...)
 }
 
-// CryptoString returns a cryptographically random, URL safe string with length
-// at least n
-//
-// TODO(msteffen): move away from UUIDv4 towards this (current implementation of
-// UUIDv4 produces UUIDs via CSPRNG, but the UUIDv4 spec doesn't guarantee that
-// behavior, and we shouldn't assume it going forward)
-func CryptoString(n int) string {
-	var numBytes int
-	for n >= base64.RawURLEncoding.EncodedLen(numBytes) {
-		numBytes++
-	}
-	b := make([]byte, numBytes)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic("could not generate cryptographically secure random string!")
-	}
-
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
 // validateOIDC validates an OIDC configuration before it's stored in etcd.
 func validateOIDCConfig(ctx context.Context, config *auth.OIDCConfig) error {
 	if _, err := url.Parse(config.Issuer); err != nil {
@@ -70,7 +49,7 @@ func validateOIDCConfig(ctx context.Context, config *auth.OIDCConfig) error {
 	}
 
 	// this does a request to <issuer>/.well-known/openid-configuration to see if it works
-	_, err := oidcProvider(ctx, config)
+	_, err := newOIDCConfig(ctx, config)
 
 	if err != nil {
 		return errors.Wrapf(err, "provided OIDC issuer does not implement OIDC protocol")
@@ -105,22 +84,53 @@ func half(state string) string {
 	return fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state))
 }
 
-// oidcProvider creates a short-lived oidc.Provider tied to a request context.
-// TODO: we should cache and reuse the provider as long as the config hasn't changed.
-// When we start caching it, we'll need to use a separate context.
-func oidcProvider(ctx context.Context, c *auth.OIDCConfig) (*oidc.Provider, error) {
-	if c.LocalhostIssuer {
-		client, err := LocalhostRewriteClient(c.Issuer)
+// oidcConfig is a struct that wraps an auth.OIDCConfig and adds useful
+// structs that we would normally need to instantiate multiple times
+type oidcConfig struct {
+	*auth.OIDCConfig
+	oidcProvider  *oidc.Provider
+	oauthConfig   oauth2.Config
+	rewriteClient *http.Client
+}
+
+func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, error) {
+	var rewriteClient *http.Client
+	var err error
+	if config.LocalhostIssuer {
+		rewriteClient, err = LocalhostRewriteClient(config.Issuer)
 		if err != nil {
 			return nil, err
 		}
-		ctx = oidc.ClientContext(ctx, client)
+		ctx = oidc.ClientContext(ctx, rewriteClient)
 	}
 
-	return oidc.NewProvider(ctx, c.Issuer)
+	oidcProvider, err := oidc.NewProvider(ctx, config.Issuer)
+	if err != nil {
+		return nil, err
+	}
+
+	return &oidcConfig{
+		OIDCConfig:    config,
+		oidcProvider:  oidcProvider,
+		rewriteClient: rewriteClient,
+		oauthConfig: oauth2.Config{
+			ClientID:     config.ClientID,
+			ClientSecret: config.ClientSecret,
+			RedirectURL:  config.RedirectURI,
+			Endpoint:     oidcProvider.Endpoint(),
+			Scopes:       scopes(config.AdditionalScopes),
+		},
+	}, nil
 }
 
-func (a *apiServer) getOIDCConfig() (*auth.OIDCConfig, error) {
+func (c *oidcConfig) Ctx(ctx context.Context) context.Context {
+	if c.rewriteClient != nil {
+		return oidc.ClientContext(ctx, c.rewriteClient)
+	}
+	return ctx
+}
+
+func (a *apiServer) getOIDCConfig(ctx context.Context) (*oidcConfig, error) {
 	config, ok := a.configCache.Load().(*auth.OIDCConfig)
 	if !ok {
 		return nil, errors.New("unable to load cached OIDC configuration")
@@ -128,30 +138,18 @@ func (a *apiServer) getOIDCConfig() (*auth.OIDCConfig, error) {
 	if config.Issuer == "" {
 		return nil, errors.WithStack(errNotConfigured)
 	}
-	return config, nil
+	return newOIDCConfig(ctx, config)
 }
 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
 func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error) {
-	config, err := a.getOIDCConfig()
+	config, err := a.getOIDCConfig(ctx)
 	if err != nil {
 		return "", "", err
 	}
 
-	provider, err := oidcProvider(ctx, config)
-	if err != nil {
-		return "", "", err
-	}
-
-	state := CryptoString(30)
-	nonce := CryptoString(30)
-	conf := oauth2.Config{
-		ClientID:     config.ClientID,
-		ClientSecret: config.ClientSecret,
-		RedirectURL:  config.RedirectURI,
-		Endpoint:     provider.Endpoint(),
-		Scopes:       scopes(config.AdditionalScopes),
-	}
+	state := random.String(30)
+	nonce := random.String(30)
 
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.oidcStates.ReadWrite(stm).PutTTL(state, &auth.SessionInfo{
@@ -161,7 +159,7 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 		return "", "", errors.Wrap(err, "could not create OIDC login session")
 	}
 
-	url := conf.AuthCodeURL(state,
+	url := config.oauthConfig.AuthCodeURL(state,
 		oauth2.SetAuthURLParam("response_type", "code"),
 		oauth2.SetAuthURLParam("nonce", nonce))
 	return url, state, nil
@@ -318,18 +316,13 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 }
 
 func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oidc.IDToken, *IDTokenClaims, error) {
-	config, err := a.getOIDCConfig()
+	config, err := a.getOIDCConfig(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	provider, err := oidcProvider(ctx, config)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var verifier = provider.Verifier(&oidc.Config{ClientID: config.ClientID})
-	idToken, err := verifier.Verify(ctx, rawIDToken)
+	var verifier = config.oidcProvider.Verifier(&oidc.Config{ClientID: config.ClientID})
+	idToken, err := verifier.Verify(config.Ctx(ctx), rawIDToken)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "could not verify token")
 	}
@@ -340,7 +333,7 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 	}
 
 	if !claims.EmailVerified && !config.IgnoreEmailVerified {
-		return nil, nil, errors.Wrapf(err, "email_verified claim was false")
+		return nil, nil, errors.New("email_verified claim was false, and ignore_email_verified was not set")
 	}
 	return idToken, &claims, nil
 }
@@ -366,34 +359,13 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 			half(state), nonce, email)
 	}()
 
-	config, err := a.getOIDCConfig()
+	config, err := a.getOIDCConfig(ctx)
 	if err != nil {
 		return "", "", err
-	}
-
-	provider, err := oidcProvider(ctx, config)
-	if err != nil {
-		return "", "", err
-	}
-
-	conf := &oauth2.Config{
-		ClientID:     config.ClientID,
-		ClientSecret: config.ClientSecret,
-		RedirectURL:  config.RedirectURI,
-		Scopes:       scopes(config.AdditionalScopes),
-		Endpoint:     provider.Endpoint(),
-	}
-
-	if config.LocalhostIssuer {
-		client, err := LocalhostRewriteClient(config.Issuer)
-		if err != nil {
-			return "", "", err
-		}
-		ctx = oidc.ClientContext(ctx, client)
 	}
 
 	// Use the authorization code that is pushed to the redirect
-	tok, err := conf.Exchange(ctx, authCode)
+	tok, err := config.oauthConfig.Exchange(config.Ctx(ctx), authCode)
 	if err != nil {
 		return "", "", errors.Wrapf(err, "failed to exchange code")
 	}
@@ -420,5 +392,5 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 func (a *apiServer) serveOIDC() error {
 	// serve OIDC handler to exchange the auth code
 	http.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.OidcPort), nil)
+	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config().OidcPort), nil)
 }

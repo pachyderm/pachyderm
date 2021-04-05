@@ -71,6 +71,39 @@ func TestRetryUntilCancelZeroBackoff(t *testing.T) {
 	})
 }
 
+// if mustResetBackOff is called more than once without Reset() being called in
+// between, then it returns Stop (i.e. it can back off exactly once). This is
+// used by TestRetryUntilCancelResetsOnErrContinue
+type mustResetBackOff int
+
+func (m *mustResetBackOff) NextBackOff() time.Duration {
+	if (*m) > 0 {
+		return Stop
+	}
+	(*m)++
+	return 0
+}
+
+// Reset to initial state.
+func (m *mustResetBackOff) Reset() {
+	(*m) = 0
+}
+
+// TestRetryUntilCancelResetsOnErrContinue tests that the backoff passed to
+// RetryUntilCancel is reset if 'operation' returns ErrContinue
+func TestRetryUntilCancelResetsOnErrContinue(t *testing.T) {
+	var b mustResetBackOff = 0
+	var results []int
+	RetryUntilCancel(context.Background(), func() error {
+		results = append(results, len(results)+1)
+		if len(results) < 3 {
+			return ErrContinue
+		}
+		return nil
+	}, &b, NotifyContinue(t.Name()))
+	require.Equal(t, []int{1, 2, 3}, results)
+}
+
 func TestNotifyContinue(t *testing.T) {
 	t.Run("NotifyContinueWithNil", func(t *testing.T) {
 		var results []int
@@ -133,4 +166,22 @@ func TestNotifyContinue(t *testing.T) {
 		require.Equal(t, []int{0, 1, 2, 3}, results)
 		require.Equal(t, 1, strings.Count(buf.String(), t.Name())) // logged once
 	})
+}
+
+func TestMustLoop(t *testing.T) {
+	var results []int
+	ctx, cancel := context.WithCancel(context.Background())
+	RetryUntilCancel(ctx, MustLoop(func() error {
+		results = append(results, len(results)+1)
+		switch len(results) {
+		case 1:
+			return ErrContinue
+		case 2:
+			break // return nil, but don't cancel context
+		case 3:
+			cancel() // actually break out
+		}
+		return nil
+	}), &ZeroBackOff{}, NotifyContinue(t.Name()))
+	require.Equal(t, []int{1, 2, 3}, results)
 }

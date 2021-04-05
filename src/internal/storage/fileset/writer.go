@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // TODO: Size zero files need to be addressed now that we are moving away from storing tar headers.
@@ -23,13 +22,16 @@ type FileWriter struct {
 	idx *index.Index
 }
 
-// Append sets an append tag for the next set of bytes.
-func (fw *FileWriter) Append(tag string) {
+// Add sets an add tag for the next set of bytes.
+func (fw *FileWriter) Add(tag string) {
 	fw.idx.File.Parts = append(fw.idx.File.Parts, &index.Part{Tag: tag})
 }
 
 func (fw *FileWriter) Write(data []byte) (int, error) {
 	parts := fw.idx.File.Parts
+	if len(parts) < 1 {
+		panic("must specify a tag before writing")
+	}
 	part := parts[len(parts)-1]
 	part.SizeBytes += int64(len(data))
 	fw.w.sizeBytes += int64(len(data))
@@ -40,8 +42,7 @@ func (fw *FileWriter) Write(data []byte) (int, error) {
 type Writer struct {
 	ctx                context.Context
 	tracker            track.Tracker
-	store              Store
-	path               string
+	storage            *Storage
 	additive, deletive *index.Writer
 	sizeBytes          int64
 	cw                 *chunk.Writer
@@ -53,13 +54,11 @@ type Writer struct {
 	ttl                time.Duration
 }
 
-func newWriter(ctx context.Context, store Store, tracker track.Tracker, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
-	uuidStr := uuid.NewWithoutDashes()
+func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chunks *chunk.Storage, opts ...WriterOption) *Writer {
 	w := &Writer{
 		ctx:     ctx,
-		store:   store,
+		storage: storage,
 		tracker: tracker,
-		path:    path,
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -68,14 +67,15 @@ func newWriter(ctx context.Context, store Store, tracker track.Tracker, chunks *
 	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
-	w.additive = index.NewWriter(ctx, chunks, "additive-index-writer-"+uuidStr)
-	w.deletive = index.NewWriter(ctx, chunks, "deletive-index-writer-"+uuidStr)
-	w.cw = chunks.NewWriter(ctx, "chunk-writer-"+uuidStr, w.callback, chunkWriterOpts...)
+	w.additive = index.NewWriter(ctx, chunks, "additive-index-writer")
+	w.deletive = index.NewWriter(ctx, chunks, "deletive-index-writer")
+	w.cw = chunks.NewWriter(ctx, "chunk-writer", w.callback, chunkWriterOpts...)
 	return w
 }
 
-// Append creates an append operation for a file and provides a scoped file writer.
-func (w *Writer) Append(p string, cb func(*FileWriter) error) error {
+// Add creates an add operation for a file and provides a scoped file writer.
+// TODO: change to `Add(p string, tag string, r io.Reader) error`, remove FileWriter object from API.
+func (w *Writer) Add(p string, cb func(*FileWriter) error) error {
 	fw, err := w.newFileWriter(p, w.cw)
 	if err != nil {
 		return err
@@ -122,8 +122,10 @@ func (w *Writer) Delete(p string, tags ...string) error {
 		Path: p,
 		File: &index.File{},
 	}
-	for _, tag := range tags {
-		idx.File.Parts = append(idx.File.Parts, &index.Part{Tag: tag})
+	if len(tags) > 0 && tags[0] != "" {
+		for _, tag := range tags {
+			idx.File.Parts = append(idx.File.Parts, &index.Part{Tag: tag})
+		}
 	}
 	return w.deletive.WriteIndex(idx)
 }
@@ -199,47 +201,39 @@ func (w *Writer) callback(annotations []*chunk.Annotation) error {
 }
 
 // Close closes the writer.
-func (w *Writer) Close() error {
+func (w *Writer) Close() (*ID, error) {
 	if err := w.cw.Close(); err != nil {
-		return err
+		return nil, err
 	}
 	// Write out the last index.
 	if w.lastIdx != nil {
 		idx := w.lastIdx
 		if !w.noUpload {
 			if err := w.additive.WriteIndex(idx); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		if w.indexFunc != nil {
 			if err := w.indexFunc(idx); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 	if w.noUpload {
-		return nil
+		return nil, nil
 	}
 	// Close the index writers.
 	additiveIdx, err := w.additive.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	deletiveIdx, err := w.deletive.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// TODO: This should be one transaction.
-	if err := createTrackerObject(w.ctx, w.path, []*index.Index{additiveIdx, deletiveIdx}, w.tracker, w.ttl); err != nil {
-		return err
-	}
-	if err := w.store.Set(w.ctx, w.path, &Metadata{
-		Path:      w.path,
+	return w.storage.newPrimitive(w.ctx, &Primitive{
 		Additive:  additiveIdx,
 		Deletive:  deletiveIdx,
 		SizeBytes: w.sizeBytes,
-	}); err != nil && err != ErrPathExists {
-		return err
-	}
-	return nil
+	}, w.ttl)
 }

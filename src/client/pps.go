@@ -65,6 +65,9 @@ const (
 	OutputCommitIDEnv = "PACH_OUTPUT_COMMIT_ID"
 	// PeerPortEnv is the env var that sets a custom peer port
 	PeerPortEnv = "PEER_PORT"
+
+	ReprocessSpecUntilSuccess = "until_success"
+	ReprocessSpecEveryJob     = "every_job"
 )
 
 // NewJob creates a pps.Job.
@@ -388,6 +391,20 @@ func (c APIClient) StopJob(jobID string) error {
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
+}
+
+// StopJobOutputCommit stops a job associated with an output commit.
+func (c APIClient) StopJobOutputCommit(repo, commit string) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	_, err := c.PpsAPIClient.StopJob(
+		c.Ctx(),
+		&pps.StopJobRequest{
+			OutputCommit: NewCommit(repo, commit),
+		},
+	)
+	return err
 }
 
 // RestartDatum restarts a datum that's being processed as part of a job.

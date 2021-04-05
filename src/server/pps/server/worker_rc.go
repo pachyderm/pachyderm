@@ -9,13 +9,11 @@ import (
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	client "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -209,11 +207,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		})
 	}
 	// Propagate feature flags to worker and sidecar
-	if a.env.DisableCommitProgressCounter {
+	if a.env.Config().DisableCommitProgressCounter {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 	}
-	if a.env.LokiLogging {
+	if a.env.Config().LokiLogging {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 	}
@@ -625,7 +623,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	}
 	var s3GatewayPort int32
 	if ppsutil.ContainsS3Inputs(pipelineInfo.Input) || pipelineInfo.S3Out {
-		s3GatewayPort = int32(a.env.S3GatewayPort)
+		s3GatewayPort = int32(a.env.Config().S3GatewayPort)
 	}
 
 	// Generate options for new RC
@@ -823,26 +821,6 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 				return err
 			}
 		}
-	}
-
-	// Generate pipeline's auth token & add pipeline to the ACLs of input/output
-	// repos
-	pachClient := a.env.GetPachClient(ctx)
-	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
-			Subject: auth.PipelinePrefix + pipelineInfo.Pipeline.Name,
-			TTL:     -1,
-		})
-		if err != nil {
-			if auth.IsErrNotActivated(err) {
-				return nil // no auth work to do
-			}
-			return grpcutil.ScrubGRPC(err)
-		}
-		ptr.AuthToken = tokenResp.Token
-		return nil
-	}); err != nil {
-		return err
 	}
 
 	// True if the pipeline has a git input

@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
@@ -39,20 +40,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	yaml "gopkg.in/yaml.v2"
 )
-
-func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.CommitInfo, error) {
-	var commitInfos []*pfs.CommitInfo
-	for {
-		commitInfo, err := commitInfoIter.Next()
-		if errors.Is(err, io.EOF) {
-			return commitInfos, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		commitInfos = append(commitInfos, commitInfo)
-	}
-}
 
 func CommitToID(commit interface{}) interface{} {
 	return commit.(*pfs.Commit).ID
@@ -748,7 +735,7 @@ func TestInspectCommitBlock(t *testing.T) {
 	}))
 }
 
-func TestDeleteCommit(t *testing.T) {
+func TestSquashCommit(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -766,7 +753,7 @@ func TestDeleteCommit(t *testing.T) {
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
-		require.NoError(t, env.PachClient.DeleteCommit(repo, commit2.ID))
+		require.NoError(t, env.PachClient.SquashCommit(repo, commit2.ID))
 
 		_, err = env.PachClient.InspectCommit(repo, commit2.ID)
 		require.YesError(t, err)
@@ -785,7 +772,7 @@ func TestDeleteCommit(t *testing.T) {
 	}))
 }
 
-func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
+func TestSquashCommitOnlyCommitInBranch(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -795,7 +782,7 @@ func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.DeleteCommit(repo, "master"))
+		require.NoError(t, env.PachClient.SquashCommit(repo, "master"))
 
 		// The branch has not been deleted, though it has no commits
 		branches, err := env.PachClient.ListBranch(repo)
@@ -814,7 +801,7 @@ func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
 	}))
 }
 
-func TestDeleteCommitFinished(t *testing.T) {
+func TestSquashCommitFinished(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -825,7 +812,7 @@ func TestDeleteCommitFinished(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n")))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-		require.NoError(t, env.PachClient.DeleteCommit(repo, "master"))
+		require.NoError(t, env.PachClient.SquashCommit(repo, "master"))
 
 		// The branch has not been deleted, though it has no commits
 		branches, err := env.PachClient.ListBranch(repo)
@@ -895,7 +882,7 @@ func TestSimpleFile(t *testing.T) {
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 
 		var buffer bytes.Buffer
@@ -904,7 +891,7 @@ func TestSimpleFile(t *testing.T) {
 
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
 		err = env.PachClient.FinishCommit(repo, commit2.ID)
 		require.NoError(t, err)
 
@@ -975,17 +962,17 @@ func TestAncestrySyntax(t *testing.T) {
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("1")))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader("1")))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, commit2.ID, "file", strings.NewReader("2")))
+		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "file", strings.NewReader("2")))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
 
 		commit3, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, commit3.ID, "file", strings.NewReader("3")))
+		require.NoError(t, env.PachClient.PutFile(repo, commit3.ID, "file", strings.NewReader("3")))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
 
 		commitInfo, err := env.PachClient.InspectCommit(repo, "master^")
@@ -1071,7 +1058,7 @@ func TestAncestrySyntax(t *testing.T) {
 		// Adding a bunch of commits to the head of the branch shouldn't change the forward references.
 		// (It will change backward references.)
 		for i := 0; i < 10; i++ {
-			require.NoError(t, env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i+4))))
+			require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i+4))))
 		}
 		commitInfo, err = env.PachClient.InspectCommit(repo, "master.1")
 		require.NoError(t, err)
@@ -1254,7 +1241,7 @@ func TestCommitOnTwoBranchesProvenance(t *testing.T) {
 		require.Equal(t, 2, len(ci.Provenance))
 
 		// We should also be able to delete the head commit of A
-		require.NoError(t, env.PachClient.DeleteCommit("repo", "A"))
+		require.NoError(t, env.PachClient.SquashCommit("repo", "A"))
 
 		// And the head of branch B should go back to the parent of the deleted commit
 		branchInfo, err := env.PachClient.InspectBranch("repo", "B")
@@ -1262,7 +1249,7 @@ func TestCommitOnTwoBranchesProvenance(t *testing.T) {
 		require.Equal(t, parentCommit.ID, branchInfo.Head.ID)
 
 		// We should also be able to delete the head commit of A
-		require.NoError(t, env.PachClient.DeleteCommit("repo", parentCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("repo", parentCommit.ID))
 
 		// It should also be ok to make new commits on branches A and B
 		aCommit, err := env.PachClient.StartCommit("repo", "A")
@@ -1277,37 +1264,6 @@ func TestCommitOnTwoBranchesProvenance(t *testing.T) {
 	}))
 }
 
-func TestSimple(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-		commit1, err := env.PachClient.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
-		commitInfos, err := env.PachClient.ListCommit(repo, "", "", 0)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(commitInfos))
-		var buffer bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(repo, commit1.ID, "foo", &buffer))
-		require.Equal(t, "foo\n", buffer.String())
-		commit2, err := env.PachClient.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
-		buffer = bytes.Buffer{}
-		require.NoError(t, env.PachClient.GetFile(repo, commit1.ID, "foo", &buffer))
-		require.Equal(t, "foo\n", buffer.String())
-		buffer = bytes.Buffer{}
-		require.NoError(t, env.PachClient.GetFile(repo, commit2.ID, "foo", &buffer))
-		require.Equal(t, "foo\nfoo\n", buffer.String())
-
-		return nil
-	}))
-}
-
 func TestBranch1(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
@@ -1316,7 +1272,7 @@ func TestBranch1(t *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "foo", strings.NewReader("foo\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "foo", &buffer))
@@ -1328,7 +1284,7 @@ func TestBranch1(t *testing.T) {
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "foo", strings.NewReader("foo\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
 		buffer = bytes.Buffer{}
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "foo", &buffer))
@@ -1444,9 +1400,9 @@ func TestPutFile2(t *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "file", strings.NewReader("bar\n")))
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader("buzz\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
+		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "file", strings.NewReader("bar\n"), pclient.WithAppendPutFile()))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader("buzz\n"), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 
 		expected := "foo\nbar\nbuzz\n"
@@ -1459,9 +1415,9 @@ func TestPutFile2(t *testing.T) {
 
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "file", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "file", strings.NewReader("bar\n")))
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader("buzz\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "file", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
+		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "file", strings.NewReader("bar\n"), pclient.WithAppendPutFile()))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader("buzz\n"), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
 
 		expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
@@ -1475,7 +1431,7 @@ func TestPutFile2(t *testing.T) {
 		commit3, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.SetBranch(repo, commit3.ID, "foo"))
-		require.NoError(t, env.PachClient.PutFile(repo, "foo", "file", strings.NewReader("foo\nbar\nbuzz\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, "foo", "file", strings.NewReader("foo\nbar\nbuzz\n"), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "foo"))
 
 		expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
@@ -1487,17 +1443,17 @@ func TestPutFile2(t *testing.T) {
 	}))
 }
 
-func TestPutFileOverwrite(t *testing.T) {
+func TestPutFile(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("foo")))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader("foo")))
 		var buf bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", &buf))
 		require.Equal(t, "foo", buf.String())
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("bar")))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader("bar")))
 		buf.Reset()
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", &buf))
 		require.Equal(t, "bar", buf.String())
@@ -1544,7 +1500,7 @@ func TestPutSameFileInParallel(t *testing.T) {
 		var eg errgroup.Group
 		for i := 0; i < 3; i++ {
 			eg.Go(func() error {
-				return env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
+				return env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile())
 			})
 		}
 		require.NoError(t, eg.Wait())
@@ -1568,23 +1524,25 @@ func TestInspectFile(t *testing.T) {
 		fileContent1 := "foo\n"
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent1)))
-
+		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent1), pclient.WithAppendPutFile()))
+		checks := func() {
+			fileInfo, err := env.PachClient.InspectFile(repo, commit1.ID, "foo")
+			require.NoError(t, err)
+			require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
+			require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
-
-		fileInfo, err := env.PachClient.InspectFile(repo, commit1.ID, "foo")
-		require.NoError(t, err)
-		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
-		require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+		checks()
 
 		fileContent2 := "barbar\n"
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "foo", strings.NewReader(fileContent2)))
+		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "foo", strings.NewReader(fileContent2), pclient.WithAppendPutFile()))
 
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
 
-		fileInfo, err = env.PachClient.InspectFile(repo, commit2.ID, "foo")
+		fileInfo, err := env.PachClient.InspectFile(repo, commit2.ID, "foo")
 		require.NoError(t, err)
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 		require.Equal(t, len(fileContent1+fileContent2), int(fileInfo.SizeBytes))
@@ -1597,7 +1555,7 @@ func TestInspectFile(t *testing.T) {
 		fileContent3 := "bar\n"
 		commit3, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit3.ID, "bar", strings.NewReader(fileContent3)))
+		require.NoError(t, env.PachClient.PutFile(repo, commit3.ID, "bar", strings.NewReader(fileContent3), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
 
 		fis, err := env.PachClient.ListFileAll(repo, commit3.ID, "")
@@ -1622,7 +1580,7 @@ func TestInspectFile2(t *testing.T) {
 
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader(fileContent1)))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader(fileContent1), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
 
 		fileInfo, err := env.PachClient.InspectFile(repo, "master", "/file")
@@ -1633,7 +1591,7 @@ func TestInspectFile2(t *testing.T) {
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader(fileContent1)))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader(fileContent1), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
 
 		fileInfo, err = env.PachClient.InspectFile(repo, "master", "file")
@@ -1644,7 +1602,7 @@ func TestInspectFile2(t *testing.T) {
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(repo, "master", "file"))
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader(fileContent2)))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader(fileContent2), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
 
 		fileInfo, err = env.PachClient.InspectFile(repo, "master", "file")
@@ -1855,13 +1813,17 @@ func TestListFile(t *testing.T) {
 		fileContent2 := "bar\n"
 		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "dir/bar", strings.NewReader(fileContent2)))
 
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		checks := func() {
+			fileInfos, err := env.PachClient.ListFileAll(repo, commit.ID, "dir")
+			require.NoError(t, err)
+			require.Equal(t, 2, len(fileInfos))
+			require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
+			require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
 
-		fileInfos, err := env.PachClient.ListFileAll(repo, commit.ID, "dir")
-		require.NoError(t, err)
-		require.Equal(t, 2, len(fileInfos))
-		require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
-		require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
+		}
+		checks()
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		checks()
 
 		return nil
 	}))
@@ -2164,17 +2126,17 @@ func TestDeleteFile3(t *testing.T) {
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		fileContent := "bar\n"
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, commit1.ID, "/bar", strings.NewReader(fileContent)))
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, commit1.ID, "/dir1/dir2/bar", strings.NewReader(fileContent)))
+		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "/bar", strings.NewReader(fileContent)))
+		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "/dir1/dir2/bar", strings.NewReader(fileContent)))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(repo, commit2.ID, "/"))
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, commit2.ID, "/bar", strings.NewReader(fileContent)))
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, commit2.ID, "/dir1/bar", strings.NewReader(fileContent)))
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, commit2.ID, "/dir1/dir2/bar", strings.NewReader(fileContent)))
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, commit2.ID, "/dir1/dir2/barbar", strings.NewReader(fileContent)))
+		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/bar", strings.NewReader(fileContent)))
+		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/dir1/bar", strings.NewReader(fileContent)))
+		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/dir1/dir2/bar", strings.NewReader(fileContent)))
+		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/dir1/dir2/barbar", strings.NewReader(fileContent)))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
 
 		commit3, err := env.PachClient.StartCommit(repo, "master")
@@ -2195,7 +2157,7 @@ func TestDeleteFile3(t *testing.T) {
 
 		commit4, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFileOverwrite(repo, commit4.ID, "/dir1/dir2/bar", strings.NewReader(fileContent)))
+		require.NoError(t, env.PachClient.PutFile(repo, commit4.ID, "/dir1/dir2/bar", strings.NewReader(fileContent)))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit4.ID))
 
 		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1")
@@ -2459,38 +2421,33 @@ func TestSubscribeCommit(t *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		}
 
-		var commits []*pfs.Commit
-		for i := 0; i < numCommits; i++ {
-			commit, err := env.PachClient.StartCommit(repo, "master")
-			require.NoError(t, err)
-			require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-			commits = append(commits, commit)
-		}
+		require.NoErrorWithinT(t, 60*time.Second, func() error {
+			var eg errgroup.Group
+			nextCommitChan := make(chan *pfs.Commit, numCommits)
+			eg.Go(func() error {
+				var count int
+				return env.PachClient.SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+					commit := <-nextCommitChan
+					require.Equal(t, commit, ci.Commit)
+					count++
+					if count == numCommits {
+						return errutil.ErrBreak
+					}
+					return nil
+				})
+			})
+			eg.Go(func() error {
+				for i := 0; i < numCommits; i++ {
+					commit, err := env.PachClient.StartCommit(repo, "master")
+					require.NoError(t, err)
+					require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+					nextCommitChan <- commit
+				}
+				return nil
+			})
 
-		commitIter, err := env.PachClient.SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
-		require.NoError(t, err)
-		for i := 0; i < numCommits; i++ {
-			commitInfo, err := commitIter.Next()
-			require.NoError(t, err)
-			require.Equal(t, commits[i], commitInfo.Commit)
-		}
-
-		// Create another batch of commits
-		commits = nil
-		for i := 0; i < numCommits; i++ {
-			commit, err := env.PachClient.StartCommit(repo, "master")
-			require.NoError(t, err)
-			require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-			commits = append(commits, commit)
-		}
-
-		for i := 0; i < numCommits; i++ {
-			commitInfo, err := commitIter.Next()
-			require.NoError(t, err)
-			require.Equal(t, commits[i], commitInfo.Commit)
-		}
-
-		commitIter.Close()
+			return eg.Wait()
+		})
 
 		return nil
 	}))
@@ -2597,17 +2554,21 @@ func TestGetFile(t *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "dir/file", strings.NewReader("foo\n")))
+		checks := func() {
+			var buffer bytes.Buffer
+			require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "dir/file", &buffer))
+			require.Equal(t, "foo\n", buffer.String())
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-		var buffer bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "dir/file", &buffer))
-		require.Equal(t, "foo\n", buffer.String())
+		checks()
 		t.Run("InvalidCommit", func(t *testing.T) {
-			buffer = bytes.Buffer{}
+			buffer := bytes.Buffer{}
 			err = env.PachClient.GetFile(repo, "aninvalidcommitid", "dir/file", &buffer)
 			require.YesError(t, err)
 		})
 		t.Run("Directory", func(t *testing.T) {
-			buffer = bytes.Buffer{}
+			buffer := bytes.Buffer{}
 			err = env.PachClient.GetFile(repo, commit.ID, "dir", &buffer)
 			require.NoError(t, err)
 		})
@@ -2644,7 +2605,7 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				for i := 0; i < numObjs/numGoros; i++ {
-					if err := env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader(rawMessage)); err != nil {
+					if err := env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader(rawMessage), pclient.WithAppendPutFile()); err != nil {
 						panic(err)
 					}
 				}
@@ -2695,28 +2656,6 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 //		return nil
 //	}))
 //}
-
-func TestPutFileURL(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		if testing.Short() {
-			t.Skip("Skipping integration tests in short mode")
-		}
-
-		repo := "TestPutFileURL"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-		commit, err := env.PachClient.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md", false, false))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-		fileInfo, err := env.PachClient.InspectFile(repo, commit.ID, "readme")
-		require.NoError(t, err)
-		require.True(t, fileInfo.SizeBytes > 0)
-
-		return nil
-	}))
-}
 
 // TODO: Make work with V2?
 //func TestBigListFile(t *testing.T) {
@@ -2986,9 +2925,7 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("A", "master"))
 		require.NoError(t, env.PachClient.FinishCommit("B", "master"))
-		commitInfoIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitInfoIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -3021,18 +2958,14 @@ func TestFlush2(t *testing.T) {
 		}()
 
 		// Flush ACommit
-		commitInfoIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitInfoIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 
-		commitInfoIter, err = env.PachClient.FlushCommit(
+		commitInfos, err = env.PachClient.FlushCommitAll(
 			[]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)},
 			[]*pfs.Repo{pclient.NewRepo("C")},
 		)
-		require.NoError(t, err)
-		commitInfos, err = collectCommitInfos(commitInfoIter)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -3071,9 +3004,7 @@ func TestFlush3(t *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("B", BCommit.ID))
 		require.NoError(t, env.PachClient.FinishCommit("C", "master"))
 
-		commitIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("B", BCommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("B", BCommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -3091,9 +3022,7 @@ func TestFlushRedundant(t *testing.T) {
 		ACommit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("A", "master"))
-		commitInfoIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitInfoIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
 
@@ -3110,9 +3039,7 @@ func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-		commitIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit(repo, commit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, commit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
 
@@ -3138,9 +3065,7 @@ func TestFlushOpenCommit(t *testing.T) {
 		}()
 
 		// Flush ACommit
-		commitIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -3152,9 +3077,7 @@ func TestEmptyFlush(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		commitIter, err := env.PachClient.FlushCommit(nil, nil)
-		require.NoError(t, err)
-		_, err = collectCommitInfos(commitIter)
+		_, err := env.PachClient.FlushCommitAll(nil, nil)
 		require.YesError(t, err)
 
 		return nil
@@ -3165,15 +3088,11 @@ func TestFlushNonExistentCommit(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		iter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
-		require.NoError(t, err)
-		_, err = collectCommitInfos(iter)
+		_, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
 		require.YesError(t, err)
 		repo := "FlushNonExistentCommit"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		_, err = env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit(repo, "fake-commit")}, nil)
-		require.NoError(t, err)
-		_, err = collectCommitInfos(iter)
+		_, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, "fake-commit")}, nil)
 		require.YesError(t, err)
 
 		return nil
@@ -3430,77 +3349,95 @@ func TestDiffFile(t *testing.T) {
 		// Write foo
 		c1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, c1.ID, "foo", strings.NewReader("foo\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, c1.ID, "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
+		checks := func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c1.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 0, len(oldFis))
+			require.Equal(t, 2, len(newFis))
+			require.Equal(t, "/foo", newFis[1].File.Path)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c1.ID))
-
-		newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c1.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(oldFis))
-		require.Equal(t, 2, len(newFis))
-		require.Equal(t, "/foo", newFis[1].File.Path)
+		checks()
 
 		// Change the value of foo
 		c2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(repo, c2.ID, "/foo"))
-		require.NoError(t, env.PachClient.PutFile(repo, c2.ID, "foo", strings.NewReader("not foo\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, c2.ID, "foo", strings.NewReader("not foo\n"), pclient.WithAppendPutFile()))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c2.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(oldFis))
+			require.Equal(t, "/foo", oldFis[1].File.Path)
+			require.Equal(t, 2, len(newFis))
+			require.Equal(t, "/foo", newFis[1].File.Path)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c2.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c2.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(oldFis))
-		require.Equal(t, "/foo", oldFis[1].File.Path)
-		require.Equal(t, 2, len(newFis))
-		require.Equal(t, "/foo", newFis[1].File.Path)
+		checks()
 
 		// Write bar
 		c3, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, c3.ID, "/bar", strings.NewReader("bar\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, c3.ID, "/bar", strings.NewReader("bar\n"), pclient.WithAppendPutFile()))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c3.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(oldFis))
+			require.Equal(t, 2, len(newFis))
+			require.Equal(t, "/bar", newFis[1].File.Path)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c3.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c3.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(oldFis))
-		require.Equal(t, 2, len(newFis))
-		require.Equal(t, "/bar", newFis[1].File.Path)
+		checks()
 
 		// Delete bar
 		c4, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(repo, c4.ID, "/bar"))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c4.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(oldFis))
+			require.Equal(t, "/bar", oldFis[1].File.Path)
+			require.Equal(t, 1, len(newFis))
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c4.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c4.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(oldFis))
-		require.Equal(t, "/bar", oldFis[1].File.Path)
-		require.Equal(t, 1, len(newFis))
+		checks()
 
 		// Write dir/fizz and dir/buzz
 		c5, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, c5.ID, "/dir/fizz", strings.NewReader("fizz\n")))
-		require.NoError(t, env.PachClient.PutFile(repo, c5.ID, "/dir/buzz", strings.NewReader("buzz\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, c5.ID, "/dir/fizz", strings.NewReader("fizz\n"), pclient.WithAppendPutFile()))
+		require.NoError(t, env.PachClient.PutFile(repo, c5.ID, "/dir/buzz", strings.NewReader("buzz\n"), pclient.WithAppendPutFile()))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c5.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(oldFis))
+			require.Equal(t, 4, len(newFis))
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c5.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c5.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(oldFis))
-		require.Equal(t, 4, len(newFis))
+		checks()
 
 		// Modify dir/fizz
 		c6, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, c6.ID, "/dir/fizz", strings.NewReader("fizz\n")))
+		require.NoError(t, env.PachClient.PutFile(repo, c6.ID, "/dir/fizz", strings.NewReader("fizz\n"), pclient.WithAppendPutFile()))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c6.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 3, len(oldFis))
+			require.Equal(t, "/dir/fizz", oldFis[2].File.Path)
+			require.Equal(t, 3, len(newFis))
+			require.Equal(t, "/dir/fizz", newFis[2].File.Path)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c6.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c6.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 3, len(oldFis))
-		require.Equal(t, "/dir/fizz", oldFis[2].File.Path)
-		require.Equal(t, 3, len(newFis))
-		require.Equal(t, "/dir/fizz", newFis[2].File.Path)
+		checks()
 
 		return nil
 	}))
@@ -3526,65 +3463,68 @@ func TestGlobFile(t *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(repo, "master", fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
 			require.NoError(t, env.PachClient.PutFile(repo, "master", fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
 		}
+		checks := func() {
+			fileInfos, err := env.PachClient.GlobFileAll(repo, "master", "*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles+2, len(fileInfos))
+			fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "file*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles, len(fileInfos))
+			fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "dir1/*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles, len(fileInfos))
+			fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "dir2/dir3/*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles, len(fileInfos))
+			fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "*/*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles+1, len(fileInfos))
+
+			var output strings.Builder
+			err = env.PachClient.GetFile(repo, "master", "*", &output)
+			require.NoError(t, err)
+			require.Equal(t, numFiles*3, len(output.String()))
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "dir2/dir3/file1?", &output)
+			require.NoError(t, err)
+			require.Equal(t, 10, len(output.String()))
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "**file1?", &output)
+			require.NoError(t, err)
+			require.Equal(t, 30, len(output.String()))
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "**file1", &output)
+			require.NoError(t, err)
+			require.True(t, strings.Contains(output.String(), "1"))
+			require.True(t, strings.Contains(output.String(), "2"))
+			require.True(t, strings.Contains(output.String(), "3"))
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "**file1", &output)
+			require.NoError(t, err)
+			match, err := regexp.Match("[123]", []byte(output.String()))
+			require.NoError(t, err)
+			require.True(t, match)
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "dir?", &output)
+			require.NoError(t, err)
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "", &output)
+			require.NoError(t, err)
+
+			// TODO: File not found?
+			//output = strings.Builder{}
+			//err = env.PachClient.GetFile(repo, "master", "garbage", &output)
+			//require.YesError(t, err)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-
-		fileInfos, err := env.PachClient.GlobFileAll(repo, "master", "*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles+2, len(fileInfos))
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "file*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles, len(fileInfos))
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "dir1/*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles, len(fileInfos))
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "dir2/dir3/*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles, len(fileInfos))
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "*/*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles+1, len(fileInfos))
-
-		var output strings.Builder
-		err = env.PachClient.GetFile(repo, "master", "*", &output)
-		require.NoError(t, err)
-		require.Equal(t, numFiles*3, len(output.String()))
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "dir2/dir3/file1?", &output)
-		require.NoError(t, err)
-		require.Equal(t, 10, len(output.String()))
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "**file1?", &output)
-		require.NoError(t, err)
-		require.Equal(t, 30, len(output.String()))
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "**file1", &output)
-		require.NoError(t, err)
-		require.True(t, strings.Contains(output.String(), "1"))
-		require.True(t, strings.Contains(output.String(), "2"))
-		require.True(t, strings.Contains(output.String(), "3"))
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "**file1", &output)
-		require.NoError(t, err)
-		match, err := regexp.Match("[123]", []byte(output.String()))
-		require.NoError(t, err)
-		require.True(t, match)
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "dir?", &output)
-		require.NoError(t, err)
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "", &output)
-		require.NoError(t, err)
-
-		// TODO: File not found?
-		//output = strings.Builder{}
-		//err = env.PachClient.GetFile(repo, "master", "garbage", &output)
-		//require.YesError(t, err)
+		checks()
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -3595,12 +3535,14 @@ func TestGlobFile(t *testing.T) {
 		require.NoError(t, err)
 		err = env.PachClient.DeleteFile(repo, "master", "/")
 		require.NoError(t, err)
-
+		checks = func() {
+			fileInfos, err := env.PachClient.GlobFileAll(repo, "master", "**")
+			require.NoError(t, err)
+			require.Equal(t, 0, len(fileInfos))
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "**")
-		require.NoError(t, err)
-		require.Equal(t, 0, len(fileInfos))
+		checks()
 
 		return nil
 	}))
@@ -3754,9 +3696,9 @@ func TestApplyWriteOrder(t *testing.T) {
 //		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
 //		_, err = env.PachClient.StartCommit(repo, "master")
 //		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileOverwrite(repo, "master", "file1", strings.NewReader("bar"))
+//		_, err = env.PachClient.PutFile(repo, "master", "file1", strings.NewReader("bar"))
 //		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFileOverwrite(repo, "master", "file2", strings.NewReader("buzz")))
+//		require.NoError(t, env.PachClient.PutFile(repo, "master", "file2", strings.NewReader("buzz")))
 //		require.NoError(t, err)
 //		_, err = env.PachClient.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, 0, true, strings.NewReader("0\n1\n2\n"))
 //		require.NoError(t, err)
@@ -3802,8 +3744,8 @@ func TestCopyFile(t *testing.T) {
 
 		otherCommit, err := env.PachClient.StartCommit(repo, "other")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.CopyFile(repo, masterCommit.ID, "files", repo, otherCommit.ID, "files", false))
-		require.NoError(t, env.PachClient.CopyFile(repo, masterCommit.ID, "files/0", repo, otherCommit.ID, "file0", false))
+		require.NoError(t, env.PachClient.CopyFile(repo, masterCommit.ID, "files", repo, otherCommit.ID, "files", pclient.WithAppendCopyFile()))
+		require.NoError(t, env.PachClient.CopyFile(repo, masterCommit.ID, "files/0", repo, otherCommit.ID, "file0", pclient.WithAppendCopyFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, otherCommit.ID))
 
 		for i := 0; i < numFiles; i++ {
@@ -4101,7 +4043,7 @@ func TestChildCommits(t *testing.T) {
 		require.ElementsEqualUnderFn(t, []string{commit2.ID}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit 2 and make sure it's removed from commit1.ChildCommits
-		require.NoError(t, env.PachClient.DeleteCommit("A", commit2.ID))
+		require.NoError(t, env.PachClient.SquashCommit("A", commit2.ID))
 		commit1Info = inspect("A", commit1.ID)
 		require.ElementsEqualUnderFn(t, nil, commit1Info.ChildCommits, CommitToID)
 
@@ -4118,7 +4060,7 @@ func TestChildCommits(t *testing.T) {
 		require.ElementsEqualUnderFn(t, []string{commit2.ID, commit3.ID}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit3 and make sure commit1 has the right children
-		require.NoError(t, env.PachClient.DeleteCommit("A", commit3.ID))
+		require.NoError(t, env.PachClient.SquashCommit("A", commit3.ID))
 		commit1Info = inspect("A", commit1.ID)
 		require.ElementsEqualUnderFn(t, []string{commit2.ID}, commit1Info.ChildCommits, CommitToID)
 
@@ -4241,7 +4183,7 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 	}))
 }
 
-// TestDeleteCommitBigSubvenance deletes a commit that is upstream of a large
+// TestSquashCommitBigSubvenance deletes a commit that is upstream of a large
 // stack of pipeline outputs and makes sure that parenthood and such are handled
 // correctly.
 // DAG (dots are commits):
@@ -4256,7 +4198,7 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 // 2. Delete branch HEAD   -> output branch rewritten to point to a live commit
 // 3. Delete branch HEAD   -> output branch rewritten to point to nil
 // 4. Delete parent commit -> child rewritten to point to nil
-func TestDeleteCommitBigSubvenance(t *testing.T) {
+func TestSquashCommitBigSubvenance(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4311,7 +4253,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 13, len(commits))
 
-		require.NoError(t, env.PachClient.DeleteCommit("schema", bigSubvCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("schema", bigSubvCommit.ID))
 
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
@@ -4324,7 +4266,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 		// - commit to 'logs' 10 more times
 		// - delete bigSubvCommit
 		// - Now there should be two commits in 'pipeline':
-		//   - One started by DeleteCommit (with provenance schema/master and
+		//   - One started by SquashCommit (with provenance schema/master and
 		//     logs/masterand
 		//   - The oldest commit in 'pipeline', from the setup
 		// - The second commit is the parent of the first
@@ -4344,7 +4286,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit("logs", commit.ID))
 		}
 
-		require.NoError(t, env.PachClient.DeleteCommit("schema", bigSubvCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("schema", bigSubvCommit.ID))
 
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
@@ -4372,23 +4314,23 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit("logs", commit.ID))
 		}
 
-		require.NoError(t, env.PachClient.DeleteCommit("schema", bigSubvCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("schema", bigSubvCommit.ID))
 
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commits))
 
-		// Delete all input commits--DeleteCommit should reset 'pipeline/master' to
+		// Delete all input commits--SquashCommit should reset 'pipeline/master' to
 		// nil, and should not create a new output commit this time
 		commits, err = env.PachClient.ListCommit("schema", "master", "", 0)
 		require.NoError(t, err)
 		for _, commitInfo := range commits {
-			require.NoError(t, env.PachClient.DeleteCommit("schema", commitInfo.Commit.ID))
+			require.NoError(t, env.PachClient.SquashCommit("schema", commitInfo.Commit.ID))
 		}
 		commits, err = env.PachClient.ListCommit("logs", "master", "", 0)
 		require.NoError(t, err)
 		for _, commitInfo := range commits {
-			require.NoError(t, env.PachClient.DeleteCommit("logs", commitInfo.Commit.ID))
+			require.NoError(t, env.PachClient.SquashCommit("logs", commitInfo.Commit.ID))
 		}
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
@@ -4421,7 +4363,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("schema", commit.ID))
 
-		require.NoError(t, env.PachClient.DeleteCommit("schema", bigSubvCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("schema", bigSubvCommit.ID))
 
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
@@ -4434,7 +4376,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	}))
 }
 
-// TestDeleteCommitMultipleChildrenSingleCommit tests that when you have the
+// TestSquashCommitMultipleChildrenSingleCommit tests that when you have the
 // following commit graph in a repo:
 // c   d
 //  ↘ ↙
@@ -4447,7 +4389,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 // c   d
 //  ↘ ↙
 //   a
-func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
+func TestSquashCommitMultipleChildrenSingleCommit(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4497,7 +4439,7 @@ func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 		require.Equal(t, 0, len(dInfo.ChildCommits))
 
 		// Delete commit 'b'
-		env.PachClient.DeleteCommit("repo", b.ID)
+		env.PachClient.SquashCommit("repo", b.ID)
 
 		// Collect info re: a, c, and d, and make sure that the parent/child
 		// relationships are still correct
@@ -4521,7 +4463,7 @@ func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 	}))
 }
 
-// TestDeleteCommitMultiLevelChildrenNilParent tests that when you have the
+// TestSquashCommitMultiLevelChildrenNilParent tests that when you have the
 // following commit graph in a repo:
 //
 //    ↙f
@@ -4537,7 +4479,7 @@ func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 // d e f
 //  ↘↓↙
 //  nil
-func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
+func TestSquashCommitMultiLevelChildrenNilParent(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4639,7 +4581,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 		require.Nil(t, fInfo.ChildCommits)
 
 		// Delete commit in upstream2, which deletes b & c
-		require.NoError(t, env.PachClient.DeleteCommit("upstream2", deleteMeCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("upstream2", deleteMeCommit.ID))
 
 		// Re-read commit info to get new parents/children
 		dInfo, err = env.PachClient.InspectCommit("repo", d.ID)
@@ -4680,7 +4622,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 //   a
 // This makes sure that multiple live children are re-pointed at a live parent
 // if appropriate
-func TestDeleteCommitMultiLevelChildren(t *testing.T) {
+func TestSquashCommitMultiLevelChildren(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4783,7 +4725,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 		require.Nil(t, fInfo.ChildCommits)
 
 		// Delete second commit in upstream2, which deletes b & c
-		require.NoError(t, env.PachClient.DeleteCommit("upstream1", deleteMeCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("upstream1", deleteMeCommit.ID))
 
 		// Re-read commit info to get new parents/children
 		aInfo, err = env.PachClient.InspectCommit("repo", a.ID)
@@ -4796,9 +4738,9 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make sure child/parent relationships are as shown in second diagram. Note
-		// that after 'b' and 'c' are deleted, DeleteCommit creates a new commit:
+		// that after 'b' and 'c' are deleted, SquashCommit creates a new commit:
 		// - 'repo/master' points to 'a'
-		// - DeleteCommit starts a new output commit to process 'upstream1/master'
+		// - SquashCommit starts a new output commit to process 'upstream1/master'
 		//   and 'upstream2/master'
 		// - The new output commit is started in 'repo/master' and is also a child of
 		//   'a'
@@ -4822,7 +4764,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 	}))
 }
 
-// TestDeleteCommitShrinkSubvRange is like TestDeleteCommitBigSubvenance, but
+// TestSquashCommitShrinkSubvRange is like TestSquashCommitBigSubvenance, but
 // instead of deleting commits from "schema", this test deletes them from
 // "logs", to make sure that the subvenance of "schema" commits is rewritten
 // correctly. As before, there are four cases:
@@ -4830,7 +4772,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 // 2. Subvenance "Upper" is decreased
 // 3. Subvenance is not affected, because the deleted commit is between "Lower" and "Upper"
 // 4. The entire subvenance range is deleted
-func TestDeleteCommitShrinkSubvRange(t *testing.T) {
+func TestSquashCommitShrinkSubvRange(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4885,7 +4827,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 		// Case 1
 		// - Delete the first commit in "logs" and make sure that the subvenance of
 		//   the single commit in "schema" has increased its Lower value
-		require.NoError(t, env.PachClient.DeleteCommit("logs", logsCommit[0].ID))
+		require.NoError(t, env.PachClient.SquashCommit("logs", logsCommit[0].ID))
 		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
@@ -4895,7 +4837,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 		// Case 2
 		// - Delete the last commit in "logs" and make sure that the subvenance of
 		//   the single commit in "schema" has decreased its Upper value
-		require.NoError(t, env.PachClient.DeleteCommit("logs", logsCommit[9].ID))
+		require.NoError(t, env.PachClient.SquashCommit("logs", logsCommit[9].ID))
 		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
@@ -4905,7 +4847,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 		// Case 3
 		// - Delete the middle commit in "logs" and make sure that the subvenance of
 		//   the single commit in "schema" hasn't changed
-		require.NoError(t, env.PachClient.DeleteCommit("logs", logsCommit[5].ID))
+		require.NoError(t, env.PachClient.SquashCommit("logs", logsCommit[5].ID))
 		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
@@ -4916,7 +4858,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 		// - Delete the remaining commits in "logs" and make sure that the subvenance
 		//   of the single commit in "schema" is now empty
 		for _, i := range []int{1, 2, 3, 4, 6, 7, 8} {
-			require.NoError(t, env.PachClient.DeleteCommit("logs", logsCommit[i].ID))
+			require.NoError(t, env.PachClient.SquashCommit("logs", logsCommit[i].ID))
 		}
 		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.ID)
 		require.NoError(t, err)
@@ -4992,13 +4934,13 @@ func TestSubscribeStates(t *testing.T) {
 
 		var readyCommits int64
 		go func() {
-			client.SubscribeCommitF("B", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			client.SubscribeCommit("B", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommits, 1)
 				return nil
 			})
 		}()
 		go func() {
-			client.SubscribeCommitF("C", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			client.SubscribeCommit("C", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommits, 1)
 				return nil
 			})
@@ -5109,7 +5051,7 @@ func TestPutFileCommitOverwrite(t *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		for i := 0; i < numFiles; i++ {
-			require.NoError(t, env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i))))
+			require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i))))
 		}
 
 		var b bytes.Buffer
@@ -5140,18 +5082,25 @@ func TestWalkFile(t *testing.T) {
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "TestWalkFile"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, "master", "dir/bar", strings.NewReader("bar")))
 		require.NoError(t, env.PachClient.PutFile(repo, "master", "dir/dir2/buzz", strings.NewReader("buzz")))
 		require.NoError(t, env.PachClient.PutFile(repo, "master", "foo", strings.NewReader("foo")))
 
 		expectedPaths := []string{"/", "/dir/", "/dir/bar", "/dir/dir2/", "/dir/dir2/buzz", "/foo"}
-		i := 0
-		require.NoError(t, env.PachClient.WalkFile(repo, "master", "", func(fi *pfs.FileInfo) error {
-			require.Equal(t, expectedPaths[i], fi.File.Path)
-			i++
-			return nil
-		}))
-		require.Equal(t, len(expectedPaths), i)
+		checks := func() {
+			i := 0
+			require.NoError(t, env.PachClient.WalkFile(repo, "master", "", func(fi *pfs.FileInfo) error {
+				require.Equal(t, expectedPaths[i], fi.File.Path)
+				i++
+				return nil
+			}))
+			require.Equal(t, len(expectedPaths), i)
+		}
+		checks()
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		checks()
 
 		return nil
 	}))
@@ -5237,6 +5186,31 @@ func TestWalkFile2(t *testing.T) {
 //	}))
 //}
 
+func TestPutFileURL(t *testing.T) {
+	t.Parallel()
+	db := dbutil.NewTestDB(t)
+	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+		if testing.Short() {
+			t.Skip("Skipping integration tests in short mode")
+		}
+
+		repo := "TestPutFileURL"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md", false))
+		check := func() {
+			fileInfo, err := env.PachClient.InspectFile(repo, commit.ID, "readme")
+			require.NoError(t, err)
+			require.True(t, fileInfo.SizeBytes > 0)
+		}
+		check()
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		check()
+		return nil
+	}))
+}
+
 func TestPutFilesURL(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
@@ -5248,20 +5222,62 @@ func TestPutFilesURL(t *testing.T) {
 		paths := []string{"README.md", "CHANGELOG.md", "CONTRIBUTING.md"}
 		for _, path := range paths {
 			url := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/%s", path)
-			require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, path, url, false, false))
+			require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, path, url, false))
 		}
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-
-		cis, err := env.PachClient.ListCommit("repo", "", "", 0)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(cis))
-
-		for _, path := range paths {
-			fileInfo, err := env.PachClient.InspectFile("repo", "master", path)
+		check := func() {
+			cis, err := env.PachClient.ListCommit("repo", "", "", 0)
 			require.NoError(t, err)
-			require.True(t, fileInfo.SizeBytes > 0)
-		}
+			require.Equal(t, 1, len(cis))
 
+			for _, path := range paths {
+				fileInfo, err := env.PachClient.InspectFile("repo", "master", path)
+				require.NoError(t, err)
+				require.True(t, fileInfo.SizeBytes > 0)
+			}
+		}
+		check()
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		check()
+		return nil
+	}))
+}
+
+func TestPutFilesObjURL(t *testing.T) {
+	t.Parallel()
+	db := dbutil.NewTestDB(t)
+	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+		repo := "repo"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		objC, bucket := obj.NewTestClient(t)
+		paths := []string{"files/foo", "files/bar", "files/fizz"}
+		for _, path := range paths {
+			writeObj(t, objC, path, path)
+		}
+		for _, path := range paths {
+			url := fmt.Sprintf("local://%s/%s", bucket, path)
+			require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, path, url, false))
+		}
+		url := fmt.Sprintf("local://%s/files", bucket)
+		require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, "recursive", url, true))
+		check := func() {
+			cis, err := env.PachClient.ListCommit("repo", "", "", 0)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(cis))
+
+			for _, path := range paths {
+				var b bytes.Buffer
+				require.NoError(t, env.PachClient.GetFile("repo", "master", path, &b))
+				require.Equal(t, path, b.String())
+				b.Reset()
+				require.NoError(t, env.PachClient.GetFile("repo", "master", filepath.Join("recursive", filepath.Base(path)), &b))
+				require.Equal(t, path, b.String())
+			}
+		}
+		check()
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		check()
 		return nil
 	}))
 }
@@ -5276,50 +5292,39 @@ func writeObj(t *testing.T, c obj.Client, path, content string) {
 	require.NoError(t, err)
 }
 
-func TestPutFilesObjURL(t *testing.T) {
+func TestGetFilesObjURL(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		paths := []string{"files/foo", "files/bar", "files/fizz"}
-		wd, err := os.Getwd()
-		require.NoError(t, err)
-		objC, err := obj.NewLocalClient(wd)
-		require.NoError(t, err)
-		for _, path := range paths {
-			writeObj(t, objC, path, path)
-		}
-		defer func() {
-			for _, path := range paths {
-				// ignored error, this is just cleanup, not actually part of the test
-				objC.Delete(context.Background(), path)
-			}
-		}()
-
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
+		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
-			url := fmt.Sprintf("local://%s/%s", wd, path)
-			require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, path, url, false, false))
+			require.NoError(t, env.PachClient.PutFile(repo, commit.ID, path, strings.NewReader(path)))
 		}
-		url := fmt.Sprintf("local://%s/files", wd)
-		require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, "recursive", url, true, false))
+		check := func() {
+			objC, bucket := obj.NewTestClient(t)
+			for _, path := range paths {
+				url := fmt.Sprintf("local://%s/", bucket)
+				require.NoError(t, env.PachClient.GetFileURL(repo, commit.ID, path, url))
+			}
+			for _, path := range paths {
+				r, err := objC.Reader(context.Background(), path, 0, 0)
+				require.NoError(t, err)
+				defer func() {
+					require.NoError(t, r.Close())
+				}()
+				buf := &bytes.Buffer{}
+				_, err = io.Copy(buf, r)
+				require.NoError(t, err)
+				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+			}
+		}
+		check()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-
-		cis, err := env.PachClient.ListCommit("repo", "", "", 0)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(cis))
-
-		for _, path := range paths {
-			var b bytes.Buffer
-			require.NoError(t, env.PachClient.GetFile("repo", "master", path, &b))
-			require.Equal(t, path, b.String())
-			b.Reset()
-			require.NoError(t, env.PachClient.GetFile("repo", "master", filepath.Join("recursive", filepath.Base(path)), &b))
-			require.Equal(t, path, b.String())
-		}
-
+		check()
 		return nil
 	}))
 }
@@ -5781,7 +5786,7 @@ const (
 	inputBranch               // create a new branch on an existing input repo
 	deleteInputBranch         // delete an input branch
 	commit                    // commit to an input branch
-	deleteCommit              // delete a commit from an input branch
+	squashCommit              // squash commit from an input branch
 	outputRepo                // create a new output repo, with master branch subscribed to random other branches
 	outputBranch              // create a new output branch on an existing output repo
 	deleteOutputBranch        // delete an output branch
@@ -5806,7 +5811,7 @@ func TestFuzzProvenance(t *testing.T) {
 			1, // inputBranch
 			1, // deleteInputBranch
 			5, // commit
-			3, // deleteCommit
+			3, // squashCommit
 			1, // outputRepo
 			2, // outputBranch
 			1, // deleteOutputBranch
@@ -5872,14 +5877,14 @@ func TestFuzzProvenance(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, env.PachClient.FinishCommit(branch.Repo.Name, branch.Name))
 				commits = append(commits, commit)
-			case deleteCommit:
+			case squashCommit:
 				if len(commits) == 0 {
 					continue OpLoop
 				}
 				i := r.Intn(len(commits))
 				commit := commits[i]
 				commits = append(commits[:i], commits[i+1:]...)
-				require.NoError(t, env.PachClient.DeleteCommit(commit.Repo.Name, commit.ID))
+				require.NoError(t, env.PachClient.SquashCommit(commit.Repo.Name, commit.ID))
 			case outputRepo:
 				if len(inputBranches) == 0 {
 					continue OpLoop
@@ -5996,7 +6001,7 @@ func TestFuzzProvenance(t *testing.T) {
 //		for i := 0; i < 10; i++ {
 //			// create a file of all A's
 //			a := strings.Repeat("A", aSize)
-//			_, err := env.PachClient.PutFileOverwrite(repo, "master", "/file", strings.NewReader(a))
+//			_, err := env.PachClient.PutFile(repo, "master", "/file", strings.NewReader(a))
 //			require.NoError(t, err)
 //
 //			// sllowwwllly replace it with all B's
@@ -6005,7 +6010,7 @@ func TestFuzzProvenance(t *testing.T) {
 //			eg.Go(func() error {
 //				b := strings.Repeat("B", bSize)
 //				r := SlowReader{underlying: strings.NewReader(b)}
-//				_, err := env.PachClient.PutFileOverwrite(repo, "master", "/file", &r)
+//				_, err := env.PachClient.PutFile(repo, "master", "/file", &r)
 //				cancel()
 //				return err
 //			})
@@ -6493,12 +6498,12 @@ func TestRegressionOrphanedFile(t *testing.T) {
 			"file1.txt": tarutil.NewMemFile("file1.txt", data),
 			"file2.txt": tarutil.NewMemFile("file2.txt", data),
 		}
-		require.NoError(t, fsclient.AppendFileTar(false, spec.makeTarStream()))
+		require.NoError(t, fsclient.PutFileTar(spec.makeTarStream()))
 		resp, err := fsclient.Close()
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FilesetId)
 		require.NoError(t, env.PachClient.RenewFileSet(resp.FilesetId, 60*time.Second))
-		fis, err := env.PachClient.ListFileAll(pclient.TmpRepoName, resp.FilesetId, "/")
+		fis, err := env.PachClient.ListFileAll(pclient.FileSetsRepoName, resp.FilesetId, "/")
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		return nil
@@ -6536,7 +6541,7 @@ func TestCompaction(t *testing.T) {
 				}
 				fsSpec[hdr.Name] = file
 			}
-			if err := env.PachClient.AppendFileTar(repo, commit1.ID, false, fsSpec.makeTarStream()); err != nil {
+			if err := env.PachClient.PutFileTar(repo, commit1.ID, fsSpec.makeTarStream()); err != nil {
 				return err
 			}
 			runtime.GC()

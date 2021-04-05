@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+set -e
 
 tar -C "${GOPATH}/src/github.com/pachyderm/pachyderm" -xf /dev/stdin
 

@@ -14,7 +14,7 @@ else
 	export GC_FLAGS = "all=-trimpath=${PWD}"
 endif
 
-export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
@@ -30,7 +30,13 @@ export GOVERSION = $(shell cat etc/compile/GO_VERSION)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
-GOPATH = $(shell go env GOPATH)
+
+ifeq ($(OS),Windows_NT)
+	GOPATH = $(shell cygpath -u $(shell go env GOPATH))
+else
+	GOPATH = $(shell go env GOPATH)
+endif
+
 GOBIN = $(GOPATH)/bin
 
 ifdef TRAVIS_BUILD_NUMBER
@@ -57,6 +63,9 @@ install-doc:
 
 doc-custom: install-doc install-clean
 	./etc/build/doc.sh
+
+doc-reference-refresh: install-doc install-clean
+	./etc/build/reference_refresh.sh
 
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
@@ -208,11 +217,19 @@ launch-dev: check-kubectl check-kubectl-connection install
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
+launch-enterprise: check-kubectl check-kubectl-connection install
+	$(eval STARTTIME := $(shell date +%s))
+	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
+	$(GOBIN)/pachctl deploy local --no-guaranteed -d --enterprise-server --namespace enterprise  --pachd-memory-request 128M --postgres-memory-request 128M --etcd-memory-request 128M --pachd-cpu-request 100m --postgres-cpu-request 100m --etcd-cpu-request 100m --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	# wait for the pachyderm to come up
+	until timeout 1s ./etc/kube/check_ready.sh app=pach-enterprise enterprise; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+
 clean-launch: check-kubectl install
 	yes | $(GOBIN)/pachctl undeploy
 
 clean-launch-dev: check-kubectl install
-	yes | $(GOBIN)pachctl undeploy
+	yes | $(GOBIN)/pachctl undeploy
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -233,7 +250,7 @@ proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-identity test-enterprise test-worker test-admin test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -245,13 +262,14 @@ enterprise-code-checkin-test:
 	  false; \
 	fi
 
-test-pfs-server:
+test-postgres:
 	./etc/testing/start_postgres.sh
+
+test-pfs-server: test-postgres
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
-test-pfs-storage:
-	./etc/testing/start_postgres.sh
-	go test  -count=1 ./src/internal/storage/... -timeout $(TIMEOUT)
+test-pfs-storage: test-postgres
+	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT)
 	go test -count=1 ./src/internal/migrations/...
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
@@ -287,14 +305,6 @@ test-libs:
 	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT)
 	go test -count=1 ./src/internal/work -timeout $(TIMEOUT)
 
-test-vault:
-	kill $$(cat /tmp/vault.pid) || true
-	./src/plugin/vault/etc/start-vault.sh
-	./src/plugin/vault/etc/pach-auth.sh --activate
-	./src/plugin/vault/etc/setup-vault.sh
-	go test -v -count=1 ./src/plugin/vault -timeout $(TIMEOUT)
-	./src/plugin/vault/etc/pach-auth.sh --delete-all
-
 # TODO: Readd when s3 gateway is implemented in V2.
 #test-s3gateway-conformance:
 #	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
@@ -310,8 +320,8 @@ test-vault:
 #	fi
 #	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 #
-#test-s3gateway-unit:
-#	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
+test-s3gateway-unit: test-postgres
+	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
 	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
@@ -324,14 +334,21 @@ test-auth:
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
 
 test-identity:
+	etc/testing/forward-postgres.sh
 	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN)
 
+test-license:
+	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
 	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN)
 
 test-enterprise:
 	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT)
+
+test-enterprise-integration:
+	go install ./src/testing/match
+	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT)
 
 test-tls:
 	./etc/testing/test_tls.sh
@@ -508,7 +525,6 @@ spellcheck:
 	test-transaction \
 	test-client \
 	test-libs \
-	test-vault \
 	test-s3gateway-conformance \
 	test-s3gateway-integration \
 	test-s3gateway-unit \
@@ -535,6 +551,7 @@ spellcheck:
 	clean-launch-loki \
 	launch-dex \
 	clean-launch-dex \
+	launch-enterprise \
 	logs \
 	follow-logs \
 	google-cluster-manifest \

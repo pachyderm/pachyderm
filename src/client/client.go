@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -62,9 +63,6 @@ type PfsAPIClient pfs.APIClient
 // PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
 
-// ObjectAPIClient is an alias for pfs.ObjectAPIClient
-type ObjectAPIClient pfs.ObjectAPIClient
-
 // AuthAPIClient is an alias of auth.APIClient
 type AuthAPIClient auth.APIClient
 
@@ -87,7 +85,6 @@ type DebugClient debug.DebugClient
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
-	ObjectAPIClient
 	AuthAPIClient
 	IdentityAPIClient
 	VersionAPIClient
@@ -95,6 +92,7 @@ type APIClient struct {
 	TransactionAPIClient
 	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
+	License    license.APIClient
 
 	// addr is a "host:port" string pointing at a pachd endpoint
 	addr string
@@ -428,6 +426,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 }
 
 // NewForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
 func NewForTest() (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
@@ -455,13 +454,37 @@ func NewForTest() (*APIClient, error) {
 	return client, nil
 }
 
+// NewEnterpriseClientForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
+func NewEnterpriseClientForTest() (*APIClient, error) {
+	cfg, err := config.Read(false, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveEnterpriseContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+
+	// create new pachctl client
+	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	if err != nil {
+		return nil, err
+	}
+
+	if pachdAddress == nil {
+		return nil, errors.New("no enterprise server configured")
+	}
+
+	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
+	}
+	return client, nil
+}
+
 // NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary.
-//
-// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
-// pachyderm client library incompatible with Windows. We may want to move this
-// (and similar) logic into src/server and have it call a NewFromOptions()
-// constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
@@ -471,7 +494,29 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
+	return newOnUserMachine(cfg, context, prefix, options...)
+}
 
+// NewEnterpriseClientOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
+// if it exists. This is intended to be used in the pachctl binary to communicate with the
+// enterprise server.
+func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
+	cfg, err := config.Read(false, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveEnterpriseContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+	return newOnUserMachine(cfg, context, prefix, options...)
+}
+
+// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
+// pachyderm client library incompatible with Windows. We may want to move this
+// (and similar) logic into src/server and have it call a NewFromOptions()
+// constructor.
+func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string, options ...Option) (*APIClient, error) {
 	// create new pachctl client
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
@@ -618,6 +663,12 @@ func (c APIClient) DeleteAll() error {
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
 	if _, err := c.PpsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
@@ -634,6 +685,31 @@ func (c APIClient) DeleteAll() error {
 		c.Ctx(),
 		&transaction.DeleteAllRequest{},
 	); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return nil
+}
+
+// DeleteAllEnterprise deletes everything in the enterprise server.
+// Use with caution, there is no undo.
+// TODO: rewrite this to use transactions
+func (c APIClient) DeleteAllEnterprise() error {
+	if _, err := c.IdentityAPIClient.DeleteAll(
+		c.Ctx(),
+		&identity.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.AuthAPIClient.Deactivate(
+		c.Ctx(),
+		&auth.DeactivateRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
@@ -700,10 +776,10 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
-	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.IdentityAPIClient = identity.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
+	c.License = license.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
@@ -764,6 +840,11 @@ func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
 	result := *c // copy c
 	result.ctx = ctx
 	return &result
+}
+
+// AuthToken gets the authentication token that is set for this client.
+func (c *APIClient) AuthToken() string {
+	return c.authenticationToken
 }
 
 // SetAuthToken sets the authentication token that will be used for all

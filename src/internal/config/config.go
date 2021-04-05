@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	configEnvVar  = "PACH_CONFIG"
-	contextEnvVar = "PACH_CONTEXT"
+	configEnvVar            = "PACH_CONFIG"
+	contextEnvVar           = "PACH_CONTEXT"
+	enterpriseContextEnvVar = "PACH_ENTERPRISE_CONTEXT"
 )
 
 var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
@@ -67,6 +68,39 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 
 	}
 	return c.V2.ActiveContext, context, nil
+}
+
+// ActiveEnterpriseContext gets the active enterprise server context in the config
+func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context, error) {
+	if c.V2 == nil {
+		return "", nil, errors.Errorf("cannot get active context from non-v2 config")
+	}
+	if envContext, ok := os.LookupEnv(enterpriseContextEnvVar); ok {
+		context := c.V2.Contexts[envContext]
+		if context == nil {
+			return "", nil, errors.Errorf("pachctl config error: `%s` refers to a context (%q) that does not exist", contextEnvVar, envContext)
+		}
+		return envContext, context, nil
+	}
+	context := c.V2.Contexts[c.V2.ActiveEnterpriseContext]
+	if context == nil {
+		if c.V2.ActiveEnterpriseContext == "" {
+			if errorOnNoActive {
+				return "", nil, errors.Errorf("pachctl config error: no active " +
+					"enterprise context configured.\n\nYou can fix your config by setting " +
+					"the active context like so: pachctl config set " +
+					"active-enterprise-context <context>")
+			}
+		} else {
+			return "", nil, errors.Errorf("pachctl config error: pachctl's active "+
+				"enterprise context is %q, but no context named %q has been configured.\n\nYou can fix "+
+				"your config by setting the active context like so: pachctl config set "+
+				"active-enterprise-context <context>",
+				c.V2.ActiveContext, c.V2.ActiveContext)
+		}
+
+	}
+	return c.V2.ActiveEnterpriseContext, context, nil
 }
 
 // Read loads the Pachyderm config on this machine.
@@ -231,16 +265,24 @@ func (c *Config) Write() error {
 
 // WritePachTokenToConfig sets the auth token for the current pachctl config.
 // Used during tests to ensure we don't lose access to a cluster if a test fails.
-func WritePachTokenToConfig(token string) error {
+func WritePachTokenToConfig(token string, enterpriseContext bool) error {
 	cfg, err := Read(false, false)
 	if err != nil {
 		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 	}
-	_, context, err := cfg.ActiveContext(true)
-	if err != nil {
-		return errors.Wrapf(err, "error getting the active context")
+	if enterpriseContext {
+		_, context, err := cfg.ActiveEnterpriseContext(true)
+		if err != nil {
+			return errors.Wrapf(err, "error getting the active enterprise context")
+		}
+		context.SessionToken = token
+	} else {
+		_, context, err := cfg.ActiveContext(true)
+		if err != nil {
+			return errors.Wrapf(err, "error getting the active context")
+		}
+		context.SessionToken = token
 	}
-	context.SessionToken = token
 	if err := cfg.Write(); err != nil {
 		return errors.Wrapf(err, "error writing pachyderm config")
 	}

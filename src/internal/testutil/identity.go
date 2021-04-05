@@ -1,10 +1,13 @@
 package testutil
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+
+	"golang.org/x/oauth2"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -92,9 +95,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 }
 
 // DoOAuthExchange does the OAuth dance to log in to the mock provider, given a login URL
-func DoOAuthExchange(t testing.TB, loginURL string) {
-	testClient := GetUnauthenticatedPachClient(t)
-
+func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClient, loginURL string) {
 	// Create an HTTP client that doesn't follow redirects.
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
@@ -105,7 +106,57 @@ func DoOAuthExchange(t testing.TB, loginURL string) {
 	}
 
 	// Get the initial URL from the grpc, which should point to the dex login page
-	resp, err := c.Get(RewriteURL(t, loginURL, DexHost(testClient)))
+	resp, err := c.Get(RewriteURL(t, loginURL, DexHost(enterpriseClient)))
+	require.NoError(t, err)
+
+	// Because we've only configured username/password login, there's a redirect
+	// to the login page. The params have the session state. POST our hard-coded
+	// credentials to the login page.
+	vals := make(url.Values)
+	vals.Add("login", "admin")
+	vals.Add("password", "password")
+
+	resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(enterpriseClient)), vals)
+	require.NoError(t, err)
+
+	// The username/password flow redirects back to the dex /approval endpoint
+	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
+	require.NoError(t, err)
+
+	// Follow the resulting redirect back to pachd to complete the flow
+	_, err = c.Get(RewriteRedirect(t, resp, pachHost(pachClient)))
+	require.NoError(t, err)
+}
+
+func GetOIDCTokenForTrustedApp(t testing.TB) string {
+	// Create an HTTP client that doesn't follow redirects.
+	// We rewrite the host names for each redirect to avoid issues because
+	// pachd is configured to reach dex with kube dns, but the tests might be
+	// outside the cluster.
+	c := &http.Client{}
+	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	testClient := GetUnauthenticatedPachClient(t)
+
+	oauthConfig := oauth2.Config{
+		ClientID:     "testapp",
+		ClientSecret: "test",
+		RedirectURL:  "http://test.example.com:657/authorization-code/callback",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  RewriteURL(t, "http://pachd:30658/auth", DexHost(testClient)),
+			TokenURL: RewriteURL(t, "http://pachd:30658/token", DexHost(testClient)),
+		},
+		Scopes: []string{
+			"openid",
+			"profile",
+			"email",
+			"audience:server:client_id:pachyderm",
+		},
+	}
+
+	// Hit the dex login page for the test client with a fixed nonce
+	resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
 	require.NoError(t, err)
 
 	// Because we've only configured username/password login, there's a redirect
@@ -122,9 +173,13 @@ func DoOAuthExchange(t testing.TB, loginURL string) {
 	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
 	require.NoError(t, err)
 
-	// Follow the resulting redirect back to pachd to complete the flow
-	_, err = c.Get(RewriteRedirect(t, resp, pachHost(testClient)))
+	codeURL, err := url.Parse(resp.Header.Get("Location"))
 	require.NoError(t, err)
+
+	token, err := oauthConfig.Exchange(context.Background(), codeURL.Query().Get("code"))
+	require.NoError(t, err)
+
+	return token.Extra("id_token").(string)
 }
 
 // RewriteRedirect rewrites the Location header to point to the returned path at `host`
@@ -147,6 +202,9 @@ func DexHost(c *client.APIClient) string {
 	if parts[1] == "650" {
 		return parts[0] + ":658"
 	}
+	if parts[1] == "31650" {
+		return parts[0] + ":31658"
+	}
 	return parts[0] + ":30658"
 }
 
@@ -154,6 +212,9 @@ func pachHost(c *client.APIClient) string {
 	parts := strings.Split(c.GetAddress(), ":")
 	if parts[1] == "650" {
 		return parts[0] + ":657"
+	}
+	if parts[1] == "31650" {
+		return parts[0] + ":31657"
 	}
 	return parts[0] + ":30657"
 }

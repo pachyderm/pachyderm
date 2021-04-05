@@ -24,7 +24,7 @@ type PfsWrites interface {
 
 	StartCommit(*pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
-	DeleteCommit(*pfs.DeleteCommitRequest) error
+	SquashCommit(*pfs.SquashCommitRequest) error
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
@@ -45,8 +45,8 @@ type PpsWrites interface {
 // transaction, depending on if there is an active transaction in the client
 // context.
 type AuthWrites interface {
-	SetScope(*auth.SetScopeRequest) (*auth.SetScopeResponse, error)
-	SetACL(*auth.SetACLRequest) (*auth.SetACLResponse, error)
+	ModifyRoleBinding(*auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
+	DeleteRoleBinding(*auth.Resource) error
 }
 
 // PfsPropagater is the interface that PFS implements to propagate commits at
@@ -111,7 +111,10 @@ func (t *TransactionContext) finish() error {
 			return err
 		}
 	}
-	return t.pfsPropagater.Run()
+	if t.pfsPropagater != nil {
+		return t.pfsPropagater.Run()
+	}
+	return nil
 }
 
 // FinishPipelineCommits saves a pipeline output branch to have its commits
@@ -138,14 +141,24 @@ type TransactionServer interface {
 type AuthTransactionServer interface {
 	AuthorizeInTransaction(*TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 
-	GetScopeInTransaction(*TransactionContext, *auth.GetScopeRequest) (*auth.GetScopeResponse, error)
-	SetScopeInTransaction(*TransactionContext, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
+	ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
+	GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
 
-	GetACLInTransaction(*TransactionContext, *auth.GetACLRequest) (*auth.GetACLResponse, error)
-	SetACLInTransaction(*TransactionContext, *auth.SetACLRequest) (*auth.SetACLResponse, error)
+	// Methods to add and remove pipelines from input and output repos. These do their own auth checks
+	// for specific permissions required to use a repo as a pipeline input/output.
+	AddPipelineReaderToRepoInTransaction(*TransactionContext, string, string) error
+	AddPipelineWriterToRepoInTransaction(*TransactionContext, string) error
+	RemovePipelineReaderFromRepoInTransaction(*TransactionContext, string, string) error
+
+	// Create and Delete are internal-only APIs used by other services when creating/destroying resources.
+	CreateRoleBindingInTransaction(*TransactionContext, string, []string, *auth.Resource) error
+	DeleteRoleBindingInTransaction(*TransactionContext, *auth.Resource) error
 
 	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
 	RevokeAuthTokenInTransaction(*TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
+
+	// GetPipelineAuthTokenInTransaction is an internal API used by PPS to generate tokens for pipelines
+	GetPipelineAuthTokenInTransaction(*TransactionContext, string) (string, error)
 }
 
 // PfsTransactionServer is an interface for the transactionally-supported
@@ -160,7 +173,8 @@ type PfsTransactionServer interface {
 
 	StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
 	FinishCommitInTransaction(*TransactionContext, *pfs.FinishCommitRequest) error
-	DeleteCommitInTransaction(*TransactionContext, *pfs.DeleteCommitRequest) error
+	SquashCommitInTransaction(*TransactionContext, *pfs.SquashCommitRequest) error
+	InspectCommitInTransaction(*TransactionContext, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
 	InspectBranchInTransaction(*TransactionContext, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
@@ -179,7 +193,7 @@ type PpsTransactionServer interface {
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
-	serviceEnv *serviceenv.ServiceEnv
+	serviceEnv serviceenv.ServiceEnv
 	txnServer  TransactionServer
 	authServer AuthTransactionServer
 	pfsServer  PfsTransactionServer
@@ -188,7 +202,7 @@ type TransactionEnv struct {
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (env *TransactionEnv) Initialize(
-	serviceEnv *serviceenv.ServiceEnv,
+	serviceEnv serviceenv.ServiceEnv,
 	txnServer TransactionServer,
 	authServer AuthTransactionServer,
 	pfsServer PfsTransactionServer,
@@ -249,9 +263,9 @@ func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) erro
 	return t.txnCtx.txnEnv.pfsServer.FinishCommitInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) DeleteCommit(original *pfs.DeleteCommitRequest) error {
-	req := proto.Clone(original).(*pfs.DeleteCommitRequest)
-	return t.txnCtx.txnEnv.pfsServer.DeleteCommitInTransaction(t.txnCtx, req)
+func (t *directTransaction) SquashCommit(original *pfs.SquashCommitRequest) error {
+	req := proto.Clone(original).(*pfs.SquashCommitRequest)
+	return t.txnCtx.txnEnv.pfsServer.SquashCommitInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
@@ -269,19 +283,19 @@ func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) 
 	return t.txnCtx.txnEnv.ppsServer.UpdateJobStateInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) SetScope(original *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
-	req := proto.Clone(original).(*auth.SetScopeRequest)
-	return t.txnCtx.txnEnv.authServer.SetScopeInTransaction(t.txnCtx, req)
-}
-
-func (t *directTransaction) SetACL(original *auth.SetACLRequest) (*auth.SetACLResponse, error) {
-	req := proto.Clone(original).(*auth.SetACLRequest)
-	return t.txnCtx.txnEnv.authServer.SetACLInTransaction(t.txnCtx, req)
+func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	req := proto.Clone(original).(*auth.ModifyRoleBindingRequest)
+	return t.txnCtx.txnEnv.authServer.ModifyRoleBindingInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, specCommit **pfs.Commit) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
 	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, specCommit)
+}
+
+func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
+	req := proto.Clone(original).(*auth.Resource)
+	return t.txnCtx.txnEnv.authServer.DeleteRoleBindingInTransaction(t.txnCtx, req)
 }
 
 type appendTransaction struct {
@@ -321,8 +335,8 @@ func (t *appendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
 	return err
 }
 
-func (t *appendTransaction) DeleteCommit(req *pfs.DeleteCommitRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteCommit: req})
+func (t *appendTransaction) SquashCommit(req *pfs.SquashCommitRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommit: req})
 	return err
 }
 
@@ -346,12 +360,12 @@ func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ **p
 	return err
 }
 
-func (t *appendTransaction) SetScope(original *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
-	panic("SetScope not yet implemented in transactions")
+func (t *appendTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	panic("ModifyRoleBinding not yet implemented in transactions")
 }
 
-func (t *appendTransaction) SetACL(original *auth.SetACLRequest) (*auth.SetACLResponse, error) {
-	panic("SetACL not yet implemented in transactions")
+func (t *appendTransaction) DeleteRoleBinding(original *auth.Resource) error {
+	panic("DeleteRoleBinding not yet implemented in transactions")
 }
 
 // WithTransaction will call the given callback with a txnenv.Transaction
@@ -386,10 +400,12 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 			Client:        pachClient,
 			ClientContext: pachClient.Ctx(),
 			Stm:           stm,
-			pfsPropagater: env.pfsServer.NewPropagater(stm),
 			txnEnv:        env,
 		}
-		txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
+		if env.pfsServer != nil {
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
+			txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
+		}
 
 		err := cb(txnCtx)
 		if err != nil {
@@ -410,9 +426,11 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 			Client:         pachClient,
 			ClientContext:  pachClient.Ctx(),
 			Stm:            stm,
-			pfsPropagater:  env.pfsServer.NewPropagater(stm),
 			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 			txnEnv:         env,
+		}
+		if env.pfsServer != nil {
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
 		}
 
 		err := cb(txnCtx)

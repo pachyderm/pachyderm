@@ -6,13 +6,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 // NewTestClient creates a Client which is cleaned up after the test exists
-func NewTestClient(t testing.TB) Client {
+func NewTestClient(t testing.TB) (Client, string) {
 	dirBase := path.Join(os.TempDir(), "pachyderm_test")
 	require.NoError(t, os.MkdirAll(dirBase, 0700))
 	dir, err := ioutil.TempDir(dirBase, "")
@@ -21,33 +22,8 @@ func NewTestClient(t testing.TB) Client {
 		require.NoError(t, os.RemoveAll(dir))
 	})
 	objC, err := NewLocalClient(dir)
-	require.Nil(t, err)
-	return objC
-}
-
-// WithLocalClient constructs a local object storage client for testing during the lifetime of
-// the callback.
-// DEPRECATED: WithLocalClient implements a testing pattern deprecated since go 1.14. consider switching to NewTestClient
-// TODO: delete this function
-func WithLocalClient(f func(objC Client) error) (retErr error) {
-	dirBase := path.Join(os.TempDir(), "pachyderm_test")
-	if err := os.MkdirAll(dirBase, 0700); err != nil {
-		return err
-	}
-	dir, err := ioutil.TempDir(dirBase, "")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := os.RemoveAll(dir); retErr == nil {
-			retErr = err
-		}
-	}()
-	objC, err := NewLocalClient(dir)
-	if err != nil {
-		return err
-	}
-	return f(objC)
+	require.NoError(t, err)
+	return objC, strings.ReplaceAll(strings.Trim(dir, "/"), "/", ".")
 }
 
 // Copy copys an object from src at srcPath to dst at dstPath

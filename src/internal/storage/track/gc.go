@@ -4,25 +4,27 @@ import (
 	"context"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/sirupsen/logrus"
 )
 
-// Deleter is used to delete data external to a tracker associated with a tracked object
+// Deleter is used to delete external data associated with a tracked object
 type Deleter interface {
-	Delete(ctx context.Context, id string) error
+	DeleteTx(tx *sqlx.Tx, id string) error
 }
 
 // DeleterMux returns a Deleter based on the id being deleted
 type DeleterMux func(string) Deleter
 
-// Delete implements Deleter
-func (dm DeleterMux) Delete(ctx context.Context, id string) error {
+// DeleteTx implements Deleter
+func (dm DeleterMux) DeleteTx(tx *sqlx.Tx, id string) error {
 	deleter := dm(id)
 	if deleter == nil {
 		return errors.Errorf("deleter mux does not have deleter for (%s)", id)
 	}
-	return deleter.Delete(ctx, id)
+	return deleter.DeleteTx(tx, id)
 }
 
 // GarbageCollector periodically runs garbage collection on tracker objects
@@ -42,15 +44,15 @@ func NewGarbageCollector(tracker Tracker, period time.Duration, deleter Deleter)
 	}
 }
 
-// Run runs the gc loop, until the context is cancelled. It returns ErrContextCancell on exit.
-func (gc *GarbageCollector) Run(ctx context.Context) error {
+// RunForever runs the gc loop, until the context is cancelled. It returns ErrContextCancell on exit.
+func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 	ticker := time.NewTicker(gc.period)
 	defer ticker.Stop()
 	for {
 		if err := func() error {
 			ctx, cf := context.WithTimeout(ctx, gc.period/2)
 			defer cf()
-			return gc.runUntilEmpty(ctx)
+			return gc.RunUntilEmpty(ctx)
 		}(); err != nil {
 			logrus.Errorf("gc: %v", err)
 		}
@@ -62,9 +64,10 @@ func (gc *GarbageCollector) Run(ctx context.Context) error {
 	}
 }
 
-func (gc *GarbageCollector) runUntilEmpty(ctx context.Context) error {
+// RunUntilEmpty calls RunOnce repeatedly until it returns an error or 0.
+func (gc *GarbageCollector) RunUntilEmpty(ctx context.Context) error {
 	for {
-		n, err := gc.runOnce(ctx)
+		n, err := gc.RunOnce(ctx)
 		if err != nil {
 			return err
 		}
@@ -75,7 +78,8 @@ func (gc *GarbageCollector) runUntilEmpty(ctx context.Context) error {
 	return nil
 }
 
-func (gc *GarbageCollector) runOnce(ctx context.Context) (int, error) {
+// RunOnce run's one cycle of garbage collection.
+func (gc *GarbageCollector) RunOnce(ctx context.Context) (int, error) {
 	var n int
 	err := gc.tracker.IterateDeletable(ctx, func(id string) error {
 		if err := gc.deleteObject(ctx, id); err != nil {
@@ -89,11 +93,11 @@ func (gc *GarbageCollector) runOnce(ctx context.Context) (int, error) {
 }
 
 func (gc *GarbageCollector) deleteObject(ctx context.Context, id string) error {
-	if err := gc.tracker.MarkTombstone(ctx, id); err != nil {
-		return err
-	}
-	if err := gc.deleter.Delete(ctx, id); err != nil {
-		return err
-	}
-	return gc.tracker.FinishDelete(ctx, id)
+	db := gc.tracker.DB()
+	return dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
+		if err := gc.tracker.DeleteTx(tx, id); err != nil {
+			return err
+		}
+		return gc.deleter.DeleteTx(tx, id)
+	})
 }

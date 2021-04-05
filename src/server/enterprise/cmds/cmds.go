@@ -2,90 +2,157 @@ package cmds
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 )
 
-// Unfortunately, Go's pre-defined format strings for parsing RFC-3339-compliant
-// timestamps aren't exhaustive. This method attempts to parse a larger set of
-// of ISO-8601-compatible timestamps (which are themselves a subset of RFC-3339
-// timestamps)
-func parseISO8601(s string) (time.Time, error) {
-	t, err := time.Parse(time.RFC3339, s)
-	if err == nil {
-		return t, nil
+func newClient(enterprise bool) (*client.APIClient, error) {
+	if enterprise {
+		return client.NewEnterpriseClientOnUserMachine("user")
 	}
-	t, err = time.Parse("2006-01-02T15:04:05Z0700", s)
-	if err == nil {
-		return t, nil
-	}
-	return time.Time{}, errors.Errorf("could not parse \"%s\" as any of %v", s, []string{time.RFC3339, "2006-01-02T15:04:05Z0700"})
+	return client.NewOnUserMachine("user")
 }
 
-// ActivateCmd returns a cobra.Command to activate the enterprise features of
-// Pachyderm within a Pachyderm cluster. All repos will go from
-// publicly-accessible to accessible only by the owner, who can subsequently add
-// users
+// ActivateCmd returns a cobra.Command to activate the license service,
+// register the current pachd and activate enterprise features.
+// This always runs against the current enterprise context, and can
+// be used to activate a single-node pachd deployment or the enterprise
+// server in a multi-node deployment.
 func ActivateCmd() *cobra.Command {
-	var expires string
 	activate := &cobra.Command{
-		Use: "{{alias}}",
-		Short: "Activate the enterprise features of Pachyderm with an activation " +
-			"code",
-		Long: "Activate the enterprise features of Pachyderm with an activation " +
-			"code",
+		Use:   "{{alias}}",
+		Short: "Activate the license server and enable enterprise features",
+		Long:  "Activate the license server and enable enterprise features",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			// request the enterprise key
 			key, err := cmdutil.ReadPassword("Enterprise key: ")
 			if err != nil {
 				return errors.Wrapf(err, "could not read enterprise key")
 			}
 
+			c, err := newClient(true)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			// Activate the license server
+			req := &license.ActivateRequest{
+				ActivationCode: key,
+			}
+			if _, err := c.License.Activate(c.Ctx(), req); err != nil {
+				return err
+			}
+
+			// Register the localhost as a cluster
+			resp, err := c.License.AddCluster(c.Ctx(),
+				&license.AddClusterRequest{
+					Id:      "localhost",
+					Address: "localhost:650",
+				})
+			if err != nil {
+				return errors.Wrapf(err, "could not register pachd with the license service")
+			}
+
+			// activate the Enterprise service
+			_, err = c.Enterprise.Activate(c.Ctx(),
+				&enterprise.ActivateRequest{
+					Id:            "localhost",
+					Secret:        resp.Secret,
+					LicenseServer: "localhost:650",
+				})
+			if err != nil {
+				return errors.Wrapf(err, "could not activate the enterprise service")
+			}
+
+			return nil
+		}),
+	}
+
+	return cmdutil.CreateAlias(activate, "enterprise activate")
+}
+
+// DeactivateCmd returns a cobra.Command to deactivate the enterprise service.
+func DeactivateCmd() *cobra.Command {
+	deactivate := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Deactivate the enterprise service",
+		Long:  "Deactivate the enterprise service",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			req := &enterprise.ActivateRequest{}
-			req.ActivationCode = key
-			if expires != "" {
-				t, err := parseISO8601(expires)
-				if err != nil {
-					return errors.Wrapf(err, "could not parse the timestamp \"%s\"", expires)
-				}
-				req.Expires, err = types.TimestampProto(t)
-				if err != nil {
-					return errors.Wrapf(err, "error converting expiration time \"%s\"", t.String())
-				}
-			}
-			resp, err := c.Enterprise.Activate(c.Ctx(), req)
-			if err != nil {
+
+			// Deactivate the enterprise server
+			req := &enterprise.DeactivateRequest{}
+			if _, err := c.Enterprise.Deactivate(c.Ctx(), req); err != nil {
 				return err
 			}
-			ts, err := types.TimestampFromProto(resp.Info.Expires)
-			if err != nil {
-				return errors.Wrapf(err, "activation request succeeded, but could not "+
-					"convert token expiration time to a timestamp", err)
-			}
-			fmt.Printf("Activation succeeded. Your Pachyderm Enterprise token "+
-				"expires %s\n", ts.String())
+
 			return nil
 		}),
 	}
-	activate.PersistentFlags().StringVar(&expires, "expires", "", "A timestamp "+
-		"indicating when the token provided above should expire (formatted as an "+
-		"RFC 3339/ISO 8601 datetime). This is only applied if it's earlier than "+
-		"the signed expiration time encoded in 'activation-code', and therefore "+
-		"is only useful for testing.")
 
-	return cmdutil.CreateAlias(activate, "enterprise activate")
+	return cmdutil.CreateAlias(deactivate, "enterprise deactivate")
+}
+
+// RegisterCmd returns a cobra.Command that registers this cluster with a remote Enterprise Server.
+func RegisterCmd() *cobra.Command {
+	var id, pachdAddr, enterpriseAddr string
+	register := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Register the cluster with an enterprise license server",
+		Long:  "Register the cluster with an enterprise license server",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			ec, err := client.NewEnterpriseClientOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer ec.Close()
+
+			// Register the pachd with the license server
+			resp, err := ec.License.AddCluster(ec.Ctx(),
+				&license.AddClusterRequest{
+					Id:      id,
+					Address: pachdAddr,
+				})
+			if err != nil {
+				return errors.Wrapf(err, "could not register pachd with the license service")
+			}
+
+			// activate the Enterprise service
+			_, err = c.Enterprise.Activate(c.Ctx(),
+				&enterprise.ActivateRequest{
+					Id:            id,
+					Secret:        resp.Secret,
+					LicenseServer: enterpriseAddr,
+				})
+			if err != nil {
+				return errors.Wrapf(err, "could not register with the license server")
+			}
+
+			return nil
+		}),
+	}
+	register.PersistentFlags().StringVar(&id, "id", "", "the id for this cluster")
+	register.PersistentFlags().StringVar(&pachdAddr, "pachd-address", "", "the address for the enterprise server to reach this pachd")
+	register.PersistentFlags().StringVar(&enterpriseAddr, "enterprise-server-address", "", "the address for the pachd to reach the enterprise server")
+
+	return cmdutil.CreateAlias(register, "enterprise register")
 }
 
 // GetStateCmd returns a cobra.Command to activate the enterprise features of
@@ -136,6 +203,8 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(enterprise, "enterprise"))
 
 	commands = append(commands, ActivateCmd())
+	commands = append(commands, RegisterCmd())
+	commands = append(commands, DeactivateCmd())
 	commands = append(commands, GetStateCmd())
 
 	return commands

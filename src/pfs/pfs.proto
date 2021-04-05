@@ -49,7 +49,7 @@ message RepoInfo {
 message RepoAuthInfo {
   // The callers access level to the relevant repo (e.g. may be OWNER even if
   // the user isn't an OWNER of the repo, if they're an admin for the cluster)
-  auth.Scope access_level = 1;
+  repeated auth.Permission permissions = 1;
 }
 
 message BranchInfo {
@@ -161,21 +161,6 @@ message FileInfo {
   bytes hash = 7;
 }
 
-message Compaction {
-  repeated string input_prefixes = 2;
-}
-
-message Shard {
-  Compaction compaction = 1;
-  PathRange range = 2;
-  string output_path = 3;
-}
-
-message PathRange {
-  string lower = 1;
-  string upper = 2;
-}
-
 // PFS API
 
 message CreateRepoRequest {
@@ -251,7 +236,7 @@ message CommitInfos {
   repeated CommitInfo commit_info = 1;
 }
 
-message DeleteCommitRequest {
+message SquashCommitRequest {
   Commit commit = 1;
 }
 
@@ -307,8 +292,8 @@ enum Delimiter {
   CSV = 4;
 }
 
-message AppendFile {
-  bool overwrite = 1;
+message PutFile {
+  bool append = 1;
   string tag = 2;
   oneof source {
     RawFileSource raw_file_source = 3;
@@ -374,19 +359,21 @@ message DeleteFile {
 message ModifyFileRequest {
   Commit commit = 1;
   oneof modification {
-    AppendFile append_file = 2;
+    PutFile put_file = 2;
     DeleteFile delete_file = 3;
   }
 }
 
 message CopyFileRequest {
-  File src = 1;
-  File dst = 2;
-  bool overwrite = 3;
+  bool append = 1;
+  string tag = 2;
+  File src = 3;
+  File dst = 4;
 }
 
 message GetFileRequest {
   File file = 1;
+  string URL = 2;
 // TODO:
 //  int64 offset_bytes = 2;
 //  int64 size_bytes = 3;
@@ -458,6 +445,18 @@ message RenewFilesetRequest {
   int64 ttl_seconds = 2;
 }
 
+message AddFilesetRequest {
+  Commit commit = 1;
+  string fileset_id = 2;
+}
+
+message GetFilesetRequest {
+  Commit commit = 1;
+}
+
+message ActivateAuthRequest {}
+message ActivateAuthResponse {}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -476,8 +475,8 @@ service API {
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
-  // DeleteCommit deletes a commit.
-  rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // SquashCommit squashes a commit into it's parent.
+  rpc SquashCommit(SquashCommitRequest) returns (google.protobuf.Empty) {}
   // FlushCommit waits for downstream commits to finish.
   rpc FlushCommit(FlushCommitRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.
@@ -513,209 +512,21 @@ service API {
   // DiffFile returns the differences between 2 paths at 2 commits.
   rpc DiffFile(DiffFileRequest) returns (stream DiffFileResponse) {}
 
+  // ActivateAuth creates a role binding for all existing repos
+  rpc ActivateAuth(ActivateAuthRequest) returns (ActivateAuthResponse) {}
+
   // DeleteAll deletes everything.
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // Fsck does a file system consistency check for pfs.
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 
+  // Fileset API
+  // AddFileset associates a fileset with a commit
+  rpc AddFileset(AddFilesetRequest) returns (google.protobuf.Empty) {}
+  // GetFileset returns a fileset with the data from a commit
+  rpc GetFileset(GetFilesetRequest) returns (CreateFilesetResponse) {}
   // CreateFileset creates a new fileset.
   rpc CreateFileset(stream ModifyFileRequest) returns (CreateFilesetResponse) {}
   // RenewFileset prevents a fileset from being deleted for a set amount of time.
   rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
-}
-
-// TODO: Delete everything below after 1.12
-
-message Block {
-  string hash = 1;
-}
-
-message Object {
-  string hash = 1;
-}
-
-message Tag {
-  string name = 1;
-}
-
-message ByteRange {
-  uint64 lower = 1;
-  uint64 upper = 2;
-}
-
-message BlockRef {
-  Block block = 1;
-  ByteRange range = 2;
-}
-
-message ObjectInfo {
-  Object object = 1;
-  BlockRef block_ref = 2;
-}
-
-message BuildCommitRequest {
-  reserved 2;
-  Commit parent = 1;
-  string branch = 4;
-  CommitOrigin origin = 12;
-  repeated CommitProvenance provenance = 6;
-  Object tree = 3;
-  repeated Object trees = 7;
-  Object datums = 8;
-  // ID sets the ID of the created commit.
-  string ID = 5;
-  uint64 size_bytes = 9;
-  // 'started' and 'finished' are set by Restore() when repopulating old
-  // commits. If 'finished' is set, the commit being built is always marked
-  // finished.
-  google.protobuf.Timestamp started = 10;
-  google.protobuf.Timestamp finished = 11;
-}
-
-message PutObjectRequest {
-  bytes value = 1;
-  repeated Tag tags = 2;
-  Block block = 3;
-}
-
-message CreateObjectRequest {
-  Object object = 1;
-  BlockRef block_ref = 2;
-}
-
-message GetObjectsRequest {
-  repeated Object objects = 1;
-  uint64 offset_bytes = 2;
-  // The number of bytes requested.
-  uint64 size_bytes = 3;
-  // The total amount of bytes in these objects.  It's OK if it's not
-  // entirely accurate or if it's unknown (in which case it'd be set to 0).
-  // It's used primarily as a hint for cache eviction.
-  uint64 total_size = 4;
-}
-
-message PutBlockRequest {
-  Block block = 1;
-  bytes value = 2;
-}
-
-message GetBlockRequest {
-  Block block = 1;
-}
-
-message GetBlocksRequest {
-  repeated BlockRef blockRefs = 1;
-  uint64 offset_bytes = 2;
-  // The number of bytes requested.
-  uint64 size_bytes = 3;
-  // The total amount of bytes in these blocks.  It's OK if it's not
-  // entirely accurate or if it's unknown (in which case it'd be set to 0).
-  // It's used primarily as a hint for cache eviction.
-  uint64 total_size = 4;
-}
-
-message ListBlockRequest {}
-
-message TagObjectRequest {
-  Object object = 1;
-  repeated Tag tags = 2;
-}
-
-message ListObjectsRequest {}
-
-message ListTagsRequest {
-  string prefix = 1;
-  bool include_object = 2;
-}
-
-message ListTagsResponse {
-  Tag tag = 1;
-  Object object = 2;
-}
-
-message DeleteObjectsRequest {
-  repeated Object objects = 1;
-}
-
-message DeleteObjectsResponse {}
-
-message DeleteTagsRequest {
-  repeated Tag tags = 1;
-}
-
-message DeleteTagsResponse {}
-
-message CheckObjectRequest {
-  Object object = 1;
-}
-
-message CheckObjectResponse {
-  bool exists = 1;
-}
-
-message Objects {
-  repeated Object objects = 1;
-}
-
-message PutObjDirectRequest {
-  string obj = 1;
-  bytes value = 2;
-}
-
-message GetObjDirectRequest {
-  string obj = 1;
-}
-
-message DeleteObjDirectRequest {
-  // The 'object' and 'prefix' fields are mutually exclusive.
-
-  // Delete a single object by its path.
-  string object = 1;
-
-  // Delete all objects with paths matching this prefix, cannot be applied to
-  // the core storage layer paths, as those are generally not safe to delete
-  // (use garbage collection for that). This is for deleting objects generated
-  // vi `PutObjDirect`.
-  string prefix = 2;
-}
-
-service ObjectAPI {
-  rpc PutObject(stream PutObjectRequest) returns (Object) {}
-  rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
-  rpc PutObjects(stream PutObjectRequest) returns (google.protobuf.Empty) {}
-  rpc CreateObject(CreateObjectRequest) returns (google.protobuf.Empty) {}
-  rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
-  rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
-  rpc PutBlock(stream PutBlockRequest) returns (google.protobuf.Empty) {}
-  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
-  rpc GetBlocks(GetBlocksRequest) returns (stream google.protobuf.BytesValue) {}
-  rpc ListBlock(ListBlockRequest) returns (stream Block) {}
-  rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
-  rpc InspectObject(Object) returns (ObjectInfo) {}
-  // CheckObject checks if an object exists in the blob store without
-  // actually reading the object.
-  rpc CheckObject(CheckObjectRequest) returns (CheckObjectResponse) {}
-  rpc ListObjects(ListObjectsRequest) returns (stream ObjectInfo) {}
-  rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
-  rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
-  rpc InspectTag(Tag) returns (ObjectInfo) {}
-  rpc ListTags(ListTagsRequest) returns (stream ListTagsResponse) {}
-  rpc DeleteTags(DeleteTagsRequest) returns (DeleteTagsResponse) {}
-  rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  // PutObjDirect puts an obj directly into object store, bypassing the content
-  // addressing layer.
-  rpc PutObjDirect(stream PutObjDirectRequest) returns (google.protobuf.Empty) {}
-  // GetObjDirect gets an obj directly out of object store, bypassing the
-  // content addressing layer.
-  rpc GetObjDirect(GetObjDirectRequest) returns (stream google.protobuf.BytesValue) {}
-  rpc DeleteObjDirect(DeleteObjDirectRequest) returns (google.protobuf.Empty) {}
-}
-
-message ObjectIndex {
-  map<string, BlockRef> objects = 1;
-  map<string, Object> tags = 2;
-}
-
-message OverwriteIndex {
-  int64 index = 1;
 }

@@ -14,7 +14,7 @@ type APIServer interface {
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 ) (APIServer, error) {

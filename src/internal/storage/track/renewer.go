@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
@@ -20,7 +21,7 @@ func NewTmpDeleter() Deleter {
 	return &tmpDeleter{}
 }
 
-func (*tmpDeleter) Delete(_ context.Context, _ string) error {
+func (*tmpDeleter) DeleteTx(tx *sqlx.Tx, _ string) error {
 	return nil
 }
 
@@ -55,12 +56,19 @@ func (r *Renewer) Add(ctx context.Context, id string) error {
 	id2 := fmt.Sprintf("%s/%d", r.id, n)
 	// create an object whos sole purpose is to reference id, and to have a structured name
 	// which can be renewed in bulk by prefix
-	return r.tracker.CreateObject(ctx, id2, []string{id}, r.ttl)
+	return Create(ctx, r.tracker, id2, []string{id}, r.ttl)
 }
 
 // Close stops the background renewal
-func (r *Renewer) Close() error {
-	return r.r.Close()
+func (r *Renewer) Close() (retErr error) {
+	defer func() {
+		if err := r.r.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	ctx := context.Background()
+	_, err := r.tracker.SetTTLPrefix(ctx, r.id+"/", ExpireNow)
+	return err
 }
 
 func (r *Renewer) nextInt() int {

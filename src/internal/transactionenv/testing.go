@@ -45,24 +45,14 @@ func (mats *MockAuthTransactionServer) AuthorizeInTransaction(*TransactionContex
 	return nil, unimplementedError("AuthTransactionServer.AuthorizeInTransaction")
 }
 
-// GetScopeInTransaction always errors
-func (mats *MockAuthTransactionServer) GetScopeInTransaction(*TransactionContext, *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.GetScopeInTransaction")
+// ModifyRoleBindingInTransaction always errors
+func (mats *MockAuthTransactionServer) ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	return nil, unimplementedError("AuthTransactionServer.ModifyRoleBindingInTransaction")
 }
 
-// SetScopeInTransaction always errors
-func (mats *MockAuthTransactionServer) SetScopeInTransaction(*TransactionContext, *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.SetScopeInTransaction")
-}
-
-// GetACLInTransaction always errors
-func (mats *MockAuthTransactionServer) GetACLInTransaction(*TransactionContext, *auth.GetACLRequest) (*auth.GetACLResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.GetACLInTransaction")
-}
-
-// SetACLInTransaction always errors
-func (mats *MockAuthTransactionServer) SetACLInTransaction(*TransactionContext, *auth.SetACLRequest) (*auth.SetACLResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.SetACLInTransaction")
+// GetRoleBindingInTransaction always errors
+func (mats *MockAuthTransactionServer) GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error) {
+	return nil, unimplementedError("AuthTransactionServer.GetRoleBindingInTransaction")
 }
 
 // MockPfsTransactionServer is a simple mock that can be used to satisfy the
@@ -104,9 +94,9 @@ func (mpts *MockPfsTransactionServer) FinishCommitInTransaction(*TransactionCont
 	return unimplementedError("PfsTransactionServer.FinishCommitInTransaction")
 }
 
-// DeleteCommitInTransaction always errors
-func (mpts *MockPfsTransactionServer) DeleteCommitInTransaction(*TransactionContext, *pfs.DeleteCommitRequest) error {
-	return unimplementedError("PfsTransactionServer.DeleteCommitInTransaction")
+// SquashCommitInTransaction always errors
+func (mpts *MockPfsTransactionServer) SquashCommitInTransaction(*TransactionContext, *pfs.SquashCommitRequest) error {
+	return unimplementedError("PfsTransactionServer.SquashCommitInTransaction")
 }
 
 // CreateBranchInTransaction always errors

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"path"
 	"sort"
 	"time"
 
@@ -38,7 +37,7 @@ func newMemFileSet() *memFileSet {
 	}
 }
 
-func (mfs *memFileSet) appendFile(p string, tag string) io.Writer {
+func (mfs *memFileSet) addFile(p string, tag string) io.Writer {
 	return mfs.createMemPart(p, tag)
 }
 
@@ -87,7 +86,7 @@ func (mfs *memFileSet) serialize(w *Writer) error {
 
 func (mfs *memFileSet) serializeAdditive(w *Writer) error {
 	for _, mf := range sortMemFiles(mfs.additive) {
-		if err := w.Append(mf.path, func(fw *FileWriter) error {
+		if err := w.Add(mf.path, func(fw *FileWriter) error {
 			return serializeParts(fw, mf)
 		}); err != nil {
 			return err
@@ -98,7 +97,7 @@ func (mfs *memFileSet) serializeAdditive(w *Writer) error {
 
 func serializeParts(fw *FileWriter, mf *memFile) error {
 	for _, mp := range sortMemParts(mf.parts) {
-		fw.Append(mp.tag)
+		fw.Add(mp.tag)
 		if _, err := fw.Write(mp.buf.Bytes()); err != nil {
 			return err
 		}
@@ -145,15 +144,15 @@ type UnorderedWriter struct {
 	ctx                        context.Context
 	storage                    *Storage
 	memAvailable, memThreshold int64
-	name                       string
 	defaultTag                 string
 	memFileSet                 *memFileSet
 	subFileSet                 int64
 	ttl                        time.Duration
 	renewer                    *renew.StringSet
+	layers                     []ID
 }
 
-func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
+func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
 		return nil, err
 	}
@@ -162,7 +161,6 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memT
 		storage:      storage,
 		memAvailable: memThreshold,
 		memThreshold: memThreshold,
-		name:         name,
 		defaultTag:   defaultTag,
 		memFileSet:   newMemFileSet(),
 	}
@@ -172,8 +170,7 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memT
 	return uw, nil
 }
 
-// Append appends a file to the file set.
-func (uw *UnorderedWriter) Append(p string, overwrite bool, r io.Reader, customTag ...string) error {
+func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag ...string) error {
 	// TODO: Validate
 	//if err := ppath.ValidatePath(hdr.Name); err != nil {
 	//	return nil, err
@@ -184,10 +181,10 @@ func (uw *UnorderedWriter) Append(p string, overwrite bool, r io.Reader, customT
 		tag = customTag[0]
 	}
 	// TODO: Tag overwrite?
-	if overwrite {
+	if !appendFile {
 		uw.memFileSet.deleteFile(p, "")
 	}
-	w := uw.memFileSet.appendFile(p, tag)
+	w := uw.memFileSet.addFile(p, tag)
 	for {
 		n, err := io.CopyN(w, r, uw.memAvailable)
 		uw.memAvailable -= n
@@ -201,7 +198,7 @@ func (uw *UnorderedWriter) Append(p string, overwrite bool, r io.Reader, customT
 			if err := uw.serialize(); err != nil {
 				return err
 			}
-			w = uw.memFileSet.appendFile(p, tag)
+			w = uw.memFileSet.addFile(p, tag)
 		}
 	}
 }
@@ -226,16 +223,17 @@ func (uw *UnorderedWriter) serialize() error {
 	if uw.ttl > 0 {
 		writerOpts = append(writerOpts, WithTTL(uw.ttl))
 	}
-	p := path.Join(uw.name, SubFileSetStr(uw.subFileSet))
-	w := uw.storage.newWriter(uw.ctx, p, writerOpts...)
+	w := uw.storage.newWriter(uw.ctx, writerOpts...)
 	if err := uw.memFileSet.serialize(w); err != nil {
 		return err
 	}
-	if err := w.Close(); err != nil {
+	id, err := w.Close()
+	if err != nil {
 		return err
 	}
+	uw.layers = append(uw.layers, *id)
 	if uw.renewer != nil {
-		uw.renewer.Add(p)
+		uw.renewer.Add(id.TrackerID())
 	}
 	// Reset in-memory file set.
 	uw.memFileSet = newMemFileSet()
@@ -245,7 +243,12 @@ func (uw *UnorderedWriter) serialize() error {
 }
 
 // Close closes the writer.
-func (uw *UnorderedWriter) Close() error {
+func (uw *UnorderedWriter) Close() (*ID, error) {
 	defer uw.storage.filesetSem.Release(1)
-	return uw.serialize()
+	if err := uw.serialize(); err != nil {
+		return nil, err
+	}
+	return uw.storage.newComposite(uw.ctx, &Composite{
+		Layers: idsToHex(uw.layers),
+	}, uw.ttl)
 }

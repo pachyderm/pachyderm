@@ -22,7 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,14 +37,14 @@ const (
 )
 
 type debugServer struct {
-	env           *serviceenv.ServiceEnv
+	env           serviceenv.ServiceEnv
 	name          string
 	sidecarClient *client.APIClient
 	marshaller    *jsonpb.Marshaler
 }
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
-func NewDebugServer(env *serviceenv.ServiceEnv, name string, sidecarClient *client.APIClient) debug.DebugServer {
+func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *client.APIClient) debug.DebugServer {
 	return &debugServer{
 		env:           env,
 		name:          name,
@@ -99,7 +99,7 @@ func (s *debugServer) handleRedirect(
 					return collectDebugStream(tw, r)
 
 				}
-				pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).Get(f.Worker.Pod, metav1.GetOptions{})
+				pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(f.Worker.Pod, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -163,7 +163,7 @@ func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineIn
 }
 
 func (s *debugServer) getWorkerPods(pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
-	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).List(
+	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
 		metav1.ListOptions{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ListOptions",
@@ -393,8 +393,23 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 }
 
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
-	return collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
+	if err := collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := stream.Close(); retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = io.Copy(w, stream)
+		return err
+	}, prefix...); err != nil {
+		return err
+	}
+	return collectDebugFile(tw, "logs-previous", func(w io.Writer) (retErr error) {
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
 		if err != nil {
 			return err
 		}

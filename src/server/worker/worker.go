@@ -9,6 +9,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -21,6 +22,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/service"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/spout"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
@@ -119,9 +122,9 @@ func (w *Worker) worker() {
 		eg.Go(func() error {
 			return driver.NewTaskWorker().Run(
 				ctx,
-				func(ctx context.Context, subtask *work.Task) error {
+				func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
 					driver := w.driver.WithContext(ctx)
-					return transform.Worker(driver, logger, subtask, w.status)
+					return nil, transform.Worker(driver, logger, subtask, w.status)
 				},
 			)
 		})
@@ -189,11 +192,10 @@ type spawnerFunc func(driver.Driver, logs.TaggedLogger) error
 func runSpawner(driver driver.Driver, logger logs.TaggedLogger) error {
 	pipelineType, runFn := func() (string, spawnerFunc) {
 		switch {
-		// TODO: Make work with V2.
-		//case driver.PipelineInfo().Service != nil:
-		//	return "service", service.Run
-		//case driver.PipelineInfo().Spout != nil:
-		//	return "spout", spout.Run
+		case driver.PipelineInfo().Service != nil:
+			return "service", service.Run
+		case driver.PipelineInfo().Spout != nil:
+			return "spout", spout.Run
 		default:
 			return "transform", transform.Run
 		}

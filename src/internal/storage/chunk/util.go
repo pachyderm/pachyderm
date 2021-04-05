@@ -6,27 +6,20 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
 // NewTestStorage creates a local storage instance for testing during the lifetime of
 // the callback.
 func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
-	mdstore := NewTestStore(t, db)
-	objC := obj.NewTestClient(t)
-	return objC, NewStorage(objC, mdstore, tr, opts...)
-}
-
-// NewTestStore creates a store for testing.
-func NewTestStore(t testing.TB, db *sqlx.DB) MetadataStore {
-	ctx := context.Background()
-	tx := db.MustBegin()
-	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS STORAGE`)
-	require.NoError(t, SetupPostgresStoreV0(ctx, "storage.chunks", tx))
-	require.NoError(t, tx.Commit())
-	return NewPostgresStore(db)
+	objC, _ := obj.NewTestClient(t)
+	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
+	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))
+	return objC, NewStorage(objC, kv.NewMemCache(10), db, tr, opts...)
 }
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
