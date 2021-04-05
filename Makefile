@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2021 Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+
 SHELL := /bin/bash -o pipefail # Use bash syntax
 
 

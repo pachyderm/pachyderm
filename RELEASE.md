@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2021 Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Creating a new release
 
 Merge your commits to master

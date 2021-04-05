@@ -1,3 +1,7 @@
+{{- /*
+SPDX-FileCopyrightText: 2021 Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
 {{- /* vim: set filetype=mustache: */ -}}
 {{- define "imagePullSecret" }}
 {{- with .Values.imageCredentials }}

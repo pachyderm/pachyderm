@@ -1,3 +1,7 @@
+<!--
+SPDX-FileCopyrightText: 2021 Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+-->
 # Pachyderm Helm Chart
 
 The repo contains the pachyderm helm chart.
