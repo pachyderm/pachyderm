@@ -34,7 +34,7 @@ const (
 
 type apiServer struct {
 	pachLogger log.Logger
-	env        *serviceenv.ServiceEnv
+	env        serviceenv.ServiceEnv
 
 	enterpriseTokenCache *keycache.Cache
 
@@ -50,7 +50,7 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
+func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewCollection(
 		env.GetEtcdClient(),

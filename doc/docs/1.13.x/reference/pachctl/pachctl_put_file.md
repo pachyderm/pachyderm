@@ -65,6 +65,7 @@ $ pachctl put file repo@branch -i http://host/path
   -i, --input-file string         Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.
   -o, --overwrite                 Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.
   -p, --parallelism int           The maximum number of files that can be uploaded in parallel. (default 10)
+      --progress                  Print progress bars. (default true)
   -r, --recursive                 Recursively put the files in a directory.
       --split line                Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are line, `json`, `sql` and `csv`.
       --target-file-bytes uint    The target upper bound of the number of bytes that each file contains; needs to be used with --split.

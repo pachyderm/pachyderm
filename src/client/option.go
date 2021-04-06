@@ -30,18 +30,18 @@ func WithTagDeleteFile(tag string) DeleteFileOption {
 }
 
 // CopyFileOption configures a CopyFile call.
-type CopyFileOption func(*pfs.CopyFileRequest)
+type CopyFileOption func(*pfs.CopyFile)
 
 // WithAppendCopyFile configures the CopyFile call to append to existing files.
 func WithAppendCopyFile() CopyFileOption {
-	return func(cfr *pfs.CopyFileRequest) {
-		cfr.Append = true
+	return func(cf *pfs.CopyFile) {
+		cf.Append = true
 	}
 }
 
 // WithTagCopyFile configures the CopyFile call to apply to a particular tag.
 func WithTagCopyFile(tag string) CopyFileOption {
-	return func(cfr *pfs.CopyFileRequest) {
-		cfr.Tag = tag
+	return func(cf *pfs.CopyFile) {
+		cf.Tag = tag
 	}
 }

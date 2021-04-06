@@ -17,7 +17,7 @@ pachctl deploy aws <bucket-name> <region> <disk-size> [flags]
 
 ```
       --block-cache-size string          Size of pachd's in-memory cache for PFS files. Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).
-      --cloudfront-distribution string   Deploying on AWS with cloudfront is currently an experimental feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)
+      --cloudfront-distribution string   Deploying on AWS with cloudfront is currently an alpha feature. No security restrictions have beenapplied to cloudfront, making all data public (obscured but not secured)
       --cluster-deployment-id string     Set an ID for the cluster deployment. Defaults to a random value.
   -c, --context string                   Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.
       --create-context --dry-run         Create a context, even with --dry-run.

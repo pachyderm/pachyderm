@@ -99,7 +99,7 @@ type errGithookServiceNotFound struct {
 type apiServer struct {
 	log.Logger
 	etcdPrefix            string
-	env                   *serviceenv.ServiceEnv
+	env                   serviceenv.ServiceEnv
 	txnEnv                *txnenv.TransactionEnv
 	namespace             string
 	workerImage           string
@@ -1104,7 +1104,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
-	if a.env.LokiLogging || request.UseLokiBackend {
+	if a.env.Config().LokiLogging || request.UseLokiBackend {
 		resp, err := pachClient.Enterprise.GetState(context.Background(),
 			&enterpriseclient.GetStateRequest{})
 		if err != nil {
@@ -1427,6 +1427,12 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	if request.Transform == nil {
 		return errors.Errorf("pipeline must specify a transform")
+	}
+	if request.ReprocessSpec != "" &&
+		request.ReprocessSpec != client.ReprocessSpecUntilSuccess &&
+		request.ReprocessSpec != client.ReprocessSpecEveryJob {
+		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of '%s' or '%s'",
+			client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryJob)
 	}
 	return nil
 }
@@ -1860,7 +1866,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		PodPatch:              request.PodPatch,
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
-		NoSkip:                request.NoSkip,
+		ReprocessSpec:         request.ReprocessSpec,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return err
@@ -2318,6 +2324,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	}
 	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil && pipelineInfo.Spout.Service.Type == "" {
 		pipelineInfo.Spout.Service.Type = string(v1.ServiceTypeNodePort)
+	}
+	if pipelineInfo.ReprocessSpec == "" {
+		pipelineInfo.ReprocessSpec = client.ReprocessSpecUntilSuccess
 	}
 	return nil
 }
@@ -3099,16 +3108,16 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	// make a tick on each cron input
 	for _, cron := range crons {
 		// TODO: This isn't transactional, we could support a transactional modify file through the fileset API though.
-		if err := txnClient.WithModifyFileClient(cron.Repo, "master", func(mfc client.ModifyFileClient) error {
+		if err := txnClient.WithModifyFileClient(cron.Repo, "master", func(mf client.ModifyFile) error {
 			if cron.Overwrite {
 				// get rid of any files, so the new file "overwrites" previous runs
-				err = mfc.DeleteFile("/")
+				err = mf.DeleteFile("/")
 				if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 					return errors.Wrapf(err, "delete error")
 				}
 			}
 			// Put in an empty file named by the timestamp
-			if err := mfc.PutFile(time.Now().Format(time.RFC3339), strings.NewReader("")); err != nil {
+			if err := mf.PutFile(time.Now().Format(time.RFC3339), strings.NewReader("")); err != nil {
 				return errors.Wrapf(err, "put error")
 			}
 			return nil

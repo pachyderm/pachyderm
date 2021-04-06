@@ -34,7 +34,7 @@ type driver struct {
 }
 
 func newDriver(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 ) (*driver, error) {

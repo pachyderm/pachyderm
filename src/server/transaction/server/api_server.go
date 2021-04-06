@@ -18,11 +18,11 @@ type apiServer struct {
 	driver *driver
 
 	// env generates clients for pachyderm's downstream services
-	env *serviceenv.ServiceEnv
+	env serviceenv.ServiceEnv
 }
 
 func newAPIServer(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 ) (*apiServer, error) {
