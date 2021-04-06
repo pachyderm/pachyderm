@@ -4,7 +4,7 @@
 
 Job failures can occur for a variety of reasons, but they generally categorize into 4 failure types: 
 
-1. You [hit one of the Pachyderm Community Edition Scaling Limits](#community-edition-scaling-limit).
+1. You [hit one of the Pachyderm Community Edition Scaling Limits](#community-edition-scaling-limits).
 1. [User-code-related](#user-code-failures): An error in the user code running inside the container or the json pipeline config.
 1. [Data-related](#data-failures): A problem with the input data such as incorrect file type or file name.
 1. [System- or infrastructure-related](#system-level-failures): An error in Pachyderm or Kubernetes such as missing credentials, transient network errors, or resource constraints (for example, out-of-memory--OOM--killed).
@@ -211,7 +211,7 @@ If the state is `CrashLoopBackoff`, you're looking for a descriptive error messa
 
 If the state is `Pending` it's likely the cluster doesn't have enough resources. In this case, you'll see a `could not schedule` type of error message which should describe which resource you're low on. This is more likely to happen if you've set resource requests (cpu/mem/gpu) for your pipelines.  In this case, you'll just need to scale up your resources. If you deployed using `kops`, you'll want to do edit the instance group, e.g. `kops edit ig nodes ...` and up the number of nodes. If you didn't use `kops` to deploy, you can use your cloud provider's auto scaling groups to increase the size of your instance group. Either way, it can take up to 10 minutes for the changes to go into effect. 
 
-For more information, see [Autoscale Your Cluster](../deploy-manage/manage/autoscaling.md).
+For more information, see [Autoscale Your Cluster](../../deploy-manage/manage/autoscaling.md).
 
 ### Cannot Delete Pipelines with an etcd Error
 
