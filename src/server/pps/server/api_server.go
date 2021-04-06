@@ -3303,24 +3303,21 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
 		eg.Go(func() error {
-			tokenResp, err := pachClient.GetAuthToken(pachClient.Ctx(), &auth.GetAuthTokenRequest{
-				Subject: auth.PipelinePrefix + pipelineName,
-			})
-			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
-			}
-			_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-				var pipelinePtr pps.EtcdPipelineInfo
+			return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+				token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, pipelineName)
+				if err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
+				}
 
-				if err := a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
-					pipelinePtr.AuthToken = tokenResp.Token
+				var pipelinePtr pps.EtcdPipelineInfo
+				if err := a.pipelines.ReadWrite(txnCtx.Stm).Update(pipelineName, &pipelinePtr, func() error {
+					pipelinePtr.AuthToken = token
 					return nil
 				}); err != nil {
 					return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
 				}
 				return nil
 			})
-			return err
 		})
 		// put 'pipeline' on relevant ACLs
 		if err := a.fixPipelineInputRepoACLs(ctx, pipeline, nil); err != nil {

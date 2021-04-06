@@ -2448,7 +2448,6 @@ func TestRestoreAuthToken(t *testing.T) {
 			HashedToken: fmt.Sprintf("%x", sha256.Sum256([]byte("an-auth-token"))),
 			TokenInfo: &auth.TokenInfo{
 				Subject: "robot:restored",
-				Source:  auth.TokenInfo_AUTHENTICATE,
 			},
 		},
 	}
