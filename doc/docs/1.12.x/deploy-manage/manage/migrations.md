@@ -1,15 +1,16 @@
 # Migrate to a Major or Minor Version
 
-!!! Info
-    If you need to upgrade Pachyderm from one point release
-    to another, such as from x.xx.0 to x.xx.1, see
-    [Upgrade Pachyderm](upgrades.md).
-
 As new versions of Pachyderm are released, you might need to update your
 cluster to get access to bug fixes and new features.
 
-Migrations involve moving between major releases, such as 1.x.x to
-2.x.x or minor releases, such as 1.11.x to 1.12.0.
+!!! Info
+    Visit [**Upgrade** Pachyderm](upgrades.md) if you need to
+    **move between minor releases or point releases**,
+    such as from 1.12.3 to 1.13.0.
+
+!!! Warning
+      A migration must be performed when you are moving between major releases,
+      such as moving from 1.13.x to 2.0.0.
 
 !!! Tip
     Pachyderm follows the [Semantic Versioning](https://semver.org/)
