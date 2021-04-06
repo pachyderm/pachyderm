@@ -211,8 +211,6 @@ If the state is `CrashLoopBackoff`, you're looking for a descriptive error messa
 
 If the state is `Pending` it's likely the cluster doesn't have enough resources. In this case, you'll see a `could not schedule` type of error message which should describe which resource you're low on. This is more likely to happen if you've set resource requests (cpu/mem/gpu) for your pipelines.  In this case, you'll just need to scale up your resources. If you deployed using `kops`, you'll want to do edit the instance group, e.g. `kops edit ig nodes ...` and up the number of nodes. If you didn't use `kops` to deploy, you can use your cloud provider's auto scaling groups to increase the size of your instance group. Either way, it can take up to 10 minutes for the changes to go into effect. 
 
-For more information, see [Autoscale Your Cluster](../../deploy-manage/manage/autoscaling.md).
-
 ### Cannot Delete Pipelines with an etcd Error
 
 Failed to delete a pipeline with an `etcdserver` error.
