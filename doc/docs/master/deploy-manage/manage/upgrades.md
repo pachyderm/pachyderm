@@ -1,9 +1,10 @@
 # Upgrade Pachyderm
 
 !!! Info
-      If you need to upgrade Pachyderm between major versions,
+      - If you need to upgrade Pachyderm between major versions,
       such as from `1.12.2` to `2.0.0`, follow the
       instructions in the [Migrate between major versions](./migrations.md).
+      - Prior to 1.11, minor releases required a migration. This is no longer the case.
 
 Upgrades between minor releases or point releases, such as from version `1.12.5` to
 version `1.13.0` do not introduce breaking changes. Therefore, the upgrade
