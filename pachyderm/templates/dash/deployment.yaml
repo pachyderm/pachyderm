@@ -1,3 +1,7 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
 {{- if .Values.dash.enabled -}}
 apiVersion: apps/v1
 kind: Deployment

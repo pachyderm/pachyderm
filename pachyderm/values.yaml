@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+
 # imagePullSecret sets the image pull secret used for all images.  It
 # is analogous to the --image-pull-secret argument to pachctl deploy.
 #

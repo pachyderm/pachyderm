@@ -1,3 +1,7 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
 {{- if le .Values.etcd.dynamicNodes 0.0 -}}
 {{ fail "dynamicNodes must be > 0" }}
 {{ end -}}
