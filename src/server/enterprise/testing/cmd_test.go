@@ -163,7 +163,7 @@ func TestLoginEnterprise(t *testing.T) {
 		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
-		echo '{"username": "admin", "password": "password"}' | pachctl idp create-connector --id test --type mockPassword --name test  --config -
+		echo '{"id": "test", "name": "test", "type": "mockPassword", "config": {"username": "admin", "password": "password"}}' | pachctl idp create-connector
 		`,
 		"id", tu.UniqueString("cluster"),
 		"token", tu.RootToken,
@@ -207,7 +207,7 @@ func TestLoginPachd(t *testing.T) {
 		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
-		echo '{"username": "admin", "password": "password"}' | pachctl idp create-connector --id test --type mockPassword --name test  --config -
+		echo '{"id": "test", "name": "test", "type": "mockPassword", "config": {"username": "admin", "password": "password"}}' | pachctl idp create-connector
 		`,
 		"id", tu.UniqueString("cluster"),
 		"token", tu.RootToken,
