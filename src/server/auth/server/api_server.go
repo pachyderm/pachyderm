@@ -1453,14 +1453,14 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 
 // returns -1 if token is not found, and the TTL otherwise
 func (a *apiServer) lookupAuthTokenTTLSeconds(ctx context.Context, tokenHash string) (int64, error) {
-	var ttl int64
+	var ttl float64
 	if err := a.env.GetDBClient().GetContext(ctx, &ttl, `SELECT ROUND( EXTRACT( EPOCH FROM (expiration - NOW()))) as ttl FROM auth.auth_tokens WHERE token_hash = $1 AND expiration IS NOT NULL`, tokenHash); err != nil {
 		if err == sql.ErrNoRows {
 			return -1, nil
 		}
 		return 0, err
 	}
-	return ttl, nil
+	return int64(ttl), nil
 }
 
 func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
@@ -1475,7 +1475,7 @@ func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (
 }
 
 func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToken, error) {
-	rows, err := a.env.GetDBClient().QueryxContext(ctx, `SELECT token_hash as tokenHash, subject, source, expiration FROM auth.auth_tokens WHERE subject LIKE '$1%'`, auth.RobotPrefix)
+	rows, err := a.env.GetDBClient().QueryxContext(ctx, `SELECT token_hash as tokenHash, subject, source, expiration FROM auth.auth_tokens WHERE subject LIKE $1 || '%'`, auth.RobotPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -1484,17 +1484,24 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToke
 		var tokenHash string
 		var subject string
 		var source auth.TokenInfo_TokenSource
-		var expiration *types.Timestamp
+		var expiration *time.Time
 		if err = rows.Scan(&tokenHash, &subject, &source, &expiration); err != nil {
 			return nil, errors.Wrapf(err, "error querying token")
 		}
+
+		// we need to convert expiration from time.Time etype extracted by sqlx, to types.Timestamp
+		expirationTS, timeErr := convertTime(expiration)
+		if timeErr != nil {
+			return nil, errors.Wrapf(err, "error extracting token timestamp")
+		}
+
 		token := &auth.HashedAuthToken{
 			HashedToken: tokenHash,
 			TokenInfo: &auth.TokenInfo{
 				Subject: subject,
 				Source:  source,
 			},
-			Expiration: expiration,
+			Expiration: expirationTS,
 		}
 		robotTokens = append(robotTokens, token)
 	}
@@ -1570,4 +1577,15 @@ func (a *apiServer) purgeExpiredTokens() error {
 		return errors.Wrapf(err, "error purging expired tokens")
 	}
 	return nil
+}
+
+func convertTime(t *time.Time) (*types.Timestamp, error) {
+	if t == nil {
+		return nil, nil
+	}
+	ts, err := types.TimestampProto(*t)
+	if err != nil {
+		return nil, err
+	}
+	return ts, nil
 }
