@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 )
@@ -34,7 +35,6 @@ func unauthenticated(pachClient *client.APIClient, fullMethod string) (string, e
 // authenticated permits an RPC if auth is fully enabled and the user is authenticated
 func authenticated(pachClient *client.APIClient, fullMethod string) (string, error) {
 	r, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
-	// TODO: Check r.TTL ?
 	var username string
 	if err == nil {
 		username = r.Username

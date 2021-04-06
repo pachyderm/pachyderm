@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"path"
@@ -198,12 +199,12 @@ func NewAuthServer(
 	// Watch for changes to the cluster role binding
 	go s.clusterRoleBindingCache.Watch()
 
-	go func(a *apiServer) {
+	go func(a *apiServer, intervalSeconds int) {
 		for {
-			time.Sleep(60 * time.Second)
+			time.Sleep(time.Duration(intervalSeconds) * time.Second)
 			a.purgeExpiredTokens()
 		}
-	}(s)
+	}(s, 60)
 
 	return s, nil
 }
@@ -323,7 +324,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return err
 		}
 		// TODO(acohen4): workout the transactionality
-		return a.insertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser, auth.TokenInfo_AUTHENTICATE)
+		return a.upsertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser, auth.TokenInfo_AUTHENTICATE)
 	}); err != nil {
 		return nil, err
 	}
@@ -581,10 +582,12 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 		if err != nil {
 			return nil, err
 		}
-		if ttlSeconds, err := a.lookupAuthTokenTTLSeconds(ctx, auth.HashToken(token)); err != nil {
+		ttl, err = a.lookupAuthTokenTTLSeconds(ctx, auth.HashToken(token))
+		if err != nil {
 			return nil, errors.Wrapf(err, "error looking up TTL for token")
-		} else {
-			ttl = ttlSeconds
+		}
+		if ttl < -1 {
+			return nil, auth.ErrBadToken // token is expired
 		}
 	}
 
@@ -867,7 +870,13 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 	subject = auth.RobotPrefix + subject
 
 	// generate new token, and write to postgres
-	token, err := a.generateAndInsertAuthToken(ctx, subject, auth.TokenInfo_GET_TOKEN, req.TTL)
+	var token string
+	var err error
+	if req.TTL > 0 {
+		token, err = a.generateAndInsertAuthToken(ctx, subject, auth.TokenInfo_GET_TOKEN, req.TTL)
+	} else {
+		token, err = a.generateAndInsertAuthTokenNoTTL(ctx, subject, auth.TokenInfo_GET_TOKEN)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -926,7 +935,7 @@ func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.Transaction
 
 	token := uuid.NewWithoutDashes()
 	// TODO(acohen4): look at transaction context
-	if err := a.insertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline, auth.TokenInfo_GET_TOKEN); err != nil {
+	if err := a.upsertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline, auth.TokenInfo_GET_TOKEN); err != nil {
 		return "", errors.Wrapf(err, "error storing token")
 	} else {
 		return token, nil
@@ -992,7 +1001,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 				ExistingTTL: ttl,
 			}
 		}
-		return a.insertAuthToken(ctx, auth.HashToken(req.Token), tokenInfo.Subject, tokenInfo.Source, req.TTL)
+		return a.upsertAuthToken(ctx, auth.HashToken(req.Token), tokenInfo.Subject, tokenInfo.Source, req.TTL)
 	}); err != nil {
 		return nil, err
 	}
@@ -1291,7 +1300,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 
 	// Lookup the token
 	if tokenInfo, err := a.lookupAuthTokenInfo(ctx, auth.HashToken(token)); err != nil {
-		// TODO(acohen4): need to see how to make this if check work
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrBadToken
 		}
@@ -1423,22 +1431,33 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 		}
 	}
 
-	// Check whether the token hash already exists - we don't want to replace an existing token
-	if _, err := a.lookupAuthTokenInfo(ctx, req.Token.HashedToken); err == nil {
-		return nil, errors.New("cannot overwrite existing token with same hash")
-	} else if !col.IsErrNotFound(err) {
-		return nil, err
-	}
-
-	if err := a.insertAuthToken(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject, req.Token.TokenInfo.Source, ttl); err != nil {
+	if err := func() error {
+		// Check whether the token hash already exists - we don't want to replace an existing token
+		if _, err := a.lookupAuthTokenInfo(ctx, req.Token.HashedToken); err == nil {
+			return errors.New("cannot overwrite existing token with same hash")
+		} else if !col.IsErrNotFound(err) {
+			return err
+		}
+		// insert token
+		if ttl > 0 {
+			return a.upsertAuthToken(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject, req.Token.TokenInfo.Source, ttl)
+		} else {
+			return a.upsertAuthTokenNoTTL(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject, req.Token.TokenInfo.Source)
+		}
+	}(); err != nil {
 		return nil, errors.Wrapf(err, "error restoring auth token")
 	}
+
 	return &auth.RestoreAuthTokenResponse{}, nil
 }
 
+// returns -1 if token is not found, and the TTL otherwise
 func (a *apiServer) lookupAuthTokenTTLSeconds(ctx context.Context, tokenHash string) (int64, error) {
 	var ttl int64
-	if err := a.env.GetDBClient().GetContext(ctx, &ttl, `SELECT ROUND( EXTRACT( EPOCH FROM (expiration - NOW()))) as ttl FROM auth.auth_tokens WHERE token_hash = '$1'`, tokenHash); err != nil {
+	if err := a.env.GetDBClient().GetContext(ctx, &ttl, `SELECT ROUND( EXTRACT( EPOCH FROM (expiration - NOW()))) as ttl FROM auth.auth_tokens WHERE token_hash = $1 AND expiration IS NOT NULL`, tokenHash); err != nil {
+		if err == sql.ErrNoRows {
+			return -1, nil
+		}
 		return 0, err
 	}
 	return ttl, nil
@@ -1446,42 +1465,64 @@ func (a *apiServer) lookupAuthTokenTTLSeconds(ctx context.Context, tokenHash str
 
 func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
 	var tokenInfo auth.TokenInfo
-	if err := a.env.GetDBClient().GetContext(ctx, &tokenInfo, `SELECT subject, source FROM auth.auth_tokens WHERE token_hash = '$1'`, tokenHash); err != nil {
+	if err := a.env.GetDBClient().GetContext(ctx, &tokenInfo, `SELECT subject, source FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}
+		}
 		return nil, err
 	}
 	return &tokenInfo, nil
 }
 
 func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToken, error) {
-	if rows, err := a.env.GetDBClient().QueryxContext(ctx, `SELECT token_hash as tokenHash, subject, source, expiration FROM auth.auth_tokens WHERE subject LIKE '$1%'`, auth.RobotPrefix); err != nil {
+	rows, err := a.env.GetDBClient().QueryxContext(ctx, `SELECT token_hash as tokenHash, subject, source, expiration FROM auth.auth_tokens WHERE subject LIKE '$1%'`, auth.RobotPrefix)
+	if err != nil {
 		return nil, err
-	} else {
-		robotTokens := make([]*auth.HashedAuthToken, 0)
-		for rows.Next() {
-			var tokenHash string
-			var subject string
-			var source auth.TokenInfo_TokenSource
-			var expiration *types.Timestamp
-			if err = rows.Scan(&tokenHash, &subject, &source, &expiration); err != nil {
-				return nil, errors.Wrapf(err, "error querying token")
-			}
-			token := &auth.HashedAuthToken{
-				HashedToken: tokenHash,
-				TokenInfo: &auth.TokenInfo{
-					Subject: subject,
-					Source:  source,
-				},
-				Expiration: expiration,
-			}
-			robotTokens = append(robotTokens, token)
-		}
-		return robotTokens, nil
 	}
+	robotTokens := make([]*auth.HashedAuthToken, 0)
+	for rows.Next() {
+		var tokenHash string
+		var subject string
+		var source auth.TokenInfo_TokenSource
+		var expiration *types.Timestamp
+		if err = rows.Scan(&tokenHash, &subject, &source, &expiration); err != nil {
+			return nil, errors.Wrapf(err, "error querying token")
+		}
+		token := &auth.HashedAuthToken{
+			HashedToken: tokenHash,
+			TokenInfo: &auth.TokenInfo{
+				Subject: subject,
+				Source:  source,
+			},
+			Expiration: expiration,
+		}
+		robotTokens = append(robotTokens, token)
+	}
+	return robotTokens, nil
 }
 
-func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string, source auth.TokenInfo_TokenSource) error {
+func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, source auth.TokenInfo_TokenSource, ttlSeconds int64) (string, error) {
+	token := uuid.NewWithoutDashes()
+	if err := a.upsertAuthToken(ctx, auth.HashToken(token), subject, source, ttlSeconds); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject string, source auth.TokenInfo_TokenSource) (string, error) {
+	token := uuid.NewWithoutDashes()
+	if err := a.upsertAuthTokenNoTTL(ctx, auth.HashToken(token), subject, source); err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+// generates a token, and stores it's hash and supporting data in postgres
+func (a *apiServer) upsertAuthToken(ctx context.Context, tokenHash string, subject string, source auth.TokenInfo_TokenSource, ttlSeconds int64) error {
 	// Register the pachd in the database
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO auth.auth_tokens (token_hash, subject, source, expiration) VALUES ($1, $2, $3)`, tokenHash, subject, source); err != nil {
+	if _, err := a.env.GetDBClient().ExecContext(ctx,
+		`INSERT INTO auth.auth_tokens (token_hash, subject, source, expiration) VALUES ($1, $2, $3, NOW() + $4 * interval '1 sec') ON CONFLICT (token_hash) DO UPDATE SET subject = $2, source = $3, expiration = NOW() + $4 * interval '1 sec'`, tokenHash, subject, source, ttlSeconds); err != nil {
 		// throw a unique error if the error is a primary key uniqueness violation
 		if pgErr, ok := err.(*pq.Error); ok {
 			if pgErr.Code == pgerrcode.UniqueViolation {
@@ -1493,19 +1534,10 @@ func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, 
 	return nil
 }
 
-func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, source auth.TokenInfo_TokenSource, ttlSeconds int64) (string, error) {
-	token := uuid.NewWithoutDashes()
-	if err := a.insertAuthToken(ctx, auth.HashToken(token), subject, source, ttlSeconds); err != nil {
-		return "", err
-	}
-	return token, nil
-
-}
-
-// generates a token, and stores it's hash and supporting data in postgres
-func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, source auth.TokenInfo_TokenSource, ttlSeconds int64) error {
+func (a *apiServer) upsertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string, source auth.TokenInfo_TokenSource) error {
 	// Register the pachd in the database
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO auth.auth_tokens (token_hash, subject, source, expiration) VALUES ($1, $2, $3, NOW() + INTERVAL '$4 second')`, tokenHash, subject, source, ttlSeconds); err != nil {
+	if _, err := a.env.GetDBClient().ExecContext(ctx,
+		`INSERT INTO auth.auth_tokens (token_hash, subject, source) VALUES ($1, $2, $3) ON CONFLICT (token_hash) DO UPDATE SET subject = $2, source = $3`, tokenHash, subject, source); err != nil {
 		// throw a unique error if the error is a primary key uniqueness violation
 		if pgErr, ok := err.(*pq.Error); ok {
 			if pgErr.Code == pgerrcode.UniqueViolation {
@@ -1535,7 +1567,6 @@ func (a *apiServer) deleteAuthToken(ctx context.Context, tokenHash string) error
 func (a *apiServer) purgeExpiredTokens() error {
 	logrus.Info("Purging expired auth tokens")
 	if _, err := a.env.GetDBClient().Exec(`DELETE FROM auth.auth_tokens WHERE NOW() > expiration`); err != nil {
-		logrus.Errorf("error purging expired tokens %v", err)
 		return errors.Wrapf(err, "error purging expired tokens")
 	}
 	return nil
