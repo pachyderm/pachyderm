@@ -1,25 +1,47 @@
 # Changelog
 
 ## 1.13.0
-Deprecation notice: The following `pachctl deploy` flags are deprecated and will be removed in a future release:
-- dash-image
-- dashboard-only
-- no-dashboard
-- expose-object-api
-- storage-v2
-- shards
-- no-rbac
-- no-guaranteed
-- static-etcd-volume
-- disable-ssl
-- max-upload-parts
-- no-verify-ssl
-- obj-log-options
-- part-size
-- retries
-- reverse
-- timeout
-- upload-acl
+Deprecation notice: The following pachctl deploy flags are deprecated and will be removed in a future release. Deprecated flags: dash-image, dashboard-only, no-dashboard, expose-object-api, storage-v2, shards, no-rbac, no-guaranteed, static-etcd-volume, disable-ssl, max-upload-parts, no-verify-ssl, obj-log-options, part-size, retries, reverse, timeout, upload-acl
+
+- [Security] Adds required authentication for various API calls (#5582) (#5577) (#5575)
+- Adds a new flag `--status-only` to improve performance of `list datum` command (#5935)
+- Fixes a bug with recursive put file from pachctl and improves the performance of put file in general (#5922)
+- Changes to shorten `prometheus-metrics` to `prom-metrics`, in order to meet length limitation (#5912)
+- Add version labels to pachyderm docker images (#5909)
+- Allow pipelines that do not skip datums, for trigger, deployment, or other side-effecting pipelines (#5871) (#5920)
+- Add libgl to the Python build image (#5855)
+- Add deprecation warnings for uncommonly-used pachctl deploy flags (#5848)
+- Fixes a bug that caused pach worker pods to stack trace (#5842)
+- Fixes a bug that caused pachd to stack trace when under heavy load (#5831)
+- Changes to improve ListPipeline performance when it returns many pipelines. (#5830)
+- Fixes a bug that caused pachd to crash on some incorrect glob patterns (#5812)
+- Added support to `fsck` to fix provenance relationships not mirrored by subvenance relationships and vice versa (#5782)
+- Fixes a bug that caused the `since` field to not propagate to Loki for some `logs` calls. (#5777)
+- Fixed a bug that causes panic in GetLogs when `since` has not been specified (#5769)
+- Changes to switches to an inode generation scheme to work around the reserved inode issues which prevent `pachctl mount` from succeeding. (#5766)
+- Fixes a bug that would cause a job merge to hang when the job output metadata is not cached in the cluster (#5754)
+- Fixes a bug that causes pachd to crash when collecting metrics (#5752)
+- Changes to improve performance of file downloads and egress (#5744)
+- Adds support for autoscaling pipelines which will more efficiently use resources and mitigate stragglers. (#5738) (#5923)
+- Fixed an issue where datums were ordered by size, causing workers to process large datums together. We have changed how work is distributed so straggling datums will be much less common. (#5738)
+- Fixes a bug that causes pachctl commands to hang when metrics were disabled (#5724)
+- Changes to capture previous logs in debug dump (#5723)
+- Adds support for additional metrics (#5713)
+- Fixes a bug that would crash when email verified claim is not set by OIDC provider (#5709)
+- Fixes a bug that prevents InitContainer from initializing if pipelines are already running  (#5701)
+- Adds support for services without ports set (#5691)
+- Fixes a bug that causes intermittent pachd crashes (#5690)
+- Fixes a bug that does not return objects with paths that have a leading slash in S3 gateway requests (#5679)
+- Fixes a bug that causes update-pipeline to time out in some cases (#5661)
+- Added support to show progress bars during downloads (#5654)
+- Added support to expose Prometheus-metrics ports (#5646)
+- Fixes a bug that can deadlock in listfile (#5638)
+- Added support to capture commit and job info in debug dump (#5619)
+- Changes to improve the performance of file upload in spout pipelines (#5613)
+- Changes to improve the performance of reading output repo metadata (#5609)
+- Changes to improve the performance for repos with a large number of files (#5600)
+- Fixes a bug that prevented the creation of build pipeline when auth is enabled (#5594)
+- Fixes several issues with logging, specifically with the Loki backend. Adds support for getting logs since a particular time. (#5438)
 
 ## 1.12.5
 Deprecation notice: Deprecating the use of vault plugin. It will be removed from the code in a future release.
