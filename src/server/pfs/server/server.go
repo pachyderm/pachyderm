@@ -1,7 +1,6 @@
 package server
 
 import (
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -24,8 +23,8 @@ type APIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (APIServer, error) {
-	a, err := newAPIServer(env, txnEnv, etcdPrefix, db)
+func NewAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (APIServer, error) {
+	a, err := newAPIServer(env, txnEnv, etcdPrefix)
 	if err != nil {
 		return nil, err
 	}

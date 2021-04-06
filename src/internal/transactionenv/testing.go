@@ -1,8 +1,9 @@
 package transactionenv
 
 import (
+	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -65,7 +66,7 @@ func NewMockPfsTransactionServer() *MockPfsTransactionServer {
 }
 
 // NewPropagater returns a MockPfsPropagater
-func (mpts *MockPfsTransactionServer) NewPropagater(col.STM) PfsPropagater {
+func (mpts *MockPfsTransactionServer) NewPropagater(*sqlx.Tx) PfsPropagater {
 	return NewMockPfsPropagater()
 }
 

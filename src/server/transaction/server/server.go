@@ -16,7 +16,6 @@ type APIServer interface {
 func NewAPIServer(
 	env *serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
 ) (APIServer, error) {
-	return newAPIServer(env, txnEnv, etcdPrefix)
+	return newAPIServer(env, txnEnv)
 }

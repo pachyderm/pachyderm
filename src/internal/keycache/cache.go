@@ -6,7 +6,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -16,18 +15,18 @@ import (
 // Cache watches a key in etcd and caches the value in an atomic value
 // This is useful for frequently read but infrequently updated values
 type Cache struct {
-	c            col.EtcdCollection
+	readOnly     col.ReadOnlyCollection
 	defaultValue proto.Message
 	key          string
 	value        *atomic.Value
 }
 
 // NewCache returns a cache for the given key in the etcd collection
-func NewCache(c col.EtcdCollection, key string, defaultValue proto.Message) *Cache {
+func NewCache(readOnly col.ReadOnlyCollection, key string, defaultValue proto.Message) *Cache {
 	value := &atomic.Value{}
 	value.Store(defaultValue)
 	return &Cache{
-		c:            c,
+		readOnly:     readOnly,
 		value:        value,
 		key:          key,
 		defaultValue: defaultValue,
@@ -37,7 +36,7 @@ func NewCache(c col.EtcdCollection, key string, defaultValue proto.Message) *Cac
 // Watch should be called in a goroutine to start the watcher
 func (c *Cache) Watch() {
 	backoff.RetryNotify(func() error {
-		return c.c.ReadOnly(context.Background()).WatchOneF(c.key, func(ev *watch.Event) error {
+		return c.readOnly.WatchOneF(c.key, func(ev *watch.Event) error {
 			switch ev.Type {
 			case watch.EventPut:
 				val := proto.Clone(c.defaultValue)

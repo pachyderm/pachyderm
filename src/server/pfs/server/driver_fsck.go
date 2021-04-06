@@ -6,11 +6,14 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -249,7 +252,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 	newCommitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.List(repoInfo, col.DefaultOptions(), func() error {
-		commits := d.commits(repoInfo.Repo.Name).ReadOnly(ctx)
+		commits := d.commits.With(pfsdb.CommitsRepoIndex, repoInfo.Repo.Name).ReadOnly(ctx)
 		commitInfo := &pfs.CommitInfo{}
 		if err := commits.List(commitInfo, col.DefaultOptions(), func() error {
 			commitInfos[key(repoInfo.Repo.Name, commitInfo.Commit.ID)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
@@ -257,7 +260,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 		}); err != nil {
 			return err
 		}
-		branches := d.branches(repoInfo.Repo.Name).ReadOnly(ctx)
+		branches := d.branches.With(pfsdb.BranchesRepoIndex, repoInfo.Repo.Name).ReadOnly(ctx)
 		branchInfo := &pfs.BranchInfo{}
 		return branches.List(branchInfo, col.DefaultOptions(), func() error {
 			branchInfos[key(repoInfo.Repo.Name, branchInfo.Branch.Name)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
@@ -570,18 +573,17 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 		}
 	}
 	if fix {
-		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		return col.NewSQLTx(ctx, d.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 			for _, ci := range newCommitInfos {
 				// We've observed users getting ErrExists from this create,
 				// which doesn't make a lot of sense, but we insulate against
 				// it anyways so it doesn't prevent the command from working.
-				if err := d.commits(ci.Commit.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
+				if err := d.commits.With(pfsdb.CommitsRepoIndex, ci.Commit.Repo.Name).ReadWrite(sqlTx).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
 					return err
 				}
 			}
 			return nil
 		})
-		return err
 	}
 	return nil
 }

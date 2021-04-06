@@ -1,8 +1,9 @@
 package server
 
 import (
+	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -12,18 +13,18 @@ import (
 // a transaction.  The transactionenv package provides the interface for this
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
-	d   *driver
-	stm col.STM
+	d     *driver
+	sqlTx *sqlx.Tx
 
 	// Branches to propagate when the transaction completes
 	branches    []*pfs.Branch
 	isNewCommit bool
 }
 
-func (a *apiServer) NewPropagater(stm col.STM) txnenv.PfsPropagater {
+func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx) txnenv.PfsPropagater {
 	return &Propagater{
-		d:   a.driver,
-		stm: stm,
+		d:     a.driver,
+		sqlTx: sqlTx,
 	}
 }
 
@@ -38,10 +39,10 @@ func (t *Propagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error
 	return nil
 }
 
-// Run performs any final tasks and cleanup tasks in the STM, such as
+// Run performs any final tasks and cleanup tasks in the transaction, such as
 // propagating branches
 func (t *Propagater) Run() error {
-	return t.d.propagateCommits(t.stm, t.branches, t.isNewCommit)
+	return t.d.propagateCommits(t.sqlTx, t.branches, t.isNewCommit)
 }
 
 // PipelineFinisher closes any open commits on a pipeline output branch,

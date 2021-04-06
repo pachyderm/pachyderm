@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -73,12 +74,14 @@ type PipelineCommitFinisher interface {
 //     that all reads and writes are consistent until changes are committed.
 //   txnEnv: a struct containing references to each API server, it can be used
 //     to make calls to other API servers (e.g. checking auth permissions)
-//   pfsDefer: an interface for ensuring certain PFS cleanup tasks are performed
+//   pfsPropagater: an interface for ensuring certain PFS cleanup tasks are performed
 //     properly (and deduped) at the end of the transaction.
+//   commitFinisher: an interface for ensuring certain PPS cleanup tasks are performed
+//     properly at the end of the transaction.
 type TransactionContext struct {
 	ClientContext  context.Context
 	Client         *client.APIClient
-	Stm            col.STM
+	SqlTx          *sqlx.Tx
 	pfsPropagater  PfsPropagater
 	commitFinisher PipelineCommitFinisher
 	txnEnv         *TransactionEnv
@@ -164,7 +167,7 @@ type AuthTransactionServer interface {
 // PfsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
-	NewPropagater(col.STM) PfsPropagater
+	NewPropagater(*sqlx.Tx) PfsPropagater
 	NewPipelineFinisher(*TransactionContext) PipelineCommitFinisher
 
 	CreateRepoInTransaction(*TransactionContext, *pfs.CreateRepoRequest) error
@@ -394,16 +397,16 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 // WithWriteContext will call the given callback with a TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
 func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*TransactionContext) error) error {
-	_, err := col.NewSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
+	return col.NewSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{
 			Client:        pachClient,
 			ClientContext: pachClient.Ctx(),
-			Stm:           stm,
+			SqlTx:         sqlTx,
 			txnEnv:        env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx)
 			txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
 		}
 
@@ -413,24 +416,23 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 		}
 		return txnCtx.finish()
 	})
-	return err
 }
 
 // WithReadContext will call the given callback with a TransactionContext
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*TransactionContext) error) error {
-	return col.NewDryrunSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
+	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{
 			Client:         pachClient,
 			ClientContext:  pachClient.Ctx(),
-			Stm:            stm,
+			SqlTx:          sqlTx,
 			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 			txnEnv:         env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx)
 		}
 
 		err := cb(txnCtx)

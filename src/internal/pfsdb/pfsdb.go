@@ -2,12 +2,12 @@
 package pfsdb
 
 import (
-	"path"
+	"context"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
+	"github.com/jmoiron/sqlx"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -21,54 +21,76 @@ const (
 )
 
 // Repos returns a collection of repos
-func Repos(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, reposPrefix),
-		nil,
+func Repos(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+	return col.NewPostgresCollection(
+		ctx,
+		db,
+		listener,
 		&pfs.RepoInfo{},
 		nil,
-		nil,
 	)
+}
+
+var CommitsRepoIndex = &col.Index{
+	Name: "repo",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.CommitInfo).Commit.Repo.Name
+	},
+}
+
+func CommitKey(commit *pfs.Commit) string {
+	return commit.Repo.Name + " " + commit.ID
 }
 
 // Commits returns a collection of commits
-func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, commitsPrefix, repo),
-		nil,
+func Commits(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+	return col.NewPostgresCollection(
+		ctx,
+		db,
+		listener,
 		&pfs.CommitInfo{},
-		nil,
-		nil,
+		[]*col.Index{CommitsRepoIndex},
 	)
 }
 
+var BranchesRepoIndex = &col.Index{
+	Name: "repo",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.BranchInfo).Branch.Repo.Name
+	},
+}
+
+func BranchKey(branch *pfs.Branch) string {
+	return branch.Repo.Name + " " + branch.Name
+}
+
 // Branches returns a collection of branches
-func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, branchesPrefix, repo),
-		nil,
+func Branches(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+	return col.NewPostgresCollection(
+		ctx,
+		db,
+		listener,
 		&pfs.BranchInfo{},
-		func(key string) error {
-			if uuid.IsUUIDWithoutDashes(key) {
-				return errors.Errorf("branch name cannot be a UUID V4")
-			}
-			return nil
-		},
-		nil,
+		[]*col.Index{BranchesRepoIndex},
+		// TODO: support this
+		/*
+			func(key string) error {
+				if uuid.IsUUIDWithoutDashes(key) {
+					return errors.Errorf("branch name cannot be a UUID V4")
+				}
+				return nil
+			},
+		*/
 	)
 }
 
 // OpenCommits returns a collection of open commits
-func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, openCommitsPrefix),
-		nil,
+func OpenCommits(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+	return col.NewPostgresCollection(
+		ctx,
+		db,
+		listener,
 		&pfs.Commit{},
-		nil,
 		nil,
 	)
 }

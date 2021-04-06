@@ -27,7 +27,7 @@ type PostgresCollection interface {
 	ReadOnly(ctx context.Context) PostgresReadOnlyCollection
 
 	// With returns a new collection with the given predicate
-	With(field string, val interface{}) PostgresCollection
+	With(index *Index, val string) PostgresCollection
 }
 
 type EtcdCollection interface {
@@ -65,7 +65,10 @@ type EtcdCollection interface {
 // field `bar` is `test`, we issue a query for all items under
 // `foo__index_bar/test`.
 type Index struct {
-	Field string
+	Name    string
+	Extract func(val proto.Message) string
+
+	// `limit` is an internal implementation detail for etcd collections to avoid list operations overflowing the max message size
 	limit int64
 }
 
@@ -87,6 +90,11 @@ type ReadWriteCollection interface {
 
 type PostgresReadWriteCollection interface {
 	ReadWriteCollection
+
+	// Unsupported operations - only here during migration so we can compile
+	// TODO: remove these before merging into master
+	TTL(key string) (int64, error)
+	PutTTL(key string, val proto.Message, ttl int64) error
 }
 
 type EtcdReadWriteCollection interface {
@@ -108,7 +116,7 @@ type EtcdReadWriteCollection interface {
 // ReadOnlyCollection is a collection interface that only supports read ops.
 type ReadOnlyCollection interface {
 	Get(key string, val proto.Message) error
-	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error
+	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func() error) error
 	List(val proto.Message, opts *Options, f func() error) error
 	Count() (int64, error)
 	Watch(opts ...watch.Option) (watch.Watcher, error)
@@ -119,6 +127,10 @@ type ReadOnlyCollection interface {
 
 type PostgresReadOnlyCollection interface {
 	ReadOnlyCollection
+
+	// Unsupported operation - only here during migration so we can compile
+	// TODO: remove this before merging into master
+	TTL(key string) (int64, error)
 }
 
 type EtcdReadOnlyCollection interface {
@@ -130,5 +142,5 @@ type EtcdReadOnlyCollection interface {
 
 	ListRev(val proto.Message, opts *Options, f func(createRev int64) error) error
 
-	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
+	WatchByIndex(index *Index, val string) (watch.Watcher, error)
 }

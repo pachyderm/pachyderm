@@ -71,13 +71,12 @@ func NewRealEnv(t *testing.T, db *sqlx.DB, customConfig ...*serviceenv.PachdFull
 		servEnv,
 		txnEnv,
 		etcdPrefix,
-		db,
 	)
 	require.NoError(t, err)
 
 	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
 
-	realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv, etcdPrefix)
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv)
 	require.NoError(t, err)
 
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()

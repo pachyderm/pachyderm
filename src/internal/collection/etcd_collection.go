@@ -3,7 +3,6 @@ package collection
 import (
 	"context"
 	"fmt"
-	"log"
 	"path"
 	"reflect"
 	"strings"
@@ -144,32 +143,16 @@ func (c *etcdCollection) path(key string) string {
 func (c *etcdCollection) indexRoot(index *Index) string {
 	// remove trailing slash from c.prefix
 	return fmt.Sprintf("%s%s%s/",
-		strings.TrimRight(c.prefix, "/"), indexIdentifier, index.Field)
+		strings.TrimRight(c.prefix, "/"), indexIdentifier, index.Name)
 }
 
 // See the documentation for `Index` for details.
-func (c *etcdCollection) indexDir(index *Index, indexVal interface{}) string {
-	var indexValStr string
-	if marshaller, ok := indexVal.(proto.Marshaler); ok {
-		if indexValBytes, err := marshaller.Marshal(); err == nil {
-			// use marshalled proto as index. This way we can rename fields without
-			// breaking our index.
-			// TODO: protobuf serialization is not guaranteed to be deterministic -
-			// this could cause queries to be flaky
-			indexValStr = string(indexValBytes)
-		} else {
-			// log error but keep going (this used to be the only codepath)
-			log.Printf("ERROR trying to marshal index value: %v", err)
-			indexValStr = fmt.Sprintf("%v", indexVal)
-		}
-	} else {
-		indexValStr = fmt.Sprintf("%v", indexVal)
-	}
-	return path.Join(c.indexRoot(index), indexValStr)
+func (c *etcdCollection) indexDir(index *Index, indexVal string) string {
+	return path.Join(c.indexRoot(index), indexVal)
 }
 
 // See the documentation for `Index` for details.
-func (c *etcdCollection) indexPath(index *Index, indexVal interface{}, key string) string {
+func (c *etcdCollection) indexPath(index *Index, indexVal string, key string) string {
 	return path.Join(c.indexDir(index, indexVal), key)
 }
 
@@ -209,21 +192,8 @@ func cloneProtoMsg(original proto.Message) proto.Message {
 
 // Giving a value, an index, and the key of the item, return the path
 // under which the new index item should be stored.
-func (c *etcdReadWriteCollection) getIndexPath(val interface{}, index *Index, key string) string {
-	reflVal := reflect.ValueOf(val)
-	field := reflect.Indirect(reflVal).FieldByName(index.Field).Interface()
-	return c.indexPath(index, field, key)
-}
-
-// Giving a value, a multi-index, and the key of the item, return the
-// paths under which the multi-index items should be stored.
-func (c *etcdReadWriteCollection) getMultiIndexPaths(val interface{}, index *Index, key string) []string {
-	var indexPaths []string
-	field := reflect.Indirect(reflect.ValueOf(val)).FieldByName(index.Field)
-	for i := 0; i < field.Len(); i++ {
-		indexPaths = append(indexPaths, c.indexPath(index, field.Index(i).Interface(), key))
-	}
-	return indexPaths
+func (c *etcdReadWriteCollection) getIndexPath(val proto.Message, index *Index, key string) string {
+	return c.indexPath(index, index.Extract(val), key)
 }
 
 func (c *etcdReadWriteCollection) Put(key string, val proto.Message) error {
@@ -407,7 +377,7 @@ func (c *etcdReadOnlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error {
+func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func() error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetByIndex", "col", c.prefix, "index", index, "indexVal", indexVal)
 	defer tracing.FinishAnySpan(span)
 	if atomic.LoadInt64(&index.limit) == 0 {
@@ -536,7 +506,7 @@ func watchF(ctx context.Context, watcher watch.Watcher, f func(e *watch.Event) e
 }
 
 // WatchByIndex watches items in a collection that match a particular index
-func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val interface{}) (watch.Watcher, error) {
+func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
 	watcher, err := watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template)

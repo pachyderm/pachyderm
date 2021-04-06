@@ -3,9 +3,9 @@
 package transactiondb
 
 import (
-	"path"
+	"context"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -16,13 +16,12 @@ const (
 )
 
 // Transactions returns a collection of open transactions
-func Transactions(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, transactionsPrefix),
-		nil,
+func Transactions(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+	return col.NewPostgresCollection(
+		ctx,
+		db,
+		listener,
 		&transaction.TransactionInfo{},
-		nil,
 		nil,
 	)
 }

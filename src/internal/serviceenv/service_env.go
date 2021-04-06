@@ -10,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
@@ -66,6 +67,11 @@ type ServiceEnv struct {
 	dbClient *sqlx.DB
 	// dbEg coordinates the initialization of dbClient (see pachdEg)
 	dbEg errgroup.Group
+
+	// listener is a special database client for listening for changes
+	listener *col.PostgresListener
+	// listenerEg coordinates the initialization of listener (see pachdEg)
+	listenerEg errgroup.Group
 }
 
 // InitPachOnlyEnv initializes this service environment. This dials a GRPC
@@ -92,6 +98,7 @@ func InitServiceEnv(config *Configuration) *ServiceEnv {
 	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
 	env.dbEg.Go(env.initDBClient)
+	env.listenerEg.Go(env.initListener)
 	if env.LokiHost != "" && env.LokiPort != "" {
 		env.lokiClient = &loki.Client{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.LokiHost, env.LokiPort)),
@@ -176,25 +183,48 @@ func (env *ServiceEnv) initKubeClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
+func getDBOptions() ([]dbutil.Option, error) {
+	host, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
+	if !ok {
+		return nil, errors.Errorf("postgres service host not found")
+	}
+	portStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
+	if !ok {
+		return nil, errors.Errorf("postgres service port not found")
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, err
+	}
+	return []dbutil.Option{dbutil.WithHostPort(host, port)}, nil
+}
+
 func (env *ServiceEnv) initDBClient() error {
+	options, err := getDBOptions()
+	if err != nil {
+		return err
+	}
 	return backoff.Retry(func() error {
-		host, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
-		if !ok {
-			return errors.Errorf("postgres service host not found")
-		}
-		portStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
-		if !ok {
-			return errors.Errorf("postgres service port not found")
-		}
-		port, err := strconv.Atoi(portStr)
-		if err != nil {
-			return err
-		}
-		db, err := dbutil.NewDB(dbutil.WithHostPort(host, port))
+		db, err := dbutil.NewDB(options...)
 		if err != nil {
 			return err
 		}
 		env.dbClient = db
+		return nil
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
+func (env *ServiceEnv) initListener() error {
+	options, err := getDBOptions()
+	if err != nil {
+		return err
+	}
+	dsn := dbutil.GetDSN(options...)
+	return backoff.Retry(func() error {
+		// The PostgresListener is lazily initialized to avoid consuming too many
+		// postgres resources by having idle client connections, so construction
+		// can't fail
+		env.listener = col.NewPostgresListener(dsn)
 		return nil
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
@@ -257,4 +287,14 @@ func (env *ServiceEnv) GetDBClient() *sqlx.DB {
 		panic("service env never connected to the database")
 	}
 	return env.dbClient
+}
+
+func (env *ServiceEnv) GetPostgresListener() *col.PostgresListener {
+	if err := env.listenerEg.Wait(); err != nil {
+		panic(err)
+	}
+	if env.listener == nil {
+		panic("service env never constructed a postgres listener")
+	}
+	return env.listener
 }
