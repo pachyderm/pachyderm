@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/auth"
@@ -199,12 +197,13 @@ func NewAuthServer(
 	// Watch for changes to the cluster role binding
 	go s.clusterRoleBindingCache.Watch()
 
+	// purge expired tokens every 24 hours
 	go func(a *apiServer, intervalSeconds int) {
 		for {
-			time.Sleep(time.Duration(intervalSeconds) * time.Second)
+			time.Sleep(time.Duration(intervalSeconds) * time.Hour)
 			a.purgeExpiredTokens()
 		}
-	}(s, 60)
+	}(s, 24)
 
 	return s, nil
 }
@@ -1454,7 +1453,9 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 // returns -1 if token is not found, and the TTL otherwise
 func (a *apiServer) lookupAuthTokenTTLSeconds(ctx context.Context, tokenHash string) (int64, error) {
 	var ttl float64
-	if err := a.env.GetDBClient().GetContext(ctx, &ttl, `SELECT ROUND( EXTRACT( EPOCH FROM (expiration - NOW()))) as ttl FROM auth.auth_tokens WHERE token_hash = $1 AND expiration IS NOT NULL`, tokenHash); err != nil {
+	if err := a.env.GetDBClient().GetContext(ctx, &ttl,
+		`SELECT ROUND( EXTRACT( EPOCH FROM (expiration - NOW()))) as ttl 
+		FROM auth.auth_tokens WHERE token_hash = $1 AND expiration IS NOT NULL`, tokenHash); err != nil {
 		if err == sql.ErrNoRows {
 			return -1, nil
 		}
@@ -1475,7 +1476,10 @@ func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (
 }
 
 func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToken, error) {
-	rows, err := a.env.GetDBClient().QueryxContext(ctx, `SELECT token_hash as tokenHash, subject, source, expiration FROM auth.auth_tokens WHERE subject LIKE $1 || '%'`, auth.RobotPrefix)
+	rows, err := a.env.GetDBClient().QueryxContext(ctx,
+		`SELECT token_hash as tokenHash, subject, source, expiration 
+		FROM auth.auth_tokens 
+		WHERE subject LIKE $1 || '%'`, auth.RobotPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -1529,13 +1533,10 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 func (a *apiServer) upsertAuthToken(ctx context.Context, tokenHash string, subject string, source auth.TokenInfo_TokenSource, ttlSeconds int64) error {
 	// Register the pachd in the database
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
-		`INSERT INTO auth.auth_tokens (token_hash, subject, source, expiration) VALUES ($1, $2, $3, NOW() + $4 * interval '1 sec') ON CONFLICT (token_hash) DO UPDATE SET subject = $2, source = $3, expiration = NOW() + $4 * interval '1 sec'`, tokenHash, subject, source, ttlSeconds); err != nil {
-		// throw a unique error if the error is a primary key uniqueness violation
-		if pgErr, ok := err.(*pq.Error); ok {
-			if pgErr.Code == pgerrcode.UniqueViolation {
-				return errors.Wrapf(err, "cannot store duplicate auth token")
-			}
-		}
+		`INSERT INTO auth.auth_tokens (token_hash, subject, source, expiration) 
+		VALUES ($1, $2, $3, NOW() + $4 * interval '1 sec') 
+		ON CONFLICT (token_hash) 
+		DO UPDATE SET subject = $2, source = $3, expiration = NOW() + $4 * interval '1 sec'`, tokenHash, subject, source, ttlSeconds); err != nil {
 		return errors.Wrapf(err, "error storing token")
 	}
 	return nil
@@ -1544,13 +1545,10 @@ func (a *apiServer) upsertAuthToken(ctx context.Context, tokenHash string, subje
 func (a *apiServer) upsertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string, source auth.TokenInfo_TokenSource) error {
 	// Register the pachd in the database
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
-		`INSERT INTO auth.auth_tokens (token_hash, subject, source) VALUES ($1, $2, $3) ON CONFLICT (token_hash) DO UPDATE SET subject = $2, source = $3`, tokenHash, subject, source); err != nil {
-		// throw a unique error if the error is a primary key uniqueness violation
-		if pgErr, ok := err.(*pq.Error); ok {
-			if pgErr.Code == pgerrcode.UniqueViolation {
-				return errors.Wrapf(err, "cannot store duplicate auth token")
-			}
-		}
+		`INSERT INTO auth.auth_tokens (token_hash, subject, source) 
+		VALUES ($1, $2, $3) 
+		ON CONFLICT (token_hash) 
+		DO UPDATE SET subject = $2, source = $3`, tokenHash, subject, source); err != nil {
 		return errors.Wrapf(err, "error storing token")
 	}
 	return nil
