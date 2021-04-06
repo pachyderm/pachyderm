@@ -157,7 +157,7 @@ func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 			c.Name = in.Connector.Name
 		}
 
-		if in.Connector.JsonConfig != "" {
+		if in.Connector.JsonConfig != "" && in.Connector.JsonConfig != "null" {
 			c.Config = []byte(in.Connector.JsonConfig)
 		}
 
