@@ -77,7 +77,7 @@ pachd:
   image:
     repository: "pachyderm/pachd"
     pullPolicy: "IfNotPresent"
-    tag: "1.13.0-rc.1"
+    tag: "1.13.0"
   logLevel: "info"
   metrics:
     enabled: true
