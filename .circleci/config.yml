@@ -9,6 +9,9 @@ parameters:
     type: string
     default: "0"
 
+orbs:
+  go: circleci/go@1.6.0
+
 jobs:
   build-image:
     docker:
@@ -21,9 +24,14 @@ jobs:
       - setup_remote_docker:
           version: 19.03.13
           docker_layer_caching: true
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
       - run: |
           wget -nv -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
+      - run: |
           make install
+      - run: |
           PATH=./bin/:$PATH VERSION=$(pachctl version --client-only) make docker-build
 
   build:
