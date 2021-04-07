@@ -35,7 +35,6 @@ VERSION=$(pachctl version --client-only)
 git config user.email "donotreply@pachyderm.com"
 git config user.name "anonymous"
 git tag -f -am "Circle CI test v$VERSION" v"$VERSION"
-make docker-build
 make launch-dev
 
 echo "Running test suite based on BUCKET=$BUCKET"

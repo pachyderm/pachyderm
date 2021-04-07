@@ -10,6 +10,22 @@ parameters:
     default: "0"
 
 jobs:
+  build-image:
+    docker:
+    - image: circleci/golang:1.15
+      auth:
+          username: pachydermbuildbot
+          password: $DOCKER_PWD
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 19.03.13
+          docker_layer_caching: true
+      - run: |
+          wget -nv -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
+          make install
+          PATH=./bin/:$PATH VERSION=$(pachctl version --client-only) make docker-build
+
   build:
     docker:
     - image: cimg/base:2020.01
@@ -104,7 +120,10 @@ jobs:
 workflows:
   all-tests:
     jobs:
+      - build-image
       - build:
+          requires:
+            - build-image
           matrix:
             parameters:
               bucket:
