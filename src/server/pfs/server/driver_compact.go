@@ -88,11 +88,16 @@ func (d *driver) compactionWorker() {
 			})
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
+		if errors.Is(err, context.Canceled) {
+			return err
+		}
 		log.Printf("error in compaction worker: %v", err)
 		return nil
 	})
-	// Never ending backoff should prevent us from getting here.
-	panic(err)
+	// Never ending backoff should prevent us from getting here, but tests may want this to exit.
+	if !errors.Is(err, context.Canceled) {
+		panic(err)
+	}
 }
 
 func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {

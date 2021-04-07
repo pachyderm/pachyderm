@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -37,8 +38,14 @@ func (d *driver) master(env *serviceenv.ServiceEnv) {
 		})
 		return eg.Wait()
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
+		if errors.Is(err, context.Canceled) {
+			return err
+		}
 		log.Errorf("error in pfs master: %v", err)
 		return nil
 	})
-	panic(err)
+	// Never ending backoff should prevent us from getting here, but tests may want this to exit.
+	if !errors.Is(err, context.Canceled) {
+		panic(err)
+	}
 }

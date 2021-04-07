@@ -2248,6 +2248,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		}
 
+		// TODO: this is hanging (in the background?) and keeping the server from shutting down
 		require.NoErrorWithinT(t, 60*time.Second, func() error {
 			var eg errgroup.Group
 			nextCommitChan := make(chan *pfs.Commit, numCommits)
