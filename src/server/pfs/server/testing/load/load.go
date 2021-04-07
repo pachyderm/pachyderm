@@ -18,7 +18,7 @@ func defaultOperationsSpec() *OperationsSpec {
 		FuzzOperationSpecs: []*FuzzOperationSpec{
 			&FuzzOperationSpec{
 				OperationSpec: &OperationSpec{
-					&AppendFileTarSpec{
+					&PutFileSpec{
 						FilesSpec: defaultFilesSpec(),
 					},
 				},

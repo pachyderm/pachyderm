@@ -38,7 +38,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/testing/load"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -6575,17 +6575,33 @@ func TestLoad(t *testing.T) {
 	db := dbutil.NewTestDB(t)
 	msg := random.SeedRand()
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		loadSpec := load.DefaultCommitsSpec()
-		loadYAML, err := yaml.Marshal(loadSpec)
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(loadYAML))
+		spec := load.DefaultCommitsSpec()
 		c := env.PachClient
 		repo := "test"
 		if err := c.CreateRepo(repo); err != nil {
 			return err
 		}
-		return load.Commits(c, repo, "master", loadSpec)
+		return load.Commits(c, repo, "master", spec)
 	}, testpachd.NewDefaultConfig()), msg)
+}
+
+func getLoadSpec(file string) (_ *load.CommitsSpec, retErr error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := f.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	loadYAML := &bytes.Buffer{}
+	if _, err := io.Copy(loadYAML, f); err != nil {
+		return nil, err
+	}
+	spec := &load.CommitsSpec{}
+	if err := yaml.UnmarshalStrict(loadYAML.Bytes(), spec); err != nil {
+		return nil, err
+	}
+	return spec, nil
 }

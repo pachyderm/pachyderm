@@ -37,7 +37,7 @@ func (mc *memoryCache) Get(ctx context.Context, key []byte, cb ValueCallback) er
 	if v == nil {
 		return ErrKeyNotFound
 	}
-	return AssertNotModified(v, cb)
+	return cb(v)
 }
 
 func (mc *memoryCache) Delete(ctx context.Context, key []byte) error {

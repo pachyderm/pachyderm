@@ -47,14 +47,14 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 
 // Get calls getFunc to retrieve a chunk, then verifies, decrypts, and decompresses the data.
 // Uncompressed plaintext is written to w.
-func Get(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer, getFunc func(ctx context.Context, id ID, cb kv.ValueCallback) error) error {
-	if err := getFromCache(ctx, cache, ref, w); err == nil {
+func Get(ctx context.Context, client Client, cache kv.GetPut, ref *Ref, cb kv.ValueCallback) error {
+	if err := getFromCache(ctx, cache, ref, cb); err == nil {
 		return nil
 	}
 	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
 		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
 	}
-	return getFunc(ctx, ref.Id, func(ctext []byte) error {
+	return client.Get(ctx, ref.Id, func(ctext []byte) error {
 		if err := verifyData(ref.Id, ctext); err != nil {
 			return err
 		}
@@ -73,8 +73,7 @@ func Get(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer, getFunc fu
 		if err := putInCache(ctx, cache, ref, rawData); err != nil {
 			logrus.Error(err)
 		}
-		_, err = w.Write(rawData)
-		return err
+		return cb(rawData)
 	})
 }
 
@@ -205,12 +204,9 @@ func (r *Ref) Key() pachhash.Output {
 	return pachhash.Sum(data)
 }
 
-func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer) error {
+func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, cb kv.ValueCallback) error {
 	key := ref.Key()
-	return cache.Get(ctx, key[:], func(value []byte) error {
-		_, err := w.Write(value)
-		return err
-	})
+	return cache.Get(ctx, key[:], cb)
 }
 
 func putInCache(ctx context.Context, cache kv.GetPut, ref *Ref, data []byte) error {

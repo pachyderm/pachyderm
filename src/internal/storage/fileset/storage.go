@@ -24,8 +24,11 @@ const (
 	// DefaultShardThreshold is the default for the size threshold that must
 	// be met before a shard is created by the shard function.
 	DefaultShardThreshold = 1024 * units.MB
-	// DefaultLevelFactor is the default factor that level sizes increase by in a compacted fileset
-	DefaultLevelFactor = 10
+	// DefaultCompactionFixedDelay is the default fixed delay for compaction.
+	// This is expressed as the number of primitive filesets.
+	DefaultCompactionFixedDelay = 10
+	// DefaultCompactionLevelFactor is the default factor that level sizes increase by in a compacted fileset.
+	DefaultCompactionLevelFactor = 10
 
 	// TrackerPrefix is used for creating tracker objects for filesets
 	TrackerPrefix = "fileset/"
@@ -42,8 +45,12 @@ type Storage struct {
 	store                        MetadataStore
 	chunks                       *chunk.Storage
 	memThreshold, shardThreshold int64
-	levelFactor                  int64
+	compactionConfig             *CompactionConfig
 	filesetSem                   *semaphore.Weighted
+}
+
+type CompactionConfig struct {
+	FixedDelay, LevelFactor int64
 }
 
 // NewStorage creates a new Storage.
@@ -54,13 +61,16 @@ func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts
 		chunks:         chunks,
 		memThreshold:   DefaultMemoryThreshold,
 		shardThreshold: DefaultShardThreshold,
-		levelFactor:    DefaultLevelFactor,
-		filesetSem:     semaphore.NewWeighted(math.MaxInt64),
+		compactionConfig: &CompactionConfig{
+			FixedDelay:  DefaultCompactionFixedDelay,
+			LevelFactor: DefaultCompactionLevelFactor,
+		},
+		filesetSem: semaphore.NewWeighted(math.MaxInt64),
 	}
 	for _, opt := range opts {
 		opt(s)
 	}
-	if s.levelFactor < 1 {
+	if s.compactionConfig.LevelFactor < 1 {
 		panic("level factor cannot be < 1")
 	}
 	return s
@@ -174,27 +184,32 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
 				return nil, err
 			}
 			flattened = append(flattened, ids2...)
+		default:
+			// TODO: should it be?
+			return nil, errors.Errorf("Flatten is not defined for empty filesets")
 		}
 	}
 	return flattened, nil
 }
 
-// Merge writes the contents of ids to a new fileset with the specified ttl and returns the ID
-// Merge always returns the ID of a primitive fileset.
-func (s *Storage) Merge(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-	var size int64
-	w := s.newWriter(ctx, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
-		size += index.SizeBytes(idx)
-		return nil
-	}))
-	fs, err := s.Open(ctx, ids)
+func (s *Storage) flattenPrimitives(ctx context.Context, ids []ID) ([]*Primitive, error) {
+	ids, err := s.Flatten(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	if err := CopyFiles(ctx, w, fs, true); err != nil {
-		return nil, err
+	return s.getPrimitives(ctx, ids)
+}
+
+func (s *Storage) getPrimitives(ctx context.Context, ids []ID) ([]*Primitive, error) {
+	var prims []*Primitive
+	for _, id := range ids {
+		prim, err := s.getPrimitive(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		prims = append(prims, prim)
 	}
-	return w.Close()
+	return prims, nil
 }
 
 // Concat is a special case of Merge, where the filesets each contain paths for distinct ranges.
@@ -228,13 +243,9 @@ func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Ti
 
 // SizeOf returns the size of the data in the fileset in bytes
 func (s *Storage) SizeOf(ctx context.Context, id ID) (int64, error) {
-	ids, err := s.Flatten(ctx, []ID{id})
+	prims, err := s.flattenPrimitives(ctx, []ID{id})
 	if err != nil {
-		return -1, err
-	}
-	prims, err := s.getPrimitiveBatch(ctx, ids)
-	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	var total int64
 	for _, prim := range prims {

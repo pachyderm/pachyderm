@@ -1,20 +1,41 @@
 package load
 
 import (
+	"bytes"
+	"io"
 	"math/rand"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
+
+type MemFile struct {
+	path    string
+	content []byte
+}
+
+func NewMemFile(path string, data []byte) *MemFile {
+	return &MemFile{
+		path:    path,
+		content: data,
+	}
+}
+
+func (mf *MemFile) Path() string {
+	return mf.path
+}
+
+func (mf *MemFile) Reader() io.Reader {
+	return bytes.NewReader(mf.content)
+}
 
 type FilesSpec struct {
 	Count         int             `yaml:"count,omitempty"`
 	FuzzFileSpecs []*FuzzFileSpec `yaml:"fuzzFile,omitempty"`
 }
 
-func Files(spec *FilesSpec) ([]tarutil.File, error) {
-	var files []tarutil.File
+func Files(spec *FilesSpec) ([]*MemFile, error) {
+	var files []*MemFile
 	for i := 0; i < spec.Count; i++ {
 		file, err := FuzzFile(spec.FuzzFileSpecs)
 		if err != nil {
@@ -30,7 +51,7 @@ type FileSpec struct {
 	RandomFileSpec *RandomFileSpec `yaml:"randomFile,omitempty"`
 }
 
-func File(spec *FileSpec) (tarutil.File, error) {
+func File(spec *FileSpec) (*MemFile, error) {
 	return RandomFile(spec.RandomFileSpec)
 }
 
@@ -38,7 +59,7 @@ type RandomFileSpec struct {
 	FuzzSizeSpecs []*FuzzSizeSpec `yaml:"fuzzSize,omitempty"`
 }
 
-func RandomFile(spec *RandomFileSpec) (tarutil.File, error) {
+func RandomFile(spec *RandomFileSpec) (*MemFile, error) {
 	name := uuid.NewWithoutDashes()
 	sizeSpec := FuzzSize(spec.FuzzSizeSpecs)
 	min, max := sizeSpec.Min, sizeSpec.Max
@@ -46,7 +67,7 @@ func RandomFile(spec *RandomFileSpec) (tarutil.File, error) {
 	if max > min {
 		size += rand.Intn(max - min)
 	}
-	return tarutil.NewMemFile("/"+name, chunk.RandSeq(size)), nil
+	return NewMemFile("/"+name, chunk.RandSeq(size)), nil
 }
 
 type SizeSpec struct {

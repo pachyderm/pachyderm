@@ -2,9 +2,6 @@ package load
 
 import (
 	"math/rand"
-
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 )
 
 type FuzzOperationSpec struct {
@@ -12,13 +9,13 @@ type FuzzOperationSpec struct {
 	Prob          float64        `yaml:"prob,omitempty"`
 }
 
-func FuzzOperation(c *client.APIClient, repo, commit string, specs []*FuzzOperationSpec, validator ...*Validator) error {
+func FuzzOperation(env *Env, repo, commit string, specs []*FuzzOperationSpec) error {
 	var totalProb float64
 	prob := rand.Float64()
 	for _, spec := range specs {
 		totalProb += spec.Prob
 		if prob <= totalProb {
-			return Operation(c, repo, commit, spec.OperationSpec, validator...)
+			return Operation(env, repo, commit, spec.OperationSpec)
 		}
 	}
 	// TODO: Should not reach here, need to validate fuzzing probabilities (this applies to other fuzzers as well).
@@ -30,7 +27,7 @@ type FuzzFileSpec struct {
 	Prob     float64   `yaml:"prob,omitempty"`
 }
 
-func FuzzFile(specs []*FuzzFileSpec) (tarutil.File, error) {
+func FuzzFile(specs []*FuzzFileSpec) (*MemFile, error) {
 	var totalProb float64
 	prob := rand.Float64()
 	for _, spec := range specs {

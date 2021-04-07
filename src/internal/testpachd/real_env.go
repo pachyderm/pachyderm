@@ -104,5 +104,6 @@ func NewDefaultConfig() *serviceenv.PachdFullConfiguration {
 	config.StorageLevelFactor = 10
 	config.StorageGCPolling = "30s"
 	config.StorageCompactionMaxFanIn = 50
+	config.StorageMemoryCacheSize = 10
 	return config
 }

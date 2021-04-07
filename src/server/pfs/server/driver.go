@@ -818,57 +818,49 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if description != "" {
 		commitInfo.Description = description
 	}
-	var parentFSID *fileset.ID
+	var ids []fileset.ID
 	if commitInfo.ParentCommit != nil {
 		id, err := d.commitStore.GetTotalFileset(ctx, commitInfo.ParentCommit)
 		if err != nil {
 			return err
 		}
-		parentFSID = id
-	}
-	// Run compaction task.
-	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		id, err := d.commitStore.GetDiffFileset(ctx, commit)
-		if err != nil {
-			return err
-		}
-		var ids []fileset.ID
-		// if the commit has a parent, then include the parents fileset in the compaction
-		if parentFSID != nil {
-			ids = append(ids, *parentFSID)
-		}
 		ids = append(ids, *id)
-		compactedID, err := d.compact(m, ids)
-		if err != nil {
+	}
+	id, err := d.commitStore.GetDiffFileset(ctx, commit)
+	if err != nil {
+		return err
+	}
+	ids = append(ids, *id)
+	compactedID, err := d.compact(ctx, ids)
+	if err != nil {
+		return err
+	}
+	if err := d.commitStore.SetTotalFileset(ctx, commit, *compactedID); err != nil {
+		return err
+	}
+	outputSize, err := d.storage.SizeOf(ctx, *compactedID)
+	if err != nil {
+		return err
+	}
+	commitInfo.SizeBytes = uint64(outputSize)
+	commitInfo.Finished = types.TimestampNow()
+	empty := strings.Contains(commitInfo.Description, pfs.EmptyStr)
+	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
+		return err
+	}
+	if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
+		return err
+	}
+	triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
+	if err != nil {
+		return err
+	}
+	for _, b := range triggeredBranches {
+		if err := txnCtx.PropagateCommit(b, false); err != nil {
 			return err
 		}
-		if err := d.commitStore.SetTotalFileset(ctx, commit, *compactedID); err != nil {
-			return err
-		}
-		outputSize, err := d.storage.SizeOf(ctx, *compactedID)
-		if err != nil {
-			return err
-		}
-		commitInfo.SizeBytes = uint64(outputSize)
-		commitInfo.Finished = types.TimestampNow()
-		empty := strings.Contains(commitInfo.Description, pfs.EmptyStr)
-		if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
-			return err
-		}
-		if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
-			return err
-		}
-		triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
-		if err != nil {
-			return err
-		}
-		for _, b := range triggeredBranches {
-			if err := txnCtx.PropagateCommit(b, false); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {

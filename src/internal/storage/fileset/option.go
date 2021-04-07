@@ -30,7 +30,7 @@ func WithShardThreshold(threshold int64) StorageOption {
 // WithLevelFactor sets the factor which the size of levels in inc
 func WithLevelFactor(x int64) StorageOption {
 	return func(s *Storage) {
-		s.levelFactor = x
+		s.compactionConfig.LevelFactor = x
 	}
 }
 
