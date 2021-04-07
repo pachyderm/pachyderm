@@ -35,7 +35,7 @@ func TestRegisterPachd(t *testing.T) {
 
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
-		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \
 		  | match 'id: {{.id}}' \
@@ -55,7 +55,7 @@ func TestRegisterAuthenticated(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
 		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \
@@ -78,7 +78,7 @@ func TestEnterpriseRoleBindings(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
 		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		pachctl auth set enterprise clusterAdmin robot:test1
 		pachctl auth get enterprise | match robot:test1
@@ -98,7 +98,7 @@ func TestGetAndUseRobotToken(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
 		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		pachctl auth get-robot-token --enterprise -q {{.alice}} | pachctl auth use-auth-token --enterprise
 		pachctl auth get-robot-token -q {{.bob}} | pachctl auth use-auth-token
@@ -161,7 +161,7 @@ func TestLoginEnterprise(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
 		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		echo '{"username": "admin", "password": "password"}' | pachctl idp create-connector --id test --type mockPassword --name test  --config -
 		`,
@@ -205,7 +205,7 @@ func TestLoginPachd(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
 		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		echo '{"username": "admin", "password": "password"}' | pachctl idp create-connector --id test --type mockPassword --name test  --config -
 		`,
