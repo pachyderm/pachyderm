@@ -5,7 +5,6 @@ import (
 	"math"
 	"net"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -183,29 +182,9 @@ func (env *ServiceEnv) initKubeClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func getDBOptions() ([]dbutil.Option, error) {
-	host, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
-	if !ok {
-		return nil, errors.Errorf("postgres service host not found")
-	}
-	portStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
-	if !ok {
-		return nil, errors.Errorf("postgres service port not found")
-	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return nil, err
-	}
-	return []dbutil.Option{dbutil.WithHostPort(host, port)}, nil
-}
-
 func (env *ServiceEnv) initDBClient() error {
-	options, err := getDBOptions()
-	if err != nil {
-		return err
-	}
 	return backoff.Retry(func() error {
-		db, err := dbutil.NewDB(options...)
+		db, err := dbutil.NewDB(dbutil.WithHostPort(env.PostgresServiceHost, env.PostgresServicePort))
 		if err != nil {
 			return err
 		}
@@ -215,11 +194,7 @@ func (env *ServiceEnv) initDBClient() error {
 }
 
 func (env *ServiceEnv) initListener() error {
-	options, err := getDBOptions()
-	if err != nil {
-		return err
-	}
-	dsn := dbutil.GetDSN(options...)
+	dsn := dbutil.GetDSN(dbutil.WithHostPort(env.PostgresServiceHost, env.PostgresServicePort))
 	return backoff.Retry(func() error {
 		// The PostgresListener is lazily initialized to avoid consuming too many
 		// postgres resources by having idle client connections, so construction
@@ -289,6 +264,9 @@ func (env *ServiceEnv) GetDBClient() *sqlx.DB {
 	return env.dbClient
 }
 
+// GetPostgresListener returns the already constructed database client dedicated
+// for listen operations without modification. Note that this listener lazily
+// connects to the database on the first listen operation.
 func (env *ServiceEnv) GetPostgresListener() *col.PostgresListener {
 	if err := env.listenerEg.Wait(); err != nil {
 		panic(err)

@@ -24,7 +24,12 @@ const (
 )
 
 var (
-	TestSecondaryIndex = &col.Index{Field: "Value"}
+	TestSecondaryIndex = &col.Index{
+		Name: "Value",
+		Extract: func(val proto.Message) string {
+			return val.(*col.TestItem).Value
+		},
+	}
 )
 
 type TestError struct{}

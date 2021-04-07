@@ -50,3 +50,37 @@ func (env *ServiceEnv) ChunkMemoryCache() kv.GetPut {
 	}
 	return kv.NewMemCache(size)
 }
+
+type ConfigOption = func(*Configuration)
+
+func ApplyOptions(config *Configuration, opts ...ConfigOption) {
+	for _, opt := range opts {
+		opt(config)
+	}
+}
+
+func NewConfig(opts ...ConfigOption) *Configuration {
+	result := &Configuration{}
+	ApplyOptions(result, opts...)
+	return result
+}
+
+func WithPostgresHostPort(host string, port string) ConfigOption {
+	return func(config *Configuration) {
+		config.PostgresServiceHost = host
+		config.PostgresServicePort = port
+	}
+}
+
+func WithEtcdHostPort(host string, port string) ConfigOption {
+	return func(config *Configuration) {
+		config.EtcdHost = host
+		config.EtcdPort = port
+	}
+}
+
+func WithPachdPeerPort(port uint16) ConfigOption {
+	return func(config *Configuration) {
+		config.PeerPort = port
+	}
+}

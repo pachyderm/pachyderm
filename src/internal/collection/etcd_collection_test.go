@@ -9,6 +9,10 @@ import (
 	"testing"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -18,16 +22,20 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/types"
 )
 
 var (
 	pipelineIndex *col.Index = &col.Index{
-		Field: "Pipeline",
+		Name: "Pipeline",
+		Extract: func(val proto.Message) string {
+			return val.(*pps.JobInfo).Pipeline.Name
+		},
 	}
 )
+
+func pipelineKey(p *pps.Pipeline) string {
+	return p.Name
+}
 
 func TestEtcdCollections(suite *testing.T) {
 	suite.Parallel()
@@ -54,6 +62,7 @@ func TestEtcdCollections(suite *testing.T) {
 }
 
 func TestDryrun(t *testing.T) {
+	t.Parallel()
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
@@ -76,6 +85,7 @@ func TestDryrun(t *testing.T) {
 }
 
 func TestDeletePrefix(t *testing.T) {
+	t.Parallel()
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
@@ -170,6 +180,7 @@ func TestDeletePrefix(t *testing.T) {
 }
 
 func TestIndex(t *testing.T) {
+	t.Parallel()
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
@@ -200,7 +211,7 @@ func TestIndex(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	i := 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline, job, col.DefaultOptions(), func() error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline.Name, job, col.DefaultOptions(), func() error {
 		switch i {
 		case 1:
 			require.Equal(t, j1, job)
@@ -214,7 +225,7 @@ func TestIndex(t *testing.T) {
 	}))
 
 	i = 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline, job, col.DefaultOptions(), func() error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline.Name, job, col.DefaultOptions(), func() error {
 		switch i {
 		case 1:
 			require.Equal(t, j3, job)
@@ -227,6 +238,7 @@ func TestIndex(t *testing.T) {
 }
 
 func TestIndexWatch(t *testing.T) {
+	t.Parallel()
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
@@ -245,7 +257,7 @@ func TestIndexWatch(t *testing.T) {
 
 	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 
-	watcher, err := jobInfosReadonly.WatchByIndex(pipelineIndex, j1.Pipeline)
+	watcher, err := jobInfosReadonly.WatchByIndex(pipelineIndex, j1.Pipeline.Name)
 	eventCh := watcher.Watch()
 	require.NoError(t, err)
 	var ID string
@@ -323,11 +335,16 @@ func TestIndexWatch(t *testing.T) {
 }
 
 func TestBoolIndex(t *testing.T) {
+	t.Parallel()
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
-	boolValues := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{{
-		Field: "Value",
-	}}, &types.BoolValue{}, nil, nil)
+	index := &col.Index{
+		Name: "Value",
+		Extract: func(val proto.Message) string {
+			return fmt.Sprintf("%v", val.(*types.BoolValue).Value)
+		},
+	}
+	boolValues := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{index}, &types.BoolValue{}, nil, nil)
 
 	r1 := &types.BoolValue{
 		Value: true,
@@ -359,6 +376,7 @@ func TestBoolIndex(t *testing.T) {
 var epsilon = &types.BoolValue{Value: true}
 
 func TestTTL(t *testing.T) {
+	t.Parallel()
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
@@ -380,6 +398,7 @@ func TestTTL(t *testing.T) {
 }
 
 func TestTTLExpire(t *testing.T) {
+	t.Parallel()
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
@@ -398,6 +417,7 @@ func TestTTLExpire(t *testing.T) {
 }
 
 func TestTTLExtend(t *testing.T) {
+	t.Parallel()
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
@@ -435,6 +455,7 @@ func TestTTLExtend(t *testing.T) {
 }
 
 func TestIteration(t *testing.T) {
+	t.Parallel()
 	env := testetcd.NewEnv(t)
 	t.Run("one-val-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()

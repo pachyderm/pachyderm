@@ -398,10 +398,12 @@ func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string
 func (c *postgresReadOnlyCollection) list(opts *Options, f func(*model) error) error {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from %s", c.table)
 
+	params := map[string]interface{}{}
 	if len(c.withFields) > 0 {
 		fields := []string{}
-		for k := range c.withFields {
+		for k, v := range c.withFields {
 			fields = append(fields, fmt.Sprintf("%s = :%s", indexFieldName(k), k))
+			params[k] = v
 		}
 		query += " where " + strings.Join(fields, " and ")
 	}
@@ -416,7 +418,7 @@ func (c *postgresReadOnlyCollection) list(opts *Options, f func(*model) error) e
 		}
 	}
 
-	rows, err := c.db.NamedQueryContext(c.ctx, query, c.withFields)
+	rows, err := c.db.NamedQueryContext(c.ctx, query, params)
 	if err != nil {
 		return c.mapSQLError(err, "")
 	}
@@ -685,9 +687,19 @@ func (c *postgresReadWriteCollection) Delete(key string) error {
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
-	// TODO: this needs to apply withFields
-	query := fmt.Sprintf("delete from %s;", c.table)
-	_, err := c.tx.Exec(query)
+	query := fmt.Sprintf("delete from %s", c.table)
+	params := []interface{}{}
+
+	if len(c.withFields) > 0 {
+		fields := []string{}
+		for k, v := range c.withFields {
+			fields = append(fields, fmt.Sprintf("%s = $%d", indexFieldName(k), len(params)+1))
+			params = append(params, v)
+		}
+		query += " where " + strings.Join(fields, " and ")
+	}
+
+	_, err := c.tx.Exec(query, params...)
 	return c.mapSQLError(err, "")
 }
 
