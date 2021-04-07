@@ -267,11 +267,6 @@ func contextCreate(namePrefix, namespace, serverCert string, enterpriseServer bo
 	if enterpriseServer {
 		cfg.V2.ActiveEnterpriseContext = newContextName
 	} else {
-		// If the user deploys a pachd and they don't have an enterprise server, they probably want
-		// a single-server deployment. Default to using the new pachd as the enterprise server as well.
-		if cfg.V2.ActiveEnterpriseContext == "" || cfg.V2.ActiveEnterpriseContext == cfg.V2.ActiveContext {
-			cfg.V2.ActiveEnterpriseContext = newContextName
-		}
 		cfg.V2.ActiveContext = newContextName
 	}
 	return cfg.Write()
