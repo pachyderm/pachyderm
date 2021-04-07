@@ -552,13 +552,11 @@ func (d *driver) makeCommit(
 		}
 	}
 
-	// create the actual commit in etcd and update the branch + parent/child
+	// create the actual commit in postgres and update the branch + parent/child
 	// Clone the parent, as this transaction modifies it and might wind up getting
 	// run more than once (if there's a conflict.)
 	parent = proto.Clone(parent).(*pfs.Commit)
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
-	commits := d.commits.With(pfsdb.CommitsRepoIndex, parent.Repo.Name).ReadWrite(txnCtx.SqlTx)
-	branches := d.branches.With(pfsdb.BranchesRepoIndex, parent.Repo.Name).ReadWrite(txnCtx.SqlTx)
 
 	// Check if repo exists
 	repoInfo := new(pfs.RepoInfo)
@@ -572,7 +570,7 @@ func (d *driver) makeCommit(
 	branchProvMap := make(map[string]bool)
 	if branch != "" {
 		branchInfo := &pfs.BranchInfo{}
-		if err := branches.Upsert(branch, branchInfo, func() error {
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(pfsdb.BranchKey(client.NewBranch(parent.Repo.Name, branch)), branchInfo, func() error {
 			// validate branch
 			if parent.ID == "" && branchInfo.Head != nil {
 				parent.ID = branchInfo.Head.ID
@@ -584,7 +582,7 @@ func (d *driver) makeCommit(
 			}
 			if branchInfo.Head != nil {
 				headCommitInfo := &pfs.CommitInfo{}
-				if err := commits.Get(branchInfo.Head.ID, headCommitInfo); err != nil {
+				if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(branchInfo.Head), headCommitInfo); err != nil {
 					return err
 				}
 				for _, prov := range headCommitInfo.Provenance {
@@ -651,7 +649,7 @@ func (d *driver) makeCommit(
 		if parentCommitInfo.Finished == nil {
 			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Repo.Name, parent.ID)
 		}
-		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(parent), parentCommitInfo, func() error {
 			newCommitInfo.ParentCommit = parent
 			// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
 			if newCommitInfo.Branch == nil {
@@ -765,7 +763,7 @@ func (d *driver) makeCommit(
 	}
 
 	// Finally, create the commit
-	if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
 		return nil, err
 	}
 	// Defer propagation of the commit until the end of the transaction so we can
@@ -1221,23 +1219,22 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 				return err
 			}
 			defer commitInfoWatcher.Close()
-			for {
-				var commitID string
-				_commitInfo := new(pfs.CommitInfo)
+			for commitInfo == nil {
+				var key string
 				event := <-commitInfoWatcher.Watch()
 				switch event.Type {
 				case watch.EventError:
 					return event.Err
 				case watch.EventPut:
-					if err := event.Unmarshal(&commitID, _commitInfo); err != nil {
+					newCommitInfo := &pfs.CommitInfo{}
+					if err := event.Unmarshal(&key, newCommitInfo); err != nil {
 						return errors.Wrapf(err, "unmarshal")
+					}
+					if newCommitInfo.Finished != nil {
+						commitInfo = newCommitInfo
 					}
 				case watch.EventDelete:
 					return pfsserver.ErrCommitDeleted{commit}
-				}
-				if _commitInfo.Finished != nil {
-					commitInfo = _commitInfo
-					break
 				}
 			}
 			return nil
@@ -1772,7 +1769,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
 	for {
-		var commitID string
+		var key string
 		commitInfo := &pfs.CommitInfo{}
 		var event *watch.Event
 		var ok bool
@@ -1784,11 +1781,11 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 		case watch.EventError:
 			return event.Err
 		case watch.EventPut:
-			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
+			if err := event.Unmarshal(&key, commitInfo); err != nil {
 				return errors.Wrapf(err, "unmarshal")
 			}
 			if commitInfo == nil {
-				return errors.Errorf("commit info is empty for id: %v", commitID)
+				return errors.Errorf("commit info is empty for key: %v", key)
 			}
 
 			// if provenance is provided, ensure that the returned commits have the commit in their provenance
@@ -1817,15 +1814,15 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 			}
 
 			// We don't want to include the `from` commit itself
-			if !(seen[commitID] || (from != nil && from.ID == commitID)) {
-				commitInfo, err := d.inspectCommit(pachClient, client.NewCommit(repo.Name, commitID), state)
+			if !(seen[key] || (from != nil && from.ID == commitInfo.Commit.ID)) {
+				commitInfo, err := d.inspectCommit(pachClient, commitInfo.Commit, state)
 				if err != nil {
 					return err
 				}
 				if err := cb(commitInfo); err != nil {
 					return err
 				}
-				seen[commitInfo.Commit.ID] = true
+				seen[key] = true
 			}
 		case watch.EventDelete:
 			continue

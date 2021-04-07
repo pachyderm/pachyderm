@@ -39,7 +39,7 @@ var CommitsRepoIndex = &col.Index{
 }
 
 func CommitKey(commit *pfs.Commit) string {
-	return commit.Repo.Name + " " + commit.ID
+	return commit.Repo.Name + "@" + commit.ID
 }
 
 // Commits returns a collection of commits
@@ -61,7 +61,7 @@ var BranchesRepoIndex = &col.Index{
 }
 
 func BranchKey(branch *pfs.Branch) string {
-	return branch.Repo.Name + " " + branch.Name
+	return branch.Repo.Name + "@" + branch.Name
 }
 
 // Branches returns a collection of branches

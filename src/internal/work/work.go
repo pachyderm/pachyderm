@@ -164,6 +164,9 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 		return m.subtaskCol.ReadOnly(ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
 			var key string
 			subtaskInfo := &TaskInfo{}
+			if e.Type == watch.EventDelete {
+				return errors.New("task was deleted while waiting for results")
+			}
 			if err := e.Unmarshal(&key, subtaskInfo); err != nil {
 				return err
 			}
@@ -277,6 +280,9 @@ func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
 		var taskID string
 		task := &Task{}
+		if e.Type == watch.EventDelete {
+			return errors.New("task was deleted while waiting for results")
+		}
 		if err := e.Unmarshal(&taskID, task); err != nil {
 			return err
 		}

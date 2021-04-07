@@ -5,7 +5,9 @@ import (
 	"database/sql"
 
 	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -216,5 +218,5 @@ func SetupPostgresCommitStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 			PRIMARY KEY(commit_id)
 		);
 	`)
-	return err
+	return errors.EnsureStack(err)
 }

@@ -90,27 +90,26 @@ func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bo
 func (a *apiServer) watchConfig() {
 	b := backoff.NewExponentialBackOff()
 	backoff.RetryNotify(func() error {
-		configWatcher, err := a.config.ReadOnly(context.Background()).Watch()
-		if err != nil {
-			return err
-		}
-		defer configWatcher.Close()
-
-		var key string
-		var config identity.IdentityServerConfig
-		for {
-			ev, ok := <-configWatcher.Watch()
-			if !ok {
-				return errors.New("admin watch closed unexpectedly")
-			}
+		if err := a.config.ReadOnly(context.Background()).WatchF(func(ev *watch.Event) error {
 			b.Reset()
 
+			if ev.Type == watch.EventError {
+				return errors.New("identity config deleted during watch")
+			}
+
+			var key string
+			var config identity.IdentityServerConfig
 			ev.Unmarshal(&key, &config)
 
 			a.configCacheMtx.Lock()
 			a.web.updateConfig(config)
 			a.configCache = config
 			a.configCacheMtx.Unlock()
+		}); err != nil {
+			return err
+		}
+
+		for {
 		}
 	}, b, func(err error, d time.Duration) error {
 		logrus.Errorf("error watching identity config: %v; retrying in %v", err, d)

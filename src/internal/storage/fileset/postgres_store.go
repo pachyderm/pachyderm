@@ -6,6 +6,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 var _ MetadataStore = &postgresStore{}
@@ -80,5 +82,5 @@ const schema = `
 // SetupPostgresStoreV0 sets up the tables for a Store
 func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, schema)
-	return err
+	return errors.EnsureStack(err)
 }

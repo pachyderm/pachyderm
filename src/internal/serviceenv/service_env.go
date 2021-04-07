@@ -184,7 +184,10 @@ func (env *ServiceEnv) initKubeClient() error {
 
 func (env *ServiceEnv) initDBClient() error {
 	return backoff.Retry(func() error {
-		db, err := dbutil.NewDB(dbutil.WithHostPort(env.PostgresServiceHost, env.PostgresServicePort))
+		db, err := dbutil.NewDB(
+			dbutil.WithHostPort(env.PostgresServiceHost, env.PostgresServicePort),
+			dbutil.WithDBName(env.PostgresDBName),
+		)
 		if err != nil {
 			return err
 		}
@@ -194,7 +197,10 @@ func (env *ServiceEnv) initDBClient() error {
 }
 
 func (env *ServiceEnv) initListener() error {
-	dsn := dbutil.GetDSN(dbutil.WithHostPort(env.PostgresServiceHost, env.PostgresServicePort))
+	dsn := dbutil.GetDSN(
+		dbutil.WithHostPort(env.PostgresServiceHost, env.PostgresServicePort),
+		dbutil.WithDBName(env.PostgresDBName),
+	)
 	return backoff.Retry(func() error {
 		// The PostgresListener is lazily initialized to avoid consuming too many
 		// postgres resources by having idle client connections, so construction
