@@ -59,8 +59,14 @@ func ApplyOptions(config *Configuration, opts ...ConfigOption) {
 	}
 }
 
-func NewConfig(opts ...ConfigOption) *Configuration {
-	result := &Configuration{}
+// ConfigFromOptions is for use in tests where some tests may want to generate a
+// config with certain default values overridden via options.
+func ConfigFromOptions(opts ...ConfigOption) *Configuration {
+	result := &Configuration{
+		GlobalConfiguration:         &GlobalConfiguration{},
+		PachdSpecificConfiguration:  &PachdSpecificConfiguration{},
+		WorkerSpecificConfiguration: &WorkerSpecificConfiguration{},
+	}
 	ApplyOptions(result, opts...)
 	return result
 }

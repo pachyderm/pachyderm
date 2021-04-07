@@ -8,8 +8,9 @@ import (
 	"testing"
 
 	units "github.com/docker/go-units"
-	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -38,7 +39,7 @@ type RealEnv struct {
 // server instances for supported operations. PPS requires a kubernetes
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
-func NewRealEnv(t *testing.T, customOpts ...*serviceenv.ConfigOption) *RealEnv {
+func NewRealEnv(t *testing.T, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	mockEnv := NewMockEnv(t)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}
@@ -50,8 +51,9 @@ func NewRealEnv(t *testing.T, customOpts ...*serviceenv.ConfigOption) *RealEnv {
 		serviceenv.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
 		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
 	}
-	opts = append(opts, customOpts...)                        // Overwrite with any custom options
-	config := cmdutil.Populate(serviceenv.NewConfig(opts...)) // Overwrite with any environment variables
+	opts = append(opts, customOpts...) // Overwrite with any custom options
+	config := serviceenv.ConfigFromOptions(opts...)
+	require.NoError(t, cmdutil.Populate(config)) // Overwrite with any environment variables
 	servEnv := serviceenv.InitServiceEnv(config)
 
 	// Clean up connections after the test
@@ -59,7 +61,7 @@ func NewRealEnv(t *testing.T, customOpts ...*serviceenv.ConfigOption) *RealEnv {
 		require.NoError(t, servEnv.GetDBClient().Close())
 		require.NoError(t, servEnv.GetPostgresListener().Close())
 		require.NoError(t, servEnv.GetEtcdClient().Close())
-		require.NoError(t, servEnv.GetPachClient().Close())
+		require.NoError(t, servEnv.GetPachClient(context.Background()).Close())
 	})
 
 	err = migrations.ApplyMigrations(context.Background(), servEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
