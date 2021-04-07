@@ -194,3 +194,10 @@ You can use the `pachctl list datum <job_number>` command to check the datums pr
 
 !!! note "Note"  
     Now that the 3 datums have been processed, their ID field is showing.
+
+
+!!! info "Enabling Stats"
+    - Running `list datum` on a given job execution of a pipeline that [enables stats](https://docs.pachyderm.com/latest/enterprise/stats/#enabling-stats-for-a-pipeline) allows you to additionally display the STATUS (running, failed, success) and TIME of each datum.
+    - List datum is a costly operation that might impact the performance of your cluster. 
+    If your primary goal is to check which datums have failed or succeeded, a good tradeoff would be to use the **`--status-only`** flag. In this case, you would **only display the ID and STATUS of each datum**. You might want to follow up with [inspect datum <ID>](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/) to detail the files that a specific datum includes.
+     

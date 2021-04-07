@@ -35,7 +35,7 @@ We offer two ways to deploy Pachyderm on a local Kubernetes cluster.
 Before you deploy Pachyderm, make sure that you have installed:
 
 - A Kubernetes cluster running on your local environment: 
-      - [Docker Desktop](#docker-desktop),
+      - [Docker Desktop](#using-kubernetes-on-docker-desktop),
       - [Minikube](#using-minikube)
       - Oracle® VirtualBox™
 - [Pachyderm Command Line Interface](#install-pachctl)

@@ -12,7 +12,6 @@ func CreateAuthTokensTable(ctx context.Context, tx *sqlx.Tx) error {
 CREATE TABLE IF NOT EXISTS auth.auth_tokens (
 	token_hash VARCHAR(4096) PRIMARY KEY,
 	subject VARCHAR(64) NOT NULL,
-	source VARCHAR(64) NOT NULL,
 	expiration TIMESTAMP,
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

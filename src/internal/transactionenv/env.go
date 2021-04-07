@@ -154,11 +154,9 @@ type AuthTransactionServer interface {
 	CreateRoleBindingInTransaction(*TransactionContext, string, []string, *auth.Resource) error
 	DeleteRoleBindingInTransaction(*TransactionContext, *auth.Resource) error
 
-	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
-	RevokeAuthTokenInTransaction(*TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
-
 	// GetPipelineAuthTokenInTransaction is an internal API used by PPS to generate tokens for pipelines
 	GetPipelineAuthTokenInTransaction(*TransactionContext, string) (string, error)
+	RevokeAuthTokenInTransaction(*TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
 }
 
 // PfsTransactionServer is an interface for the transactionally-supported

@@ -37,10 +37,6 @@ const (
 	oidcAuthnPrefix    = "/oidc-authns"
 
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
-	// and the default lifetime of an auth token from GetAuthToken.
-	//
-	// Note: if 'defaultSessionTTLSecs' is changed, then the description of
-	// '--ttl' in 'pachctl get-auth-token' must also be changed
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
 
 	// configKey is a key (in etcd, in the config collection) that maps to the
@@ -231,9 +227,8 @@ func (a *apiServer) isActive() error {
 }
 
 // Retrieve the PPS master token, or generate it and put it in etcd.
-// TODO This is a hack. It avoids the need to return superuser tokens from
-// GetAuthToken (essentially, PPS and Auth communicate through etcd instead of
-// an API) but we should define an internal API and use that instead.
+// TODO This is a hack. PPS and Auth communicate through etcd instead of
+// an API, but we should define an internal API and use that instead.
 func (a *apiServer) retrieveOrGeneratePPSToken() {
 	var tokenProto types.StringValue // will contain PPS token
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -323,7 +318,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return err
 		}
 		// TODO(acohen4): workout the transactionality
-		return a.upsertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser, auth.TokenInfo_AUTHENTICATE)
+		return a.upsertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
 		return nil, err
 	}
@@ -428,7 +423,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		username := auth.UserPrefix + email
 
 		// Generate a new Pachyderm token and write it
-		token, err := a.generateAndInsertAuthToken(ctx, username, auth.TokenInfo_AUTHENTICATE, defaultSessionTTLSecs)
+		token, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
@@ -457,7 +452,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			expirationSecs = defaultSessionTTLSecs
 		}
 
-		t, err := a.generateAndInsertAuthToken(ctx, username, auth.TokenInfo_AUTHENTICATE, expirationSecs)
+		t, err := a.generateAndInsertAuthToken(ctx, username, expirationSecs)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
@@ -872,9 +867,9 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 	var token string
 	var err error
 	if req.TTL > 0 {
-		token, err = a.generateAndInsertAuthToken(ctx, subject, auth.TokenInfo_GET_TOKEN, req.TTL)
+		token, err = a.generateAndInsertAuthToken(ctx, subject, req.TTL)
 	} else {
-		token, err = a.generateAndInsertAuthTokenNoTTL(ctx, subject, auth.TokenInfo_GET_TOKEN)
+		token, err = a.generateAndInsertAuthTokenNoTTL(ctx, subject)
 	}
 	if err != nil {
 		return nil, err
@@ -885,45 +880,45 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 }
 
 // GetAuthToken implements the protobuf auth.GetAuthToken RPC
-func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		resp, retErr = a.GetAuthTokenInTransaction(txnCtx, req)
-		return retErr
-	})
-	return resp, retErr
-}
+// func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
+// 	a.LogReq(req)
+// 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+// 	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+// 		resp, retErr = a.GetAuthTokenInTransaction(txnCtx, req)
+// 		return retErr
+// 	})
+// 	return resp, retErr
+// }
 
-// GetAuthToken implements the protobuf auth.GetAuthToken RPC
-func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
-	if err := a.isActive(); err != nil {
-		// GetAuthToken must work in the partially-activated state so that PPS can
-		// get tokens for all existing pipelines during activation
-		return nil, err
-	}
+// // GetAuthToken implements the protobuf auth.GetAuthToken RPC
+// func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
+// 	if err := a.isActive(); err != nil {
+// 		// GetAuthToken must work in the partially-activated state so that PPS can
+// 		// get tokens for all existing pipelines during activation
+// 		return nil, err
+// 	}
 
-	if strings.HasPrefix(req.Subject, auth.PachPrefix) {
-		return nil, errors.Errorf("GetAuthTokenRequest.Subject is invalid")
-	}
+// 	if strings.HasPrefix(req.Subject, auth.PachPrefix) {
+// 		return nil, errors.Errorf("GetAuthTokenRequest.Subject is invalid")
+// 	}
 
-	if req.TTL == 0 {
-		// To create a token with no TTL, an admin can call GetAuthToken and set TTL
-		// to -1, but the default behavior (TTL == 0) is use the default token
-		// lifetime.
-		req.TTL = defaultSessionTTLSecs
-	}
+// 	if req.TTL == 0 {
+// 		// To create a token with no TTL, an admin can call GetAuthToken and set TTL
+// 		// to -1, but the default behavior (TTL == 0) is use the default token
+// 		// lifetime.
+// 		req.TTL = defaultSessionTTLSecs
+// 	}
 
-	// TODO(acohen4): asses use of ClientContext here
-	token, err := a.generateAndInsertAuthToken(txnCtx.ClientContext, req.Subject, auth.TokenInfo_GET_TOKEN, req.TTL)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", req.Subject)
-	}
-	return &auth.GetAuthTokenResponse{
-		Subject: req.Subject,
-		Token:   token,
-	}, nil
-}
+// 	// TODO(acohen4): asses use of ClientContext here
+// 	token, err := a.generateAndInsertAuthToken(txnCtx.ClientContext, req.Subject, auth.TokenInfo_GET_TOKEN, req.TTL)
+// 	if err != nil {
+// 		return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", req.Subject)
+// 	}
+// 	return &auth.GetAuthTokenResponse{
+// 		Subject: req.Subject,
+// 		Token:   token,
+// 	}, nil
+// }
 
 // GetPipelineAuthTokenInTransaction is an internal API used to create a pipeline token for a given pipeline.
 // Not an RPC.
@@ -934,7 +929,7 @@ func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.Transaction
 
 	token := uuid.NewWithoutDashes()
 	// TODO(acohen4): look at transaction context
-	if err := a.upsertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline, auth.TokenInfo_GET_TOKEN); err != nil {
+	if err := a.upsertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline); err != nil {
 		return "", errors.Wrapf(err, "error storing token")
 	} else {
 		return token, nil
@@ -956,55 +951,6 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 		LoginURL: authURL,
 		State:    state,
 	}, nil
-}
-
-// ExtendAuthToken implements the protobuf auth.ExtendAuthToken RPC
-func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (resp *auth.ExtendAuthTokenResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	if req.TTL == 0 {
-		return nil, errors.Errorf("invalid request: ExtendAuthTokenRequest.TTL must be > 0")
-	}
-
-	// Only let people extend tokens by up to 30 days (the equivalent of logging
-	// in again)
-	if req.TTL > defaultSessionTTLSecs {
-		return nil, errors.Errorf("can only extend tokens by at most %d seconds", defaultSessionTTLSecs)
-	}
-
-	// The token must already exist. If a token has been revoked, it can't be
-	// extended
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		// Actually look up the request token in the relevant collections
-		tokenInfo, err := a.lookupAuthTokenInfo(ctx, auth.HashToken(req.Token))
-		if err != nil && !col.IsErrNotFound(err) {
-			return err
-		}
-
-		if tokenInfo.Subject == "" {
-			return auth.ErrBadToken
-		}
-
-		ttl, err := a.lookupAuthTokenTTLSeconds(ctx, auth.HashToken(req.Token))
-		if err != nil {
-			return errors.Wrapf(err, "error looking up TTL for token")
-		}
-		// TODO(msteffen): ttl may be -1 if the token has no TTL. We deliberately do
-		// not check this case so that admins can put TTLs on tokens that don't have
-		// them (otherwise any attempt to do so would get ErrTooShortTTL), but that
-		// decision may be revised
-		if req.TTL < ttl {
-			return auth.ErrTooShortTTL{
-				RequestTTL:  req.TTL,
-				ExistingTTL: ttl,
-			}
-		}
-		return a.upsertAuthToken(ctx, auth.HashToken(req.Token), tokenInfo.Subject, tokenInfo.Source, req.TTL)
-	}); err != nil {
-		return nil, err
-	}
-	return &auth.ExtendAuthTokenResponse{}, nil
 }
 
 // RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
@@ -1285,7 +1231,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		// this check should happen in authorize
 		return &auth.TokenInfo{
 			Subject: auth.PpsUser,
-			Source:  auth.TokenInfo_GET_TOKEN,
 		}, nil
 	}
 
@@ -1293,7 +1238,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	if subject := internalauth.GetWhoAmI(ctx); subject != "" {
 		return &auth.TokenInfo{
 			Subject: subject,
-			Source:  auth.TokenInfo_GET_TOKEN,
 		}, nil
 	}
 
@@ -1439,9 +1383,9 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 		}
 		// insert token
 		if ttl > 0 {
-			return a.upsertAuthToken(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject, req.Token.TokenInfo.Source, ttl)
+			return a.upsertAuthToken(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject, ttl)
 		} else {
-			return a.upsertAuthTokenNoTTL(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject, req.Token.TokenInfo.Source)
+			return a.upsertAuthTokenNoTTL(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject)
 		}
 	}(); err != nil {
 		return nil, errors.Wrapf(err, "error restoring auth token")
@@ -1466,7 +1410,7 @@ func (a *apiServer) lookupAuthTokenTTLSeconds(ctx context.Context, tokenHash str
 
 func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
 	var tokenInfo auth.TokenInfo
-	if err := a.env.GetDBClient().GetContext(ctx, &tokenInfo, `SELECT subject, source FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash); err != nil {
+	if err := a.env.GetDBClient().GetContext(ctx, &tokenInfo, `SELECT subject FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}
 		}
@@ -1477,7 +1421,7 @@ func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (
 
 func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToken, error) {
 	rows, err := a.env.GetDBClient().QueryxContext(ctx,
-		`SELECT token_hash as tokenHash, subject, source, expiration 
+		`SELECT token_hash as tokenHash, subject, ROUND( EXTRACT( EPOCH FROM (expiration - NOW()))) as ttl  
 		FROM auth.auth_tokens 
 		WHERE subject LIKE $1 || '%'`, auth.RobotPrefix)
 	if err != nil {
@@ -1487,42 +1431,40 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToke
 	for rows.Next() {
 		var tokenHash string
 		var subject string
-		var source auth.TokenInfo_TokenSource
-		var expiration *time.Time
-		if err = rows.Scan(&tokenHash, &subject, &source, &expiration); err != nil {
+		var ttl *float64
+		if err = rows.Scan(&tokenHash, &subject, &ttl); err != nil {
 			return nil, errors.Wrapf(err, "error querying token")
-		}
-
-		// we need to convert expiration from time.Time etype extracted by sqlx, to types.Timestamp
-		expirationTS, timeErr := convertTime(expiration)
-		if timeErr != nil {
-			return nil, errors.Wrapf(err, "error extracting token timestamp")
 		}
 
 		token := &auth.HashedAuthToken{
 			HashedToken: tokenHash,
 			TokenInfo: &auth.TokenInfo{
 				Subject: subject,
-				Source:  source,
 			},
-			Expiration: expirationTS,
+		}
+		if ttl != nil {
+			expiration, err := types.TimestampProto(time.Now().Add(time.Second * time.Duration(int64(*ttl))))
+			if err != nil {
+				return nil, err
+			}
+			token.Expiration = expiration
 		}
 		robotTokens = append(robotTokens, token)
 	}
 	return robotTokens, nil
 }
 
-func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, source auth.TokenInfo_TokenSource, ttlSeconds int64) (string, error) {
+func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, ttlSeconds int64) (string, error) {
 	token := uuid.NewWithoutDashes()
-	if err := a.upsertAuthToken(ctx, auth.HashToken(token), subject, source, ttlSeconds); err != nil {
+	if err := a.upsertAuthToken(ctx, auth.HashToken(token), subject, ttlSeconds); err != nil {
 		return "", err
 	}
 	return token, nil
 }
 
-func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject string, source auth.TokenInfo_TokenSource) (string, error) {
+func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject string) (string, error) {
 	token := uuid.NewWithoutDashes()
-	if err := a.upsertAuthTokenNoTTL(ctx, auth.HashToken(token), subject, source); err != nil {
+	if err := a.upsertAuthTokenNoTTL(ctx, auth.HashToken(token), subject); err != nil {
 		return "", err
 	}
 
@@ -1530,25 +1472,25 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 }
 
 // generates a token, and stores it's hash and supporting data in postgres
-func (a *apiServer) upsertAuthToken(ctx context.Context, tokenHash string, subject string, source auth.TokenInfo_TokenSource, ttlSeconds int64) error {
+func (a *apiServer) upsertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
 	// Register the pachd in the database
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
-		`INSERT INTO auth.auth_tokens (token_hash, subject, source, expiration) 
-		VALUES ($1, $2, $3, NOW() + $4 * interval '1 sec') 
+		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
+		VALUES ($1, $2, NOW() + $3 * interval '1 sec') 
 		ON CONFLICT (token_hash) 
-		DO UPDATE SET subject = $2, source = $3, expiration = NOW() + $4 * interval '1 sec'`, tokenHash, subject, source, ttlSeconds); err != nil {
+		DO UPDATE SET subject = $2, expiration = NOW() + $3 * interval '1 sec'`, tokenHash, subject, ttlSeconds); err != nil {
 		return errors.Wrapf(err, "error storing token")
 	}
 	return nil
 }
 
-func (a *apiServer) upsertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string, source auth.TokenInfo_TokenSource) error {
+func (a *apiServer) upsertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
 	// Register the pachd in the database
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
-		`INSERT INTO auth.auth_tokens (token_hash, subject, source) 
-		VALUES ($1, $2, $3) 
+		`INSERT INTO auth.auth_tokens (token_hash, subject) 
+		VALUES ($1, $2) 
 		ON CONFLICT (token_hash) 
-		DO UPDATE SET subject = $2, source = $3`, tokenHash, subject, source); err != nil {
+		DO UPDATE SET subject = $2`, tokenHash, subject); err != nil {
 		return errors.Wrapf(err, "error storing token")
 	}
 	return nil
@@ -1575,15 +1517,4 @@ func (a *apiServer) purgeExpiredTokens() error {
 		return errors.Wrapf(err, "error purging expired tokens")
 	}
 	return nil
-}
-
-func convertTime(t *time.Time) (*types.Timestamp, error) {
-	if t == nil {
-		return nil, nil
-	}
-	ts, err := types.TimestampProto(*t)
-	if err != nil {
-		return nil, err
-	}
-	return ts, nil
 }
