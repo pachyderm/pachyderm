@@ -104,4 +104,21 @@ describe('AuthenticatedRoute', () => {
 
     await waitFor(() => expect(window.location.pathname).toBe('/error'));
   });
+
+  it('should redirect users to landing and save workspace name from url', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      '/authenticated?workspaceName=Elegant%20Elephant',
+    );
+
+    render(<TestBed />);
+
+    await waitFor(() =>
+      expect(window.localStorage.getItem('workspaceName')).toEqual(
+        'Elegant Elephant',
+      ),
+    );
+    expect(window.location.pathname).toEqual('/');
+  });
 });

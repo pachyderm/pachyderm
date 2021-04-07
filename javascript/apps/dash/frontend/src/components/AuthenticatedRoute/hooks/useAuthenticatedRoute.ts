@@ -1,6 +1,6 @@
 import {useLoginWindow} from '@pachyderm/components';
 import {useEffect, useMemo} from 'react';
-import {useLocation} from 'react-router';
+import {useLocation, useHistory} from 'react-router';
 
 import useAuth from '@dash-frontend/hooks/useAuth';
 
@@ -19,15 +19,18 @@ const useAuthenticatedRoute = () => {
   } = useLoginWindow({
     onSuccess: exchangeCode,
   });
-  const location = useLocation();
+  const {search} = useLocation();
+  const routerHistory = useHistory();
+  const params = useMemo(() => new URLSearchParams(search), [search]);
   const error = exchangeCodeError || loginWindowError || authConfigError;
 
-  const redirectSearchString = useMemo(() => {
-    const redirect = location.pathname + location.search;
-    const params = new URLSearchParams({redirect});
+  const workspaceParam = params.get('workspaceName');
+  if (workspaceParam) {
+    window.localStorage.setItem('workspaceName', workspaceParam);
+    routerHistory.push('/');
+  }
 
-    return `?${params.toString()}`;
-  }, [location]);
+  const redirectSearchString = `?${params.toString()}`;
 
   useEffect(() => {
     if (!error && !loggedIn && !loginWindowSucceeded && authConfig) {
