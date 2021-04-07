@@ -215,7 +215,7 @@ func RunLocal() (retErr error) {
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
-				env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix), true, requireNoncriticalServers)
+				env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix), true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
@@ -378,6 +378,7 @@ func RunLocal() (retErr error) {
 				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				requireNoncriticalServers,
+				true,
 			)
 			if err != nil {
 				return err
