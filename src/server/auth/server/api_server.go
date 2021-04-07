@@ -906,47 +906,6 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 	}, nil
 }
 
-// GetAuthToken implements the protobuf auth.GetAuthToken RPC
-// func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
-// 	a.LogReq(req)
-// 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-// 	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-// 		resp, retErr = a.GetAuthTokenInTransaction(txnCtx, req)
-// 		return retErr
-// 	})
-// 	return resp, retErr
-// }
-
-// // GetAuthToken implements the protobuf auth.GetAuthToken RPC
-// func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
-// 	if err := a.isActive(); err != nil {
-// 		// GetAuthToken must work in the partially-activated state so that PPS can
-// 		// get tokens for all existing pipelines during activation
-// 		return nil, err
-// 	}
-
-// 	if strings.HasPrefix(req.Subject, auth.PachPrefix) {
-// 		return nil, errors.Errorf("GetAuthTokenRequest.Subject is invalid")
-// 	}
-
-// 	if req.TTL == 0 {
-// 		// To create a token with no TTL, an admin can call GetAuthToken and set TTL
-// 		// to -1, but the default behavior (TTL == 0) is use the default token
-// 		// lifetime.
-// 		req.TTL = defaultSessionTTLSecs
-// 	}
-
-// 	// TODO(acohen4): asses use of ClientContext here
-// 	token, err := a.generateAndInsertAuthToken(txnCtx.ClientContext, req.Subject, auth.TokenInfo_GET_TOKEN, req.TTL)
-// 	if err != nil {
-// 		return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", req.Subject)
-// 	}
-// 	return &auth.GetAuthTokenResponse{
-// 		Subject: req.Subject,
-// 		Token:   token,
-// 	}, nil
-// }
-
 // GetPipelineAuthTokenInTransaction is an internal API used to create a pipeline token for a given pipeline.
 // Not an RPC.
 func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) (string, error) {
