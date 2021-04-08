@@ -255,7 +255,7 @@ func TestUpdateClusterUnreachable(t *testing.T) {
 
 	_, err := client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
 		Id:      "localhost",
-		Address: "invalid://bad.example",
+		Address: "grpc://bad.example",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "unable to create client", err.Error())
