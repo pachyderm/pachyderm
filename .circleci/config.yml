@@ -47,6 +47,7 @@ jobs:
       - go/load-cache
       - go/mod-download
       - go/save-cache
+      - run: etc/testing/travis_install.sh 
       - run: etc/testing/travis.sh 
 
 workflows:
