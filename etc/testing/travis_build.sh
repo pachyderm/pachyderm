@@ -1,5 +1,7 @@
 #!/bin/bash
 
+docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
+
 set -ex
 
 git config user.email "donotreply@pachyderm.com"
