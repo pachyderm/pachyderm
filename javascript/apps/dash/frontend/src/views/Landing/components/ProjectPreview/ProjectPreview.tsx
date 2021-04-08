@@ -31,7 +31,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
             {projectDetails.repoCount}/{projectDetails.repoCount}
           </Info>
           <Info header="Total Data Size" headerId="total-data-size">
-            {projectDetails.sizeGBytes.toFixed(8)}GB
+            {Number(projectDetails.sizeGBytes.toFixed(8))}GB
           </Info>
           <Info header="Pipeline Status" headerId="pipeline-status">
             <div className={styles.inline}>
