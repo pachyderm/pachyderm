@@ -1,7 +1,0 @@
-- RBAC
-- Users/Groups (Principal)
-- Roles
-- Role Binding
-- Access Control configuration
-    - API
-    - UI

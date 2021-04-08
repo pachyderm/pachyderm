@@ -22,67 +22,72 @@ most of the identity providers that support OIDC or SAML
 can integrate with Pachyderm. However, you might have to
 perform additional configuration steps.
 
-## Roles
+                              ## Roles
 
-By default, Pachyderm preconfigures one type of users called
-`admin`. Users in the `admin` group can perform any
-action on the cluster including appointing other admins.
-Furthermore, if you do not enable Pachyderm authentication,
-you have only one type of users – admin users.
+                              By default, Pachyderm preconfigures one type of users called
+                              `admin`. Users in the `admin` group can perform any
+                              action on the cluster including appointing other admins.
+                              Furthermore, if you do not enable Pachyderm authentication,
+                              you have only one type of users – admin users.
 
-If you have activated access controls, in addition to the initial
-`admin` user, Pachyderm associates an Access Control List (ACL)
-with each repository. Each ACL can include the following
-roles:
+                              If you have activated access controls, in addition to the initial
+                              `admin` user, Pachyderm associates an Access Control List (ACL)
+                              with each repository. Each ACL can include the following
+                              roles:
 
-- `READER` - users who can consume data from the repo, but cannot edit it.
-Readers can execute such commands as `pachctl get file`
-`pachctl list file`, as well as create pipelines that use data
-from this repo. 
-- `WRITER` - users who can read and modify data in the repository by
-adding, deleting, or updating the files in the repo. Users with
-`WRITER` role can perform such operations as `pachctl put file`,
-`pachctl delete commit`, and others.
-- `OWNER` - users with `READER` and `WRITER` access who can also
-modify the repository's ACL.
+                              - `READER` - users who can consume data from the repo, but cannot edit it.
+                              Readers can execute such commands as `pachctl get file`
+                              `pachctl list file`, as well as create pipelines that use data
+                              from this repo. 
+                              - `WRITER` - users who can read and modify data in the repository by
+                              adding, deleting, or updating the files in the repo. Users with
+                              `WRITER` role can perform such operations as `pachctl put file`,
+                              `pachctl delete commit`, and others.
+                              - `OWNER` - users with `READER` and `WRITER` access who can also
+                              modify the repository's ACL.
 
-## User Account Types
+                          ## User Account Types
 
-Pachyderm defines the following account types:
+                          Pachyderm defines the following account types:
 
-* For smaller teams and testing:
+                          * For smaller teams and testing:
 
-  * **GitHub user** is a user account that is associated with
-  a GitHub account and logs in through the GitHub OAuth flow. If you do not
-  use any third-party identity provider, you use this option. When a user tries
-  to log in with a GitHub account, Pachyderm verifies the identity and
-  sends a Pachyderm token for that account.
+                            * **GitHub user** is a user account that is associated with
+                            a GitHub account and logs in through the GitHub OAuth flow. If you do not
+                            use any third-party identity provider, you use this option. When a user tries
+                            to log in with a GitHub account, Pachyderm verifies the identity and
+                            sends a Pachyderm token for that account.
 
-  * **Robot user** is a user account that logs in with a pach-generated authentication
-  token. Typically, you create a user in simplified workflow scenarios, such
-  as initial SAML configuration.
+                            * **Robot user** is a user account that logs in with a pach-generated authentication
+                            token. Typically, you create a user in simplified workflow scenarios, such
+                            as initial SAML configuration.
 
-  * **Pipeline** is an account that Pachyderm creates for
-  data pipelines. Pipelines inherit access control from its creator.
+                            * **Pipeline** is an account that Pachyderm creates for
+                            data pipelines. Pipelines inherit access control from its creator.
 
-  * **SAML user** is a user account that is associated with a SAML identity provider.
-  When a user tries to log in through a SAML ID provider, the system
-  confirms the identity, associates
-  that identity with a SAML identity provider account, and responds with
-  the SAML identity provider token for that user. Pachyderm verifies the token,
-  drops it, and creates a new internal token that encapsulates the information
-  about the user.
+                            * **SAML user** is a user account that is associated with a SAML identity provider.
+                            When a user tries to log in through a SAML ID provider, the system
+                            confirms the identity, associates
+                            that identity with a SAML identity provider account, and responds with
+                            the SAML identity provider token for that user. Pachyderm verifies the token,
+                            drops it, and creates a new internal token that encapsulates the information
+                            about the user.
 
-  * **OIDC user** is a user that is associated with an OIDC identity provider,
-  such as Keycloak, Okta, or other. If you have a user or group configured
-  in your identity provider you can give them access to Pachyderm by configuring
-  the Pachyderm authentication config.
+                            * **OIDC user** is a user that is associated with an OIDC identity provider,
+                            such as Keycloak, Okta, or other. If you have a user or group configured
+                            in your identity provider you can give them access to Pachyderm by configuring
+                            the Pachyderm authentication config.
 
 ## Access to Pipelines
 
 In Pachyderm, you do not explicitly grant users access to
 pipelines. Instead, pipelines infer access from their input
-and output repositories. To update a pipeline, you must have
+and output repositories. 
+
+
+
+
+To update a pipeline, you must have
 at least `READER`-level access to all pipeline inputs and at
 least `WRITER`-level access to the pipeline output. This is
 because pipelines read from their input repos and write
