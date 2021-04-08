@@ -27,7 +27,7 @@ done
 # but this doesn't update the PATH for calls using 'sudo'. To make a 'sudo' run
 # a binary in '~/cached-deps', you need to explicitly set the path like so:
 #     sudo env "PATH=$PATH" minikube foo
-sudo env "PATH=$PATH" "CHANGE_MINIKUBE_NONE_USER=true" \
+env "PATH=$PATH" "CHANGE_MINIKUBE_NONE_USER=true" \
   minikube start "${minikube_args[@]}"
 
 # Try to connect for three minutes
