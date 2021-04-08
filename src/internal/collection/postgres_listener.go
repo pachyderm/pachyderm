@@ -278,7 +278,7 @@ func (l *PostgresListener) Close() error {
 	}
 
 	if len(l.channels) != 0 {
-		return errors.Errorf("PostgresListener closed while there are still active watches")
+		l.reset(errors.New("PostgresListener has been closed"))
 	}
 	return nil
 }
@@ -296,10 +296,9 @@ func (l *PostgresListener) getPQL() *pq.Listener {
 	return l.pql
 }
 
+// reset will remove all watchers and unlisten from all channels - you must have
+// the lock on the listener's mutex before calling this.
 func (l *PostgresListener) reset(err error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
 	for _, watchers := range l.channels {
 		eventData := &postgresEvent{err: err}
 		for watcher := range watchers {
@@ -308,8 +307,10 @@ func (l *PostgresListener) reset(err error) {
 	}
 
 	l.channels = make(map[string]watcherSet)
-	if err := l.getPQL().UnlistenAll(); err != nil {
-		// `reset` is only ever called in the case of an error, so it should be fine to discard this error
+	if !l.closed {
+		if err := l.getPQL().UnlistenAll(); err != nil {
+			// `reset` is only ever called in the case of an error, so it should be fine to discard this error
+		}
 	}
 }
 
@@ -372,7 +373,9 @@ func (l *PostgresListener) multiplex(notifyChan chan *pq.Notification) error {
 		if notification == nil {
 			// A 'nil' notification means that the connection was lost - error out all
 			// current watchers so they can rebuild state.
+			l.mu.Lock()
 			l.reset(errors.Errorf("lost connection to database"))
+			l.mu.Unlock()
 		} else {
 			l.routeNotification(notification)
 		}

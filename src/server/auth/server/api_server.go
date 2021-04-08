@@ -141,6 +141,7 @@ func NewAuthServer(
 		env.GetPostgresListener(),
 		&auth.OIDCConfig{},
 		nil,
+		nil,
 	)
 	if err != nil {
 		return nil, err
@@ -150,6 +151,7 @@ func NewAuthServer(
 		env.GetDBClient(),
 		env.GetPostgresListener(),
 		&auth.RoleBinding{},
+		nil,
 		nil,
 	)
 	if err != nil {
@@ -161,6 +163,7 @@ func NewAuthServer(
 		env.GetPostgresListener(),
 		&auth.TokenInfo{},
 		nil,
+		nil,
 	)
 	if err != nil {
 		return nil, err
@@ -170,6 +173,7 @@ func NewAuthServer(
 		env.GetDBClient(),
 		env.GetPostgresListener(),
 		&auth.Groups{},
+		nil,
 		nil,
 	)
 	if err != nil {
@@ -181,6 +185,7 @@ func NewAuthServer(
 		env.GetPostgresListener(),
 		&auth.Users{},
 		nil,
+		nil,
 	)
 	if err != nil {
 		return nil, err
@@ -190,6 +195,7 @@ func NewAuthServer(
 		env.GetDBClient(),
 		env.GetPostgresListener(),
 		&auth.SessionInfo{},
+		nil,
 		nil,
 	)
 	if err != nil {

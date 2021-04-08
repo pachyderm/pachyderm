@@ -2248,13 +2248,12 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		}
 
-		// TODO: this is hanging (in the background?) and keeping the server from shutting down
 		require.NoErrorWithinT(t, 60*time.Second, func() error {
 			var eg errgroup.Group
 			nextCommitChan := make(chan *pfs.Commit, numCommits)
 			eg.Go(func() error {
 				var count int
-				return env.PachClient.SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+				err := env.PachClient.SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					commit := <-nextCommitChan
 					require.Equal(t, commit, ci.Commit)
 					count++
@@ -2263,6 +2262,7 @@ func TestPFS(suite *testing.T) {
 					}
 					return nil
 				})
+				return err
 			})
 			eg.Go(func() error {
 				for i := 0; i < numCommits; i++ {

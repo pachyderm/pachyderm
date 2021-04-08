@@ -1,7 +1,6 @@
 package testpachd
 
 import (
-	"context"
 	"net"
 	"net/url"
 	"path"
@@ -54,19 +53,19 @@ func NewRealEnv(t *testing.T, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	opts = append(opts, customOpts...) // Overwrite with any custom options
 	config := serviceenv.ConfigFromOptions(opts...)
 	require.NoError(t, cmdutil.Populate(config)) // Overwrite with any environment variables
+
 	servEnv := serviceenv.InitServiceEnv(config)
 
-	// Clean up connections after the test
+	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
+	realEnv.PachClient = servEnv.GetPachClient(servEnv.Context())
+
 	t.Cleanup(func() {
-		require.NoError(t, servEnv.GetDBClient().Close())
-		require.NoError(t, servEnv.GetPostgresListener().Close())
-		require.NoError(t, servEnv.GetEtcdClient().Close())
-		require.NoError(t, servEnv.GetPachClient(context.Background()).Close())
+		require.NoError(t, servEnv.Close())
 	})
 
-	err = migrations.ApplyMigrations(context.Background(), servEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
+	err = migrations.ApplyMigrations(servEnv.Context(), servEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
 	require.NoError(t, err)
-	err = migrations.BlockUntil(context.Background(), servEnv.GetDBClient(), clusterstate.DesiredClusterState)
+	err = migrations.BlockUntil(servEnv.Context(), servEnv.GetDBClient(), clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 
 	realEnv.LocalStorageDirectory = path.Join(realEnv.Directory, "localStorage")

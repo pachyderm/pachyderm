@@ -42,6 +42,7 @@ type postgresCollection struct {
 	table      string
 	indexes    []*Index
 	withFields map[string]string
+	keyCheck   func(string) error
 }
 
 func indexFieldName(name string) string {
@@ -194,7 +195,7 @@ func tableName(template proto.Message) string {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(ctx context.Context, db *sqlx.DB, listener *PostgresListener, template proto.Message, indexes []*Index) (PostgresCollection, error) {
+func NewPostgresCollection(ctx context.Context, db *sqlx.DB, listener *PostgresListener, template proto.Message, indexes []*Index, keyCheck func(string) error) (PostgresCollection, error) {
 	table := tableName(template)
 
 	if err := ensureCollection(ctx, db, table, indexes); err != nil {
@@ -208,6 +209,7 @@ func NewPostgresCollection(ctx context.Context, db *sqlx.DB, listener *PostgresL
 		table:      table,
 		indexes:    indexes,
 		withFields: make(map[string]string),
+		keyCheck:   keyCheck,
 	}
 	return c, nil
 }
@@ -388,7 +390,7 @@ func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string
 	case SortByCreateRevision:
 		return "createdat", nil
 	case SortByModRevision:
-		return "updatedat", nil
+		return "xmin", nil
 	case SortByKey:
 		return "key", nil
 	}
@@ -445,6 +447,45 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 		}
 
 		return f()
+	})
+
+	if errors.Is(err, errutil.ErrBreak) {
+		return nil
+	}
+	return err
+}
+
+// ListRev emulates the behavior of etcd collection's ListRev, but doesn't
+// reproduce it exactly. The revisions returned are not from the database -
+// postgres uses 32-bit transaction ids and doesn't include one for the creating
+// transaction of a row. So, we fake a revision id by sorting rows by their
+// create/update timestamp and incrementing a fake revision id every time the
+// timestamp changes. Note that the etcd implementation always returns the
+// create revision, but that only works here if you also sort by the create
+// revision.
+func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(int64) error) error {
+	fakeRev := int64(0)
+	lastTimestamp := time.Time{}
+
+	updateRev := func(t time.Time) {
+		if t.After(lastTimestamp) {
+			lastTimestamp = t
+			fakeRev++
+		}
+	}
+
+	err := c.list(opts, func(m *model) error {
+		if err := proto.Unmarshal(m.Proto, val); err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		if opts.Target == SortByCreateRevision {
+			updateRev(m.CreatedAt)
+		} else if opts.Target == SortByModRevision {
+			updateRev(m.UpdatedAt)
+		}
+
+		return f(fakeRev)
 	})
 
 	if errors.Is(err, errutil.ErrBreak) {
@@ -623,6 +664,12 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 }
 
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
+	if c.keyCheck != nil {
+		if err := c.keyCheck(key); err != nil {
+			return err
+		}
+	}
+
 	params, err := c.getWriteParams(key, val)
 	if err != nil {
 		return err

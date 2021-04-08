@@ -278,17 +278,14 @@ type ProcessFunc func(context.Context, *Task) (*types.Any, error)
 func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 	taskQueue := newTaskQueue(ctx)
 	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
-		var taskID string
+		taskID := string(e.Key)
 		task := &Task{}
-		if e.Type == watch.EventDelete {
-			return errors.New("task was deleted while waiting for results")
-		}
-		if err := e.Unmarshal(&taskID, task); err != nil {
-			return err
-		}
 		if e.Type == watch.EventDelete {
 			taskQueue.deleteTask(taskID)
 			return nil
+		}
+		if err := e.Unmarshal(&taskID, task); err != nil {
+			return err
 		}
 		return taskQueue.runTask(ctx, taskID, func(taskEntry *taskEntry) {
 			if err := w.taskFunc(task, taskEntry, processFunc); err != nil && !errors.Is(taskEntry.ctx.Err(), context.Canceled) {
@@ -315,13 +312,7 @@ func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessF
 			if e.Type == watch.EventError {
 				return e.Err
 			}
-			if e.Type != watch.EventDelete {
-				continue
-			}
-			var subtaskKey string
-			if err := e.Unmarshal(&subtaskKey, &Claim{}); err != nil {
-				return err
-			}
+			subtaskKey := string(e.Key)
 			taskEntry.runSubtask(w.subtaskFunc(subtaskKey, processFunc))
 		case e := <-subtaskWatch.Watch():
 			if e.Type == watch.EventError {

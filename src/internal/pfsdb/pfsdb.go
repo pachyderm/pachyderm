@@ -8,6 +8,8 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -27,6 +29,7 @@ func Repos(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (co
 		db,
 		listener,
 		&pfs.RepoInfo{},
+		nil,
 		nil,
 	)
 }
@@ -50,6 +53,7 @@ func Commits(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (
 		listener,
 		&pfs.CommitInfo{},
 		[]*col.Index{CommitsRepoIndex},
+		nil,
 	)
 }
 
@@ -72,15 +76,12 @@ func Branches(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) 
 		listener,
 		&pfs.BranchInfo{},
 		[]*col.Index{BranchesRepoIndex},
-		// TODO: support this
-		/*
-			func(key string) error {
-				if uuid.IsUUIDWithoutDashes(key) {
-					return errors.Errorf("branch name cannot be a UUID V4")
-				}
-				return nil
-			},
-		*/
+		func(key string) error {
+			if uuid.IsUUIDWithoutDashes(key) {
+				return errors.Errorf("branch name cannot be a UUID V4")
+			}
+			return nil
+		},
 	)
 }
 
@@ -91,6 +92,7 @@ func OpenCommits(ctx context.Context, db *sqlx.DB, listener *col.PostgresListene
 		db,
 		listener,
 		&pfs.Commit{},
+		nil,
 		nil,
 	)
 }

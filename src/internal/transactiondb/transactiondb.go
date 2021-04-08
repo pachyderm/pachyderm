@@ -23,5 +23,6 @@ func Transactions(ctx context.Context, db *sqlx.DB, listener *col.PostgresListen
 		listener,
 		&transaction.TransactionInfo{},
 		nil,
+		nil,
 	)
 }

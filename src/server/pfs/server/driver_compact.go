@@ -58,10 +58,9 @@ func (d *driver) compact(master *work.Master, ids []fileset.ID) (*fileset.ID, er
 	return dc.Compact(master.Ctx(), ids, defaultTTL)
 }
 
-func (d *driver) compactionWorker() {
-	ctx := context.Background()
+func (d *driver) compactionWorker(ctx context.Context) {
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
-	err := backoff.RetryNotify(func() error {
+	backoff.RetryUntilCancel(ctx, func() error {
 		return w.Run(ctx, func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
 			task, err := deserializeCompactionTask(subtask.Data)
 			if err != nil {
@@ -94,10 +93,6 @@ func (d *driver) compactionWorker() {
 		log.Printf("error in compaction worker: %v", err)
 		return nil
 	})
-	// Never ending backoff should prevent us from getting here, but tests may want this to exit.
-	if !errors.Is(err, context.Canceled) {
-		panic(err)
-	}
 }
 
 func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {

@@ -71,6 +71,12 @@ type ServiceEnv struct {
 	listener *col.PostgresListener
 	// listenerEg coordinates the initialization of listener (see pachdEg)
 	listenerEg errgroup.Group
+
+	// ctx is the background context for the environment that will be canceled
+	// when the ServiceEnv is closed - this typically only happens for orderly
+	// shutdown in tests
+	ctx    context.Context
+	cancel func()
 }
 
 // InitPachOnlyEnv initializes this service environment. This dials a GRPC
@@ -80,7 +86,8 @@ type ServiceEnv struct {
 // This call returns immediately, but GetPachClient will block
 // until the client is ready.
 func InitPachOnlyEnv(config *Configuration) *ServiceEnv {
-	env := &ServiceEnv{Configuration: config}
+	ctx, cancel := context.WithCancel(context.Background())
+	env := &ServiceEnv{Configuration: config, ctx: ctx, cancel: cancel}
 	env.pachAddress = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", env.PeerPort))
 	env.pachEg.Go(env.initPachClient)
 	return env // env is not ready yet
@@ -281,4 +288,29 @@ func (env *ServiceEnv) GetPostgresListener() *col.PostgresListener {
 		panic("service env never constructed a postgres listener")
 	}
 	return env.listener
+}
+
+func (env *ServiceEnv) Context() context.Context {
+	return env.ctx
+}
+
+func (env *ServiceEnv) Close() error {
+	// Cancel anything using the ServiceEnv's context
+	env.cancel()
+
+	// Close all of the clients and return the first error
+	// Loki client and kube client are http-based and do not need to be closed
+	eg := &errgroup.Group{}
+
+	// There is a race condition here, although not too serious because this only
+	// happens in tests and the errors should not propagate back to the clients -
+	// ideally we would close the client connection first and wait for the server
+	// RPCs to end before closing the underlying service connections (like
+	// postgres and etcd), so we don't get spurious errors. Instead, some RPCs may
+	// fail because of losing the database connection.
+	eg.Go(env.GetPachClient(context.Background()).Close)
+	eg.Go(env.GetDBClient().Close)
+	eg.Go(env.GetPostgresListener().Close)
+	eg.Go(env.GetEtcdClient().Close)
+	return eg.Wait()
 }

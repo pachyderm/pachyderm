@@ -118,6 +118,7 @@ type ReadOnlyCollection interface {
 	Get(key string, val proto.Message) error
 	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func() error) error
 	List(val proto.Message, opts *Options, f func() error) error
+	ListRev(val proto.Message, opts *Options, f func(createRev int64) error) error
 	Count() (int64, error)
 	Watch(opts ...watch.Option) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.Option) error
@@ -139,8 +140,6 @@ type EtcdReadOnlyCollection interface {
 	// TTL returns the number of seconds that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	TTL(key string) (int64, error)
-
-	ListRev(val proto.Message, opts *Options, f func(createRev int64) error) error
 
 	WatchByIndex(index *Index, val string) (watch.Watcher, error)
 }
