@@ -1440,7 +1440,7 @@ func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (
 
 func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToken, error) {
 	rows, err := a.env.GetDBClient().QueryxContext(ctx,
-		`SELECT token_hash as tokenHash, subject, ROUND( EXTRACT( EPOCH FROM (expiration - NOW()))) as ttl  
+		`SELECT token_hash as tokenHash, subject, expiration
 		FROM auth.auth_tokens 
 		WHERE subject LIKE $1 || '%'`, auth.RobotPrefix)
 	if err != nil {
@@ -1450,8 +1450,8 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToke
 	for rows.Next() {
 		var tokenHash string
 		var subject string
-		var ttl *float64
-		if err = rows.Scan(&tokenHash, &subject, &ttl); err != nil {
+		var expiration *time.Time
+		if err = rows.Scan(&tokenHash, &subject, &expiration); err != nil {
 			return nil, errors.Wrapf(err, "error querying token")
 		}
 
@@ -1461,12 +1461,12 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToke
 				Subject: subject,
 			},
 		}
-		if ttl != nil {
-			expiration, err := types.TimestampProto(time.Now().Add(time.Second * time.Duration(int64(*ttl))))
+		if expiration != nil {
+			expirationTS, err := types.TimestampProto(*expiration)
 			if err != nil {
 				return nil, err
 			}
-			token.Expiration = expiration
+			token.Expiration = expirationTS
 		}
 		robotTokens = append(robotTokens, token)
 	}
