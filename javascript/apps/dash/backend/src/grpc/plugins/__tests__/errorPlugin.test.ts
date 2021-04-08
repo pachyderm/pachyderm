@@ -6,7 +6,7 @@ describe('errorPlugin', () => {
     const {data, errors = []} = await executeOperation<{dag: Dag}>(
       'getDag',
       {
-        args: {projectId: '1'},
+        args: {projectId: '1', nodeWidth: 120, nodeHeight: 60},
       },
       {'auth-token': 'expired'},
     );

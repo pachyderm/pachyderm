@@ -1,9 +1,10 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
 import {ApolloError} from 'apollo-server-errors';
 import Logger from 'bunyan';
+import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
 import client from '@dash-backend/grpc/client';
-import {Node, JobState, Account} from '@graphqlTypes';
+import {Node, JobState, Account, Link} from '@graphqlTypes';
 
 export interface UnauthenticatedContext {
   authToken?: string;
@@ -16,14 +17,13 @@ export interface Context extends UnauthenticatedContext {
   account: Account;
 }
 
-export type LinkInputData = {
-  source: number;
-  target: number;
-  error?: boolean;
-  active?: boolean;
-};
+export interface LinkInputData
+  extends ElkExtendedEdge,
+    Pick<Link, 'state' | 'targetState' | 'sourceState'> {}
 
-export interface Vertex extends Node {
+export interface NodeInputData extends ElkNode, Omit<Node, 'x' | 'y'> {}
+
+export interface Vertex extends Omit<Node, 'x' | 'y' | 'id'> {
   parents: string[];
   jobState?: JobState;
 }

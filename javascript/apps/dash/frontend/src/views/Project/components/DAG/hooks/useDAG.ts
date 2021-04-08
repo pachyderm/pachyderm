@@ -2,10 +2,16 @@ import * as d3 from 'd3';
 import {D3ZoomEvent} from 'd3';
 import {useEffect, useState} from 'react';
 
-import {LinkDatum, NodeDatum} from '@dash-frontend/lib/DAGTypes';
 import linkStateAsJobState from '@dash-frontend/lib/linkStateAsJobState';
 import nodeStateAsPipelineState from '@dash-frontend/lib/nodeStateAsPipelineState';
-import {Dag, JobState, NodeType, PipelineState} from '@graphqlTypes';
+import {
+  Dag,
+  JobState,
+  Link,
+  Node,
+  NodeType,
+  PipelineState,
+} from '@graphqlTypes';
 
 import busy from '../images/busy.svg';
 import error from '../images/error.svg';
@@ -19,13 +25,11 @@ const NODE_IMAGE_Y_OFFSET = -20;
 const NODE_IMAGE_PREVIEW_Y_OFFSET = -20;
 const ORIGINAL_NODE_IMAGE_WIDTH = 170;
 const ORIGINAL_NODE_IMAGE_HEIGHT = 102;
-const ARROW_PADDING_ON_EDGE = 1.2;
-const COLLISION_PADDING = 1.1;
 
-const convertNodeStateToDagState = (d: NodeDatum) => {
-  if (!d) return '';
+const convertNodeStateToDagState = (state: Node['state']) => {
+  if (!state) return '';
 
-  switch (nodeStateAsPipelineState(d.state)) {
+  switch (nodeStateAsPipelineState(state)) {
     case PipelineState.PIPELINE_STANDBY:
     case PipelineState.PIPELINE_PAUSED:
       return 'idle';
@@ -41,89 +45,52 @@ const convertNodeStateToDagState = (d: NodeDatum) => {
   }
 };
 
-const getLinkStyles = (d: LinkDatum) => {
+const getLinkStyles = (d: Link) => {
   let className = 'link';
   if (linkStateAsJobState(d.state) === JobState.JOB_RUNNING)
     className = className.concat(' transferring');
   if (linkStateAsJobState(d.state) === JobState.JOB_FAILURE)
     className = className.concat(' error');
+
   className = className.concat(
-    ` ${convertNodeStateToDagState(d.source as NodeDatum)}Source`,
+    ` ${convertNodeStateToDagState(d.sourceState)}Source`,
   );
   className = className.concat(
-    ` ${convertNodeStateToDagState(d.target as NodeDatum)}Target`,
+    ` ${convertNodeStateToDagState(d.targetState)}Target`,
   );
   return className;
 };
 
-const transformArrow = (
-  d: LinkDatum,
-  nodeWidth: number,
-  nodeHeight: number,
-  invert?: boolean,
-) => {
-  // This function returns the x and y translation needed to move the end
-  // point of a link to the edge of a target square. A trigonometric function
-  // is used to determine the length of the hypotenuse of a right triangle formed by
-  // the angle of the link line and the square width.
+const getLineArray = (link: Link) => {
+  const lineArray = link.bendPoints.reduce<[number, number][]>(
+    (acc, point) => {
+      acc.push([point.x, point.y]);
+      return acc;
+    },
+    [[link.startPoint.x, link.startPoint.y]],
+  );
 
-  // Type assertion to NodeDatum for the link source and target are used here
-  // because during initialization the source and target properties for
-  // SimulationNodeDatum can be a string or number but once we apply the force
-  // d3 reassigns those values with a reference to the actual node so the type
-  // is string | number | NodeDatum.
-  // The type for SimulationNodeDatum can be found here:
-  // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/d3-force/index.d.ts#L72
-  const end = invert ? (d.source as NodeDatum) : (d.target as NodeDatum);
-  const start = invert ? (d.target as NodeDatum) : (d.source as NodeDatum);
-  const squareAngle = Math.PI / 2;
-  const dx = (start.x || 0) - (end.x || 0);
-  const dy = (start.y || 0) - (end.y || 0);
-
-  const theta = Math.abs(Math.atan2(-dx, -dy));
-  const thetaPrime = theta % squareAngle;
-  const inverseTheta = squareAngle - thetaPrime;
-  const nodeQuadrantTop = Math.abs(Math.atan2(nodeWidth / 2, nodeHeight / 2));
-  const nodeQuadrantBottom = Math.PI - nodeQuadrantTop;
-  const hypotenuse = Math.sqrt(dx * dx + dy * dy);
-
-  let oppositeTheta = inverseTheta;
-  if (inverseTheta > thetaPrime && inverseTheta > nodeQuadrantTop) {
-    oppositeTheta = thetaPrime;
-  } else if (theta < nodeQuadrantTop) {
-    oppositeTheta = theta;
-  }
-  const opposite = Math.sin(squareAngle - oppositeTheta) * hypotenuse;
-  const innerOpposite =
-    theta < nodeQuadrantTop || theta > nodeQuadrantBottom
-      ? nodeHeight / 2
-      : nodeWidth / 2;
-  const scale = innerOpposite / opposite;
-
-  const xTranslation = (end.x || 0) + dx * scale * ARROW_PADDING_ON_EDGE;
-  const yTranslation = (end.y || 0) + dy * scale * ARROW_PADDING_ON_EDGE;
-
-  return {
-    x: xTranslation,
-    y: yTranslation,
-  };
+  lineArray.push([link.endPoint.x, link.endPoint.y]);
+  return lineArray;
 };
 
 const generateLinks = (
   svgParent: d3.Selection<SVGGElement, unknown, HTMLElement, unknown>,
-  links: LinkDatum[],
+  links: Link[],
 ) => {
   const link = svgParent
-    .selectAll<SVGPathElement, LinkDatum>('.link')
+    .selectAll<SVGPathElement, Link>('.link')
     .data(links)
     .join<SVGPathElement>('path')
+    .attr('d', (d) => d3.line()(getLineArray(d)))
     .attr('class', getLinkStyles)
-    .attr('id', (d) => `${d.source}-${d.target}`)
+    .attr('id', (d) => d.id)
+    .attr('fill', 'none')
     .classed('link', true);
 
   // circle animates along path
   svgParent
-    .selectAll<SVGCircleElement, LinkDatum>('.circle')
+    .selectAll<SVGCircleElement, Link>('.circle')
     .data(
       links.filter(
         (d) => linkStateAsJobState(d.state) === JobState.JOB_RUNNING,
@@ -136,7 +103,7 @@ const generateLinks = (
     .attr('dur', '0.8s')
     .attr('repeatCount', 'indefinite')
     .append<SVGPathElement>('mpath')
-    .attr('xlink:href', (d) => `#${d.source}-${d.target}`);
+    .attr('xlink:href', (d) => `#${d.id}`);
 
   return link;
 };
@@ -149,7 +116,7 @@ const generateDefs = (
     defs
       .append<SVGMarkerElement>('svg:marker')
       .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 6)
+      .attr('refX', 9)
       .attr('markerWidth', 5)
       .attr('markerHeight', 5)
       .attr('orient', 'auto')
@@ -191,7 +158,7 @@ const generateDefs = (
 
 const generateNodeGroups = (
   svgParent: d3.Selection<SVGGElement, unknown, HTMLElement, unknown>,
-  nodes: NodeDatum[],
+  nodes: Node[],
   nodeWidth: number,
   nodeHeight: number,
   preview = false,
@@ -199,15 +166,16 @@ const generateNodeGroups = (
   setHoveredNode: React.Dispatch<React.SetStateAction<string>>,
 ) => {
   const nodeGroup = svgParent
-    .selectAll<SVGGElement, NodeDatum>('.nodeGroup')
+    .selectAll<SVGGElement, Node>('.nodeGroup')
     .data(nodes)
     .join((group) => {
       const enter = group
         .append<SVGGElement>('g')
-        .attr('class', `nodeGroup ${!preview ? 'draggable' : ''}`)
-        .attr('id', (group) => `${group.name}GROUP`)
-        .on('click', (d, group) => setSelectedNode(group.name))
-        .on('mouseover', (d, group) => setHoveredNode(group.name))
+        .attr('class', 'nodeGroup')
+        .attr('id', (d) => `${d.name}GROUP`)
+        .attr('transform', (d) => `translate (${d.x}, ${d.y})`)
+        .on('click', (_event, d) => setSelectedNode(d.name))
+        .on('mouseover', (_event, d) => setHoveredNode(d.name))
         .on('mouseout', () => setHoveredNode(''));
 
       !preview &&
@@ -243,7 +211,7 @@ const generateNodeGroups = (
       enter
         .append<SVGUseElement>('use')
         .attr('xlink:href', (d) => {
-          const state = convertNodeStateToDagState(d);
+          const state = convertNodeStateToDagState(d.state);
           if (state === 'busy') return '#nodeIconBusy';
           if (state === 'error') return '#nodeIconError';
           return null;
@@ -255,28 +223,6 @@ const generateNodeGroups = (
     });
 
   return nodeGroup;
-};
-
-const assignPositions = (
-  svgParent: d3.Selection<SVGGElement, unknown, HTMLElement, unknown>,
-  links: d3.Selection<SVGPathElement, LinkDatum, SVGGElement, unknown>,
-  nodes: NodeDatum[],
-  nodeWidth: number,
-  nodeHeight: number,
-) => {
-  links.attr('d', (d) => {
-    const start = transformArrow(d, nodeWidth, nodeHeight, true);
-    const end = transformArrow(d, nodeWidth, nodeHeight);
-    return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
-  });
-  const nodeGroups = svgParent
-    .selectAll<SVGGraphicsElement, NodeDatum>('.nodeGroup')
-    .data(nodes);
-  nodeGroups.attr('transform', (d: NodeDatum) => {
-    return `translate(${d.x ? d.x - nodeWidth / 2 : 0}, ${
-      d.y ? d.y - nodeHeight / 2 : 0
-    })`;
-  });
 };
 
 type useDAGProps = {
@@ -314,90 +260,21 @@ const useDAG = ({
     generateDefs(svg);
   }, [id]);
 
-  // Build d3-force graph
+  // build dag
   useEffect(() => {
-    const defaultd3Node: d3.SimulationNodeDatum = {
-      fx: undefined,
-      fy: undefined,
-      index: undefined,
-      vx: undefined,
-      vy: undefined,
-      x: undefined,
-      y: undefined,
-    };
     const svg = d3.select<SVGSVGElement, unknown>(`#${id}`);
     const graph = d3.select<SVGGElement, unknown>(`#${id}Graph`);
-    const d3Links: LinkDatum[] = data.links.map((link) => ({
-      ...link,
-      index: undefined,
-    }));
-    const d3Nodes: NodeDatum[] = data.nodes.map((node) => ({
-      ...node,
-      ...defaultd3Node,
-    }));
-    const links = generateLinks(graph, d3Links);
+
+    const links = generateLinks(graph, data.links);
     generateNodeGroups(
       graph,
-      d3Nodes,
+      data.nodes,
       nodeWidth,
       nodeHeight,
       preview,
       setSelectedNode,
       setHoveredNode,
     );
-
-    const simulation = d3
-      .forceSimulation<NodeDatum, LinkDatum>()
-      .nodes(d3Nodes)
-      .force('collide', d3.forceCollide(nodeWidth * COLLISION_PADDING))
-      .force('centerX', d3.forceX(svgParentSize.width / 2))
-      .force('centerY', d3.forceY(svgParentSize.height / 2))
-      .force('link', d3.forceLink(d3Links))
-      .on('tick', () => {
-        assignPositions(graph, links, d3Nodes, nodeWidth, nodeHeight);
-      })
-      .stop();
-
-    simulation.tick(300);
-
-    const enableDragging = (
-      simulation: d3.Simulation<NodeDatum, LinkDatum>,
-    ) => {
-      function dragged(
-        event: d3.D3DragEvent<SVGElement, NodeDatum, NodeDatum>,
-        d: NodeDatum,
-      ) {
-        const clamp = (x: number, low: number, high: number) => {
-          if (x < low) return low;
-          if (x > high) return high;
-          return x;
-        };
-
-        const graphNode = graph.node();
-        if (graphNode) {
-          // Grab the transform on the graph group and use that to invert the drag edges.
-          const graphTransform = d3.zoomTransform(graphNode);
-          const left = graphTransform.invertX(
-            (nodeWidth / 2) * graphTransform.k,
-          );
-          const right = graphTransform.invertX(
-            svgParentSize.width - (nodeWidth / 2) * graphTransform.k,
-          );
-          const top = graphTransform.invertY(nodeHeight * graphTransform.k);
-          const bottom = graphTransform.invertY(
-            svgParentSize.height - (nodeHeight / 2) * graphTransform.k,
-          );
-          d.fx = clamp(event.x, left, right);
-          d.fy = clamp(event.y, top, bottom);
-          simulation.alpha(0).force('collide', d3.forceCollide()).restart();
-        }
-      }
-      const drag = d3.drag<SVGElement, NodeDatum>().on('drag', dragged);
-      svg
-        .selectAll<SVGElement, NodeDatum>('.nodeGroup')
-        .data(d3Nodes)
-        .call(drag);
-    };
 
     const zoomed = (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
       const {transform} = event;
@@ -411,24 +288,21 @@ const useDAG = ({
 
     svg.call(zoom);
 
-    !preview && enableDragging(simulation);
-    assignPositions(graph, links, d3Nodes, nodeWidth, nodeHeight);
     links.attr('class', (d) => `${getLinkStyles(d)}`);
 
     // initialize zoom based on node positions and center dag
-    const xExtent = d3.extent(d3Nodes, (d) => d.x);
-    const yExtent = d3.extent(d3Nodes, (d) => d.y);
+    const xExtent = d3.extent(data.nodes, (d) => d.x);
+    const yExtent = d3.extent(data.nodes, (d) => d.y);
     const xMin = xExtent[0] || 0;
     const xMax = xExtent[1] || svgParentSize.width;
     const yMin = yExtent[0] || 0;
     const yMax = yExtent[1] || svgParentSize.height;
-    const xScale = svgParentSize.width / (xMax - xMin);
-    const yScale = svgParentSize.height / 2 / (yMax - yMin);
-    const minScale = Math.min(xScale, yScale);
 
     const transform = d3.zoomIdentity
-      .translate(svgParentSize.width / 2, svgParentSize.height / 2)
-      .scale(minScale)
+      .translate(
+        svgParentSize.width / 2,
+        svgParentSize.height / 2 - nodeHeight / 2,
+      )
       .translate(-(xMin + xMax) / 2, -(yMin + yMax) / 2);
     svg.call(zoom.transform, transform);
   }, [id, nodeHeight, nodeWidth, data, svgParentSize, preview]);
@@ -439,24 +313,20 @@ const useDAG = ({
 
     !preview &&
       graph
-        .selectAll<SVGGElement, NodeDatum>('.nodeGroup')
+        .selectAll<SVGGElement, Node>('.nodeGroup')
         .attr(
           'class',
           (d) =>
-            `${`nodeGroup ${
-              !preview ? 'draggable' : ''
-            } ${convertNodeStateToDagState(d)}`} ${
+            `${`nodeGroup ${convertNodeStateToDagState(d.state)}`} ${
               [selectedNode, hoveredNode].includes(d.name) ? 'selected' : ''
             }`,
         );
 
     !preview &&
-      graph.selectAll<SVGPathElement, LinkDatum>('.link').attr('class', (d) => {
-        const source = d.source as NodeDatum;
-        const target = d.target as NodeDatum;
+      graph.selectAll<SVGPathElement, Link>('.link').attr('class', (d) => {
         return `${getLinkStyles(d)} ${
-          [selectedNode, hoveredNode].includes(source.name) ||
-          [selectedNode, hoveredNode].includes(target.name)
+          [selectedNode, hoveredNode].includes(d.source) ||
+          [selectedNode, hoveredNode].includes(d.target)
             ? 'selected'
             : ''
         }`;

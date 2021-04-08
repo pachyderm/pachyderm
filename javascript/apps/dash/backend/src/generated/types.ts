@@ -169,17 +169,32 @@ export enum NodeType {
 
 export type Node = {
   __typename?: 'Node';
+  id: Scalars['ID'];
   name: Scalars['String'];
   type: NodeType;
+  x: Scalars['Float'];
+  y: Scalars['Float'];
   state?: Maybe<PipelineState>;
   access: Scalars['Boolean'];
 };
 
+export type PointCoordinates = {
+  __typename?: 'PointCoordinates';
+  x: Scalars['Float'];
+  y: Scalars['Float'];
+};
+
 export type Link = {
   __typename?: 'Link';
-  source: Scalars['Int'];
-  target: Scalars['Int'];
+  id: Scalars['ID'];
+  source: Scalars['String'];
+  sourceState?: Maybe<PipelineState>;
+  targetState?: Maybe<PipelineState>;
+  target: Scalars['String'];
   state?: Maybe<JobState>;
+  bendPoints: Array<PointCoordinates>;
+  startPoint: PointCoordinates;
+  endPoint: PointCoordinates;
 };
 
 export type Dag = {
@@ -190,6 +205,8 @@ export type Dag = {
 
 export type DagQueryArgs = {
   projectId: Scalars['ID'];
+  nodeWidth: Scalars['Int'];
+  nodeHeight: Scalars['Int'];
 };
 
 export type JobQueryArgs = {
@@ -417,13 +434,14 @@ export type ResolversTypes = ResolversObject<{
   Job: ResolverTypeWrapper<Job>;
   NodeType: NodeType;
   Node: ResolverTypeWrapper<Node>;
+  Float: ResolverTypeWrapper<Scalars['Float']>;
+  PointCoordinates: ResolverTypeWrapper<PointCoordinates>;
   Link: ResolverTypeWrapper<Link>;
   Dag: ResolverTypeWrapper<Dag>;
   DagQueryArgs: DagQueryArgs;
   JobQueryArgs: JobQueryArgs;
   Project: ResolverTypeWrapper<Project>;
   ProjectDetails: ResolverTypeWrapper<ProjectDetails>;
-  Float: ResolverTypeWrapper<Scalars['Float']>;
   FileType: FileType;
   Timestamp: ResolverTypeWrapper<Timestamp>;
   File: ResolverTypeWrapper<File>;
@@ -453,13 +471,14 @@ export type ResolversParentTypes = ResolversObject<{
   Pach: Pach;
   Job: Job;
   Node: Node;
+  Float: Scalars['Float'];
+  PointCoordinates: PointCoordinates;
   Link: Link;
   Dag: Dag;
   DagQueryArgs: DagQueryArgs;
   JobQueryArgs: JobQueryArgs;
   Project: Project;
   ProjectDetails: ProjectDetails;
-  Float: Scalars['Float'];
   Timestamp: Timestamp;
   File: File;
   FileQueryArgs: FileQueryArgs;
@@ -720,8 +739,11 @@ export type NodeResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Node'] = ResolversParentTypes['Node']
 > = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
+  x?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  y?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   state?: Resolver<
     Maybe<ResolversTypes['PipelineState']>,
     ParentType,
@@ -731,13 +753,48 @@ export type NodeResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PointCoordinatesResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['PointCoordinates'] = ResolversParentTypes['PointCoordinates']
+> = ResolversObject<{
+  x?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  y?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type LinkResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Link'] = ResolversParentTypes['Link']
 > = ResolversObject<{
-  source?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  target?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  sourceState?: Resolver<
+    Maybe<ResolversTypes['PipelineState']>,
+    ParentType,
+    ContextType
+  >;
+  targetState?: Resolver<
+    Maybe<ResolversTypes['PipelineState']>,
+    ParentType,
+    ContextType
+  >;
+  target?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   state?: Resolver<Maybe<ResolversTypes['JobState']>, ParentType, ContextType>;
+  bendPoints?: Resolver<
+    Array<ResolversTypes['PointCoordinates']>,
+    ParentType,
+    ContextType
+  >;
+  startPoint?: Resolver<
+    ResolversTypes['PointCoordinates'],
+    ParentType,
+    ContextType
+  >;
+  endPoint?: Resolver<
+    ResolversTypes['PointCoordinates'],
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -875,6 +932,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Pach?: PachResolvers<ContextType>;
   Job?: JobResolvers<ContextType>;
   Node?: NodeResolvers<ContextType>;
+  PointCoordinates?: PointCoordinatesResolvers<ContextType>;
   Link?: LinkResolvers<ContextType>;
   Dag?: DagResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
@@ -925,10 +983,31 @@ export type GetDagQueryVariables = Exact<{
 export type GetDagQuery = {__typename?: 'Query'} & {
   dag: {__typename?: 'Dag'} & {
     nodes: Array<
-      {__typename?: 'Node'} & Pick<Node, 'name' | 'type' | 'access' | 'state'>
+      {__typename?: 'Node'} & Pick<
+        Node,
+        'id' | 'name' | 'type' | 'access' | 'state' | 'x' | 'y'
+      >
     >;
     links: Array<
-      {__typename?: 'Link'} & Pick<Link, 'source' | 'target' | 'state'>
+      {__typename?: 'Link'} & Pick<
+        Link,
+        'id' | 'source' | 'target' | 'sourceState' | 'targetState' | 'state'
+      > & {
+          bendPoints: Array<
+            {__typename?: 'PointCoordinates'} & Pick<
+              PointCoordinates,
+              'x' | 'y'
+            >
+          >;
+          startPoint: {__typename?: 'PointCoordinates'} & Pick<
+            PointCoordinates,
+            'x' | 'y'
+          >;
+          endPoint: {__typename?: 'PointCoordinates'} & Pick<
+            PointCoordinates,
+            'x' | 'y'
+          >;
+        }
     >;
   };
 };
@@ -941,10 +1020,31 @@ export type GetDagsQuery = {__typename?: 'Query'} & {
   dags: Array<
     {__typename?: 'Dag'} & {
       nodes: Array<
-        {__typename?: 'Node'} & Pick<Node, 'name' | 'type' | 'access' | 'state'>
+        {__typename?: 'Node'} & Pick<
+          Node,
+          'id' | 'name' | 'type' | 'access' | 'state' | 'x' | 'y'
+        >
       >;
       links: Array<
-        {__typename?: 'Link'} & Pick<Link, 'source' | 'target' | 'state'>
+        {__typename?: 'Link'} & Pick<
+          Link,
+          'id' | 'source' | 'target' | 'sourceState' | 'targetState' | 'state'
+        > & {
+            bendPoints: Array<
+              {__typename?: 'PointCoordinates'} & Pick<
+                PointCoordinates,
+                'x' | 'y'
+              >
+            >;
+            startPoint: {__typename?: 'PointCoordinates'} & Pick<
+              PointCoordinates,
+              'x' | 'y'
+            >;
+            endPoint: {__typename?: 'PointCoordinates'} & Pick<
+              PointCoordinates,
+              'x' | 'y'
+            >;
+          }
       >;
     }
   >;

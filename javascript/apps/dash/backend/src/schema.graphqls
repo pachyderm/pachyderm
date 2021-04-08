@@ -109,18 +109,32 @@ enum NodeType {
 }
 
 type Node {
+  id: ID!
   name: String!
   type: NodeType!
+  x: Float!
+  y: Float!
 
   # TODO: Fledge these two fields out
   state: PipelineState
   access: Boolean!
 }
 
+type PointCoordinates {
+  x: Float!
+  y: Float!
+}
+
 type Link {
-  source: Int!
-  target: Int!
+  id: ID!
+  source: String!
+  sourceState: PipelineState
+  targetState: PipelineState
+  target: String!
   state: JobState
+  bendPoints: [PointCoordinates!]!
+  startPoint: PointCoordinates!
+  endPoint: PointCoordinates!
 }
 
 type Dag {
@@ -130,6 +144,8 @@ type Dag {
 
 input DagQueryArgs {
   projectId: ID!
+  nodeWidth: Int!
+  nodeHeight: Int!
 }
 
 input JobQueryArgs {

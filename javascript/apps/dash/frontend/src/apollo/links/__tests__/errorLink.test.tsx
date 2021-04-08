@@ -9,7 +9,7 @@ const windowLocation = window.location;
 
 describe('errorLink', () => {
   const TestBed = withContextProviders(() => {
-    useDAGData('1');
+    useDAGData({projectId: '1', nodeHeight: 60, nodeWidth: 120});
 
     return <>test</>;
   });

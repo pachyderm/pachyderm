@@ -23,24 +23,16 @@
   fill: var(--white);
 }
   
-.base :global .nodeGroup.draggable:hover{
-  cursor: grab;
-}
-  
-.base :global .nodeGroup.idle.draggable:hover .node .label, .base :global .nodeGroup.selected.idle .node .label {
+.base :global .nodeGroup.idle:hover .node .label, .base :global .nodeGroup.selected.idle .node .label {
   background-color: var(--background-blue);
 }
 
-.base :global .nodeGroup.error.draggable:hover .node .label, .base :global .nodeGroup.selected.error .node .label {
+.base :global .nodeGroup.error:hover .node .label, .base :global .nodeGroup.selected.error .node .label {
   background-color: var(--background-pink);
 }
 
-.base :global .nodeGroup.busy.draggable:hover, .base :global .nodeGroup.selected.busy {
+.base :global .nodeGroup.busy:hover, .base :global .nodeGroup.selected.busy {
   opacity: 0.5;
-}
-  
-.base :global .nodeGroup.draggable:active{
-  cursor: grabbing;
 }
 
 .base :global .pipeline {

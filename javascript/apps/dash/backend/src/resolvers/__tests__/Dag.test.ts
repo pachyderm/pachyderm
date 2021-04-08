@@ -9,22 +9,17 @@ const doesLinkExistInDag = (
     return false;
   }
 
-  const sourceNodeIndex = dag.nodes.findIndex(
-    (node) => node.name === expectedLink.source,
-  );
-  const targetNodeIndex = dag.nodes.findIndex(
-    (node) => node.name === expectedLink.target,
-  );
-
   return dag.links.some((link) => {
-    return link.source === sourceNodeIndex && link.target === targetNodeIndex;
+    return (
+      link.source === expectedLink.source && link.target === expectedLink.target
+    );
   });
 };
 
 describe('Dag resolver', () => {
   it('should resolve dag data', async () => {
     const {data} = await executeOperation<{dag: Dag}>('getDag', {
-      args: {projectId: '1'},
+      args: {projectId: '1', nodeWidth: 120, nodeHeight: 60},
     });
 
     const dag = data?.dag;
@@ -49,7 +44,7 @@ describe('Dag resolver', () => {
 
   it('should correctly render cron inputs', async () => {
     const {data} = await executeOperation<{dag: Dag}>('getDag', {
-      args: {projectId: '3'},
+      args: {projectId: '3', nodeWidth: 120, nodeHeight: 60},
     });
 
     const dag = data?.dag;
@@ -65,7 +60,7 @@ describe('Dag resolver', () => {
 
   it('should resolve disconnected components of a dag', async () => {
     const {data} = await executeOperation<{dags: Dag[]}>('getDags', {
-      args: {projectId: '2'},
+      args: {projectId: '2', nodeWidth: 120, nodeHeight: 60},
     });
 
     const dags = data?.dags;
