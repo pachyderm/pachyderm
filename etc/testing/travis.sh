@@ -2,6 +2,7 @@
 
 set -ex
 
+export GOPATH=/home/circleci/.go_workspace
 export PATH=./:$GOPATH/bin:$PATH
 
 # Repeatedly restart minikube until it comes up. This corrects for an issue in
