@@ -5,7 +5,7 @@ set -Eex
 # Parse flags
 VERSION=v1.18.3
 minikube_args=(
-  "--vm-driver=none"
+  "--vm-driver=docker"
   "--kubernetes-version=${VERSION}"
   "--alsologtostderr"
   "--v=2"
@@ -21,10 +21,6 @@ while getopts ":v" opt; do
       ;;
   esac
 done
-
-if [[ -n "${TRAVIS}" ]]; then
-  minikube_args+=("--bootstrapper=kubeadm")
-fi
 
 
 # Note that we update the 'PATH' to include '~/cached-deps' in '.travis.yml',
