@@ -14,25 +14,25 @@ func TestConnectorCRUD(t *testing.T) {
 	tu.ActivateAuth(t)
 	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
-		echo '{}' | pachctl idp create-connector --id {{.id}} --name 'testconn' --type 'github' --config -
+		echo '{"id": "{{.id}}", "name": "testconn", "type": "github", "config": {"id": 1234}}' | pachctl idp create-connector 
 		pachctl idp list-connector | match '{{.id}}'
 		pachctl idp get-connector {{.id}} \
-		  | match 'name: testconn' \
-		  | match 'type: github' \
-		  | match 'version: 0' \
-		  | match "{}" 
-		echo '{"client_id": "a"}' | pachctl idp update-connector {{.id}} --version 1 --name 'newname' --config -
+		  | match 'Name: testconn' \
+		  | match 'Type: github' \
+		  | match 'Version: 0' \
+                  | match '    id: 1234' 
+		echo '{"id": "{{.id}}", "version": 1, "config": {"client_id": "a"}}' | pachctl idp update-connector 
 		pachctl idp get-connector {{.id}} \
-		  | match 'name: newname' \
-		  | match 'type: github' \
-		  | match 'version: 1' \
-		  | match '{"client_id": "a"}'
-		pachctl idp update-connector {{.id}} --version 2 --name 'newname2'
+		  | match 'Name: testconn' \
+		  | match 'Type: github' \
+		  | match 'Version: 1' \
+		  | match '    client_id: a'
+		echo '{"id": "{{.id}}", "version": 2, "name": "newname2"}' | pachctl idp update-connector
 		pachctl idp get-connector {{.id}} \
-		  | match 'name: newname2' \
-		  | match 'type: github' \
-		  | match 'version: 2' \
-		  | match '{"client_id": "a"}'
+		  | match 'Name: newname2' \
+		  | match 'Type: github' \
+		  | match 'Version: 2' \
+		  | match '    client_id: a'
 		pachctl idp delete-connector {{.id}}
 		`,
 		"id", tu.UniqueString("connector"),
