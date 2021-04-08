@@ -2,7 +2,9 @@
 
 set -ex
 
-docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
+git config user.email "donotreply@pachyderm.com"
+git config user.name "anonymous"
+
 make install
 version=$(pachctl version --client-only)
 git tag -f -am "Circle CI test v${version}" v"${version}"
