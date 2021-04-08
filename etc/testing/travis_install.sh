@@ -3,8 +3,8 @@
 set -ex
 
 # Install deps
+sudo snap install jq
 sudo apt-get install -y -qq \
-  jq \
   silversearcher-ag \
   python3 \
   python3-pip \
