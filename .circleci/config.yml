@@ -1,4 +1,3 @@
-# Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
 
 orbs:
@@ -23,9 +22,7 @@ jobs:
       - run: |
           wget -nv -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
       - run: |
-          make install
-      - run: |
-          PATH=./bin/:$PATH VERSION=$(pachctl version --client-only) make docker-build
+          PATH=./bin/:$PATH etc/testing/travis_build.sh 
       
 
   test:
@@ -47,9 +44,6 @@ jobs:
       TEST_RESULTS_BUCKET: pach-test-data
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 19.03.13
-          docker_layer_caching: true
       - go/load-cache
       - go/mod-download
       - go/save-cache
