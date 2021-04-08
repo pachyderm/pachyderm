@@ -1,11 +1,16 @@
 # Authentication and Authorization
 
 !!! Note
+<<<<<<< HEAD
     User Access Management is an [enterprise feature](https://docs.pachyderm.com/latest/enterprise/) that requires
+=======
+    Authentication and Authorization are [enterprise features](https://docs.pachyderm.com/latest/enterprise/) that require
+>>>>>>> 105ef481c9c08ed53a02ae8ed11aeea066772c0b
     an active enterprise token.
 
 Pachyderm embeds an OpenID Connect identity service based on [**Dex**](https://dexidp.io/docs/) allowing for a vendor-neutral authentication (i.e., a pluggable authentication against many different identity providers). As a result, users can authenticate using their existing credentials from various back-ends, including LDAP, SAML, and other OIDC providers. 
 
+<<<<<<< HEAD
 Setting up Pachyderm's User Access Management (also referred to as "Authentication and Authorization" or "Auth" in this documentation) requires to follow the consecutive steps:
 1. [Activate the feature](#activate-user-access-management).
 1. Connect the IdP of your choice to Pachyderm (Dex). //TODO Link to page
@@ -72,8 +77,77 @@ an enterprise subscription becomes stale.
 
 As soon as the enterprise
 activation code is updated (As a 'clusterAdmin', run `pachctl license activate` and submit your new code), the
+=======
+
+<div class="row">
+  <div class="column-2">
+    <div class="card-square mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title mdl-card--expand">
+        <h4 class="mdl-card__title-text">Learn about Pachyderm's Authentication Flow </h4>
+      </div>
+      <div class="mdl-card__supporting-text">
+        <ul>
+            <li><a href="deploy/" class="md-typeset md-link">
+            Authentication
+            </a>
+            </li>
+          </ul>
+      </div>
+  </div>
+  <div class="column-2">
+    <div class="card-square mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title mdl-card--expand">
+        <h4 class="mdl-card__title-text">Users and Access Management</h4>
+      </div>
+      <div class="mdl-card__supporting-text">
+        Test supporting text
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+          <ul>
+            <li><a href="manage/" class="md-typeset md-link">
+            Authorization
+           </a>
+          </li>
+       </div>
+     </div>
+  </div>
+</div>
+
+More about Pachyderm Auth flow
+Users and Access Management
+
+To configure your IdP with Pachyderm, visit //TODO link to configure Pach in your preferred IdP.
+
+
+## Activating the Authentication and Authorization features
+ 
+
+
+## Deactivating the Authentication and Authorization features
+
+When you deactivate access controls on a Pachyderm cluster
+by running `pachctl auth deactivate`, the cluster returns
+to its original state that including the following changes:
+
+- All ACLs are deleted.
+- The cluster returns to being a blank slate in regards to
+access control, which means that everyone that can connect
+to Pachyderm can access and modify the data in all repos.
+- No users are present in Pachyderm, and no one can log in to Pachyderm.
+## Authentication Token Expiration
+When an enterprise activation code expires, a
+Pachyderm cluster with enable authentication goes into an
+`admin-only` state. In this state, only admins have
+access to data that is stored in Pachyderm.
+This safety measure keeps sensitive data protected, even when
+an enterprise subscription becomes stale. As soon as the enterprise
+activation code is updated by using the dashboard or CLI, the
+>>>>>>> 105ef481c9c08ed53a02ae8ed11aeea066772c0b
 Pachyderm cluster returns to its previous state.
 
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 105ef481c9c08ed53a02ae8ed11aeea066772c0b
