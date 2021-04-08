@@ -680,7 +680,7 @@ func TestGetIndefiniteRobotToken(t *testing.T) {
 	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, robot(robotUser), who.Username)
-	require.Equal(t, int64(-1), who.TTL)
+	require.Nil(t, who.Expiration)
 }
 
 // TestGetTemporaryRobotToken tests that an admin can generate a robot token that expires
@@ -704,8 +704,11 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, robot(robotUser), who.Username)
-	require.True(t, who.TTL > 0)
-	require.True(t, who.TTL <= 600)
+
+	expTime := time.Unix(who.Expiration.Seconds, 0)
+
+	require.True(t, expTime.After(time.Now()))
+	require.True(t, expTime.Before(time.Now().Add(time.Duration(600)*time.Second)))
 }
 
 // TestGetRobotTokenErrorNonAdminUser tests that non-admin users can't call

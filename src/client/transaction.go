@@ -588,3 +588,7 @@ func (c *debugBuilderClient) Binary(ctx context.Context, req *debug.BinaryReques
 func (c *debugBuilderClient) Dump(ctx context.Context, req *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
 	return nil, unsupportedError("Dump")
 }
+
+func (c *authBuilderClient) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest, opts ...grpc.CallOption) (*auth.DeleteExpiredAuthTokensResponse, error) {
+	return nil, unsupportedError("RestoreAuthToken")
+}

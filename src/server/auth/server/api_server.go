@@ -54,6 +54,9 @@ const (
 
 	// OidcPort is the port where OIDC ID Providers can send auth assertions
 	OidcPort = 657
+
+	// the length of interval between expired auth token cleanups
+	cleanupIntervalHours = 24
 )
 
 // DefaultOIDCConfig is the default config for the auth API server
@@ -205,13 +208,7 @@ func NewAuthServer(
 		go s.clusterRoleBindingCache.Watch()
 	}
 
-	// purge expired tokens every 24 hours
-	go func(a *apiServer, intervalSeconds int) {
-		for {
-			time.Sleep(time.Duration(intervalSeconds) * time.Hour)
-			a.purgeExpiredTokens()
-		}
-	}(s, 24)
+	s.deleteExpiredTokensRoutine()
 
 	return s, nil
 }
@@ -348,7 +345,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return err
 		}
 		// TODO(acohen4): workout the transactionality
-		return a.upsertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser)
+		return a.insertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
 		return nil, err
 	}
@@ -595,27 +592,26 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 		return nil, err
 	}
 
-	// Get TTL of user's token
-	// TODO(acohen4): give this value a second look
-	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
+	// Get expiry of user's token
+	var expiry *types.Timestamp
 	if callerInfo.Subject != auth.PpsUser {
 		token, err := auth.GetAuthToken(ctx)
 		if err != nil {
 			return nil, err
 		}
-		ttl, err = a.lookupAuthTokenTTLSeconds(ctx, auth.HashToken(token))
+		expiry, err = a.lookupAuthTokenExpiration(ctx, auth.HashToken(token))
 		if err != nil {
-			return nil, errors.Wrapf(err, "error looking up TTL for token")
+			return nil, errors.Wrapf(err, "error looking up expiration for token")
 		}
-		if ttl < -1 {
+		if expiry != nil && time.Now().After(time.Unix(expiry.Seconds, 0)) {
 			return nil, auth.ErrBadToken // token is expired
 		}
 	}
 
 	// return final result
 	return &auth.WhoAmIResponse{
-		Username: callerInfo.Subject,
-		TTL:      ttl,
+		Username:   callerInfo.Subject,
+		Expiration: expiry,
 	}, nil
 }
 
@@ -915,7 +911,7 @@ func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.Transaction
 
 	token := uuid.NewWithoutDashes()
 	// TODO(acohen4): look at transaction context
-	if err := a.upsertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline); err != nil {
+	if err := a.insertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline); err != nil {
 		return "", errors.Wrapf(err, "error storing token")
 	} else {
 		return token, nil
@@ -1377,9 +1373,9 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 		}
 		// insert token
 		if ttl > 0 {
-			return a.upsertAuthToken(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject, ttl)
+			return a.insertAuthToken(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject, ttl)
 		} else {
-			return a.upsertAuthTokenNoTTL(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject)
+			return a.insertAuthTokenNoTTL(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject)
 		}
 	}(); err != nil {
 		return nil, errors.Wrapf(err, "error restoring auth token")
@@ -1388,18 +1384,47 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 	return &auth.RestoreAuthTokenResponse{}, nil
 }
 
-// returns -1 if token is not found, and the TTL otherwise
-func (a *apiServer) lookupAuthTokenTTLSeconds(ctx context.Context, tokenHash string) (int64, error) {
-	var ttl float64
-	if err := a.env.GetDBClient().GetContext(ctx, &ttl,
-		`SELECT ROUND( EXTRACT( EPOCH FROM (expiration - NOW()))) as ttl 
-		FROM auth.auth_tokens WHERE token_hash = $1 AND expiration IS NOT NULL`, tokenHash); err != nil {
-		if err == sql.ErrNoRows {
-			return -1, nil
-		}
-		return 0, err
+// implements the protobuf auth.DeleteExpiredAuthTokens RPC
+func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
+	logrus.Info("Deleting expired auth tokens")
+	if _, err := a.env.GetDBClient().Exec(`DELETE FROM auth.auth_tokens WHERE NOW() > expiration`); err != nil {
+		return nil, errors.Wrapf(err, "error deleting expired tokens")
 	}
-	return int64(ttl), nil
+	return &auth.DeleteExpiredAuthTokensResponse{}, nil
+}
+
+func (a *apiServer) deleteExpiredTokensRoutine() {
+	go func(ctx context.Context) {
+		for {
+			time.Sleep(time.Duration(cleanupIntervalHours) * time.Hour)
+			a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{})
+		}
+	}(context.Background())
+}
+
+// we interpret an expiration value of NULL as "lives forever".
+// Now we will sometimes have expiration values set in the passed, since we only remove those values in the deleteExpiredTokensRoutine() goroutine
+func (a *apiServer) lookupAuthTokenExpiration(ctx context.Context, tokenHash string) (*types.Timestamp, error) {
+	var expiration *time.Time
+	if err := a.env.GetDBClient().GetContext(ctx, &expiration, `SELECT expiration FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}
+		}
+		return nil, err
+	}
+
+	if expiration != nil {
+		if time.Now().After(*expiration) {
+			return nil, auth.ErrBadToken // token is expired
+		}
+		expiryTS, tsErr := types.TimestampProto(*expiration)
+		if tsErr != nil {
+			return nil, tsErr
+		}
+
+		return expiryTS, nil
+	}
+	return nil, nil
 }
 
 func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
@@ -1450,7 +1475,7 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToke
 
 func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, ttlSeconds int64) (string, error) {
 	token := uuid.NewWithoutDashes()
-	if err := a.upsertAuthToken(ctx, auth.HashToken(token), subject, ttlSeconds); err != nil {
+	if err := a.insertAuthToken(ctx, auth.HashToken(token), subject, ttlSeconds); err != nil {
 		return "", err
 	}
 	return token, nil
@@ -1458,7 +1483,7 @@ func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject stri
 
 func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject string) (string, error) {
 	token := uuid.NewWithoutDashes()
-	if err := a.upsertAuthTokenNoTTL(ctx, auth.HashToken(token), subject); err != nil {
+	if err := a.insertAuthTokenNoTTL(ctx, auth.HashToken(token), subject); err != nil {
 		return "", err
 	}
 
@@ -1466,25 +1491,21 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 }
 
 // generates a token, and stores it's hash and supporting data in postgres
-func (a *apiServer) upsertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
+func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
 	// Register the pachd in the database
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
-		VALUES ($1, $2, NOW() + $3 * interval '1 sec') 
-		ON CONFLICT (token_hash) 
-		DO UPDATE SET subject = $2, expiration = NOW() + $3 * interval '1 sec'`, tokenHash, subject, ttlSeconds); err != nil {
+		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
 		return errors.Wrapf(err, "error storing token")
 	}
 	return nil
 }
 
-func (a *apiServer) upsertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
+func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
 	// Register the pachd in the database
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject) 
-		VALUES ($1, $2) 
-		ON CONFLICT (token_hash) 
-		DO UPDATE SET subject = $2`, tokenHash, subject); err != nil {
+		VALUES ($1, $2)`, tokenHash, subject); err != nil {
 		return errors.Wrapf(err, "error storing token")
 	}
 	return nil
@@ -1501,14 +1522,6 @@ func (a *apiServer) deleteAllAuthTokens(ctx context.Context) error {
 func (a *apiServer) deleteAuthToken(ctx context.Context, tokenHash string) error {
 	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
 		return errors.Wrapf(err, "error deleting token")
-	}
-	return nil
-}
-
-func (a *apiServer) purgeExpiredTokens() error {
-	logrus.Info("Purging expired auth tokens")
-	if _, err := a.env.GetDBClient().Exec(`DELETE FROM auth.auth_tokens WHERE NOW() > expiration`); err != nil {
-		return errors.Wrapf(err, "error purging expired tokens")
 	}
 	return nil
 }

@@ -105,9 +105,9 @@ message AuthenticateResponse {
 message WhoAmIRequest {}
 
 message WhoAmIResponse {
-  reserved 2,4;
+  reserved 2,3,4;
   string username = 1;
-  int64 ttl = 3 [(gogoproto.customname) = "TTL"];
+  google.protobuf.Timestamp expiration = 5;
 }
 
 //// Authorization data structures
@@ -140,6 +140,8 @@ enum Permission {
   CLUSTER_AUTH_GET_GROUP_USERS           = 111;
   CLUSTER_AUTH_EXTRACT_TOKENS            = 112;
   CLUSTER_AUTH_RESTORE_TOKEN             = 113;
+  CLUSTER_AUTH_DELETE_EXPIRED_TOKENS     = 140;
+
 
   CLUSTER_ENTERPRISE_ACTIVATE            = 114;
   CLUSTER_ENTERPRISE_HEARTBEAT           = 115;
@@ -378,6 +380,10 @@ message RestoreAuthTokenRequest {
 
 message RestoreAuthTokenResponse {}
 
+message DeleteExpiredAuthTokensRequest {}
+
+message DeleteExpiredAuthTokensResponse {}
+
 service API {
   // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
   // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
@@ -407,4 +413,6 @@ service API {
 
   rpc ExtractAuthTokens(ExtractAuthTokensRequest) returns (ExtractAuthTokensResponse) {}
   rpc RestoreAuthToken(RestoreAuthTokenRequest) returns (RestoreAuthTokenResponse) {}
+
+  rpc DeleteExpiredAuthTokens(DeleteExpiredAuthTokensRequest) returns (DeleteExpiredAuthTokensResponse) {}
 }
