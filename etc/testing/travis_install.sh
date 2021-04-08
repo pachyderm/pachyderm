@@ -4,6 +4,7 @@ set -ex
 
 # Install deps
 sudo snap install jq
+sudo apt-get update -y
 sudo apt-get install -y -qq \
   silversearcher-ag \
   python3 \
