@@ -30,7 +30,7 @@ if [ ! -f ~/cached-deps/kubectl ] ; then
     KUBECTL_VERSION=v1.19.2
     curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
         chmod +x ./kubectl && \
-        mv ./kubectl ~/cached-deps/kubectl
+#        mv ./kubectl ~/cached-deps/kubectl
 fi
 
 # Install minikube
@@ -40,14 +40,7 @@ if [ ! -f ~/cached-deps/minikube ] ; then
     MINIKUBE_VERSION=v1.13.1 # If changed, also do etc/kube/start-minikube.sh
     curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
         chmod +x ./minikube && \
-        mv ./minikube ~/cached-deps/minikube
-fi
-
-# Install vault
-if [ ! -f ~/cached-deps/vault ] ; then
-    curl -Lo vault.zip https://releases.hashicorp.com/vault/1.2.3/vault_1.2.3_linux_amd64.zip && \
-        unzip vault.zip && \
-        mv ./vault ~/cached-deps/vault
+        #mv ./minikube ~/cached-deps/minikube
 fi
 
 # Install etcdctl
@@ -57,7 +50,7 @@ if [ ! -f ~/cached-deps/etcdctl ] ; then
     ETCD_VERSION=v3.3.12
     curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz \
         | tar xzf - --strip-components=1 && \
-        mv ./etcdctl ~/cached-deps/etcdctl
+        #mv ./etcdctl ~/cached-deps/etcdctl
 fi
 
 # Install kubeval
@@ -65,7 +58,7 @@ if [ ! -f ~/cached-deps/kubeval ]; then
   KUBEVAL_VERSION=0.15.0
   curl -L https://github.com/instrumenta/kubeval/releases/download/${KUBEVAL_VERSION}/kubeval-linux-amd64.tar.gz \
       | tar xzf - kubeval && \
-      mv ./kubeval ~/cached-deps/kubeval
+      #mv ./kubeval ~/cached-deps/kubeval
 fi
 
 # Install helm
