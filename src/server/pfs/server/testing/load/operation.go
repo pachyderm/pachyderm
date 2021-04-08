@@ -37,9 +37,9 @@ func PutFile(env *Env, repo, commit string, spec *PutFileSpec) error {
 	if err != nil {
 		return err
 	}
-	return c.WithModifyFileClient(context.Background(), repo, commit, func(mfc client.ModifyFileClient) error {
+	return c.WithModifyFileClient(context.Background(), repo, commit, func(mf client.ModifyFile) error {
 		for _, file := range files {
-			if err := mfc.PutFile(file.Path(), file.Reader()); err != nil {
+			if err := mf.PutFile(file.Path(), file.Reader()); err != nil {
 				return err
 			}
 		}

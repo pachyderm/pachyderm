@@ -82,12 +82,12 @@ type validatorClient struct {
 	validator *Validator
 }
 
-func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFileClient) error) error {
+func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) error {
 	var files map[string][]byte
-	if err := vc.Client.WithModifyFileClient(ctx, repo, commit, func(mfc client.ModifyFileClient) error {
+	if err := vc.Client.WithModifyFileClient(ctx, repo, commit, func(mf client.ModifyFile) error {
 		vmfc := &validatorModifyFileClient{
-			ModifyFileClient: mfc,
-			files:            make(map[string][]byte),
+			ModifyFile: mf,
+			files:      make(map[string][]byte),
 		}
 		if err := cb(vmfc); err != nil {
 			return err
@@ -102,13 +102,13 @@ func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, commi
 }
 
 type validatorModifyFileClient struct {
-	client.ModifyFileClient
+	client.ModifyFile
 	files map[string][]byte
 }
 
 func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) error {
 	h := pfs.NewHash()
-	if err := vmfc.ModifyFileClient.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
+	if err := vmfc.ModifyFile.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
 		return err
 	}
 	vmfc.files[path] = h.Sum(nil)

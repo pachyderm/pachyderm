@@ -5,22 +5,24 @@ import (
 	"fmt"
 	"path"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
 )
 
 // SetOption configures a set.
 type SetOption func(*Set)
 
 // WithMetaOutput sets the Client for the meta output.
-func WithMetaOutput(c Client) SetOption {
+func WithMetaOutput(mf client.ModifyFile) SetOption {
 	return func(s *Set) {
-		s.metaOutputClient = c
+		s.metaOutputClient = mf
 	}
 }
 
 // WithPFSOutput sets the Client for the pfs output.
-func WithPFSOutput(c Client) SetOption {
+func WithPFSOutput(mf client.ModifyFile) SetOption {
 	return func(s *Set) {
-		s.pfsOutputClient = c
+		s.pfsOutputClient = mf
 	}
 }
 

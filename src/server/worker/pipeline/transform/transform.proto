@@ -11,10 +11,11 @@ import "server/worker/datum/datum.proto";
 message DatumSet {
   // Inputs
   string job_id = 1 [(gogoproto.customname) = "JobID"];
-  string file_set = 2;
+  string fileset_id = 2;
   pfs.Commit output_commit = 3;
-  pfs.Commit meta_commit = 4;
 
   // Outputs
-  datum.Stats stats = 5;
+  string output_fileset_id = 4;
+  string meta_fileset_id = 5;
+  datum.Stats stats = 6;
 }

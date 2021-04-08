@@ -7,10 +7,11 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
-	"github.com/jmoiron/sqlx"
+	"github.com/gogo/protobuf/proto"
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -23,41 +24,35 @@ var webDir = "/dex-assets"
 type dexWeb struct {
 	sync.RWMutex
 
-	// `issuer` must be a well-known URL where all pachds can reach this server.
-	// Dex usually loads it from a config file, but it can be clumsy to find the
-	// exact right value. Instead of requiring the user to change the config
-	// we support updating it via an RPC.
-	issuer       string
-	server       *dex_server.Server
-	serverCancel context.CancelFunc
+	env serviceenv.ServiceEnv
 
-	db              *sqlx.DB
+	// Rather than restart the server on every request, we cache it
+	// along with the config and set of connectors. If either of these
+	// change we restart the server because Dex doesn't support
+	// reconfiguring them on the fly.
+	currentConfig     *identity.IdentityServerConfig
+	currentConnectors *identity.ListIDPConnectorsResponse
+	server            *dex_server.Server
+	serverCancel      context.CancelFunc
+
 	logger          *logrus.Entry
-	storageProvider StorageProvider
+	storageProvider dex_storage.Storage
+	apiServer       identity.APIServer
 }
 
-func newDexWeb(sp StorageProvider, logger *logrus.Entry, db *sqlx.DB) *dexWeb {
+func newDexWeb(env serviceenv.ServiceEnv, sp dex_storage.Storage, apiServer identity.APIServer) *dexWeb {
+	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex-web")
 	return &dexWeb{
+		env:             env,
 		logger:          logger,
 		storageProvider: sp,
-		db:              db,
-	}
-}
-
-func (w *dexWeb) updateConfig(conf identity.IdentityServerConfig) {
-	w.Lock()
-	defer w.Unlock()
-
-	w.issuer = conf.Issuer
-	w.stopWebServer()
-	server, cache := w.startWebServer()
-	if cache {
-		w.server = server
+		apiServer:       apiServer,
 	}
 }
 
 // stopWebServer must be called while holding the write mutex
 func (w *dexWeb) stopWebServer() {
+	w.logger.Info("stopping identity web server")
 	// Stop the background jobs for the existing server
 	if w.serverCancel != nil {
 		w.serverCancel()
@@ -66,25 +61,37 @@ func (w *dexWeb) stopWebServer() {
 	w.server = nil
 }
 
-// startWebServer returns a new dex web server, and a boolean for whether it should be cached.
-func (w *dexWeb) startWebServer() (*dex_server.Server, bool) {
-	cache := true
-	storage, err := w.storageProvider.GetStorage(w.logger)
-	if err != nil {
-		return nil, false
+// serverNeedsRestart returns true if the server hasn't started yet, or if the config or set of
+// connectors has changed. Must be called while holding a read lock on `w`.
+func (w *dexWeb) serverNeedsRestart(config *identity.IdentityServerConfig, connectors *identity.ListIDPConnectorsResponse) bool {
+	return w.server == nil ||
+		w.currentConfig == nil ||
+		w.currentConnectors == nil ||
+		!proto.Equal(config, w.currentConfig) ||
+		!proto.Equal(connectors, w.currentConnectors)
+}
+
+// startWebServer starts a new web server with the appropriate configuration and connectors.
+func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connectors *identity.ListIDPConnectorsResponse) (*dex_server.Server, error) {
+	w.Lock()
+	defer w.Unlock()
+
+	// If the config and connectors have already been updated while we were blocked,
+	// don't restart the server again.
+	if !w.serverNeedsRestart(config, connectors) {
+		return w.server, nil
 	}
+
+	w.stopWebServer()
+	w.logger.Info("starting identity web server")
+
+	storage := w.storageProvider
 
 	// If no connectors are configured, add a static placeholder which directs the user
 	// to configure a connector
-	connectors, err := storage.ListConnectors()
-	if err != nil {
-		w.logger.WithError(err).Error("dex web server failed to list connectors")
-		return nil, false
-	}
-
-	dex_server.ConnectorsConfig["placeholder"] = func() dex_server.ConnectorConfig { return new(placeholderConfig) }
-	if len(connectors) == 0 {
-		cache = false
+	if len(connectors.Connectors) == 0 {
+		w.logger.Info("no idp connectors configured, using placeholder")
+		dex_server.ConnectorsConfig["placeholder"] = func() dex_server.ConnectorConfig { return new(placeholderConfig) }
 		storage = dex_storage.WithStaticConnectors(storage, []dex_storage.Connector{
 			dex_storage.Connector{
 				ID:     "placeholder",
@@ -97,7 +104,7 @@ func (w *dexWeb) startWebServer() (*dex_server.Server, bool) {
 
 	serverConfig := dex_server.Config{
 		Storage:            storage,
-		Issuer:             w.issuer,
+		Issuer:             config.Issuer,
 		SkipApprovalScreen: true,
 		Web: dex_server.WebConfig{
 			Issuer:  "Pachyderm",
@@ -109,52 +116,48 @@ func (w *dexWeb) startWebServer() (*dex_server.Server, bool) {
 	}
 
 	var ctx context.Context
+	var err error
 	ctx, w.serverCancel = context.WithCancel(context.Background())
-	dexServer, err := dex_server.NewServer(ctx, serverConfig)
+	w.server, err = dex_server.NewServer(ctx, serverConfig)
 	if err != nil {
-		w.logger.WithError(err).Error("dex web server failed to start")
-		return nil, false
+		return nil, err
 	}
+	w.currentConfig = config
+	w.currentConnectors = connectors
 
-	return dexServer, cache
+	return w.server, nil
 }
 
-func (w *dexWeb) getServer() *dex_server.Server {
+// getServer either returns a cached web server, or starts a new one
+// if the config or set of connectors has changed
+func (w *dexWeb) getServer(ctx context.Context) (*dex_server.Server, error) {
 	var server *dex_server.Server
-	// Get a read lock to check if the server is nil (this is rare)
+	config, err := w.apiServer.GetIdentityServerConfig(ctx, &identity.GetIdentityServerConfigRequest{})
+	if err != nil {
+		return nil, err
+	}
+	connectors, err := w.apiServer.ListIDPConnectors(ctx, &identity.ListIDPConnectorsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	// Get a read lock to check if the server needs a restart
 	w.RLock()
-	if w.server == nil {
-		// If the server is nil, unlock and acquire the write lock
+	if w.serverNeedsRestart(config.Config, connectors) {
+		// If the server needs to restart, unlock and acquire the write lock
 		w.RUnlock()
-		w.Lock()
-		defer w.Unlock()
-
-		// Once we have the write lock, check that the server hasn't already been started
-		var server *dex_server.Server
-		var cache bool
-		if w.server == nil {
-			server, cache = w.startWebServer()
-		}
-		if cache {
-			w.server = server
-		}
-		return server
+		return w.startWebServer(config.Config, connectors)
 	}
 
 	server = w.server
 	w.RUnlock()
-	return server
+	return server, nil
 }
 
 // interceptApproval handles the `/approval` route which is called after a user has
 // authenticated to the IDP but before they're redirected back to the OIDC server
 func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.ResponseWriter, *http.Request) {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		storage, err := w.storageProvider.GetStorage(w.logger)
-		if err != nil {
-			return
-		}
-		authReq, err := storage.GetAuthRequest(r.FormValue("req"))
+		authReq, err := w.storageProvider.GetAuthRequest(r.FormValue("req"))
 		if err != nil {
 			w.logger.WithError(err).Error("failed to get auth request")
 			rw.WriteHeader(http.StatusInternalServerError)
@@ -165,7 +168,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		tx, err := w.db.BeginTxx(r.Context(), &sql.TxOptions{})
+		tx, err := w.env.GetDBClient().BeginTxx(r.Context(), &sql.TxOptions{})
 		if err != nil {
 			w.logger.WithError(err).Error("failed to start transaction")
 			rw.WriteHeader(http.StatusInternalServerError)
@@ -188,8 +191,9 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 // ServeHTTP proxies requests to the Dex server, if it's configured.
 //
 func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	server := w.getServer()
+	server, err := w.getServer(r.Context())
 	if server == nil {
+		logrus.WithError(err).Error("unable to start Dex server")
 		http.Error(rw, "unable to start Dex server, check logs", http.StatusInternalServerError)
 		return
 	}

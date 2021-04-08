@@ -104,26 +104,14 @@ func (s *Storage) newReader(fileSet ID, opts ...index.Option) *Reader {
 // Open opens a file set for reading.
 // TODO: It might make sense to have some of the file set transforms as functional options here.
 func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (FileSet, error) {
+	var err error
+	ids, err = s.Flatten(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	var fss []FileSet
 	for _, id := range ids {
-		md, err := s.store.Get(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		switch x := md.Value.(type) {
-		case *Metadata_Primitive:
-			fss = append(fss, s.newReader(id, opts...))
-		case *Metadata_Composite:
-			ids, err := x.Composite.PointsTo()
-			if err != nil {
-				return nil, err
-			}
-			fs, err := s.Open(ctx, ids, opts...)
-			if err != nil {
-				return nil, err
-			}
-			fss = append(fss, fs)
-		}
+		fss = append(fss, s.newReader(id, opts...))
 	}
 	if len(fss) == 0 {
 		return emptyFileSet{}, nil

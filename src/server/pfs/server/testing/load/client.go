@@ -12,7 +12,7 @@ import (
 )
 
 type Client interface {
-	WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFileClient) error) error
+	WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) error
 	GetFileTar(ctx context.Context, repo, commit, path string) (io.Reader, error)
 }
 
@@ -24,7 +24,7 @@ func NewPachClient(client *client.APIClient) Client {
 	return &pachClient{client: client}
 }
 
-func (pc *pachClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFileClient) error) error {
+func (pc *pachClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) error {
 	return pc.client.WithCtx(ctx).WithModifyFileClient(repo, commit, cb)
 }
 
@@ -49,17 +49,17 @@ func NewThroughputLimitClient(client Client, spec *ThroughputSpec) Client {
 	}
 }
 
-func (tlc *throughputLimitClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFileClient) error) error {
-	return tlc.Client.WithModifyFileClient(ctx, repo, commit, func(mfc client.ModifyFileClient) error {
+func (tlc *throughputLimitClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) error {
+	return tlc.Client.WithModifyFileClient(ctx, repo, commit, func(mf client.ModifyFile) error {
 		return cb(&throughputLimitModifyFileClient{
-			ModifyFileClient: mfc,
-			spec:             tlc.spec,
+			ModifyFile: mf,
+			spec:       tlc.spec,
 		})
 	})
 }
 
 type throughputLimitModifyFileClient struct {
-	client.ModifyFileClient
+	client.ModifyFile
 	spec *ThroughputSpec
 }
 
@@ -70,7 +70,7 @@ func (tlmfc *throughputLimitModifyFileClient) PutFile(path string, r io.Reader, 
 			bytesPerSecond: tlmfc.spec.Limit,
 		}
 	}
-	return tlmfc.ModifyFileClient.PutFile(path, r, opts...)
+	return tlmfc.ModifyFile.PutFile(path, r, opts...)
 }
 
 type throughputLimitReader struct {
@@ -113,7 +113,7 @@ func NewCancelClient(client Client, spec *CancelSpec) Client {
 	}
 }
 
-func (cc *cancelClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFileClient) error) (retErr error) {
+func (cc *cancelClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) (retErr error) {
 	if shouldExecute(cc.spec.Prob) {
 		var cancel context.CancelFunc
 		cancelCtx, cancel := context.WithCancel(ctx)
@@ -129,7 +129,7 @@ func (cc *cancelClient) WithModifyFileClient(ctx context.Context, repo, commit s
 		}()
 		ctx = cancelCtx
 	}
-	return cc.Client.WithModifyFileClient(ctx, repo, commit, func(mfc client.ModifyFileClient) error {
-		return cb(mfc)
+	return cc.Client.WithModifyFileClient(ctx, repo, commit, func(mf client.ModifyFile) error {
+		return cb(mf)
 	})
 }

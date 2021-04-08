@@ -156,14 +156,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		return errors.Wrapf(err, "getClusterID")
 	}
 
-	identityStorageProvider := identity_server.NewLazyPostgresStorage(
-		env.Config().PostgresServiceHost,
-		env.Config().IdentityServerDatabase,
-		env.Config().IdentityServerUser,
-		env.Config().IdentityServerPassword,
-		env.Config().PostgresServiceSSL,
-		env.Config().PostgresServicePort,
-	)
+	identityStorageProvider, err := identity_server.NewStorageProvider(env)
+	if err != nil {
+		return err
+	}
 
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
@@ -173,6 +169,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 				env,
 				txnEnv,
 				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
+				true,
 				true,
 				true,
 			)
@@ -235,15 +232,11 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				true,
-				path.Join(env.Config().EtcdPrefix, env.Config().IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -275,6 +268,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				false,
+				true,
 			)
 			if err != nil {
 				return err
@@ -335,15 +329,11 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				false,
-				path.Join(env.Config().EtcdPrefix, env.Config().IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -472,6 +462,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 			false,
 			false,
+			false,
 		)
 		if err != nil {
 			return err
@@ -492,17 +483,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := logGRPCServerSetup("Enterprise API", func() error {
-		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-			env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
-		if err != nil {
-			return err
-		}
-		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -575,6 +555,12 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return errors.Wrapf(err, "getClusterID")
 	}
+
+	identityStorageProvider, err := identity_server.NewStorageProvider(env)
+	if err != nil {
+		return err
+	}
+
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
@@ -606,15 +592,6 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-
-	identityStorageProvider := identity_server.NewLazyPostgresStorage(
-		env.Config().PostgresServiceHost,
-		env.Config().IdentityServerDatabase,
-		env.Config().IdentityServerUser,
-		env.Config().IdentityServerPassword,
-		env.Config().PostgresServiceSSL,
-		env.Config().PostgresServicePort,
-	)
 
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
@@ -664,15 +641,11 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				true,
-				path.Join(env.Config().EtcdPrefix, env.Config().IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -682,7 +655,7 @@ func doFullMode(config interface{}) (retErr error) {
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
-				env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix), true, requireNoncriticalServers)
+				env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix), true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
@@ -826,15 +799,11 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				false,
-				path.Join(env.Config().EtcdPrefix, env.Config().IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -848,6 +817,7 @@ func doFullMode(config interface{}) (retErr error) {
 				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				requireNoncriticalServers,
+				true,
 			)
 			if err != nil {
 				return err
