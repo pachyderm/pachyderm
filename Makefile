@@ -8,15 +8,9 @@ include etc/govars.mk
 
 SHELL=/bin/bash -o pipefail
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
-# Don't set the version to the git hash in CI, as it breaks the go build cache.
-ifdef CIRCLE_BRANCH
-	export VERSION_ADDITIONAL = -CIbuild
-	export GC_FLAGS = ""
-else
-	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
-	export GC_FLAGS = "all=-trimpath=${PWD}"
-endif
 
+export GC_FLAGS = "all=-trimpath=${PWD}"
+export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
