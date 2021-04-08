@@ -57,6 +57,6 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 		_, err := env.Tx.ExecContext(ctx, `CREATE SCHEMA auth`)
 		return err
 	}).
-	Apply("auth tokens", func(ctx context.Context, env migrations.Env) error {
+	Apply("create auth tokens table v0", func(ctx context.Context, env migrations.Env) error {
 		return auth.CreateAuthTokensTable(ctx, env.Tx)
 	})

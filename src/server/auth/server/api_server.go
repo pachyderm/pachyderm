@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/auth"
@@ -604,7 +606,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 			return nil, errors.Wrapf(err, "error looking up expiration for token")
 		}
 		if expiry != nil && time.Now().After(time.Unix(expiry.Seconds, 0)) {
-			return nil, auth.ErrBadToken // token is expired
+			return nil, auth.ErrExpiredToken
 		}
 	}
 
@@ -1365,13 +1367,6 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 	}
 
 	if err := func() error {
-		// Check whether the token hash already exists - we don't want to replace an existing token
-		if _, err := a.lookupAuthTokenInfo(ctx, req.Token.HashedToken); err == nil {
-			return errors.New("cannot overwrite existing token with same hash")
-		} else if !col.IsErrNotFound(err) {
-			return err
-		}
-		// insert token
 		if ttl > 0 {
 			return a.insertAuthToken(ctx, req.Token.HashedToken, req.Token.TokenInfo.Subject, ttl)
 		} else {
@@ -1414,14 +1409,10 @@ func (a *apiServer) lookupAuthTokenExpiration(ctx context.Context, tokenHash str
 	}
 
 	if expiration != nil {
-		if time.Now().After(*expiration) {
-			return nil, auth.ErrBadToken // token is expired
-		}
 		expiryTS, tsErr := types.TimestampProto(*expiration)
 		if tsErr != nil {
 			return nil, tsErr
 		}
-
 		return expiryTS, nil
 	}
 	return nil, nil
@@ -1496,6 +1487,11 @@ func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subje
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
 		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
+		if pgErr, ok := err.(*pq.Error); ok {
+			if pgErr.Code == pq.ErrorCode(pgerrcode.UniqueViolation) {
+				return errors.New("cannot overwrite existing token with same hash")
+			}
+		}
 		return errors.Wrapf(err, "error storing token")
 	}
 	return nil
@@ -1506,6 +1502,11 @@ func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, 
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject) 
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
+		if pgErr, ok := err.(*pq.Error); ok {
+			if pgErr.Code == pq.ErrorCode(pgerrcode.UniqueViolation) {
+				return errors.New("cannot overwrite existing token with same hash")
+			}
+		}
 		return errors.Wrapf(err, "error storing token")
 	}
 	return nil
