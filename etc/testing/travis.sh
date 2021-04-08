@@ -2,7 +2,7 @@
 
 set -ex
 
-export PATH=./:$PATH
+export PATH=./:$GOPATH/bin:$PATH
 
 # Repeatedly restart minikube until it comes up. This corrects for an issue in
 # Travis, where minikube will get stuck on startup and never recover
