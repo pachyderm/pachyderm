@@ -28,24 +28,7 @@ kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-    # Pull the pre-built images. This is only done if we have access to the
-    # secret env vars, because otherwise the build step would've had to be
-    # skipped.
-    make install
-    version=$(pachctl version --client-only)
-    docker pull "pachyderm/pachd:${version}"
-    docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
-    docker pull "pachyderm/worker:${version}"
-    docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
-else
-    make docker-build
-    # push pipeline build images
-    pushd etc/pipeline-build
-        make push-to-minikube
-    popd
-fi
-
+make install
 make launch-loki
 
 for i in $(seq 3); do
