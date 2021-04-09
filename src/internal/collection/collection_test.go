@@ -51,22 +51,10 @@ func idRange(start int, end int) []string {
 	return result
 }
 
-func doWrite(id string) func(rw col.ReadWriteCollection) error {
+func putItem(id string, value ...string) func(rw col.ReadWriteCollection) error {
 	return func(rw col.ReadWriteCollection) error {
-		testProto := makeProto(id)
+		testProto := makeProto(id, value...)
 		return rw.Put(testProto.ID, testProto)
-	}
-}
-
-func doDelete(id string) func(rw col.ReadWriteCollection) error {
-	return func(rw col.ReadWriteCollection) error {
-		return rw.Delete(id)
-	}
-}
-
-func doDeleteAll() func(rw col.ReadWriteCollection) error {
-	return func(rw col.ReadWriteCollection) error {
-		return rw.DeleteAll()
 	}
 }
 
@@ -81,9 +69,7 @@ func canceledContext() context.Context {
 // individual tests.
 func populateCollection(rw col.ReadWriteCollection) error {
 	for _, id := range idRange(0, defaultCollectionSize) {
-		testProto := makeProto(id)
-		testProto.Value = originalValue
-		if err := rw.Create(testProto.ID, testProto); err != nil {
+		if err := putItem(id, originalValue)(rw); err != nil {
 			return err
 		}
 	}

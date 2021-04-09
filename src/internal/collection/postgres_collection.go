@@ -342,17 +342,17 @@ type postgresReadOnlyCollection struct {
 	ctx context.Context
 }
 
-func (c *postgresCollection) get(key string, q sqlx.Queryer) (*model, error) {
+func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.QueryerContext) (*model, error) {
 	result := &model{}
 	queryString := fmt.Sprintf("select proto, updatedat from %s where key = $1;", c.table)
-	if err := sqlx.Get(q, result, queryString, key); err != nil {
+	if err := sqlx.GetContext(ctx, q, result, queryString, key); err != nil {
 		return nil, c.mapSQLError(err, key)
 	}
 	return result, nil
 }
 
 func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
-	result, err := c.get(key, c.db)
+	result, err := c.get(c.ctx, key, c.db)
 	if err != nil {
 		return err
 	}
@@ -565,7 +565,7 @@ func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) 
 	go func() {
 		// Load the initial state of the row
 		lastUpdated := time.Time{}
-		if m, err := c.get(key, c.db); err != nil {
+		if m, err := c.get(c.ctx, key, c.db); err != nil {
 			if !errors.Is(err, ErrNotFound{}) {
 				watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
 				watcher.listener.unregister(watcher)
@@ -607,7 +607,6 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 	options := watch.SumOptions(opts...)
 
 	channelName := c.indexWatchChannel(indexFieldName(index.Name), indexVal)
-	fmt.Printf("listening on channel: %s\n", channelName)
 	watcher, err := c.listener.listen(channelName, c.template, nil, nil, options)
 	if err != nil {
 		return nil, err
@@ -667,7 +666,7 @@ type postgresReadWriteCollection struct {
 }
 
 func (c *postgresReadWriteCollection) Get(key string, val proto.Message) error {
-	result, err := c.get(key, c.tx)
+	result, err := c.get(context.Background(), key, c.tx)
 	if err != nil {
 		return err
 	}
