@@ -13,7 +13,8 @@ sudo apt-get install -y -qq \
   python3-setuptools \
   pkg-config \
   fuse \
-  conntrack
+  conntrack \
+  pv
 
 # Install fuse
 sudo modprobe fuse
