@@ -6,15 +6,16 @@
     The command should return `You are "pach:root"
     (i.e., your are the **Root User** with `clusterAdmin` privileges).
 
+To enable your users to authenticate to Pachyderm by logging into their Identity Provider,
+follow those 3 steps (//TODO link to users list in authorization and mention that we are referring to IdP Users here):
 
-Follow those 3 steps to enable your Pachyderm users (//TODO link to users list in authorization) to sign in through the Identity Provider of your choice :
-
-1. Create the Pachyderm Application at your IdP.
-1. Create your Idp-dex connector.
+1. Register the Pachyderm Application with your IdP.
+1. Set up your Idp-dex connector.
 1. Apply your connector.
+Your users should now be able to [log in](//TODO link to login page).
 
-To illustrate those steps with a real life example, 
-we will use Auth0 as our Identity Provider.
+We chose to illustrate those steps with a real life example, 
+by using Auth0 as our Identity Provider.
 
 [Auth0](https://auth0.com/) is an online authentication platform that
 users can use to log in to various applications.
@@ -26,7 +27,7 @@ Use the IdP of your choice.
 For now, let's configure Pachyderm with Auth0 so that our
 Pachyderm users can log in through Auth0.
 
-## 1- Create a Pachyderm Application at Auth0
+## 1- Register a Pachyderm Application with Auth0
 If you do not have an Auth0 account, sign up for one
 at https://auth0.com and create your Pool of Users 
 (although this step might be done later).
@@ -58,165 +59,104 @@ Then, complete the following steps:
 
    ![Auth0 Grant Settings](../images/auth0-grant-settings.png)
 
+!!! Note
+    For this Auth0 example, we have created a user in **User Management/Users**.
+    We will login to Pachyderm as this user once our IdP connection is completed.
+    ![Auth0 Create User](../images/auth0-create-user.png)
 
-## Create a OIDC Idp-dex connector
+## 2- Set up a Idp-dex connector configuration file
+To configure your IdP-Dex integration, **create a connector configuration file** matching your IdP. 
+For a list of connectors and their configuration options, see [Dex documentation](https://dexidp.io/docs/connectors/).
 
+Here, for an integration with Auth0, we will use an oidc connector with the following parameters.
 
-=== "JSON"
+!!! Note
+    Pachyderm supports the JSON and YAML formats for its connector configuration files. 
 
-    ``` c
-    #include <stdio.h>
+See the oidc connector example in JSON and YAML formats below.
+=== "oidc-dex-connector.json"
 
-    int main(void) {
-      printf("Hello world!\n");
-      return 0;
-    }
-    ```
-
-=== "YAML"
-
-    ``` c++
-    #include <iostream>
-
-    int main(void) {
-      std::cout << "Hello world!" << std::endl;
-      return 0;
-    }
-    ```
-
-
-
-
-
-
-
-
-
-
-
-After you have configured a Pachyderm application in Auth0, you
-need to create a Pachyderm OIDC config with the Auth0 parameters.
-All the required parameters, such as `client_id`, `client_secret`, 
-and othersi, are located on the application settings screen. In addition, OIDC
-settings are exposed at https://appication-domain/.well-known/openid-configuration.
-
-To configure Pachyderm Auth, complete the following steps:
-
-1. Check the status of your license by running:
-
-   ```shell
-   pachctl enterprise get-state
-   ```
-
-   You must have an active enterprise token to proceed.
-
-1. Go to the terminal and forward the `pachd` pod to the OIDC port:
-
-   1. Get the `pachd` pod ID:
-
-      ```shell
-      kubectl get pod
-      ```
-
-      **Example system response:**
-
-      ```shell
-      dash-5768cb7d98-j6cgt       2/2     Running   0          4h2m
-      etcd-56d897697-xzsqr        1/1     Running   0          4h2m
-      keycloak-857c59449b-htg99   1/1     Running   0          4h6m
-      pachd-79f7f68c65-9qs8g      1/1     Running   0          4h2m
-      ```
-
-   1. Forward the `pachd` pod to the OIDC port:
-
-      **Example:**
-
-      ```shell
-      kubectl port-forward pachd-79f7f68c65-9qs8g 30657
-      ```
-
-1. Enable Pachyderm authentication:
-
-   ```shell
-   pachctl auth activate --initial-admin=robot:admin
-   ```
-
-   Pachyderm returns a token.
-
-   **WARNING!** You must save the token to a secure location
-   to avoid being locked out of your cluster.
-
-1. Log in as the admin user with the token you received in the previous
-step:
-
-   1. Log in as the admin user with the token you received in the previous
-step:
-
-   ```shell
-   pachctl auth use-auth-token
-   ```
-
-1. Set up the authentication config:
-
-    ```shell
-    pachctl auth set-config <<EOF
+    ``` json
     {
-            "live_config_version": 1,
-            "id_providers": [{
-            "name": "auth0",
-            "description": "oidc-based authentication with Auth0",
-            "oidc":{
-                    "issuer": "<domain>",
-                    "client_id": "<client-id>",
-                    "client_secret": "<client-secret>",
-                    "redirect_uri": "http://<ip>:30657/authorization-code/callback"
-            }
-        }]
+    "issuer": "https://dev-k34x5yjn.us.auth0.com/",
+    "clientID": "hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5",
+    "clientSecret": "7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL",
+    "redirectURI": "http://<ip>:30658/callback"
     }
-    EOF
     ```
 
-    You need to replace the following placeholders with relevant values:
+=== "oidc-dex-connector.yaml"
 
-    - `issuer` — The domain of your application in Auth0. For example,
-    `dev-7vllfmvr.us.auth0.com/`. Note the trailing slash.
+    ``` yaml
+        connectors:
+        - type: oidc
+        id: auth0
+        name: Auth0
+        version: 1
+        config:
+            # Canonical URL of the provider, also used for configuration discovery.
+            # This value MUST match the value returned in the provider config discovery.
+            #
+            # See: https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig
+            issuer: https://dev-k34x5yjn.us.auth0.com/
 
-    - `client_id` — The Pachyderm **Client ID** in Auth0. The client ID
-    consists of alphanumeric characters and can be found on the application
-    settings page.
+            # Connector config values starting with a "$" will read from the environment.
+            clientID: hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5
+            clientSecret: 7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL
 
-    - `client_secret` - The Pachyderm client secret in Auth0 located
-    on the application settings page.
-    - `redirect_uri` - This parameter should match what you have added
-    to **Allowed Callback URLs** in the previous step.
-
-1. Log in as the user you have created in the Pachyderm application
-or sign in with Google:
-
-   1. Run:
-
-      ```shell
-      pachctl auth login
-      ```
-
-      You should be prompted to a web-browser. Log in as the user you have
-      previously created in Auth0 or sign in with Google.
-
-    You should see the following message printed out in your browser:
-
-    ```
-    You are now logged in. Go back to the terminal to use Pachyderm!
+            # Dex's issuer URL + "/callback"
+            redirectURI: http://<id>:30658/callback
     ```
 
-1. In the terminal, check that you are logged in as the Auth0 user:
+You will need to replace the following placeholders with relevant values:
 
-   ```shell
-   pachctl auth whoami
-   ```
+- `issuer` — The domain of your application (here in Auth0). For example,
+`https://dev-k34x5yjn.us.auth0.com/`. **Note the trailing slash**.
 
-   **Example of System Response:**
+- `client_id` — The Pachyderm **Client ID** (here in Auth0). The client ID
+consists of alphanumeric characters and can be found on the application
+settings page.
 
-   ```shell
-   You are "auth0:test@pachyderm.com"
-   session expires: 07 Aug 20 14:04 PDT
-   ```
+- `client_secret` - The Pachyderm client secret (here in Auth0) located
+on the application settings page.
+
+- `redirect_uri` - This parameter should match what you have added
+to **Allowed Callback URLs** when registering Pachyderm on your IdP website.
+
+View a [sample config](https://dexidp.io/docs/connectors/oidc/) in Dex documentation.
+
+## 3- Apply your Idp-dex connector
+After you have registered your Pachyderm application with Auth0, 
+and created an IdP-Pachyderm connector config file (here with the Auth0 parameters),
+you need to connect your IdP to Pachyderm. 
+Run the following command:
+
+```shell
+$ pachctl idp create-connector --id auth0 --name Auth0 --type oidc --config -oidc-dex-connector.json
+```
+//TODO Update when json supports. the additional fields
+or
+```shell
+$ pachctl idp create-connector --config -oidc-dex-connector.yaml
+```
+Check your connector's parameters by running:
+```shell
+$ pachctl idp get-connector <your connector id: auth0>
+```
+
+Per default, the `version` field of the connector is set to 0 when created.
+However, you can set its value to a different integer.
+
+You will specifically need to increment this value when updating your connector.
+```shell
+$ pachctl idp update-connector auth0 --version 1
+```
+or
+```shell
+$ pachctl idp update-connector --config -oidc-dex-connector.yaml
+```
+!!! Info
+    Run `pachct idp --help` for a full list of commands.
+    In particular, those commands let you create, update, delete, list, or get a specific connector.
+
+The users registered with your IdP are now ready to Log in to Pachyderm. (//TODO add link to Login page)
