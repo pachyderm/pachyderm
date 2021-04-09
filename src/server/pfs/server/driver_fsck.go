@@ -252,17 +252,15 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 	newCommitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.List(repoInfo, col.DefaultOptions(), func() error {
-		commits := d.commits.With(pfsdb.CommitsRepoIndex, repoInfo.Repo.Name).ReadOnly(ctx)
 		commitInfo := &pfs.CommitInfo{}
-		if err := commits.List(commitInfo, col.DefaultOptions(), func() error {
+		if err := d.commits.ReadOnly(ctx).GetByIndex(pfsdb.CommitsRepoIndex, repoInfo.Repo.Name, commitInfo, col.DefaultOptions(), func() error {
 			commitInfos[key(repoInfo.Repo.Name, commitInfo.Commit.ID)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 			return nil
 		}); err != nil {
 			return err
 		}
-		branches := d.branches.With(pfsdb.BranchesRepoIndex, repoInfo.Repo.Name).ReadOnly(ctx)
 		branchInfo := &pfs.BranchInfo{}
-		return branches.List(branchInfo, col.DefaultOptions(), func() error {
+		return d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, repoInfo.Repo.Name, branchInfo, col.DefaultOptions(), func() error {
 			branchInfos[key(repoInfo.Repo.Name, branchInfo.Branch.Name)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
 			return nil
 		})
@@ -578,7 +576,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 				// We've observed users getting ErrExists from this create,
 				// which doesn't make a lot of sense, but we insulate against
 				// it anyways so it doesn't prevent the command from working.
-				if err := d.commits.With(pfsdb.CommitsRepoIndex, ci.Commit.Repo.Name).ReadWrite(sqlTx).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
+				if err := d.commits.ReadWrite(sqlTx).Create(pfsdb.CommitKey(ci.Commit), ci); err != nil && !col.IsErrExists(err) {
 					return err
 				}
 			}

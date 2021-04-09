@@ -375,6 +375,113 @@ func collectionTests(
 			})
 		})
 
+		type WatchTester interface {
+			Run(ops ...func())
+
+			// These functions construct operations for use with Run
+			DoCancel() func() // cancels the watcher's context or closes the watcher
+			DoWrite(id string, value string) func() // writes a row with the given ID and value
+			ExpectEvent(expected testEvent) func() // expects an event matching the given event
+			ExpectEventSet(expected ...testEvent) func() // expects a set of events matching the given events (in no given order)
+			ExpectError(err error) func() // expects an error that matches the given error type
+		}
+
+		type ChannelWatchTester struct {}
+
+		func (cwt *ChannelWatchTester) nextEvent(timeout time.Duration) *ev.Event {
+			select {
+			case ev := <-watcher.Watch():
+				return ev
+			case <-time.After(timeout):
+				return nil
+			}
+		}
+
+		func (cwt *ChannelWatchTester) DoCancel() {
+			return func() {
+				cwt.cancel()
+			}
+		}
+
+		func (cwt *ChannelWatchTester) DoWrite(id string, value string) {
+		}
+
+		newChannelWatchTester := func(t *testing.T, watcher watch.Watcher, cancel func()) {
+		}
+
+		type CallbackWatcherShim struct {}
+
+		type CallbackWatchTester struct {}
+
+		newCallbackWatchTester := func(t *testing.T, makeWatch func(func(*watch.Event) error) error) {
+		}
+
+		type WatchStepFn = func(timeout time.Duration) *watch.Event
+
+		testWatchCallback := func(ops ...func(WatchStepFn)) func(*watch.Event) error {
+			// TODO: spawn a goroutine that puts the watch back into a watcher interface and then use testWatcher
+			return func(*watch.Event) error {
+				return nil
+			}
+		}
+
+		testWatcher := func(watcher watch.Watcher, ops ...func(WatchStepFn)) error {
+			step := func(timeout time.Duration) *ev.Event {
+				select {
+				case ev := <-watcher.Watch():
+					return ev
+				case <-time.After(timeout):
+					return nil
+				}
+			}
+			for _, op := range ops {
+				op(nextEvent)
+			}
+		}
+
+		doWrite := func(t *testing.T, writer WriteCallback, id string) func(WatchStepFn) {
+			return func(step WatchStepFn) {
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := makeProto(id)
+					return rw.Put(testProto.ID, testProto)
+				})
+				require.NoError(t, err)
+			}
+		}
+
+		// Expects to receive an event matching the given testEvent
+		expectEvent := func(t *testing.T, expected testEvent) func(WatchStepFn) {
+			return expectEventSet(t, expected)
+		}
+
+		// Expects to receive a set of events matching the given testEvents in no particular order
+		expectEventSet := func(t *testing.T, expected ...testEvent) func(WatchStepFn) {
+			return func(step WatchStepFn) {
+				actual := []*watch.Event{}
+				for _ := range expected {
+					next := step(100 * time.Millisecond)
+					require.NotNil(t, next)
+					ev := testEvent{Type: next.Type, Key: string(next.Key)}
+					if ev.Proto != nil {
+						ev.Proto := &col.TestItem{}
+						require.NoError(t, proto.Unmarshal(next.Value, ev.Proto))
+					}
+					actual = append(actual, ev)
+				}
+				require.ElementsEqual(t, expected, actual)
+			}
+		}
+
+		expectError := func(t *testing.T, err error) func(WatchStepFn) {
+		}
+
+		// Expects no events to be received in the given timeout
+		expectNothing := func(t *testing.T) func(WatchStepFn) {
+			return func(step WatchStepFn) {
+				require.Nil(t, step(100*time.Millisecond))
+			}
+		}
+
 		// 'Watch' functions with callbacks don't have a good hook to trigger
 		// events. This is a bit racy, but we can sleep a bit to let the listen get
 		// started, then trigger some writes.
@@ -420,7 +527,7 @@ func collectionTests(
 		}
 
 		checkEvents := func(t *testing.T, actual []*watch.Event, expected []testEvent) {
-			require.Equal(t, len(actual), len(expected), "Incorrect number of watch events")
+			require.Equal(t, len(expected), len(actual), "Incorrect number of watch events")
 			for i := 0; i < len(actual); i++ {
 				require.Equal(t, expected[i].Type, actual[i].Type)
 				if actual[i].Type != watch.EventError {
@@ -857,6 +964,144 @@ func collectionTests(
 				err := watchRead.WatchOneF(idA, collectEventsCallback(len(expected), &events))
 				require.NoError(t, err)
 				checkEvents(t, events, expected)
+			})
+		})
+
+		suite.Run("WatchByIndex", func(subsuite *testing.T) {
+			subsuite.Parallel()
+
+			subsuite.Run("Interruption", func(t *testing.T) {
+				t.Parallel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(canceledContext())
+				writer(context.Background(), doWrite(makeID(3)))
+
+				watcher, err := watchRead.WatchByIndex(TestSecondaryIndex, changedValue)
+				// Difference between postgres and etcd - etcd will error at the `Watch` call, postgres will error in the channel
+				if err != nil {
+					require.True(t, errors.Is(err, context.Canceled))
+					return
+				}
+				defer watcher.Close()
+
+				events := []*watch.Event{}
+				collectEventsChannel(watcher, 1, &events)
+				checkEvents(t, events, []testEvent{{watch.EventError, "", nil}})
+				require.YesError(t, events[0].Err)
+				require.True(t, errors.Is(events[0].Err, context.Canceled))
+			})
+
+			subsuite.Run("InterruptionAfterInitial", func(t *testing.T) {
+				t.Parallel()
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(ctx)
+				id := makeID(4)
+				writer(context.Background(), doWrite(id))
+				asyncWrite(t, writer, doDelete(id))
+
+				watcher, err := watchRead.WatchByIndex(TestSecondaryIndex, changedValue)
+				require.NoError(t, err)
+				defer watcher.Close()
+
+				events := []*watch.Event{}
+				for {
+					events = append(events, <-watcher.Watch())
+					if events[len(events)-1].Type == watch.EventError {
+						break
+					}
+					if len(events) == 2 {
+						cancel()
+					}
+				}
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, id, makeProto(id)},
+					{watch.EventDelete, id, nil},
+					{watch.EventError, "", nil},
+				})
+				require.YesError(t, events[2].Err)
+				require.True(t, errors.Is(events[2].Err, context.Canceled))
+			})
+
+			subsuite.Run("Delete", func(t *testing.T) {
+				t.Parallel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(context.Background())
+				id := makeID(1)
+				writer(context.Background(), doWrite(id))
+				asyncWrite(t, writer, doDelete(id))
+
+				events := []*watch.Event{}
+				watcher, err := watchRead.WatchByIndex(TestSecondaryIndex, changedValue)
+				require.NoError(t, err)
+				defer watcher.Close()
+				collectEventsChannel(watcher, 2, &events)
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, id, makeProto(id)},
+					{watch.EventDelete, id, nil},
+				})
+			})
+
+			subsuite.Run("DeleteAll", func(t *testing.T) {
+				t.Parallel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(context.Background())
+				idA := makeID(1)
+				idB := makeID(2)
+				writer(context.Background(), doWrite(idA))
+				writer(context.Background(), doWrite(idB))
+				asyncWrite(t, writer, doDeleteAll())
+
+				events := []*watch.Event{}
+				watcher, err := watchRead.WatchByIndex(TestSecondaryIndex, changedValue)
+				require.NoError(t, err)
+				defer watcher.Close()
+				collectEventsChannel(watcher, 4, &events)
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, idA, makeProto(idA)},
+					{watch.EventPut, idB, makeProto(idB)},
+					{watch.EventDelete, idA, nil}, // TODO: deleteAll order isn't well-defined?
+					{watch.EventDelete, idB, nil},
+				})
+			})
+
+			subsuite.Run("Create", func(t *testing.T) {
+				t.Parallel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(context.Background())
+				idA := makeID(1)
+				idB := makeID(2)
+				asyncWrite(t, writer, doWrite(idA), doWrite(idB))
+
+				events := []*watch.Event{}
+				watcher, err := watchRead.WatchByIndex(TestSecondaryIndex, changedValue)
+				require.NoError(t, err)
+				defer watcher.Close()
+				collectEventsChannel(watcher, 2, &events)
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, idA, makeProto(idA)},
+					{watch.EventPut, idB, makeProto(idB)},
+				})
+			})
+
+			subsuite.Run("Overwrite", func(t *testing.T) {
+				t.Parallel()
+				reader, writer := newCollection(context.Background(), t)
+				watchRead := reader(context.Background())
+				id := makeID(1)
+				writer(context.Background(), doWrite(id))
+				asyncWrite(t, writer, doWrite(id))
+
+				events := []*watch.Event{}
+				watcher, err := watchRead.WatchByIndex(TestSecondaryIndex, changedValue)
+				require.NoError(t, err)
+				defer watcher.Close()
+				collectEventsChannel(watcher, 2, &events)
+				checkEvents(t, events, []testEvent{
+					{watch.EventPut, id, makeProto(id)},
+					{watch.EventPut, id, makeProto(id)},
+				})
 			})
 		})
 	})

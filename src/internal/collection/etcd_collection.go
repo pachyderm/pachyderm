@@ -506,10 +506,10 @@ func watchF(ctx context.Context, watcher watch.Watcher, f func(e *watch.Event) e
 }
 
 // WatchByIndex watches items in a collection that match a particular index
-func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string) (watch.Watcher, error) {
+func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string, opts ...watch.Option) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
-	watcher, err := watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template)
+	watcher, err := watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -570,6 +570,15 @@ func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string) (watch.W
 		}
 	}()
 	return watch.MakeEtcdWatcher(eventCh, done), nil
+}
+
+func (c *etcdReadOnlyCollection) WatchByIndexF(index *Index, indexVal string, f func(e *watch.Event) error, opts ...watch.Option) error {
+	watcher, err := c.WatchByIndex(index, indexVal, opts...)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	return watchF(c.ctx, watcher, f)
 }
 
 // WatchOne watches a given item.  The first value returned from the watch

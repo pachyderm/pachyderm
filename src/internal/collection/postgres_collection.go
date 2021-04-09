@@ -36,13 +36,12 @@ var (
 )
 
 type postgresCollection struct {
-	db         *sqlx.DB
-	listener   *PostgresListener
-	template   proto.Message
-	table      string
-	indexes    []*Index
-	withFields map[string]string
-	keyCheck   func(string) error
+	db       *sqlx.DB
+	listener *PostgresListener
+	template proto.Message
+	table    string
+	indexes  []*Index
+	keyCheck func(string) error
 }
 
 func indexFieldName(name string) string {
@@ -96,11 +95,13 @@ declare
   row record;
 	encoded_key text;
 	base_payload text;
+	payload_end text;
 	payload text;
 	base_channel text;
 	channel text;
 	field text;
 	value text;
+	old_value text;
 begin
   case tg_op
 	when 'INSERT', 'UPDATE' then
@@ -112,7 +113,8 @@ begin
 	end case;
 
 	encoded_key := encode(row.key::bytea, 'base64');
-	base_payload := encoded_key || ' ' || tg_op || ' ' || date_part('epoch', now())::text || ' ' || encode(row.proto, 'base64');
+	payload_end := date_part('epoch', now())::text || ' ' || encode(row.proto, 'base64');
+	base_payload := encoded_key || ' ' || tg_op || ' ' || payload_end;
 	base_channel := '%s_' || tg_table_name;
 
 	if tg_argv is not null then
@@ -122,6 +124,16 @@ begin
 				payload := field || ' ' || encode(value::bytea, 'base64') || ' ' || base_payload;
 				channel := base_channel || '_' || md5(field || ' ' || value);
 				perform pg_notify(channel, payload);
+
+				/* If an update changes this field value, we need to delete it from any watchers of the old value */
+				if tg_op = 'UPDATE' then
+					execute 'select ($1).' || field || '::text;' into old_value using old;
+					if old_value is not null and old_value is distinct from value then
+						payload := field || ' ' || encode(old_value::bytea, 'base64') || ' ' || encoded_key || ' DELETE ' || payload_end;
+						channel := base_channel || '_' || md5(field || ' ' || old_value);
+						perform pg_notify(channel, payload);
+					end if;
+				end if;
 			end if;
 		end loop;
 	end if;
@@ -203,23 +215,20 @@ func NewPostgresCollection(ctx context.Context, db *sqlx.DB, listener *PostgresL
 	}
 
 	c := &postgresCollection{
-		db:         db,
-		listener:   listener,
-		template:   template,
-		table:      table,
-		indexes:    indexes,
-		withFields: make(map[string]string),
-		keyCheck:   keyCheck,
+		db:       db,
+		listener: listener,
+		template: template,
+		table:    table,
+		indexes:  indexes,
+		keyCheck: keyCheck,
 	}
 	return c, nil
 }
 
-// With will return a subview of the collection where the given field is set to
-// the given value. Watches with more than one predicate are inefficient and
-// must do filtering on the client side. Try to avoid `Watch` and `WatchF` using
-// more than one `With` field, and avoid `WatchOne` or `WatchOneF` using any
-// `With` fields.
-func (c *postgresCollection) With(index *Index, value string) PostgresCollection {
+// Indexes passed into queries are required to be the same object used at
+// construction time to ensure that their Name field and Extract method are
+// identical.
+func (c *postgresCollection) validateIndex(index *Index) error {
 	found := false
 	for _, idx := range c.indexes {
 		if idx == index {
@@ -228,22 +237,9 @@ func (c *postgresCollection) With(index *Index, value string) PostgresCollection
 		}
 	}
 	if !found {
-		panic(fmt.Sprintf("Unknown collection index: %s", index.Name))
+		return errors.Errorf("Unknown collection index: %s", index.Name)
 	}
-
-	newWithFields := map[string]string{index.Name: value}
-	for k, v := range c.withFields {
-		newWithFields[k] = v
-	}
-
-	return &postgresCollection{
-		db:         c.db,
-		listener:   c.listener,
-		template:   c.template,
-		table:      c.table,
-		indexes:    c.indexes,
-		withFields: newWithFields,
-	}
+	return nil
 }
 
 func (c *postgresCollection) tableWatchChannel() string {
@@ -347,17 +343,9 @@ type postgresReadOnlyCollection struct {
 }
 
 func (c *postgresCollection) get(key string, q sqlx.Queryer) (*model, error) {
-	fields := []string{"key = $1"}
-	params := []interface{}{key}
-	for k, v := range c.withFields {
-		fields = append(fields, fmt.Sprintf("%s = $%d", indexFieldName(k), len(params)+1))
-		params = append(params, v)
-	}
-
-	queryString := fmt.Sprintf("select proto, updatedat from %s where %s;", c.table, strings.Join(fields, " and "))
 	result := &model{}
-
-	if err := sqlx.Get(q, result, queryString, params...); err != nil {
+	queryString := fmt.Sprintf("select proto, updatedat from %s where key = $1;", c.table)
+	if err := sqlx.Get(q, result, queryString, key); err != nil {
 		return nil, c.mapSQLError(err, key)
 	}
 	return result, nil
@@ -372,7 +360,15 @@ func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
 }
 
 func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func() error) error {
-	return c.With(index, indexVal).ReadOnly(c.ctx).List(val, opts, f)
+	if err := c.validateIndex(index); err != nil {
+		return err
+	}
+	return c.list(map[string]string{indexFieldName(index.Name): indexVal}, opts, func(m *model) error {
+		if err := proto.Unmarshal(m.Proto, val); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return f()
+	})
 }
 
 func orderToSQL(order etcd.SortOrder) (string, error) {
@@ -390,21 +386,21 @@ func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string
 	case SortByCreateRevision:
 		return "createdat", nil
 	case SortByModRevision:
-		return "xmin", nil
+		return "updatedat", nil
 	case SortByKey:
 		return "key", nil
 	}
 	return "", errors.Errorf("unsupported sort target for postgres collections: %d", target)
 }
 
-func (c *postgresReadOnlyCollection) list(opts *Options, f func(*model) error) error {
+func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from %s", c.table)
 
 	params := map[string]interface{}{}
-	if len(c.withFields) > 0 {
+	if len(withFields) > 0 {
 		fields := []string{}
-		for k, v := range c.withFields {
-			fields = append(fields, fmt.Sprintf("%s = :%s", indexFieldName(k), k))
+		for k, v := range withFields {
+			fields = append(fields, fmt.Sprintf("%s = :%s", k, k))
 			params[k] = v
 		}
 		query += " where " + strings.Join(fields, " and ")
@@ -433,6 +429,9 @@ func (c *postgresReadOnlyCollection) list(opts *Options, f func(*model) error) e
 		}
 
 		if err := f(result); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
 			return err
 		}
 	}
@@ -441,29 +440,15 @@ func (c *postgresReadOnlyCollection) list(opts *Options, f func(*model) error) e
 }
 
 func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func() error) error {
-	err := c.list(opts, func(m *model) error {
+	return c.list(nil, opts, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
-
 		return f()
 	})
-
-	if errors.Is(err, errutil.ErrBreak) {
-		return nil
-	}
-	return err
 }
 
-// ListRev emulates the behavior of etcd collection's ListRev, but doesn't
-// reproduce it exactly. The revisions returned are not from the database -
-// postgres uses 32-bit transaction ids and doesn't include one for the creating
-// transaction of a row. So, we fake a revision id by sorting rows by their
-// create/update timestamp and incrementing a fake revision id every time the
-// timestamp changes. Note that the etcd implementation always returns the
-// create revision, but that only works here if you also sort by the create
-// revision.
-func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(int64) error) error {
+func (c *postgresReadOnlyCollection) listRev(withFields map[string]string, val proto.Message, opts *Options, f func(int64) error) error {
 	fakeRev := int64(0)
 	lastTimestamp := time.Time{}
 
@@ -474,7 +459,7 @@ func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f
 		}
 	}
 
-	err := c.list(opts, func(m *model) error {
+	return c.list(nil, opts, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -487,11 +472,27 @@ func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f
 
 		return f(fakeRev)
 	})
+}
 
-	if errors.Is(err, errutil.ErrBreak) {
-		return nil
+// ListRev emulates the behavior of etcd collection's ListRev, but doesn't
+// reproduce it exactly. The revisions returned are not from the database -
+// postgres uses 32-bit transaction ids and doesn't include one for the creating
+// transaction of a row. So, we fake a revision id by sorting rows by their
+// create/update timestamp and incrementing a fake revision id every time the
+// timestamp changes. Note that the etcd implementation always returns the
+// create revision, but that only works here if you also sort by the create
+// revision.
+func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(int64) error) error {
+	return c.listRev(nil, val, opts, f)
+}
+
+// GetRevByIndex is identical to ListRev except that it filters the results
+// according to a predicate on the given index.
+func (c *postgresReadOnlyCollection) GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(int64) error) error {
+	if err := c.validateIndex(index); err != nil {
+		return err
 	}
-	return err
+	return c.listRev(map[string]string{indexFieldName(index.Name): indexVal}, val, opts, f)
 }
 
 func (c *postgresReadOnlyCollection) Count() (int64, error) {
@@ -512,10 +513,10 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 	}
 
 	go func() {
-		// Do a List of the collection to get the initial state
+		// Do a list of the collection to get the initial state
 		lastUpdated := time.Time{}
 		val := cloneProtoMsg(c.template)
-		if err := c.list(&Options{Target: options.SortTarget, Order: options.SortOrder}, func(m *model) error {
+		if err := c.list(nil, &Options{Target: options.SortTarget, Order: options.SortOrder}, func(m *model) error {
 			if err := proto.Unmarshal(m.Proto, val); err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -586,12 +587,69 @@ func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) 
 		// Forward all buffered notifications until the watcher is closed
 		watcher.forwardNotifications(c.ctx, lastUpdated)
 	}()
-
 	return watcher, nil
 }
 
 func (c *postgresReadOnlyCollection) WatchOneF(key string, f func(*watch.Event) error, opts ...watch.Option) error {
 	watcher, err := c.WatchOne(key, opts...)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	return watchF(c.ctx, watcher, f)
+}
+
+func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string, opts ...watch.Option) (watch.Watcher, error) {
+	if err := c.validateIndex(index); err != nil {
+		return nil, err
+	}
+
+	options := watch.SumOptions(opts...)
+
+	channelName := c.indexWatchChannel(indexFieldName(index.Name), indexVal)
+	fmt.Printf("listening on channel: %s\n", channelName)
+	watcher, err := c.listener.listen(channelName, c.template, nil, nil, options)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		// Do a list of the collection to get the initial state
+		lastUpdated := time.Time{}
+		val := cloneProtoMsg(c.template)
+		opts := &Options{Target: options.SortTarget, Order: options.SortOrder}
+		withFields := map[string]string{indexFieldName(index.Name): indexVal}
+		if err := c.list(withFields, opts, func(m *model) error {
+			if err := proto.Unmarshal(m.Proto, val); err != nil {
+				return errors.EnsureStack(err)
+			}
+
+			if lastUpdated.Before(m.UpdatedAt) {
+				lastUpdated = m.UpdatedAt
+			}
+
+			return watcher.sendInitial(&watch.Event{
+				Key:      []byte(m.Key),
+				Value:    m.Proto,
+				Type:     watch.EventPut,
+				Template: c.template,
+			})
+		}); err != nil {
+			// Ignore any additional error here - we're already attempting to send an error to the user
+			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
+			watcher.listener.unregister(watcher)
+			return
+		}
+
+		// Forward all buffered notifications until the watcher is closed
+		watcher.forwardNotifications(c.ctx, lastUpdated)
+	}()
+
+	return watcher, nil
+}
+
+func (c *postgresReadOnlyCollection) WatchByIndexF(index *Index, indexVal string, f func(*watch.Event) error, opts ...watch.Option) error {
+	watcher, err := c.WatchByIndex(index, indexVal, opts...)
 	if err != nil {
 		return err
 	}
@@ -712,15 +770,8 @@ func (c *postgresReadWriteCollection) Create(key string, val proto.Message) erro
 }
 
 func (c *postgresReadWriteCollection) Delete(key string) error {
-	fields := []string{"key = $1"}
-	params := []interface{}{key}
-	for k, v := range c.withFields {
-		fields = append(fields, fmt.Sprintf("%s = $%d", indexFieldName(k), len(params)+1))
-		params = append(params, v)
-	}
-
-	query := fmt.Sprintf("delete from %s where %s", c.table, strings.Join(fields, " and "))
-	res, err := c.tx.Exec(query, params...)
+	query := fmt.Sprintf("delete from %s where key = $1", c.table)
+	res, err := c.tx.Exec(query, key)
 	if err != nil {
 		return c.mapSQLError(err, key)
 	}
@@ -735,18 +786,16 @@ func (c *postgresReadWriteCollection) Delete(key string) error {
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
 	query := fmt.Sprintf("delete from %s", c.table)
-	params := []interface{}{}
+	_, err := c.tx.Exec(query)
+	return c.mapSQLError(err, "")
+}
 
-	if len(c.withFields) > 0 {
-		fields := []string{}
-		for k, v := range c.withFields {
-			fields = append(fields, fmt.Sprintf("%s = $%d", indexFieldName(k), len(params)+1))
-			params = append(params, v)
-		}
-		query += " where " + strings.Join(fields, " and ")
+func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal string) error {
+	if err := c.validateIndex(index); err != nil {
+		return err
 	}
-
-	_, err := c.tx.Exec(query, params...)
+	query := fmt.Sprintf("delete from %s where %s = $1", c.table, indexFieldName(index.Name))
+	_, err := c.tx.Exec(query, indexVal)
 	return c.mapSQLError(err, "")
 }
 

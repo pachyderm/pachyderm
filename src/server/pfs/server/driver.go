@@ -358,10 +358,9 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	}
 
 	// make a list of all the commits
-	commits := d.commits.With(pfsdb.CommitsRepoIndex, repo.Name).ReadOnly(txnCtx.ClientContext)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
-	if err := commits.List(commitInfo, col.DefaultOptions(), func() error {
+	if err := d.commits.ReadOnly(txnCtx.ClientContext).GetByIndex(pfsdb.CommitsRepoIndex, repo.Name, commitInfo, col.DefaultOptions(), func() error {
 		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
@@ -390,7 +389,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 
 			// fix prov's subvenance
 			provCI := &pfs.CommitInfo{}
-			if err := d.commits.With(pfsdb.CommitsRepoIndex, prov.Commit.Repo.Name).ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(prov.Commit), provCI, func() error {
+			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(prov.Commit), provCI, func() error {
 				subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
 				for subvFrom, subv := range provCI.Subvenance {
 					if subv.Upper.Repo.Name == repo.Name {
@@ -434,11 +433,13 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// deleteBranch, we also do branches.DeleteAll(), this insulates us
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in postgres but branches do.
-	branches := d.branches.With(pfsdb.BranchesRepoIndex, repo.Name).ReadWrite(txnCtx.SqlTx)
-	branches.DeleteAll()
+	if err := d.branches.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.BranchesRepoIndex, repo.Name); err != nil {
+		return err
+	}
 	// Similarly with commits
-	commitsX := d.commits.With(pfsdb.CommitsRepoIndex, repo.Name).ReadWrite(txnCtx.SqlTx)
-	commitsX.DeleteAll()
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, repo.Name); err != nil {
+		return err
+	}
 	if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
 		return errors.Wrapf(err, "repos.Delete")
 	}
@@ -1368,20 +1369,9 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		number = math.MaxUint64
 	}
 
-	commitInfos := d.commits.ReadOnly(ctx)
-	if repo.Name != "" {
-		commitInfos = d.commits.With(pfsdb.CommitsRepoIndex, repo.Name).ReadOnly(ctx)
-	}
-
 	if from != nil && to == nil {
 		return errors.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
-		// if neither from and to is given, we list all commits in
-		// the repo, sorted by revision timestamp (or reversed if so requested.)
-		opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
-		if reverse {
-			opts.Order = col.SortAscend
-		}
 		// we hold onto a revisions worth of cis so that we can sort them by provenance
 		var cis []*pfs.CommitInfo
 		// sendCis sorts cis and passes them to f
@@ -1406,7 +1396,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		}
 		ci := &pfs.CommitInfo{}
 		lastRev := int64(-1)
-		if err := commitInfos.ListRev(ci, opts, func(createRev int64) error {
+		listCallback := func(createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -1418,8 +1408,23 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 			}
 			cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
 			return nil
-		}); err != nil {
-			return err
+		}
+
+		// if neither from and to is given, we list all commits in
+		// the repo, sorted by revision timestamp (or reversed if so requested.)
+		opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+		if reverse {
+			opts.Order = col.SortAscend
+		}
+
+		if repo.Name == "" {
+			if err := d.commits.ReadOnly(ctx).ListRev(ci, opts, listCallback); err != nil {
+				return err
+			}
+		} else {
+			if err := d.commits.ReadOnly(ctx).GetRevByIndex(pfsdb.CommitsRepoIndex, repo.Name, ci, opts, listCallback); err != nil {
+				return err
+			}
 		}
 
 		// Call sendCis one last time to send whatever's pending in 'cis'
@@ -1433,7 +1438,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
 			var commitInfo pfs.CommitInfo
-			if err := commitInfos.Get(pfsdb.CommitKey(cursor), &commitInfo); err != nil {
+			if err := d.commits.ReadOnly(ctx).Get(pfsdb.CommitKey(cursor), &commitInfo); err != nil {
 				return err
 			}
 			if err := cb(&commitInfo); err != nil {
@@ -1755,9 +1760,8 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
 
-	// TODO: change this to use a watch by index - With currently doesn't do anything for postgres watches
-	repoCommits := d.commits.With(pfsdb.CommitsRepoIndex, repo.Name).ReadOnly(pachClient.Ctx())
-	return repoCommits.WatchF(func(ev *watch.Event) error {
+	return d.commits.ReadOnly(pachClient.Ctx()).WatchByIndexF(pfsdb.CommitsRepoIndex, repo.Name, func(ev *watch.Event) error {
+		fmt.Printf("got event: %s\n", string(ev.Key))
 		var key string
 		commitInfo := &pfs.CommitInfo{}
 		if err := ev.Unmarshal(&key, commitInfo); err != nil {
@@ -2150,10 +2154,6 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	}
 
 	var result []*pfs.BranchInfo
-	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
-	if reverse {
-		opts.Order = col.SortAscend
-	}
 	var bis []*pfs.BranchInfo
 	sendBis := func() {
 		if !reverse {
@@ -2164,22 +2164,32 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 		result = append(result, bis...)
 		bis = nil
 	}
+
 	lastRev := int64(-1)
 	branchInfo := &pfs.BranchInfo{}
-	repoBranches := d.branches.With(pfsdb.BranchesRepoIndex, repo.Name).ReadOnly(pachClient.Ctx())
-	if repo.Name == "" {
-		repoBranches = d.branches.ReadOnly(pachClient.Ctx())
-	}
-	if err := repoBranches.ListRev(branchInfo, opts, func(createRev int64) error {
+	listCallback := func(createRev int64) error {
 		if createRev != lastRev {
 			sendBis()
 			lastRev = createRev
 		}
 		bis = append(bis, proto.Clone(branchInfo).(*pfs.BranchInfo))
 		return nil
-	}); err != nil {
-		return nil, err
 	}
+
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if reverse {
+		opts.Order = col.SortAscend
+	}
+	if repo.Name == "" {
+		if err := d.branches.ReadOnly(pachClient.Ctx()).ListRev(branchInfo, opts, listCallback); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := d.branches.ReadOnly(pachClient.Ctx()).GetRevByIndex(pfsdb.BranchesRepoIndex, repo.Name, branchInfo, opts, listCallback); err != nil {
+			return nil, err
+		}
+	}
+
 	sendBis()
 	return result, nil
 }
