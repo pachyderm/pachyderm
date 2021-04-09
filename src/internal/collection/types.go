@@ -25,9 +25,6 @@ type PostgresCollection interface {
 
 	// For read-only operations, use the ReadOnly for better performance
 	ReadOnly(ctx context.Context) PostgresReadOnlyCollection
-
-	// With returns a new collection with the given predicate
-	With(field string, val interface{}) PostgresCollection
 }
 
 type EtcdCollection interface {
@@ -65,7 +62,10 @@ type EtcdCollection interface {
 // field `bar` is `test`, we issue a query for all items under
 // `foo__index_bar/test`.
 type Index struct {
-	Field string
+	Name    string
+	Extract func(val proto.Message) string
+
+	// `limit` is an internal implementation detail for etcd collections to avoid list operations overflowing the max message size
 	limit int64
 }
 
@@ -87,6 +87,13 @@ type ReadWriteCollection interface {
 
 type PostgresReadWriteCollection interface {
 	ReadWriteCollection
+
+	DeleteByIndex(index *Index, indexVal string) error
+
+	// Unsupported operations - only here during migration so we can compile
+	// TODO: remove these before merging into master
+	TTL(key string) (int64, error)
+	PutTTL(key string, val proto.Message, ttl int64) error
 }
 
 type EtcdReadWriteCollection interface {
@@ -108,17 +115,26 @@ type EtcdReadWriteCollection interface {
 // ReadOnlyCollection is a collection interface that only supports read ops.
 type ReadOnlyCollection interface {
 	Get(key string, val proto.Message) error
-	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error
+	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func() error) error
 	List(val proto.Message, opts *Options, f func() error) error
+	ListRev(val proto.Message, opts *Options, f func(int64) error) error
 	Count() (int64, error)
 	Watch(opts ...watch.Option) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.Option) error
 	WatchOne(key string, opts ...watch.Option) (watch.Watcher, error)
 	WatchOneF(key string, f func(*watch.Event) error, opts ...watch.Option) error
+	WatchByIndex(index *Index, val string, opts ...watch.Option) (watch.Watcher, error)
+	WatchByIndexF(index *Index, val string, f func(*watch.Event) error, opts ...watch.Option) error
 }
 
 type PostgresReadOnlyCollection interface {
 	ReadOnlyCollection
+
+	GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(int64) error) error
+
+	// Unsupported operation - only here during migration so we can compile
+	// TODO: remove this before merging into master
+	TTL(key string) (int64, error)
 }
 
 type EtcdReadOnlyCollection interface {
@@ -127,8 +143,4 @@ type EtcdReadOnlyCollection interface {
 	// TTL returns the number of seconds that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	TTL(key string) (int64, error)
-
-	ListRev(val proto.Message, opts *Options, f func(createRev int64) error) error
-
-	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
 }

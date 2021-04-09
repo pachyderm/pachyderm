@@ -8,13 +8,15 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 )
 
 // set this to false if you want to keep the database around
@@ -30,11 +32,13 @@ var maxOpenConnsPerPool = postgresMaxConnections / runtime.GOMAXPROCS(0)
 // be created for individual tests.
 type TestDatabaseDeployment interface {
 	NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener)
+	NewDatabaseConfig(t testing.TB) serviceenv.ConfigOption
 }
 
 type postgresDeployment struct {
 	db      *sqlx.DB
-	connect func(testing.TB, string) (*sqlx.DB, *col.PostgresListener)
+	address string
+	port    string
 }
 
 // NewPostgresDeployment creates a kubernetes namespaces containing a
@@ -104,13 +108,14 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	postgres, err := kubeClient.CoreV1().Services(namespaceName).Get("postgres", metav1.GetOptions{})
 	require.NoError(t, err)
 
-	var port int
+	var port int32
 	for _, servicePort := range postgres.Spec.Ports {
 		if servicePort.Name == "client-port" {
-			port = int(servicePort.NodePort)
+			port = servicePort.NodePort
 		}
 	}
-	require.NotEqual(t, 0, port)
+	require.NotEqual(t, int32(0), port)
+	portStr := fmt.Sprintf("%d", port) // for some dumb reason golang likes to use ports as strings?
 
 	// Get the IP address of the nodes (any _should_ work for the service port)
 	nodes, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -125,42 +130,25 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	}
 	require.NotEqual(t, "", address)
 
-	connect := func(t testing.TB, databaseName string) (*sqlx.DB, *col.PostgresListener) {
-		options := []dbutil.Option{
-			dbutil.WithHostPort(address, port),
-			dbutil.WithDBName(databaseName),
-		}
+	db, err := dbutil.NewDB(dbutil.WithHostPort(address, portStr))
+	require.NoError(t, err)
+	initConnection(t, db)
+	t.Cleanup(func() {
+		require.NoError(t, db.Close())
+	})
 
-		db, err := dbutil.NewDB(options...)
-		require.NoError(t, err)
-
-		// Check the connection
-		_, err = db.Exec("SELECT 1")
-		require.NoError(t, err)
-		db.SetMaxOpenConns(maxOpenConnsPerPool)
-
-		t.Cleanup(func() {
-			require.NoError(t, db.Close())
-		})
-
-		listener := col.NewPostgresListener(dbutil.GetDSN(options...))
-		t.Cleanup(func() {
-			require.NoError(t, listener.Close())
-		})
-
-		return db, listener
-	}
-
-	// We don't actually need the listener at this level, just close it
-	// immediately to preserve resources (it should be safe to close multiple
-	// times).
-	db, listener := connect(t, "")
-	require.NoError(t, listener.Close())
-
-	return &postgresDeployment{connect: connect, db: db}
+	return &postgresDeployment{db: db, address: address, port: portStr}
 }
 
-func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener) {
+func initConnection(t testing.TB, db *sqlx.DB) {
+	db.SetMaxOpenConns(maxOpenConnsPerPool)
+
+	// Check that the connection works
+	_, err := db.Exec("SELECT 1")
+	require.NoError(t, err)
+}
+
+func (pd *postgresDeployment) newDatabase(t testing.TB) string {
 	dbName := ephemeralDBName(t)
 	_, err := pd.db.Exec("CREATE DATABASE " + dbName)
 	require.NoError(t, err)
@@ -172,7 +160,37 @@ func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.Postgres
 		})
 	}
 
-	return pd.connect(t, dbName)
+	return dbName
+}
+
+func (pd *postgresDeployment) NewDatabaseConfig(t testing.TB) serviceenv.ConfigOption {
+	dbName := pd.newDatabase(t)
+	return func(config *serviceenv.Configuration) {
+		serviceenv.WithPostgresHostPort(pd.address, pd.port)(config)
+		config.PostgresDBName = dbName
+	}
+}
+
+func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener) {
+	dbName := pd.newDatabase(t)
+	options := []dbutil.Option{
+		dbutil.WithHostPort(pd.address, pd.port),
+		dbutil.WithDBName(dbName),
+	}
+
+	db, err := dbutil.NewDB(options...)
+	require.NoError(t, err)
+	initConnection(t, db)
+	t.Cleanup(func() {
+		require.NoError(t, db.Close())
+	})
+
+	listener := col.NewPostgresListener(dbutil.GetDSN(options...))
+	t.Cleanup(func() {
+		require.NoError(t, listener.Close())
+	})
+
+	return db, listener
 }
 
 // NewTestDB connects to postgres using the default settings, creates a database with a unique name

@@ -1,15 +1,15 @@
 package testpachd
 
 import (
-	"context"
 	"net"
 	"net/url"
 	"path"
 	"testing"
 
 	units "github.com/docker/go-units"
-	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -38,46 +38,52 @@ type RealEnv struct {
 // server instances for supported operations. PPS requires a kubernetes
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
-func NewRealEnv(t *testing.T, db *sqlx.DB, customConfig ...*serviceenv.PachdFullConfiguration) *RealEnv {
+func NewRealEnv(t *testing.T, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	mockEnv := NewMockEnv(t)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}
-	config := serviceenv.NewConfiguration(NewDefaultConfig())
-	if len(customConfig) > 0 {
-		config = serviceenv.NewConfiguration(customConfig[0])
-	}
-
 	etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
 	require.NoError(t, err)
 
-	config.EtcdHost = etcdClientURL.Hostname()
-	config.EtcdPort = etcdClientURL.Port()
-	config.PeerPort = uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)
+	opts := []serviceenv.ConfigOption{
+		DefaultConfigOptions,
+		serviceenv.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
+		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
+	}
+	opts = append(opts, customOpts...) // Overwrite with any custom options
+	config := serviceenv.ConfigFromOptions(opts...)
+	require.NoError(t, cmdutil.Populate(config)) // Overwrite with any environment variables
+
 	servEnv := serviceenv.InitServiceEnv(config)
 
-	err = migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState)
+	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
+	realEnv.PachClient = servEnv.GetPachClient(servEnv.Context())
+
+	t.Cleanup(func() {
+		require.NoError(t, servEnv.Close())
+	})
+
+	err = migrations.ApplyMigrations(servEnv.Context(), servEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
 	require.NoError(t, err)
-	err = migrations.BlockUntil(context.Background(), db, clusterstate.DesiredClusterState)
+	err = migrations.BlockUntil(servEnv.Context(), servEnv.GetDBClient(), clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 
 	realEnv.LocalStorageDirectory = path.Join(realEnv.Directory, "localStorage")
 	config.StorageRoot = realEnv.LocalStorageDirectory
 
-	etcdPrefix := ""
-
 	txnEnv := &txnenv.TransactionEnv{}
 
+	etcdPrefix := ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(
 		servEnv,
 		txnEnv,
 		etcdPrefix,
-		db,
 	)
 	require.NoError(t, err)
 
 	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
 
-	realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv, etcdPrefix)
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv)
 	require.NoError(t, err)
 
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
@@ -91,13 +97,11 @@ func NewRealEnv(t *testing.T, db *sqlx.DB, customConfig ...*serviceenv.PachdFull
 	return realEnv
 }
 
-// NewDefaultConfig creates a new default pachd configuration.
-func NewDefaultConfig() *serviceenv.PachdFullConfiguration {
-	config := &serviceenv.PachdFullConfiguration{}
+// DefaultConfigOptions is a serviceenv config option with the defaults used for tests
+func DefaultConfigOptions(config *serviceenv.Configuration) {
 	config.StorageMemoryThreshold = units.GB
 	config.StorageShardThreshold = units.GB
 	config.StorageLevelFactor = 10
 	config.StorageGCPolling = "30s"
 	config.StorageCompactionMaxFanIn = 50
-	return config
 }

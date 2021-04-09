@@ -17,7 +17,7 @@ func TestPostgresCollections(suite *testing.T) {
 
 	newCollection := func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		db, listener := postgres.NewDatabase(t)
-		testCol, err := col.NewPostgresCollection(ctx, db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
+		testCol, err := col.NewPostgresCollection(ctx, db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, nil)
 		require.NoError(t, err)
 
 		readCallback := func(ctx context.Context) col.ReadOnlyCollection {
@@ -34,18 +34,11 @@ func TestPostgresCollections(suite *testing.T) {
 	}
 
 	collectionTests(suite, newCollection)
+	watchTests(suite, newCollection)
 
 	// TODO: postgres-specific collection tests:
-	suite.Run("With", func(subsuite *testing.T) {
-		subsuite.Run("ReadOnly", func(subsuite *testing.T) {
-			subsuite.Run("Get", func(t *testing.T) {
-			})
-			subsuite.Run("List", func(t *testing.T) {
-			})
-		})
-		subsuite.Run("ReadWrite", func(subsuite *testing.T) {
-			subsuite.Run("Get", func(t *testing.T) {
-			})
-		})
-	})
+	// GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(int64) error) error
+	// DeleteByIndex(index *Index, indexVal string) error
+
+	// TODO: test keycheck function
 }

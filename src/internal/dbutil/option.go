@@ -4,7 +4,7 @@ package dbutil
 type Option func(*dbConfig)
 
 // WithHostPort sets the host and port for the DB.
-func WithHostPort(host string, port int) Option {
+func WithHostPort(host string, port string) Option {
 	return func(dbc *dbConfig) {
 		dbc.host = host
 		dbc.port = port
