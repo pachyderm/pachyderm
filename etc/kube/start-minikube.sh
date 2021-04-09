@@ -7,8 +7,6 @@ VERSION=v1.18.3
 minikube_args=(
   "--vm-driver=docker"
   "--kubernetes-version=${VERSION}"
-  "--alsologtostderr"
-  "--v=2"
 )
 while getopts ":v" opt; do
   case "${opt}" in
