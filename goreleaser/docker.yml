@@ -42,12 +42,15 @@ dockers:
       - "--build-arg=GO_VERSION={{ .Env.GOVERSION }}"
       - "--build-arg=LD_FLAGS={{ .Env.LD_FLAGS }}"
       - "--progress=plain"
+      - "--label=version={{.Version}}"
+      - "--label=release={{.Version}}"
     extra_files:
       - Makefile
       - go.mod
       - go.sum
       - src
       - dex-assets
+      - ./LICENSE
   -
     image_templates:
       - pachyderm/pachd
@@ -56,6 +59,9 @@ dockers:
     dockerfile: etc/pachd/Dockerfile
     extra_files:
       - dex-assets
+    build_flag_templates:
+      - "--label=version={{.Version}}"
+      - "--label=release={{.Version}}"    
   -
     image_templates:
       - pachyderm/pachctl
@@ -79,5 +85,8 @@ dockers:
     build_flag_templates:
       - "--build-arg=GO_VERSION={{ .Env.GOVERSION }}"
       - "--progress=plain"
+      - "--label=version={{.Version}}"
+      - "--label=release={{.Version}}"
     extra_files:
       - etc/worker/init.go
+      - ./LICENSE

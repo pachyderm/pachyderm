@@ -381,59 +381,6 @@ func WhoamiCmd() *cobra.Command {
 	return cmdutil.CreateAlias(whoami, "auth whoami")
 }
 
-// GetAuthTokenCmd returns a cobra command that lets a user get a pachyderm
-// token on behalf of themselves or another user
-func GetAuthTokenCmd() *cobra.Command {
-	var quiet bool
-	var ttl string
-	getAuthToken := &cobra.Command{
-		Use: "{{alias}} [username]",
-		Short: "Get an auth token that authenticates the holder as \"username\", " +
-			"or the currently signed-in user, if no 'username' is provided",
-		Long: "Get an auth token that authenticates the holder as \"username\"; " +
-			"or the currently signed-in user, if no 'username' is provided. Only " +
-			"cluster admins can obtain an auth token on behalf of another user.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
-			req := &auth.GetAuthTokenRequest{}
-			if ttl != "" {
-				d, err := time.ParseDuration(ttl)
-				if err != nil {
-					return errors.Wrapf(err, "could not parse duration %q", ttl)
-				}
-				req.TTL = int64(d.Seconds())
-			}
-			if len(args) == 1 {
-				req.Subject = args[0]
-			}
-			resp, err := c.GetAuthToken(c.Ctx(), req)
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			if quiet {
-				fmt.Println(resp.Token)
-			} else {
-				fmt.Printf("New credentials:\n  Subject: %s\n  Token: %s\n", resp.Subject, resp.Token)
-			}
-			return nil
-		}),
-	}
-	getAuthToken.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "if "+
-		"set, only print the resulting token (if successful). This is useful for "+
-		"scripting, as the output can be piped to use-auth-token")
-	getAuthToken.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, the "+
-		"resulting auth token will have the given lifetime (or the lifetime"+
-		"of the caller's current session, whichever is shorter). This flag should "+
-		"be a golang duration (e.g. \"30s\" or \"1h2m3s\"). If unset, tokens will "+
-		"have a lifetime of 30 days.")
-	return cmdutil.CreateAlias(getAuthToken, "auth get-auth-token")
-}
-
 // GetRobotTokenCmd returns a cobra command that lets a user get a pachyderm
 // token on behalf of themselves or another user
 func GetRobotTokenCmd() *cobra.Command {
@@ -725,7 +672,6 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, LoginCmd())
 	commands = append(commands, LogoutCmd())
 	commands = append(commands, WhoamiCmd())
-	commands = append(commands, GetAuthTokenCmd())
 	commands = append(commands, GetRobotTokenCmd())
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())

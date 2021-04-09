@@ -10044,8 +10044,6 @@ func TestPFSPanicOnNilArgs(t *testing.T) {
 	requireNoPanic(err)
 	_, err = c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{})
 	requireNoPanic(err)
-	_, err = c.PfsAPIClient.CopyFile(c.Ctx(), &pfs.CopyFileRequest{})
-	requireNoPanic(err)
 	_, err = c.PfsAPIClient.GetFile(c.Ctx(), &pfs.GetFileRequest{})
 	requireNoPanic(err)
 	_, err = c.PfsAPIClient.InspectFile(c.Ctx(), &pfs.InspectFileRequest{})
@@ -10116,7 +10114,7 @@ func TestCopyOutToIn(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
-	require.NoError(t, c.CopyFile(pipeline, "master", "dir", dataRepo, "master", "dir2", client.WithAppendCopyFile()))
+	require.NoError(t, c.CopyFile(dataRepo, "master", "dir2", pipeline, "master", "dir", client.WithAppendCopyFile()))
 
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)

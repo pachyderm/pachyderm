@@ -279,7 +279,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 			return nil, s2.EntityTooSmallError(r)
 		}
 
-		err = pc.CopyFile(c.repo, "master", srcPath, bucket.Repo, bucket.Commit, key, client.WithAppendCopyFile())
+		err = pc.CopyFile(bucket.Repo, bucket.Commit, key, c.repo, "master", srcPath, client.WithAppendCopyFile())
 		if err != nil {
 			if errutil.IsWriteToOutputBranchError(err) {
 				return nil, writeToOutputBranchError(r)

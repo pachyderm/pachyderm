@@ -104,7 +104,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 		return "", s2.NotImplementedError(r)
 	}
 
-	if err = pc.CopyFile(srcBucket.Repo, srcBucket.Commit, srcFile, destBucket.Repo, destBucket.Commit, destFile); err != nil {
+	if err = pc.CopyFile(destBucket.Repo, destBucket.Commit, destFile, srcBucket.Repo, srcBucket.Commit, srcFile); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return "", writeToOutputBranchError(r)
 		} else if errutil.IsNotADirectoryError(err) {

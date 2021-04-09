@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -34,7 +35,7 @@ const (
 
 type apiServer struct {
 	pachLogger log.Logger
-	env        *serviceenv.ServiceEnv
+	env        serviceenv.ServiceEnv
 
 	enterpriseTokenCache *keycache.Cache
 
@@ -50,7 +51,7 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
+func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
 		env.GetEtcdClient(),
@@ -179,6 +180,8 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 		return nil, err
 	}
 
+	record := &ec.EnterpriseRecord{License: heartbeatResp.License}
+
 	// If the test heartbeat succeeded, write the state and config to etcd
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		if err := a.configCol.ReadWrite(stm).Put(configKey, &ec.EnterpriseConfig{
@@ -189,18 +192,18 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 			return err
 		}
 
-		return a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, &ec.EnterpriseRecord{License: heartbeatResp.License})
+		return a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record)
 	}); err != nil {
 		return nil, err
 	}
 
 	// Wait until watcher observes the write to the state key
 	if err := backoff.Retry(func() error {
-		record, ok := a.enterpriseTokenCache.Load().(*ec.EnterpriseRecord)
+		cachedRecord, ok := a.enterpriseTokenCache.Load().(*ec.EnterpriseRecord)
 		if !ok {
 			return errors.Errorf("could not retrieve enterprise expiration time")
 		}
-		if record.License == nil {
+		if !proto.Equal(cachedRecord, record) {
 			return errors.Errorf("enterprise not activated")
 		}
 		return nil

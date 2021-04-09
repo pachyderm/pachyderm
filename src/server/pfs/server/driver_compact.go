@@ -54,7 +54,7 @@ func (d *driver) compact(master *work.Master, ids []fileset.ID) (*fileset.ID, er
 		}
 		return results, nil
 	}
-	dc := fileset.NewDistributedCompactor(d.storage, d.env.StorageCompactionMaxFanIn, workerFunc)
+	dc := fileset.NewDistributedCompactor(d.storage, d.env.Config().StorageCompactionMaxFanIn, workerFunc)
 	return dc.Compact(master.Ctx(), ids, defaultTTL)
 }
 

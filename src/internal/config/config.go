@@ -70,7 +70,8 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 	return c.V2.ActiveContext, context, nil
 }
 
-// ActiveEnterpriseContext gets the active enterprise server context in the config
+// ActiveEnterpriseContext gets the active enterprise server context in the config.
+// If no enterprise context is configured, this returns the active context.
 func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context, error) {
 	if c.V2 == nil {
 		return "", nil, errors.Errorf("cannot get active context from non-v2 config")
@@ -82,23 +83,18 @@ func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context
 		}
 		return envContext, context, nil
 	}
+
+	if c.V2.ActiveEnterpriseContext == "" {
+		return c.ActiveContext(errorOnNoActive)
+	}
+
 	context := c.V2.Contexts[c.V2.ActiveEnterpriseContext]
 	if context == nil {
-		if c.V2.ActiveEnterpriseContext == "" {
-			if errorOnNoActive {
-				return "", nil, errors.Errorf("pachctl config error: no active " +
-					"enterprise context configured.\n\nYou can fix your config by setting " +
-					"the active context like so: pachctl config set " +
-					"active-enterprise-context <context>")
-			}
-		} else {
-			return "", nil, errors.Errorf("pachctl config error: pachctl's active "+
-				"enterprise context is %q, but no context named %q has been configured.\n\nYou can fix "+
-				"your config by setting the active context like so: pachctl config set "+
-				"active-enterprise-context <context>",
-				c.V2.ActiveContext, c.V2.ActiveContext)
-		}
-
+		return "", nil, errors.Errorf("pachctl config error: pachctl's active "+
+			"enterprise context is %q, but no context named %q has been configured.\n\nYou can fix "+
+			"your config by setting the active context like so: pachctl config set "+
+			"active-enterprise-context <context>",
+			c.V2.ActiveContext, c.V2.ActiveContext)
 	}
 	return c.V2.ActiveEnterpriseContext, context, nil
 }

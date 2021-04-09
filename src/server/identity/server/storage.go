@@ -1,73 +1,27 @@
 package server
 
 import (
-	"fmt"
-	"strconv"
-	"sync"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 
 	dex_storage "github.com/dexidp/dex/storage"
 	dex_sql "github.com/dexidp/dex/storage/sql"
-
-	logrus "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
-// StorageProvider is an interface to let us lazy load dex Storage implementations
-type StorageProvider interface {
-	GetStorage(logger *logrus.Entry) (dex_storage.Storage, error)
-}
-
-// LazyPostgresStorage creates a postgres connection when one is requested
-type LazyPostgresStorage struct {
-	sync.RWMutex
-
-	storageConfig *dex_sql.Postgres
-	storage       dex_storage.Storage
-}
-
-// NewLazyPostgresStorage returns a new StorageProvider that lazily connects to Postgres
-func NewLazyPostgresStorage(pgHost, pgDatabase, pgUser, pgPwd, pgSSL string, pgPort string) *LazyPostgresStorage {
-	port, err := strconv.ParseInt(pgPort, 10, 16)
-	if err != nil {
-		panic(fmt.Sprintf("Invalid postgres port: %s", pgPort))
-	}
-
-	return &LazyPostgresStorage{
-		storageConfig: &dex_sql.Postgres{
-			NetworkDB: dex_sql.NetworkDB{
-				Database: pgDatabase,
-				User:     pgUser,
-				Password: pgPwd,
-				Host:     pgHost,
-				Port:     uint16(port),
-			},
-			SSL: dex_sql.SSL{
-				Mode: pgSSL,
-			},
-		}}
-}
-
-// GetStorage returns a dex Storage, creating it if one isn't already cached
-func (s *LazyPostgresStorage) GetStorage(logger *logrus.Entry) (dex_storage.Storage, error) {
-	s.RLock()
-
-	storage := s.storage
-	if storage == nil {
-		s.RUnlock()
-		s.Lock()
-		defer s.Unlock()
-		if s.storage != nil {
-			storage = s.storage
-			return storage, nil
-		}
-		storage, err := s.storageConfig.Open(logger)
-		if err != nil {
-			logger.WithError(err).Error("dex storage failed to start")
-			return nil, err
-		}
-		s.storage = storage
-		return storage, nil
-	}
-
-	s.RUnlock()
-	return storage, nil
+// NewStorageProvider instantiates a new postgres storage provider for Dex.
+// This creates a new postgres connection, and it can be shared by multiple
+// servers.
+func NewStorageProvider(env serviceenv.ServiceEnv) (dex_storage.Storage, error) {
+	return (&dex_sql.Postgres{
+		NetworkDB: dex_sql.NetworkDB{
+			Database: env.Config().IdentityServerDatabase,
+			User:     env.Config().IdentityServerUser,
+			Password: env.Config().IdentityServerPassword,
+			Host:     env.Config().PostgresServiceHost,
+			Port:     uint16(env.Config().PostgresServicePort),
+		},
+		SSL: dex_sql.SSL{
+			Mode: env.Config().PostgresServiceSSL,
+		},
+	}).Open(log.NewEntry(log.New()).WithField("source", "identity-db"))
 }

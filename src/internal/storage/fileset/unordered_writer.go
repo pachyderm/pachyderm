@@ -138,6 +138,10 @@ func sortMemParts(mps map[string]*memPart) []*memPart {
 	return result
 }
 
+func (mfs *memFileSet) empty() bool {
+	return len(mfs.additive) == 0 && len(mfs.deletive) == 0
+}
+
 // UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
 // This may be a full filesystem or a subfilesystem (e.g. datum / datum set / shard).
 type UnorderedWriter struct {
@@ -203,28 +207,25 @@ func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag
 	}
 }
 
-// Delete deletes a file from the file set.
-// TODO: Directory deletion needs more invariant checks.
-// Right now you have to specify the trailing slash explicitly.
-func (uw *UnorderedWriter) Delete(name string, tags ...string) {
-	name = Clean(name, IsDir(name))
-	var tag string
-	if len(tag) > 0 {
-		tag = tags[0]
-	}
-	uw.memFileSet.deleteFile(name, tag)
-}
-
 // serialize will be called whenever the in-memory file set is past the memory threshold.
 // A new in-memory file set will be created for the following operations.
 func (uw *UnorderedWriter) serialize() error {
+	if uw.memFileSet.empty() {
+		return nil
+	}
+	return uw.withWriter(func(w *Writer) error {
+		return uw.memFileSet.serialize(w)
+	})
+}
+
+func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	// Serialize file set.
 	var writerOpts []WriterOption
 	if uw.ttl > 0 {
 		writerOpts = append(writerOpts, WithTTL(uw.ttl))
 	}
 	w := uw.storage.newWriter(uw.ctx, writerOpts...)
-	if err := uw.memFileSet.serialize(w); err != nil {
+	if err := cb(w); err != nil {
 		return err
 	}
 	id, err := w.Close()
@@ -240,6 +241,41 @@ func (uw *UnorderedWriter) serialize() error {
 	uw.memAvailable = uw.memThreshold
 	uw.subFileSet++
 	return nil
+}
+
+// Delete deletes a file from the file set.
+// TODO: Directory deletion needs more invariant checks.
+// Right now you have to specify the trailing slash explicitly.
+func (uw *UnorderedWriter) Delete(name string, tags ...string) {
+	name = Clean(name, IsDir(name))
+	var tag string
+	if len(tag) > 0 {
+		tag = tags[0]
+	}
+	uw.memFileSet.deleteFile(name, tag)
+}
+
+func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, appendFile bool, customTag ...string) error {
+	if err := uw.serialize(); err != nil {
+		return err
+	}
+	tag := uw.defaultTag
+	if len(customTag) > 0 && customTag[0] != "" {
+		tag = customTag[0]
+	}
+	return uw.withWriter(func(w *Writer) error {
+		return fs.Iterate(ctx, func(f File) error {
+			if !appendFile {
+				if err := w.Delete(f.Index().Path, tag); err != nil {
+					return err
+				}
+			}
+			return w.Add(f.Index().Path, func(fw *FileWriter) error {
+				fw.Add(tag)
+				return f.Content(fw)
+			})
+		})
+	})
 }
 
 // Close closes the writer.

@@ -154,11 +154,9 @@ type AuthTransactionServer interface {
 	CreateRoleBindingInTransaction(*TransactionContext, string, []string, *auth.Resource) error
 	DeleteRoleBindingInTransaction(*TransactionContext, *auth.Resource) error
 
-	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
-	RevokeAuthTokenInTransaction(*TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
-
 	// GetPipelineAuthTokenInTransaction is an internal API used by PPS to generate tokens for pipelines
 	GetPipelineAuthTokenInTransaction(*TransactionContext, string) (string, error)
+	RevokeAuthTokenInTransaction(*TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
 }
 
 // PfsTransactionServer is an interface for the transactionally-supported
@@ -193,7 +191,7 @@ type PpsTransactionServer interface {
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
-	serviceEnv *serviceenv.ServiceEnv
+	serviceEnv serviceenv.ServiceEnv
 	txnServer  TransactionServer
 	authServer AuthTransactionServer
 	pfsServer  PfsTransactionServer
@@ -202,7 +200,7 @@ type TransactionEnv struct {
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (env *TransactionEnv) Initialize(
-	serviceEnv *serviceenv.ServiceEnv,
+	serviceEnv serviceenv.ServiceEnv,
 	txnServer TransactionServer,
 	authServer AuthTransactionServer,
 	pfsServer PfsTransactionServer,

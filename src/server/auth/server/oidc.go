@@ -332,8 +332,8 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 		return nil, nil, errors.Wrapf(err, "could not get claims")
 	}
 
-	if !claims.EmailVerified && !config.IgnoreEmailVerified {
-		return nil, nil, errors.New("email_verified claim was false, and ignore_email_verified was not set")
+	if !claims.EmailVerified && config.RequireEmailVerified {
+		return nil, nil, errors.New("email_verified claim was false, and require_email_verified was set")
 	}
 	return idToken, &claims, nil
 }
@@ -392,5 +392,5 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 func (a *apiServer) serveOIDC() error {
 	// serve OIDC handler to exchange the auth code
 	http.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.OidcPort), nil)
+	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config().OidcPort), nil)
 }
