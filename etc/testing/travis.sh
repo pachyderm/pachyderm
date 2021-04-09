@@ -5,7 +5,6 @@ set -ex
 export GOPATH=/home/circleci/.go_workspace
 export PATH=$(pwd):$GOPATH/bin:$PATH
 
-export VM_IP="$(minikube ip)"
 export PACH_PORT="30650"
 export ENTERPRISE_PORT="31650"
 
@@ -31,7 +30,14 @@ done
 minikube status
 kubectl version
 
+export VM_IP="$(minikube ip)"
+
 echo "Running test suite based on BUCKET=$BUCKET"
+
+for image in $(ls /tmp/cache); do 
+    docker load -i /tmp/cache/$image
+    ( eval $(minikube docker-env) && docker load -i /tmp/cache/$image)
+done
 
 make install
 make docker-build

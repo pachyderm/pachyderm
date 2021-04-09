@@ -4,8 +4,7 @@ orbs:
   go: circleci/go@1.6.0
 
 jobs:
-  build:
-    resource_class: 2xlarge
+  docker-cache:
     docker:
     - image: circleci/golang:1.15
       auth:
@@ -16,14 +15,16 @@ jobs:
       - setup_remote_docker:
           version: 19.03.13
           docker_layer_caching: true
-      - go/load-cache
-      - go/mod-download
-      - go/save-cache
+      - restore_cache:
+          keys:
+            - v1-pachd-docker-{{ checksum "etc/testing/docker-cache.sh" }}
+            - v1-pachd-docker
       - run: |
-          wget -nv -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
-      - run: |
-          PATH=./bin/:$PATH etc/testing/travis_build.sh 
-      
+          etc/testing/docker-cache.sh
+      - save_cache:
+          paths:
+            - /tmp/docker-cache 
+          key: v1-pachd-docker-{{ checksum "etc/testing/docker-cache.sh" }}
 
   test:
     parameters:
@@ -47,16 +48,20 @@ jobs:
       - go/load-cache
       - go/mod-download
       - go/save-cache
+      - restore_cache:
+          keys:
+            - v1-pachd-docker-{{ checksum "etc/testing/docker-cache.sh" }}
+            - v1-pachd-docker
       - run: etc/testing/travis_install.sh 
       - run: etc/testing/travis.sh 
 
 workflows:
   all-tests:
     jobs:
-      #- build
+      - docker-cache
       - test:
-          #requires:
-          #  - build
+          requires:
+            - docker-cache
           matrix:
             parameters:
               bucket:
