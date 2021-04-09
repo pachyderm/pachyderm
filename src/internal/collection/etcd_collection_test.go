@@ -59,6 +59,7 @@ func TestEtcdCollections(suite *testing.T) {
 	}
 
 	collectionTests(suite, newCollection)
+	watchTests(suite, newCollection)
 }
 
 func TestDryrun(t *testing.T) {

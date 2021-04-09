@@ -34,6 +34,7 @@ func TestPostgresCollections(suite *testing.T) {
 	}
 
 	collectionTests(suite, newCollection)
+	watchTests(suite, newCollection)
 
 	// TODO: postgres-specific collection tests:
 	// GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(int64) error) error
