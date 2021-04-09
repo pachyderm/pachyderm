@@ -229,6 +229,10 @@ func (pe *postgresEvent) WatchEvent(template proto.Message) *watch.Event {
 	if pe.err != nil {
 		return &watch.Event{Err: pe.err, Type: watch.EventError}
 	}
+	if pe.eventType == watch.EventDelete {
+		// Etcd doesn't return deleted row values - we could, but let's maintain parity
+		return &watch.Event{Key: []byte(pe.key), Type: pe.eventType, Template: template}
+	}
 	return &watch.Event{
 		Key:      []byte(pe.key),
 		Value:    pe.protoData,

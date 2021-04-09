@@ -31,8 +31,10 @@ func nextEventOrErr(t *testing.T, c <-chan *watch.Event) *watch.Event {
 
 func requireEmptyChannel(t *testing.T, c <-chan *watch.Event) {
 	select {
-	case ev := <-c:
-		require.True(t, false, "watcher had additional unread events at the end of the test, type: %v, key: %s", ev.Type, string(ev.Key))
+	case ev, ok := <-c:
+		if ok {
+			require.False(t, ok, "watcher had additional unread events at the end of the test, type: %v, key: %s", ev.Type, string(ev.Key))
+		}
 	default:
 	}
 }
@@ -111,7 +113,21 @@ func (tester *ChannelWatchTester) ExpectEventSet(expected ...TestEvent) {
 		require.NotNil(tester.t, ev)
 		actual = append(actual, newTestEvent(tester.t, ev))
 	}
-	require.ElementsEqual(tester.t, expected, actual)
+
+	// require.ElementsEqual doesn't do a deep equal, so implement set equality ourselves
+	seen := map[int]struct{}{}
+	for _, ex := range expected {
+		found := false
+		for i, ac := range actual {
+			if _, ok := seen[i]; !ok {
+				if require.EqualOrErr(ex, ac) == nil {
+					seen[i] = struct{}{}
+					found = true
+				}
+			}
+		}
+		require.True(tester.t, found, "Expected element not found in result set: %v\nactual: %v", ex, actual)
+	}
 }
 
 func (tester *ChannelWatchTester) ExpectError(err error) {
@@ -208,6 +224,9 @@ func watchTests(
 		require.YesError(t, ev.Err)
 		require.True(t, errors.Is(ev.Err, context.Canceled))
 		requireEmptyChannel(t, watcher.Watch())
+	}
+
+	watchAllTests := func(suite *testing.T, cb func(readOnly col.ReadOnlyCollection) WatchTester) {
 	}
 
 	parent.Run("Watch", func(suite *testing.T) {
