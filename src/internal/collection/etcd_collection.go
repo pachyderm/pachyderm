@@ -374,7 +374,7 @@ func (c *etcdReadOnlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func() error) error {
+func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(key string) error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetByIndex", "col", c.prefix, "index", index, "indexVal", indexVal)
 	defer tracing.FinishAnySpan(span)
 	if atomic.LoadInt64(&index.limit) == 0 {
@@ -391,7 +391,7 @@ func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val p
 			}
 			return err
 		}
-		return f()
+		return f(key)
 	})
 }
 
@@ -419,7 +419,7 @@ func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
 // argument to f because that would require f to perform a cast before it could
 // be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func() error) error {
+func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
 	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
@@ -429,7 +429,7 @@ func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func()
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
-		return f()
+		return f(strings.TrimPrefix(string(kv.Key), c.prefix))
 	})
 }
 
@@ -438,7 +438,7 @@ func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func()
 // corresponding value. Val is not an argument to f because that would require
 // f to perform a cast before it could be used.  You can break out of iteration
 // by returning errutil.ErrBreak.
-func (c *etcdReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(createRev int64) error) error {
+func (c *etcdReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
 	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
@@ -448,7 +448,7 @@ func (c *etcdReadOnlyCollection) ListRev(val proto.Message, opts *Options, f fun
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
-		return f(kv.CreateRevision)
+		return f(strings.TrimPrefix(string(kv.Key), c.prefix), kv.CreateRevision)
 	})
 }
 

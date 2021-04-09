@@ -58,7 +58,7 @@ func New(env *serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
 	s := &apiServer{
 		pachLogger:           log.NewLogger("license.API"),
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(enterpriseToken, licenseRecordKey, defaultRecord),
+		enterpriseTokenCache: keycache.NewCache(enterpriseToken.ReadOnly(env.Context()), licenseRecordKey, defaultRecord),
 		enterpriseToken:      enterpriseToken,
 	}
 	go s.enterpriseTokenCache.Watch()

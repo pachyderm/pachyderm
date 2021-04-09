@@ -154,7 +154,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 func (d *driver) activateAuth(txnCtx *txnenv.TransactionContext) error {
 	repos := d.repos.ReadOnly(txnCtx.ClientContext)
 	repoInfo := &pfs.RepoInfo{}
-	return repos.List(repoInfo, col.DefaultOptions(), func() error {
+	return repos.List(repoInfo, col.DefaultOptions(), func(key string) error {
 		err := txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 			Type: auth.ResourceType_REPO,
 			Name: repoInfo.Repo.Name,
@@ -292,7 +292,7 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions(), func() error {
+	if err := repos.List(repoInfo, col.DefaultOptions(), func(key string) error {
 		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
 			return nil
 		}
@@ -350,7 +350,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	commits := d.commits(repo.Name).ReadOnly(txnCtx.ClientContext)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
-	if err := commits.List(commitInfo, col.DefaultOptions(), func() error {
+	if err := commits.List(commitInfo, col.DefaultOptions(), func(key string) error {
 		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
@@ -1407,10 +1407,9 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 			cis = nil
 			return nil
 		}
-		// TODO: do this without ListRev (unsupported by postgres collections)
 		ci := &pfs.CommitInfo{}
 		lastRev := int64(-1)
-		if err := commits.ListRev(ci, opts, func(createRev int64) error {
+		if err := commits.ListRev(ci, opts, func(key string, createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -2188,11 +2187,10 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 		result = append(result, bis...)
 		bis = nil
 	}
-	// TODO: do this without ListRev (unsupported by postgres collections)
 	lastRev := int64(-1)
 	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
-	if err := branches.ListRev(branchInfo, opts, func(createRev int64) error {
+	if err := branches.ListRev(branchInfo, opts, func(key string, createRev int64) error {
 		if createRev != lastRev {
 			sendBis()
 			lastRev = createRev

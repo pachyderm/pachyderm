@@ -5,6 +5,8 @@ import (
 	"path"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -32,6 +34,17 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
 	)
 }
 
+var CommitsRepoIndex = &col.Index{
+	Name: "repo",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.CommitInfo).Commit.Repo.Name
+	},
+}
+
+func CommitKey(commit *pfs.Commit) string {
+	return commit.Repo.Name + "@" + commit.ID
+}
+
 // Commits returns a collection of commits
 func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCollection {
 	return col.NewEtcdCollection(
@@ -42,6 +55,17 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCo
 		nil,
 		nil,
 	)
+}
+
+var BranchesRepoIndex = &col.Index{
+	Name: "repo",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.BranchInfo).Branch.Repo.Name
+	},
+}
+
+func BranchKey(branch *pfs.Branch) string {
+	return branch.Repo.Name + "@" + branch.Name
 }
 
 // Branches returns a collection of branches

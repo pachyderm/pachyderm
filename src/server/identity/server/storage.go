@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+	"strconv"
 	"sync"
 
 	dex_storage "github.com/dexidp/dex/storage"
@@ -23,7 +25,12 @@ type LazyPostgresStorage struct {
 }
 
 // NewLazyPostgresStorage returns a new StorageProvider that lazily connects to Postgres
-func NewLazyPostgresStorage(pgHost, pgDatabase, pgUser, pgPwd, pgSSL string, pgPort int) *LazyPostgresStorage {
+func NewLazyPostgresStorage(pgHost, pgDatabase, pgUser, pgPwd, pgSSL string, pgPort string) *LazyPostgresStorage {
+	port, err := strconv.ParseInt(pgPort, 10, 16)
+	if err != nil {
+		panic(fmt.Sprintf("Invalid postgres port: %s", pgPort))
+	}
+
 	return &LazyPostgresStorage{
 		storageConfig: &dex_sql.Postgres{
 			NetworkDB: dex_sql.NetworkDB{
@@ -31,7 +38,7 @@ func NewLazyPostgresStorage(pgHost, pgDatabase, pgUser, pgPwd, pgSSL string, pgP
 				User:     pgUser,
 				Password: pgPwd,
 				Host:     pgHost,
-				Port:     uint16(pgPort),
+				Port:     uint16(port),
 			},
 			SSL: dex_sql.SSL{
 				Mode: pgSSL,

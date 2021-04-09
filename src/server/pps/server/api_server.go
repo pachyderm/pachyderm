@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -725,7 +726,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	}
 	jobs := a.jobs.ReadOnly(pachClient.Ctx())
 	jobPtr := &pps.EtcdJobInfo{}
-	_f := func() error {
+	_f := func(string) error {
 		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr, len(inputCommits) > 0 || full)
 		if err != nil {
 			if isNotFoundErr(err) {
@@ -774,9 +775,9 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		return f(jobInfo)
 	}
 	if pipeline != nil {
-		return jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline, jobPtr, col.DefaultOptions(), _f)
+		return jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline.Name, jobPtr, col.DefaultOptions(), _f)
 	} else if outputCommit != nil {
-		return jobs.GetByIndex(ppsdb.JobsOutputIndex, outputCommit, jobPtr, col.DefaultOptions(), _f)
+		return jobs.GetByIndex(ppsdb.JobsOutputIndex, pfsdb.CommitKey(outputCommit), jobPtr, col.DefaultOptions(), _f)
 	} else {
 		return jobs.List(jobPtr, col.DefaultOptions(), _f)
 	}
@@ -2613,7 +2614,7 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 		}
 	}
 	if pipeline == nil {
-		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(p, col.DefaultOptions(), func() error {
+		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(p, col.DefaultOptions(), func(string) error {
 			return forEachPipeline()
 		}); err != nil {
 			return err
@@ -2642,7 +2643,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
 		pipelinePtr := &pps.EtcdPipelineInfo{}
-		if err := a.pipelines.ReadOnly(ctx).List(pipelinePtr, col.DefaultOptions(), func() error {
+		if err := a.pipelines.ReadOnly(ctx).List(pipelinePtr, col.DefaultOptions(), func(string) error {
 			request.Pipeline.Name = pipelinePtr.Pipeline.Name
 			_, err := a.deletePipeline(pachClient, request)
 			return err
@@ -2758,7 +2759,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// pollPipelines.
 	var eg errgroup.Group
 	jobPtr := &pps.EtcdJobInfo{}
-	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, col.DefaultOptions(), func() error {
+	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobPtr, col.DefaultOptions(), func(string) error {
 		eg.Go(func() error {
 			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: jobPtr.Job})
 			if isNotFoundErr(err) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/md5"
 	"database/sql"
-	"encoding/base64"
 	"fmt"
 	"reflect"
 	"strings"
@@ -354,7 +353,7 @@ func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
 	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
 }
 
-func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func() error) error {
+func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
@@ -362,7 +361,7 @@ func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, v
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return f()
+		return f(m.Key)
 	})
 }
 
@@ -434,16 +433,16 @@ func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Op
 	return c.mapSQLError(rows.Close(), "")
 }
 
-func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func() error) error {
+func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
 	return c.list(nil, opts, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return f()
+		return f(m.Key)
 	})
 }
 
-func (c *postgresReadOnlyCollection) listRev(withFields map[string]string, val proto.Message, opts *Options, f func(int64) error) error {
+func (c *postgresReadOnlyCollection) listRev(withFields map[string]string, val proto.Message, opts *Options, f func(string, int64) error) error {
 	fakeRev := int64(0)
 	lastTimestamp := time.Time{}
 
@@ -465,7 +464,7 @@ func (c *postgresReadOnlyCollection) listRev(withFields map[string]string, val p
 			updateRev(m.UpdatedAt)
 		}
 
-		return f(fakeRev)
+		return f(m.Key, fakeRev)
 	})
 }
 
@@ -477,13 +476,13 @@ func (c *postgresReadOnlyCollection) listRev(withFields map[string]string, val p
 // timestamp changes. Note that the etcd implementation always returns the
 // create revision, but that only works here if you also sort by the create
 // revision.
-func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(int64) error) error {
+func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(string, int64) error) error {
 	return c.listRev(nil, val, opts, f)
 }
 
 // GetRevByIndex is identical to ListRev except that it filters the results
 // according to a predicate on the given index.
-func (c *postgresReadOnlyCollection) GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(int64) error) error {
+func (c *postgresReadOnlyCollection) GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string, int64) error) error {
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
