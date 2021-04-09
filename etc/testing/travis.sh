@@ -34,8 +34,8 @@ export VM_IP="$(minikube ip)"
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-for image in $(ls /tmp/cache); do 
-    docker load -i /tmp/cache/$image
+for image in $(ls /tmp/docker-cache); do 
+    docker load -i /tmp/docker-cache/$image
     ( eval $(minikube docker-env) && docker load -i /tmp/cache/$image)
 done
 

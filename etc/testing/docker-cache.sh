@@ -37,13 +37,13 @@ IMAGES=(
     "v4tech/imagemagick:latest"
 )
 
-mkdir -p /tmp/cache
+mkdir -p /tmp/docker-cache
 
-for image in $(ls /tmp/cache); do 
-    docker load -i /tmp/cache/$image
+for image in $(ls /tmp/docker-cache); do 
+    docker load -i /tmp/dokcer-cache/$image
 done
 
 for f in ${IMAGES[@]}; do
     docker pull $f 
-    docker save $f -o /tmp/cache/$(echo $f | sed 's|/|-|g')
+    docker save $f -o /tmp/docker-cache/$(echo $f | sed 's|/|-|g')
 done

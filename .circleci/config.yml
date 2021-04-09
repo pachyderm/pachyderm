@@ -5,16 +5,11 @@ orbs:
 
 jobs:
   docker-cache:
-    docker:
-    - image: circleci/golang:1.15
-      auth:
-          username: pachydermbuildbot
-          password: $DOCKER_PWD
+    resource_class: 2xlarge
+    machine:
+      image: ubuntu-2004:202101-01
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 19.03.13
-          docker_layer_caching: true
       - restore_cache:
           keys:
             - v1-pachd-docker-{{ checksum "etc/testing/docker-cache.sh" }}
