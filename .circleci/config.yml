@@ -53,22 +53,23 @@ jobs:
 workflows:
   all-tests:
     jobs:
-      - build
+      #- build
       - test:
-          requires:
-            - build
+          #requires:
+          #  - build
           matrix:
             parameters:
               bucket:
-              - MISC
+              #- MISC
               # If you want to update the number of PPS buckets, you'll neet to
               # update the value of PPS_BUCKETS above
+              #- ADMIN
               - AUTH
-              - ENTERPRISE
-              - PFS
-              - PPS1
-              - PPS2
-              - PPS3
-              - PPS4
-              - EXAMPLES
-              - OBJECT
+              #- ENTERPRISE
+              #- PFS
+              #- PPS1
+              #- PPS2
+              #- PPS3
+              #- PPS4
+              #- EXAMPLES
+              #- OBJECT

@@ -64,3 +64,6 @@ fi
 
 # Install helm
 curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+# Install goreleaser
+wget -nv -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh

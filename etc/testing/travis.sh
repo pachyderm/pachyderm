@@ -30,6 +30,7 @@ kubectl version
 echo "Running test suite based on BUCKET=$BUCKET"
 
 make install
+make docker-build
 make launch-loki
 
 for i in $(seq 3); do
