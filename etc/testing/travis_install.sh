@@ -3,6 +3,7 @@
 set -ex
 
 # Install deps
+sudo snap install --classic goreleaser
 sudo snap install jq
 sudo apt-get update -y
 sudo apt-get install -y -qq \
@@ -64,6 +65,3 @@ fi
 
 # Install helm
 curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-
-# Install goreleaser
-wget -nv -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
