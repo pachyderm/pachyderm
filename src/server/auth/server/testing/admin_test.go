@@ -705,10 +705,8 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, robot(robotUser), who.Username)
 
-	expTime := time.Unix(who.Expiration.Seconds, 0)
-
-	require.True(t, expTime.After(time.Now()))
-	require.True(t, expTime.Before(time.Now().Add(time.Duration(600)*time.Second)))
+	require.True(t, who.Expiration.After(time.Now()))
+	require.True(t, who.Expiration.Before(time.Now().Add(time.Duration(900)*time.Second)))
 }
 
 // TestGetRobotTokenErrorNonAdminUser tests that non-admin users can't call
