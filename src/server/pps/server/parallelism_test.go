@@ -19,6 +19,8 @@ func wrap(t testing.TB, ps *pps.ParallelismSpec) *pps.PipelineInfo {
 }
 
 func TestGetExpectedNumWorkers(t *testing.T) {
+	t.Parallel()
+
 	kubeClient := tu.GetKubeClient(t)
 
 	// An empty parallelism spec should default to 1 worker

@@ -3123,7 +3123,6 @@ func TestStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := tu.GetPachClient(t)
 	t.Run("ChainOf10", func(t *testing.T) {
@@ -7892,8 +7891,8 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
+	t.Parallel()
 	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeoutControl_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9547,8 +9546,8 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())

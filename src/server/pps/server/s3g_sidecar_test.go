@@ -45,11 +45,9 @@ func init() {
 func initPachClient(t testing.TB) (*client.APIClient, string) {
 	if _, ok := os.LookupEnv("PACH_TEST_WITH_AUTH"); !ok {
 		c := tu.GetPachClient(t)
-		require.NoError(t, c.DeleteAll())
 		return c, ""
 	}
 	rootClient := tu.GetAuthenticatedPachClient(t, tu.RootToken)
-	require.NoError(t, rootClient.DeleteAll())
 	c := tu.GetAuthenticatedPachClient(t, tu.UniqueString("user-"))
 	return c, c.AuthToken()
 }
@@ -58,6 +56,7 @@ func TestS3PipelineErrors(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 
 	c, _ := initPachClient(t)
 
