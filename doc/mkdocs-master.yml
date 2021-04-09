@@ -12,7 +12,7 @@ repo_docs_dir: doc/docs/2.0.x
 edit_uri: ""
 
 # Copyright
-copyright: 'Copyright Pachyderm Inc, 2020'
+copyright: 'Copyright Pachyderm Inc, 2021'
 pach_featured_version: '2.0.0'
 pach_latest_version: '2.0.0'
 pach_major_minor_version: '2.0'
@@ -398,20 +398,11 @@ nav:
         - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
         - Authentication & Authorization:
-<<<<<<< HEAD
             - Activation: enterprise/auth2/index.md
             - Authentication:
                 - Connect your IdP: enterprise/auth2/authentication/idp-dex.md
                 - Login Flow: enterprise/auth2/authentication/login.md
-=======
-            - Overview: enterprise/auth2/index.md
-            - Authentication:
-                - Overview: enterprise/auth2/authentication/index.md
-                - Configure Pachyderm with an IdP:
-                    - Configure Pachyderm with Okta: enterprise/auth2/authentication/index.md
-                    - Configure Pachyderm with Keycloak: enterprise/auth2/authentication/index.md
->>>>>>> 105ef481c9c08ed53a02ae8ed11aeea066772c0b
-            - Authorization: enterprise/auth2/authorization/index.md
+            - Authorization: enterprise/auth2/authorization/role-binding.md
         - License Server:
             - Overview: enterprise/auth2/license-server/index.md       
         - Configure Access Controls:
