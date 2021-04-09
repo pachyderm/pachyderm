@@ -37,6 +37,9 @@ const (
 	// PachPrefix indicates that this Subject is an internal Pachyderm user.
 	PachPrefix = "pach:"
 
+	// GroupPrefix indicates that this Subject is a group.
+	GroupPrefix = "group:"
+
 	// RootUser is the user created when auth is initialized. Only one token
 	// can be created for this user (during auth activation) and they cannot
 	// be removed from the set of cluster super-admins.
