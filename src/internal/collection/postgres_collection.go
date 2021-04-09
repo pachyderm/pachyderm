@@ -28,11 +28,6 @@ const (
 	watchTriggerName     = "notify_watch_trigger"
 	watchBaseName        = "pwc" // "Pachyderm Watch Channel"
 	indexBaseName        = "idx"
-	pgIdentBase64Values  = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_$"
-)
-
-var (
-	pgIdentBase64Encoding = base64.NewEncoding(pgIdentBase64Values).WithPadding(base64.NoPadding)
 )
 
 type postgresCollection struct {

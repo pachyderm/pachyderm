@@ -30,6 +30,7 @@ type postgresWatcher struct {
 	done       chan struct{}       // closed when the watcher is closed to interrupt selects
 	template   proto.Message
 	sqlChannel string
+	closer     sync.Once
 
 	// Filtering variables:
 	opts      watch.WatchOptions // may filter by the operation type (put or delete)
@@ -64,19 +65,11 @@ func (pw *postgresWatcher) Watch() <-chan *watch.Event {
 }
 
 func (pw *postgresWatcher) Close() {
-	// Close the 'done' channel to interrupt any waiting writes - because of this,
-	// a postgres watcher should not be closed multiple times.
-	close(pw.done)
-	pw.listener.unregister(pw)
-}
-
-func (pw *postgresWatcher) isClosed() bool {
-	select {
-	case <-pw.done:
-		return true
-	default:
-		return false
-	}
+	pw.closer.Do(func() {
+		// Close the 'done' channel to interrupt any waiting writes
+		close(pw.done)
+		pw.listener.unregister(pw)
+	})
 }
 
 // `forwardNotifications` is a blocking call that will forward all messages on
