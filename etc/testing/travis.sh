@@ -2,12 +2,12 @@
 
 set -ex
 
+export GOPATH=/home/circleci/.go_workspace
+export PATH=$(pwd):$GOPATH/bin:$PATH
+
 export VM_IP="$(minikube ip)"
 export PACH_PORT="30650"
 export ENTERPRISE_PORT="31650"
-
-export GOPATH=/home/circleci/.go_workspace
-export PATH=$(pwd):$GOPATH/bin:$PATH
 
 # Repeatedly restart minikube until it comes up. This corrects for an issue in
 # Travis, where minikube will get stuck on startup and never recover
