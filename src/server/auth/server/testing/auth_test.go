@@ -22,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
-	"github.com/gogo/protobuf/types"
 	minio "github.com/minio/minio-go/v6"
 	globlib "github.com/pachyderm/ohmyglob"
 )
@@ -2416,13 +2415,11 @@ func TestExtractAuthToken(t *testing.T) {
 		hash := auth.HashToken(plaintext)
 		for _, token := range resp.Tokens {
 			if token.HashedToken == hash {
-				require.Equal(t, subject, token.TokenInfo.Subject)
+				require.Equal(t, subject, token.Subject)
 				if expires {
-					exp, err := types.TimestampFromProto(token.TokenInfo.Expiration)
-					require.NoError(t, err)
-					require.True(t, exp.After(time.Now()))
+					require.True(t, token.Expiration.After(time.Now()))
 				} else {
-					require.Nil(t, token.TokenInfo.Expiration)
+					require.Nil(t, token.Expiration)
 				}
 				return nil
 			}
@@ -2444,11 +2441,9 @@ func TestRestoreAuthToken(t *testing.T) {
 
 	// Create a request to restore a token with known plaintext
 	req := &auth.RestoreAuthTokenRequest{
-		Token: &auth.HashedAuthToken{
+		Token: &auth.TokenInfo{
 			HashedToken: fmt.Sprintf("%x", sha256.Sum256([]byte("an-auth-token"))),
-			TokenInfo: &auth.TokenInfo{
-				Subject: "robot:restored",
-			},
+			Subject:     "robot:restored",
 		},
 	}
 
@@ -2464,7 +2459,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.NoError(t, err)
 
-	req.Token.TokenInfo.Subject = "robot:overwritten"
+	req.Token.Subject = "robot:overwritten"
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unknown desc = error restoring auth token: cannot overwrite existing token with same hash", err.Error())
@@ -2478,8 +2473,8 @@ func TestRestoreAuthToken(t *testing.T) {
 
 	// restore a token with an expiration date in the past
 	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expired-token")))
-	req.Token.TokenInfo.Expiration, err = types.TimestampProto(time.Now().Add(-1 * time.Minute))
-	require.NoError(t, err)
+	pastExpiration := time.Now().Add(-1 * time.Minute)
+	req.Token.Expiration = &pastExpiration
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.YesError(t, err)
@@ -2487,8 +2482,8 @@ func TestRestoreAuthToken(t *testing.T) {
 
 	// restore a token with an expiration date in the future
 	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
-	req.Token.TokenInfo.Expiration, err = types.TimestampProto(time.Now().Add(10 * time.Minute))
-	require.NoError(t, err)
+	futureExpiration := time.Now().Add(10 * time.Minute)
+	req.Token.Expiration = &futureExpiration
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.NoError(t, err)
@@ -2499,8 +2494,8 @@ func TestRestoreAuthToken(t *testing.T) {
 
 	// Relying on time.Now is gross but the token should have a TTL in the
 	// next 10 minutes
-	expTime := time.Unix(whoAmIResp.Expiration.Seconds, 0)
-	require.True(t, expTime.After(time.Now()) && expTime.Before(time.Now().Add(time.Duration(600)*time.Second)))
+	require.True(t, whoAmIResp.Expiration.After(time.Now()))
+	require.True(t, whoAmIResp.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
 }
 
 // TODO: This test mirrors TestDebug in src/server/pachyderm_test.go.
@@ -2628,7 +2623,7 @@ func TestDeleteExpiredAuthTokens(t *testing.T) {
 	slowExpirationResp, slowExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", TTL: 1000})
 	require.NoError(t, slowExpErr)
 
-	contains := func(tokens []*auth.HashedAuthToken, hashedToken string) bool {
+	contains := func(tokens []*auth.TokenInfo, hashedToken string) bool {
 		for _, v := range tokens {
 			if v.HashedToken == hashedToken {
 				return true

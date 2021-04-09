@@ -79,7 +79,8 @@ message TokenInfo {
   // Subject (i.e. Pachyderm account) that a given token authorizes.
   // See the note at the top of the doc for an explanation of subject structure.
   string subject = 1;
-  google.protobuf.Timestamp expiration = 3;
+  google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true]; ;
+  string hashed_token = 3 [(gogoproto.moretags) = "db:\"token_hash\""];
 }
 
 //// Authentication API
@@ -108,7 +109,7 @@ message WhoAmIRequest {}
 message WhoAmIResponse {
   reserved 2,3,4;
   string username = 1;
-  google.protobuf.Timestamp expiration = 5;
+  google.protobuf.Timestamp expiration = 5 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true];
 }
 
 //// Authorization data structures
@@ -360,22 +361,19 @@ message GetUsersResponse {
   repeated string usernames = 1;
 }
 
-message HashedAuthToken {
-  string hashed_token = 1;
-  TokenInfo token_info = 2;
-}
-
 // ExtractAuthTokens returns all the hashed robot tokens that have been issued.
 // User tokens are not extracted as they can be recreated by logging in.
 message ExtractAuthTokensRequest {}
 
 message ExtractAuthTokensResponse {
-  repeated HashedAuthToken tokens = 1; 
+  reserved 1;
+  repeated TokenInfo tokens = 2; 
 }
 
 // RestoreAuthToken inserts a hashed token that has previously been extracted.
 message RestoreAuthTokenRequest {
-  HashedAuthToken token = 1; 
+  reserved 1;
+  TokenInfo token = 2; 
 }
 
 message RestoreAuthTokenResponse {}
