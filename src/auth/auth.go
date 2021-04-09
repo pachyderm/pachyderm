@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+
+	oidc "github.com/coreos/go-oidc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -94,6 +96,8 @@ var (
 	// the past.
 	ErrExpiredToken = status.Error(codes.Internal, "token expiration is in the past")
 )
+
+var DefaultOIDCScopes = []string{"email", "profile", "groups", oidc.ScopeOpenID}
 
 // IsErrAlreadyActivated checks if an error is a ErrAlreadyActivated
 func IsErrAlreadyActivated(err error) bool {
