@@ -254,7 +254,7 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 	username, err := a(pachClient, info.FullMethod)
 
 	if err != nil {
-		logrus.Errorf("denied unary call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
+		logrus.WithError(err).Errorf("denied unary call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
 		return nil, err
 	}
 
@@ -278,7 +278,7 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 	username, err := a(pachClient, info.FullMethod)
 
 	if err != nil {
-		logrus.Errorf("denied streaming call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
+		logrus.WithError(err).Errorf("denied streaming call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
 		return err
 	}
 

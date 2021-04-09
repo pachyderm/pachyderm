@@ -41,7 +41,7 @@ type dexWeb struct {
 }
 
 func newDexWeb(env serviceenv.ServiceEnv, sp dex_storage.Storage, apiServer identity.APIServer) *dexWeb {
-	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex-web")
+	logger := logrus.WithField("source", "dex-web")
 	return &dexWeb{
 		env:             env,
 		logger:          logger,

@@ -2418,11 +2418,11 @@ func TestExtractAuthToken(t *testing.T) {
 			if token.HashedToken == hash {
 				require.Equal(t, subject, token.TokenInfo.Subject)
 				if expires {
-					exp, err := types.TimestampFromProto(token.Expiration)
+					exp, err := types.TimestampFromProto(token.TokenInfo.Expiration)
 					require.NoError(t, err)
 					require.True(t, exp.After(time.Now()))
 				} else {
-					require.Nil(t, token.Expiration)
+					require.Nil(t, token.TokenInfo.Expiration)
 				}
 				return nil
 			}
@@ -2478,7 +2478,7 @@ func TestRestoreAuthToken(t *testing.T) {
 
 	// restore a token with an expiration date in the past
 	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expired-token")))
-	req.Token.Expiration, err = types.TimestampProto(time.Now().Add(-1 * time.Minute))
+	req.Token.TokenInfo.Expiration, err = types.TimestampProto(time.Now().Add(-1 * time.Minute))
 	require.NoError(t, err)
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
@@ -2487,7 +2487,7 @@ func TestRestoreAuthToken(t *testing.T) {
 
 	// restore a token with an expiration date in the future
 	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
-	req.Token.Expiration, err = types.TimestampProto(time.Now().Add(10 * time.Minute))
+	req.Token.TokenInfo.Expiration, err = types.TimestampProto(time.Now().Add(10 * time.Minute))
 	require.NoError(t, err)
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
@@ -2650,7 +2650,16 @@ func TestDeleteExpiredAuthTokens(t *testing.T) {
 	// wait for the one token to expire
 	time.Sleep(time.Duration(2) * time.Second)
 
+	// record admin token
+	adminToken := adminClient.AuthToken()
+
+	// before deleting, check that WhoAmI call still fails for existing & expired token
+	adminClient.SetAuthToken(fastExpirationResp.Token)
+	_, whoAmIErr := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+	require.True(t, auth.IsErrExpiredToken(whoAmIErr))
+
 	// run DeleteExpiredAuthTokens RPC and verify that only the instantly expired token is inaccessible
+	adminClient.SetAuthToken(adminToken)
 	_, deleteErr := adminClient.DeleteExpiredAuthTokens(adminClient.Ctx(), &auth.DeleteExpiredAuthTokensRequest{})
 	require.NoError(t, deleteErr)
 

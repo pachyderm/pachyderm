@@ -1,7 +1,6 @@
 package server
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 	"path"
@@ -594,26 +593,9 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 		return nil, err
 	}
 
-	// Get expiry of user's token
-	var expiry *types.Timestamp
-	if callerInfo.Subject != auth.PpsUser {
-		token, err := auth.GetAuthToken(ctx)
-		if err != nil {
-			return nil, err
-		}
-		expiry, err = a.lookupAuthTokenExpiration(ctx, auth.HashToken(token))
-		if err != nil {
-			return nil, errors.Wrapf(err, "error looking up expiration for token")
-		}
-		if expiry != nil && time.Now().After(time.Unix(expiry.Seconds, 0)) {
-			return nil, auth.ErrExpiredToken
-		}
-	}
-
-	// return final result
 	return &auth.WhoAmIResponse{
 		Username:   callerInfo.Subject,
-		Expiration: expiry,
+		Expiration: callerInfo.Expiration,
 	}, nil
 }
 
@@ -1226,14 +1208,20 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	}
 
 	// Lookup the token
-	if tokenInfo, err := a.lookupAuthTokenInfo(ctx, auth.HashToken(token)); err != nil {
-		if col.IsErrNotFound(err) {
+	tokenInfo, lookupErr := a.lookupAuthTokenInfo(ctx, auth.HashToken(token))
+	if lookupErr != nil {
+		if col.IsErrNotFound(lookupErr) {
 			return nil, auth.ErrBadToken
 		}
-		return nil, err
-	} else {
-		return tokenInfo, nil
+		return nil, lookupErr
 	}
+	// verify token hasn't expired
+	if tokenInfo.Expiration != nil {
+		if time.Now().After(time.Unix(tokenInfo.Expiration.Seconds, 0)) {
+			return nil, auth.ErrExpiredToken
+		}
+	}
+	return tokenInfo, nil
 }
 
 // checkCanonicalSubjects applies checkCanonicalSubject to a list
@@ -1355,8 +1343,8 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 
 	var ttl int64
-	if req.Token.Expiration != nil {
-		ts, err := types.TimestampFromProto(req.Token.Expiration)
+	if req.Token.TokenInfo.Expiration != nil {
+		ts, err := types.TimestampFromProto(req.Token.TokenInfo.Expiration)
 		if err != nil {
 			return nil, err
 		}
@@ -1398,37 +1386,31 @@ func (a *apiServer) deleteExpiredTokensRoutine() {
 }
 
 // we interpret an expiration value of NULL as "lives forever".
-// Now we will sometimes have expiration values set in the passed, since we only remove those values in the deleteExpiredTokensRoutine() goroutine
-func (a *apiServer) lookupAuthTokenExpiration(ctx context.Context, tokenHash string) (*types.Timestamp, error) {
+func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
+	var subject string
 	var expiration *time.Time
-	if err := a.env.GetDBClient().GetContext(ctx, &expiration, `SELECT expiration FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}
-		}
-		return nil, err
+
+	rows, err := a.env.GetDBClient().QueryxContext(ctx, `SELECT subject, expiration FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash)
+	if err != nil || !rows.Next() {
+		return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}
 	}
 
+	if err = rows.Scan(&subject, &expiration); err != nil {
+		return nil, errors.Wrapf(err, "error querying token")
+	}
+
+	tokenInfo := auth.TokenInfo{Subject: subject}
 	if expiration != nil {
 		expiryTS, tsErr := types.TimestampProto(*expiration)
 		if tsErr != nil {
 			return nil, tsErr
 		}
-		return expiryTS, nil
-	}
-	return nil, nil
-}
-
-func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
-	var tokenInfo auth.TokenInfo
-	if err := a.env.GetDBClient().GetContext(ctx, &tokenInfo, `SELECT subject FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}
-		}
-		return nil, err
+		tokenInfo.Expiration = expiryTS
 	}
 	return &tokenInfo, nil
 }
 
+// we will sometimes have expiration values set in the passed, since we only remove those values in the deleteExpiredTokensRoutine() goroutine
 func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToken, error) {
 	rows, err := a.env.GetDBClient().QueryxContext(ctx,
 		`SELECT token_hash as tokenHash, subject, expiration
@@ -1457,7 +1439,7 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.HashedAuthToke
 			if err != nil {
 				return nil, err
 			}
-			token.Expiration = expirationTS
+			token.TokenInfo.Expiration = expirationTS
 		}
 		robotTokens = append(robotTokens, token)
 	}
