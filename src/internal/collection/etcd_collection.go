@@ -246,13 +246,10 @@ func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int6
 					c.stm.Del(originalIndexPath)
 				}
 			}
-			// Only put the index if it doesn't already exist; otherwise
-			// we might trigger an unnecessary event if someone is
-			// watching the index
-			if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
-				if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
-					return err
-				}
+			// Put the index even if it already exists, so that watchers may be
+			// notified that the value has been updated.
+			if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
+				return err
 			}
 		}
 	}
