@@ -4,23 +4,6 @@ orbs:
   go: circleci/go@1.6.0
 
 jobs:
-  docker-cache:
-    resource_class: 2xlarge
-    machine:
-      image: ubuntu-2004:202101-01
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-pachd-docker-{{ checksum "etc/testing/docker-cache.sh" }}
-            - v1-pachd-docker
-      - run: |
-          etc/testing/docker-cache.sh
-      - save_cache:
-          paths:
-            - /tmp/docker-cache 
-          key: v1-pachd-docker-{{ checksum "etc/testing/docker-cache.sh" }}
-
   test:
     parameters:
       bucket:
@@ -43,20 +26,13 @@ jobs:
       - go/load-cache
       - go/mod-download
       - go/save-cache
-      - restore_cache:
-          keys:
-            - v1-pachd-docker-{{ checksum "etc/testing/docker-cache.sh" }}
-            - v1-pachd-docker
       - run: etc/testing/travis_install.sh 
       - run: etc/testing/travis.sh 
 
 workflows:
   all-tests:
     jobs:
-      - docker-cache
       - test:
-          requires:
-            - docker-cache
           matrix:
             parameters:
               bucket:
