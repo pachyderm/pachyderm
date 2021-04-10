@@ -4,11 +4,11 @@ package server;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/server";
 
 import "pps/pps.proto";
-import "gogoproto/gogo.proto";
+
 import "google/protobuf/empty.proto";
 
 message CancelRequest {
-  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  string job_id = 2;
   repeated string data_filters = 1;
 }
 

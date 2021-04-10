@@ -6,8 +6,6 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/transaction";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
-import "gogoproto/gogo.proto";
-
 import "pfs/pfs.proto";
 import "pps/pps.proto";
 
@@ -34,7 +32,7 @@ message TransactionResponse {
 }
 
 message Transaction {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
 }
 
 message TransactionInfo {

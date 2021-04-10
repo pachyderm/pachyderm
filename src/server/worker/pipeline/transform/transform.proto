@@ -3,14 +3,12 @@ syntax = "proto3";
 package pachyderm.worker.pipeline.transform;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform";
 
-import "gogoproto/gogo.proto";
-
 import "pfs/pfs.proto";
 import "server/worker/datum/datum.proto";
 
 message DatumSet {
   // Inputs
-  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  string job_id = 1;
   string file_set = 2;
   pfs.Commit output_commit = 3;
   pfs.Commit meta_commit = 4;

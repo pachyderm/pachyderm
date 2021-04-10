@@ -4,12 +4,11 @@ package identity;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/identity";
 
 import "google/protobuf/timestamp.proto";
-import "gogoproto/gogo.proto";
 
 // User represents an IDP user that has authenticated via OIDC
 message User {
   string email = 1;
-  google.protobuf.Timestamp last_authenticated = 2 [(gogoproto.moretags) = "db:\"last_authenticated\"", (gogoproto.stdtime) = true]; 
+  google.protobuf.Timestamp last_authenticated = 2; 
 }
 
 // IdentityServerConfig is the configuration for the identity web server.

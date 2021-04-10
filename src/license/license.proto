@@ -4,7 +4,6 @@ package license;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/license";
 
 import "google/protobuf/timestamp.proto";
-import "gogoproto/gogo.proto";
 import "enterprise/enterprise.proto";
 
 message ActivateRequest {
@@ -57,9 +56,9 @@ message ClusterStatus {
   string id = 1;
   string address = 2;
   string version = 3;
-  bool auth_enabled = 4 [(gogoproto.moretags) = "db:\"auth_enabled\""];
-  google.protobuf.Timestamp last_heartbeat = 5 [(gogoproto.moretags) = "db:\"last_heartbeat\"", (gogoproto.stdtime) = true]; 
-  google.protobuf.Timestamp created_at = 6 [(gogoproto.moretags) = "db:\"created_at\"", (gogoproto.stdtime) = true]; 
+  bool auth_enabled = 4;
+  google.protobuf.Timestamp last_heartbeat = 5; 
+  google.protobuf.Timestamp created_at = 6; 
 }
 
 message UpdateClusterRequest {

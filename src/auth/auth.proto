@@ -3,7 +3,6 @@ syntax = "proto3";
 package auth;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/auth";
 
-import "gogoproto/gogo.proto";
 import "google/protobuf/timestamp.proto";
 
 /* A note on users
@@ -51,9 +50,9 @@ message DeactivateResponse {}
 // Configure Pachyderm's auth system with an OIDC provider 
 message OIDCConfig{
   string issuer = 1;
-  string client_id = 2 [(gogoproto.customname) = "ClientID"];
+  string client_id = 2;
   string client_secret = 3;
-  string redirect_uri = 4 [(gogoproto.customname) = "RedirectURI"];
+  string redirect_uri = 4;
   repeated string additional_scopes = 5;
   bool ignore_email_verified = 6;
 
@@ -96,7 +95,7 @@ message AuthenticateRequest {
 
   // This is the session state that Pachyderm creates in order to keep track of
   // information related to the current OIDC session.
-  string oidc_state = 3 [(gogoproto.customname) = "OIDCState"];
+  string oidc_state = 3;
 
   // This is an ID Token issued by the OIDC provider.
   string id_token = 4;
@@ -114,7 +113,7 @@ message WhoAmIRequest {}
 message WhoAmIResponse {
   reserved 2,4;
   string username = 1;
-  int64 ttl = 3 [(gogoproto.customname) = "TTL"];
+  int64 ttl = 3;
 }
 
 //// Authorization data structures
@@ -308,7 +307,7 @@ message GetOIDCLoginRequest {
 
 message GetOIDCLoginResponse {
   // The login URL generated for the OIDC object
-  string login_url = 1 [(gogoproto.customname) = "LoginURL"];
+  string login_url = 1;
   string state = 2;
 }
 
@@ -321,7 +320,7 @@ message GetAuthTokenRequest {
 
   // ttl indicates the requested (approximate) remaining lifetime of this token,
   // in seconds
-  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
+  int64 ttl = 2;
 }
 
 message GetAuthTokenResponse {
@@ -339,7 +338,7 @@ message GetRobotTokenRequest {
 
   // ttl indicates the requested (approximate) remaining lifetime of this token,
   // in seconds
-  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
+  int64 ttl = 2;
 }
 
 message GetRobotTokenResponse {
@@ -352,7 +351,7 @@ message ExtendAuthTokenRequest {
   string token = 1;
 
   // ttl indicates the new TTL of 'token' (if it's longer than the existing TTL)
-  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
+  int64 ttl = 2;
 }
 
 message ExtendAuthTokenResponse {}
