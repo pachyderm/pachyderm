@@ -9,6 +9,9 @@ import "google/protobuf/duration.proto";
 
 import "pfs/pfs.proto";
 
+import "patch/go.proto";
+option (go.lint).all = true;
+
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
   string name = 1;

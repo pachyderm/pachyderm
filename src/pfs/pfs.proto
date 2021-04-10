@@ -9,6 +9,8 @@ import "google/protobuf/wrappers.proto";
 
 import "auth/auth.proto";
 
+import "patch/go.proto";
+option (go.lint).all = true;
 ////  PFS Data structures (stored in etcd)
 
 message Repo {

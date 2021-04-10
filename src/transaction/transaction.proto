@@ -9,6 +9,9 @@ import "google/protobuf/timestamp.proto";
 import "pfs/pfs.proto";
 import "pps/pps.proto";
 
+import "patch/go.proto";
+option (go.lint).all = true;
+
 message DeleteAllRequest {
 }
 
