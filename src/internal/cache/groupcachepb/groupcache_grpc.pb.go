@@ -39,19 +39,21 @@ func (c *groupCacheClient) Get(ctx context.Context, in *GetRequest, opts ...grpc
 }
 
 // GroupCacheServer is the server API for GroupCache service.
-// All implementations should embed UnimplementedGroupCacheServer
+// All implementations must embed UnimplementedGroupCacheServer
 // for forward compatibility
 type GroupCacheServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
+	mustEmbedUnimplementedGroupCacheServer()
 }
 
-// UnimplementedGroupCacheServer should be embedded to have forward compatible implementations.
+// UnimplementedGroupCacheServer must be embedded to have forward compatible implementations.
 type UnimplementedGroupCacheServer struct {
 }
 
 func (UnimplementedGroupCacheServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
+func (UnimplementedGroupCacheServer) mustEmbedUnimplementedGroupCacheServer() {}
 
 // UnsafeGroupCacheServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to GroupCacheServer will

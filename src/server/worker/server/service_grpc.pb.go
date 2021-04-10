@@ -51,14 +51,15 @@ func (c *workerClient) Cancel(ctx context.Context, in *CancelRequest, opts ...gr
 }
 
 // WorkerServer is the server API for Worker service.
-// All implementations should embed UnimplementedWorkerServer
+// All implementations must embed UnimplementedWorkerServer
 // for forward compatibility
 type WorkerServer interface {
 	Status(context.Context, *emptypb.Empty) (*pps.WorkerStatus, error)
 	Cancel(context.Context, *CancelRequest) (*CancelResponse, error)
+	mustEmbedUnimplementedWorkerServer()
 }
 
-// UnimplementedWorkerServer should be embedded to have forward compatible implementations.
+// UnimplementedWorkerServer must be embedded to have forward compatible implementations.
 type UnimplementedWorkerServer struct {
 }
 
@@ -68,6 +69,7 @@ func (UnimplementedWorkerServer) Status(context.Context, *emptypb.Empty) (*pps.W
 func (UnimplementedWorkerServer) Cancel(context.Context, *CancelRequest) (*CancelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Cancel not implemented")
 }
+func (UnimplementedWorkerServer) mustEmbedUnimplementedWorkerServer() {}
 
 // UnsafeWorkerServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to WorkerServer will

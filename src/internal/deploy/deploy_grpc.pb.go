@@ -80,7 +80,7 @@ func (c *aPIClient) DeleteCluster(ctx context.Context, in *DeleteClusterRequest,
 }
 
 // APIServer is the server API for API service.
-// All implementations should embed UnimplementedAPIServer
+// All implementations must embed UnimplementedAPIServer
 // for forward compatibility
 type APIServer interface {
 	CreateCluster(context.Context, *CreateClusterRequest) (*emptypb.Empty, error)
@@ -88,9 +88,10 @@ type APIServer interface {
 	InspectCluster(context.Context, *InspectClusterRequest) (*ClusterInfo, error)
 	ListCluster(context.Context, *ListClusterRequest) (*ClusterInfos, error)
 	DeleteCluster(context.Context, *DeleteClusterRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedAPIServer()
 }
 
-// UnimplementedAPIServer should be embedded to have forward compatible implementations.
+// UnimplementedAPIServer must be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
@@ -109,6 +110,7 @@ func (UnimplementedAPIServer) ListCluster(context.Context, *ListClusterRequest) 
 func (UnimplementedAPIServer) DeleteCluster(context.Context, *DeleteClusterRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteCluster not implemented")
 }
+func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
 // UnsafeAPIServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to APIServer will

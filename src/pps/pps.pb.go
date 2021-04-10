@@ -7,6 +7,7 @@
 package pps
 
 import (
+	_ "github.com/alta/protopatch/patch/gopb"
 	pfs "github.com/pachyderm/pachyderm/v2/src/pfs"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -27,12 +28,12 @@ const (
 type JobState int32
 
 const (
-	JobState_JOB_STARTING  JobState = 0
-	JobState_JOB_RUNNING   JobState = 1
-	JobState_JOB_FAILURE   JobState = 2
-	JobState_JOB_SUCCESS   JobState = 3
-	JobState_JOB_KILLED    JobState = 4
-	JobState_JOB_EGRESSING JobState = 6
+	JobStateJobStarting  JobState = 0
+	JobStateJobRunning   JobState = 1
+	JobStateJobFailure   JobState = 2
+	JobStateJobSuccess   JobState = 3
+	JobStateJobKilled    JobState = 4
+	JobStateJobEgressing JobState = 6
 )
 
 // Enum value maps for JobState.
@@ -85,11 +86,11 @@ func (JobState) EnumDescriptor() ([]byte, []int) {
 type DatumState int32
 
 const (
-	DatumState_FAILED    DatumState = 0
-	DatumState_SUCCESS   DatumState = 1
-	DatumState_SKIPPED   DatumState = 2
-	DatumState_STARTING  DatumState = 3
-	DatumState_RECOVERED DatumState = 4
+	DatumStateFailed    DatumState = 0
+	DatumStateSuccess   DatumState = 1
+	DatumStateSkipped   DatumState = 2
+	DatumStateStarting  DatumState = 3
+	DatumStateRecovered DatumState = 4
 )
 
 // Enum value maps for DatumState.
@@ -140,9 +141,9 @@ func (DatumState) EnumDescriptor() ([]byte, []int) {
 type WorkerState int32
 
 const (
-	WorkerState_POD_RUNNING WorkerState = 0
-	WorkerState_POD_SUCCESS WorkerState = 1
-	WorkerState_POD_FAILED  WorkerState = 2
+	WorkerStatePodRunning WorkerState = 0
+	WorkerStatePodSuccess WorkerState = 1
+	WorkerStatePodFailed  WorkerState = 2
 )
 
 // Enum value maps for WorkerState.
@@ -192,26 +193,26 @@ const (
 	// There is an EtcdPipelineInfo + spec commit, but no RC
 	// This happens when a pipeline has been created but not yet picked up by a
 	// PPS server.
-	PipelineState_PIPELINE_STARTING PipelineState = 0
+	PipelineStatePipelineStarting PipelineState = 0
 	// A pipeline has a spec commit and a service + RC
 	// This is the normal state of a pipeline.
-	PipelineState_PIPELINE_RUNNING PipelineState = 1
+	PipelineStatePipelineRunning PipelineState = 1
 	// Equivalent to STARTING (there is an EtcdPipelineInfo + commit, but no RC)
 	// After some error caused runPipeline to exit, but before the pipeline is
 	// re-run. This is when the exponential backoff is in effect.
-	PipelineState_PIPELINE_RESTARTING PipelineState = 2
+	PipelineStatePipelineRestarting PipelineState = 2
 	// The pipeline has encountered unrecoverable errors and is no longer being
 	// retried. It won't leave this state until the pipeline is updated.
-	PipelineState_PIPELINE_FAILURE PipelineState = 3
+	PipelineStatePipelineFailure PipelineState = 3
 	// The pipeline has been explicitly paused by the user (the pipeline spec's
 	// Stopped field should be true if the pipeline is in this state)
-	PipelineState_PIPELINE_PAUSED PipelineState = 4
+	PipelineStatePipelinePaused PipelineState = 4
 	// The pipeline is fully functional, but there are no commits to process.
-	PipelineState_PIPELINE_STANDBY PipelineState = 5
+	PipelineStatePipelineStandby PipelineState = 5
 	// The pipeline's workers are crashing, or failing to come up, this may
 	// resolve itself, the pipeline may make progress while in this state if the
 	// problem is only being experienced by some workers.
-	PipelineState_PIPELINE_CRASHING PipelineState = 6
+	PipelineStatePipelineCrashing PipelineState = 6
 )
 
 // Enum value maps for PipelineState.
@@ -652,7 +653,7 @@ type Job struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
 func (x *Job) Reset() {
@@ -687,9 +688,9 @@ func (*Job) Descriptor() ([]byte, []int) {
 	return file_pps_pps_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *Job) GetId() string {
+func (x *Job) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -756,7 +757,7 @@ type Service struct {
 
 	InternalPort int32  `protobuf:"varint,1,opt,name=internal_port,json=internalPort,proto3" json:"internal_port,omitempty"`
 	ExternalPort int32  `protobuf:"varint,2,opt,name=external_port,json=externalPort,proto3" json:"external_port,omitempty"`
-	Ip           string `protobuf:"bytes,3,opt,name=ip,proto3" json:"ip,omitempty"`
+	IP           string `protobuf:"bytes,3,opt,name=ip,proto3" json:"ip,omitempty"`
 	Type         string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
 }
 
@@ -806,9 +807,9 @@ func (x *Service) GetExternalPort() int32 {
 	return 0
 }
 
-func (x *Service) GetIp() string {
+func (x *Service) GetIP() string {
 	if x != nil {
-		return x.Ip
+		return x.IP
 	}
 	return ""
 }
@@ -1107,7 +1108,7 @@ type GitInput struct {
 	unknownFields protoimpl.UnknownFields
 
 	Name   string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Url    string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	URL    string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
 	Branch string `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
 	Commit string `protobuf:"bytes,4,opt,name=commit,proto3" json:"commit,omitempty"`
 }
@@ -1151,9 +1152,9 @@ func (x *GitInput) GetName() string {
 	return ""
 }
 
-func (x *GitInput) GetUrl() string {
+func (x *GitInput) GetURL() string {
 	if x != nil {
-		return x.Url
+		return x.URL
 	}
 	return ""
 }
@@ -1468,7 +1469,7 @@ type Datum struct {
 	unknownFields protoimpl.UnknownFields
 
 	// ID is the hash computed from all the files
-	Id  string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ID  string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Job *Job   `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
 }
 
@@ -1504,9 +1505,9 @@ func (*Datum) Descriptor() ([]byte, []int) {
 	return file_pps_pps_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *Datum) GetId() string {
+func (x *Datum) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -1573,7 +1574,7 @@ func (x *DatumInfo) GetState() DatumState {
 	if x != nil {
 		return x.State
 	}
-	return DatumState_FAILED
+	return DatumStateFailed
 }
 
 func (x *DatumInfo) GetStats() *ProcessStats {
@@ -1839,8 +1840,8 @@ type WorkerStatus struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	WorkerId string       `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
-	JobId    string       `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	WorkerID string       `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	JobID    string       `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	Data     []*InputFile `protobuf:"bytes,3,rep,name=data,proto3" json:"data,omitempty"`
 	// Started is the time processing on the current datum began.
 	Started       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=started,proto3" json:"started,omitempty"`
@@ -1882,16 +1883,16 @@ func (*WorkerStatus) Descriptor() ([]byte, []int) {
 	return file_pps_pps_proto_rawDescGZIP(), []int{21}
 }
 
-func (x *WorkerStatus) GetWorkerId() string {
+func (x *WorkerStatus) GetWorkerID() string {
 	if x != nil {
-		return x.WorkerId
+		return x.WorkerID
 	}
 	return ""
 }
 
-func (x *WorkerStatus) GetJobId() string {
+func (x *WorkerStatus) GetJobID() string {
 	if x != nil {
-		return x.JobId
+		return x.JobID
 	}
 	return ""
 }
@@ -1947,7 +1948,7 @@ type ResourceSpec struct {
 
 	// The number of CPUs each worker needs (partial values are allowed, and
 	// encouraged)
-	Cpu float32 `protobuf:"fixed32,1,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	CPU float32 `protobuf:"fixed32,1,opt,name=cpu,proto3" json:"cpu,omitempty"`
 	// The amount of memory each worker needs (in bytes, with allowed
 	// SI suffixes (M, K, G, Mi, Ki, Gi, etc).
 	Memory string `protobuf:"bytes,2,opt,name=memory,proto3" json:"memory,omitempty"`
@@ -1990,9 +1991,9 @@ func (*ResourceSpec) Descriptor() ([]byte, []int) {
 	return file_pps_pps_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *ResourceSpec) GetCpu() float32 {
+func (x *ResourceSpec) GetCPU() float32 {
 	if x != nil {
-		return x.Cpu
+		return x.CPU
 	}
 	return 0
 }
@@ -2216,7 +2217,7 @@ func (x *EtcdJobInfo) GetState() JobState {
 	if x != nil {
 		return x.State
 	}
-	return JobState_JOB_STARTING
+	return JobStateJobStarting
 }
 
 func (x *EtcdJobInfo) GetReason() string {
@@ -2400,7 +2401,7 @@ func (x *JobInfo) GetState() JobState {
 	if x != nil {
 		return x.State
 	}
-	return JobState_JOB_STARTING
+	return JobStateJobStarting
 }
 
 func (x *JobInfo) GetReason() string {
@@ -2651,7 +2652,7 @@ func (x *Worker) GetState() WorkerState {
 	if x != nil {
 		return x.State
 	}
-	return WorkerState_POD_RUNNING
+	return WorkerStatePodRunning
 }
 
 type Pipeline struct {
@@ -2761,7 +2762,7 @@ func (x *EtcdPipelineInfo) GetState() PipelineState {
 	if x != nil {
 		return x.State
 	}
-	return PipelineState_PIPELINE_STARTING
+	return PipelineStatePipelineStarting
 }
 
 func (x *EtcdPipelineInfo) GetReason() string {
@@ -2796,7 +2797,7 @@ func (x *EtcdPipelineInfo) GetLastJobState() JobState {
 	if x != nil {
 		return x.LastJobState
 	}
-	return JobState_JOB_STARTING
+	return JobStateJobStarting
 }
 
 func (x *EtcdPipelineInfo) GetParallelism() uint64 {
@@ -2811,7 +2812,7 @@ type PipelineInfo struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id        string     `protobuf:"bytes,17,opt,name=id,proto3" json:"id,omitempty"`
+	ID        string     `protobuf:"bytes,17,opt,name=id,proto3" json:"id,omitempty"`
 	Pipeline  *Pipeline  `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	Version   uint64     `protobuf:"varint,11,opt,name=version,proto3" json:"version,omitempty"`
 	Transform *Transform `protobuf:"bytes,2,opt,name=transform,proto3" json:"transform,omitempty"`
@@ -2854,7 +2855,7 @@ type PipelineInfo struct {
 	ChunkSpec      *ChunkSpec           `protobuf:"bytes,32,opt,name=chunk_spec,json=chunkSpec,proto3" json:"chunk_spec,omitempty"`
 	DatumTimeout   *durationpb.Duration `protobuf:"bytes,33,opt,name=datum_timeout,json=datumTimeout,proto3" json:"datum_timeout,omitempty"`
 	JobTimeout     *durationpb.Duration `protobuf:"bytes,34,opt,name=job_timeout,json=jobTimeout,proto3" json:"job_timeout,omitempty"`
-	GithookUrl     string               `protobuf:"bytes,35,opt,name=githook_url,json=githookUrl,proto3" json:"githook_url,omitempty"`
+	GithookURL     string               `protobuf:"bytes,35,opt,name=githook_url,json=githookUrl,proto3" json:"githook_url,omitempty"`
 	SpecCommit     *pfs.Commit          `protobuf:"bytes,36,opt,name=spec_commit,json=specCommit,proto3" json:"spec_commit,omitempty"`
 	Standby        bool                 `protobuf:"varint,37,opt,name=standby,proto3" json:"standby,omitempty"`
 	DatumTries     int64                `protobuf:"varint,39,opt,name=datum_tries,json=datumTries,proto3" json:"datum_tries,omitempty"`
@@ -2898,9 +2899,9 @@ func (*PipelineInfo) Descriptor() ([]byte, []int) {
 	return file_pps_pps_proto_rawDescGZIP(), []int{29}
 }
 
-func (x *PipelineInfo) GetId() string {
+func (x *PipelineInfo) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -2958,7 +2959,7 @@ func (x *PipelineInfo) GetState() PipelineState {
 	if x != nil {
 		return x.State
 	}
-	return PipelineState_PIPELINE_STARTING
+	return PipelineStatePipelineStarting
 }
 
 func (x *PipelineInfo) GetStopped() bool {
@@ -3000,7 +3001,7 @@ func (x *PipelineInfo) GetLastJobState() JobState {
 	if x != nil {
 		return x.LastJobState
 	}
-	return JobState_JOB_STARTING
+	return JobStateJobStarting
 }
 
 func (x *PipelineInfo) GetOutputBranch() string {
@@ -3115,9 +3116,9 @@ func (x *PipelineInfo) GetJobTimeout() *durationpb.Duration {
 	return nil
 }
 
-func (x *PipelineInfo) GetGithookUrl() string {
+func (x *PipelineInfo) GetGithookURL() string {
 	if x != nil {
-		return x.GithookUrl
+		return x.GithookURL
 	}
 	return ""
 }
@@ -3362,7 +3363,7 @@ func (x *CreateJobRequest) GetState() JobState {
 	if x != nil {
 		return x.State
 	}
-	return JobState_JOB_STARTING
+	return JobStateJobStarting
 }
 
 func (x *CreateJobRequest) GetReason() string {
@@ -3775,7 +3776,7 @@ func (x *UpdateJobStateRequest) GetState() JobState {
 	if x != nil {
 		return x.State
 	}
-	return JobState_JOB_STARTING
+	return JobStateJobStarting
 }
 
 func (x *UpdateJobStateRequest) GetReason() string {
@@ -3972,9 +3973,9 @@ type LogMessage struct {
 	// The job and pipeline for which a PFS file is being processed (if the job
 	// is an orphan job, pipeline name and ID will be unset)
 	PipelineName string `protobuf:"bytes,1,opt,name=pipeline_name,json=pipelineName,proto3" json:"pipeline_name,omitempty"`
-	JobId        string `protobuf:"bytes,3,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
-	WorkerId     string `protobuf:"bytes,7,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
-	DatumId      string `protobuf:"bytes,9,opt,name=datum_id,json=datumId,proto3" json:"datum_id,omitempty"`
+	JobID        string `protobuf:"bytes,3,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	WorkerID     string `protobuf:"bytes,7,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	DatumID      string `protobuf:"bytes,9,opt,name=datum_id,json=datumId,proto3" json:"datum_id,omitempty"`
 	Master       bool   `protobuf:"varint,10,opt,name=master,proto3" json:"master,omitempty"`
 	// The PFS files being processed (one per pipeline/job input)
 	Data []*InputFile `protobuf:"bytes,4,rep,name=data,proto3" json:"data,omitempty"`
@@ -4024,23 +4025,23 @@ func (x *LogMessage) GetPipelineName() string {
 	return ""
 }
 
-func (x *LogMessage) GetJobId() string {
+func (x *LogMessage) GetJobID() string {
 	if x != nil {
-		return x.JobId
+		return x.JobID
 	}
 	return ""
 }
 
-func (x *LogMessage) GetWorkerId() string {
+func (x *LogMessage) GetWorkerID() string {
 	if x != nil {
-		return x.WorkerId
+		return x.WorkerID
 	}
 	return ""
 }
 
-func (x *LogMessage) GetDatumId() string {
+func (x *LogMessage) GetDatumID() string {
 	if x != nil {
-		return x.DatumId
+		return x.DatumID
 	}
 	return ""
 }
@@ -4948,7 +4949,7 @@ type RunPipelineRequest struct {
 
 	Pipeline   *Pipeline               `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	Provenance []*pfs.CommitProvenance `protobuf:"bytes,2,rep,name=provenance,proto3" json:"provenance,omitempty"`
-	JobId      string                  `protobuf:"bytes,4,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	JobID      string                  `protobuf:"bytes,4,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 }
 
 func (x *RunPipelineRequest) Reset() {
@@ -4997,9 +4998,9 @@ func (x *RunPipelineRequest) GetProvenance() []*pfs.CommitProvenance {
 	return nil
 }
 
-func (x *RunPipelineRequest) GetJobId() string {
+func (x *RunPipelineRequest) GetJobID() string {
 	if x != nil {
-		return x.JobId
+		return x.JobID
 	}
 	return ""
 }
@@ -5524,6 +5525,7 @@ var file_pps_pps_proto_rawDesc = []byte{
 	0x74, 0x6f, 0x1a, 0x1e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 	0x62, 0x75, 0x66, 0x2f, 0x64, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x2e, 0x70, 0x72, 0x6f,
 	0x74, 0x6f, 0x1a, 0x0d, 0x70, 0x66, 0x73, 0x2f, 0x70, 0x66, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x1a, 0x0e, 0x70, 0x61, 0x74, 0x63, 0x68, 0x2f, 0x67, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x22, 0x6b, 0x0a, 0x0b, 0x53, 0x65, 0x63, 0x72, 0x65, 0x74, 0x4d, 0x6f, 0x75, 0x6e, 0x74,
 	0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04,
 	0x6e, 0x61, 0x6d, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x04, 0x20, 0x01, 0x28,
@@ -6517,11 +6519,11 @@ var file_pps_pps_proto_rawDesc = []byte{
 	0x4a, 0x6f, 0x62, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x1a, 0x2e, 0x70, 0x70, 0x73, 0x2e, 0x55,
 	0x70, 0x64, 0x61, 0x74, 0x65, 0x4a, 0x6f, 0x62, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71,
 	0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x42, 0x2b,
+	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x42, 0x31,
 	0x5a, 0x29, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x61, 0x63,
 	0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d,
-	0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x70, 0x70, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x70, 0x70, 0x73, 0xca, 0xb5, 0x03, 0x02, 0x08,
+	0x01, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (

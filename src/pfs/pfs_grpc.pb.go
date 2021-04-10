@@ -630,7 +630,7 @@ func (c *aPIClient) RenewFileset(ctx context.Context, in *RenewFilesetRequest, o
 }
 
 // APIServer is the server API for API service.
-// All implementations should embed UnimplementedAPIServer
+// All implementations must embed UnimplementedAPIServer
 // for forward compatibility
 type APIServer interface {
 	// CreateRepo creates a new repo.
@@ -696,9 +696,10 @@ type APIServer interface {
 	CreateFileset(API_CreateFilesetServer) error
 	// RenewFileset prevents a fileset from being deleted for a set amount of time.
 	RenewFileset(context.Context, *RenewFilesetRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedAPIServer()
 }
 
-// UnimplementedAPIServer should be embedded to have forward compatible implementations.
+// UnimplementedAPIServer must be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
@@ -795,6 +796,7 @@ func (UnimplementedAPIServer) CreateFileset(API_CreateFilesetServer) error {
 func (UnimplementedAPIServer) RenewFileset(context.Context, *RenewFilesetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenewFileset not implemented")
 }
+func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
 // UnsafeAPIServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to APIServer will

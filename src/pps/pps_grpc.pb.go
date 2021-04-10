@@ -378,7 +378,7 @@ func (c *aPIClient) UpdateJobState(ctx context.Context, in *UpdateJobStateReques
 }
 
 // APIServer is the server API for API service.
-// All implementations should embed UnimplementedAPIServer
+// All implementations must embed UnimplementedAPIServer
 // for forward compatibility
 type APIServer interface {
 	CreateJob(context.Context, *CreateJobRequest) (*Job, error)
@@ -412,9 +412,10 @@ type APIServer interface {
 	ActivateAuth(context.Context, *ActivateAuthRequest) (*ActivateAuthResponse, error)
 	// An internal call used to move a job from one state to another
 	UpdateJobState(context.Context, *UpdateJobStateRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedAPIServer()
 }
 
-// UnimplementedAPIServer should be embedded to have forward compatible implementations.
+// UnimplementedAPIServer must be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
@@ -493,6 +494,7 @@ func (UnimplementedAPIServer) ActivateAuth(context.Context, *ActivateAuthRequest
 func (UnimplementedAPIServer) UpdateJobState(context.Context, *UpdateJobStateRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateJobState not implemented")
 }
+func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
 // UnsafeAPIServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to APIServer will

@@ -7,6 +7,7 @@
 package pfs
 
 import (
+	_ "github.com/alta/protopatch/patch/gopb"
 	auth "github.com/pachyderm/pachyderm/v2/src/auth"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -28,9 +29,9 @@ const (
 type OriginKind int32
 
 const (
-	OriginKind_USER OriginKind = 0
-	OriginKind_AUTO OriginKind = 1
-	OriginKind_FSCK OriginKind = 2
+	OriginKindUser OriginKind = 0
+	OriginKindAuto OriginKind = 1
+	OriginKindFsck OriginKind = 2
 )
 
 // Enum value maps for OriginKind.
@@ -77,9 +78,9 @@ func (OriginKind) EnumDescriptor() ([]byte, []int) {
 type FileType int32
 
 const (
-	FileType_RESERVED FileType = 0
-	FileType_FILE     FileType = 1
-	FileType_DIR      FileType = 2
+	FileTypeReserved FileType = 0
+	FileTypeFile     FileType = 1
+	FileTypeDir      FileType = 2
 )
 
 // Enum value maps for FileType.
@@ -128,9 +129,9 @@ func (FileType) EnumDescriptor() ([]byte, []int) {
 type CommitState int32
 
 const (
-	CommitState_STARTED  CommitState = 0 // The commit has been started, all commits satisfy this state.
-	CommitState_READY    CommitState = 1 // The commit has been started, and all of its provenant commits have been finished.
-	CommitState_FINISHED CommitState = 2 // The commit has been finished.
+	CommitStateStarted  CommitState = 0 // The commit has been started, all commits satisfy this state.
+	CommitStateReady    CommitState = 1 // The commit has been started, and all of its provenant commits have been finished.
+	CommitStateFinished CommitState = 2 // The commit has been finished.
 )
 
 // Enum value maps for CommitState.
@@ -177,11 +178,11 @@ func (CommitState) EnumDescriptor() ([]byte, []int) {
 type Delimiter int32
 
 const (
-	Delimiter_NONE Delimiter = 0
-	Delimiter_JSON Delimiter = 1
-	Delimiter_LINE Delimiter = 2
-	Delimiter_SQL  Delimiter = 3
-	Delimiter_CSV  Delimiter = 4
+	DelimiterNone Delimiter = 0
+	DelimiterJSON Delimiter = 1
+	DelimiterLine Delimiter = 2
+	DelimiterSQL  Delimiter = 3
+	DelimiterCsv  Delimiter = 4
 )
 
 // Enum value maps for Delimiter.
@@ -805,7 +806,7 @@ func (x *CommitOrigin) GetKind() OriginKind {
 	if x != nil {
 		return x.Kind
 	}
-	return OriginKind_USER
+	return OriginKindUser
 }
 
 // Commit is a reference to a commit (e.g. the collection of branches and the
@@ -817,7 +818,7 @@ type Commit struct {
 	unknownFields protoimpl.UnknownFields
 
 	Repo *Repo  `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
-	Id   string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	ID   string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
 }
 
 func (x *Commit) Reset() {
@@ -859,9 +860,9 @@ func (x *Commit) GetRepo() *Repo {
 	return nil
 }
 
-func (x *Commit) GetId() string {
+func (x *Commit) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -1201,7 +1202,7 @@ func (x *FileInfo) GetFileType() FileType {
 	if x != nil {
 		return x.FileType
 	}
-	return FileType_RESERVED
+	return FileTypeReserved
 }
 
 func (x *FileInfo) GetSizeBytes() uint64 {
@@ -1685,7 +1686,7 @@ func (x *InspectCommitRequest) GetBlockState() CommitState {
 	if x != nil {
 		return x.BlockState
 	}
-	return CommitState_STARTED
+	return CommitStateStarted
 }
 
 type ListCommitRequest struct {
@@ -1994,7 +1995,7 @@ func (x *SubscribeCommitRequest) GetState() CommitState {
 	if x != nil {
 		return x.State
 	}
-	return CommitState_STARTED
+	return CommitStateStarted
 }
 
 type ClearCommitRequest struct {
@@ -2364,9 +2365,9 @@ func (x *PutFile) GetTarFileSource() *TarFileSource {
 	return nil
 }
 
-func (x *PutFile) GetUrlFileSource() *URLFileSource {
-	if x, ok := x.GetSource().(*PutFile_UrlFileSource); ok {
-		return x.UrlFileSource
+func (x *PutFile) GetURLFileSource() *URLFileSource {
+	if x, ok := x.GetSource().(*PutFile_URLFileSource); ok {
+		return x.URLFileSource
 	}
 	return nil
 }
@@ -2383,15 +2384,15 @@ type PutFile_TarFileSource struct {
 	TarFileSource *TarFileSource `protobuf:"bytes,4,opt,name=tar_file_source,json=tarFileSource,proto3,oneof"`
 }
 
-type PutFile_UrlFileSource struct {
-	UrlFileSource *URLFileSource `protobuf:"bytes,5,opt,name=url_file_source,json=urlFileSource,proto3,oneof"`
+type PutFile_URLFileSource struct {
+	URLFileSource *URLFileSource `protobuf:"bytes,5,opt,name=url_file_source,json=urlFileSource,proto3,oneof"`
 }
 
 func (*PutFile_RawFileSource) isPutFile_Source() {}
 
 func (*PutFile_TarFileSource) isPutFile_Source() {}
 
-func (*PutFile_UrlFileSource) isPutFile_Source() {}
+func (*PutFile_URLFileSource) isPutFile_Source() {}
 
 type RawFileSource struct {
 	state         protoimpl.MessageState
@@ -3270,7 +3271,7 @@ type CreateFilesetResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	FilesetId string `protobuf:"bytes,1,opt,name=fileset_id,json=filesetId,proto3" json:"fileset_id,omitempty"`
+	FilesetID string `protobuf:"bytes,1,opt,name=fileset_id,json=filesetId,proto3" json:"fileset_id,omitempty"`
 }
 
 func (x *CreateFilesetResponse) Reset() {
@@ -3305,9 +3306,9 @@ func (*CreateFilesetResponse) Descriptor() ([]byte, []int) {
 	return file_pfs_pfs_proto_rawDescGZIP(), []int{48}
 }
 
-func (x *CreateFilesetResponse) GetFilesetId() string {
+func (x *CreateFilesetResponse) GetFilesetID() string {
 	if x != nil {
-		return x.FilesetId
+		return x.FilesetID
 	}
 	return ""
 }
@@ -3317,8 +3318,8 @@ type RenewFilesetRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	FilesetId  string `protobuf:"bytes,1,opt,name=fileset_id,json=filesetId,proto3" json:"fileset_id,omitempty"`
-	TtlSeconds int64  `protobuf:"varint,2,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`
+	FilesetID  string `protobuf:"bytes,1,opt,name=fileset_id,json=filesetId,proto3" json:"fileset_id,omitempty"`
+	TTLSeconds int64  `protobuf:"varint,2,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`
 }
 
 func (x *RenewFilesetRequest) Reset() {
@@ -3353,16 +3354,16 @@ func (*RenewFilesetRequest) Descriptor() ([]byte, []int) {
 	return file_pfs_pfs_proto_rawDescGZIP(), []int{49}
 }
 
-func (x *RenewFilesetRequest) GetFilesetId() string {
+func (x *RenewFilesetRequest) GetFilesetID() string {
 	if x != nil {
-		return x.FilesetId
+		return x.FilesetID
 	}
 	return ""
 }
 
-func (x *RenewFilesetRequest) GetTtlSeconds() int64 {
+func (x *RenewFilesetRequest) GetTTLSeconds() int64 {
 	if x != nil {
-		return x.TtlSeconds
+		return x.TTLSeconds
 	}
 	return 0
 }
@@ -3373,7 +3374,7 @@ type AddFilesetRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	Commit    *Commit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
-	FilesetId string  `protobuf:"bytes,2,opt,name=fileset_id,json=filesetId,proto3" json:"fileset_id,omitempty"`
+	FilesetID string  `protobuf:"bytes,2,opt,name=fileset_id,json=filesetId,proto3" json:"fileset_id,omitempty"`
 }
 
 func (x *AddFilesetRequest) Reset() {
@@ -3415,9 +3416,9 @@ func (x *AddFilesetRequest) GetCommit() *Commit {
 	return nil
 }
 
-func (x *AddFilesetRequest) GetFilesetId() string {
+func (x *AddFilesetRequest) GetFilesetID() string {
 	if x != nil {
-		return x.FilesetId
+		return x.FilesetID
 	}
 	return ""
 }
@@ -3556,6 +3557,7 @@ var file_pfs_pfs_proto_rawDesc = []byte{
 	0x74, 0x6f, 0x1a, 0x1e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 	0x62, 0x75, 0x66, 0x2f, 0x77, 0x72, 0x61, 0x70, 0x70, 0x65, 0x72, 0x73, 0x2e, 0x70, 0x72, 0x6f,
 	0x74, 0x6f, 0x1a, 0x0f, 0x61, 0x75, 0x74, 0x68, 0x2f, 0x61, 0x75, 0x74, 0x68, 0x2e, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x1a, 0x0e, 0x70, 0x61, 0x74, 0x63, 0x68, 0x2f, 0x67, 0x6f, 0x2e, 0x70, 0x72,
 	0x6f, 0x74, 0x6f, 0x22, 0x1a, 0x0a, 0x04, 0x52, 0x65, 0x70, 0x6f, 0x12, 0x12, 0x0a, 0x04, 0x6e,
 	0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22,
 	0x3b, 0x0a, 0x06, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x12, 0x1d, 0x0a, 0x04, 0x72, 0x65, 0x70,
@@ -4053,11 +4055,11 @@ var file_pfs_pfs_proto_rawDesc = []byte{
 	0x6e, 0x65, 0x77, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x18, 0x2e, 0x70, 0x66, 0x73,
 	0x2e, 0x52, 0x65, 0x6e, 0x65, 0x77, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x71,
 	0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x42, 0x2b,
+	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x42, 0x31,
 	0x5a, 0x29, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x61, 0x63,
 	0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d,
-	0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x70, 0x66, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x70, 0x66, 0x73, 0xca, 0xb5, 0x03, 0x02, 0x08,
+	0x01, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -4945,7 +4947,7 @@ func file_pfs_pfs_proto_init() {
 	file_pfs_pfs_proto_msgTypes[32].OneofWrappers = []interface{}{
 		(*PutFile_RawFileSource)(nil),
 		(*PutFile_TarFileSource)(nil),
-		(*PutFile_UrlFileSource)(nil),
+		(*PutFile_URLFileSource)(nil),
 	}
 	file_pfs_pfs_proto_msgTypes[37].OneofWrappers = []interface{}{
 		(*ModifyFileRequest_PutFile)(nil),

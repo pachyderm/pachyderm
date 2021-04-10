@@ -115,7 +115,7 @@ func (c *aPIClient) Heartbeat(ctx context.Context, in *HeartbeatRequest, opts ..
 }
 
 // APIServer is the server API for API service.
-// All implementations should embed UnimplementedAPIServer
+// All implementations must embed UnimplementedAPIServer
 // for forward compatibility
 type APIServer interface {
 	// Activate enables the license service by setting the enterprise activation
@@ -132,9 +132,10 @@ type APIServer interface {
 	// Heartbeat is the RPC registered pachds make to the license server
 	// to communicate their status and fetch updates.
 	Heartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error)
+	mustEmbedUnimplementedAPIServer()
 }
 
-// UnimplementedAPIServer should be embedded to have forward compatible implementations.
+// UnimplementedAPIServer must be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
@@ -162,6 +163,7 @@ func (UnimplementedAPIServer) UpdateCluster(context.Context, *UpdateClusterReque
 func (UnimplementedAPIServer) Heartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Heartbeat not implemented")
 }
+func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
 // UnsafeAPIServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to APIServer will

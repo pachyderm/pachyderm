@@ -40,19 +40,21 @@ func (c *aPIClient) InspectCluster(ctx context.Context, in *emptypb.Empty, opts 
 }
 
 // APIServer is the server API for API service.
-// All implementations should embed UnimplementedAPIServer
+// All implementations must embed UnimplementedAPIServer
 // for forward compatibility
 type APIServer interface {
 	InspectCluster(context.Context, *emptypb.Empty) (*ClusterInfo, error)
+	mustEmbedUnimplementedAPIServer()
 }
 
-// UnimplementedAPIServer should be embedded to have forward compatible implementations.
+// UnimplementedAPIServer must be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
 func (UnimplementedAPIServer) InspectCluster(context.Context, *emptypb.Empty) (*ClusterInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectCluster not implemented")
 }
+func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
 // UnsafeAPIServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to APIServer will

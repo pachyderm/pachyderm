@@ -7,6 +7,7 @@
 package identity
 
 import (
+	_ "github.com/alta/protopatch/patch/gopb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -303,7 +304,7 @@ type IDPConnector struct {
 	unknownFields protoimpl.UnknownFields
 
 	// ID is the unique identifier for this connector.
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Name is the human-readable identifier for this connector,
 	// which will be shown to end users when they're authenticating.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
@@ -312,9 +313,9 @@ type IDPConnector struct {
 	// ConfigVersion must be incremented every time a connector is
 	// updated, to avoid concurrent updates conflicting.
 	ConfigVersion int64 `protobuf:"varint,4,opt,name=configVersion,proto3" json:"configVersion,omitempty"`
-	// JsonConfig is the configuration for the upstream IDP, which varies
+	// JSONConfig is the configuration for the upstream IDP, which varies
 	// based on the type.
-	JsonConfig string `protobuf:"bytes,5,opt,name=jsonConfig,proto3" json:"jsonConfig,omitempty"`
+	JSONConfig string `protobuf:"bytes,5,opt,name=jsonConfig,proto3" json:"jsonConfig,omitempty"`
 }
 
 func (x *IDPConnector) Reset() {
@@ -349,9 +350,9 @@ func (*IDPConnector) Descriptor() ([]byte, []int) {
 	return file_identity_identity_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *IDPConnector) GetId() string {
+func (x *IDPConnector) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -377,9 +378,9 @@ func (x *IDPConnector) GetConfigVersion() int64 {
 	return 0
 }
 
-func (x *IDPConnector) GetJsonConfig() string {
+func (x *IDPConnector) GetJSONConfig() string {
 	if x != nil {
-		return x.JsonConfig
+		return x.JSONConfig
 	}
 	return ""
 }
@@ -644,7 +645,7 @@ type GetIDPConnectorRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
 func (x *GetIDPConnectorRequest) Reset() {
@@ -679,9 +680,9 @@ func (*GetIDPConnectorRequest) Descriptor() ([]byte, []int) {
 	return file_identity_identity_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *GetIDPConnectorRequest) GetId() string {
+func (x *GetIDPConnectorRequest) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -738,7 +739,7 @@ type DeleteIDPConnectorRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
 func (x *DeleteIDPConnectorRequest) Reset() {
@@ -773,9 +774,9 @@ func (*DeleteIDPConnectorRequest) Descriptor() ([]byte, []int) {
 	return file_identity_identity_proto_rawDescGZIP(), []int{15}
 }
 
-func (x *DeleteIDPConnectorRequest) GetId() string {
+func (x *DeleteIDPConnectorRequest) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -823,7 +824,7 @@ type OIDCClient struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id           string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ID           string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	RedirectUris []string `protobuf:"bytes,2,rep,name=redirect_uris,json=redirectUris,proto3" json:"redirect_uris,omitempty"`
 	TrustedPeers []string `protobuf:"bytes,3,rep,name=trusted_peers,json=trustedPeers,proto3" json:"trusted_peers,omitempty"`
 	Name         string   `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
@@ -862,9 +863,9 @@ func (*OIDCClient) Descriptor() ([]byte, []int) {
 	return file_identity_identity_proto_rawDescGZIP(), []int{17}
 }
 
-func (x *OIDCClient) GetId() string {
+func (x *OIDCClient) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -996,7 +997,7 @@ type GetOIDCClientRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
 func (x *GetOIDCClientRequest) Reset() {
@@ -1031,9 +1032,9 @@ func (*GetOIDCClientRequest) Descriptor() ([]byte, []int) {
 	return file_identity_identity_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *GetOIDCClientRequest) GetId() string {
+func (x *GetOIDCClientRequest) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -1260,7 +1261,7 @@ type DeleteOIDCClientRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
 func (x *DeleteOIDCClientRequest) Reset() {
@@ -1295,9 +1296,9 @@ func (*DeleteOIDCClientRequest) Descriptor() ([]byte, []int) {
 	return file_identity_identity_proto_rawDescGZIP(), []int{26}
 }
 
-func (x *DeleteOIDCClientRequest) GetId() string {
+func (x *DeleteOIDCClientRequest) GetID() string {
 	if x != nil {
-		return x.Id
+		return x.ID
 	}
 	return ""
 }
@@ -1423,6 +1424,7 @@ var file_identity_identity_proto_rawDesc = []byte{
 	0x69, 0x74, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x08, 0x69, 0x64, 0x65, 0x6e, 0x74,
 	0x69, 0x74, 0x79, 0x1a, 0x1f, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x62, 0x75, 0x66, 0x2f, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x0e, 0x70, 0x61, 0x74, 0x63, 0x68, 0x2f, 0x67, 0x6f, 0x2e, 0x70,
 	0x72, 0x6f, 0x74, 0x6f, 0x22, 0x67, 0x0a, 0x04, 0x55, 0x73, 0x65, 0x72, 0x12, 0x14, 0x0a, 0x05,
 	0x65, 0x6d, 0x61, 0x69, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x65, 0x6d, 0x61,
 	0x69, 0x6c, 0x12, 0x49, 0x0a, 0x12, 0x6c, 0x61, 0x73, 0x74, 0x5f, 0x61, 0x75, 0x74, 0x68, 0x65,
@@ -1613,11 +1615,11 @@ var file_identity_identity_proto_rawDesc = []byte{
 	0x6c, 0x12, 0x1a, 0x2e, 0x69, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x2e, 0x44, 0x65, 0x6c,
 	0x65, 0x74, 0x65, 0x41, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e,
 	0x69, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x41,
-	0x6c, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x30, 0x5a, 0x2e,
+	0x6c, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x36, 0x5a, 0x2e,
 	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79,
 	0x64, 0x65, 0x72, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x76,
-	0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x69, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x62, 0x06,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x69, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0xca, 0xb5,
+	0x03, 0x02, 0x08, 0x01, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (

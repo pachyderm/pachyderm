@@ -101,7 +101,7 @@ func (c *aPIClient) DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ..
 }
 
 // APIServer is the server API for API service.
-// All implementations should embed UnimplementedAPIServer
+// All implementations must embed UnimplementedAPIServer
 // for forward compatibility
 type APIServer interface {
 	// Transaction rpcs
@@ -112,9 +112,10 @@ type APIServer interface {
 	ListTransaction(context.Context, *ListTransactionRequest) (*TransactionInfos, error)
 	FinishTransaction(context.Context, *FinishTransactionRequest) (*TransactionInfo, error)
 	DeleteAll(context.Context, *DeleteAllRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedAPIServer()
 }
 
-// UnimplementedAPIServer should be embedded to have forward compatible implementations.
+// UnimplementedAPIServer must be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
@@ -139,6 +140,7 @@ func (UnimplementedAPIServer) FinishTransaction(context.Context, *FinishTransact
 func (UnimplementedAPIServer) DeleteAll(context.Context, *DeleteAllRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAll not implemented")
 }
+func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
 // UnsafeAPIServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to APIServer will

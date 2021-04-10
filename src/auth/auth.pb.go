@@ -7,6 +7,7 @@
 package auth
 
 import (
+	_ "github.com/alta/protopatch/patch/gopb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -25,61 +26,61 @@ const (
 type Permission int32
 
 const (
-	Permission_UNKNOWN                             Permission = 0
-	Permission_CLUSTER_MODIFY_BINDINGS             Permission = 100
-	Permission_CLUSTER_GET_BINDINGS                Permission = 101
-	Permission_CLUSTER_AUTH_ACTIVATE               Permission = 102
-	Permission_CLUSTER_AUTH_DEACTIVATE             Permission = 103
-	Permission_CLUSTER_AUTH_GET_CONFIG             Permission = 104
-	Permission_CLUSTER_AUTH_SET_CONFIG             Permission = 105
-	Permission_CLUSTER_AUTH_GET_TOKEN              Permission = 106
-	Permission_CLUSTER_AUTH_GET_ROBOT_TOKEN        Permission = 139
-	Permission_CLUSTER_AUTH_EXTEND_TOKEN           Permission = 107
-	Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS   Permission = 109
-	Permission_CLUSTER_AUTH_GET_GROUPS             Permission = 110
-	Permission_CLUSTER_AUTH_GET_GROUP_USERS        Permission = 111
-	Permission_CLUSTER_AUTH_EXTRACT_TOKENS         Permission = 112
-	Permission_CLUSTER_AUTH_RESTORE_TOKEN          Permission = 113
-	Permission_CLUSTER_ENTERPRISE_ACTIVATE         Permission = 114
-	Permission_CLUSTER_ENTERPRISE_HEARTBEAT        Permission = 115
-	Permission_CLUSTER_ENTERPRISE_GET_CODE         Permission = 116
-	Permission_CLUSTER_ENTERPRISE_DEACTIVATE       Permission = 117
-	Permission_CLUSTER_IDENTITY_SET_CONFIG         Permission = 118
-	Permission_CLUSTER_IDENTITY_GET_CONFIG         Permission = 119
-	Permission_CLUSTER_IDENTITY_CREATE_IDP         Permission = 120
-	Permission_CLUSTER_IDENTITY_UPDATE_IDP         Permission = 121
-	Permission_CLUSTER_IDENTITY_LIST_IDPS          Permission = 122
-	Permission_CLUSTER_IDENTITY_GET_IDP            Permission = 123
-	Permission_CLUSTER_IDENTITY_DELETE_IDP         Permission = 124
-	Permission_CLUSTER_IDENTITY_CREATE_OIDC_CLIENT Permission = 125
-	Permission_CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT Permission = 126
-	Permission_CLUSTER_IDENTITY_LIST_OIDC_CLIENTS  Permission = 127
-	Permission_CLUSTER_IDENTITY_GET_OIDC_CLIENT    Permission = 128
-	Permission_CLUSTER_IDENTITY_DELETE_OIDC_CLIENT Permission = 129
-	Permission_CLUSTER_DEBUG_DUMP                  Permission = 131
-	Permission_CLUSTER_LICENSE_ACTIVATE            Permission = 132
-	Permission_CLUSTER_LICENSE_GET_CODE            Permission = 133
-	Permission_CLUSTER_LICENSE_ADD_CLUSTER         Permission = 134
-	Permission_CLUSTER_LICENSE_UPDATE_CLUSTER      Permission = 135
-	Permission_CLUSTER_LICENSE_DELETE_CLUSTER      Permission = 136
-	Permission_CLUSTER_LICENSE_LIST_CLUSTERS       Permission = 137
-	Permission_CLUSTER_DELETE_ALL                  Permission = 138
-	Permission_REPO_READ                           Permission = 200
-	Permission_REPO_WRITE                          Permission = 201
-	Permission_REPO_MODIFY_BINDINGS                Permission = 202
-	Permission_REPO_DELETE                         Permission = 203
-	Permission_REPO_INSPECT_COMMIT                 Permission = 204
-	Permission_REPO_LIST_COMMIT                    Permission = 205
-	Permission_REPO_DELETE_COMMIT                  Permission = 206
-	Permission_REPO_CREATE_BRANCH                  Permission = 207
-	Permission_REPO_LIST_BRANCH                    Permission = 208
-	Permission_REPO_DELETE_BRANCH                  Permission = 209
-	Permission_REPO_INSPECT_FILE                   Permission = 210
-	Permission_REPO_LIST_FILE                      Permission = 211
-	Permission_REPO_ADD_PIPELINE_READER            Permission = 212
-	Permission_REPO_REMOVE_PIPELINE_READER         Permission = 213
-	Permission_REPO_ADD_PIPELINE_WRITER            Permission = 214
-	Permission_PIPELINE_LIST_JOB                   Permission = 301
+	PermissionUnknown                         Permission = 0
+	PermissionClusterModifyBindings           Permission = 100
+	PermissionClusterGetBindings              Permission = 101
+	PermissionClusterAuthActivate             Permission = 102
+	PermissionClusterAuthDeactivate           Permission = 103
+	PermissionClusterAuthGetConfig            Permission = 104
+	PermissionClusterAuthSetConfig            Permission = 105
+	PermissionClusterAuthGetToken             Permission = 106
+	PermissionClusterAuthGetRobotToken        Permission = 139
+	PermissionClusterAuthExtendToken          Permission = 107
+	PermissionClusterAuthModifyGroupMembers   Permission = 109
+	PermissionClusterAuthGetGroups            Permission = 110
+	PermissionClusterAuthGetGroupUsers        Permission = 111
+	PermissionClusterAuthExtractTokens        Permission = 112
+	PermissionClusterAuthRestoreToken         Permission = 113
+	PermissionClusterEnterpriseActivate       Permission = 114
+	PermissionClusterEnterpriseHeartbeat      Permission = 115
+	PermissionClusterEnterpriseGetCode        Permission = 116
+	PermissionClusterEnterpriseDeactivate     Permission = 117
+	PermissionClusterIdentitySetConfig        Permission = 118
+	PermissionClusterIdentityGetConfig        Permission = 119
+	PermissionClusterIdentityCreateIdp        Permission = 120
+	PermissionClusterIdentityUpdateIdp        Permission = 121
+	PermissionClusterIdentityListIdps         Permission = 122
+	PermissionClusterIdentityGetIdp           Permission = 123
+	PermissionClusterIdentityDeleteIdp        Permission = 124
+	PermissionClusterIdentityCreateOidcClient Permission = 125
+	PermissionClusterIdentityUpdateOidcClient Permission = 126
+	PermissionClusterIdentityListOidcClients  Permission = 127
+	PermissionClusterIdentityGetOidcClient    Permission = 128
+	PermissionClusterIdentityDeleteOidcClient Permission = 129
+	PermissionClusterDebugDump                Permission = 131
+	PermissionClusterLicenseActivate          Permission = 132
+	PermissionClusterLicenseGetCode           Permission = 133
+	PermissionClusterLicenseAddCluster        Permission = 134
+	PermissionClusterLicenseUpdateCluster     Permission = 135
+	PermissionClusterLicenseDeleteCluster     Permission = 136
+	PermissionClusterLicenseListClusters      Permission = 137
+	PermissionClusterDeleteAll                Permission = 138
+	PermissionRepoRead                        Permission = 200
+	PermissionRepoWrite                       Permission = 201
+	PermissionRepoModifyBindings              Permission = 202
+	PermissionRepoDelete                      Permission = 203
+	PermissionRepoInspectCommit               Permission = 204
+	PermissionRepoListCommit                  Permission = 205
+	PermissionRepoDeleteCommit                Permission = 206
+	PermissionRepoCreateBranch                Permission = 207
+	PermissionRepoListBranch                  Permission = 208
+	PermissionRepoDeleteBranch                Permission = 209
+	PermissionRepoInspectFile                 Permission = 210
+	PermissionRepoListFile                    Permission = 211
+	PermissionRepoAddPipelineReader           Permission = 212
+	PermissionRepoRemovePipelineReader        Permission = 213
+	PermissionRepoAddPipelineWriter           Permission = 214
+	PermissionPipelineListJob                 Permission = 301
 )
 
 // Enum value maps for Permission.
@@ -231,9 +232,9 @@ func (Permission) EnumDescriptor() ([]byte, []int) {
 type ResourceType int32
 
 const (
-	ResourceType_RESOURCE_TYPE_UNKNOWN ResourceType = 0
-	ResourceType_CLUSTER               ResourceType = 1
-	ResourceType_REPO                  ResourceType = 2
+	ResourceTypeUnknown ResourceType = 0
+	ResourceTypeCluster ResourceType = 1
+	ResourceTypeRepo    ResourceType = 2
 )
 
 // Enum value maps for ResourceType.
@@ -277,52 +278,52 @@ func (ResourceType) EnumDescriptor() ([]byte, []int) {
 	return file_auth_auth_proto_rawDescGZIP(), []int{1}
 }
 
-type TokenInfo_TokenSource int32
+type TokenInfoTokenSource int32
 
 const (
-	TokenInfo_INVALID      TokenInfo_TokenSource = 0
-	TokenInfo_AUTHENTICATE TokenInfo_TokenSource = 1 // returned by Authenticate()--non-revokeable
-	TokenInfo_GET_TOKEN    TokenInfo_TokenSource = 2 // returned by GetToken()--revokeable.
+	TokenInfoInvalid      TokenInfoTokenSource = 0
+	TokenInfoAuthenticate TokenInfoTokenSource = 1 // returned by Authenticate()--non-revokeable
+	TokenInfoGetToken     TokenInfoTokenSource = 2 // returned by GetToken()--revokeable.
 )
 
 // Enum value maps for TokenInfo_TokenSource.
 var (
-	TokenInfo_TokenSource_name = map[int32]string{
+	TokenInfoTokenSource_name = map[int32]string{
 		0: "INVALID",
 		1: "AUTHENTICATE",
 		2: "GET_TOKEN",
 	}
-	TokenInfo_TokenSource_value = map[string]int32{
+	TokenInfoTokenSource_value = map[string]int32{
 		"INVALID":      0,
 		"AUTHENTICATE": 1,
 		"GET_TOKEN":    2,
 	}
 )
 
-func (x TokenInfo_TokenSource) Enum() *TokenInfo_TokenSource {
-	p := new(TokenInfo_TokenSource)
+func (x TokenInfoTokenSource) Enum() *TokenInfoTokenSource {
+	p := new(TokenInfoTokenSource)
 	*p = x
 	return p
 }
 
-func (x TokenInfo_TokenSource) String() string {
+func (x TokenInfoTokenSource) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (TokenInfo_TokenSource) Descriptor() protoreflect.EnumDescriptor {
+func (TokenInfoTokenSource) Descriptor() protoreflect.EnumDescriptor {
 	return file_auth_auth_proto_enumTypes[2].Descriptor()
 }
 
-func (TokenInfo_TokenSource) Type() protoreflect.EnumType {
+func (TokenInfoTokenSource) Type() protoreflect.EnumType {
 	return &file_auth_auth_proto_enumTypes[2]
 }
 
-func (x TokenInfo_TokenSource) Number() protoreflect.EnumNumber {
+func (x TokenInfoTokenSource) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
 // Deprecated: Use TokenInfo_TokenSource.Descriptor instead.
-func (TokenInfo_TokenSource) EnumDescriptor() ([]byte, []int) {
+func (TokenInfoTokenSource) EnumDescriptor() ([]byte, []int) {
 	return file_auth_auth_proto_rawDescGZIP(), []int{9, 0}
 }
 
@@ -510,9 +511,9 @@ type OIDCConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	Issuer              string   `protobuf:"bytes,1,opt,name=issuer,proto3" json:"issuer,omitempty"`
-	ClientId            string   `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	ClientID            string   `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	ClientSecret        string   `protobuf:"bytes,3,opt,name=client_secret,json=clientSecret,proto3" json:"client_secret,omitempty"`
-	RedirectUri         string   `protobuf:"bytes,4,opt,name=redirect_uri,json=redirectUri,proto3" json:"redirect_uri,omitempty"`
+	RedirectURI         string   `protobuf:"bytes,4,opt,name=redirect_uri,json=redirectUri,proto3" json:"redirect_uri,omitempty"`
 	AdditionalScopes    []string `protobuf:"bytes,5,rep,name=additional_scopes,json=additionalScopes,proto3" json:"additional_scopes,omitempty"`
 	IgnoreEmailVerified bool     `protobuf:"varint,6,opt,name=ignore_email_verified,json=ignoreEmailVerified,proto3" json:"ignore_email_verified,omitempty"`
 	// localhost_issuer ignores the contents of the issuer claim and makes all
@@ -560,9 +561,9 @@ func (x *OIDCConfig) GetIssuer() string {
 	return ""
 }
 
-func (x *OIDCConfig) GetClientId() string {
+func (x *OIDCConfig) GetClientID() string {
 	if x != nil {
-		return x.ClientId
+		return x.ClientID
 	}
 	return ""
 }
@@ -574,9 +575,9 @@ func (x *OIDCConfig) GetClientSecret() string {
 	return ""
 }
 
-func (x *OIDCConfig) GetRedirectUri() string {
+func (x *OIDCConfig) GetRedirectURI() string {
 	if x != nil {
-		return x.RedirectUri
+		return x.RedirectURI
 	}
 	return ""
 }
@@ -780,8 +781,8 @@ type TokenInfo struct {
 
 	// Subject (i.e. Pachyderm account) that a given token authorizes.
 	// See the note at the top of the doc for an explanation of subject structure.
-	Subject string                `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
-	Source  TokenInfo_TokenSource `protobuf:"varint,2,opt,name=source,proto3,enum=auth.TokenInfo_TokenSource" json:"source,omitempty"`
+	Subject string               `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
+	Source  TokenInfoTokenSource `protobuf:"varint,2,opt,name=source,proto3,enum=auth.TokenInfo_TokenSource" json:"source,omitempty"`
 }
 
 func (x *TokenInfo) Reset() {
@@ -823,11 +824,11 @@ func (x *TokenInfo) GetSubject() string {
 	return ""
 }
 
-func (x *TokenInfo) GetSource() TokenInfo_TokenSource {
+func (x *TokenInfo) GetSource() TokenInfoTokenSource {
 	if x != nil {
 		return x.Source
 	}
-	return TokenInfo_INVALID
+	return TokenInfoInvalid
 }
 
 type AuthenticateRequest struct {
@@ -839,7 +840,7 @@ type AuthenticateRequest struct {
 	// information related to the current OIDC session.
 	OidcState string `protobuf:"bytes,3,opt,name=oidc_state,json=oidcState,proto3" json:"oidc_state,omitempty"`
 	// This is an ID Token issued by the OIDC provider.
-	IdToken string `protobuf:"bytes,4,opt,name=id_token,json=idToken,proto3" json:"id_token,omitempty"`
+	IDToken string `protobuf:"bytes,4,opt,name=id_token,json=idToken,proto3" json:"id_token,omitempty"`
 }
 
 func (x *AuthenticateRequest) Reset() {
@@ -881,9 +882,9 @@ func (x *AuthenticateRequest) GetOidcState() string {
 	return ""
 }
 
-func (x *AuthenticateRequest) GetIdToken() string {
+func (x *AuthenticateRequest) GetIDToken() string {
 	if x != nil {
-		return x.IdToken
+		return x.IDToken
 	}
 	return ""
 }
@@ -982,7 +983,7 @@ type WhoAmIResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	Ttl      int64  `protobuf:"varint,3,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	TTL      int64  `protobuf:"varint,3,opt,name=ttl,proto3" json:"ttl,omitempty"`
 }
 
 func (x *WhoAmIResponse) Reset() {
@@ -1024,9 +1025,9 @@ func (x *WhoAmIResponse) GetUsername() string {
 	return ""
 }
 
-func (x *WhoAmIResponse) GetTtl() int64 {
+func (x *WhoAmIResponse) GetTTL() int64 {
 	if x != nil {
-		return x.Ttl
+		return x.TTL
 	}
 	return 0
 }
@@ -1174,7 +1175,7 @@ func (x *Resource) GetType() ResourceType {
 	if x != nil {
 		return x.Type
 	}
-	return ResourceType_RESOURCE_TYPE_UNKNOWN
+	return ResourceTypeUnknown
 }
 
 func (x *Resource) GetName() string {
@@ -1741,7 +1742,7 @@ type GetOIDCLoginResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	// The login URL generated for the OIDC object
-	LoginUrl string `protobuf:"bytes,1,opt,name=login_url,json=loginUrl,proto3" json:"login_url,omitempty"`
+	LoginURL string `protobuf:"bytes,1,opt,name=login_url,json=loginUrl,proto3" json:"login_url,omitempty"`
 	State    string `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 }
 
@@ -1777,9 +1778,9 @@ func (*GetOIDCLoginResponse) Descriptor() ([]byte, []int) {
 	return file_auth_auth_proto_rawDescGZIP(), []int{27}
 }
 
-func (x *GetOIDCLoginResponse) GetLoginUrl() string {
+func (x *GetOIDCLoginResponse) GetLoginURL() string {
 	if x != nil {
-		return x.LoginUrl
+		return x.LoginURL
 	}
 	return ""
 }
@@ -1801,7 +1802,7 @@ type GetAuthTokenRequest struct {
 	Subject string `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
 	// ttl indicates the requested (approximate) remaining lifetime of this token,
 	// in seconds
-	Ttl int64 `protobuf:"varint,2,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	TTL int64 `protobuf:"varint,2,opt,name=ttl,proto3" json:"ttl,omitempty"`
 }
 
 func (x *GetAuthTokenRequest) Reset() {
@@ -1843,9 +1844,9 @@ func (x *GetAuthTokenRequest) GetSubject() string {
 	return ""
 }
 
-func (x *GetAuthTokenRequest) GetTtl() int64 {
+func (x *GetAuthTokenRequest) GetTTL() int64 {
 	if x != nil {
-		return x.Ttl
+		return x.TTL
 	}
 	return 0
 }
@@ -1917,7 +1918,7 @@ type GetRobotTokenRequest struct {
 	Robot string `protobuf:"bytes,1,opt,name=robot,proto3" json:"robot,omitempty"`
 	// ttl indicates the requested (approximate) remaining lifetime of this token,
 	// in seconds
-	Ttl int64 `protobuf:"varint,2,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	TTL int64 `protobuf:"varint,2,opt,name=ttl,proto3" json:"ttl,omitempty"`
 }
 
 func (x *GetRobotTokenRequest) Reset() {
@@ -1959,9 +1960,9 @@ func (x *GetRobotTokenRequest) GetRobot() string {
 	return ""
 }
 
-func (x *GetRobotTokenRequest) GetTtl() int64 {
+func (x *GetRobotTokenRequest) GetTTL() int64 {
 	if x != nil {
-		return x.Ttl
+		return x.TTL
 	}
 	return 0
 }
@@ -2022,7 +2023,7 @@ type ExtendAuthTokenRequest struct {
 	// token indicates the Pachyderm token whose TTL is being extended
 	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	// ttl indicates the new TTL of 'token' (if it's longer than the existing TTL)
-	Ttl int64 `protobuf:"varint,2,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	TTL int64 `protobuf:"varint,2,opt,name=ttl,proto3" json:"ttl,omitempty"`
 }
 
 func (x *ExtendAuthTokenRequest) Reset() {
@@ -2064,9 +2065,9 @@ func (x *ExtendAuthTokenRequest) GetToken() string {
 	return ""
 }
 
-func (x *ExtendAuthTokenRequest) GetTtl() int64 {
+func (x *ExtendAuthTokenRequest) GetTTL() int64 {
 	if x != nil {
-		return x.Ttl
+		return x.TTL
 	}
 	return 0
 }
@@ -2818,7 +2819,8 @@ var file_auth_auth_proto_rawDesc = []byte{
 	0x0a, 0x0f, 0x61, 0x75, 0x74, 0x68, 0x2f, 0x61, 0x75, 0x74, 0x68, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x12, 0x04, 0x61, 0x75, 0x74, 0x68, 0x1a, 0x1f, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
-	0x6d, 0x70, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x3c, 0x0a, 0x0f, 0x41, 0x63, 0x74, 0x69,
+	0x6d, 0x70, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x0e, 0x70, 0x61, 0x74, 0x63, 0x68, 0x2f,
+	0x67, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x3c, 0x0a, 0x0f, 0x41, 0x63, 0x74, 0x69,
 	0x76, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x72,
 	0x6f, 0x6f, 0x74, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52,
 	0x09, 0x72, 0x6f, 0x6f, 0x74, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x4a, 0x04, 0x08, 0x01, 0x10, 0x02,
@@ -3246,11 +3248,11 @@ var file_auth_auth_proto_rawDesc = []byte{
 	0x61, 0x75, 0x74, 0x68, 0x2e, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x41, 0x75, 0x74, 0x68,
 	0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x61,
 	0x75, 0x74, 0x68, 0x2e, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x41, 0x75, 0x74, 0x68, 0x54,
-	0x6f, 0x6b, 0x65, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x2c,
+	0x6f, 0x6b, 0x65, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x32,
 	0x5a, 0x2a, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x61, 0x63,
 	0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d,
-	0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x61, 0x75, 0x74, 0x68, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x61, 0x75, 0x74, 0x68, 0xca, 0xb5, 0x03, 0x02,
+	0x08, 0x01, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -3270,7 +3272,7 @@ var file_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
 var file_auth_auth_proto_goTypes = []interface{}{
 	(Permission)(0),                   // 0: auth.Permission
 	(ResourceType)(0),                 // 1: auth.ResourceType
-	(TokenInfo_TokenSource)(0),        // 2: auth.TokenInfo.TokenSource
+	(TokenInfoTokenSource)(0),         // 2: auth.TokenInfo.TokenSource
 	(*ActivateRequest)(nil),           // 3: auth.ActivateRequest
 	(*ActivateResponse)(nil),          // 4: auth.ActivateResponse
 	(*DeactivateRequest)(nil),         // 5: auth.DeactivateRequest

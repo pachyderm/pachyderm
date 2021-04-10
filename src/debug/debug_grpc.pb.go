@@ -129,15 +129,16 @@ func (x *debugDumpClient) Recv() (*wrapperspb.BytesValue, error) {
 }
 
 // DebugServer is the server API for Debug service.
-// All implementations should embed UnimplementedDebugServer
+// All implementations must embed UnimplementedDebugServer
 // for forward compatibility
 type DebugServer interface {
 	Profile(*ProfileRequest, Debug_ProfileServer) error
 	Binary(*BinaryRequest, Debug_BinaryServer) error
 	Dump(*DumpRequest, Debug_DumpServer) error
+	mustEmbedUnimplementedDebugServer()
 }
 
-// UnimplementedDebugServer should be embedded to have forward compatible implementations.
+// UnimplementedDebugServer must be embedded to have forward compatible implementations.
 type UnimplementedDebugServer struct {
 }
 
@@ -150,6 +151,7 @@ func (UnimplementedDebugServer) Binary(*BinaryRequest, Debug_BinaryServer) error
 func (UnimplementedDebugServer) Dump(*DumpRequest, Debug_DumpServer) error {
 	return status.Errorf(codes.Unimplemented, "method Dump not implemented")
 }
+func (UnimplementedDebugServer) mustEmbedUnimplementedDebugServer() {}
 
 // UnsafeDebugServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to DebugServer will

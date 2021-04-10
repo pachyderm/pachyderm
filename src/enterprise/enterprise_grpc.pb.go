@@ -85,7 +85,7 @@ func (c *aPIClient) Deactivate(ctx context.Context, in *DeactivateRequest, opts 
 }
 
 // APIServer is the server API for API service.
-// All implementations should embed UnimplementedAPIServer
+// All implementations must embed UnimplementedAPIServer
 // for forward compatibility
 type APIServer interface {
 	// Provide a Pachyderm enterprise token, enabling Pachyderm enterprise
@@ -99,9 +99,10 @@ type APIServer interface {
 	// Deactivate removes a cluster's enterprise activation
 	// token and sets its enterprise state to NONE.
 	Deactivate(context.Context, *DeactivateRequest) (*DeactivateResponse, error)
+	mustEmbedUnimplementedAPIServer()
 }
 
-// UnimplementedAPIServer should be embedded to have forward compatible implementations.
+// UnimplementedAPIServer must be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
@@ -120,6 +121,7 @@ func (UnimplementedAPIServer) Heartbeat(context.Context, *HeartbeatRequest) (*He
 func (UnimplementedAPIServer) Deactivate(context.Context, *DeactivateRequest) (*DeactivateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Deactivate not implemented")
 }
+func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
 // UnsafeAPIServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to APIServer will

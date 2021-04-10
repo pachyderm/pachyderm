@@ -40,19 +40,21 @@ func (c *healthClient) Health(ctx context.Context, in *emptypb.Empty, opts ...gr
 }
 
 // HealthServer is the server API for Health service.
-// All implementations should embed UnimplementedHealthServer
+// All implementations must embed UnimplementedHealthServer
 // for forward compatibility
 type HealthServer interface {
 	Health(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	mustEmbedUnimplementedHealthServer()
 }
 
-// UnimplementedHealthServer should be embedded to have forward compatible implementations.
+// UnimplementedHealthServer must be embedded to have forward compatible implementations.
 type UnimplementedHealthServer struct {
 }
 
 func (UnimplementedHealthServer) Health(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Health not implemented")
 }
+func (UnimplementedHealthServer) mustEmbedUnimplementedHealthServer() {}
 
 // UnsafeHealthServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to HealthServer will

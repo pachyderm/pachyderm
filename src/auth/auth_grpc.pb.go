@@ -232,7 +232,7 @@ func (c *aPIClient) RestoreAuthToken(ctx context.Context, in *RestoreAuthTokenRe
 }
 
 // APIServer is the server API for API service.
-// All implementations should embed UnimplementedAPIServer
+// All implementations must embed UnimplementedAPIServer
 // for forward compatibility
 type APIServer interface {
 	// Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
@@ -258,9 +258,10 @@ type APIServer interface {
 	GetUsers(context.Context, *GetUsersRequest) (*GetUsersResponse, error)
 	ExtractAuthTokens(context.Context, *ExtractAuthTokensRequest) (*ExtractAuthTokensResponse, error)
 	RestoreAuthToken(context.Context, *RestoreAuthTokenRequest) (*RestoreAuthTokenResponse, error)
+	mustEmbedUnimplementedAPIServer()
 }
 
-// UnimplementedAPIServer should be embedded to have forward compatible implementations.
+// UnimplementedAPIServer must be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
@@ -324,6 +325,7 @@ func (UnimplementedAPIServer) ExtractAuthTokens(context.Context, *ExtractAuthTok
 func (UnimplementedAPIServer) RestoreAuthToken(context.Context, *RestoreAuthTokenRequest) (*RestoreAuthTokenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RestoreAuthToken not implemented")
 }
+func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
 // UnsafeAPIServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to APIServer will
