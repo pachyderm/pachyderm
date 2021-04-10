@@ -143,8 +143,10 @@ pachd:
       # inverse of the --no-verify-ssl argument to pachctl deploy.
       verifySSL: true
       # partSize sets the part size for object storage uploads.  It is
-      # analogous to the --part-size argument to pachctl deploy.
-      partSize: 5242880
+      # analogous to the --part-size argument to pachctl deploy.  It
+      # has to be a string due to Helm and YAML parsing integers as
+      # floats.  Cf. https://github.com/helm/helm/issues/1707
+      partSize: "5242880"
       # region sets the AWS region to use.
       region: ""
       # retries sets the number of retries for object storage
