@@ -3,6 +3,9 @@ syntax = "proto3";
 package metrics;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/metrics";
 
+import "patch/go.proto";
+option (go.lint).all = true;
+
 message Metrics {
     string cluster_id              =  1;
     string pod_id                  =  2;

@@ -1,8 +1,14 @@
 version: v1beta1
 plugins:
-  - name: go
+  #- name: go
+  #  out: src
+  #  opt: paths=source_relative
+  #- name: go-grpc
+  #  out: src
+  #  opt: paths=source_relative,require_unimplemented_servers=false
+  - name: go-patch
     out: src
-    opt: paths=source_relative
-  - name: go-grpc
+    opt: plugin=go,paths=source_relative
+  - name: go-patch
     out: src
-    opt: paths=source_relative,require_unimplemented_servers=false
+    opt: plugin=go-grpc,paths=source_relative

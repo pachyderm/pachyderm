@@ -7,6 +7,9 @@ import "pps/pps.proto";
 
 import "google/protobuf/empty.proto";
 
+import "patch/go.proto";
+option (go.lint).all = true;
+
 message CancelRequest {
   string job_id = 2;
   repeated string data_filters = 1;

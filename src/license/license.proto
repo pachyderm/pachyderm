@@ -6,6 +6,9 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/license";
 import "google/protobuf/timestamp.proto";
 import "enterprise/enterprise.proto";
 
+import "patch/go.proto";
+option (go.lint).all = true;
+
 message ActivateRequest {
   // activation_code is a Pachyderm enterprise activation code. New users can
   // obtain trial activation codes

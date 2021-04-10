@@ -2,3 +2,4 @@ version: v1beta1
 build:
   roots:
     - src
+    - github.com/alta/protopatch

@@ -5,6 +5,9 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 
 import "pfs/pfs.proto";
 
+import "patch/go.proto";
+option (go.lint).all = true;
+
 message Input {
   pfs.FileInfo file_info = 1;
   pfs.Commit parent_commit = 5;

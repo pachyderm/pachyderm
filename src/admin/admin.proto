@@ -5,6 +5,8 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/admin";
 
 import "google/protobuf/empty.proto";
 
+import "patch/go.proto";
+option (go.lint).all = true;
 
 message ClusterInfo {
   string id = 1;

@@ -5,6 +5,9 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/identity";
 
 import "google/protobuf/timestamp.proto";
 
+import "patch/go.proto";
+option (go.lint).all = true;
+
 // User represents an IDP user that has authenticated via OIDC
 message User {
   string email = 1;
