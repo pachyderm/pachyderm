@@ -4,8 +4,10 @@
     User Access Management is an [enterprise feature](https://docs.pachyderm.com/latest/enterprise/) that requires
     an active enterprise token.
 
-Pachyderm delegates authentication and authorization to third party Identity Providers.
-We embed an OpenID Connect identity service based on [**Dex**](https://dexidp.io/docs/) allowing for a vendor-neutral authentication (i.e., a pluggable authentication against many different identity providers). 
+Pachyderm delegates its authentication feature to third party Identity Providers.
+
+We embed an OpenID Connect identity service based on [**Dex**](https://dexidp.io/docs/) allowing for a vendor-neutral authentication (i.e., a pluggable authentication against many different identity providers).
+
 As a result, users can authenticate **using their existing credentials from various back-ends**, including LDAP, SAML, and other OIDC providers.
 
 Setting up Pachyderm's User Access Management (also referred to as "Authentication and Authorization" or "Auth" in this documentation) requires to follow the consecutive steps:
@@ -31,7 +33,7 @@ $ pachctl auth activate
 The enablement of the User Access Management **creates
 an initial `Root user` and returns a `Root token`**.
 This `Root user` (or initial admin) has irrevokable `clusterAdmin` privileges on
-Pachyderm's cluster. //TODO Link to list of roles in authorization
+Pachyderm's cluster. //TODO Link to list of users and roles in authorization
 
 **System Response**
 ```
@@ -51,15 +53,16 @@ Pachyderm root token:
 As a *Root User* (or initial admin), 
 you can now configure Pachyderm to work with
 the identity management provider (IdP) of your choice.
-//TODO Link to Configure an IdP with Pachyderm
+
+Next: //TODO Link to Configure an IdP with Pachyderm
 
 ## Deactivating User Access Management
-Deactivating the User Access Management on a Pachyderm cluster
+The deactivation of the User Access Management on a Pachyderm cluster
 (as a `clusterAdmin`, run `pachctl auth deactivate`), 
 returns the cluster to being a blank slate with regards to
 access control.
 
-This specifically implies that everyone that can connect
+This implies that all permissions granted to users on Pachyderm ressources are removed. Everyone that can connect
 to Pachyderm is back to being a `clusterAdmin` (can access and modify all data in all repos).
 
 
