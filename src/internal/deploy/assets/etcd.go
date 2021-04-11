@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -87,12 +88,8 @@ func WriteEtcdAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend 
 	} else if opts.EtcdOpts.Nodes > 0 {
 		// Create a StorageClass, if the user didn't provide one.
 		if opts.EtcdOpts.StorageClassName == "" {
-			sc, err := EtcdStorageClass(opts, persistentDiskBackend)
-			if err != nil {
-				return err
-			}
-			if sc != nil {
-				if err = encoder.Encode(sc); err != nil {
+			if sc := EtcdStorageClass(opts, persistentDiskBackend); sc != nil {
+				if err := encoder.Encode(sc); err != nil {
 					return err
 				}
 			}
@@ -226,7 +223,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 // EtcdStorageClass creates a storage class used for dynamic volume
 // provisioning.  Currently dynamic volume provisioning only works
 // on AWS and GCE.
-func EtcdStorageClass(opts *AssetOpts, backend Backend) (interface{}, error) {
+func EtcdStorageClass(opts *AssetOpts, backend Backend) *storagev1.StorageClass {
 	return makeStorageClass(opts, backend, defaultEtcdStorageClassName, labels(etcdName))
 }
 
