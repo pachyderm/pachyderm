@@ -11,6 +11,9 @@ import (
 	"modernc.org/mathutil"
 )
 
+// Client is the standard interface for a load testing client.
+// TODO: This should become the client.Client interface when we put the standard pach client behind an interface that
+// takes a context as the first parameter for each method.
 type Client interface {
 	WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) error
 	GetFileTar(ctx context.Context, repo, commit, path string) (io.Reader, error)
@@ -85,6 +88,7 @@ func (tlr *throughputLimitReader) Read(data []byte) (int, error) {
 		n, err := tlr.r.Read(data[:size])
 		data = data[n:]
 		bytesRead += n
+		tlr.bytesSinceSleep += n
 		if err != nil {
 			return bytesRead, err
 		}

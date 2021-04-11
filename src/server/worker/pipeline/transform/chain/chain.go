@@ -117,7 +117,7 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 			parentFilesetIterator := datum.NewFileSetIterator(pachClient, parentFilesetID)
 			var err error
 			if outputFilesetID, err = jdi.withDatumFileset(pachClient, func(outputSet *datum.Set) error {
-				return datum.Merge([]datum.Iterator{filesetIterator, parentFilesetIterator}, func(metas []*datum.Meta) error {
+				return datum.Merge([]datum.Iterator{parentFilesetIterator, filesetIterator}, func(metas []*datum.Meta) error {
 					if len(metas) == 1 {
 						if metas[0].JobID != jdi.jobID {
 							return nil
@@ -152,7 +152,7 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 		// Also create deletion operations appropriately.
 		skippedFilesetIterator := datum.NewFileSetIterator(pachClient, skippedFilesetID)
 		outputFilesetID, err = jdi.withDatumFileset(pachClient, func(s *datum.Set) error {
-			return datum.Merge([]datum.Iterator{skippedFilesetIterator, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
+			return datum.Merge([]datum.Iterator{jdi.parent.outputDit, skippedFilesetIterator}, func(metas []*datum.Meta) error {
 				// Datum only exists in the parent job.
 				if len(metas) == 1 {
 					return jdi.deleteDatum(metas[0])

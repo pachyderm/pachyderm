@@ -66,8 +66,10 @@ func newFileReader(ctx context.Context, chunks *chunk.Storage, idx *index.Index)
 }
 
 // Index returns the index for the file.
+// TODO: Removed clone because it had a significant performance impact for small files.
+// May want to revisit.
 func (fr *FileReader) Index() *index.Index {
-	return proto.Clone(fr.idx).(*index.Index)
+	return fr.idx
 }
 
 // Content writes the content of the file.

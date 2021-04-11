@@ -27,13 +27,13 @@ type FuzzFileSpec struct {
 	Prob     float64   `yaml:"prob,omitempty"`
 }
 
-func FuzzFile(specs []*FuzzFileSpec) (*MemFile, error) {
+func FuzzFile(env *Env, specs []*FuzzFileSpec) (*MemFile, error) {
 	var totalProb float64
 	prob := rand.Float64()
 	for _, spec := range specs {
 		totalProb += spec.Prob
 		if prob <= totalProb {
-			return File(spec.FileSpec)
+			return File(env, spec.FileSpec)
 		}
 	}
 	return nil, nil

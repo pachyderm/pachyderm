@@ -10,6 +10,7 @@ type CommitsSpec struct {
 	ThroughputSpec  *ThroughputSpec   `yaml:"throughput,omitempty"`
 	CancelSpec      *CancelSpec       `yaml:"cancel,omitempty"`
 	ValidatorSpec   *ValidatorSpec    `yaml:"validator,omitempty"`
+	FileSourceSpecs []*FileSourceSpec `yaml:"fileSources,omitempty"`
 }
 
 func Commits(pachClient *client.APIClient, repo, branch string, spec *CommitsSpec) error {
@@ -27,8 +28,11 @@ func Commits(pachClient *client.APIClient, repo, branch string, spec *CommitsSpe
 		if err := pachClient.FinishCommit(repo, commit.ID); err != nil {
 			return err
 		}
-		if err := env.Validate(repo, commit.ID); err != nil {
-			return err
+		validator := env.Validator()
+		if validator != nil {
+			if err := validator.Validate(env.Client(), repo, commit.ID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -4,17 +4,18 @@ operations:
     fuzzOperations:
       - operation:
           putFile:
-            files:
-              count: 100000 
-                fuzzFile:
-                  - file:
-                      source: "random"
-                    prob: 1
+              files:
+                  count: 100000 
+                  fuzzFile:
+                      - file:
+                          source: "random"
+                        prob: 1
         prob: 1
 validator: {}
 fileSources:
   - name: "random"
     random:
+      incrementPath: true
       fuzzSize:
         - size:
             min: 100

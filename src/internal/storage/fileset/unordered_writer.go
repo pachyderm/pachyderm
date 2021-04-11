@@ -5,9 +5,11 @@ import (
 	"context"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 )
 
@@ -153,7 +155,8 @@ type UnorderedWriter struct {
 	subFileSet                 int64
 	ttl                        time.Duration
 	renewer                    *renew.StringSet
-	layers                     []ID
+	ids                        []ID
+	parentID                   *ID
 }
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
@@ -232,7 +235,7 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	if err != nil {
 		return err
 	}
-	uw.layers = append(uw.layers, *id)
+	uw.ids = append(uw.ids, *id)
 	if uw.renewer != nil {
 		uw.renewer.Add(id.TrackerID())
 	}
@@ -244,15 +247,32 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 }
 
 // Delete deletes a file from the file set.
-// TODO: Directory deletion needs more invariant checks.
-// Right now you have to specify the trailing slash explicitly.
-func (uw *UnorderedWriter) Delete(name string, tags ...string) {
+func (uw *UnorderedWriter) Delete(name string, tags ...string) error {
 	name = Clean(name, IsDir(name))
 	var tag string
 	if len(tag) > 0 {
 		tag = tags[0]
 	}
+	if IsDir(name) {
+		for p := range uw.memFileSet.additive {
+			if strings.HasPrefix(p, name) {
+				delete(uw.memFileSet.additive, p)
+			}
+		}
+		var ids []ID
+		if uw.parentID != nil {
+			ids = []ID{*uw.parentID}
+		}
+		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...), index.WithPrefix(name))
+		if err != nil {
+			return err
+		}
+		return fs.Iterate(uw.ctx, func(f File) error {
+			return uw.Delete(f.Index().Path)
+		})
+	}
 	uw.memFileSet.deleteFile(name, tag)
+	return nil
 }
 
 func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, appendFile bool, customTag ...string) error {
@@ -285,6 +305,6 @@ func (uw *UnorderedWriter) Close() (*ID, error) {
 		return nil, err
 	}
 	return uw.storage.newComposite(uw.ctx, &Composite{
-		Layers: idsToHex(uw.layers),
+		Layers: idsToHex(uw.ids),
 	}, uw.ttl)
 }

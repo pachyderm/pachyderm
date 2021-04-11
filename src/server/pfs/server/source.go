@@ -45,10 +45,8 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		fi := &pfs.FileInfo{
-			File:     client.NewFile(s.commitInfo.Commit.Repo.Name, s.commitInfo.Commit.ID, idx.Path),
-			FileType: pfs.FileType_FILE,
-			// TODO: Need some more design work for timestamps.
-			// There is a pretty straightforward way to make it based on last modification.
+			File:      client.NewFile(s.commitInfo.Commit.Repo.Name, s.commitInfo.Commit.ID, idx.Path),
+			FileType:  pfs.FileType_FILE,
 			Committed: s.commitInfo.Finished,
 		}
 		if fileset.IsDir(idx.Path) {

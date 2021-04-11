@@ -6638,7 +6638,10 @@ func TestLoad(t *testing.T) {
 	db := dbutil.NewTestDB(t)
 	msg := random.SeedRand()
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		spec := load.DefaultCommitsSpec()
+		spec := &load.CommitsSpec{}
+		if err := yaml.UnmarshalStrict([]byte(testLoad), spec); err != nil {
+			return err
+		}
 		c := env.PachClient
 		repo := "test"
 		if err := c.CreateRepo(repo); err != nil {
@@ -6648,23 +6651,43 @@ func TestLoad(t *testing.T) {
 	}, testpachd.NewDefaultConfig()), msg)
 }
 
-func getLoadSpec(file string) (_ *load.CommitsSpec, retErr error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := f.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	loadYAML := &bytes.Buffer{}
-	if _, err := io.Copy(loadYAML, f); err != nil {
-		return nil, err
-	}
-	spec := &load.CommitsSpec{}
-	if err := yaml.UnmarshalStrict(loadYAML.Bytes(), spec); err != nil {
-		return nil, err
-	}
-	return spec, nil
-}
+var testLoad = ` 
+count: 5
+operations:
+  - count: 5
+    fuzzOperations:
+      - operation:
+          putFile:
+              files:
+                  count: 5
+                  fuzzFile:
+                      - file:
+                          source: "random"
+                        prob: 1
+        prob: 0.7
+      - operation:
+          deleteFile:
+              count: 5
+        prob: 0.3 
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      fuzzSize:
+        - size:
+            min: 1000
+            max: 10000
+          prob: 0.3
+        - size:
+            min: 10000
+            max: 100000
+          prob: 0.3
+        - size:
+            min: 1000000
+            max: 10000000
+          prob: 0.3
+        - size:
+            min: 10000000
+            max: 100000000
+          prob: 0.1
+`

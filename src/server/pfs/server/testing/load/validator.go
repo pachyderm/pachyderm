@@ -36,6 +36,19 @@ func (v *Validator) PutFiles(files map[string][]byte) {
 	}
 }
 
+func (v *Validator) DeleteFiles(files map[string]struct{}) {
+	for path := range files {
+		delete(v.files, path)
+	}
+}
+
+func (v *Validator) RandomFile() string {
+	for path := range v.files {
+		return path
+	}
+	return "no-op-delete"
+}
+
 func (v *Validator) Validate(client Client, repo, commit string) (retErr error) {
 	var namesSorted []string
 	for name := range v.files {
@@ -83,27 +96,32 @@ type validatorClient struct {
 }
 
 func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) error {
-	var files map[string][]byte
+	var putFiles map[string][]byte
+	var deleteFiles map[string]struct{}
 	if err := vc.Client.WithModifyFileClient(ctx, repo, commit, func(mf client.ModifyFile) error {
 		vmfc := &validatorModifyFileClient{
-			ModifyFile: mf,
-			files:      make(map[string][]byte),
+			ModifyFile:  mf,
+			putFiles:    make(map[string][]byte),
+			deleteFiles: make(map[string]struct{}),
 		}
 		if err := cb(vmfc); err != nil {
 			return err
 		}
-		files = vmfc.files
+		putFiles = vmfc.putFiles
+		deleteFiles = vmfc.deleteFiles
 		return nil
 	}); err != nil {
 		return err
 	}
-	vc.validator.PutFiles(files)
+	vc.validator.PutFiles(putFiles)
+	vc.validator.DeleteFiles(deleteFiles)
 	return nil
 }
 
 type validatorModifyFileClient struct {
 	client.ModifyFile
-	files map[string][]byte
+	putFiles    map[string][]byte
+	deleteFiles map[string]struct{}
 }
 
 func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) error {
@@ -111,6 +129,14 @@ func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ..
 	if err := vmfc.ModifyFile.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
 		return err
 	}
-	vmfc.files[path] = h.Sum(nil)
+	vmfc.putFiles[path] = h.Sum(nil)
+	return nil
+}
+
+func (vmfc *validatorModifyFileClient) DeleteFile(path string, opts ...client.DeleteFileOption) error {
+	if err := vmfc.ModifyFile.DeleteFile(path, opts...); err != nil {
+		return err
+	}
+	vmfc.deleteFiles[path] = struct{}{}
 	return nil
 }
