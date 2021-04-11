@@ -5,8 +5,11 @@ import (
 	"path"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -63,6 +66,62 @@ type EtcdOpts struct {
 
 	// Port is the port for the Nodeport service
 	Port int32
+}
+
+// WriteEtcdAssets generates all of the etcd-related parts of the kubernetes
+// manifest according to the given options and writes it into the given encoder.
+func WriteEtcdAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Backend,
+	persistentDiskBackend Backend, volumeSize int,
+	hostPath string) error {
+	if opts.EtcdOpts.Nodes > 0 && opts.EtcdOpts.Volume != "" {
+		return errors.Errorf("only one of --dynamic-etcd-nodes and --static-etcd-volume should be given, but not both")
+	}
+
+	// In the dynamic route, we create a storage class which dynamically
+	// provisions volumes, and run etcd as a stateful set.
+	// In the static route, we create a single volume, a single volume
+	// claim, and run etcd as a replication controller with a single node.
+	if persistentDiskBackend == LocalBackend {
+		if err := encoder.Encode(EtcdDeployment(opts, hostPath)); err != nil {
+			return err
+		}
+	} else if opts.EtcdOpts.Nodes > 0 {
+		// Create a StorageClass, if the user didn't provide one.
+		if opts.EtcdOpts.StorageClassName == "" {
+			if sc := EtcdStorageClass(opts, persistentDiskBackend); sc != nil {
+				if err := encoder.Encode(sc); err != nil {
+					return err
+				}
+			}
+		}
+		if err := encoder.Encode(EtcdHeadlessService(opts)); err != nil {
+			return err
+		}
+		if err := encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
+			return err
+		}
+	} else if opts.EtcdOpts.Volume != "" {
+		volume, err := EtcdVolume(persistentDiskBackend, opts, hostPath, opts.EtcdOpts.Volume, volumeSize)
+		if err != nil {
+			return err
+		}
+		if err = encoder.Encode(volume); err != nil {
+			return err
+		}
+		if err = encoder.Encode(EtcdVolumeClaim(volumeSize, opts)); err != nil {
+			return err
+		}
+		if err = encoder.Encode(EtcdDeployment(opts, "")); err != nil {
+			return err
+		}
+	} else {
+		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
+	}
+	if err := encoder.Encode(EtcdNodePortService(opts)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // EtcdDeployment returns an etcd k8s Deployment.
@@ -164,7 +223,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 // EtcdStorageClass creates a storage class used for dynamic volume
 // provisioning.  Currently dynamic volume provisioning only works
 // on AWS and GCE.
-func EtcdStorageClass(opts *AssetOpts, backend Backend) (interface{}, error) {
+func EtcdStorageClass(opts *AssetOpts, backend Backend) *storagev1.StorageClass {
 	return makeStorageClass(opts, backend, defaultEtcdStorageClassName, labels(etcdName))
 }
 
