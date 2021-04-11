@@ -3,11 +3,10 @@ package testetcd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/url"
-	"os"
 	"path"
+	"testing"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/embed"
@@ -16,6 +15,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // Env contains the basic setup for running end-to-end pachyderm tests entirely
@@ -28,51 +29,21 @@ type Env struct {
 	EtcdClient *etcd.Client
 }
 
-// WithEnv constructs a default Env for testing during the lifetime of
-// the callback.
-func WithEnv(cb func(*Env) error) (err error) {
+// NewEnv constructs a default Env for testing, which will be destroyed at the
+// end of the test.
+func NewEnv(t *testing.T) *Env {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	eg, ctx := errgroup.WithContext(ctx)
+	t.Cleanup(func() {
+		require.NoError(t, eg.Wait())
+	})
+	t.Cleanup(cancel)
 
-	env := &Env{Context: ctx}
-
-	// Cleanup any state when we return
-	defer func() {
-		// We return the first error that occurs during teardown, but still try to
-		// close everything
-		saveErr := func(e error) error {
-			if e != nil && err == nil {
-				err = e
-			}
-			return e
-		}
-
-		if env.EtcdClient != nil {
-			saveErr(env.EtcdClient.Close())
-		}
-
-		if env.Etcd != nil {
-			env.Etcd.Close()
-		}
-
-		saveErr(os.RemoveAll(env.Directory))
-		cancel()
-		saveErr(eg.Wait())
-	}()
-
-	dirBase := path.Join(os.TempDir(), "pachyderm_test")
-
-	err = os.MkdirAll(dirBase, 0700)
-	if err != nil {
-		return err
-	}
-
-	env.Directory, err = ioutil.TempDir(dirBase, "")
-	if err != nil {
-		return err
+	env := &Env{
+		Context:   ctx,
+		Directory: testutil.MkdirTemp(t),
 	}
 
 	// NOTE: this is changing a GLOBAL variable in etcd. This function should not
@@ -103,29 +74,22 @@ func WithEnv(cb func(*Env) error) (err error) {
 	// but it should be fairly minimal and depends on how the OS assigns
 	// unallocated ports.
 	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
+	require.NoError(t, err)
+	require.NoError(t, listener.Close())
 
 	clientURL, err := url.Parse(fmt.Sprintf("http://%s", listener.Addr().String()))
-	if err != nil {
-		return err
-	}
+	require.NoError(t, err)
 
 	etcdConfig.LPUrls = []url.URL{}
 	etcdConfig.LCUrls = []url.URL{*clientURL}
-
-	listener.Close()
 
 	// Throw away noisy messages from etcd - comment these out if you need to debug
 	// a failed start
 	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
 
 	env.Etcd, err = embed.StartEtcd(etcdConfig)
-	if err != nil {
-		return err
-	}
+	require.NoError(t, err)
+	t.Cleanup(env.Etcd.Close)
 
 	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
 
@@ -138,14 +102,15 @@ func WithEnv(cb func(*Env) error) (err error) {
 		Endpoints:   []string{clientURL.String()},
 		DialOptions: client.DefaultDialOptions(),
 	})
-	if err != nil {
-		return err
-	}
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, env.EtcdClient.Close())
+	})
 
 	// TODO: supervise the EtcdClient connection and error the errgroup if they
 	// go down
 
-	return cb(env)
+	return env
 }
 
 func errorWait(ctx context.Context, errChan <-chan error) error {

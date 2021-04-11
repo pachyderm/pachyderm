@@ -57,20 +57,17 @@ func TestDryrun(t *testing.T) {
 }
 
 func TestDelNonexistant(t *testing.T) {
-	require.NoError(t, testetcd.WithEnv(func(e *testetcd.Env) error {
-		c := e.EtcdClient
-		uuidPrefix := uuid.NewWithoutDashes()
+	etcdClient := getEtcdClient()
+	uuidPrefix := uuid.NewWithoutDashes()
 
-		jobInfos := NewCollection(c, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+	jobInfos := NewCollection(c, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
-		_, err := NewSTM(context.Background(), c, func(stm STM) error {
-			err := jobInfos.ReadWrite(stm).Delete("test")
-			require.True(t, IsErrNotFound(err))
-			return err
-		})
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		err := jobInfos.ReadWrite(stm).Delete("test")
 		require.True(t, IsErrNotFound(err))
-		return nil
-	}))
+		return err
+	})
+	require.True(t, IsErrNotFound(err))
 }
 
 func TestGetAfterDel(t *testing.T) {
@@ -685,15 +682,6 @@ var etcdClient *etcd.Client
 var etcdClientOnce sync.Once
 
 func getEtcdClient() *etcd.Client {
-	etcdClientOnce.Do(func() {
-		var err error
-		etcdClient, err = etcd.New(etcd.Config{
-			Endpoints:   []string{"localhost:32379"},
-			DialOptions: client.DefaultDialOptions(),
-		})
-		if err != nil {
-			panic(err)
-		}
-	})
-	return etcdClient
+	env := testetcd.NewEnv(t)
+	return env.EtcdClient
 }
