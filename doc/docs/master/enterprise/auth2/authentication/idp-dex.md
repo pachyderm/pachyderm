@@ -81,7 +81,12 @@ See the oidc connector example in JSON and YAML formats below.
     "issuer": "https://dev-k34x5yjn.us.auth0.com/",
     "clientID": "hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5",
     "clientSecret": "7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL",
-    "redirectURI": "http://<ip>:30658/callback"
+    "redirectURI": "http://<ip>:30658/callback",
+    "scopes": ["groups"],
+    "claimMapping":
+    {
+      "groups": "authorization:groups"
+    }
     }
     ```
 
@@ -106,6 +111,10 @@ See the oidc connector example in JSON and YAML formats below.
 
             # Dex's issuer URL + "/callback"
             redirectURI: http://<id>:30658/callback
+            scopes:
+            - groups
+            claimMapping:
+                groups: "authorization:groups"
     ```
 
 You will need to replace the following placeholders with relevant values:
