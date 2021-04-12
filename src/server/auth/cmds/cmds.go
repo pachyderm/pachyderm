@@ -438,6 +438,35 @@ func GetRobotTokenCmd() *cobra.Command {
 	return cmdutil.CreateAlias(getAuthToken, "auth get-robot-token")
 }
 
+func GetGroupsCmd() *cobra.Command {
+	var enterprise bool
+	getGroups := &cobra.Command{
+		Use:   "{{alias}} [username]",
+		Short: "Get the list of groups a user belongs to",
+		Long:  "Get the list of groups a user belongs to. If no user is specified, the current user's groups are listed.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			c, err := newClient(enterprise)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			req := &auth.GetGroupsRequest{}
+			if len(args) == 1 {
+				req.Username = args[0]
+			}
+			resp, err := c.GetGroups(c.Ctx(), req)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			fmt.Println(strings.Join(resp.Groups, "\n"))
+			return nil
+		}),
+	}
+	getGroups.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Get group membership info from the enterprise server")
+	return cmdutil.CreateAlias(getGroups, "auth get-groups")
+}
+
 // UseAuthTokenCmd returns a cobra command that lets a user get a pachyderm
 // token on behalf of themselves or another user
 func UseAuthTokenCmd() *cobra.Command {
@@ -685,6 +714,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
 	commands = append(commands, CheckRepoCmd())
+	commands = append(commands, GetGroupsCmd())
 	commands = append(commands, GetRepoRoleBindingCmd())
 	commands = append(commands, SetRepoRoleBindingCmd())
 	commands = append(commands, GetClusterRoleBindingCmd())
