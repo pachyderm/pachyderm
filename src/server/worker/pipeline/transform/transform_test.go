@@ -277,7 +277,7 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 	require.NoError(t, err)
 	require.NotNil(t, branchInfo)
 
-	r, err := env.PachClient.GetTarFile(pi.Pipeline.Name, outputCommitID, "/*")
+	r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
 	require.NoError(t, err)
 	require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 		ok, err := tarutil.Equal(files[0], file)
@@ -295,22 +295,25 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSuccess", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(), pi)
+		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
 		testJobSuccess(t, env, pi, []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		})
 	})
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
-		t.Parallel()
 		objC, bucket := testutil.NewObjectClient(t)
 		pi := defaultPipelineInfo()
 		pi.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", bucket)}
+		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
 
-		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
-		require.NoError(t, err)
-		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
-			ok, err := tarutil.Equal(files[0], file)
+		files := []tarutil.File{
+			tarutil.NewMemFile("/file1", []byte("foo")),
+			tarutil.NewMemFile("/file2", []byte("bar")),
+		}
+		testJobSuccess(t, env, pi, files)
+		for _, file := range files {
+			hdr, err := file.Header()
 			require.NoError(t, err)
 			r, err := objC.Reader(context.Background(), hdr.Name, 0, 0)
 			require.NoError(t, err)
@@ -323,8 +326,7 @@ func TestTransformPipeline(suite *testing.T) {
 			_, err = io.Copy(buf2, r)
 			require.NoError(t, err)
 			require.True(t, bytes.Equal(buf1.Bytes(), buf2.Bytes()))
-			return nil
-		}))
+		}
 	})
 
 	suite.Run("TestJobFailedDatum", func(t *testing.T) {
