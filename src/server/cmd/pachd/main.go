@@ -423,7 +423,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env,
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
-			env.GetDBClient(),
 		)
 		if err != nil {
 			return err
@@ -597,7 +596,7 @@ func doFullMode(config interface{}) (retErr error) {
 		txnEnv := &txnenv.TransactionEnv{}
 		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix), env.GetDBClient())
+			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -755,7 +754,6 @@ func doFullMode(config interface{}) (retErr error) {
 				env,
 				txnEnv,
 				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
-				env.GetDBClient(),
 			)
 			if err != nil {
 				return err

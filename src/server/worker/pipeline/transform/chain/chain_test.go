@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -81,7 +81,7 @@ func requireIteratorContents(t *testing.T, jdi *JobDatumIterator, metas []*datum
 }
 
 func TestEmptyBase(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewDBTestConfig())
+	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient)
 	jobID := uuid.NewWithoutDashes()
 	jobMetas := newTestMetas(jobID)
@@ -91,7 +91,7 @@ func TestEmptyBase(t *testing.T) {
 }
 
 func TestAdditiveOnBase(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewDBTestConfig())
+	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[:2]...)
 	jobID := uuid.NewWithoutDashes()
 	jobMetas := newTestMetas(jobID)
@@ -101,7 +101,7 @@ func TestAdditiveOnBase(t *testing.T) {
 }
 
 func TestSubtractiveOnBase(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewDBTestConfig())
+	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())...)
 	jobID := uuid.NewWithoutDashes()
 	jobMetas := newTestMetas(jobID)[1:]
@@ -111,7 +111,7 @@ func TestSubtractiveOnBase(t *testing.T) {
 }
 
 func TestAdditiveSubtractiveOnBase(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewDBTestConfig())
+	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[1:]...)
 	jobID := uuid.NewWithoutDashes()
 	jobMetas := newTestMetas(jobID)[:2]

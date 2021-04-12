@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -53,7 +52,7 @@ func expectSubv(commits ...*pfs.Commit) []interface{} {
 
 func TestTransactions(suite *testing.T) {
 	suite.Parallel()
-	postgres := dbutil.NewPostgresDeployment(suite)
+	postgres := testutil.NewPostgresDeployment(suite)
 
 	suite.Run("TestEmptyTransaction", func(t *testing.T) {
 		t.Parallel()
