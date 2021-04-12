@@ -2,18 +2,18 @@
 
 !!! Note
     Before connecting your IdP to Pachyderm, verify that
-    the [User Access Management](//TODO link to activate auth ) feature is on by running `pachctl auth whoami`.
+    the [User Access Management](../index.md/#activate-user-access-management) feature is on by running `pachctl auth whoami`.
     The command should return `You are "pach:root"
-    (i.e., your are the **Root User** with `clusterAdmin` privileges).// TODO Link to  actication
+    (i.e., your are the **Root User** with `clusterAdmin` privileges).
 
 To enable your users to authenticate to Pachyderm by logging into their Identity Provider,
-follow those 3 steps (//TODO link to users list in authorization and mention that we are referring to IdP Users here):
+follow those 3 steps:
 
 1. Register the Pachyderm Application with your IdP.
 1. Set up your Idp-Pachyderm connector.
 1. Apply your connector.
 
-Your users should now be able to [log in](//TODO link to login page).
+Your users should now be able to [log in](./login.md).
 
 We chose to illustrate those steps with a real life example, 
 by using Auth0 as our Identity Provider ([Auth0](https://auth0.com/) is an online authentication platform that
@@ -74,7 +74,7 @@ In the case of our integration with Auth0, we will use an oidc connector with th
 !!! Note
     Pachyderm supports the JSON and YAML formats for its connector files. 
 
-//TODO update new config fields when new alpha.12 is out
+//TODO update new config fields (id, name, type added to config) when new alpha.12 is out
 
 See our oidc connector example in JSON and YAML formats below.
 === "oidc-dex-connector.json"
@@ -84,12 +84,7 @@ See our oidc connector example in JSON and YAML formats below.
     "issuer": "https://dev-k34x5yjn.us.auth0.com/",
     "clientID": "hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5",
     "clientSecret": "7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL",
-    "redirectURI": "http://<ip>:30658/callback",
-    "scopes": ["groups"],
-    "claimMapping":
-    {
-      "groups": "authorization:groups"
-    }
+    "redirectURI": "http://<ip>:30658/callback"
     }
     ```
 
@@ -114,10 +109,6 @@ See our oidc connector example in JSON and YAML formats below.
 
             # Dex's issuer URL + "/callback"
             redirectURI: http://<id>:30658/callback
-            scopes:
-            - groups
-            claimMapping:
-                groups: "authorization:groups"
     ```
 
 You will need to replace the following placeholders with relevant values:
@@ -151,7 +142,7 @@ The connector creation command in json requires the following arguments:
 - config: Pach to your configuration file.
 - version (optional):The version of your connector (integer - default to 0 when creating a new connector)
 
-//TODO Update when those fields will be included in the json file itself in alpha.12
+//TODO Update when those fields are included in the json file itself in alpha.12
 
 or
 ```shell
@@ -177,4 +168,4 @@ $ pachctl idp update-connector --config -oidc-dex-connector.yaml
     Run `pachct idp --help` for a full list of commands.
     In particular, those commands let you create, update, delete, list, or get a specific connector.
 
-The users registered with your IdP are now ready to Log in to Pachyderm. (//TODO add link to Login page)
+The users registered with your IdP are now ready to [Log in to Pachyderm](./login.md)
