@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/workload"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 const (
