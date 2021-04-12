@@ -28,3 +28,7 @@ for dir in "${dirs[@]}"; do
   # Loosen permissions so build processes can write and Travis can cache
   chmod 777 -R "${dir}"
 done
+
+# Handle docker cache separately, as that should not be owned by $USER
+sudo mkdir -p "/var/lib/docker"
+sudo chmod 777 -R "/var/lib/docker"

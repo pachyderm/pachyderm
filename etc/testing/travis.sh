@@ -11,6 +11,9 @@ set -ex
     done
 ) &
 
+# Log in to docker, so we don't get rate-limited if we're pulling images
+docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
+
 # Repeatedly restart minikube until it comes up. This corrects for an issue in
 # Travis, where minikube will get stuck on startup and never recover
 while true; do
@@ -53,8 +56,9 @@ else
     popd
 fi
 
-make launch-loki
-
+if [[ "${BUCKET}" = "PPS3" ]]; then
+    make launch-loki
+fi
 for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
     make launch-dev && break
