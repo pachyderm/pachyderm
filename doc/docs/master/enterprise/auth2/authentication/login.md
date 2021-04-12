@@ -36,7 +36,9 @@ by login in as the [user created in Auth0](./idp-dex/#1-register-a-pachyderm-app
       You are "user:one-pachyderm-user@gmail.com"
       session expires: 08 May 21 13:59 EDT
       ```
-//TODO Next - User Access Control: Link to authorization
+
+Your Authentication is all set. 
+Next - [Configure the User Access to Pachyderm Ressources](../authorization/role-binding.md).
 
 ## Login from JupiterHub (IDE)
 // TODO
