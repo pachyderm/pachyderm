@@ -8,7 +8,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
@@ -67,10 +66,10 @@ type testDriver struct {
 }
 
 // Fuck golang
-func (td *testDriver) Jobs() col.EtcdCollection {
+func (td *testDriver) Jobs() col.Collection {
 	return td.inner.Jobs()
 }
-func (td *testDriver) Pipelines() col.EtcdCollection {
+func (td *testDriver) Pipelines() col.Collection {
 	return td.inner.Pipelines()
 }
 func (td *testDriver) NewTaskWorker() *work.Worker {

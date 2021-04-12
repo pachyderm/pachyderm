@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/jmoiron/sqlx"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -21,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -90,7 +90,6 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	// Put the pipeline info into etcd (which is read by the master)
 	_, err = env.driver.NewSTM(func(stm col.STM) error {
 		etcdPipelineInfo := &pps.EtcdPipelineInfo{
-			Pipeline:    pipelineInfo.Pipeline,
 			State:       pps.PipelineState_PIPELINE_STARTING,
 			SpecCommit:  pipelineInfo.SpecCommit,
 			Parallelism: 1,

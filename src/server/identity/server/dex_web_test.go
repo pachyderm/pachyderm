@@ -10,10 +10,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	logrus "github.com/sirupsen/logrus"
 
 	dex_storage "github.com/dexidp/dex/storage"
@@ -21,7 +21,7 @@ import (
 )
 
 func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
-	env := &serviceenv.TestServiceEnv{DBClient: dbutil.NewTestDB(t)}
+	env := &serviceenv.TestServiceEnv{DBClient: testutil.NewTestDB(t)}
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState))
 	require.NoError(t, migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState))
 	return env

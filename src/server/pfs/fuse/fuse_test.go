@@ -361,9 +361,7 @@ func TestOpenCommit(t *testing.T) {
 }
 
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
-	dir, err := ioutil.TempDir("", "pfs-mount")
-	require.NoError(tb, err)
-	defer os.RemoveAll(dir)
+	dir := testutil.MkdirTemp(t)
 	if opts == nil {
 		opts = &Options{}
 	}

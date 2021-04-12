@@ -2557,9 +2557,7 @@ func TestPFS(suite *testing.T) {
 	//	require.NoError(t, err)
 	//	require.NoError(t, env.PachClient.FinishCommit(repo1, commit1.ID))
 	//
-	//	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
-	//	require.NoError(t, err)
-	//
+	//  tmpDir := tu.MkdirTemp(t)
 	//	puller := pfssync.NewPuller()
 	//	require.NoError(t, puller.Pull(env.PachClient, tmpDir, repo1, commit1.ID, "/", false, false, 2, nil, ""))
 	//	_, err = puller.CleanUp()
@@ -2606,9 +2604,7 @@ func TestPFS(suite *testing.T) {
 	//	require.Equal(t, 2, len(fileInfos))
 	//
 	//	// Test Lazy files
-	//	tmpDir2, err := ioutil.TempDir("/tmp", "pfs")
-	//	require.NoError(t, err)
-	//
+	//  tmpDir2 := tu.MkdirTemp(t)
 	//	puller = pfssync.NewPuller()
 	//	require.NoError(t, puller.Pull(env.PachClient, tmpDir2, repo1, "master", "/", true, false, 2, nil, ""))
 	//
@@ -2684,8 +2680,7 @@ func TestPFS(suite *testing.T) {
 	//	require.NoError(t, err)
 	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 	//
-	//	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
-	//	require.NoError(t, err)
+	//  tmpDir := tu.MkdirTemp(t)
 	//
 	//	// We want to make sure that Pull creates an empty directory
 	//	// when the path that we are cloning is empty.
