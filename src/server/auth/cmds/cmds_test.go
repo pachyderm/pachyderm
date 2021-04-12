@@ -3,17 +3,14 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -264,6 +261,51 @@ func TestGetRobotTokenTTL(t *testing.T) {
 	require.NoError(t, login.Run())
 }
 
+// TestGetOwnGroups tests that calling `pachctl auth get-groups` with no arguments
+// returns the current user's groups.
+func TestGetOwnGroups(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	group := tu.UniqueString("group")
+
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
+		Group: group,
+		Add:   []string{auth.RootUser}},
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, tu.BashCmd(`pachctl auth get-groups | match '{{ .group }}'`,
+		"group", group).Run())
+}
+
+// TestGetGroupsForUser tests that calling `pachctl auth get-groups` with an argument
+// returns the groups for the specified user.
+func TestGetGroups(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	alice := auth.RobotPrefix + tu.UniqueString("alice")
+	group := tu.UniqueString("group")
+
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
+		Group: group,
+		Add:   []string{alice}},
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, tu.BashCmd(`pachctl auth get-groups {{ .alice }} | match '{{ .group }}'`,
+		"group", group, "alice", alice).Run())
+}
+
 func TestMain(m *testing.M) {
 	// Preemptively deactivate Pachyderm auth (to avoid errors in early tests)
 	if err := tu.BashCmd("echo 'iamroot' | pachctl auth use-auth-token &>/dev/null").Run(); err != nil {
@@ -275,15 +317,6 @@ func TestMain(m *testing.M) {
 			panic(err.Error())
 		}
 	}
-	time.Sleep(time.Second)
-	backoff.Retry(func() error {
-		cmd := tu.Cmd("pachctl", "auth", "login")
-		cmd.Stdin = strings.NewReader("admin\n")
-		cmd.Stdout, cmd.Stderr = ioutil.Discard, ioutil.Discard
-		if cmd.Run() != nil {
-			return nil // cmd errored -- auth is deactivated
-		}
-		return errors.New("auth not deactivated yet")
-	}, backoff.RetryEvery(time.Second))
+
 	os.Exit(m.Run())
 }
