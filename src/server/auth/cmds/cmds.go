@@ -67,7 +67,7 @@ func newClient(enterprise bool) (*client.APIClient, error) {
 func ActivateCmd() *cobra.Command {
 	var enterprise, supplyRootToken, onlyActivate bool
 	var issuer, redirect, clientId string
-	var trustedPeers []string
+	var trustedPeers, scopes []string
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
 		Long: `
@@ -168,6 +168,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						ClientSecret:    oidcClient.Client.Secret,
 						RedirectURI:     redirect,
 						LocalhostIssuer: true,
+						Scopes:          scopes,
 					}}); err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
 				}
@@ -200,6 +201,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						ClientSecret:    oidcClient.Client.Secret,
 						RedirectURI:     redirect,
 						LocalhostIssuer: false,
+						Scopes:          scopes,
 					}}); err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
 				}
@@ -215,6 +217,7 @@ Prompt the user to input a root token on stdin, rather than generating a random 
 	activate.PersistentFlags().StringVar(&redirect, "redirect", "http://localhost:30657/authorization-code/callback", "The redirect URL for the OIDC service")
 	activate.PersistentFlags().StringVar(&clientId, "client-id", "pachd", "The client ID for this pachd")
 	activate.PersistentFlags().StringSliceVar(&trustedPeers, "trusted-peers", []string{}, "Comma-separated list of OIDC client IDs to trust")
+	activate.PersistentFlags().StringSliceVar(&scopes, "scopes", auth.DefaultOIDCScopes, "Comma-separated list of scopes to request")
 
 	return cmdutil.CreateAlias(activate, "auth activate")
 }
