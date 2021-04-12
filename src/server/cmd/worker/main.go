@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
@@ -29,6 +30,7 @@ import (
 
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	// Copy certs embedded via go-bindata to /etc/ssl/certs. Because the
 	// container running this app is user-specified, we don't otherwise have
