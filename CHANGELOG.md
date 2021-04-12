@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.x
+
+- Automatically set `GOMAXPROCS` to the Kubernetes CPU limit, if one is set. (#5973)
+
 ## 1.13.0
 Deprecation notice: The following pachctl deploy flags are deprecated and will be removed in a future release. Deprecated flags: dash-image, dashboard-only, no-dashboard, expose-object-api, storage-v2, shards, no-rbac, no-guaranteed, static-etcd-volume, disable-ssl, max-upload-parts, no-verify-ssl, obj-log-options, part-size, retries, reverse, timeout, upload-acl
 
