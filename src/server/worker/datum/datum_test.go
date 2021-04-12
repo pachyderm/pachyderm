@@ -3,8 +3,7 @@ package datum
 // TODO: This test needs to be reworked.
 //func TestSet(t *testing.T) {
 //	t.Parallel()
-//	db := dbtesting.NewTestDB(t)
-//  env := testpachd.NewRealEnv(t, db)
+//  env := testpachd.NewRealEnv(t, dbtesting.NewTestDBConfig())
 //
 //	c := env.PachClient
 //	inputRepo := tu.UniqueString(t.Name() + "_input")

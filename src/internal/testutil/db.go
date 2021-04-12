@@ -31,14 +31,14 @@ var maxOpenConnsPerPool = postgresMaxConnections / runtime.GOMAXPROCS(0)
 // TestDatabaseDeployment represents a deployment of postgres, and databases may
 // be created for individual tests.
 type TestDatabaseDeployment interface {
-	NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener)
+	NewDatabase(t testing.TB) *sqlx.DB
 	NewDatabaseConfig(t testing.TB) serviceenv.ConfigOption
 }
 
 type postgresDeployment struct {
 	db      *sqlx.DB
 	address string
-	port    string
+	port    int
 }
 
 // NewPostgresDeployment creates a kubernetes namespaces containing a postgres
@@ -108,14 +108,13 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	postgres, err := kubeClient.CoreV1().Services(namespaceName).Get("postgres", metav1.GetOptions{})
 	require.NoError(t, err)
 
-	var port int32
+	var port int
 	for _, servicePort := range postgres.Spec.Ports {
 		if servicePort.Name == "client-port" {
-			port = servicePort.NodePort
+			port = int(servicePort.NodePort)
 		}
 	}
-	require.NotEqual(t, int32(0), port)
-	portStr := fmt.Sprintf("%d", port) // for some dumb reason golang likes to use ports as strings?
+	require.NotEqual(t, 0, port)
 
 	// Get the IP address of the nodes (any _should_ work for the service port)
 	nodes, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -130,14 +129,14 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	}
 	require.NotEqual(t, "", address)
 
-	db, err := dbutil.NewDB(dbutil.WithHostPort(address, portStr))
+	db, err := dbutil.NewDB(dbutil.WithHostPort(address, port))
 	require.NoError(t, err)
 	initConnection(t, db)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
 
-	return &postgresDeployment{db: db, address: address, port: portStr}
+	return &postgresDeployment{db: db, address: address, port: port}
 }
 
 func initConnection(t testing.TB, db *sqlx.DB) {
@@ -171,7 +170,7 @@ func (pd *postgresDeployment) NewDatabaseConfig(t testing.TB) serviceenv.ConfigO
 	}
 }
 
-func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener) {
+func (pd *postgresDeployment) NewDatabase(t testing.TB) *sqlx.DB {
 	dbName := pd.newDatabase(t)
 	options := []dbutil.Option{
 		dbutil.WithHostPort(pd.address, pd.port),
@@ -185,18 +184,10 @@ func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.Postgres
 		require.NoError(t, db.Close())
 	})
 
-	listener := col.NewPostgresListener(dbutil.GetDSN(options...))
-	t.Cleanup(func() {
-		require.NoError(t, listener.Close())
-	})
-
-	return db, listener
+	return db
 }
 
-// NewTestDB connects to postgres using the default settings, creates a database with a unique name
-// then calls cb with a sqlx.DB configured to use the newly created database.
-// After cb returns the database is dropped.
-func NewTestDB(t testing.TB) *sqlx.DB {
+func newDatabase(t testing.TB) string {
 	dbName := ephemeralDBName(t)
 	require.NoError(t, withDB(func(db *sqlx.DB) error {
 		db.MustExec("CREATE DATABASE " + dbName)
@@ -212,13 +203,32 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 			}))
 		})
 	}
-	db2, err := dbutil.NewDB(dbutil.WithDBName(dbName))
+	return dbName
+}
+
+// NewTestDB connects to postgres using the default settings, creates a database
+// with a unique name then returns a sqlx.DB configured to use the newly created
+// database. After the test or suite finishes, the database is dropped.
+func NewTestDB(t testing.TB) *sqlx.DB {
+	db2, err := dbutil.NewDB(dbutil.WithDBName(newDatabase(t)))
 	require.NoError(t, err)
 	db2.SetMaxOpenConns(maxOpenConnsPerPool)
 	t.Cleanup(func() {
 		require.NoError(t, db2.Close())
 	})
 	return db2
+}
+
+// NewTestDBConfig connects to postgres using the default settings, creates a
+// database with a unique name then returns a ServiceEnv config option to
+// connect to the new database. After test test or suite finishes, the database
+// is dropped.
+func NewTestDBConfig(t testing.TB) *sqlx.DB {
+	dbName := newDatabase(t)
+	return func(config *serviceenv.Configuration) {
+		serviceenv.WithPostgresHostPort(dbutil.DefaultHost, dbutil.DefaultPort)(config)
+		config.PostgresDBName = dbName
+	}
 }
 
 // withDB creates a database connection that is scoped to the passed in callback.

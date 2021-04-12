@@ -923,6 +923,7 @@ github.com/openzipkin/zipkin-go v0.2.1/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnh
 github.com/openzipkin/zipkin-go v0.2.2/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
 github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36 h1:BYlMmKAikMsokjseoeg/7ZIE5Z/kM7b54hIe6y2/n3c=
 github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36/go.mod h1:zTTB59W9i3MPZor62iS6A5hL1rbPCKDLPo/CetUPLuQ=
+github.com/pachyderm/pachyderm v1.13.0 h1:Ax/Z+4ANVi/G2GVTlhHsWTESXYQuxodUIKwliDz3Zmc=
 github.com/pachyderm/s2 v0.0.0-20190725181334-d1f4a476d240/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
 github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520 h1:l+VwPZpaU0I0e/aBES9cP0v8jGtrktwWW4JsTXjK+mY=
 github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520/go.mod h1:+bgy+pTTvgUhcIKkb1Qj4kBFvsRvw0OOySSYmJHz/IQ=

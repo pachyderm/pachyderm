@@ -449,7 +449,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	// TODO: Make work with V2?
-	//func TestPutFileDirectoryTraversal(t *testing.T) {
+	//suite.Run("PutFileDirectoryTraversal", func(t *testing.T) {
 	//	t.Parallel()
 	//  env := testpachd.NewRealEnv(t, postgres.NewDatabaseConfig(t))
 	//
@@ -484,7 +484,7 @@ func TestPFS(suite *testing.T) {
 	//	fis, err = env.PachClient.ListFileAll("repo", "master", "")
 	//	require.NoError(t, err)
 	//	require.Equal(t, 1, len(fis))
-	//}
+	//})
 
 	// TODO: Make work with V2?
 	//// TestPutFileOverlappingPaths tests the fix for
@@ -497,7 +497,7 @@ func TestPFS(suite *testing.T) {
 	//// (Minikube seems to induce more races), but maybe this test will be useful in
 	//// conjunction with e.g. some kind of race detector.
 	//// TODO(msteffen): Get this test to fail reliably in the presence of the race.
-	//func TestPutFileOverlappingPaths(t *testing.T) {
+	//suite.Run("TestPutFileOverlappingPaths", func(t *testing.T) {
 	//	t.Parallel()
 	//  env := testpachd.NewRealEnv(t, postgres.NewDatabaseConfig(t))
 	//
@@ -522,7 +522,7 @@ func TestPFS(suite *testing.T) {
 	//		})
 	//		require.ElementsEqual(t, files, actualFiles)
 	//	}
-	//}
+	//})
 
 	suite.Run("CreateInvalidBranchName", func(t *testing.T) {
 		t.Parallel()
@@ -768,7 +768,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	// TODO: Make work with V2?
-	//func TestCleanPath(t *testing.T) {
+	//suite.Run("TestCleanPath", func(t *testing.T) {
 	//	t.Parallel()
 	//  env := testpachd.NewRealEnv(t, postgres.NewDatabaseConfig(t))
 	//
@@ -780,7 +780,7 @@ func TestPFS(suite *testing.T) {
 	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 	//	_, err = env.PachClient.InspectFile(repo, commit.ID, "file")
 	//	require.NoError(t, err)
-	//}
+	//})
 
 	suite.Run("BasicFile", func(t *testing.T) {
 		t.Parallel()
@@ -1236,7 +1236,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	// TODO: Make work with V2?
-	//func TestPutFile(t *testing.T) {
+	//suite.Run("TestPutFile", func(t *testing.T) {
 	//	t.Parallel()
 	//  env := testpachd.NewRealEnv(t, postgres.NewDatabaseConfig(t))
 	//
@@ -1287,7 +1287,7 @@ func TestPFS(suite *testing.T) {
 	//	require.Equal(t, "bar\n", buffer.String())
 	//	buffer = bytes.Buffer{}
 	//	require.NoError(t, env.PachClient.GetFile(repo, commit4.ID, "dir2", &buffer))
-	//}
+	//})
 
 	suite.Run("PutFile2", func(t *testing.T) {
 		t.Parallel()

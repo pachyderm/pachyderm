@@ -81,55 +81,43 @@ func requireIteratorContents(t *testing.T, jdi *JobDatumIterator, metas []*datum
 }
 
 func TestEmptyBase(t *testing.T) {
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		chain := newTestChain(env.PachClient)
-		jobID := uuid.NewWithoutDashes()
-		jobMetas := newTestMetas(jobID)
-		ti := newTestIterator(jobMetas)
-		jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
-		requireIteratorContents(t, jdi, jobMetas)
-		return nil
-	}))
+	env := testpachd.NewRealEnv(t, testutil.NewDBTestConfig())
+	chain := newTestChain(env.PachClient)
+	jobID := uuid.NewWithoutDashes()
+	jobMetas := newTestMetas(jobID)
+	ti := newTestIterator(jobMetas)
+	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
+	requireIteratorContents(t, jdi, jobMetas)
 }
 
 func TestAdditiveOnBase(t *testing.T) {
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[:2]...)
-		jobID := uuid.NewWithoutDashes()
-		jobMetas := newTestMetas(jobID)
-		ti := newTestIterator(jobMetas)
-		jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
-		requireIteratorContents(t, jdi, jobMetas[2:])
-		return nil
-	}))
+	env := testpachd.NewRealEnv(t, testutil.NewDBTestConfig())
+	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[:2]...)
+	jobID := uuid.NewWithoutDashes()
+	jobMetas := newTestMetas(jobID)
+	ti := newTestIterator(jobMetas)
+	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
+	requireIteratorContents(t, jdi, jobMetas[2:])
 }
 
 func TestSubtractiveOnBase(t *testing.T) {
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())...)
-		jobID := uuid.NewWithoutDashes()
-		jobMetas := newTestMetas(jobID)[1:]
-		ti := newTestIterator(jobMetas)
-		jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
-		requireIteratorContents(t, jdi, nil)
-		return nil
-	}))
+	env := testpachd.NewRealEnv(t, testutil.NewDBTestConfig())
+	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())...)
+	jobID := uuid.NewWithoutDashes()
+	jobMetas := newTestMetas(jobID)[1:]
+	ti := newTestIterator(jobMetas)
+	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
+	requireIteratorContents(t, jdi, nil)
 }
 
 func TestAdditiveSubtractiveOnBase(t *testing.T) {
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[1:]...)
-		jobID := uuid.NewWithoutDashes()
-		jobMetas := newTestMetas(jobID)[:2]
-		ti := newTestIterator(jobMetas)
-		jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
-		requireIteratorContents(t, jdi, jobMetas[:1])
-		return nil
-	}))
+	env := testpachd.NewRealEnv(t, testutil.NewDBTestConfig())
+	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[1:]...)
+	jobID := uuid.NewWithoutDashes()
+	jobMetas := newTestMetas(jobID)[:2]
+	ti := newTestIterator(jobMetas)
+	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
+	requireIteratorContents(t, jdi, jobMetas[:1])
 }
 
 //func TestEmptyBase(t *testing.T) {

@@ -17,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -31,12 +30,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-func newWorkerSpawnerPair(t *testing.T, db *sqlx.DB, pipelineInfo *pps.PipelineInfo) *testEnv {
+func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
 	// We only support simple pfs input pipelines in this test suite at the moment
 	require.NotNil(t, pipelineInfo.Input)
 	require.NotNil(t, pipelineInfo.Input.Pfs)
 
-	env := newTestEnv(t, db, pipelineInfo)
+	env := newTestEnv(t, dbConfig, pipelineInfo)
 
 	eg, ctx := errgroup.WithContext(env.driver.PachClient().Ctx())
 	t.Cleanup(func() {
@@ -292,13 +291,12 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 
 func TestTransformPipeline(suite *testing.T) {
 	suite.Parallel()
-	postgres := dbutil.NewPostgresDeployment(suite)
+	postgres := testutil.NewPostgresDeployment(suite)
 
 	suite.Run("TestJobSuccess", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		db := postgres.NewDatabase(t)
-		env := newWorkerSpawnerPair(t, db, pi)
+		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(), pi)
 		testJobSuccess(t, env, pi, []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		})
@@ -326,14 +324,14 @@ func TestTransformPipeline(suite *testing.T) {
 			_, err = io.Copy(buf2, r)
 			require.NoError(t, err)
 			require.True(t, bytes.Equal(buf1.Bytes(), buf2.Bytes()))
-		}
+			return nil
+		}))
 	})
 
 	suite.Run("TestJobFailedDatum", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		db := postgres.NewDatabase(t)
-		env := newWorkerSpawnerPair(t, db, pi)
+		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
 
 		pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
@@ -350,8 +348,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobMultiDatum", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		db := postgres.NewDatabase(t)
-		env := newWorkerSpawnerPair(t, db, pi)
+		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
 
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
@@ -388,8 +385,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSerial", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		db := postgres.NewDatabase(t)
-		env := newWorkerSpawnerPair(t, db, pi)
+		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
 
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
@@ -432,8 +428,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSerialDelete", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		db := postgres.NewDatabase(t)
-		env := newWorkerSpawnerPair(t, db, pi)
+		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
 
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{

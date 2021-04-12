@@ -15,9 +15,7 @@ import (
 
 func TestIterators(t *testing.T) {
 	t.Parallel()
-	postgres := dbutil.NewPostgresDeployment(t)
-	db := postgres.NewDatabase(t)
-	env := testpachd.NewRealEnv(t, db)
+	env := testpachd.NewRealEnv(t, tu.NewTestDBConfig())
 
 	c := env.PachClient
 	dataRepo := tu.UniqueString(t.Name() + "_data")
@@ -292,8 +290,7 @@ func TestIterators(t *testing.T) {
 // Make work with V2.
 //func TestJoinTrailingSlash(t *testing.T) {
 //	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//  env := testpachd.NewRealEnv(t, db)
+//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig())
 //
 //	c := env.PachClient
 //	repo := []string{ // singular name b/c we only refer to individual elements
