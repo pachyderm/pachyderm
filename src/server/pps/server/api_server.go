@@ -2715,7 +2715,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// the rest of the delete operation continues without any auth checks
 	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !isNotFoundErr(err) && !auth.IsErrNoRoleBinding(err) {
 		return nil, err
-	} else if !isNotFoundErr(err) {
+	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline. This must be
 		// done after cleaning up the spec branch HEAD commit, because the
 		// authorization condition depends on the pipeline's PipelineInfo
