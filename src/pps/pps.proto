@@ -391,8 +391,7 @@ message EtcdPipelineInfo {
 }
 
 message PipelineInfo {
-  reserved 3, 4, 22, 26, 27, 18, 52;
-  string id = 17 [(gogoproto.customname) = "ID"];
+  reserved 3, 4, 22, 26, 27, 18, 52, 17;
   Pipeline pipeline = 1;
   uint64 version = 11;
   Transform transform = 2;
