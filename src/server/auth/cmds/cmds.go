@@ -442,8 +442,8 @@ func GetGroupsCmd() *cobra.Command {
 	var enterprise bool
 	getGroups := &cobra.Command{
 		Use:   "{{alias}} [username]",
-		Short: "Get an auth token for the user with the specified name.",
-		Long:  "Get an auth token for the user with the specified name.",
+		Short: "Get the list of groups a user belongs to",
+		Long:  "Get the list of groups a user belongs to. If no user is specified, the current user's groups are listed.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := newClient(enterprise)
 			if err != nil {
