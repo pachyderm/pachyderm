@@ -5,16 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestGC(t *testing.T) {
 	ctx := context.Background()
-	db := dbutil.NewTestDB(t)
+	db := testutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	s := NewTestStorage(t, db, tr)
+	s := testutil.NewFilesetStorage(t, db, tr)
 	gc := s.newGC()
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
 	err := w.Add("a.txt", func(fw *FileWriter) error {

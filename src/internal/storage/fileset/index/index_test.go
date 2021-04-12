@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func write(tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
@@ -53,9 +53,9 @@ func pathRange(fileNames []string) *PathRange {
 }
 
 func Check(t *testing.T, permString string) {
-	db := dbutil.NewTestDB(t)
+	db := testutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := chunk.NewTestStorage(t, db, tr)
+	_, chunks := testutil.NewChunkStorage(t, db, tr)
 	fileNames := Generate(permString)
 	averageBits = 12
 	topIdx := write(t, chunks, fileNames)
