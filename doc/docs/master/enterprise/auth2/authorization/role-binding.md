@@ -49,7 +49,7 @@ adding, deleting, or updating the files in the repo. The
 a RepoOwner can grant permission to users on the Repository.
 
 !!! Note
-    repoReader, repoWriter, and repoOwner can be set at the repo or project level. 
+    repoReader, repoWriter, and repoOwner can be set at all levels: cluster, project, and repo. 
 
 - **clusterAdmin**: A clusterAdmin can perform any
 action on the cluster including appointing other clusterAdmins.
@@ -187,11 +187,13 @@ Let's keep using our Auth0 example as an illustration, and:
 1. Update our connector accordingly.
 1. Grant the group an owner access to a specific repo in Pachyderm.
 
-To enable the Group creation in Auth0, you will need to install an [`Authorization Extension`](https://auth0.com/docs/extensions/authorization-extension) to Auth0:
+!!! Info
+    To enable the Group creation in Auth0, you will need to install an [`Authorization Extension`](https://auth0.com/docs/extensions/authorization-extension) to Auth0:
 
-- Go to **Auth0 Dashboard > Extensions**.
-- Select **Auth0 Authorization** and answer the prompt to install.
-- Choose where you would like to store your data: **Webtask Storage** for this example and click **Install**
+    - Go to **Auth0 Dashboard > Extensions**.
+    - Select **Auth0 Authorization** and answer the prompt to install.
+    - Choose where you would like to store your data: **Webtask Storage** for this example and click **Install**
+
 
 - 1- Group creation
 
@@ -204,7 +206,7 @@ To enable the Group creation in Auth0, you will need to install an [`Authorizati
     In **Authorization/Users**, select your user one-pachyderm-user@gmail.com and add her/him to your `testgroup` as follow.
     ![Add User to Group](../images/auth0-add-user-to-group.png)
 
-    In **User Mangement/Users**, you user should now show the following addition to her/his app_metadata:
+    In **User Mangement/Users**, you user should now show the following addition to their app_metadata:
     ```json
     {
         "authorization": {
@@ -276,3 +278,16 @@ To enable the Group creation in Auth0, you will need to install an [`Authorizati
     $ pachctl auth get repo testinput
     ```
     //TODO test out once group support implemented all the way in alpha.12
+
+## Example
+
+![Role binding example](../images/role-binding-example.svg)
+
+In this diagram, the `data-scientists` group has been assigned the `repoReader` role on the cluster. This gives them permissions to **read all repos in all projects**.
+
+The IdP user `one-pachyderm-user@company.io` has been assigned the `repoOwner` role on the `nlp` project. This gives them permission to **read, write and grant permissions for repos within the nlp project**. 
+It does not give them any permission on the `image-recognition` project, or on the `cluster` itself.
+
+If `one-pachyderm-user@company.io` was a member of the `data-scientists` group, then they would cumulate both roles: 'repoReader' on all repo and `repoOwner` on the `nlp` project.
+
+The IdP user `another-pachyderm-user@company.io` has been assigned the `repoWriter` role on the repo `categorize-text`. This gives them permission to **read and write in that repo**, but not to access any other repo, project, or the cluster itself.
