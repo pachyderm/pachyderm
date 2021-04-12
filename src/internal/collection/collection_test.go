@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -678,9 +677,6 @@ func TestIteration(t *testing.T) {
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 	})
 }
-
-var etcdClient *etcd.Client
-var etcdClientOnce sync.Once
 
 func getEtcdClient(t *testing.T) *etcd.Client {
 	env := testetcd.NewEnv(t)

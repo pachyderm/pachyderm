@@ -142,8 +142,10 @@ func initConnection(t testing.TB, db *sqlx.DB) {
 	db.SetMaxOpenConns(maxOpenConnsPerPool)
 
 	// Check that the connection works
-	_, err := db.Exec("SELECT 1")
-	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := db.Exec("SELECT 1")
+		return err
+	}, backoff.NewTestingBackOff()))
 }
 
 func (pd *postgresDeployment) newDatabase(t testing.TB) string {
