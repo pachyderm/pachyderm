@@ -365,7 +365,7 @@ async def retry(f, attempts=10, sleep=1.0):
             await asyncio.sleep(sleep)
 
 async def ping():
-    await run("pachctl", "version", capture_output=True, timeout=5)
+    await run("pachctl", "version", capture_output=True)
 
 async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
