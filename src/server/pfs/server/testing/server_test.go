@@ -2246,7 +2246,6 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		}
 
-		// TODO: this is hanging (in the background?) and keeping the server from shutting down
 		require.NoErrorWithinT(t, 60*time.Second, func() error {
 			var eg errgroup.Group
 			nextCommitChan := make(chan *pfs.Commit, numCommits)
@@ -3473,8 +3472,8 @@ func TestPFS(suite *testing.T) {
 
 		otherCommit, err := env.PachClient.StartCommit(repo, "other")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.CopyFile(repo, masterCommit.ID, "files", repo, otherCommit.ID, "files", pclient.WithAppendCopyFile()))
-		require.NoError(t, env.PachClient.CopyFile(repo, masterCommit.ID, "files/0", repo, otherCommit.ID, "file0", pclient.WithAppendCopyFile()))
+		require.NoError(t, env.PachClient.CopyFile(repo, otherCommit.ID, "files", repo, otherCommit.ID, "files", pclient.WithAppendCopyFile()))
+		require.NoError(t, env.PachClient.CopyFile(repo, otherCommit.ID, "file0", repo, otherCommit.ID, "files/0", pclient.WithAppendCopyFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, otherCommit.ID))
 
 		for i := 0; i < numFiles; i++ {
@@ -6124,6 +6123,73 @@ func TestPFS(suite *testing.T) {
 			runtime.GC()
 		}
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+	})
+
+	suite.Run("TestModifyFileGRPC", func(subsuite *testing.T) {
+		subsuite.Parallel()
+
+		subsuite.Run("EmptyFile", func(t *testing.T) {
+			t.Parallel()
+			env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+			repo := "test"
+			require.NoError(t, env.PachClient.CreateRepo(repo))
+			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
+			require.NoError(t, err)
+			files := []string{"/empty-1", "/empty-2"}
+			for _, file := range files {
+				require.NoError(t, c.Send(&pfs.ModifyFileRequest{
+					Commit: pclient.NewCommit(repo, "master"),
+					Modification: &pfs.ModifyFileRequest_PutFile{
+						PutFile: &pfs.PutFile{
+							Source: &pfs.PutFile_RawFileSource{
+								RawFileSource: &pfs.RawFileSource{
+									Path: file,
+									EOF:  true,
+								},
+							},
+						},
+					},
+				}))
+			}
+			_, err = c.CloseAndRecv()
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.ListFile(repo, "master", "/", func(fi *pfs.FileInfo) error {
+				require.True(t, files[0] == fi.File.Path)
+				files = files[1:]
+				return nil
+			}))
+			require.Equal(t, 0, len(files))
+		})
+
+		subsuite.Run("SingleMessageFile", func(t *testing.T) {
+			t.Parallel()
+			env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+			repo := "test"
+			require.NoError(t, env.PachClient.CreateRepo(repo))
+			filePath := "file"
+			fileContent := "foo"
+			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
+			require.NoError(t, err)
+			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
+				Commit: pclient.NewCommit(repo, "master"),
+				Modification: &pfs.ModifyFileRequest_PutFile{
+					PutFile: &pfs.PutFile{
+						Source: &pfs.PutFile_RawFileSource{
+							RawFileSource: &pfs.RawFileSource{
+								Path: filePath,
+								Data: []byte(fileContent),
+								EOF:  true,
+							},
+						},
+					},
+				},
+			}))
+			_, err = c.CloseAndRecv()
+			require.NoError(t, err)
+			buf := &bytes.Buffer{}
+			require.NoError(t, env.PachClient.GetFile(repo, "master", filePath, buf))
+			require.Equal(t, fileContent, buf.String())
+		})
 	})
 }
 
