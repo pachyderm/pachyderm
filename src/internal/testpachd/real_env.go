@@ -38,7 +38,7 @@ type RealEnv struct {
 // server instances for supported operations. PPS requires a kubernetes
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
-func NewRealEnv(t *testing.T, customOpts ...serviceenv.ConfigOption) *RealEnv {
+func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	mockEnv := NewMockEnv(t)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}

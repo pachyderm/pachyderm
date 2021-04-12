@@ -31,7 +31,7 @@ type Env struct {
 
 // NewEnv constructs a default Env for testing, which will be destroyed at the
 // end of the test.
-func NewEnv(t *testing.T) *Env {
+func NewEnv(t testing.TB) *Env {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
 	ctx, cancel := context.WithCancel(context.Background())
