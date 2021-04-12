@@ -90,9 +90,6 @@ case "${BUCKET}" in
         make test-tls
     fi
     ;;
-  ADMIN)
-    make test-admin
-    ;;
   EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh

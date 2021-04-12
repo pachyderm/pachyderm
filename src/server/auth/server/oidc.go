@@ -38,10 +38,6 @@ type IDTokenClaims struct {
 	Groups        []string `json:"groups"`
 }
 
-func scopes(additionalScopes []string) []string {
-	return append([]string{oidc.ScopeOpenID, "profile", "email"}, additionalScopes...)
-}
-
 // validateOIDC validates an OIDC configuration before it's stored in etcd.
 func validateOIDCConfig(ctx context.Context, config *auth.OIDCConfig) error {
 	if _, err := url.Parse(config.Issuer); err != nil {
@@ -118,7 +114,7 @@ func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, e
 			ClientSecret: config.ClientSecret,
 			RedirectURL:  config.RedirectURI,
 			Endpoint:     oidcProvider.Endpoint(),
-			Scopes:       scopes(config.AdditionalScopes),
+			Scopes:       config.Scopes,
 		},
 	}, nil
 }

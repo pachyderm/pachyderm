@@ -46,7 +46,7 @@ including:
 !!! Info
     No ingress controller is deployed by default with the `pachctl deploy` command.
     **You will need to deploy an ingress
-    controller and ingress resource object of your choice** (Nginx, Traefic, Ambassador...) on the Kubernetes cluster that
+    controller and ingress resource object of your choice** (Nginx, Traefik, Ambassador...) on the Kubernetes cluster that
     runs your Pachyderm cluster.
     See [Expose a Pachyderm UI Through an Ingress](./pach-ui-ingress)
 

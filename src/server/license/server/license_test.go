@@ -157,7 +157,7 @@ func TestClusterCRUD(t *testing.T) {
 	// Add a new cluster
 	newCluster, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
-		Address: "localhost:650",
+		Address: "grpc://localhost:650",
 	})
 	require.NoError(t, err)
 	require.True(t, len(newCluster.Secret) >= 30)
@@ -166,11 +166,11 @@ func TestClusterCRUD(t *testing.T) {
 	expected := map[string]*license.ClusterStatus{
 		"localhost": {
 			Id:      "localhost",
-			Address: "localhost:650",
+			Address: "grpc://localhost:650",
 		},
 		"new": {
 			Id:      "new",
-			Address: "localhost:650",
+			Address: "grpc://localhost:650",
 		},
 	}
 
@@ -234,7 +234,7 @@ func TestAddClusterUnreachable(t *testing.T) {
 
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
-		Address: "invalid://bad.example",
+		Address: "grpc://bad.example",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "unable to create client", err.Error())
@@ -255,7 +255,7 @@ func TestUpdateClusterUnreachable(t *testing.T) {
 
 	_, err := client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
 		Id:      "localhost",
-		Address: "invalid://bad.example",
+		Address: "grpc://bad.example",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "unable to create client", err.Error())
@@ -274,7 +274,7 @@ func TestAddClusterNoLicense(t *testing.T) {
 	client := tu.GetPachClient(t)
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
-		Address: "localhost:650",
+		Address: "grpc://localhost:650",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "enterprise license is not valid", err.Error())

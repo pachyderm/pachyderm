@@ -41,6 +41,10 @@ func user(email string) string {
 	return auth.UserPrefix + email
 }
 
+func group(group string) string {
+	return auth.GroupPrefix + group
+}
+
 func pl(pipeline string) string {
 	return auth.PipelinePrefix + pipeline
 }
@@ -795,6 +799,35 @@ func TestRobotUserACL(t *testing.T) {
 	commit, err = robotClient.StartCommit(repo2, "master")
 	require.NoError(t, err)
 	require.NoError(t, robotClient.FinishCommit(repo2, commit.ID))
+}
+
+// TestGroupRoleBinding tests that a group can be added to a role binding
+// and confers access to members
+func TestGroupRoleBinding(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	alice := robot(tu.UniqueString("alice"))
+	group := group(tu.UniqueString("testGroup"))
+	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// root creates a repo and adds a group writer access
+	repo := tu.UniqueString("TestGroupRoleBinding")
+	require.NoError(t, rootClient.CreateRepo(repo))
+	require.NoError(t, rootClient.ModifyRepoRoleBinding(repo, group, []string{auth.RepoWriterRole}))
+	require.Equal(t, buildBindings(group, auth.RepoWriterRole, auth.RootUser, auth.RepoOwnerRole), getRepoRoleBinding(t, rootClient, repo))
+
+	// add alice to the group
+	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
+		Group: group,
+		Add:   []string{alice},
+	})
+	require.NoError(t, err)
+
+	// test that alice can commit to the repo
+	commit, err := aliceClient.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 }
 
 // TestRobotUserAdmin tests that robot users can

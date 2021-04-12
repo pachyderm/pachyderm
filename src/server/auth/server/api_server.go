@@ -1250,7 +1250,7 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 	// check against fixed prefixes
 	prefix += ":" // append ":" to match constants
 	switch prefix {
-	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix, auth.UserPrefix:
+	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix, auth.UserPrefix, auth.GroupPrefix:
 		break
 	default:
 		return errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
