@@ -27,6 +27,28 @@ func loginAsUser(t *testing.T, user string) {
 	config.WritePachTokenToConfig(token.Token, false)
 }
 
+// TestActivate tests that activating, deactivating and re-activating works.
+// This means all cluster state is being reset correctly.
+func TestActivate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetUnauthenticatedPachClient(t)
+	tu.ActivateEnterprise(t, c)
+	require.NoError(t, tu.BashCmd(`
+		echo '{{.token}}' | pachctl auth activate --supply-root-token
+		pachctl auth whoami | match {{.user}}
+		echo 'y' | pachctl auth deactivate
+		echo '{{.token}}' | pachctl auth activate --supply-root-token
+		pachctl auth whoami | match {{.user}}`,
+		"token", tu.RootToken,
+		"user", auth.RootUser,
+	).Run())
+}
+
 func TestLogin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

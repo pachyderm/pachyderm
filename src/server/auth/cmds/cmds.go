@@ -224,10 +224,10 @@ Prompt the user to input a root token on stdin, rather than generating a random 
 func DeactivateCmd() *cobra.Command {
 	var enterprise bool
 	deactivate := &cobra.Command{
-		Short: "Delete all ACLs, tokens, and admins, and deactivate Pachyderm auth",
-		Long: "Deactivate Pachyderm's auth system, which will delete ALL auth " +
-			"tokens, ACLs and admins, and expose all data in the cluster to any " +
-			"user with cluster access. Use with caution.",
+		Short: "Delete all ACLs, tokens, admins, IDP integrations and OIDC clients, and deactivate Pachyderm auth",
+		Long: "Deactivate Pachyderm's auth and identity systems, which will delete ALL auth " +
+			"tokens, ACLs and admins, IDP integrations and OIDC clients, and expose all data " +
+			"in the cluster to any user with cluster access. Use with caution.",
 		Run: cmdutil.Run(func(args []string) error {
 			fmt.Println("Are you sure you want to delete ALL auth information " +
 				"(ACLs, tokens, and admins) in this cluster, and expose ALL data? yN")
@@ -243,6 +243,11 @@ func DeactivateCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+
+			// Delete any data from the identity server
+			if _, err := c.IdentityAPIClient.DeleteAll(c.Ctx(), &identity.DeleteAllRequest{}); err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
 			_, err = c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
 			return grpcutil.ScrubGRPC(err)
 		}),
