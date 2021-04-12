@@ -13,7 +13,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -42,8 +41,8 @@ type apiServer struct {
 	env serviceenv.ServiceEnv
 }
 
-func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (*apiServer, error) {
-	d, err := newDriver(env, txnEnv, etcdPrefix, db)
+func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*apiServer, error) {
+	d, err := newDriver(env, txnEnv, etcdPrefix)
 	if err != nil {
 		return nil, err
 	}

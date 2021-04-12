@@ -15,7 +15,7 @@ import (
 
 func TestIterators(t *testing.T) {
 	t.Parallel()
-	env := testpachd.NewRealEnv(t, tu.NewTestDBConfig())
+	env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
 	c := env.PachClient
 	dataRepo := tu.UniqueString(t.Name() + "_data")
@@ -290,7 +290,7 @@ func TestIterators(t *testing.T) {
 // Make work with V2.
 //func TestJoinTrailingSlash(t *testing.T) {
 //	t.Parallel()
-//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig())
+//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 //
 //	c := env.PachClient
 //	repo := []string{ // singular name b/c we only refer to individual elements

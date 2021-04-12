@@ -83,7 +83,7 @@ func NewRealEnv(t *testing.T, customOpts ...serviceenv.ConfigOption) *RealEnv {
 
 	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
 
-	realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv)
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv, etcdPrefix)
 	require.NoError(t, err)
 
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()

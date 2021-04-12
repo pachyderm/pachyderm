@@ -428,7 +428,7 @@ func TestMasterDriver(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	env := testpachd.NewRealEnv(t, dbutil.NewTestDBConfig())
+	env := testpachd.NewRealEnv(t, dbutil.NewTestDBConfig(t))
 	testRunner(t, env.PachClient, "master", NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 		t.Run("ListBuckets", func(t *testing.T) {
 			masterListBuckets(t, pachClient, minioClient)

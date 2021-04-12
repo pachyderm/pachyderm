@@ -229,7 +229,7 @@ func TestWorkerDriver(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	env := testpachd.NewRealEnv(t, dbutil.NewTestDBConfig())
+	env := testpachd.NewRealEnv(t, dbutil.NewTestDBConfig(t))
 	pachClient := env.PachClient
 
 	inputRepo := tu.UniqueString("testworkerdriverinput")

@@ -11,7 +11,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -223,7 +222,7 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 // database with a unique name then returns a ServiceEnv config option to
 // connect to the new database. After test test or suite finishes, the database
 // is dropped.
-func NewTestDBConfig(t testing.TB) *sqlx.DB {
+func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	dbName := newDatabase(t)
 	return func(config *serviceenv.Configuration) {
 		serviceenv.WithPostgresHostPort(dbutil.DefaultHost, dbutil.DefaultPort)(config)

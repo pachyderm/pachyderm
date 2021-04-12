@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
@@ -89,7 +88,7 @@ type driver struct {
 	compactionQueue *work.TaskQueue
 }
 
-func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (*driver, error) {
+func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
 	// Setup etcd, object storage, and database clients.
 	etcdClient := env.GetEtcdClient()
 	objClient, err := NewObjClient(env.Config())
@@ -113,26 +112,26 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		// TODO: set maxFanIn based on downward API.
 	}
 	// Setup tracker and chunk / fileset storage.
-	tracker := track.NewPostgresTracker(db)
+	tracker := track.NewPostgresTracker(env.GetDBClient())
 	chunkStorageOpts, err := env.Config().ChunkStorageOptions()
 	if err != nil {
 		return nil, err
 	}
 	memCache := env.Config().ChunkMemoryCache()
-	keyStore := chunk.NewPostgresKeyStore(db)
+	keyStore := chunk.NewPostgresKeyStore(env.GetDBClient())
 	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
 	if err != nil {
 		return nil, err
 	}
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
-	chunkStorage := chunk.NewStorage(objClient, memCache, db, tracker, chunkStorageOpts...)
-	d.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.Config().FileSetStorageOptions()...)
+	chunkStorage := chunk.NewStorage(objClient, memCache, env.GetDBClient(), tracker, chunkStorageOpts...)
+	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, env.Config().FileSetStorageOptions()...)
 	// Setup compaction queue and worker.
 	d.compactionQueue, err = work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)
 	if err != nil {
 		return nil, err
 	}
-	d.commitStore = newPostgresCommitStore(db, tracker, d.storage)
+	d.commitStore = newPostgresCommitStore(env.GetDBClient(), tracker, d.storage)
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
@@ -146,7 +145,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		return nil, err
 	}
 	// Setup PFS master
-	go d.master(env, db)
+	go d.master(env)
 	go d.compactionWorker()
 	return d, nil
 }
