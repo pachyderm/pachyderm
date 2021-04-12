@@ -1,13 +1,12 @@
 import {useMemo} from 'react';
-import {useRouteMatch} from 'react-router';
 
 import useCurrentProject from '@dash-frontend/hooks/useCurrentProject';
 import {useJobs} from '@dash-frontend/hooks/useJobs';
+import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
 import {JobState} from '@graphqlTypes';
 
 const useProjectHeader = () => {
   const {currentProject, loading} = useCurrentProject();
-  const {url} = useRouteMatch();
   const {jobs} = useJobs(currentProject?.id);
 
   const numOfFailedJobs = useMemo(
@@ -21,7 +20,9 @@ const useProjectHeader = () => {
   return {
     projectName: currentProject?.name || '',
     numOfFailedJobs,
-    seeJobsUrl: `${url}/jobs`,
+    seeJobsUrl: currentProject?.id
+      ? jobsRoute({projectId: currentProject?.id})
+      : '/',
     loading,
   };
 };

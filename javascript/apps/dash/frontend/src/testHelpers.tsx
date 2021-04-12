@@ -2,11 +2,14 @@
 import {act} from '@testing-library/react';
 import userEvent, {ITypeOpts, TargetElement} from '@testing-library/user-event';
 import React, {ReactElement} from 'react';
-import {BrowserRouter} from 'react-router-dom';
+import {BrowserRouter, Route} from 'react-router-dom';
 
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
-import {Account} from '@graphqlTypes';
+import {Account, Dag} from '@graphqlTypes';
+
+import useRouteController from './views/Project/components/DAG/hooks/useRouteController';
+import {PROJECT_PATHS} from './views/Project/constants/projectPaths';
 
 export {default as server} from '@dash-backend/index';
 export {default as mockServer} from '@dash-backend/mock';
@@ -24,6 +27,21 @@ export const withContextProviders = (
       </BrowserRouter>
     );
   };
+};
+
+export const MockDAG: React.FC<{dag: Dag}> = ({dag}) => {
+  const {selectedNode, navigateToNode} = useRouteController({dag});
+
+  return (
+    <Route path={PROJECT_PATHS}>
+      Selected node: {selectedNode?.name}
+      {dag.nodes.map((n) => (
+        <button key={n.name} onClick={() => navigateToNode(n)}>
+          {n.name}
+        </button>
+      ))}
+    </Route>
+  );
 };
 
 export const setIdTokenForAccount = (account: Account) => {

@@ -1,8 +1,8 @@
 import useProject from './useProject';
-import useProjectParams from './useProjectParams';
+import useUrlState from './useUrlState';
 
 const useCurrentProject = () => {
-  const {projectId} = useProjectParams();
+  const {projectId} = useUrlState();
   const {project, loading} = useProject({id: projectId});
 
   return {

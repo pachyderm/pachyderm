@@ -23,7 +23,7 @@
   fill: var(--white);
 }
   
-.base :global .nodeGroup.idle:hover .node .label, .base :global .nodeGroup.selected.idle .node .label {
+.base :global .nodeGroup:hover .node .label, .base :global .nodeGroup.selected .node .label {
   background-color: var(--background-blue);
 }
 

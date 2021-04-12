@@ -1,16 +1,13 @@
 import React from 'react';
-import {Route} from 'react-router';
 
 import DAG from './components/DAG';
 import ProjectSidebar from './components/ProjectSidebar';
+import {NODE_HEIGHT, NODE_WIDTH} from './constants/nodeSizes';
 import {useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
 
-const NODE_WIDTH = 120;
-const NODE_HEIGHT = 60;
-
 const Project: React.FC = () => {
-  const {dagCount, dags, error, loading, path} = useProjectView(
+  const {dagCount, dags, error, loading} = useProjectView(
     NODE_WIDTH,
     NODE_HEIGHT,
   );
@@ -32,7 +29,7 @@ const Project: React.FC = () => {
         );
       })}
 
-      <Route path={`${path}/jobs`} component={ProjectSidebar} />
+      <ProjectSidebar />
     </div>
   );
 };

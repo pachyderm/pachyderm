@@ -1,10 +1,9 @@
-import {useParams, useRouteMatch} from 'react-router';
+import {useParams} from 'react-router';
 
 import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
 
 export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const {projectId} = useParams<{projectId: string}>();
-  const {path} = useRouteMatch();
   const {dags, loading, error} = useProjectDagsData({
     projectId,
     nodeHeight,
@@ -13,7 +12,6 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
 
   return {
     dagCount: dags?.length || 0,
-    path,
     dags,
     error,
     loading,

@@ -1,20 +1,19 @@
 import {useCallback} from 'react';
-import {useHistory, useRouteMatch} from 'react-router';
+import {useHistory} from 'react-router';
 
-import useProjectParams from '@dash-frontend/hooks/useProjectParams';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {projectRoute} from '@dash-frontend/views/Project/utils/routes';
 
 const useProjectSidebar = () => {
-  const {projectId} = useProjectParams();
+  const {projectId} = useUrlState();
   const browserHistory = useHistory();
-  const {path} = useRouteMatch();
 
   const handleClose = useCallback(() => {
-    browserHistory.push(`/project/${projectId}`);
+    browserHistory.push(projectRoute({projectId}));
   }, [browserHistory, projectId]);
 
   return {
     projectId,
-    path,
     handleClose,
   };
 };

@@ -19,6 +19,8 @@ import noAccess from '../images/noAccess.svg';
 import pipeline from '../images/pipeline.svg';
 import repo from '../images/repo.svg';
 
+import useRouteController from './useRouteController';
+
 const NODE_ICON_X_OFFSET = 20;
 const NODE_ICON_Y_OFFSET = -10;
 const NODE_IMAGE_Y_OFFSET = -20;
@@ -162,7 +164,7 @@ const generateNodeGroups = (
   nodeWidth: number,
   nodeHeight: number,
   preview = false,
-  setSelectedNode: React.Dispatch<React.SetStateAction<string>>,
+  handleSelectNode: (n: Node) => void,
   setHoveredNode: React.Dispatch<React.SetStateAction<string>>,
 ) => {
   const nodeGroup = svgParent
@@ -174,7 +176,7 @@ const generateNodeGroups = (
         .attr('class', 'nodeGroup')
         .attr('id', (d) => `${d.name}GROUP`)
         .attr('transform', (d) => `translate (${d.x}, ${d.y})`)
-        .on('click', (_event, d) => setSelectedNode(d.name))
+        .on('click', (_event, d) => handleSelectNode(d))
         .on('mouseover', (_event, d) => setHoveredNode(d.name))
         .on('mouseout', () => setHoveredNode(''));
 
@@ -249,7 +251,7 @@ const useDAG = ({
   nodeHeight,
   preview = false,
 }: useDAGProps) => {
-  const [selectedNode, setSelectedNode] = useState('');
+  const {selectedNode, navigateToNode} = useRouteController({dag: data});
   const [hoveredNode, setHoveredNode] = useState('');
 
   // Pre-build steps
@@ -272,7 +274,7 @@ const useDAG = ({
       nodeWidth,
       nodeHeight,
       preview,
-      setSelectedNode,
+      navigateToNode,
       setHoveredNode,
     );
 
@@ -305,7 +307,7 @@ const useDAG = ({
       )
       .translate(-(xMin + xMax) / 2, -(yMin + yMax) / 2);
     svg.call(zoom.transform, transform);
-  }, [id, nodeHeight, nodeWidth, data, svgParentSize, preview]);
+  }, [id, nodeHeight, nodeWidth, data, svgParentSize, preview, navigateToNode]);
 
   // Update node classes based on react state
   useEffect(() => {
@@ -318,15 +320,17 @@ const useDAG = ({
           'class',
           (d) =>
             `${`nodeGroup ${convertNodeStateToDagState(d.state)}`} ${
-              [selectedNode, hoveredNode].includes(d.name) ? 'selected' : ''
+              [selectedNode?.name, hoveredNode].includes(d.name)
+                ? 'selected'
+                : ''
             }`,
         );
 
     !preview &&
       graph.selectAll<SVGPathElement, Link>('.link').attr('class', (d) => {
         return `${getLinkStyles(d)} ${
-          [selectedNode, hoveredNode].includes(d.source) ||
-          [selectedNode, hoveredNode].includes(d.target)
+          [selectedNode?.name, hoveredNode].includes(d.source) ||
+          [selectedNode?.name, hoveredNode].includes(d.target)
             ? 'selected'
             : ''
         }`;
