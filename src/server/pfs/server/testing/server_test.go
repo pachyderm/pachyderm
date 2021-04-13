@@ -3472,8 +3472,8 @@ func TestPFS(suite *testing.T) {
 
 		otherCommit, err := env.PachClient.StartCommit(repo, "other")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.CopyFile(repo, otherCommit.ID, "files", repo, otherCommit.ID, "files", pclient.WithAppendCopyFile()))
-		require.NoError(t, env.PachClient.CopyFile(repo, otherCommit.ID, "file0", repo, otherCommit.ID, "files/0", pclient.WithAppendCopyFile()))
+		require.NoError(t, env.PachClient.CopyFile(repo, otherCommit.ID, "files", repo, masterCommit.ID, "files", pclient.WithAppendCopyFile()))
+		require.NoError(t, env.PachClient.CopyFile(repo, otherCommit.ID, "file0", repo, masterCommit.ID, "files/0", pclient.WithAppendCopyFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, otherCommit.ID))
 
 		for i := 0; i < numFiles; i++ {

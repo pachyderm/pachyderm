@@ -71,10 +71,10 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 	if reflectValue.Type().Kind() != reflect.Struct {
 		return errors.Errorf("%s: %v", expectedStructErr, reflectValue.Type())
 	}
-	numField := reflectValue.NumField()
-	for i := 0; i < numField; i++ {
+	for i := 0; i < reflectValue.NumField(); i++ {
 		structField := reflectValue.Type().Field(i)
-		if structField.Type.Kind() == reflect.Struct {
+		ptrToStruct := structField.Type.Kind() == reflect.Ptr && structField.Type.Elem().Kind() == reflect.Struct
+		if structField.Type.Kind() == reflect.Struct || ptrToStruct {
 			if err := populateInternal(reflectValue.Field(i), decoderMap, true); err != nil {
 				return err
 			}
@@ -103,6 +103,44 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 	return nil
 }
 
+func PopulateDefaults(object interface{}) error {
+	return populateDefaultsInternal(reflect.ValueOf(object), false)
+}
+
+func populateDefaultsInternal(reflectValue reflect.Value, recursive bool) error {
+	if reflectValue.Type().Kind() == reflect.Ptr {
+		reflectValue = reflectValue.Elem()
+	} else if !recursive {
+		return errors.Errorf("%s: %v", expectedPointerErr, reflectValue.Type())
+	}
+	if reflectValue.Type().Kind() != reflect.Struct {
+		return errors.Errorf("%s: %v", expectedStructErr, reflectValue.Type())
+	}
+	for i := 0; i < reflectValue.NumField(); i++ {
+		structField := reflectValue.Type().Field(i)
+		ptrToStruct := structField.Type.Kind() == reflect.Ptr && structField.Type.Elem().Kind() == reflect.Struct
+		if structField.Type.Kind() == reflect.Struct || ptrToStruct {
+			if err := populateDefaultsInternal(reflectValue.Field(i), true); err != nil {
+				return err
+			}
+			continue
+		}
+		envTag, err := getEnvTag(structField)
+		if err != nil {
+			return err
+		}
+		if envTag == nil || envTag.defaultValue == "" {
+			continue
+		}
+		parsedValue, err := parseField(structField, envTag.defaultValue)
+		if err != nil {
+			return err
+		}
+		reflectValue.Field(i).Set(reflect.ValueOf(parsedValue))
+	}
+	return nil
+}
+
 func getDecoderMap(decoders []Decoder) (map[string]string, error) {
 	env := make(map[string]string)
 	for _, decoder := range decoders {
@@ -123,6 +161,7 @@ func getDecoderMap(decoders []Decoder) (map[string]string, error) {
 
 func getValue(key string, defaultValue string, decoderMap map[string]string) string {
 	value := os.Getenv(key)
+	fmt.Printf("Got value of env: %s - %s\n", key, value)
 	if value != "" {
 		return value
 	}

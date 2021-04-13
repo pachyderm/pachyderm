@@ -48,7 +48,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	// Set env vars that the object storage layer expects in the env
 	// This is global but it should be fine because all tests use the same value.
 	require.NoError(t, os.Setenv(obj.StorageBackendEnvVar, obj.Local))
-	require.NoError(t, os.MkdirAll(env.LocalStorageDirectory, 0777))
+	require.NoError(t, os.MkdirAll(env.ServiceEnv.Config().StorageRoot, 0777))
 
 	// Set up repos and branches for the pipeline
 	input := pipelineInfo.Input.Pfs

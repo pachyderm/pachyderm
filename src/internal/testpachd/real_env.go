@@ -27,7 +27,7 @@ import (
 type RealEnv struct {
 	MockEnv
 
-	LocalStorageDirectory    string
+	ServiceEnv               serviceenv.ServiceEnv
 	AuthServer               authserver.APIServer
 	PFSServer                pfsserver.APIServer
 	TransactionServer        txnserver.APIServer
@@ -46,15 +46,16 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	require.NoError(t, err)
 
 	opts := []serviceenv.ConfigOption{
+		func(config *serviceenv.Configuration) {
+			require.NoError(t, cmdutil.PopulateDefaults(config))
+			config.StorageRoot = path.Join(realEnv.Directory, "localStorage")
+		},
 		DefaultConfigOptions,
 		serviceenv.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
 		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
-	config := serviceenv.ConfigFromOptions(opts...)
-	require.NoError(t, cmdutil.Populate(config)) // Overwrite with any environment variables
-
-	servEnv := serviceenv.InitServiceEnv(config)
+	servEnv := serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
 
 	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
 	realEnv.PachClient = servEnv.GetPachClient(servEnv.Context())
@@ -67,9 +68,6 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	require.NoError(t, err)
 	err = migrations.BlockUntil(servEnv.Context(), servEnv.GetDBClient(), clusterstate.DesiredClusterState)
 	require.NoError(t, err)
-
-	realEnv.LocalStorageDirectory = path.Join(realEnv.Directory, "localStorage")
-	config.StorageRoot = realEnv.LocalStorageDirectory
 
 	txnEnv := &txnenv.TransactionEnv{}
 
