@@ -103,6 +103,9 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 	return nil
 }
 
+// PopulateDefaults will parse the tags of the given structure and populate each
+// field with a default value (if specified in the tags). This is meant for use
+// by tests, which do not want to read from env vars.
 func PopulateDefaults(object interface{}) error {
 	return populateDefaultsInternal(reflect.ValueOf(object), false)
 }
@@ -161,7 +164,6 @@ func getDecoderMap(decoders []Decoder) (map[string]string, error) {
 
 func getValue(key string, defaultValue string, decoderMap map[string]string) string {
 	value := os.Getenv(key)
-	fmt.Printf("Got value of env: %s - %s\n", key, value)
 	if value != "" {
 		return value
 	}
