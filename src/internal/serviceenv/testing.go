@@ -8,6 +8,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/sync/errgroup"
 	kube "k8s.io/client-go/kubernetes"
 )
 
@@ -20,6 +21,7 @@ type TestServiceEnv struct {
 	KubeClient    *kube.Clientset
 	LokiClient    *loki.Client
 	DBClient      *sqlx.DB
+	Ctx           context.Context
 }
 
 func (s *TestServiceEnv) Config() *Configuration {
@@ -40,4 +42,16 @@ func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
 }
 func (s *TestServiceEnv) GetDBClient() *sqlx.DB {
 	return s.DBClient
+}
+
+func (s *TestServiceEnv) Context() context.Context {
+	return s.Ctx
+}
+
+func (s *TestServiceEnv) Close() error {
+	eg := &errgroup.Group{}
+	eg.Go(s.GetPachClient(context.Background()).Close)
+	eg.Go(s.GetEtcdClient().Close)
+	eg.Go(s.GetDBClient().Close)
+	return eg.Wait()
 }

@@ -34,6 +34,8 @@ type ServiceEnv interface {
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
+	Context() context.Context
+	Close() error
 }
 
 // NonblockingServiceEnv is an implementation of ServiceEnv that initializes
@@ -78,11 +80,14 @@ type NonblockingServiceEnv struct {
 	// dbEg coordinates the initialization of dbClient (see pachdEg)
 	dbEg errgroup.Group
 
+<<<<<<< HEAD
 	// listener is a special database client for listening for changes
 	listener *col.PostgresListener
 	// listenerEg coordinates the initialization of listener (see pachdEg)
 	listenerEg errgroup.Group
 
+=======
+>>>>>>> master
 	// ctx is the background context for the environment that will be canceled
 	// when the ServiceEnv is closed - this typically only happens for orderly
 	// shutdown in tests
@@ -213,8 +218,13 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 func (env *NonblockingServiceEnv) initDBClient() error {
 	return backoff.Retry(func() error {
 		db, err := dbutil.NewDB(
+<<<<<<< HEAD
 			dbutil.WithHostPort(env.PostgresServiceHost, env.PostgresServicePort),
 			dbutil.WithDBName(env.PostgresDBName),
+=======
+			dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
+			dbutil.WithDBName(env.config.PostgresDBName),
+>>>>>>> master
 		)
 		if err != nil {
 			return err
@@ -298,6 +308,7 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 	return env.dbClient
 }
 
+<<<<<<< HEAD
 // GetPostgresListener returns the already constructed database client dedicated
 // for listen operations without modification. Note that this listener lazily
 // connects to the database on the first listen operation.
@@ -321,6 +332,18 @@ func (env *ServiceEnv) Close() error {
 
 	// Close all of the clients and return the first error
 	// Loki client and kube client are http-based and do not need to be closed
+=======
+func (env *NonblockingServiceEnv) Context() context.Context {
+	return env.ctx
+}
+
+func (env *NonblockingServiceEnv) Close() error {
+	// Cancel anything using the ServiceEnv's context
+	env.cancel()
+
+	// Close all of the clients and return the first error.
+	// Loki client and kube client do not have a Close method.
+>>>>>>> master
 	eg := &errgroup.Group{}
 
 	// There is a race condition here, although not too serious because this only
@@ -330,8 +353,13 @@ func (env *ServiceEnv) Close() error {
 	// postgres and etcd), so we don't get spurious errors. Instead, some RPCs may
 	// fail because of losing the database connection.
 	eg.Go(env.GetPachClient(context.Background()).Close)
+<<<<<<< HEAD
 	eg.Go(env.GetDBClient().Close)
 	eg.Go(env.GetPostgresListener().Close)
 	eg.Go(env.GetEtcdClient().Close)
+=======
+	eg.Go(env.GetEtcdClient().Close)
+	eg.Go(env.GetDBClient().Close)
+>>>>>>> master
 	return eg.Wait()
 }

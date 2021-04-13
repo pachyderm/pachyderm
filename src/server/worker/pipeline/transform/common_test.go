@@ -8,11 +8,11 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -121,8 +121,8 @@ func (td *testDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) 
 
 // newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func newTestEnv(t *testing.T, db *sqlx.DB, pipelineInfo *pps.PipelineInfo) *testEnv {
-	realEnv := testpachd.NewRealEnv(t, db)
+func newTestEnv(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
+	realEnv := testpachd.NewRealEnv(t, dbConfig)
 	logger := logs.NewMockLogger()
 	if debug {
 		logger.Writer = os.Stdout
