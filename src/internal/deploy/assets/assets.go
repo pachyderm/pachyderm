@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	auth "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
-	pfs "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
 
 	apps "k8s.io/api/apps/v1"
@@ -564,15 +563,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 			Path: storageHostPath,
 			Type: &pathType,
 		}
-		backendEnvVar = pfs.LocalBackendEnvVar
+		backendEnvVar = obj.Local
 	case MinioBackend:
-		backendEnvVar = pfs.MinioBackendEnvVar
+		backendEnvVar = obj.Minio
 	case AmazonBackend:
-		backendEnvVar = pfs.AmazonBackendEnvVar
+		backendEnvVar = obj.Amazon
 	case GoogleBackend:
-		backendEnvVar = pfs.GoogleBackendEnvVar
+		backendEnvVar = obj.Google
 	case MicrosoftBackend:
-		backendEnvVar = pfs.MicrosoftBackendEnvVar
+		backendEnvVar = obj.Microsoft
 	}
 	volume, mount := GetBackendSecretVolumeAndMount(backendEnvVar)
 	volumes = append(volumes, volume)
