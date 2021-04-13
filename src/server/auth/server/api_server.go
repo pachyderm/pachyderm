@@ -50,9 +50,6 @@ const (
 
 	// GitHookPort is 655
 	// Prometheus uses 656
-
-	// OidcPort is the port where OIDC ID Providers can send auth assertions
-	OidcPort = 657
 )
 
 // DefaultOIDCConfig is the default config for the auth API server

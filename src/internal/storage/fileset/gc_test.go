@@ -14,7 +14,7 @@ func TestGC(t *testing.T) {
 	ctx := context.Background()
 	db := testutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	s := testutil.NewFilesetStorage(t, db, tr)
+	s := NewTestStorage(t, db, tr)
 	gc := s.newGC()
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
 	err := w.Add("a.txt", func(fw *FileWriter) error {
