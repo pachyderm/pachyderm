@@ -3,11 +3,10 @@
 !!! Note
     Before connecting your IdP to Pachyderm, verify that
     the [User Access Management](../index.md/#activate-user-access-management) feature is on by running `pachctl auth whoami`.
-    The command should return `You are "pach:root"
-    (i.e., your are the **Root User** with `clusterAdmin` privileges).
+    The command should return `You are "pach:root" (i.e., your are the **Root User** with `clusterAdmin` privileges). Run `pachctl auth use-auth-token` to login as a Root User.
 
-To enable your users to authenticate to Pachyderm by logging into their Identity Provider,
-follow those 3 steps:
+Enable your users to authenticate to Pachyderm by logging into their Identity Provider by
+following those 3 steps:
 
 1. Register the Pachyderm Application with your IdP.
 1. Set up your Idp-Pachyderm connector.
@@ -22,11 +21,12 @@ users can use to log in to various applications).
 However, Pachyderm's Identity Service is based on [Dex](https://dexidp.io/docs/) 
 and can therefore provide connectors to a large [variety of IdPs](https://dexidp.io/docs/connectors/) (LDAP, GitHub, SAML, OIDC, Google, OpenShift...). 
 Use the IdP of your choice.
+// TODO provide links to vatious IDPs connectors config files ...
 
-For now, let's configure Pachyderm with Auth0 so that our
+For now, let's configure Pachyderm so that our
 Pachyderm users can log in through Auth0.
 
-## 1- Register a Pachyderm Application with Auth0
+## 1- Register a Pachyderm Application with your IdP
 If you do not have an Auth0 account, sign up for one
 at https://auth0.com and create your Pool of Users 
 (although this step might be done later).
@@ -69,7 +69,7 @@ To configure your Idp-Pachyderm integration, **create a connector configuration 
 !!! Info
     For a list of available connectors and their configuration options, see [Dex documentation](https://dexidp.io/docs/connectors/).
 
-In the case of our integration with Auth0, we will use an oidc connector with the following parameters.
+In the case of our integration with Auth0, we will use an oidc connector with the following parameters:
 
 !!! Note
     Pachyderm supports the JSON and YAML formats for its connector files. 
@@ -129,8 +129,8 @@ to **Allowed Callback URLs** when registering Pachyderm on your IdP website.
 View a [sample config](https://dexidp.io/docs/connectors/oidc/) in Dex documentation.
 
 ## 3- Apply your Idp-Pachyderm connector
-After you have registered your Pachyderm application with your IdP (here Auth0), 
-and created an IdP-Pachyderm connector config file (here with the Auth0 parameters), **connect your IdP to Pachyderm** by running the following command:
+Once your Pachyderm application is registered with your IdP (here Auth0), 
+and your IdP-Pachyderm connector config file created (here with the Auth0 parameters), **connect your IdP to Pachyderm** by running the following command:
 
 ```shell
 $ pachctl idp create-connector --id auth0 --name Auth0 --type oidc --config -oidc-dex-connector.json
@@ -139,10 +139,10 @@ The connector creation command in json requires the following arguments:
 - id: The unique identifier of your connector (string).
 - name: Its full name (string).
 - type: The type of connector (oidc, saml,    //TODO other?). 
-- config: Pach to your configuration file.
+- config: Path to your configuration file.
 - version (optional):The version of your connector (integer - default to 0 when creating a new connector)
 
-//TODO Update when those fields are included in the json file itself in alpha.12
+//TODO Update when those fields are included in the json file itself in alpha.12?
 
 or
 ```shell

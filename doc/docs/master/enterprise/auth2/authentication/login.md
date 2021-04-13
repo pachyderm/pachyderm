@@ -24,7 +24,7 @@ by login in as the [user created in Auth0](./idp-dex/#1-register-a-pachyderm-app
       You should see the following message printed out in your browser:
       ![Login Success](../images/auth0-login-success.png)
 
-1. Check who you are logged in:
+1. Check whose User you are logged in:
 
       ```shell
       $ pachctl auth whoami
@@ -38,7 +38,7 @@ by login in as the [user created in Auth0](./idp-dex/#1-register-a-pachyderm-app
       ```
 
 Your Authentication is all set. 
-Next - [Configure the User Access to Pachyderm Ressources](../authorization/role-binding.md).
+Next - (Optional)[Configure the User Access to Pachyderm Ressources](../authorization/role-binding.md).
 
 ## Login from JupiterHub (IDE)
 // TODO
