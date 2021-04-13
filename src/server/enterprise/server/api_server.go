@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -145,7 +146,17 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		return nil, err
 	}
 
-	pachClient, err := client.NewFromAddress(licenseServer)
+	pachdAddress, err := grpcutil.ParsePachdAddress(licenseServer)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not parse the active context's pachd address")
+	}
+
+	var options []client.Option
+	if pachdAddress.Secured {
+		options = append(options, client.WithSystemCAs)
+	}
+
+	pachClient, err := client.NewFromAddress(pachdAddress.Hostname(), options...)
 	if err != nil {
 		return nil, err
 	}

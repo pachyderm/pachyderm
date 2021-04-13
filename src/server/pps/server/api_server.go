@@ -2705,9 +2705,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
-	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !isNotFoundErr(err) {
+	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !isNotFoundErr(err) && !auth.IsErrNoRoleBinding(err) {
 		return nil, err
-	} else if !isNotFoundErr(err) {
+	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline. This must be
 		// done after cleaning up the spec branch HEAD commit, because the
 		// authorization condition depends on the pipeline's PipelineInfo
@@ -2762,7 +2762,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobPtr, col.DefaultOptions(), func(string) error {
 		eg.Go(func() error {
 			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: jobPtr.Job})
-			if isNotFoundErr(err) {
+			if isNotFoundErr(err) || auth.IsErrnoRoleBinding(err) {
 				return nil
 			}
 			return err

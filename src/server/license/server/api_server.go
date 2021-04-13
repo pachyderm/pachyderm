@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -173,8 +174,18 @@ func (a *apiServer) validateClusterConfig(ctx context.Context, address string) e
 		return errors.New("no address provided for cluster")
 	}
 
+	pachdAddress, err := grpcutil.ParsePachdAddress(address)
+	if err != nil {
+		return errors.Wrap(err, "could not parse the pachd address")
+	}
+
+	var options []client.Option
+	if pachdAddress.Secured {
+		options = append(options, client.WithSystemCAs)
+	}
+
 	// Attempt to connect to the pachd
-	pachClient, err := client.NewFromAddress(address)
+	pachClient, err := client.NewFromAddress(pachdAddress.Hostname(), options...)
 	if err != nil {
 		return errors.Wrapf(err, "unable to create client for %q", address)
 	}

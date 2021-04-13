@@ -29,6 +29,7 @@ func OIDCOIDCConfig() *auth.OIDCConfig {
 		ClientSecret:    "notsecret",
 		RedirectURI:     "http://pachd:657/authorization-code/callback",
 		LocalhostIssuer: true,
+		Scopes:          auth.DefaultOIDCScopes,
 	}
 }
 
