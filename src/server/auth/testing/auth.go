@@ -153,3 +153,8 @@ func (a *InactiveAPIServer) ExtractAuthTokens(context.Context, *auth.ExtractAuth
 func (a *InactiveAPIServer) RestoreAuthToken(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error) {
 	return nil, auth.ErrNotActivated
 }
+
+// RestoreAuthToken implements the RestoreAuthToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) DeleteExpiredAuthTokens(context.Context, *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
+	return nil, auth.ErrNotActivated
+}

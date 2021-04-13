@@ -54,7 +54,7 @@ func ActivateCmd() *cobra.Command {
 			resp, err := c.License.AddCluster(c.Ctx(),
 				&license.AddClusterRequest{
 					Id:      "localhost",
-					Address: "localhost:650",
+					Address: "grpc://localhost:653",
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not register pachd with the license service")
@@ -65,7 +65,7 @@ func ActivateCmd() *cobra.Command {
 				&enterprise.ActivateRequest{
 					Id:            "localhost",
 					Secret:        resp.Secret,
-					LicenseServer: "localhost:650",
+					LicenseServer: "grpc://localhost:653",
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not activate the enterprise service")
