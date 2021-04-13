@@ -3,8 +3,6 @@ package assets
 import (
 	"strconv"
 
-	auth "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -41,9 +39,9 @@ func EnterpriseService(opts *AssetOpts) *v1.Service {
 					NodePort: 31651,
 				},
 				{
-					Port:     auth.OidcPort,
+					Port:     OidcPort,
 					Name:     "oidc-port",
-					NodePort: 31000 + auth.OidcPort,
+					NodePort: 31000 + OidcPort,
 				},
 				{
 					Port:     658,

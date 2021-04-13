@@ -10,7 +10,6 @@ import (
 	minio "github.com/minio/minio-go/v6"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -229,112 +228,109 @@ func TestWorkerDriver(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		pachClient := env.PachClient
+	env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	pachClient := env.PachClient
 
-		inputRepo := tu.UniqueString("testworkerdriverinput")
-		require.NoError(t, pachClient.CreateRepo(inputRepo))
-		outputRepo := tu.UniqueString("testworkerdriveroutput")
-		require.NoError(t, pachClient.CreateRepo(outputRepo))
+	inputRepo := tu.UniqueString("testworkerdriverinput")
+	require.NoError(t, pachClient.CreateRepo(inputRepo))
+	outputRepo := tu.UniqueString("testworkerdriveroutput")
+	require.NoError(t, pachClient.CreateRepo(outputRepo))
 
-		// create a master branch on the input repo
-		inputMasterCommit, err := pachClient.StartCommit(inputRepo, "master")
-		require.NoError(t, err)
-		putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "", 0)
-		putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/", 1)
-		putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/subdir/", 2)
-		require.NoError(t, pachClient.FinishCommit(inputRepo, inputMasterCommit.ID))
+	// create a master branch on the input repo
+	inputMasterCommit, err := pachClient.StartCommit(inputRepo, "master")
+	require.NoError(t, err)
+	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "", 0)
+	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/", 1)
+	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/subdir/", 2)
+	require.NoError(t, pachClient.FinishCommit(inputRepo, inputMasterCommit.ID))
 
-		// create a develop branch on the input repo
-		inputDevelopCommit, err := pachClient.StartCommit(inputRepo, "develop")
-		require.NoError(t, err)
-		for i := 0; i <= 1000; i++ {
-			putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "", i)
-		}
-		for i := 0; i < 10; i++ {
-			putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "dir/", i)
-		}
-		require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.ID))
+	// create a develop branch on the input repo
+	inputDevelopCommit, err := pachClient.StartCommit(inputRepo, "develop")
+	require.NoError(t, err)
+	for i := 0; i <= 1000; i++ {
+		putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "", i)
+	}
+	for i := 0; i < 10; i++ {
+		putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "dir/", i)
+	}
+	require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.ID))
 
-		// create the output branch
-		outputBranch := "master"
-		require.NoError(t, pachClient.CreateBranch(outputRepo, outputBranch, "", nil))
+	// create the output branch
+	outputBranch := "master"
+	require.NoError(t, pachClient.CreateBranch(outputRepo, outputBranch, "", nil))
 
-		driver := NewWorkerDriver(
-			[]*Bucket{
-				&Bucket{
-					Repo:   inputRepo,
-					Commit: inputMasterCommit.ID,
-					Name:   "in1",
-				},
-				&Bucket{
-					Repo:   inputRepo,
-					Commit: inputDevelopCommit.ID,
-					Name:   "in2",
-				},
+	driver := NewWorkerDriver(
+		[]*Bucket{
+			&Bucket{
+				Repo:   inputRepo,
+				Commit: inputMasterCommit.ID,
+				Name:   "in1",
 			},
 			&Bucket{
-				Repo:   outputRepo,
-				Commit: outputBranch,
-				Name:   "out",
+				Repo:   inputRepo,
+				Commit: inputDevelopCommit.ID,
+				Name:   "in2",
 			},
-		)
+		},
+		&Bucket{
+			Repo:   outputRepo,
+			Commit: outputBranch,
+			Name:   "out",
+		},
+	)
 
-		testRunner(t, pachClient, "worker", driver, func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-			s := &workerTestState{
-				pachClient:         pachClient,
-				minioClient:        minioClient,
-				inputRepo:          inputRepo,
-				outputRepo:         outputRepo,
-				inputMasterCommit:  inputMasterCommit,
-				inputDevelopCommit: inputDevelopCommit,
-				outputBranch:       outputBranch,
-			}
+	testRunner(t, pachClient, "worker", driver, func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+		s := &workerTestState{
+			pachClient:         pachClient,
+			minioClient:        minioClient,
+			inputRepo:          inputRepo,
+			outputRepo:         outputRepo,
+			inputMasterCommit:  inputMasterCommit,
+			inputDevelopCommit: inputDevelopCommit,
+			outputBranch:       outputBranch,
+		}
 
-			t.Run("ListBuckets", func(t *testing.T) {
-				workerListBuckets(t, s)
-			})
-			t.Run("GetObject", func(t *testing.T) {
-				workerGetObject(t, s)
-			})
-			t.Run("GetObjectOutputRepo", func(t *testing.T) {
-				workerGetObjectOutputRepo(t, s)
-			})
-			t.Run("StatObject", func(t *testing.T) {
-				workerStatObject(t, s)
-			})
-			t.Run("PutObject", func(t *testing.T) {
-				workerPutObject(t, s)
-			})
-			t.Run("PutObjectInputRepo", func(t *testing.T) {
-				workerPutObjectInputRepo(t, s)
-			})
-			t.Run("RemoveObject", func(t *testing.T) {
-				workerRemoveObject(t, s)
-			})
-			t.Run("RemoveObjectInputRepo", func(t *testing.T) {
-				workerRemoveObjectInputRepo(t, s)
-			})
-			t.Run("LargeObjects", func(t *testing.T) {
-				workerLargeObjects(t, s)
-			})
-			t.Run("MakeBucket", func(t *testing.T) {
-				workerMakeBucket(t, s)
-			})
-			t.Run("BucketExists", func(t *testing.T) {
-				workerBucketExists(t, s)
-			})
-			t.Run("RemoveBucket", func(t *testing.T) {
-				workerRemoveBucket(t, s)
-			})
-			t.Run("ListObjectsPaginated", func(t *testing.T) {
-				workerListObjectsPaginated(t, s)
-			})
-			t.Run("ListObjectsRecursive", func(t *testing.T) {
-				workerListObjectsRecursive(t, s)
-			})
+		t.Run("ListBuckets", func(t *testing.T) {
+			workerListBuckets(t, s)
 		})
-		return nil
-	}))
+		t.Run("GetObject", func(t *testing.T) {
+			workerGetObject(t, s)
+		})
+		t.Run("GetObjectOutputRepo", func(t *testing.T) {
+			workerGetObjectOutputRepo(t, s)
+		})
+		t.Run("StatObject", func(t *testing.T) {
+			workerStatObject(t, s)
+		})
+		t.Run("PutObject", func(t *testing.T) {
+			workerPutObject(t, s)
+		})
+		t.Run("PutObjectInputRepo", func(t *testing.T) {
+			workerPutObjectInputRepo(t, s)
+		})
+		t.Run("RemoveObject", func(t *testing.T) {
+			workerRemoveObject(t, s)
+		})
+		t.Run("RemoveObjectInputRepo", func(t *testing.T) {
+			workerRemoveObjectInputRepo(t, s)
+		})
+		t.Run("LargeObjects", func(t *testing.T) {
+			workerLargeObjects(t, s)
+		})
+		t.Run("MakeBucket", func(t *testing.T) {
+			workerMakeBucket(t, s)
+		})
+		t.Run("BucketExists", func(t *testing.T) {
+			workerBucketExists(t, s)
+		})
+		t.Run("RemoveBucket", func(t *testing.T) {
+			workerRemoveBucket(t, s)
+		})
+		t.Run("ListObjectsPaginated", func(t *testing.T) {
+			workerListObjectsPaginated(t, s)
+		})
+		t.Run("ListObjectsRecursive", func(t *testing.T) {
+			workerListObjectsRecursive(t, s)
+		})
+	})
 }

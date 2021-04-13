@@ -4,7 +4,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -19,7 +18,7 @@ const (
 	masterLockPath = "pfs-master-lock"
 )
 
-func (d *driver) master(env serviceenv.ServiceEnv, db *sqlx.DB) {
+func (d *driver) master(env serviceenv.ServiceEnv) {
 	ctx := context.Background()
 	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
 	err := backoff.RetryNotify(func() error {

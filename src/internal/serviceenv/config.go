@@ -10,22 +10,26 @@ type Configuration struct {
 // GlobalConfiguration contains the global configuration.
 type GlobalConfiguration struct {
 	FeatureFlags
-	EtcdHost      string `env:"ETCD_SERVICE_HOST,required"`
-	EtcdPort      string `env:"ETCD_SERVICE_PORT,required"`
-	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
-	Port          uint16 `env:"PORT,default=650"`
-	HTTPPort      uint16 `env:"HTTP_PORT,default=652"`
-	PeerPort      uint16 `env:"PEER_PORT,default=653"`
-	S3GatewayPort uint16 `env:"S3GATEWAY_PORT,default=600"`
-	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace     string `env:"PACH_NAMESPACE,default=default"`
-	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
-	CacheRoot     string `env:"PACH_CACHE_ROOT,default=/pach-cache"`
-	GCPercent     int    `env:"GC_PERCENT,default=50"`
-	LokiHost      string `env:"LOKI_SERVICE_HOST"`
-	LokiPort      string `env:"LOKI_SERVICE_PORT"`
-	SamlPort      uint16 `env:"SAML_PORT,default=654"`
-	OidcPort      uint16 `env:"OIDC_PORT,default=657"`
+	EtcdHost            string `env:"ETCD_SERVICE_HOST,required"`
+	EtcdPort            string `env:"ETCD_SERVICE_PORT,required"`
+	PPSWorkerPort       uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
+	Port                uint16 `env:"PORT,default=650"`
+	HTTPPort            uint16 `env:"HTTP_PORT,default=652"`
+	PeerPort            uint16 `env:"PEER_PORT,default=653"`
+	S3GatewayPort       uint16 `env:"S3GATEWAY_PORT,default=600"`
+	PPSEtcdPrefix       string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
+	Namespace           string `env:"PACH_NAMESPACE,default=default"`
+	StorageRoot         string `env:"PACH_ROOT,default=/pach"`
+	CacheRoot           string `env:"PACH_CACHE_ROOT,default=/pach-cache"`
+	GCPercent           int    `env:"GC_PERCENT,default=50"`
+	LokiHost            string `env:"LOKI_SERVICE_HOST"`
+	LokiPort            string `env:"LOKI_SERVICE_PORT"`
+	SamlPort            uint16 `env:"SAML_PORT,default=654"`
+	OidcPort            uint16 `env:"OIDC_PORT,default=657"`
+	PostgresServiceHost string `env:"POSTGRES_SERVICE_HOST"`
+	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
+	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
+	PostgresDBName      string `env:"POSTGRES_DATABASE_NAME"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
 	// Because both pachd and worker need to know the spec commit (the worker so
@@ -45,7 +49,7 @@ type PachdFullConfiguration struct {
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
 	NumShards                  uint64 `env:"NUM_SHARDS,default=32"`
-	StorageBackend             string `env:"STORAGE_BACKEND,default="`
+	StorageBackend             string `env:"STORAGE_BACKEND,required"`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
 	EtcdPrefix                 string `env:"ETCD_PREFIX,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
@@ -69,10 +73,7 @@ type PachdSpecificConfiguration struct {
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
 	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
-	PachdPodName        string `env:"PACHD_POD_NAME,required"`
-	PostgresServiceHost string `env:"POSTGRES_SERVICE_HOST"`
-	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
-	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
+	PachdPodName string `env:"PACHD_POD_NAME,required"`
 
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
 	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`

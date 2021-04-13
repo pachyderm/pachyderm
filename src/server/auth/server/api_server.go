@@ -53,9 +53,6 @@ const (
 	// GitHookPort is 655
 	// Prometheus uses 656
 
-	// OidcPort is the port where OIDC ID Providers can send auth assertions
-	OidcPort = 657
-
 	// the length of interval between expired auth token cleanups
 	cleanupIntervalHours = 24
 )

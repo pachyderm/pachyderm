@@ -156,14 +156,14 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 			if err := prometheus.Register(runTime); err != nil {
 				// metrics may be redundantly registered; ignore these errors
 				if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
-					l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", runTime, runTimeName), err)
+					l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", runTimeName, err))
 				}
 			} else {
 				l.histogram[runTimeName] = runTime
 			}
 		}
 		if hist, err := runTime.GetMetricWithLabelValues(state); err != nil {
-			l.LogAtLevel(entry, logrus.WarnLevel, "failed to get histogram w labels: state (%v) with error %v", state, err)
+			l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("failed to get histogram w labels: state (%v) with error %v", state, err))
 		} else {
 			hist.Observe(duration.Seconds())
 		}
@@ -194,7 +194,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 }
 
 func (l *logger) LogAtLevel(entry *logrus.Entry, level logrus.Level, args ...interface{}) {
-	entry.Log(level, args)
+	entry.Log(level, args...)
 }
 
 func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
@@ -334,7 +334,7 @@ func (l *GRPCLogWriter) Write(p []byte) (int, error) {
 			entry.Error(message)
 		} else {
 			entry.Error(message)
-			entry.Error("entry had unknown log level prefix: '%s'; this is a bug, please report it along with the previous log entry", level)
+			entry.Errorf("entry had unknown log level prefix: '%s'; this is a bug, please report it along with the previous log entry", level)
 		}
 	} else {
 		// can't format the message -- just display the contents

@@ -99,8 +99,8 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 		tracesCol := TracesCol(c).ReadWrite(stm)
 		return tracesCol.PutTTL(pipeline, traceProto, int64(duration.Seconds()))
 	}); err != nil {
-		log.Errorf("could not persist extended trace for pipeline %q to etcd: %v. ",
-			vals[0], pipeline, err, defaultDuration)
+		log.Errorf("could not persist extended trace for pipeline %q to etcd: %v",
+			pipeline, err)
 	}
 }
 

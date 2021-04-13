@@ -2,10 +2,12 @@ package testpachd
 
 import (
 	"context"
+	"testing"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 )
 
@@ -19,59 +21,44 @@ type MockEnv struct {
 	PachClient *client.APIClient
 }
 
-// WithMockEnv sets up a MockEnv structure, passes it to the provided callback,
-// then cleans up everything in the environment, regardless of if an assertion
-// fails.
-func WithMockEnv(cb func(*MockEnv) error) error {
-	return testetcd.WithEnv(func(etcdEnv *testetcd.Env) (err error) {
-		// Use an error group with a cancelable context to supervise every component
-		// and cancel everything if one fails
-		ctx, cancel := context.WithCancel(etcdEnv.Context)
-		defer cancel()
-		eg, ctx := errgroup.WithContext(ctx)
+// NewMockEnv constructs a MockEnv for testing, which will be destroyed at the
+// end of the test.
+func NewMockEnv(t testing.TB) *MockEnv {
+	etcdEnv := testetcd.NewEnv(t)
 
-		mockEnv := &MockEnv{Env: *etcdEnv}
-		mockEnv.Context = ctx
-
-		// Cleanup any state when we return
-		defer func() {
-			saveErr := func(e error) error {
-				if e != nil && err == nil {
-					err = e
-				}
-				return e
-			}
-
-			if mockEnv.PachClient != nil {
-				saveErr(mockEnv.PachClient.Close())
-			}
-
-			if mockEnv.MockPachd != nil {
-				saveErr(mockEnv.MockPachd.Close())
-			}
-
-			cancel()
-			saveErr(eg.Wait())
-		}()
-
-		mockEnv.MockPachd, err = NewMockPachd(mockEnv.Context)
-		if err != nil {
-			return err
-		}
-
-		eg.Go(func() error {
-			return errorWait(ctx, mockEnv.MockPachd.Err())
-		})
-		mockEnv.PachClient, err = client.NewFromAddress(mockEnv.MockPachd.Addr.String())
-		if err != nil {
-			return err
-		}
-
-		// TODO: supervise the PachClient connection and error the errgroup if they
-		// go down
-
-		return cb(mockEnv)
+	// Use an error group with a cancelable context to supervise every component
+	// and cancel everything if one fails
+	ctx, cancel := context.WithCancel(etcdEnv.Context)
+	eg, ctx := errgroup.WithContext(ctx)
+	t.Cleanup(func() {
+		require.NoError(t, eg.Wait())
 	})
+	t.Cleanup(cancel)
+
+	mockEnv := &MockEnv{Env: *etcdEnv}
+	mockEnv.Context = ctx
+
+	var err error
+	mockEnv.MockPachd, err = NewMockPachd(mockEnv.Context)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, mockEnv.MockPachd.Close())
+	})
+
+	eg.Go(func() error {
+		return errorWait(ctx, mockEnv.MockPachd.Err())
+	})
+
+	mockEnv.PachClient, err = client.NewFromAddress(mockEnv.MockPachd.Addr.String())
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, mockEnv.PachClient.Close())
+	})
+
+	// TODO: supervise the PachClient connection and error the errgroup if they
+	// go down
+
+	return mockEnv
 }
 
 func errorWait(ctx context.Context, errChan <-chan error) error {
