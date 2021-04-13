@@ -95,6 +95,10 @@ message Context {
     // we ensure this is the same as what the cluster reports back, to prevent
     // us from connecting to the wrong cluster.
     string cluster_deployment_id = 11 [(gogoproto.customname) = "ClusterDeploymentID"];
+
+    // A boolean that records whether the context points at an enterprise server,
+    // or a full-featured pachd
+    bool enterprise_server = 12;
 }
 
 enum ContextSource {
