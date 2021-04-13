@@ -11,9 +11,7 @@ import (
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
 // auth code flow
 func TestOIDCAuthCodeFlow(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	t.Skip("Skipping integration tests in short mode")
 	tu.DeleteAll(t)
 	tu.ConfigureOIDCProvider(t)
 	defer tu.DeleteAll(t)
@@ -39,9 +37,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 
 // TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
 func TestOIDCTrustedApp(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	t.Skip("Skipping integration tests in short mode")
 	tu.DeleteAll(t)
 	tu.ConfigureOIDCProvider(t)
 	defer tu.DeleteAll(t)

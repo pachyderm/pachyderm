@@ -12,7 +12,7 @@ import (
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/v2/src/health"
-	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
+	//identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -31,7 +31,7 @@ import (
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/health"
-	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
+	//identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -62,8 +62,9 @@ func GetTestContext(t testing.TB) *TestContext {
 	fmt.Printf("Test context %s - %s\n", testId, env.Directory)
 
 	fullConfig := &serviceenv.PachdFullConfiguration{}
-	cmdutil.Populate(fullConfig)
+	require.NoError(t, cmdutil.Populate(fullConfig))
 	config := serviceenv.NewConfiguration(fullConfig)
+
 	config.PostgresServiceSSL = "disable"
 	config.StorageRoot = path.Join(env.Directory, "pach_root")
 	config.CacheRoot = path.Join(env.Directory, "cache_root")
@@ -128,10 +129,13 @@ func SetupServer(env serviceenv.ServiceEnv, socketPath string) error {
 		return err
 	}
 
-	identityStorageProvider, err := identity_server.NewStorageProvider(env)
-	if err != nil {
-		return err
-	}
+	// TODO: support Dex
+	/*
+		identityStorageProvider, err := identity_server.NewStorageProvider(env)
+		if err != nil {
+			return err
+		}
+	*/
 
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
@@ -180,20 +184,22 @@ func SetupServer(env serviceenv.ServiceEnv, socketPath string) error {
 			return err
 		}
 
-		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				env,
-				identityStorageProvider,
-				false,
-			)
-			if err != nil {
+		/*
+			if err := logGRPCServerSetup("Identity API", func() error {
+				idAPIServer := identity_server.NewIdentityServer(
+					env,
+					identityStorageProvider,
+					false,
+				)
+				if err != nil {
+					return err
+				}
+				identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+				return nil
+			}); err != nil {
 				return err
 			}
-			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
+		*/
 
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {

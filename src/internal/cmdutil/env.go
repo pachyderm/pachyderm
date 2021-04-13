@@ -89,9 +89,10 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 		}
 		value := getValue(envTag.key, envTag.defaultValue, decoderMap)
 		if value == "" {
-			if envTag.required {
-				return errors.Errorf("%s: %s %v", envKeyNotSetWhenRequiredErr, envTag.key, reflectValue.Type())
-			}
+			// TODO: requiring env vars is hard to decouple
+			//if envTag.required {
+			//	return errors.Errorf("%s: %s %v", envKeyNotSetWhenRequiredErr, envTag.key, reflectValue.Type())
+			//}
 			continue
 		}
 		parsedValue, err := parseField(structField, value)
@@ -202,6 +203,7 @@ func getEnvTag(structField reflect.StructField) (*envTag, error) {
 		}
 		envTag.defaultValue = split[1]
 	}
+	fmt.Printf("env tag: %s\n", *envTag)
 	return envTag, nil
 }
 
