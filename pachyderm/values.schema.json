@@ -56,6 +56,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         },
@@ -109,6 +112,9 @@
                 "service": {
                     "type": "object",
                     "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
                         "type": {
                             "type": "string"
                         }
@@ -127,6 +133,14 @@
         },
         "imagePullSecret": {
             "type": "string"
+        },
+        "loadBalancer": {
+            "type": "object",
+            "properties": {
+                "ip": {
+                    "type": "string"
+                }
+            }
         },
         "pachd": {
             "type": "object",
@@ -162,6 +176,9 @@
                 },
                 "logLevel": {
                     "type": "string"
+                },
+                "lokiLogging": {
+                    "type": "boolean"
                 },
                 "metrics": {
                     "type": "object",
@@ -388,11 +405,19 @@
         "tls": {
             "type": "object",
             "properties": {
-                "crt": {
+                "certName": {
                     "type": "string"
                 },
-                "key": {
-                    "type": "string"
+                "create": {
+                    "type": "object",
+                    "properties": {
+                        "crt": {
+                            "type": "string"
+                        },
+                        "key": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },

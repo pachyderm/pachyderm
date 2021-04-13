@@ -24,6 +24,9 @@ func TestAWS(t *testing.T) {
 	for _, obj := range objects {
 		switch obj := obj.(type) {
 		case *v1.Secret:
+			if obj.Name != "pachyderm-storage-secret" {
+				continue
+			}
 			if _, err := strconv.Atoi(string(obj.Data["part-size"])); err != nil {
 				t.Error(err)
 			}

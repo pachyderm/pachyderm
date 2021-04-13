@@ -10,6 +10,9 @@ metadata:
     suite: pachyderm
   name: etcd
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.etcd.service.annotations }}
+  annotations: {{ toYaml .Values.etcd.service.annotations | nindent 3 }}
+  {{- end }}
 spec:
   ports:
   - name: client-port
@@ -18,7 +21,6 @@ spec:
     {{- end }}
     port: 2379
     targetPort: client-port
-
   selector:
     app: etcd
   type: {{ .Values.etcd.service.type }}

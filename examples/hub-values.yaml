@@ -1,0 +1,56 @@
+dash:
+  image:
+    tag: "0.5.58"
+  resources: null
+  # url is configured per workspace.
+  url: "https://dash.test/"
+
+etcd:
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2G
+    limits: null
+  service:
+    annotations:
+      prometheus.io/port: "2379"
+      prometheus.io/scrape: "true"
+  storageClass: "ssd-storage-class"
+  # storageSize is configured per workspace.
+  storageSize: "3Gi"
+
+loadBalancer:
+  # ip is configured per workspace.
+  ip: "192.0.2.3"
+
+pachd:
+  blockCacheBytes: "0G"
+  exposeDockerSocket: true
+  image:
+    # tag is configured per workspace.
+    tag: "1.13.0"
+  lokiLogging: true
+  # metricsEndpoint is configured per Hub instance.
+  metricsEndpoint: "https://metrics.test/api/v1/metrics"
+  service:
+    type: "ClusterIP"
+  storage:
+    backend: "GOOGLE"
+    google:
+      # bucket is configured per workspace.
+      bucket: "test-bucket"
+      cred: ""
+      # serviceAccountName is configured per workspace.
+      serviceAccountName: "test-service-account"
+    putFileConcurrencyLimit: 10
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2G
+    requests:
+      cpu: "1"
+      memory: 2G
+
+tls:
+  certName: "dash-tls"
+  create: null

@@ -33,6 +33,8 @@ spec:
       - command:
         - /pachd
         env:
+        - name: LOKI_LOGGING
+          value: {{ .Values.pachd.lokiLogging | quote}}
         - name: PACH_ROOT
           value: "/pach"
         - name: ETCD_PREFIX
@@ -61,7 +63,7 @@ spec:
           value: {{ .Values.pachd.metrics.enabled | quote }}
         {{- if .Values.pachd.metricsEndpoint}}
         - name: METRICS_ENDPOINT
-          value: "https://{{ .Values.pachd.metricsEndpoint }}/api/v1/metrics"
+          value: "{{ .Values.pachd.metricsEndpoint }}"
         {{- end }}
         - name: LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
@@ -338,7 +340,7 @@ spec:
           name: pach-disk
         - mountPath: /pachyderm-storage-secret
           name: pachyderm-storage-secret
-        {{- if .Values.tls.enabled }}
+        {{- if .Values.tls.certName }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
@@ -355,8 +357,8 @@ spec:
       - name: pachyderm-storage-secret
         secret:
           secretName: pachyderm-storage-secret
-      {{- if .Values.tls.enabled }}
+      {{- if .Values.tls.certName }}
       - name: pachd-tls-cert
         secret:
-          secretName: pachd-tls-cert
+          secretName: {{ .Values.tls.certName | quote }}
       {{- end }}

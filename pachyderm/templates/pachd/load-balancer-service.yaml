@@ -1,0 +1,28 @@
+{{- if .Values.loadBalancer.ip -}}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    #prometheus.io/port: "656"
+    #prometheus.io/scrape: "true"
+  labels:
+    app: pachd
+    suite: pachyderm
+  name: pachd-lb
+  namespace: default
+spec:
+  ports:
+  - name: api-grpc-port
+    port: 31400
+    targetPort: 650
+  - name: api-http-port
+    port: 30652
+    targetPort: 652
+  - name: s3-gateway-port
+    port: 30600
+    targetPort: 600
+  selector:
+    app: pachd
+  type: LoadBalancer
+  loadBalancerIP: {{ .Values.loadBalancer.ip }}
+{{ end -}}

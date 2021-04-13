@@ -7,6 +7,11 @@
 # In accordance with pachctl deploy it is _not_ per-image.
 imagePullSecret: ""
 
+loadBalancer:
+  # IP is the load balancer IP to use.  If blank, a load balancer will
+  # not be created.
+  ip: ""
+
 dash:
   # enabled controls whether the dash manifests are created or not.
   enabled: true
@@ -28,7 +33,11 @@ dash:
       cpu: "1"
       memory: "2G"
   service:
+    # type specifies the Kubernetes type of the dash service.
     type: ClusterIP
+  # url specifies the URL of the dash ingress, used as the host value
+  # of a rule.
+  url: ""
 
 etcd:
   # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
@@ -51,8 +60,12 @@ etcd:
   # StorageClass for its storage.  It is analogous to the
   # --etcd-storage-class argument to pachctl deploy.
   storageClass: ""
+  # storageSize specifies the size of the volume to use for etcd.
   storageSize: "100Gi"
   service:
+    # annotations specifies annotations to add to the etcd service.
+    annotations: {}
+    # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
 
 imageCredentials: {}
@@ -79,15 +92,19 @@ pachd:
     pullPolicy: "IfNotPresent"
     tag: "1.13.0"
   logLevel: "info"
+  # lokiLogging enables Loki logging if set.
+  lokiLogging: false
   metrics:
+    # enabled sets the METRICS environment variable if set.
     enabled: true
+    # endpoint should be the URL of the metrics endpoint.
     endpoint: ""
   # numShards sets the maximum number of pachd nodes allowed in the
   # cluster; increasing this number blindly can result in degraded
   # performance.  It is analogous to the --shards argument to pachctl
   # deploy.
   numShards: 16
-  # resources specifies the resource request
+  # resources specifies the resource request.
   resources:
     limits:
       cpu: "1"
@@ -99,7 +116,8 @@ pachd:
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
   requireCriticalServersOnly: false
-  service: #TODO How to handle selective ports for hub
+  service:
+    # type specifies the Kubernetes type of the pachd service.
     type: "ClusterIP"
     #apiGrpcPort:
     #  expose: true
@@ -238,18 +256,21 @@ rbac:
   # of --local-roles passed to pachctl deploy.
   clusterRBAC: true
 
-# move under ingress? How to make work with cert-manager, maybe add
-# tls option to pachctl create secret?
 tls:
-  # crt is the TLS certificate, e.g. "-----BEGIN CERTIFICATE----- …"
-  crt: ""
-  # key is the TLS key, e.g. "-----BEGIN RSA PRIVATE KEY----- …"
-  key: ""
+  # If certName is empty, TLS will not be used.
+  certName: "pachd-tls-cert"
+  # Set create to nil to not create a certificate (e.g., as when using
+  # one managed by cert-manager).
+  create:
+    # crt is the TLS certificate, e.g. "-----BEGIN CERTIFICATE----- …"
+    crt: ""
+    # key is the TLS key, e.g. "-----BEGIN RSA PRIVATE KEY----- …"
+    key: ""
 
 worker:
   image:
     repository: "pachyderm/worker"
-    tag: "1.12.4"
+    tag: "1.13.0"
     pullPolicy: "IfNotPresent"
   serviceAccount:
     create: true
