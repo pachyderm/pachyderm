@@ -4,21 +4,23 @@
     User Access Management is an [enterprise feature](https://docs.pachyderm.com/latest/enterprise/) that requires
     an active enterprise token.
 
-Pachyderm delegates its authentication feature to third party Identity Providers.
+Pachyderm delegates its authentication to third party Identity Providers.
 
 We embed an OpenID Connect identity service based on [**Dex**](https://dexidp.io/docs/) allowing for a vendor-neutral authentication (i.e., a pluggable authentication against many different identity providers).
 
-As a result, users can authenticate **using their existing credentials from various back-ends**, including LDAP, SAML, and other OIDC providers.
+As a result, users can authenticate **using their existing credentials from various back-ends**, including LDAP, SAML, and other OIDC providers. 
 
-![IdP - Dex diagram](./images/identity-provider-diagram.svg)
-
-Setting up Pachyderm's User Access Management (also referred to as "Authentication and Authorization" or "Auth" in this documentation) requires to follow those consecutive steps:
+Setting up Pachyderm's User Access Management (also referred to as "Authentication and Authorization" or "Auth" in this documentation) requires to follow those 3 simple steps:
 
 1. [Activate the feature](#activate-user-access-management).
-1. [Connect the IdP of your choice to Pachyderm (Dex)](./authentication/idp-dex.md). 
-1. [Assign IdP users to specific Roles](./authorization/role-binding.md) on given Ressources. 
+1. Create a connector and [connect the IdP of your choice to Pachyderm (Dex)](./authentication/idp-dex.md). 
+1. Optional: Manage your Authorization. i.e.,[assign IdP users to specific Roles](./authorization/role-binding.md) on given Pachyderm Ressources. 
 
-Any registered IdP user will then be able to log into and access Pachyderm ressources according to the privileges they were granted.
+Any registered IdP user will then be able to log into their IdP and access Pachyderm ressources according to the privileges they were granted.
+
+See the Identity Provider High Level Diagram below:
+
+![IdP - Dex diagram](./images/identity-provider-diagram.svg)
 
 ## Activate User Access Management
 !!! Note

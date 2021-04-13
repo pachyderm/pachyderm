@@ -4,7 +4,7 @@
     - the [User Access Management](../index.md/#activate-user-access-management) feature is on by running `pachctl auth whoami`. The command should return `You are "pach:root" (i.e., your are the **Root User** with `clusterAdmin` privileges). Run `pachctl auth use-auth-token` to login as a Root User.
     - your [IdP connector is set](../authentication/idp-dex.md).
 
-Pachyderm authorization system implements a **Role Based Access Control** model (RBAC).
+Pachyderm authorization feature follows a **Role Based Access Control** model (RBAC).
 The access control is based on **Roles**  assigned to **Users**, granting them a set of permissions on Pachyderm's **Ressources** (**Role Bindings**). 
 
 In this page we will:
@@ -98,6 +98,7 @@ $ pachctl auth set <ressource> <ressource name> [role1,role2 | none ] <prefix:su
 
 To keep using our Auth0 example and illustrate the attribution of a given Role to a User,
 let's have our `Root User` (with default clusterAdmin privileges) give access to a repo to our `one-pachyderm-user@gmail.com` user:
+
 1. Connect as our Root User again.
 1. Create a repo named `testinput` containing one text file.
 1. Grant access on this repo to our user `one-pachyderm-user@gmail.com` registered with our IdP (Auth0).
@@ -291,3 +292,6 @@ It does not give them any permission on the `image-recognition` project, or on t
 If `one-pachyderm-user@company.io` was a member of the `data-scientists` group, then they would cumulate both roles: 'repoReader' on all repo and `repoOwner` on the `nlp` project.
 
 The IdP user `another-pachyderm-user@company.io` has been assigned the `repoWriter` role on the repo `categorize-text`. This gives them permission to **read and write in that repo**, but not to access any other repo, project, or the cluster itself.
+
+## User Revocation
+//TODO Coming soon -> In dev
