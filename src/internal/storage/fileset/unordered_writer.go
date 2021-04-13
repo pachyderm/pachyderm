@@ -1,148 +1,14 @@
 package fileset
 
 import (
-	"bytes"
 	"context"
 	"io"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 )
-
-type memFile struct {
-	path  string
-	parts map[string]*memPart
-}
-
-type memPart struct {
-	tag string
-	buf *bytes.Buffer
-}
-
-func (mp *memPart) Write(data []byte) (int, error) {
-	return mp.buf.Write(data)
-}
-
-type memFileSet struct {
-	additive map[string]*memFile
-	deletive map[string]*memFile
-}
-
-func newMemFileSet() *memFileSet {
-	return &memFileSet{
-		additive: make(map[string]*memFile),
-		deletive: make(map[string]*memFile),
-	}
-}
-
-func (mfs *memFileSet) addFile(p string, tag string) io.Writer {
-	return mfs.createMemPart(p, tag)
-}
-
-func (mfs *memFileSet) createMemPart(p string, tag string) *memPart {
-	if _, ok := mfs.additive[p]; !ok {
-		mfs.additive[p] = &memFile{
-			path:  p,
-			parts: make(map[string]*memPart),
-		}
-	}
-	mf := mfs.additive[p]
-	if _, ok := mf.parts[tag]; !ok {
-		mf.parts[tag] = &memPart{
-			tag: tag,
-			buf: &bytes.Buffer{},
-		}
-	}
-	return mf.parts[tag]
-}
-
-func (mfs *memFileSet) deleteFile(p, tag string) {
-	if tag == "" {
-		delete(mfs.additive, p)
-		mfs.deletive[p] = &memFile{path: p}
-		return
-	}
-	if mf, ok := mfs.additive[p]; ok {
-		delete(mf.parts, tag)
-	}
-	if _, ok := mfs.deletive[p]; !ok {
-		mfs.deletive[p] = &memFile{
-			path:  p,
-			parts: make(map[string]*memPart),
-		}
-	}
-	mf := mfs.deletive[p]
-	mf.parts[tag] = &memPart{tag: tag}
-}
-
-func (mfs *memFileSet) serialize(w *Writer) error {
-	if err := mfs.serializeAdditive(w); err != nil {
-		return err
-	}
-	return mfs.serializeDeletive(w)
-}
-
-func (mfs *memFileSet) serializeAdditive(w *Writer) error {
-	for _, mf := range sortMemFiles(mfs.additive) {
-		if err := w.Add(mf.path, func(fw *FileWriter) error {
-			return serializeParts(fw, mf)
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func serializeParts(fw *FileWriter, mf *memFile) error {
-	for _, mp := range sortMemParts(mf.parts) {
-		fw.Add(mp.tag)
-		if _, err := fw.Write(mp.buf.Bytes()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (mfs *memFileSet) serializeDeletive(w *Writer) error {
-	for _, mf := range sortMemFiles(mfs.deletive) {
-		var tags []string
-		for _, mp := range sortMemParts(mf.parts) {
-			tags = append(tags, mp.tag)
-		}
-		w.Delete(mf.path, tags...)
-	}
-	return nil
-}
-
-func sortMemFiles(mfs map[string]*memFile) []*memFile {
-	var result []*memFile
-	for _, mf := range mfs {
-		result = append(result, mf)
-	}
-	sort.SliceStable(result, func(i, j int) bool {
-		return result[i].path < result[j].path
-	})
-	return result
-}
-
-func sortMemParts(mps map[string]*memPart) []*memPart {
-	var result []*memPart
-	for _, mp := range mps {
-		result = append(result, mp)
-	}
-	sort.SliceStable(result, func(i, j int) bool {
-		return result[i].tag < result[j].tag
-	})
-	return result
-}
-
-func (mfs *memFileSet) empty() bool {
-	return len(mfs.additive) == 0 && len(mfs.deletive) == 0
-}
 
 // UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
 // This may be a full filesystem or a subfilesystem (e.g. datum / datum set / shard).
@@ -151,7 +17,7 @@ type UnorderedWriter struct {
 	storage                    *Storage
 	memAvailable, memThreshold int64
 	defaultTag                 string
-	memFileSet                 *memFileSet
+	buffer                     *Buffer
 	subFileSet                 int64
 	ttl                        time.Duration
 	renewer                    *renew.StringSet
@@ -169,7 +35,7 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 		memAvailable: memThreshold,
 		memThreshold: memThreshold,
 		defaultTag:   defaultTag,
-		memFileSet:   newMemFileSet(),
+		buffer:       NewBuffer(),
 	}
 	for _, opt := range opts {
 		opt(uw)
@@ -177,21 +43,20 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 	return uw, nil
 }
 
-func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag ...string) error {
+func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag ...string) (retErr error) {
 	// TODO: Validate
 	//if err := ppath.ValidatePath(hdr.Name); err != nil {
 	//	return nil, err
 	//}
-	p = Clean(p, false)
 	tag := uw.defaultTag
 	if len(customTag) > 0 && customTag[0] != "" {
 		tag = customTag[0]
 	}
 	// TODO: Tag overwrite?
 	if !appendFile {
-		uw.memFileSet.deleteFile(p, "")
+		uw.buffer.Delete(p)
 	}
-	w := uw.memFileSet.addFile(p, tag)
+	w := uw.buffer.Add(p, tag)
 	for {
 		n, err := io.CopyN(w, r, uw.memAvailable)
 		uw.memAvailable -= n
@@ -205,7 +70,7 @@ func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag
 			if err := uw.serialize(); err != nil {
 				return err
 			}
-			w = uw.memFileSet.addFile(p, tag)
+			w = uw.buffer.Add(p, tag)
 		}
 	}
 }
@@ -213,11 +78,30 @@ func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag
 // serialize will be called whenever the in-memory file set is past the memory threshold.
 // A new in-memory file set will be created for the following operations.
 func (uw *UnorderedWriter) serialize() error {
-	if uw.memFileSet.empty() {
+	if uw.buffer.Empty() {
 		return nil
 	}
 	return uw.withWriter(func(w *Writer) error {
-		return uw.memFileSet.serialize(w)
+		var prev string
+		var fw *FileWriter
+		if err := uw.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
+			if p != prev {
+				var err error
+				fw, err = w.Add(p)
+				if err != nil {
+					return err
+				}
+			}
+			prev = p
+			fw.Add(tag)
+			_, err := io.Copy(fw, r)
+			return err
+		}); err != nil {
+			return err
+		}
+		return uw.buffer.WalkDeletive(func(p string, tag ...string) error {
+			return w.Delete(p, tag...)
+		})
 	})
 }
 
@@ -239,31 +123,26 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	if uw.renewer != nil {
 		uw.renewer.Add(id.TrackerID())
 	}
-	// Reset in-memory file set.
-	uw.memFileSet = newMemFileSet()
+	// Reset fileset buffer.
+	uw.buffer = NewBuffer()
 	uw.memAvailable = uw.memThreshold
 	uw.subFileSet++
 	return nil
 }
 
 // Delete deletes a file from the file set.
-func (uw *UnorderedWriter) Delete(name string, tags ...string) error {
-	name = Clean(name, IsDir(name))
-	var tag string
-	if len(tag) > 0 {
-		tag = tags[0]
+func (uw *UnorderedWriter) Delete(p string, tags ...string) error {
+	p = Clean(p, IsDir(p))
+	if len(tags) > 0 && tags[0] == "" {
+		tags = nil
 	}
-	if IsDir(name) {
-		for p := range uw.memFileSet.additive {
-			if strings.HasPrefix(p, name) {
-				delete(uw.memFileSet.additive, p)
-			}
-		}
+	if IsDir(p) {
+		uw.buffer.Delete(p)
 		var ids []ID
 		if uw.parentID != nil {
 			ids = []ID{*uw.parentID}
 		}
-		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...), index.WithPrefix(name))
+		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...), index.WithPrefix(p))
 		if err != nil {
 			return err
 		}
@@ -271,7 +150,7 @@ func (uw *UnorderedWriter) Delete(name string, tags ...string) error {
 			return uw.Delete(f.Index().Path)
 		})
 	}
-	uw.memFileSet.deleteFile(name, tag)
+	uw.buffer.Delete(p, tags...)
 	return nil
 }
 
@@ -290,10 +169,12 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, appendFile bool
 					return err
 				}
 			}
-			return w.Add(f.Index().Path, func(fw *FileWriter) error {
-				fw.Add(tag)
-				return f.Content(fw)
-			})
+			fw, err := w.Add(f.Index().Path)
+			if err != nil {
+				return err
+			}
+			fw.Add(tag)
+			return f.Content(fw)
 		})
 	})
 }

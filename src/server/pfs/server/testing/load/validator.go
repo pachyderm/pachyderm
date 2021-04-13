@@ -4,25 +4,28 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"sort"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+const defaultTag = "tag"
+
 type ValidatorSpec struct{}
 
 type Validator struct {
-	spec  *ValidatorSpec
-	files map[string][]byte
+	spec   *ValidatorSpec
+	buffer *fileset.Buffer
 }
 
 func NewValidator(client Client, spec *ValidatorSpec) (Client, *Validator) {
 	v := &Validator{
-		spec:  spec,
-		files: make(map[string][]byte),
+		spec:   spec,
+		buffer: fileset.NewBuffer(),
 	}
 	return &validatorClient{
 		Client:    client,
@@ -30,34 +33,46 @@ func NewValidator(client Client, spec *ValidatorSpec) (Client, *Validator) {
 	}, v
 }
 
-func (v *Validator) PutFiles(files map[string][]byte) {
-	for path, hash := range files {
-		v.files[path] = hash
+// TODO: The performance of this is bad.
+func (v *Validator) RandomFile() (string, error) {
+	files := make(map[string]struct{})
+	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
+		files[p] = struct{}{}
+		return nil
+	}); err != nil {
+		return "", err
 	}
+	if len(files) > 0 {
+		for file := range files {
+			return file, nil
+		}
+	}
+	return "no-op-delete", nil
 }
 
-func (v *Validator) DeleteFiles(files map[string]struct{}) {
-	for path := range files {
-		delete(v.files, path)
-	}
-}
-
-func (v *Validator) RandomFile() string {
-	for path := range v.files {
-		return path
-	}
-	return "no-op-delete"
+type file struct {
+	name string
+	hash []byte
 }
 
 func (v *Validator) Validate(client Client, repo, commit string) (retErr error) {
-	var namesSorted []string
-	for name := range v.files {
-		namesSorted = append(namesSorted, name)
+	var files []*file
+	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
+		buf := &bytes.Buffer{}
+		if _, err := io.Copy(buf, r); err != nil {
+			return err
+		}
+		files = append(files, &file{
+			name: p,
+			hash: buf.Bytes(),
+		})
+		return nil
+	}); err != nil {
+		return err
 	}
-	sort.Strings(namesSorted)
 	defer func() {
 		if retErr == nil {
-			if len(namesSorted) != 0 {
+			if len(files) != 0 {
 				retErr = errors.Errorf("got back less files than expected")
 			}
 		}
@@ -67,25 +82,24 @@ func (v *Validator) Validate(client Client, repo, commit string) (retErr error) 
 		return err
 	}
 	return tarutil.Iterate(r, func(file tarutil.File) error {
-		if len(namesSorted) == 0 {
+		if len(files) == 0 {
 			return errors.Errorf("got back more files than expected")
 		}
 		hdr, err := file.Header()
 		if err != nil {
 			return err
 		}
-		if hdr.Name == "/" && namesSorted[0] == "/" {
-			namesSorted = namesSorted[1:]
+		if strings.HasSuffix(hdr.Name, "/") {
 			return nil
 		}
 		h := pfs.NewHash()
 		if err := file.Content(h); err != nil {
 			return err
 		}
-		if !bytes.Equal(v.files[namesSorted[0]], h.Sum(nil)) {
-			return errors.Errorf("file %v's content is incorrect", namesSorted[0])
+		if !bytes.Equal(files[0].hash, h.Sum(nil)) {
+			return errors.Errorf("file %v's content is incorrect (actual file path: %v)", files[0].name, hdr.Name)
 		}
-		namesSorted = namesSorted[1:]
+		files = files[1:]
 		return nil
 	})
 }
@@ -96,47 +110,46 @@ type validatorClient struct {
 }
 
 func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) error {
-	var putFiles map[string][]byte
-	var deleteFiles map[string]struct{}
-	if err := vc.Client.WithModifyFileClient(ctx, repo, commit, func(mf client.ModifyFile) error {
+	return vc.Client.WithModifyFileClient(ctx, repo, commit, func(mf client.ModifyFile) (retErr error) {
 		vmfc := &validatorModifyFileClient{
-			ModifyFile:  mf,
-			putFiles:    make(map[string][]byte),
-			deleteFiles: make(map[string]struct{}),
+			ModifyFile: mf,
+			buffer:     fileset.NewBuffer(),
 		}
 		if err := cb(vmfc); err != nil {
 			return err
 		}
-		putFiles = vmfc.putFiles
-		deleteFiles = vmfc.deleteFiles
-		return nil
-	}); err != nil {
-		return err
-	}
-	vc.validator.PutFiles(putFiles)
-	vc.validator.DeleteFiles(deleteFiles)
-	return nil
+		for _, p := range vmfc.deletes {
+			vc.validator.buffer.Delete(p)
+		}
+		return vmfc.buffer.WalkAdditive(func(p, tag string, r io.Reader) (retErr error) {
+			w := vc.validator.buffer.Add(p, tag)
+			_, err := io.Copy(w, r)
+			return err
+		})
+	})
 }
 
 type validatorModifyFileClient struct {
 	client.ModifyFile
-	putFiles    map[string][]byte
-	deleteFiles map[string]struct{}
+	buffer  *fileset.Buffer
+	deletes []string
 }
 
-func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) error {
+func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) (retErr error) {
 	h := pfs.NewHash()
 	if err := vmfc.ModifyFile.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
 		return err
 	}
-	vmfc.putFiles[path] = h.Sum(nil)
-	return nil
+	w := vmfc.buffer.Add(path, defaultTag)
+	_, err := io.Copy(w, bytes.NewReader(h.Sum(nil)))
+	return err
 }
 
 func (vmfc *validatorModifyFileClient) DeleteFile(path string, opts ...client.DeleteFileOption) error {
 	if err := vmfc.ModifyFile.DeleteFile(path, opts...); err != nil {
 		return err
 	}
-	vmfc.deleteFiles[path] = struct{}{}
+	vmfc.deletes = append(vmfc.deletes, path)
+	vmfc.buffer.Delete(path)
 	return nil
 }

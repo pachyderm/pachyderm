@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -44,18 +45,27 @@ func NewFileSource(spec *FileSourceSpec) FileSource {
 }
 
 type RandomFileSourceSpec struct {
-	IncrementPath bool            `yaml:"incrementPath,omitempty"`
-	FuzzSizeSpecs []*FuzzSizeSpec `yaml:"fuzzSize,omitempty"`
+	IncrementPath       bool                 `yaml:"incrementPath,omitempty"`
+	RandomDirectorySpec *RandomDirectorySpec `yaml:"directory,omitempty"`
+	FuzzSizeSpecs       []*FuzzSizeSpec      `yaml:"fuzzSize,omitempty"`
 }
 
 type randomFileSource struct {
-	spec *RandomFileSourceSpec
-	next int64
+	spec      *RandomFileSourceSpec
+	dirSource *randomDirectorySource
+	next      int64
 }
 
 func newRandomFileSource(spec *RandomFileSourceSpec) FileSource {
+	var dirSource *randomDirectorySource
+	if spec.RandomDirectorySpec != nil {
+		dirSource = &randomDirectorySource{
+			spec: spec.RandomDirectorySpec,
+		}
+	}
 	return &randomFileSource{
-		spec: spec,
+		spec:      spec,
+		dirSource: dirSource,
 	}
 }
 
@@ -70,12 +80,43 @@ func (rfs *randomFileSource) Next() *MemFile {
 }
 
 func (rfs *randomFileSource) nextPath() string {
+	var dir string
+	if rfs.dirSource != nil {
+		dir = rfs.dirSource.nextPath()
+	}
 	if rfs.spec.IncrementPath {
 		next := rfs.next
 		rfs.next += 1
-		return fmt.Sprintf("%016d", next)
+		return path.Join(dir, fmt.Sprintf("%016d", next))
 	}
-	return uuid.NewWithoutDashes()
+	return path.Join(dir, uuid.NewWithoutDashes())
+}
+
+type RandomDirectorySpec struct {
+	Depth int   `yaml:"depth,omitempty"`
+	Run   int64 `yaml:"run,omitempty"`
+}
+
+type randomDirectorySource struct {
+	spec *RandomDirectorySpec
+	next string
+	run  int64
+}
+
+func (rds *randomDirectorySource) nextPath() string {
+	if rds.next == "" {
+		depth := rand.Intn(rds.spec.Depth)
+		for i := 0; i < depth; i++ {
+			rds.next = path.Join(rds.next, uuid.NewWithoutDashes())
+		}
+	}
+	dir := rds.next
+	rds.run++
+	if rds.run == rds.spec.Run {
+		rds.next = ""
+	}
+	return dir
+
 }
 
 type FilesSpec struct {

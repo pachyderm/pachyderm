@@ -2,6 +2,7 @@ package load
 
 import (
 	"context"
+	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 )
@@ -54,18 +55,37 @@ func PutFile(env *Env, repo, commit string, spec *PutFileSpec) error {
 }
 
 type DeleteFileSpec struct {
-	Count int `yaml:"count,omitempty"`
+	Count         int     `yaml:"count,omitempty"`
+	DirectoryProb float64 `yaml:"directoryProb,omitempty"`
 }
 
 func DeleteFile(env *Env, repo, commit string, spec *DeleteFileSpec) error {
 	c := env.Client()
 	return c.WithModifyFileClient(context.Background(), repo, commit, func(mf client.ModifyFile) error {
-		validator := env.Validator()
 		for i := 0; i < spec.Count; i++ {
-			if err := mf.DeleteFile(validator.RandomFile()); err != nil {
+			p, err := nextDeletePath(env, spec)
+			if err != nil {
+				return err
+			}
+			if err := mf.DeleteFile(p); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+}
+
+func nextDeletePath(env *Env, spec *DeleteFileSpec) (string, error) {
+	validator := env.Validator()
+	p, err := validator.RandomFile()
+	if err != nil {
+		return "", err
+	}
+	for shouldExecute(spec.DirectoryProb) {
+		p, _ = path.Split(p)
+		if p == "" {
+			break
+		}
+	}
+	return p, nil
 }

@@ -1466,28 +1466,6 @@ func TestPutFile(t *testing.T) {
 	}))
 }
 
-func TestPutFileLongName(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-
-		fileName := `oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>`
-
-		commit, err := env.PachClient.StartCommit(repo, "")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, fileName, strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-
-		var buffer bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(repo, commit.ID, fileName, &buffer))
-		require.Equal(t, "foo\n", buffer.String())
-
-		return nil
-	}))
-}
-
 func TestPutSameFileInParallel(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
@@ -6668,11 +6646,15 @@ operations:
       - operation:
           deleteFile:
               count: 5
+              directoryProb: 0.5
         prob: 0.3 
 validator: {}
 fileSources:
   - name: "random"
     random:
+      directory:
+        depth: 3 
+        run: 5
       fuzzSize:
         - size:
             min: 1000
