@@ -41,6 +41,8 @@ type PachdAddress struct {
 	Host string
 	// Port specifies the pachd port
 	Port uint16
+
+	UnixSocket string
 }
 
 // ParsePachdAddress parses a string into a pachd address, or returns an error
@@ -63,6 +65,8 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 
 	switch u.Scheme {
 	case "grpc", "grpcs", "http", "https":
+	case "unix":
+		return &PachdAddress{UnixSocket: value}, nil
 	default:
 		return nil, errors.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
 	}
@@ -74,8 +78,6 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 		return nil, errors.New("pachd address should not include a query string")
 	case u.Fragment != "":
 		return nil, errors.New("pachd address should not include a fragment")
-	case u.Path != "":
-		return nil, errors.New("pachd address should not include a path")
 	}
 
 	port := uint16(DefaultPachdNodePort)

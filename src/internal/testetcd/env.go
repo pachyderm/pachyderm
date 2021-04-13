@@ -28,8 +28,6 @@ type Env struct {
 	EtcdClient *etcd.Client
 }
 
-// NewEnv constructs a default Env for testing, which will be destroyed at the
-// end of the test.
 func NewEnv(t testing.TB) *Env {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails

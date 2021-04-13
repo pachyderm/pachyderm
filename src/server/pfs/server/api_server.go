@@ -52,7 +52,7 @@ func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 		env:    env,
 		txnEnv: txnEnv,
 	}
-	go func() { s.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
+	//go func() { s.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
 	return s, nil
 }
 

@@ -156,7 +156,12 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		options = append(options, client.WithSystemCAs)
 	}
 
-	pachClient, err := client.NewFromAddress(pachdAddress.Hostname(), options...)
+	var pachClient *client.APIClient
+	if pachdAddress.UnixSocket != "" {
+		pachClient, err = client.NewFromSocket(pachdAddress.UnixSocket)
+	} else {
+		pachClient, err = client.NewFromAddress(pachdAddress.Hostname(), options...)
+	}
 	if err != nil {
 		return nil, err
 	}

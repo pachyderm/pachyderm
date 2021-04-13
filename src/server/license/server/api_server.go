@@ -184,10 +184,14 @@ func (a *apiServer) validateClusterConfig(ctx context.Context, address string) e
 		options = append(options, client.WithSystemCAs)
 	}
 
-	// Attempt to connect to the pachd
-	pachClient, err := client.NewFromAddress(pachdAddress.Hostname(), options...)
+	var pachClient *client.APIClient
+	if pachdAddress.UnixSocket != "" {
+		pachClient, err = client.NewFromSocket(pachdAddress.UnixSocket)
+	} else {
+		pachClient, err = client.NewFromAddress(pachdAddress.Hostname(), options...)
+	}
 	if err != nil {
-		return errors.Wrapf(err, "unable to create client for %q", address)
+		return err
 	}
 
 	// Make an RPC that doesn't need auth - we don't care about the response, the pachd version is

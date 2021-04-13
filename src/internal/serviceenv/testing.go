@@ -29,7 +29,7 @@ func (s *TestServiceEnv) Config() *Configuration {
 }
 
 func (s *TestServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
-	return s.PachClient
+	return s.PachClient.WithCtx(ctx)
 }
 func (s *TestServiceEnv) GetEtcdClient() *etcd.Client {
 	return s.EtcdClient

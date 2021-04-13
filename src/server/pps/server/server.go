@@ -50,8 +50,8 @@ func NewAPIServer(
 		peerPort:              env.Config().PeerPort,
 		gcPercent:             env.Config().GCPercent,
 	}
-	apiServer.validateKube()
-	go apiServer.master()
+	//apiServer.validateKube()
+	//go apiServer.master()
 	return apiServer, nil
 }
 

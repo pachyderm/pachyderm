@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/minipach"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -75,15 +76,13 @@ func buildBindings(s ...string) *auth.RoleBinding {
 // auth, this makes sure the code path is exercised (as auth may already be
 // active when the test starts)
 func TestActivate(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	ctx := minipach.GetTestContext(t)
+
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
 	// this test to pass)
-	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	_, err := rootClient.Deactivate(rootClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
@@ -106,15 +105,13 @@ func TestActivate(t *testing.T) {
 // This should always authenticate the user as `pach:root` and give them
 // super admin status.
 func TestActivateKnownToken(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	ctx := minipach.GetTestContext(t)
+
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
 	// this test to pass)
-	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	_, err := rootClient.Deactivate(rootClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
@@ -137,14 +134,12 @@ func TestActivateKnownToken(t *testing.T) {
 // TestSuperAdminRWO tests adding and removing cluster super admins, as well as super admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestSuperAdminRWO(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	ctx := minipach.GetTestContext(t)
+
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
-	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, bobClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, bob)
+	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// The initial set of admins is just the user "admin"
 	bindings, err := aliceClient.GetClusterRoleBinding()
