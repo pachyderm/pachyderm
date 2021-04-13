@@ -90,6 +90,7 @@ type getGroupsFunc func(context.Context, *auth.GetGroupsRequest) (*auth.GetGroup
 type getUsersFunc func(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error)
 type extractAuthTokensFunc func(context.Context, *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error)
 type restoreAuthTokenFunc func(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error)
+type deleteExpiredAuthTokensFunc func(context.Context, *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error)
 
 type mockActivateAuth struct{ handler activateAuthFunc }
 type mockDeactivateAuth struct{ handler deactivateAuthFunc }
@@ -112,54 +113,57 @@ type mockGetGroups struct{ handler getGroupsFunc }
 type mockGetUsers struct{ handler getUsersFunc }
 type mockExtractAuthTokens struct{ handler extractAuthTokensFunc }
 type mockRestoreAuthToken struct{ handler restoreAuthTokenFunc }
+type mockDeleteExpiredAuthTokens struct{ handler deleteExpiredAuthTokensFunc }
 
-func (mock *mockActivateAuth) Use(cb activateAuthFunc)           { mock.handler = cb }
-func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)       { mock.handler = cb }
-func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)   { mock.handler = cb }
-func (mock *mockSetConfiguration) Use(cb setConfigurationFunc)   { mock.handler = cb }
-func (mock *mockModifyRoleBinding) Use(cb modifyRoleBindingFunc) { mock.handler = cb }
-func (mock *mockGetRoleBinding) Use(cb getRoleBindingFunc)       { mock.handler = cb }
-func (mock *mockAuthenticate) Use(cb authenticateFunc)           { mock.handler = cb }
-func (mock *mockAuthorize) Use(cb authorizeFunc)                 { mock.handler = cb }
-func (mock *mockWhoAmI) Use(cb whoAmIFunc)                       { mock.handler = cb }
-func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)           { mock.handler = cb }
-func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)           { mock.handler = cb }
-func (mock *mockGetRobotToken) Use(cb getRobotTokenFunc)         { mock.handler = cb }
-func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)     { mock.handler = cb }
-func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)     { mock.handler = cb }
-func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)   { mock.handler = cb }
-func (mock *mockModifyMembers) Use(cb modifyMembersFunc)         { mock.handler = cb }
-func (mock *mockGetGroups) Use(cb getGroupsFunc)                 { mock.handler = cb }
-func (mock *mockGetUsers) Use(cb getUsersFunc)                   { mock.handler = cb }
-func (mock *mockExtractAuthTokens) Use(cb extractAuthTokensFunc) { mock.handler = cb }
-func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)   { mock.handler = cb }
+func (mock *mockActivateAuth) Use(cb activateAuthFunc)                       { mock.handler = cb }
+func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)                   { mock.handler = cb }
+func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)               { mock.handler = cb }
+func (mock *mockSetConfiguration) Use(cb setConfigurationFunc)               { mock.handler = cb }
+func (mock *mockModifyRoleBinding) Use(cb modifyRoleBindingFunc)             { mock.handler = cb }
+func (mock *mockGetRoleBinding) Use(cb getRoleBindingFunc)                   { mock.handler = cb }
+func (mock *mockAuthenticate) Use(cb authenticateFunc)                       { mock.handler = cb }
+func (mock *mockAuthorize) Use(cb authorizeFunc)                             { mock.handler = cb }
+func (mock *mockWhoAmI) Use(cb whoAmIFunc)                                   { mock.handler = cb }
+func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)                       { mock.handler = cb }
+func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)                       { mock.handler = cb }
+func (mock *mockGetRobotToken) Use(cb getRobotTokenFunc)                     { mock.handler = cb }
+func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)                 { mock.handler = cb }
+func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)                 { mock.handler = cb }
+func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)               { mock.handler = cb }
+func (mock *mockModifyMembers) Use(cb modifyMembersFunc)                     { mock.handler = cb }
+func (mock *mockGetGroups) Use(cb getGroupsFunc)                             { mock.handler = cb }
+func (mock *mockGetUsers) Use(cb getUsersFunc)                               { mock.handler = cb }
+func (mock *mockExtractAuthTokens) Use(cb extractAuthTokensFunc)             { mock.handler = cb }
+func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)               { mock.handler = cb }
+func (mock *mockDeleteExpiredAuthTokens) Use(cb deleteExpiredAuthTokensFunc) { mock.handler = cb }
 
 type authServerAPI struct {
 	mock *mockAuthServer
 }
 
 type mockAuthServer struct {
-	api               authServerAPI
-	Activate          mockActivateAuth
-	Deactivate        mockDeactivateAuth
-	GetConfiguration  mockGetConfiguration
-	SetConfiguration  mockSetConfiguration
-	ModifyRoleBinding mockModifyRoleBinding
-	GetRoleBinding    mockGetRoleBinding
-	Authenticate      mockAuthenticate
-	Authorize         mockAuthorize
-	WhoAmI            mockWhoAmI
-	GetOIDCLogin      mockGetOIDCLogin
-	GetAuthToken      mockGetAuthToken
-	GetRobotToken     mockGetRobotToken
-	ExtendAuthToken   mockExtendAuthToken
-	RevokeAuthToken   mockRevokeAuthToken
-	SetGroupsForUser  mockSetGroupsForUser
-	ModifyMembers     mockModifyMembers
-	GetGroups         mockGetGroups
-	GetUsers          mockGetUsers
-	ExtractAuthTokens mockExtractAuthTokens
-	RestoreAuthToken  mockRestoreAuthToken
+	api                     authServerAPI
+	Activate                mockActivateAuth
+	Deactivate              mockDeactivateAuth
+	GetConfiguration        mockGetConfiguration
+	SetConfiguration        mockSetConfiguration
+	ModifyRoleBinding       mockModifyRoleBinding
+	GetRoleBinding          mockGetRoleBinding
+	Authenticate            mockAuthenticate
+	Authorize               mockAuthorize
+	WhoAmI                  mockWhoAmI
+	GetOIDCLogin            mockGetOIDCLogin
+	GetAuthToken            mockGetAuthToken
+	GetRobotToken           mockGetRobotToken
+	ExtendAuthToken         mockExtendAuthToken
+	RevokeAuthToken         mockRevokeAuthToken
+	SetGroupsForUser        mockSetGroupsForUser
+	ModifyMembers           mockModifyMembers
+	GetGroups               mockGetGroups
+	GetUsers                mockGetUsers
+	ExtractAuthTokens       mockExtractAuthTokens
+	RestoreAuthToken        mockRestoreAuthToken
+	DeleteExpiredAuthTokens mockDeleteExpiredAuthTokens
 }
 
 func (api *authServerAPI) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
@@ -283,6 +287,13 @@ func (api *authServerAPI) RestoreAuthToken(ctx context.Context, req *auth.Restor
 		return api.mock.RestoreAuthToken.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.RestoreAuthToken")
+}
+
+func (api *authServerAPI) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
+	if api.mock.DeleteExpiredAuthTokens.handler != nil {
+		return api.mock.DeleteExpiredAuthTokens.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.DeleteExpiredAuthTokens")
 }
 
 /* Enterprise Server Mocks */

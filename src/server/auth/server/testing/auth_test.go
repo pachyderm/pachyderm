@@ -22,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
-	"github.com/gogo/protobuf/types"
 	minio "github.com/minio/minio-go/v6"
 	globlib "github.com/pachyderm/ohmyglob"
 )
@@ -2416,11 +2415,9 @@ func TestExtractAuthToken(t *testing.T) {
 		hash := auth.HashToken(plaintext)
 		for _, token := range resp.Tokens {
 			if token.HashedToken == hash {
-				require.Equal(t, subject, token.TokenInfo.Subject)
+				require.Equal(t, subject, token.Subject)
 				if expires {
-					exp, err := types.TimestampFromProto(token.Expiration)
-					require.NoError(t, err)
-					require.True(t, exp.After(time.Now()))
+					require.True(t, token.Expiration.After(time.Now()))
 				} else {
 					require.Nil(t, token.Expiration)
 				}
@@ -2445,13 +2442,9 @@ func TestRestoreAuthToken(t *testing.T) {
 	// Create a request to restore a token with known plaintext
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte("an-auth-token")))
 	req := &auth.RestoreAuthTokenRequest{
-		Token: &auth.HashedAuthToken{
+		Token: &auth.TokenInfo{
 			HashedToken: hash,
-			TokenInfo: &auth.TokenInfo{
-				Subject: "robot:restored",
-				Source:  auth.TokenInfo_AUTHENTICATE,
-				Hash:    hash,
-			},
+			Subject:     "robot:restored",
 		},
 	}
 
@@ -2467,7 +2460,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.NoError(t, err)
 
-	req.Token.TokenInfo.Subject = "robot:overwritten"
+	req.Token.Subject = "robot:overwritten"
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unknown desc = error restoring auth token: cannot overwrite existing token with same hash", err.Error())
@@ -2477,21 +2470,20 @@ func TestRestoreAuthToken(t *testing.T) {
 	whoAmIResp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, "robot:restored", whoAmIResp.Username)
-	require.Equal(t, int64(-1), whoAmIResp.TTL)
+	require.Nil(t, whoAmIResp.Expiration)
 
 	// restore a token with an expiration date in the past
 	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expired-token")))
-	req.Token.Expiration, err = types.TimestampProto(time.Now().Add(-1 * time.Minute))
-	require.NoError(t, err)
+	pastExpiration := time.Now().Add(-1 * time.Minute)
+	req.Token.Expiration = &pastExpiration
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrExpiredToken(err))
 
 	// restore a token with an expiration date in the future
-	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
-	req.Token.Expiration, err = types.TimestampProto(time.Now().Add(10 * time.Minute))
-	require.NoError(t, err)
+	futureExpiration := time.Now().Add(10 * time.Minute)
+	req.Token.Expiration = &futureExpiration
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.NoError(t, err)
@@ -2502,7 +2494,8 @@ func TestRestoreAuthToken(t *testing.T) {
 
 	// Relying on time.Now is gross but the token should have a TTL in the
 	// next 10 minutes
-	require.True(t, whoAmIResp.TTL > 0 && whoAmIResp.TTL < 600)
+	require.True(t, whoAmIResp.Expiration.After(time.Now()))
+	require.True(t, whoAmIResp.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
 }
 
 // TODO: This test mirrors TestDebug in src/server/pachyderm_test.go.
@@ -2608,4 +2601,69 @@ func TestDebug(t *testing.T) {
 		}
 	}
 	require.Equal(t, 0, len(expectedFiles))
+}
+
+func TestDeleteExpiredAuthTokens(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	// generate auth credentials
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// create a token that will instantly expire, a token that will expire later, and a token that will never expire
+	noExpirationResp, noExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice"})
+	require.NoError(t, noExpErr)
+
+	fastExpirationResp, fastExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", TTL: 1})
+	require.NoError(t, fastExpErr)
+
+	slowExpirationResp, slowExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", TTL: 1000})
+	require.NoError(t, slowExpErr)
+
+	contains := func(tokens []*auth.TokenInfo, hashedToken string) bool {
+		for _, v := range tokens {
+			if v.HashedToken == hashedToken {
+				return true
+			}
+		}
+		return false
+	}
+
+	// query all tokens to show that the instantly expired one is expired
+	extractTokensResp, firstExtractErr := adminClient.ExtractAuthTokens(adminClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.NoError(t, firstExtractErr)
+
+	preDeleteTokens := extractTokensResp.Tokens
+	require.Equal(t, 3, len(preDeleteTokens), "all three tokens should be returned")
+	require.True(t, contains(preDeleteTokens, auth.HashToken(noExpirationResp.Token)), "robot token without expiration should be extracted")
+	require.True(t, contains(preDeleteTokens, auth.HashToken(fastExpirationResp.Token)), "robot token without expiration should be extracted")
+	require.True(t, contains(preDeleteTokens, auth.HashToken(slowExpirationResp.Token)), "robot token without expiration should be extracted")
+
+	// wait for the one token to expire
+	time.Sleep(time.Duration(2) * time.Second)
+
+	// record admin token
+	adminToken := adminClient.AuthToken()
+
+	// before deleting, check that WhoAmI call still fails for existing & expired token
+	adminClient.SetAuthToken(fastExpirationResp.Token)
+	_, whoAmIErr := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+	require.True(t, auth.IsErrExpiredToken(whoAmIErr))
+
+	// run DeleteExpiredAuthTokens RPC and verify that only the instantly expired token is inaccessible
+	adminClient.SetAuthToken(adminToken)
+	_, deleteErr := adminClient.DeleteExpiredAuthTokens(adminClient.Ctx(), &auth.DeleteExpiredAuthTokensRequest{})
+	require.NoError(t, deleteErr)
+
+	extractTokensAfterDeleteResp, sndExtractErr := adminClient.ExtractAuthTokens(adminClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.NoError(t, sndExtractErr)
+
+	postDeleteTokens := extractTokensAfterDeleteResp.Tokens
+
+	require.Equal(t, 2, len(postDeleteTokens), "only the two unexpired tokens should be returned.")
+	require.True(t, contains(postDeleteTokens, auth.HashToken(noExpirationResp.Token)), "robot token without expiration should be extracted")
+	require.True(t, contains(postDeleteTokens, auth.HashToken(slowExpirationResp.Token)), "robot token without expiration should be extracted")
 }

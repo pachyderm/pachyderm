@@ -371,8 +371,8 @@ func WhoamiCmd() *cobra.Command {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 			}
 			fmt.Printf("You are \"%s\"\n", resp.Username)
-			if resp.TTL > 0 {
-				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
+			if resp.Expiration != nil {
+				fmt.Printf("session expires: %v\n", resp.Expiration.Format(time.RFC822))
 			}
 			return nil
 		}),

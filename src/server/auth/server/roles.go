@@ -26,6 +26,7 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_CLUSTER_AUTH_GET_GROUP_USERS,
 			auth.Permission_CLUSTER_AUTH_EXTRACT_TOKENS,
 			auth.Permission_CLUSTER_AUTH_RESTORE_TOKEN,
+			auth.Permission_CLUSTER_AUTH_DELETE_EXPIRED_TOKENS,
 			auth.Permission_CLUSTER_ENTERPRISE_ACTIVATE,
 			auth.Permission_CLUSTER_ENTERPRISE_HEARTBEAT,
 			auth.Permission_CLUSTER_ENTERPRISE_GET_CODE,
