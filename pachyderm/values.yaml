@@ -270,7 +270,6 @@ tls:
 worker:
   image:
     repository: "pachyderm/worker"
-    tag: "1.13.0"
     pullPolicy: "IfNotPresent"
   serviceAccount:
     create: true

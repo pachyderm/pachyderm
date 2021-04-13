@@ -97,7 +97,6 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"pachd.image.tag":             expectedTag,
-			"worker.image.tag":            expectedTag,
 			"pachd.storage.backend":       "GOOGLE",
 			"pachd.storage.google.bucket": "bucket",
 		},

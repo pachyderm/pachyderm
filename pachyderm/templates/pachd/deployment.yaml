@@ -48,7 +48,7 @@ spec:
           value: {{ .Values.pachd.storage.local.hostPath }}pachd
           {{- end }}
         - name: WORKER_IMAGE
-          value: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          value: "{{ .Values.worker.image.repository }}:{{ .Values.pachd.image.tag }}"
         - name: IMAGE_PULL_SECRET
           value: {{ .Values.imagePullSecret | quote }}
         - name: WORKER_SIDECAR_IMAGE
