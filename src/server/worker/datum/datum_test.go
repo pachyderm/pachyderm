@@ -25,7 +25,7 @@ package datum
 //	var allInputs [][]*common.Input
 //	// Create datum fileset.
 //	require.NoError(t, c.WithModifyFileClient(outputRepo, outputCommit.ID, func(mfc *client.ModifyFileClient) error {
-//    storageRoot := testutil.MkdirTemp(t)
+//    storageRoot := t.TempDir()
 //		require.NoError(t, WithSet(c, storageRoot, func(s *Set) error {
 //			di, err := NewIterator(c, in)
 //			if err != nil {
@@ -44,7 +44,7 @@ package datum
 //	}))
 //	require.NoError(t, c.FinishCommit(outputRepo, outputCommit.ID))
 //	// Check output.
-//  storageRoot := testutil.MkdirTemp(t)
+//  storageRoot := t.TempDir()
 //	require.NoError(t, WithSet(c, storageRoot, func(s *Set) error {
 //		fsi := NewFileSetIterator(c, outputRepo, outputCommit.ID)
 //		return fsi.Iterate(func(meta *Meta) error {

@@ -362,7 +362,7 @@ func TestOpenCommit(t *testing.T) {
 }
 
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
-	dir := testutil.MkdirTemp(tb)
+	dir := tb.TempDir()
 	if opts == nil {
 		opts = &Options{}
 	}

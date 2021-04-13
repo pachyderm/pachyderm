@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -48,6 +49,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	opts := []serviceenv.ConfigOption{
 		func(config *serviceenv.Configuration) {
 			require.NoError(t, cmdutil.PopulateDefaults(config))
+			config.StorageBackend = obj.Local
 			config.StorageRoot = path.Join(realEnv.Directory, "localStorage")
 		},
 		DefaultConfigOptions,

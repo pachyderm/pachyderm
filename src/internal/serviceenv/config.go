@@ -49,7 +49,7 @@ type PachdFullConfiguration struct {
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
 	NumShards                  uint64 `env:"NUM_SHARDS,default=32"`
-	StorageBackend             string `env:"STORAGE_BACKEND,default=LOCAL"`
+	StorageBackend             string `env:"STORAGE_BACKEND,required"`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
 	EtcdPrefix                 string `env:"ETCD_PREFIX,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
