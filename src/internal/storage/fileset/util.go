@@ -5,11 +5,22 @@ import (
 	"context"
 	"io"
 	"strings"
+	"testing"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 )
+
+// NewTestStorage constructs a local storage instance scoped to the lifetime of the test
+func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker) *Storage {
+	_, chunks := chunk.NewTestStorage(t, db, tr)
+	store := NewTestStore(t, db)
+	return NewStorage(store, tr, chunks)
+}
 
 // CopyFiles copies files from a file set to a file set writer.
 func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) error {

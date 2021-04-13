@@ -55,7 +55,7 @@ func pathRange(fileNames []string) *PathRange {
 func Check(t *testing.T, permString string) {
 	db := testutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := testutil.NewChunkStorage(t, db, tr)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
 	fileNames := Generate(permString)
 	averageBits = 12
 	topIdx := write(t, chunks, fileNames)

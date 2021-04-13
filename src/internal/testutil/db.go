@@ -11,11 +11,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-<<<<<<< HEAD
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-=======
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
->>>>>>> master
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -66,8 +63,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	configMap := assets.PostgresInitConfigMap(assetOpts)
 	require.NoError(t, encoder.Encode(configMap))
 
-	storageClass, err := assets.PostgresStorageClass(assetOpts, assets.LocalBackend)
-	require.NoError(t, err)
+	storageClass := assets.PostgresStorageClass(assetOpts, assets.LocalBackend)
 	require.NoError(t, encoder.Encode(storageClass))
 
 	headlessService := assets.PostgresHeadlessService(assetOpts)

@@ -193,10 +193,10 @@ func readAnnotations(t *testing.T, chunks *Storage, annotations []*testAnnotatio
 	})
 }
 
-// newTestStorage is like testutil.NewChunkStorage except it doesn't need an
-// external tracker - it is for testing this package, not for reuse.
+// newTestStorage is like NewTestStorage except it doesn't need an external tracker
+// it is for testing this package, not for reuse.
 func newTestStorage(t testing.TB) (obj.Client, *Storage) {
 	db := testutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	return testutil.NewChunkStorage(t, db, tr)
+	return NewTestStorage(t, db, tr)
 }

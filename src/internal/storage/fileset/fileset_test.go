@@ -87,7 +87,7 @@ func checkFile(t *testing.T, f File, tf *testFile) {
 func newTestStorage(t *testing.T) *Storage {
 	db := testutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	return testutil.NewFilesetStorage(t, db, tr)
+	return NewTestStorage(t, db, tr)
 }
 
 func TestWriteThenRead(t *testing.T) {
