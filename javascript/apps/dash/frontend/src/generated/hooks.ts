@@ -509,6 +509,63 @@ export type LoggedInQueryResult = Apollo.QueryResult<
   Types.LoggedInQuery,
   Types.LoggedInQueryVariables
 >;
+export const PipelineDocument = gql`
+  query pipeline($args: PipelineQueryArgs!) {
+    pipeline(args: $args) {
+      id
+      name
+    }
+  }
+`;
+
+/**
+ * __usePipelineQuery__
+ *
+ * To run a query within a React component, call `usePipelineQuery` and pass it any options that fit your needs.
+ * When your component renders, `usePipelineQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = usePipelineQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function usePipelineQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.PipelineQuery,
+    Types.PipelineQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.PipelineQuery, Types.PipelineQueryVariables>(
+    PipelineDocument,
+    options,
+  );
+}
+export function usePipelineLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.PipelineQuery,
+    Types.PipelineQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<Types.PipelineQuery, Types.PipelineQueryVariables>(
+    PipelineDocument,
+    options,
+  );
+}
+export type PipelineQueryHookResult = ReturnType<typeof usePipelineQuery>;
+export type PipelineLazyQueryHookResult = ReturnType<
+  typeof usePipelineLazyQuery
+>;
+export type PipelineQueryResult = Apollo.QueryResult<
+  Types.PipelineQuery,
+  Types.PipelineQueryVariables
+>;
 export const ProjectDetailsDocument = gql`
   query projectDetails($args: ProjectDetailsQueryArgs!) {
     projectDetails(args: $args) {

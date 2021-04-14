@@ -10,6 +10,7 @@ import {
   REPO_PATH,
 } from '../../constants/projectPaths';
 
+import PipelineDetails from './components/PipelineDetails';
 import useProjectSidebar from './hooks/useProjectSidebar';
 
 const ProjectSidebar = () => {
@@ -17,7 +18,11 @@ const ProjectSidebar = () => {
 
   return (
     <Route path={[JOBS_PATH, REPO_PATH, PIPELINE_PATH]}>
-      <Sidebar overlay onClose={handleClose}>
+      <Sidebar
+        overlay
+        onClose={handleClose}
+        data-testid={'ProjectSidebar__sidebar'}
+      >
         <Switch>
           <Route path={JOBS_PATH} exact>
             <JobList projectId={projectId} expandActions showStatusFilter />
@@ -25,8 +30,8 @@ const ProjectSidebar = () => {
           <Route path={REPO_PATH} exact>
             <div>TODO: Repo</div>
           </Route>
-          <Route path={PIPELINE_PATH} exact>
-            <div>TODO: Pipeline</div>
+          <Route path={[PIPELINE_PATH]} exact>
+            <PipelineDetails />
           </Route>
         </Switch>
       </Sidebar>

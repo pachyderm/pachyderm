@@ -9,8 +9,17 @@ interface SidebarProps extends HTMLAttributes<HTMLDivElement> {
   onClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({children, overlay, onClose}) => (
-  <div className={classnames(styles.base, {[styles.overlay]: overlay})}>
+const Sidebar: React.FC<SidebarProps> = ({
+  children,
+  overlay,
+  onClose,
+  className,
+  ...rest
+}) => (
+  <div
+    className={classnames(styles.base, {[styles.overlay]: overlay}, className)}
+    {...rest}
+  >
     {onClose && (
       <div className={styles.closeContainer}>
         <ButtonLink className={styles.closeButton} onClick={onClose}>

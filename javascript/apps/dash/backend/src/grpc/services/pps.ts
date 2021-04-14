@@ -5,11 +5,12 @@ import {
   PipelineInfo,
   JobInfo,
   InspectJobRequest,
+  InspectPipelineRequest,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import {ServiceArgs} from '@dash-backend/lib/types';
 
-import {jobFromObject} from '../builders/pps';
+import {jobFromObject, pipelineFromObject} from '../builders/pps';
 
 const pps = ({
   pachdAddress,
@@ -53,6 +54,23 @@ const pps = ({
       return new Promise<JobInfo.AsObject>((resolve, reject) => {
         client.inspectJob(
           new InspectJobRequest().setJob(jobFromObject({id})),
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve(res.toObject());
+          },
+        );
+      });
+    },
+
+    inspectPipeline: (id: string) => {
+      return new Promise<PipelineInfo.AsObject>((resolve, reject) => {
+        client.inspectPipeline(
+          new InspectPipelineRequest().setPipeline(
+            pipelineFromObject({name: id}),
+          ),
           credentialMetadata,
           (error, res) => {
             if (error) {

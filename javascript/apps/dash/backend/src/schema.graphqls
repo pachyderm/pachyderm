@@ -221,10 +221,15 @@ type AuthConfig {
   pachdClientId: String!
 }
 
+input PipelineQueryArgs {
+  projectId: String!
+  id: ID!
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
-  pipelines: [Pipeline!]!
+  pipeline(args: PipelineQueryArgs!): Pipeline!
   repos: [Repo!]!
   projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
   jobs(args: JobQueryArgs!): [Job!]!

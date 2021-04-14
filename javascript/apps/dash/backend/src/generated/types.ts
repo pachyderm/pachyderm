@@ -37,7 +37,7 @@ export type Query = {
   files: Array<File>;
   jobs: Array<Job>;
   loggedIn: Scalars['Boolean'];
-  pipelines: Array<Pipeline>;
+  pipeline: Pipeline;
   project: Project;
   projectDetails: ProjectDetails;
   projects: Array<Project>;
@@ -59,6 +59,10 @@ export type QueryFilesArgs = {
 
 export type QueryJobsArgs = {
   args: JobQueryArgs;
+};
+
+export type QueryPipelineArgs = {
+  args: PipelineQueryArgs;
 };
 
 export type QueryProjectArgs = {
@@ -286,6 +290,11 @@ export type AuthConfig = {
   pachdClientId: Scalars['String'];
 };
 
+export type PipelineQueryArgs = {
+  projectId: Scalars['String'];
+  id: Scalars['ID'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
   exchangeCode: Tokens;
@@ -451,6 +460,7 @@ export type ResolversTypes = ResolversObject<{
   Account: ResolverTypeWrapper<Account>;
   SearchResults: ResolverTypeWrapper<SearchResults>;
   AuthConfig: ResolverTypeWrapper<AuthConfig>;
+  PipelineQueryArgs: PipelineQueryArgs;
   Mutation: ResolverTypeWrapper<{}>;
 }>;
 
@@ -487,6 +497,7 @@ export type ResolversParentTypes = ResolversObject<{
   Account: Account;
   SearchResults: SearchResults;
   AuthConfig: AuthConfig;
+  PipelineQueryArgs: PipelineQueryArgs;
   Mutation: {};
 }>;
 
@@ -521,10 +532,11 @@ export type QueryResolvers<
     RequireFields<QueryJobsArgs, 'args'>
   >;
   loggedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  pipelines?: Resolver<
-    Array<ResolversTypes['Pipeline']>,
+  pipeline?: Resolver<
+    ResolversTypes['Pipeline'],
     ParentType,
-    ContextType
+    ContextType,
+    RequireFields<QueryPipelineArgs, 'args'>
   >;
   project?: Resolver<
     ResolversTypes['Project'],
@@ -1084,6 +1096,14 @@ export type GetJobsQuery = {__typename?: 'Query'} & {
 export type LoggedInQueryVariables = Exact<{[key: string]: never}>;
 
 export type LoggedInQuery = {__typename?: 'Query'} & Pick<Query, 'loggedIn'>;
+
+export type PipelineQueryVariables = Exact<{
+  args: PipelineQueryArgs;
+}>;
+
+export type PipelineQuery = {__typename?: 'Query'} & {
+  pipeline: {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>;
+};
 
 export type ProjectDetailsQueryVariables = Exact<{
   args: ProjectDetailsQueryArgs;

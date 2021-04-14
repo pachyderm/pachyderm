@@ -106,6 +106,12 @@ query getJobs($args: JobQueryArgs!) {
     createdAt
   }
 }
+query pipeline($args: PipelineQueryArgs!) {
+  pipeline(args: $args) {
+    id
+    name
+  }
+}
 query projectDetails($args: ProjectDetailsQueryArgs!) {
   projectDetails(args: $args) {
     sizeGBytes

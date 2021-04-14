@@ -1,0 +1,21 @@
+.base {
+  width: 24.1875rem;
+  padding: 0 1.5625rem;
+}
+
+.tabsHeader {
+  padding: 0 1.5625rem;
+  margin: 0 -1.5625rem;
+}
+
+.nameLoader {
+  margin-bottom: 1.5625rem;
+}
+
+.name {
+  margin-bottom: 1.5625rem;
+  font-weight: 600;
+  max-width: 16.5rem;
+  text-overflow: ellipsis;
+  overflow-x: hidden;
+}

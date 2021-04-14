@@ -25,11 +25,14 @@ export const repoRoute = ({
 export const pipelineRoute = ({
   projectId,
   pipelineId,
+  tabId,
 }: {
   projectId: string;
   pipelineId: string;
+  tabId?: string;
 }) =>
   generatePath(PIPELINE_PATH, {
     projectId: encodeURIComponent(projectId),
     pipelineId: encodeURIComponent(pipelineId),
+    tabId,
   });
