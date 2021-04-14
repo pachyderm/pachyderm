@@ -108,10 +108,7 @@ func WritePostgresAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBack
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-postgres-nodes or --static-postgres-volume needs to be provided")
 	}
-	if err := encoder.Encode(PostgresService(opts)); err != nil {
-		return err
-	}
-	return nil
+	return encoder.Encode(PostgresService(opts))
 }
 
 // PostgresDeployment generates a Deployment for the pachyderm postgres instance.

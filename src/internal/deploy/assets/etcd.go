@@ -117,11 +117,7 @@ func WriteEtcdAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend 
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	if err := encoder.Encode(EtcdNodePortService(opts)); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(EtcdNodePortService(opts))
 }
 
 // EtcdDeployment returns an etcd k8s Deployment.
