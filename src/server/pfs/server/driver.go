@@ -92,7 +92,6 @@ type driver struct {
 func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
 	// Setup etcd, object storage, and database clients.
 	etcdClient := env.GetEtcdClient()
-	fmt.Printf("making client: %s, %s\n", env.Config().StorageBackend, env.Config().StorageRoot)
 	objClient, err := obj.NewClient(env.Config().StorageBackend, env.Config().StorageRoot)
 	if err != nil {
 		return nil, err
@@ -147,8 +146,8 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		return nil, err
 	}
 	// Setup PFS master
-	go d.master(env)
-	go d.compactionWorker()
+	go d.master(env.Context())
+	go d.compactionWorker(env.Context())
 	return d, nil
 }
 
