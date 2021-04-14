@@ -24,12 +24,6 @@ func nextEvent(c <-chan *watch.Event, timeout time.Duration) *watch.Event {
 	}
 }
 
-func nextEventOrErr(t *testing.T, c <-chan *watch.Event) *watch.Event {
-	result := nextEvent(c, 5*time.Second)
-	require.NotNil(t, result)
-	return result
-}
-
 func requireEmptyChannel(t *testing.T, c <-chan *watch.Event) {
 	select {
 	case ev, ok := <-c:
@@ -105,7 +99,7 @@ func (tester *ChannelWatchTester) ExpectEvent(expected TestEvent) {
 
 func (tester *ChannelWatchTester) ExpectEventSet(expected ...TestEvent) {
 	actual := []TestEvent{}
-	for _ = range expected {
+	for range expected {
 		ev := tester.nextEvent(5 * time.Second)
 		require.NotNil(tester.t, ev)
 		actual = append(actual, newTestEvent(tester.t, ev))

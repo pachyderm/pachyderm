@@ -114,30 +114,6 @@ func getNewKeys(respKvs []*mvccpb.KeyValue, fromKey *mvccpb.KeyValue) []*mvccpb.
 	return nil
 }
 
-type kvSort struct {
-	kvs     []*mvccpb.KeyValue
-	compare func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int
-}
-
-func endKeyFromPrefix(prefix string) string {
-	// Lexicographically increment the last character
-	return prefix[0:len(prefix)-1] + string(byte(prefix[len(prefix)-1])+1)
-}
-
-func (s *kvSort) Len() int {
-	return len(s.kvs)
-}
-
-func (s *kvSort) Less(i, j int) bool {
-	return s.compare(s.kvs[i], s.kvs[j]) < 0
-}
-
-func (s *kvSort) Swap(i, j int) {
-	t := s.kvs[i]
-	s.kvs[i] = s.kvs[j]
-	s.kvs[j] = t
-}
-
 func getWithLimit(c *etcdReadOnlyCollection, key string, limitPtr *int64, opts []etcd.OpOption) (*etcd.GetResponse, bool, error) {
 	for {
 		limit := atomic.LoadInt64(limitPtr)

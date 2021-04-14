@@ -737,10 +737,6 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 
 	query := fmt.Sprintf("insert into %s (%s) values (%s)", c.table, columnList, paramList)
 	if upsert {
-		upsertFields := []string{}
-		for _, column := range columns {
-			upsertFields = append(upsertFields, fmt.Sprintf("%s = :%s", column, column))
-		}
 		query = fmt.Sprintf("%s on conflict (key) do update set (%s) = (%s)", query, columnList, paramList)
 	}
 
