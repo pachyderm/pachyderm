@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -31,7 +32,7 @@ var defaultRecord = &ec.LicenseRecord{}
 
 type apiServer struct {
 	pachLogger log.Logger
-	env        *serviceenv.ServiceEnv
+	env        serviceenv.ServiceEnv
 
 	enterpriseTokenCache *keycache.Cache
 
@@ -45,7 +46,7 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // New returns an implementation of license.APIServer.
-func New(env *serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
+func New(env serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
 	enterpriseToken := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		etcdPrefix,
@@ -58,7 +59,7 @@ func New(env *serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
 	s := &apiServer{
 		pachLogger:           log.NewLogger("license.API"),
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(enterpriseToken, licenseRecordKey, defaultRecord),
+		enterpriseTokenCache: keycache.NewCache(enterpriseToken.ReadOnly(env.Context()), licenseRecordKey, defaultRecord),
 		enterpriseToken:      enterpriseToken,
 	}
 	go s.enterpriseTokenCache.Watch()
@@ -173,8 +174,18 @@ func (a *apiServer) validateClusterConfig(ctx context.Context, address string) e
 		return errors.New("no address provided for cluster")
 	}
 
+	pachdAddress, err := grpcutil.ParsePachdAddress(address)
+	if err != nil {
+		return errors.Wrap(err, "could not parse the pachd address")
+	}
+
+	var options []client.Option
+	if pachdAddress.Secured {
+		options = append(options, client.WithSystemCAs)
+	}
+
 	// Attempt to connect to the pachd
-	pachClient, err := client.NewFromAddress(address)
+	pachClient, err := client.NewFromAddress(pachdAddress.Hostname(), options...)
 	if err != nil {
 		return errors.Wrapf(err, "unable to create client for %q", address)
 	}

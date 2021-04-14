@@ -2,6 +2,7 @@ package dbutil
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -11,7 +12,7 @@ const (
 	// DefaultHost is the default host.
 	DefaultHost = "127.0.0.1"
 	// DefaultPort is the default port.
-	DefaultPort = "32228"
+	DefaultPort = 32228
 	// DefaultUser is the default user
 	DefaultUser = "postgres"
 	// DefaultDBName is the default DB name.
@@ -22,7 +23,7 @@ const (
 
 type dbConfig struct {
 	host           string
-	port           string
+	port           int
 	user, password string
 	name           string
 	maxOpenConns   int
@@ -49,8 +50,8 @@ func getDSN(dbc *dbConfig) string {
 	if dbc.host != "" {
 		fields["host"] = dbc.host
 	}
-	if dbc.port != "" {
-		fields["port"] = dbc.port
+	if dbc.port != 0 {
+		fields["port"] = strconv.Itoa(dbc.port)
 	}
 	if dbc.name != "" {
 		fields["dbname"] = dbc.name

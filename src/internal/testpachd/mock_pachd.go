@@ -80,9 +80,7 @@ type authenticateFunc func(context.Context, *auth.AuthenticateRequest) (*auth.Au
 type authorizeFunc func(context.Context, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 type whoAmIFunc func(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 type getOIDCLoginFunc func(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error)
-type getAuthTokenFunc func(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
 type getRobotTokenFunc func(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error)
-type extendAuthTokenFunc func(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error)
 type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
 type setGroupsForUserFunc func(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error)
 type modifyMembersFunc func(context.Context, *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error)
@@ -90,6 +88,7 @@ type getGroupsFunc func(context.Context, *auth.GetGroupsRequest) (*auth.GetGroup
 type getUsersFunc func(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error)
 type extractAuthTokensFunc func(context.Context, *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error)
 type restoreAuthTokenFunc func(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error)
+type deleteExpiredAuthTokensFunc func(context.Context, *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error)
 
 type mockActivateAuth struct{ handler activateAuthFunc }
 type mockDeactivateAuth struct{ handler deactivateAuthFunc }
@@ -102,9 +101,7 @@ type mockAuthenticate struct{ handler authenticateFunc }
 type mockAuthorize struct{ handler authorizeFunc }
 type mockWhoAmI struct{ handler whoAmIFunc }
 type mockGetOIDCLogin struct{ handler getOIDCLoginFunc }
-type mockGetAuthToken struct{ handler getAuthTokenFunc }
 type mockGetRobotToken struct{ handler getRobotTokenFunc }
-type mockExtendAuthToken struct{ handler extendAuthTokenFunc }
 type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
 type mockSetGroupsForUser struct{ handler setGroupsForUserFunc }
 type mockModifyMembers struct{ handler modifyMembersFunc }
@@ -112,54 +109,53 @@ type mockGetGroups struct{ handler getGroupsFunc }
 type mockGetUsers struct{ handler getUsersFunc }
 type mockExtractAuthTokens struct{ handler extractAuthTokensFunc }
 type mockRestoreAuthToken struct{ handler restoreAuthTokenFunc }
+type mockDeleteExpiredAuthTokens struct{ handler deleteExpiredAuthTokensFunc }
 
-func (mock *mockActivateAuth) Use(cb activateAuthFunc)           { mock.handler = cb }
-func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)       { mock.handler = cb }
-func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)   { mock.handler = cb }
-func (mock *mockSetConfiguration) Use(cb setConfigurationFunc)   { mock.handler = cb }
-func (mock *mockModifyRoleBinding) Use(cb modifyRoleBindingFunc) { mock.handler = cb }
-func (mock *mockGetRoleBinding) Use(cb getRoleBindingFunc)       { mock.handler = cb }
-func (mock *mockAuthenticate) Use(cb authenticateFunc)           { mock.handler = cb }
-func (mock *mockAuthorize) Use(cb authorizeFunc)                 { mock.handler = cb }
-func (mock *mockWhoAmI) Use(cb whoAmIFunc)                       { mock.handler = cb }
-func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)           { mock.handler = cb }
-func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)           { mock.handler = cb }
-func (mock *mockGetRobotToken) Use(cb getRobotTokenFunc)         { mock.handler = cb }
-func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)     { mock.handler = cb }
-func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)     { mock.handler = cb }
-func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)   { mock.handler = cb }
-func (mock *mockModifyMembers) Use(cb modifyMembersFunc)         { mock.handler = cb }
-func (mock *mockGetGroups) Use(cb getGroupsFunc)                 { mock.handler = cb }
-func (mock *mockGetUsers) Use(cb getUsersFunc)                   { mock.handler = cb }
-func (mock *mockExtractAuthTokens) Use(cb extractAuthTokensFunc) { mock.handler = cb }
-func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)   { mock.handler = cb }
+func (mock *mockActivateAuth) Use(cb activateAuthFunc)                       { mock.handler = cb }
+func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)                   { mock.handler = cb }
+func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)               { mock.handler = cb }
+func (mock *mockSetConfiguration) Use(cb setConfigurationFunc)               { mock.handler = cb }
+func (mock *mockModifyRoleBinding) Use(cb modifyRoleBindingFunc)             { mock.handler = cb }
+func (mock *mockGetRoleBinding) Use(cb getRoleBindingFunc)                   { mock.handler = cb }
+func (mock *mockAuthenticate) Use(cb authenticateFunc)                       { mock.handler = cb }
+func (mock *mockAuthorize) Use(cb authorizeFunc)                             { mock.handler = cb }
+func (mock *mockWhoAmI) Use(cb whoAmIFunc)                                   { mock.handler = cb }
+func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)                       { mock.handler = cb }
+func (mock *mockGetRobotToken) Use(cb getRobotTokenFunc)                     { mock.handler = cb }
+func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)                 { mock.handler = cb }
+func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)               { mock.handler = cb }
+func (mock *mockModifyMembers) Use(cb modifyMembersFunc)                     { mock.handler = cb }
+func (mock *mockGetGroups) Use(cb getGroupsFunc)                             { mock.handler = cb }
+func (mock *mockGetUsers) Use(cb getUsersFunc)                               { mock.handler = cb }
+func (mock *mockExtractAuthTokens) Use(cb extractAuthTokensFunc)             { mock.handler = cb }
+func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)               { mock.handler = cb }
+func (mock *mockDeleteExpiredAuthTokens) Use(cb deleteExpiredAuthTokensFunc) { mock.handler = cb }
 
 type authServerAPI struct {
 	mock *mockAuthServer
 }
 
 type mockAuthServer struct {
-	api               authServerAPI
-	Activate          mockActivateAuth
-	Deactivate        mockDeactivateAuth
-	GetConfiguration  mockGetConfiguration
-	SetConfiguration  mockSetConfiguration
-	ModifyRoleBinding mockModifyRoleBinding
-	GetRoleBinding    mockGetRoleBinding
-	Authenticate      mockAuthenticate
-	Authorize         mockAuthorize
-	WhoAmI            mockWhoAmI
-	GetOIDCLogin      mockGetOIDCLogin
-	GetAuthToken      mockGetAuthToken
-	GetRobotToken     mockGetRobotToken
-	ExtendAuthToken   mockExtendAuthToken
-	RevokeAuthToken   mockRevokeAuthToken
-	SetGroupsForUser  mockSetGroupsForUser
-	ModifyMembers     mockModifyMembers
-	GetGroups         mockGetGroups
-	GetUsers          mockGetUsers
-	ExtractAuthTokens mockExtractAuthTokens
-	RestoreAuthToken  mockRestoreAuthToken
+	api                     authServerAPI
+	Activate                mockActivateAuth
+	Deactivate              mockDeactivateAuth
+	GetConfiguration        mockGetConfiguration
+	SetConfiguration        mockSetConfiguration
+	ModifyRoleBinding       mockModifyRoleBinding
+	GetRoleBinding          mockGetRoleBinding
+	Authenticate            mockAuthenticate
+	Authorize               mockAuthorize
+	WhoAmI                  mockWhoAmI
+	GetOIDCLogin            mockGetOIDCLogin
+	GetRobotToken           mockGetRobotToken
+	RevokeAuthToken         mockRevokeAuthToken
+	SetGroupsForUser        mockSetGroupsForUser
+	ModifyMembers           mockModifyMembers
+	GetGroups               mockGetGroups
+	GetUsers                mockGetUsers
+	ExtractAuthTokens       mockExtractAuthTokens
+	RestoreAuthToken        mockRestoreAuthToken
+	DeleteExpiredAuthTokens mockDeleteExpiredAuthTokens
 }
 
 func (api *authServerAPI) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
@@ -222,23 +218,11 @@ func (api *authServerAPI) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLog
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetOIDCLogin")
 }
-func (api *authServerAPI) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
-	if api.mock.GetAuthToken.handler != nil {
-		return api.mock.GetAuthToken.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock auth.GetAuthToken")
-}
 func (api *authServerAPI) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error) {
 	if api.mock.GetRobotToken.handler != nil {
 		return api.mock.GetRobotToken.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetRobotToken")
-}
-func (api *authServerAPI) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error) {
-	if api.mock.ExtendAuthToken.handler != nil {
-		return api.mock.ExtendAuthToken.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock auth.ExtendAuthToken")
 }
 func (api *authServerAPI) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
 	if api.mock.RevokeAuthToken.handler != nil {
@@ -283,6 +267,13 @@ func (api *authServerAPI) RestoreAuthToken(ctx context.Context, req *auth.Restor
 		return api.mock.RestoreAuthToken.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.RestoreAuthToken")
+}
+
+func (api *authServerAPI) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
+	if api.mock.DeleteExpiredAuthTokens.handler != nil {
+		return api.mock.DeleteExpiredAuthTokens.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.DeleteExpiredAuthTokens")
 }
 
 /* Enterprise Server Mocks */
@@ -369,7 +360,6 @@ type inspectBranchFunc func(context.Context, *pfs.InspectBranchRequest) (*pfs.Br
 type listBranchFunc func(context.Context, *pfs.ListBranchRequest) (*pfs.BranchInfos, error)
 type deleteBranchFunc func(context.Context, *pfs.DeleteBranchRequest) (*types.Empty, error)
 type modifyFileFunc func(pfs.API_ModifyFileServer) error
-type copyFileFunc func(context.Context, *pfs.CopyFileRequest) (*types.Empty, error)
 type getFileFunc func(*pfs.GetFileRequest, pfs.API_GetFileServer) error
 type inspectFileFunc func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
 type listFileFunc func(*pfs.ListFileRequest, pfs.API_ListFileServer) error
@@ -401,7 +391,6 @@ type mockInspectBranch struct{ handler inspectBranchFunc }
 type mockListBranch struct{ handler listBranchFunc }
 type mockDeleteBranch struct{ handler deleteBranchFunc }
 type mockModifyFile struct{ handler modifyFileFunc }
-type mockCopyFile struct{ handler copyFileFunc }
 type mockGetFile struct{ handler getFileFunc }
 type mockInspectFile struct{ handler inspectFileFunc }
 type mockListFile struct{ handler listFileFunc }
@@ -433,7 +422,6 @@ func (mock *mockInspectBranch) Use(cb inspectBranchFunc)     { mock.handler = cb
 func (mock *mockListBranch) Use(cb listBranchFunc)           { mock.handler = cb }
 func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)       { mock.handler = cb }
 func (mock *mockModifyFile) Use(cb modifyFileFunc)           { mock.handler = cb }
-func (mock *mockCopyFile) Use(cb copyFileFunc)               { mock.handler = cb }
 func (mock *mockGetFile) Use(cb getFileFunc)                 { mock.handler = cb }
 func (mock *mockInspectFile) Use(cb inspectFileFunc)         { mock.handler = cb }
 func (mock *mockListFile) Use(cb listFileFunc)               { mock.handler = cb }
@@ -471,7 +459,6 @@ type mockPFSServer struct {
 	ListBranch      mockListBranch
 	DeleteBranch    mockDeleteBranch
 	ModifyFile      mockModifyFile
-	CopyFile        mockCopyFile
 	GetFile         mockGetFile
 	InspectFile     mockInspectFile
 	ListFile        mockListFile
@@ -593,12 +580,6 @@ func (api *pfsServerAPI) ModifyFile(serv pfs.API_ModifyFileServer) error {
 		return api.mock.ModifyFile.handler(serv)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ModifyFile")
-}
-func (api *pfsServerAPI) CopyFile(ctx context.Context, req *pfs.CopyFileRequest) (*types.Empty, error) {
-	if api.mock.CopyFile.handler != nil {
-		return api.mock.CopyFile.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.CopyFile")
 }
 func (api *pfsServerAPI) GetFile(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) error {
 	if api.mock.GetFile.handler != nil {

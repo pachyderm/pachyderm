@@ -23,7 +23,7 @@ type MockEnv struct {
 
 // NewMockEnv constructs a MockEnv for testing, which will be destroyed at the
 // end of the test.
-func NewMockEnv(t *testing.T) *MockEnv {
+func NewMockEnv(t testing.TB) *MockEnv {
 	etcdEnv := testetcd.NewEnv(t)
 
 	// Use an error group with a cancelable context to supervise every component

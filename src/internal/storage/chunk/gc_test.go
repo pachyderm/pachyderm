@@ -13,6 +13,6 @@ func TestReduceObjectsPerChunk(t *testing.T) {
 	ctx := context.Background()
 	db := testutil.NewTestDB(t)
 	tracker := track.NewPostgresTracker(db)
-	testutil.NewChunkStorage(t, db, tracker)
+	NewTestStorage(t, db, tracker)
 	require.NoError(t, ReduceObjectsPerChunk(ctx, db))
 }

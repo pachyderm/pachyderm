@@ -2,9 +2,13 @@ package chunk
 
 import (
 	"math"
+	"os"
+	"path/filepath"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // StorageOption configures a storage.
@@ -64,4 +68,20 @@ func WithNoUpload() WriterOption {
 	return func(w *Writer) {
 		w.noUpload = true
 	}
+}
+
+// StorageOptions returns the chunk storage options for the config.
+func StorageOptions(conf *serviceenv.Configuration) ([]StorageOption, error) {
+	var opts []StorageOption
+	if conf.StorageUploadConcurrencyLimit > 0 {
+		opts = append(opts, WithMaxConcurrentObjects(0, conf.StorageUploadConcurrencyLimit))
+	}
+	if conf.StorageDiskCacheSize > 0 {
+		diskCache, err := obj.NewLocalClient(filepath.Join(os.TempDir(), "pfs-cache", uuid.NewWithoutDashes()))
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, WithObjectCache(diskCache, conf.StorageDiskCacheSize))
+	}
+	return opts, nil
 }

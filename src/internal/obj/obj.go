@@ -600,15 +600,37 @@ func NewClientFromSecret(storageRoot string) (c Client, err error) {
 	if !ok {
 		return nil, errors.Errorf("storage backend environment variable not found")
 	}
+	return NewClient(storageBackend, storageRoot)
+}
+
+// NewClient creates an obj.Client using the given backend and storage root (for
+// local backends).
+// TODO: Not sure if we want to keep the storage root configuration for
+// non-local deployments. If so, we will need to connect it to the object path
+// prefix for chunks.
+func NewClient(storageBackend string, storageRoot string) (Client, error) {
+	var c Client
+	var err error
 	switch storageBackend {
+	case Minio:
+		// S3 compatible doesn't like leading slashes
+		// TODO: Readd?
+		//if len(dir) > 0 && dir[0] == '/' {
+		//	dir = dir[1:]
+		//}
+		c, err = NewMinioClientFromSecret("")
 	case Amazon:
+		// amazon doesn't like leading slashes
+		// TODO: Readd?
+		//if len(dir) > 0 && dir[0] == '/' {
+		//	dir = dir[1:]
+		//}
 		c, err = NewAmazonClientFromSecret("")
 	case Google:
+		// TODO figure out if google likes leading slashses
 		c, err = NewGoogleClientFromSecret("")
 	case Microsoft:
 		c, err = NewMicrosoftClientFromSecret("")
-	case Minio:
-		c, err = NewMinioClientFromSecret("")
 	case Local:
 		c, err = NewLocalClient(storageRoot)
 	}

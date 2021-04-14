@@ -13,8 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	auth "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
-	pfs "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
 
 	apps "k8s.io/api/apps/v1"
@@ -87,6 +85,9 @@ var (
 	// with something like kube2iam as an alternative way to provide
 	// credentials.
 	IAMAnnotation = "iam.amazonaws.com/role"
+
+	// OidcPort is the port where OIDC ID Providers can send auth assertions
+	OidcPort = int32(657)
 )
 
 // Backend is the type used to enumerate what system provides object storage or
@@ -564,15 +565,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 			Path: storageHostPath,
 			Type: &pathType,
 		}
-		backendEnvVar = pfs.LocalBackendEnvVar
+		backendEnvVar = obj.Local
 	case MinioBackend:
-		backendEnvVar = pfs.MinioBackendEnvVar
+		backendEnvVar = obj.Minio
 	case AmazonBackend:
-		backendEnvVar = pfs.AmazonBackendEnvVar
+		backendEnvVar = obj.Amazon
 	case GoogleBackend:
-		backendEnvVar = pfs.GoogleBackendEnvVar
+		backendEnvVar = obj.Google
 	case MicrosoftBackend:
-		backendEnvVar = pfs.MicrosoftBackendEnvVar
+		backendEnvVar = obj.Microsoft
 	}
 	volume, mount := GetBackendSecretVolumeAndMount(backendEnvVar)
 	volumes = append(volumes, volume)
@@ -717,7 +718,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 									Name:          "api-git-port",
 								},
 								{
-									ContainerPort: auth.OidcPort,
+									ContainerPort: OidcPort,
 									Protocol:      "TCP",
 									Name:          "oidc-port",
 								},
@@ -779,9 +780,9 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					NodePort: 30652,
 				},
 				{
-					Port:     auth.OidcPort,
+					Port:     OidcPort,
 					Name:     "oidc-port",
-					NodePort: 30000 + auth.OidcPort,
+					NodePort: 30000 + OidcPort,
 				},
 				{
 					Port:     658,

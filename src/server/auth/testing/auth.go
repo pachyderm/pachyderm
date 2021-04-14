@@ -94,16 +94,6 @@ func (a *InactiveAPIServer) GetRobotToken(context.Context, *auth.GetRobotTokenRe
 	return nil, auth.ErrNotActivated
 }
 
-// GetAuthToken implements the GetAuthToken RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetAuthToken(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetAuthTokenInTransaction is the same as GetAuthToken but for use inside a running transaction.
-func (a *InactiveAPIServer) GetAuthTokenInTransaction(*txnenv.TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
 // GetPipelineAuthTokenInTransaction is the same as GetAuthToken but for use inside a running transaction.
 func (a *InactiveAPIServer) GetPipelineAuthTokenInTransaction(*txnenv.TransactionContext, string) (string, error) {
 	return "", auth.ErrNotActivated
@@ -111,11 +101,6 @@ func (a *InactiveAPIServer) GetPipelineAuthTokenInTransaction(*txnenv.Transactio
 
 // GetOIDCLogin implements the GetOIDCLogin RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetOIDCLogin(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// ExtendAuthToken implements the ExtendAuthToken RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ExtendAuthToken(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
@@ -166,5 +151,10 @@ func (a *InactiveAPIServer) ExtractAuthTokens(context.Context, *auth.ExtractAuth
 
 // RestoreAuthToken implements the RestoreAuthToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) RestoreAuthToken(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// RestoreAuthToken implements the RestoreAuthToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) DeleteExpiredAuthTokens(context.Context, *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
 	return nil, auth.ErrNotActivated
 }

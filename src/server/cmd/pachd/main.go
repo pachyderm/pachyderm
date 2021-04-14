@@ -52,6 +52,7 @@ import (
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -72,6 +73,7 @@ func init() {
 
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	switch {
 	case readiness:
@@ -119,7 +121,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	debug.SetGCPercent(env.GCPercent)
+	debug.SetGCPercent(env.Config().GCPercent)
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
@@ -129,8 +131,8 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		return err
 	}
 
-	if env.EtcdPrefix == "" {
-		env.EtcdPrefix = col.DefaultPrefix
+	if env.Config().EtcdPrefix == "" {
+		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
 
 	// Setup External Pachd GRPC Server.
@@ -156,14 +158,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		return errors.Wrapf(err, "getClusterID")
 	}
 
-	identityStorageProvider := identity_server.NewLazyPostgresStorage(
-		env.PostgresServiceHost,
-		env.IdentityServerDatabase,
-		env.IdentityServerUser,
-		env.IdentityServerPassword,
-		env.PostgresServiceSSL,
-		env.PostgresServicePort,
-	)
+	identityStorageProvider, err := identity_server.NewStorageProvider(env)
+	if err != nil {
+		return err
+	}
 
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
@@ -172,7 +170,8 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			authAPIServer, err = authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
+				true,
 				true,
 				true,
 			)
@@ -187,7 +186,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("License API", func() error {
 			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -199,7 +198,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -220,7 +219,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Admin API", func() error {
 			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
 				ID:           clusterID,
-				DeploymentID: env.DeploymentID,
+				DeploymentID: env.Config().DeploymentID,
 			}))
 			return nil
 		}); err != nil {
@@ -235,22 +234,18 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				true,
-				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
 		txnEnv.Initialize(env, nil, authAPIServer, nil, nil)
-		if _, err := externalServer.ListenTCP("", env.Port); err != nil {
+		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
 		healthServer.Ready()
@@ -272,9 +267,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			authAPIServer, err = authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				false,
+				true,
 			)
 			if err != nil {
 				return err
@@ -287,7 +283,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("License API", func() error {
 			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -307,7 +303,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -320,7 +316,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Admin API", func() error {
 			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
 				ID:           clusterID,
-				DeploymentID: env.DeploymentID,
+				DeploymentID: env.Config().DeploymentID,
 			}))
 			return nil
 		}); err != nil {
@@ -335,22 +331,18 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				false,
-				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
 		txnEnv.Initialize(env, nil, authAPIServer, nil, nil)
-		if _, err := internalServer.ListenTCP("", env.PeerPort); err != nil {
+		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
 		healthServer.Ready()
@@ -398,16 +390,16 @@ func doSidecarMode(config interface{}) (retErr error) {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	debug.SetGCPercent(env.GCPercent)
-	if env.EtcdPrefix == "" {
-		env.EtcdPrefix = col.DefaultPrefix
+	debug.SetGCPercent(env.Config().GCPercent)
+	if env.Config().EtcdPrefix == "" {
+		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
 	clusterID, err := getClusterID(env.GetEtcdClient())
 	if err != nil {
 		return errors.Wrapf(err, "getClusterID")
 	}
 	var reporter *metrics.Reporter
-	if env.Metrics {
+	if env.Config().Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
 	authInterceptor := auth.NewInterceptor(env)
@@ -432,8 +424,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		pfsAPIServer, err = pfs_server.NewAPIServer(
 			env,
 			txnEnv,
-			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-			env.GetDBClient(),
+			path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 		)
 		if err != nil {
 			return err
@@ -448,13 +439,13 @@ func doSidecarMode(config interface{}) (retErr error) {
 		ppsAPIServer, err = pps_server.NewSidecarAPIServer(
 			env,
 			txnEnv,
-			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
-			env.Namespace,
-			env.IAMRole,
+			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
+			env.Config().Namespace,
+			env.Config().IAMRole,
 			reporter,
-			env.PPSWorkerPort,
-			env.HTTPPort,
-			env.PeerPort,
+			env.Config().PPSWorkerPort,
+			env.Config().HTTPPort,
+			env.Config().PeerPort,
 		)
 		if err != nil {
 			return err
@@ -469,7 +460,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 		authAPIServer, err = authserver.NewAuthServer(
 			env,
 			txnEnv,
-			path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+			path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
+			false,
 			false,
 			false,
 		)
@@ -486,23 +478,12 @@ func doSidecarMode(config interface{}) (retErr error) {
 		transactionAPIServer, err = txnserver.NewAPIServer(
 			env,
 			txnEnv,
-			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+			path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 		)
 		if err != nil {
 			return err
 		}
 		transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := logGRPCServerSetup("Enterprise API", func() error {
-		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-			env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
-		if err != nil {
-			return err
-		}
-		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -516,7 +497,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("Debug", func() error {
 		debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
 			env,
-			env.PachdPodName,
+			env.Config().PachdPodName,
 			nil,
 		))
 		return nil
@@ -527,7 +508,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
-	if _, err := server.ListenTCP("", env.PeerPort); err != nil {
+	if _, err := server.ListenTCP("", env.Config().PeerPort); err != nil {
 		return err
 	}
 	return server.Wait()
@@ -558,9 +539,9 @@ func doFullMode(config interface{}) (retErr error) {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	debug.SetGCPercent(env.GCPercent)
-	if env.EtcdPrefix == "" {
-		env.EtcdPrefix = col.DefaultPrefix
+	debug.SetGCPercent(env.Config().GCPercent)
+	if env.Config().EtcdPrefix == "" {
+		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
@@ -575,18 +556,24 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return errors.Wrapf(err, "getClusterID")
 	}
+
+	identityStorageProvider, err := identity_server.NewStorageProvider(env)
+	if err != nil {
+		return err
+	}
+
 	var reporter *metrics.Reporter
-	if env.Metrics {
+	if env.Config().Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
-	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
+	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.Config().EtcdHost, env.Config().EtcdPort))
 	ip, err := netutil.ExternalIP()
 	if err != nil {
 		return errors.Wrapf(err, "error getting pachd external ip")
 	}
-	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.PeerPort))
-	kubeNamespace := env.Namespace
-	requireNoncriticalServers := !env.RequireCriticalServersOnly
+	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.Config().PeerPort))
+	kubeNamespace := env.Config().Namespace
+	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := auth.NewInterceptor(env)
@@ -607,20 +594,11 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 
-	identityStorageProvider := identity_server.NewLazyPostgresStorage(
-		env.PostgresServiceHost,
-		env.IdentityServerDatabase,
-		env.IdentityServerUser,
-		env.IdentityServerPassword,
-		env.PostgresServiceSSL,
-		env.PostgresServicePort,
-	)
-
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), env.GetDBClient())
+			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -634,25 +612,25 @@ func doFullMode(config interface{}) (retErr error) {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+				path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 				kubeNamespace,
-				env.WorkerImage,
-				env.WorkerSidecarImage,
-				env.WorkerImagePullPolicy,
-				env.StorageRoot,
-				env.StorageBackend,
-				env.StorageHostPath,
-				env.CacheRoot,
-				env.IAMRole,
-				env.ImagePullSecret,
-				env.NoExposeDockerSocket,
+				env.Config().WorkerImage,
+				env.Config().WorkerSidecarImage,
+				env.Config().WorkerImagePullPolicy,
+				env.Config().StorageRoot,
+				env.Config().StorageBackend,
+				env.Config().StorageHostPath,
+				env.Config().CacheRoot,
+				env.Config().IAMRole,
+				env.Config().ImagePullSecret,
+				env.Config().NoExposeDockerSocket,
 				reporter,
-				env.WorkerUsesRoot,
-				env.PPSWorkerPort,
-				env.Port,
-				env.HTTPPort,
-				env.PeerPort,
-				env.GCPercent,
+				env.Config().WorkerUsesRoot,
+				env.Config().PPSWorkerPort,
+				env.Config().Port,
+				env.Config().HTTPPort,
+				env.Config().PeerPort,
+				env.Config().GCPercent,
 			)
 			if err != nil {
 				return err
@@ -664,15 +642,11 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				true,
-				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -682,7 +656,7 @@ func doFullMode(config interface{}) (retErr error) {
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
-				env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true, requireNoncriticalServers)
+				env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix), true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
@@ -696,7 +670,7 @@ func doFullMode(config interface{}) (retErr error) {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -708,7 +682,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -719,7 +693,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("License API", func() error {
 			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -731,7 +705,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Admin API", func() error {
 			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
 				ID:           clusterID,
-				DeploymentID: env.DeploymentID,
+				DeploymentID: env.Config().DeploymentID,
 			}))
 			return nil
 		}); err != nil {
@@ -753,7 +727,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Debug", func() error {
 			debugclient.RegisterDebugServer(externalServer.Server, debugserver.NewDebugServer(
 				env,
-				env.PachdPodName,
+				env.Config().PachdPodName,
 				nil,
 			))
 			return nil
@@ -761,7 +735,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
-		if _, err := externalServer.ListenTCP("", env.Port); err != nil {
+		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
 		healthServer.Ready()
@@ -781,8 +755,7 @@ func doFullMode(config interface{}) (retErr error) {
 			pfsAPIServer, err = pfs_server.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-				env.GetDBClient(),
+				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -797,25 +770,25 @@ func doFullMode(config interface{}) (retErr error) {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+				path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 				kubeNamespace,
-				env.WorkerImage,
-				env.WorkerSidecarImage,
-				env.WorkerImagePullPolicy,
-				env.StorageRoot,
-				env.StorageBackend,
-				env.StorageHostPath,
-				env.CacheRoot,
-				env.IAMRole,
-				env.ImagePullSecret,
-				env.NoExposeDockerSocket,
+				env.Config().WorkerImage,
+				env.Config().WorkerSidecarImage,
+				env.Config().WorkerImagePullPolicy,
+				env.Config().StorageRoot,
+				env.Config().StorageBackend,
+				env.Config().StorageHostPath,
+				env.Config().CacheRoot,
+				env.Config().IAMRole,
+				env.Config().ImagePullSecret,
+				env.Config().NoExposeDockerSocket,
 				reporter,
-				env.WorkerUsesRoot,
-				env.PPSWorkerPort,
-				env.Port,
-				env.HTTPPort,
-				env.PeerPort,
-				env.GCPercent,
+				env.Config().WorkerUsesRoot,
+				env.Config().PPSWorkerPort,
+				env.Config().Port,
+				env.Config().HTTPPort,
+				env.Config().PeerPort,
+				env.Config().GCPercent,
 			)
 			if err != nil {
 				return err
@@ -826,15 +799,11 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, err := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
 				false,
-				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -845,9 +814,10 @@ func doFullMode(config interface{}) (retErr error) {
 			authAPIServer, err = authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				requireNoncriticalServers,
+				true,
 			)
 			if err != nil {
 				return err
@@ -862,7 +832,7 @@ func doFullMode(config interface{}) (retErr error) {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -872,9 +842,20 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, err := licenseserver.New(
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -899,14 +880,14 @@ func doFullMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Admin API", func() error {
 			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
 				ID:           clusterID,
-				DeploymentID: env.DeploymentID,
+				DeploymentID: env.Config().DeploymentID,
 			}))
 			return nil
 		}); err != nil {
 			return err
 		}
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
-		if _, err := internalServer.ListenTCP("", env.PeerPort); err != nil {
+		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
 		healthServer.Ready()
@@ -930,7 +911,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		server := http.Server{
-			Addr:    fmt.Sprintf(":%v", env.HTTPPort),
+			Addr:    fmt.Sprintf(":%v", env.Config().HTTPPort),
 			Handler: httpServer,
 		}
 
@@ -951,11 +932,11 @@ func doFullMode(config interface{}) (retErr error) {
 		return server.ListenAndServeTLS(certPath, keyPath)
 	})
 	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
-		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
+		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix))
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		server, err := s3.Server(env.S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
-			return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.PeerPort))
+		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
+			return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
 		})
 		if err != nil {
 			return err

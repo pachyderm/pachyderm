@@ -20,7 +20,7 @@ type apiServer struct {
 }
 
 func newAPIServer(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 ) (*apiServer, error) {
 	d, err := newDriver(env, txnEnv)

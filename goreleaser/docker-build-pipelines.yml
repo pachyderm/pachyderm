@@ -34,12 +34,20 @@ dockers:
       - pachyderm/go-build:{{.Env.VERSION}}
     skip_push: false
     dockerfile: etc/pipeline-build/go/Dockerfile
+    build_flag_templates:
+      - "--label=version={{.Version}}"
+      - "--label=release={{.Version}}"
     extra_files:
       - etc/pipeline-build/go
+      - ./LICENSE
   -
     image_templates:
       - pachyderm/python-build:{{.Env.VERSION}}
     skip_push: false
     dockerfile: etc/pipeline-build/python/Dockerfile
+    build_flag_templates:
+      - "--label=version={{.Version}}"
+      - "--label=release={{.Version}}"
     extra_files:
       - etc/pipeline-build/python
+      - ./LICENSE      

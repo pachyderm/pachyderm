@@ -39,11 +39,7 @@ type IDTokenClaims struct {
 	Groups        []string `json:"groups"`
 }
 
-func scopes(additionalScopes []string) []string {
-	return append([]string{oidc.ScopeOpenID, "profile", "email"}, additionalScopes...)
-}
-
-// validateOIDC validates an OIDC configuration before it's stored in postgres.
+// validateOIDC validates an OIDC configuration before it's stored in etcd.
 func validateOIDCConfig(ctx context.Context, config *auth.OIDCConfig) error {
 	if _, err := url.Parse(config.Issuer); err != nil {
 		return errors.Wrapf(err, "OIDC issuer must be a valid URL")
@@ -119,7 +115,7 @@ func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, e
 			ClientSecret: config.ClientSecret,
 			RedirectURL:  config.RedirectURI,
 			Endpoint:     oidcProvider.Endpoint(),
-			Scopes:       scopes(config.AdditionalScopes),
+			Scopes:       config.Scopes,
 		},
 	}, nil
 }
@@ -333,8 +329,8 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 		return nil, nil, errors.Wrapf(err, "could not get claims")
 	}
 
-	if !claims.EmailVerified && !config.IgnoreEmailVerified {
-		return nil, nil, errors.New("email_verified claim was false, and ignore_email_verified was not set")
+	if !claims.EmailVerified && config.RequireEmailVerified {
+		return nil, nil, errors.New("email_verified claim was false, and require_email_verified was set")
 	}
 	return idToken, &claims, nil
 }
@@ -393,5 +389,5 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 func (a *apiServer) serveOIDC() error {
 	// serve OIDC handler to exchange the auth code
 	http.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.OidcPort), nil)
+	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config().OidcPort), nil)
 }

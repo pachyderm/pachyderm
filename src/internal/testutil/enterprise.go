@@ -34,7 +34,7 @@ func ActivateEnterprise(t testing.TB, c *client.APIClient) {
 		&license.AddClusterRequest{
 			Id:      "localhost",
 			Secret:  "localhost",
-			Address: "localhost:650",
+			Address: "grpc://localhost:650",
 		})
 	if err != nil && !license.IsErrDuplicateClusterID(err) {
 		require.NoError(t, err)
@@ -44,7 +44,7 @@ func ActivateEnterprise(t testing.TB, c *client.APIClient) {
 		&enterprise.ActivateRequest{
 			Id:            "localhost",
 			Secret:        "localhost",
-			LicenseServer: "localhost:650",
+			LicenseServer: "grpc://localhost:650",
 		})
 	require.NoError(t, err)
 }

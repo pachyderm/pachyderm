@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -11,9 +12,46 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 
 	"github.com/spf13/cobra"
 )
+
+type connectorConfig struct {
+	ID      string
+	Name    string
+	Type    string
+	Version int64
+	Config  interface{}
+}
+
+func newConnectorConfig(conn *identity.IDPConnector) (*connectorConfig, error) {
+	config := connectorConfig{
+		ID:      conn.Id,
+		Name:    conn.Name,
+		Type:    conn.Type,
+		Version: conn.ConfigVersion,
+	}
+
+	if err := json.Unmarshal([]byte(conn.JsonConfig), &config.Config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
+	jsonConfig, err := json.Marshal(c.Config)
+	if err != nil {
+		return nil, err
+	}
+	return &identity.IDPConnector{
+		Id:            c.ID,
+		Name:          c.Name,
+		Type:          c.Type,
+		ConfigVersion: c.Version,
+		JsonConfig:    string(jsonConfig),
+	}, nil
+}
 
 // SetIdentityServerConfigCmd returns a cobra.Command to configure the identity server
 func SetIdentityServerConfigCmd() *cobra.Command {
@@ -62,7 +100,7 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 
 // CreateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
 func CreateIDPConnectorCmd() *cobra.Command {
-	var id, name, t, file string
+	var file string
 	createConnector := &cobra.Command{
 		Short: "Create a new identity provider connector.",
 		Long:  `Create a new identity provider connector.`,
@@ -89,35 +127,33 @@ func CreateIDPConnectorCmd() *cobra.Command {
 				return errors.New("must set input file (use \"-\" to read from stdin)")
 			}
 
-			req := &identity.CreateIDPConnectorRequest{
-				Connector: &identity.IDPConnector{
-					Id:            id,
-					Name:          name,
-					Type:          t,
-					ConfigVersion: 0,
-					JsonConfig:    string(rawConfigBytes),
-				}}
+			var connector connectorConfig
+			if err := serde.DecodeYAML(rawConfigBytes, &connector); err != nil {
+				return errors.Wrapf(err, "unable to parse config")
+			}
+
+			config, err := connector.toIDPConnector()
+			if err != nil {
+				return err
+			}
+			req := &identity.CreateIDPConnectorRequest{Connector: config}
 
 			_, err = c.CreateIDPConnector(c.Ctx(), req)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	createConnector.PersistentFlags().StringVar(&id, "id", "", `The id for the new connector.`)
-	createConnector.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the connector.`)
-	createConnector.PersistentFlags().StringVar(&t, "type", "", `The type of the connector, ex. github, ldap, saml.`)
-	createConnector.PersistentFlags().StringVar(&file, "config", "", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
+	createConnector.PersistentFlags().StringVar(&file, "config", "-", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
 	return cmdutil.CreateAlias(createConnector, "idp create-connector")
 }
 
 // UpdateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
 func UpdateIDPConnectorCmd() *cobra.Command {
-	var name, file string
-	var version int
+	var file string
 	updateConnector := &cobra.Command{
-		Use:   "{{alias}} <connector id>",
+		Use:   "{{alias}}",
 		Short: "Update an existing identity provider connector.",
 		Long:  `Update an existing identity provider connector. Only fields which are specified are updated.`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
@@ -137,24 +173,26 @@ func UpdateIDPConnectorCmd() *cobra.Command {
 					return errors.Wrapf(err, "could not read config from %q", file)
 				}
 			} else {
-				rawConfigBytes = nil
+				return errors.New("must set input file (use \"-\" to read from stdin)")
 			}
 
-			req := &identity.UpdateIDPConnectorRequest{
-				Connector: &identity.IDPConnector{
-					Id:            args[0],
-					Name:          name,
-					ConfigVersion: int64(version),
-					JsonConfig:    string(rawConfigBytes),
-				}}
+			var connector connectorConfig
+			if err := serde.DecodeYAML(rawConfigBytes, &connector); err != nil {
+				return errors.Wrapf(err, "unable to parse config")
+			}
+
+			config, err := connector.toIDPConnector()
+			if err != nil {
+				return err
+			}
+
+			req := &identity.UpdateIDPConnectorRequest{Connector: config}
 
 			_, err = c.UpdateIDPConnector(c.Ctx(), req)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	updateConnector.PersistentFlags().StringVar(&name, "name", "", `The new user-visible name of the connector.`)
-	updateConnector.PersistentFlags().IntVar(&version, "version", 0, `The new configuration version. This must be one greater than the current version.`)
-	updateConnector.PersistentFlags().StringVar(&file, "config", "", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
+	updateConnector.PersistentFlags().StringVar(&file, "config", "-", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
 	return cmdutil.CreateAlias(updateConnector, "idp update-connector")
 }
 
@@ -174,7 +212,15 @@ func GetIDPConnectorCmd() *cobra.Command {
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Printf("name: %v\ntype: %v\nversion: %v\nconfig:\n%v\n", resp.Connector.Name, resp.Connector.Type, resp.Connector.ConfigVersion, resp.Connector.JsonConfig)
+			config, err := newConnectorConfig(resp.Connector)
+			if err != nil {
+				return err
+			}
+			yamlStr, err := serde.EncodeYAML(config)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(yamlStr))
 			return nil
 		}),
 	}

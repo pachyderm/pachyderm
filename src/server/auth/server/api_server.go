@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/auth"
@@ -36,10 +38,6 @@ const (
 	oidcAuthnPrefix    = "/oidc-authns"
 
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
-	// and the default lifetime of an auth token from GetAuthToken.
-	//
-	// Note: if 'defaultSessionTTLSecs' is changed, then the description of
-	// '--ttl' in 'pachctl get-auth-token' must also be changed
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
 
 	// configKey is a key (in etcd, in the config collection) that maps to the
@@ -55,8 +53,8 @@ const (
 	// GitHookPort is 655
 	// Prometheus uses 656
 
-	// OidcPort is the port where OIDC ID Providers can send auth assertions
-	OidcPort = 657
+	// the length of interval between expired auth token cleanups
+	cleanupIntervalHours = 24
 )
 
 // DefaultOIDCConfig is the default config for the auth API server
@@ -71,16 +69,13 @@ type APIServer interface {
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
-	env        *serviceenv.ServiceEnv
+	env        serviceenv.ServiceEnv
 	txnEnv     *txnenv.TransactionEnv
 	pachLogger log.Logger
 
 	configCache             *keycache.Cache
 	clusterRoleBindingCache *keycache.Cache
 
-	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
-	// returned to users by Authenticate()
-	tokens col.PostgresCollection
 	// roleBindings is a collection of resource name -> role binding mappings.
 	roleBindings col.PostgresCollection
 	// members is a collection of username -> groups mappings.
@@ -102,6 +97,13 @@ type apiServer struct {
 	// service should export the SAML ACS and Metadata services, so if public
 	// is true and auth is active, this may export those SAML services
 	public bool
+
+	// watchesEnabled controls whether we cache the auth config and cluster role bindings
+	// in the auth service, or whether we look them up each time. Watches are expensive in
+	// postgres, so we can't afford to have each sidecar run watches. Pipelines always have
+	// direct access to a repo anyways, so the cluster role bindings don't affect their access,
+	// and the OIDC server doesn't run in the sidecar so the config doesn't matter.
+	watchesEnabled bool
 }
 
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
@@ -129,10 +131,11 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 
 // NewAuthServer returns an implementation of auth.APIServer.
 func NewAuthServer(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	public bool,
 	requireNoncriticalServers bool,
+	watchesEnabled bool,
 ) (APIServer, error) {
 
 	authConfig, err := col.NewPostgresCollection(
@@ -151,17 +154,6 @@ func NewAuthServer(
 		env.GetDBClient(),
 		env.GetPostgresListener(),
 		&auth.RoleBinding{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	tokens, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.TokenInfo{},
 		nil,
 		nil,
 	)
@@ -203,18 +195,16 @@ func NewAuthServer(
 	}
 
 	s := &apiServer{
-		env:                     env,
-		txnEnv:                  txnEnv,
-		pachLogger:              log.NewLogger("auth.API"),
-		authConfig:              authConfig,
-		roleBindings:            roleBindings,
-		tokens:                  tokens,
-		members:                 members,
-		groups:                  groups,
-		oidcStates:              oidcStates,
-		configCache:             keycache.NewCache(authConfig.ReadOnly(context.Background()), configKey, &DefaultOIDCConfig),
-		clusterRoleBindingCache: keycache.NewCache(roleBindings.ReadOnly(context.Background()), clusterRoleBindingKey, &auth.RoleBinding{}),
-		public:                  public,
+		env:            env,
+		txnEnv:         txnEnv,
+		pachLogger:     log.NewLogger("auth.API"),
+		authConfig:     authConfig,
+		roleBindings:   roleBindings,
+		members:        members,
+		groups:         groups,
+		oidcStates:     oidcStates,
+		public:         public,
+		watchesEnabled: watchesEnabled,
 	}
 	go s.retrieveOrGeneratePPSToken()
 
@@ -223,11 +213,19 @@ func NewAuthServer(
 		go waitForError("OIDC HTTP Server", requireNoncriticalServers, s.serveOIDC)
 	}
 
-	// Watch for new auth config options
-	go s.configCache.Watch()
+	if watchesEnabled {
+		s.configCache = keycache.NewCache(authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
 
-	// Watch for changes to the cluster role binding
-	go s.clusterRoleBindingCache.Watch()
+		// Watch for new auth config options
+		go s.configCache.Watch()
+
+		// Watch for changes to the cluster role binding
+		go s.clusterRoleBindingCache.Watch()
+	}
+
+	s.deleteExpiredTokensRoutine()
+
 	return s, nil
 }
 
@@ -240,23 +238,40 @@ func waitForError(name string, required bool, cb func() error) {
 	}
 }
 
-// isActive returns an error when auth is not enabled. If there are no cluster role bindings auth has not been enabled.
-func (a *apiServer) isActive() error {
-	bindings, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
-	if !ok {
-		return errors.New("cached cluster binding had unexpected type")
+// getClusterRoleBinding attempts to get the current cluster role bindings,
+// and returns an error if auth is not activated. This can require hitting
+// postgres if watches are not enabled (in the worker sidecar).
+func (a *apiServer) getClusterRoleBinding(ctx context.Context) (*auth.RoleBinding, error) {
+	if a.watchesEnabled {
+		bindings, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
+		if !ok {
+			return nil, errors.New("cached cluster binding had unexpected type")
+		}
+
+		if bindings.Entries == nil {
+			return nil, auth.ErrNotActivated
+		}
+		return bindings, nil
 	}
 
-	if bindings.Entries == nil {
-		return auth.ErrNotActivated
+	var binding auth.RoleBinding
+	if err := a.roleBindings.ReadOnly(ctx).Get(clusterRoleBindingKey, &binding); err != nil {
+		if col.IsErrNotFound(err) {
+			return nil, auth.ErrNotActivated
+		}
+		return nil, err
 	}
-	return nil
+	return &binding, nil
+}
+
+func (a *apiServer) isActive(ctx context.Context) error {
+	_, err := a.getClusterRoleBinding(ctx)
+	return err
 }
 
 // Retrieve the PPS master token, or generate it and put it in etcd.
-// TODO This is a hack. It avoids the need to return superuser tokens from
-// GetAuthToken (essentially, PPS and Auth communicate through etcd instead of
-// an API) but we should define an internal API and use that instead.
+// TODO This is a hack. PPS and Auth communicate through etcd instead of
+// an API, but we should define an internal API and use that instead.
 func (a *apiServer) retrieveOrGeneratePPSToken() {
 	var tokenProto types.StringValue // will contain PPS token
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -323,7 +338,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
 	// themselves as an admin.
-	if err := a.isActive(); err == nil {
+	if err := a.isActive(ctx); err == nil {
 		return nil, auth.ErrAlreadyActivated
 	}
 
@@ -338,7 +353,6 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// initialize the root user as a cluster admin
 	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		roleBindings := a.roleBindings.ReadWrite(sqlTx)
-		tokens := a.tokens.ReadWrite(sqlTx)
 		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
 				auth.RootUser: &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
@@ -346,15 +360,8 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		}); err != nil {
 			return err
 		}
-		hash := auth.HashToken(pachToken)
-		return tokens.Put(
-			hash,
-			&auth.TokenInfo{
-				Subject: auth.RootUser,
-				Source:  auth.TokenInfo_AUTHENTICATE,
-				Hash:    hash,
-			},
-		)
+		// TODO(acohen4): workout the transactionality
+		return a.insertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
 		return nil, err
 	}
@@ -363,7 +370,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// (changing the activation state), so that Activate() is less likely to
 	// race with subsequent calls that expect auth to be activated.
 	if err := backoff.Retry(func() error {
-		if err := a.isActive(); err != nil {
+		if err := a.isActive(ctx); err != nil {
 			return errors.Errorf("auth never activated")
 		}
 		return nil
@@ -380,7 +387,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 
 	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		a.roleBindings.ReadWrite(sqlTx).DeleteAll()
-		a.tokens.ReadWrite(sqlTx).DeleteAll()
+		a.deleteAllAuthTokens(ctx) // need to merge with transaction changes
 		a.members.ReadWrite(sqlTx).DeleteAll()
 		a.groups.ReadWrite(sqlTx).DeleteAll()
 		a.authConfig.ReadWrite(sqlTx).DeleteAll()
@@ -393,7 +400,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	// so that Deactivate() is less likely to race with subsequent calls that
 	// expect auth to be deactivated.
 	if err := backoff.Retry(func() error {
-		if err := a.isActive(); err == nil {
+		if err := a.isActive(ctx); err == nil {
 			return errors.Errorf("auth still activated")
 		}
 		return nil
@@ -431,7 +438,7 @@ func (a *apiServer) expiredEnterpriseCheck(ctx context.Context) error {
 
 // Authenticate implements the protobuf auth.Authenticate RPC
 func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, retErr error) {
-	if err := a.isActive(); err != nil {
+	if err := a.isActive(ctx); err != nil {
 		return nil, err
 	}
 
@@ -458,20 +465,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		username := auth.UserPrefix + email
 
 		// Generate a new Pachyderm token and write it
-		pachToken = uuid.NewWithoutDashes()
-		if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-			tokens := a.tokens.ReadWrite(sqlTx)
-			hash := auth.HashToken(pachToken)
-			return tokens.PutTTL(hash,
-				&auth.TokenInfo{
-					Subject: username,
-					Source:  auth.TokenInfo_AUTHENTICATE,
-					Hash:    hash,
-				},
-				defaultSessionTTLSecs)
-		}); err != nil {
+		token, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
+		if err != nil {
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
+		pachToken = token
+
 	case req.IdToken != "":
 		// Determine caller's Pachyderm/OIDC user info (email)
 		token, claims, err := a.validateIDToken(ctx, req.IdToken)
@@ -495,21 +494,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			expirationSecs = defaultSessionTTLSecs
 		}
 
-		// Generate a new Pachyderm token and write it
-		pachToken = uuid.NewWithoutDashes()
-		if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-			tokens := a.tokens.ReadWrite(sqlTx)
-			hash := auth.HashToken(pachToken)
-			return tokens.PutTTL(hash,
-				&auth.TokenInfo{
-					Subject: username,
-					Source:  auth.TokenInfo_AUTHENTICATE,
-					Hash:    hash,
-				},
-				expirationSecs)
-		}); err != nil {
+		t, err := a.generateAndInsertAuthToken(ctx, username, expirationSecs)
+		if err != nil {
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
+		pachToken = t
+
 	default:
 		return nil, errors.Errorf("unrecognized authentication mechanism (old pachd?)")
 	}
@@ -535,7 +525,8 @@ func (a *apiServer) AuthorizeInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	req *auth.AuthorizeRequest,
 ) (resp *auth.AuthorizeResponse, retErr error) {
-	if err := a.isActive(); err != nil {
+	binding, err := a.getClusterRoleBinding(txnCtx.ClientContext)
+	if err != nil {
 		return nil, err
 	}
 
@@ -547,10 +538,6 @@ func (a *apiServer) AuthorizeInTransaction(
 	request := newAuthorizeRequest(callerInfo.Subject, req.Permissions, a.getGroups)
 
 	// Check the permissions at the cluster level
-	binding, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
-	if !ok {
-		return nil, errors.New("cached cluster role binding had unexpected type")
-	}
 	if err := request.evaluateRoleBinding(txnCtx.ClientContext, binding); err != nil {
 		return nil, err
 	}
@@ -611,7 +598,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	a.pachLogger.LogAtLevelFromDepth(req, nil, nil, 0, logrus.DebugLevel, 2)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isActive(); err != nil {
+	if err := a.isActive(ctx); err != nil {
 		return nil, err
 	}
 
@@ -620,23 +607,9 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 		return nil, err
 	}
 
-	// Get TTL of user's token
-	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
-	if callerInfo.Subject != auth.PpsUser {
-		token, err := auth.GetAuthToken(ctx)
-		if err != nil {
-			return nil, err
-		}
-		ttl, err = a.tokens.ReadOnly(ctx).TTL(auth.HashToken(token)) // lookup token TTL
-		if err != nil {
-			return nil, errors.Wrapf(err, "error looking up TTL for token")
-		}
-	}
-
-	// return final result
 	return &auth.WhoAmIResponse{
-		Username: callerInfo.Subject,
-		TTL:      ttl,
+		Username:   callerInfo.Subject,
+		Expiration: callerInfo.Expiration,
 	}, nil
 }
 
@@ -644,7 +617,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 // It doesn't do any auth checks itself - the calling method should ensure the user is allowed to delete this resource.
 // This is not an RPC, this is only called in-process.
 func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource) error {
-	if err := a.isActive(); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return err
 	}
 
@@ -759,7 +732,7 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	req *auth.ModifyRoleBindingRequest,
 ) (*auth.ModifyRoleBindingResponse, error) {
-	if err := a.isActive(); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
@@ -864,7 +837,7 @@ func (a *apiServer) GetRoleBindingInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	req *auth.GetRoleBindingRequest,
 ) (*auth.GetRoleBindingResponse, error) {
-	if err := a.isActive(); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
@@ -911,90 +884,36 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 
 	subject = auth.RobotPrefix + subject
 
-	tokenInfo := auth.TokenInfo{
-		Source:  auth.TokenInfo_GET_TOKEN,
-		Subject: subject,
+	// generate new token, and write to postgres
+	var token string
+	var err error
+	if req.TTL > 0 {
+		token, err = a.generateAndInsertAuthToken(ctx, subject, req.TTL)
+	} else {
+		token, err = a.generateAndInsertAuthTokenNoTTL(ctx, subject)
 	}
-
-	// generate new token, and write to etcd
-	token := uuid.NewWithoutDashes()
-	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		return a.tokens.ReadWrite(sqlTx).PutTTL(auth.HashToken(token), &tokenInfo, req.TTL)
-	}); err != nil {
+	if err != nil {
 		return nil, err
 	}
-
 	return &auth.GetRobotTokenResponse{
 		Token: token,
-	}, nil
-}
-
-// GetAuthToken implements the protobuf auth.GetAuthToken RPC
-func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		resp, retErr = a.GetAuthTokenInTransaction(txnCtx, req)
-		return retErr
-	})
-	return resp, retErr
-}
-
-// GetAuthToken implements the protobuf auth.GetAuthToken RPC
-func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
-	if err := a.isActive(); err != nil {
-		// GetAuthToken must work in the partially-activated state so that PPS can
-		// get tokens for all existing pipelines during activation
-		return nil, err
-	}
-
-	if strings.HasPrefix(req.Subject, auth.PachPrefix) {
-		return nil, errors.Errorf("GetAuthTokenRequest.Subject is invalid")
-	}
-
-	if req.TTL == 0 {
-		// To create a token with no TTL, an admin can call GetAuthToken and set TTL
-		// to -1, but the default behavior (TTL == 0) is use the default token
-		// lifetime.
-		req.TTL = defaultSessionTTLSecs
-	}
-
-	// generate new token, and write to etcd
-	token := uuid.NewWithoutDashes()
-	tokenInfo := auth.TokenInfo{
-		Source:  auth.TokenInfo_GET_TOKEN,
-		Subject: req.Subject,
-		Hash:    auth.HashToken(token),
-	}
-
-	if err := a.tokens.ReadWrite(txnCtx.SqlTx).PutTTL(tokenInfo.Hash, &tokenInfo, req.TTL); err != nil {
-		return nil, errors.Wrapf(err, "error storing token")
-	}
-	return &auth.GetAuthTokenResponse{
-		Subject: req.Subject,
-		Token:   token,
 	}, nil
 }
 
 // GetPipelineAuthTokenInTransaction is an internal API used to create a pipeline token for a given pipeline.
 // Not an RPC.
 func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) (string, error) {
-	if err := a.isActive(); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return "", err
 	}
 
-	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
-	tokenInfo := auth.TokenInfo{
-		Source:  auth.TokenInfo_GET_TOKEN,
-		Subject: auth.PipelinePrefix + pipeline,
-		Hash:    auth.HashToken(token),
-	}
-
-	if err := a.tokens.ReadWrite(txnCtx.SqlTx).PutTTL(tokenInfo.Hash, &tokenInfo, -1); err != nil {
+	// TODO(acohen4): look at transaction context
+	if err := a.insertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline); err != nil {
 		return "", errors.Wrapf(err, "error storing token")
+	} else {
+		return token, nil
 	}
-	return token, nil
 }
 
 // GetOIDCLogin implements the protobuf auth.GetOIDCLogin RPC
@@ -1014,56 +933,6 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 	}, nil
 }
 
-// ExtendAuthToken implements the protobuf auth.ExtendAuthToken RPC
-func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (resp *auth.ExtendAuthTokenResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	if req.TTL == 0 {
-		return nil, errors.Errorf("invalid request: ExtendAuthTokenRequest.TTL must be > 0")
-	}
-
-	// Only let people extend tokens by up to 30 days (the equivalent of logging
-	// in again)
-	if req.TTL > defaultSessionTTLSecs {
-		return nil, errors.Errorf("can only extend tokens by at most %d seconds", defaultSessionTTLSecs)
-	}
-
-	// The token must already exist. If a token has been revoked, it can't be
-	// extended
-	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		tokens := a.tokens.ReadWrite(sqlTx)
-
-		// Actually look up the request token in the relevant collections
-		var tokenInfo auth.TokenInfo
-		if err := tokens.Get(auth.HashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
-			return err
-		}
-		if tokenInfo.Subject == "" {
-			return auth.ErrBadToken
-		}
-
-		ttl, err := tokens.TTL(tokenInfo.Hash)
-		if err != nil {
-			return errors.Wrapf(err, "error looking up TTL for token")
-		}
-		// TODO(msteffen): ttl may be -1 if the token has no TTL. We deliberately do
-		// not check this case so that admins can put TTLs on tokens that don't have
-		// them (otherwise any attempt to do so would get ErrTooShortTTL), but that
-		// decision may be revised
-		if req.TTL < ttl {
-			return auth.ErrTooShortTTL{
-				RequestTTL:  req.TTL,
-				ExistingTTL: ttl,
-			}
-		}
-		return tokens.PutTTL(tokenInfo.Hash, &tokenInfo, req.TTL)
-	}); err != nil {
-		return nil, err
-	}
-	return &auth.ExtendAuthTokenResponse{}, nil
-}
-
 // RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
@@ -1076,12 +945,11 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 }
 
 func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
-	if err := a.isActive(); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
-	tokens := a.tokens.ReadWrite(txnCtx.SqlTx)
-	if err := tokens.Delete(auth.HashToken(req.Token)); err != nil {
+	if err := a.deleteAuthToken(txnCtx.ClientContext, auth.HashToken(req.Token)); err != nil {
 		return nil, err
 	}
 	return &auth.RevokeAuthTokenResponse{}, nil
@@ -1309,8 +1177,8 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	membersCol := a.members.ReadOnly(ctx)
 	groups := &auth.Groups{}
 	var users []string
-	if err := membersCol.List(groups, col.DefaultOptions(), func() error {
-		users = append(users, groups.Username)
+	if err := membersCol.List(groups, col.DefaultOptions(), func(user string) error {
+		users = append(users, user)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -1342,7 +1210,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		// this check should happen in authorize
 		return &auth.TokenInfo{
 			Subject: auth.PpsUser,
-			Source:  auth.TokenInfo_GET_TOKEN,
 		}, nil
 	}
 
@@ -1350,19 +1217,24 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	if subject := internalauth.GetWhoAmI(ctx); subject != "" {
 		return &auth.TokenInfo{
 			Subject: subject,
-			Source:  auth.TokenInfo_GET_TOKEN,
 		}, nil
 	}
 
 	// Lookup the token
-	var tokenInfo auth.TokenInfo
-	if err := a.tokens.ReadOnly(ctx).Get(auth.HashToken(token), &tokenInfo); err != nil {
-		if col.IsErrNotFound(err) {
+	tokenInfo, lookupErr := a.lookupAuthTokenInfo(ctx, auth.HashToken(token))
+	if lookupErr != nil {
+		if col.IsErrNotFound(lookupErr) {
 			return nil, auth.ErrBadToken
 		}
-		return nil, err
+		return nil, lookupErr
 	}
-	return &tokenInfo, nil
+	// verify token hasn't expired
+	if tokenInfo.Expiration != nil {
+		if time.Now().After(*tokenInfo.Expiration) {
+			return nil, auth.ErrExpiredToken
+		}
+	}
+	return tokenInfo, nil
 }
 
 // checkCanonicalSubjects applies checkCanonicalSubject to a list
@@ -1391,7 +1263,7 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 	// check against fixed prefixes
 	prefix += ":" // append ":" to match constants
 	switch prefix {
-	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix, auth.UserPrefix:
+	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix, auth.UserPrefix, auth.GroupPrefix:
 		break
 	default:
 		return errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
@@ -1403,6 +1275,10 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (resp *auth.GetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if !a.watchesEnabled {
+		return nil, errors.New("watches are not enabled, unable to get current config")
+	}
 
 	config, ok := a.configCache.Load().(*auth.OIDCConfig)
 	if !ok {
@@ -1418,6 +1294,10 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest) (resp *auth.SetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if !a.watchesEnabled {
+		return nil, errors.New("watches are not enabled, unable to set config")
+	}
 
 	var configToStore *auth.OIDCConfig
 	if req.Configuration != nil {
@@ -1459,46 +1339,14 @@ func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuth
 	// credentials.
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-	if err := a.isActive(); err != nil {
+	if err := a.isActive(ctx); err != nil {
 		return nil, err
 	}
 
-	extracted := make([]*auth.HashedAuthToken, 0)
-
-	tokens := a.tokens.ReadOnly(ctx)
-	var tokInfo auth.TokenInfo
-	if err := tokens.List(&tokInfo, col.DefaultOptions(), func() error {
-		// Only extract robot tokens
-		if !strings.HasPrefix(tokInfo.Subject, auth.RobotPrefix) {
-			return nil
-		}
-
-		ttl, err := tokens.TTL(tokInfo.Hash)
-		if err != nil {
-			return err
-		}
-
-		token := &auth.HashedAuthToken{
-			HashedToken: tokInfo.Hash,
-			TokenInfo: &auth.TokenInfo{
-				Subject: tokInfo.Subject,
-				Source:  tokInfo.Source,
-				Hash:    tokInfo.Hash,
-			},
-		}
-		if ttl != -1 {
-			expiration, err := types.TimestampProto(time.Now().Add(time.Second * time.Duration(ttl)))
-			if err != nil {
-				return err
-			}
-			token.Expiration = expiration
-		}
-		extracted = append(extracted, token)
-		return nil
-	}); err != nil {
+	extracted, err := a.listRobotTokens(ctx)
+	if err != nil {
 		return nil, err
 	}
-
 	return &auth.ExtractAuthTokensResponse{Tokens: extracted}, nil
 }
 
@@ -1509,32 +1357,127 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 
 	var ttl int64
 	if req.Token.Expiration != nil {
-		ts, err := types.TimestampFromProto(req.Token.Expiration)
-		if err != nil {
-			return nil, err
-		}
-		ttl = int64(time.Until(ts).Seconds())
+		ttl = int64(time.Until(*req.Token.Expiration).Seconds())
 		if ttl < 0 {
 			return nil, auth.ErrExpiredToken
 		}
 	}
 
-	// Check whether the token hash already exists - we don't want to replace an existing token
-	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		tokens := a.tokens.ReadWrite(sqlTx)
-		var existing auth.TokenInfo
-		err := tokens.Get(req.Token.HashedToken, &existing)
-		if err == nil {
-			return errors.New("cannot overwrite existing token with same hash")
-		} else if err != nil && !col.IsErrNotFound(err) {
-			return err
+	if err := func() error {
+		if ttl > 0 {
+			return a.insertAuthToken(ctx, req.Token.HashedToken, req.Token.Subject, ttl)
+		} else {
+			return a.insertAuthTokenNoTTL(ctx, req.Token.HashedToken, req.Token.Subject)
 		}
-
-		return tokens.PutTTL(req.Token.HashedToken,
-			req.Token.TokenInfo,
-			ttl)
-	}); err != nil {
+	}(); err != nil {
 		return nil, errors.Wrapf(err, "error restoring auth token")
 	}
+
 	return &auth.RestoreAuthTokenResponse{}, nil
+}
+
+// implements the protobuf auth.DeleteExpiredAuthTokens RPC
+func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
+	logrus.Info("Deleting expired auth tokens")
+	if _, err := a.env.GetDBClient().Exec(`DELETE FROM auth.auth_tokens WHERE NOW() > expiration`); err != nil {
+		return nil, errors.Wrapf(err, "error deleting expired tokens")
+	}
+	return &auth.DeleteExpiredAuthTokensResponse{}, nil
+}
+
+func (a *apiServer) deleteExpiredTokensRoutine() {
+	go func(ctx context.Context) {
+		for {
+			time.Sleep(time.Duration(cleanupIntervalHours) * time.Hour)
+			a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{})
+		}
+	}(context.Background())
+}
+
+// we interpret an expiration value of NULL as "lives forever".
+func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
+	var tokenInfo auth.TokenInfo
+
+	err := a.env.GetDBClient().GetContext(ctx, &tokenInfo, `SELECT subject, expiration FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash)
+
+	if err != nil {
+		return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}
+	}
+
+	return &tokenInfo, nil
+}
+
+// we will sometimes have expiration values set in the passed, since we only remove those values in the deleteExpiredTokensRoutine() goroutine
+func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.TokenInfo, error) {
+	robotTokens := make([]*auth.TokenInfo, 0)
+	if err := a.env.GetDBClient().SelectContext(ctx, &robotTokens,
+		`SELECT token_hash, subject, expiration
+		FROM auth.auth_tokens 
+		WHERE subject LIKE $1 || '%'`, auth.RobotPrefix); err != nil {
+		return nil, errors.Wrapf(err, "error querying token")
+	}
+	return robotTokens, nil
+}
+
+func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, ttlSeconds int64) (string, error) {
+	token := uuid.NewWithoutDashes()
+	if err := a.insertAuthToken(ctx, auth.HashToken(token), subject, ttlSeconds); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject string) (string, error) {
+	token := uuid.NewWithoutDashes()
+	if err := a.insertAuthTokenNoTTL(ctx, auth.HashToken(token), subject); err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+// generates a token, and stores it's hash and supporting data in postgres
+func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
+	// Register the pachd in the database
+	if _, err := a.env.GetDBClient().ExecContext(ctx,
+		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
+		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
+		if pgErr, ok := err.(*pq.Error); ok {
+			if pgErr.Code == pq.ErrorCode(pgerrcode.UniqueViolation) {
+				return errors.New("cannot overwrite existing token with same hash")
+			}
+		}
+		return errors.Wrapf(err, "error storing token")
+	}
+	return nil
+}
+
+func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
+	// Register the pachd in the database
+	if _, err := a.env.GetDBClient().ExecContext(ctx,
+		`INSERT INTO auth.auth_tokens (token_hash, subject) 
+		VALUES ($1, $2)`, tokenHash, subject); err != nil {
+		if pgErr, ok := err.(*pq.Error); ok {
+			if pgErr.Code == pq.ErrorCode(pgerrcode.UniqueViolation) {
+				return errors.New("cannot overwrite existing token with same hash")
+			}
+		}
+		return errors.Wrapf(err, "error storing token")
+	}
+	return nil
+}
+
+// TODO(acohen4): Transactionify
+func (a *apiServer) deleteAllAuthTokens(ctx context.Context) error {
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens`); err != nil {
+		return errors.Wrapf(err, "error deleting all auth tokens")
+	}
+	return nil
+}
+
+func (a *apiServer) deleteAuthToken(ctx context.Context, tokenHash string) error {
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
+		return errors.Wrapf(err, "error deleting token")
+	}
+	return nil
 }

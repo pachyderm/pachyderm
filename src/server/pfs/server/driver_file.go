@@ -94,26 +94,6 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringS
 	return compactedID, nil
 }
 
-func (d *driver) withCommitWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(string, *fileset.Writer) error) (retErr error) {
-	ctx := pachClient.Ctx()
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{commitInfo.Commit}
-	}
-	fsw := d.storage.NewWriter(ctx)
-	if err := cb(d.getDefaultTag(), fsw); err != nil {
-		return err
-	}
-	id, err := fsw.Close()
-	if err != nil {
-		return err
-	}
-	return d.commitStore.AddFileset(ctx, commitInfo.Commit, *id)
-}
-
 func (d *driver) getDefaultTag() string {
 	// TODO: change this to a constant like "input" or "default"
 	return fmt.Sprintf("%012d", time.Now().UnixNano())
@@ -149,23 +129,15 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 	return commitInfo, fs, nil
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, appendFile bool, tag string) (retErr error) {
+func (d *driver) copyFile(pachClient *client.APIClient, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
 	ctx := pachClient.Ctx()
 	srcCommitInfo, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
 	srcCommit := srcCommitInfo.Commit
-	dstCommitInfo, err := d.inspectCommit(pachClient, dst.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	if dstCommitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{dstCommitInfo.Commit}
-	}
-	dstCommit := dstCommitInfo.Commit
 	srcPath := cleanPath(src.Path)
-	dstPath := cleanPath(dst.Path)
+	dstPath := cleanPath(dst)
 	pathTransform := func(x string) string {
 		relPath, err := filepath.Rel(srcPath, x)
 		if err != nil {
@@ -185,19 +157,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		idx2.Path = pathTransform(idx2.Path)
 		return &idx2
 	})
-	return d.withCommitWriter(pachClient, dstCommit, func(tag string, dstW *fileset.Writer) error {
-		return fs.Iterate(ctx, func(f fileset.File) error {
-			if !appendFile {
-				if err := dstW.Delete(f.Index().Path, tag); err != nil {
-					return err
-				}
-			}
-			return dstW.Add(f.Index().Path, func(fw *fileset.FileWriter) error {
-				fw.Add(tag)
-				return f.Content(fw)
-			})
-		})
-	})
+	return uw.Copy(ctx, fs, appendFile, tag)
 }
 
 func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob string) (Source, error) {

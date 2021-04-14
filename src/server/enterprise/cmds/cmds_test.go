@@ -30,7 +30,7 @@ func TestManuallyJoinLicenseServer(t *testing.T) {
 	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl license activate
-		pachctl enterprise register --id {{.id}} --enterprise-server-address localhost:650 --pachd-address localhost:650
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://localhost:653 --pachd-address grpc://localhost:653
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \
 		  | match 'id: {{.id}}' \

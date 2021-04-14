@@ -11,7 +11,6 @@ import (
 
 	minio "github.com/minio/minio-go/v6"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -428,80 +427,77 @@ func TestMasterDriver(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		testRunner(t, env.PachClient, "master", NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-			t.Run("ListBuckets", func(t *testing.T) {
-				masterListBuckets(t, pachClient, minioClient)
-			})
-			t.Run("ListBucketsBranchless", func(t *testing.T) {
-				masterListBucketsBranchless(t, pachClient, minioClient)
-			})
-			t.Run("GetObject", func(t *testing.T) {
-				masterGetObject(t, pachClient, minioClient)
-			})
-			t.Run("GetObjectInBranch", func(t *testing.T) {
-				masterGetObjectInBranch(t, pachClient, minioClient)
-			})
-			t.Run("StatObject", func(t *testing.T) {
-				masterStatObject(t, pachClient, minioClient)
-			})
-			t.Run("PutObject", func(t *testing.T) {
-				masterPutObject(t, pachClient, minioClient)
-			})
-			t.Run("RemoveObject", func(t *testing.T) {
-				masterRemoveObject(t, pachClient, minioClient)
-			})
-			t.Run("LargeObjects", func(t *testing.T) {
-				masterLargeObjects(t, pachClient, minioClient)
-			})
-			t.Run("GetObjectNoHead", func(t *testing.T) {
-				masterGetObjectNoHead(t, pachClient, minioClient)
-			})
-			t.Run("GetObjectNoBranch", func(t *testing.T) {
-				masterGetObjectNoBranch(t, pachClient, minioClient)
-			})
-			t.Run("GetObjectNoRepo", func(t *testing.T) {
-				masterGetObjectNoRepo(t, pachClient, minioClient)
-			})
-			t.Run("MakeBucket", func(t *testing.T) {
-				masterMakeBucket(t, pachClient, minioClient)
-			})
-			t.Run("MakeBucketWithBranch", func(t *testing.T) {
-				masterMakeBucketWithBranch(t, pachClient, minioClient)
-			})
-			t.Run("MakeBucketWithRegion", func(t *testing.T) {
-				masterMakeBucketWithRegion(t, pachClient, minioClient)
-			})
-			t.Run("MakeBucketRedundant", func(t *testing.T) {
-				masterMakeBucketRedundant(t, pachClient, minioClient)
-			})
-			t.Run("MakeBucketDifferentBranches", func(t *testing.T) {
-				masterMakeBucketDifferentBranches(t, pachClient, minioClient)
-			})
-			t.Run("BucketExists", func(t *testing.T) {
-				masterBucketExists(t, pachClient, minioClient)
-			})
-			t.Run("RemoveBucket", func(t *testing.T) {
-				masterRemoveBucket(t, pachClient, minioClient)
-			})
-			t.Run("RemoveBucketBranchless", func(t *testing.T) {
-				masterRemoveBucketBranchless(t, pachClient, minioClient)
-			})
-			t.Run("ListObjectsPaginated", func(t *testing.T) {
-				masterListObjectsPaginated(t, pachClient, minioClient)
-			})
-			t.Run("ListObjectsHeadlessBranch", func(t *testing.T) {
-				masterListObjectsHeadlessBranch(t, pachClient, minioClient)
-			})
-			t.Run("ListObjectsRecursive", func(t *testing.T) {
-				masterListObjectsRecursive(t, pachClient, minioClient)
-			})
-			// TODO: Refer to masterAuthV2 function definition.
-			//t.Run("AuthV2", func(t *testing.T) {
-			//	masterAuthV2(t, pachClient, minioClient)
-			//})
+	env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	testRunner(t, env.PachClient, "master", NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+		t.Run("ListBuckets", func(t *testing.T) {
+			masterListBuckets(t, pachClient, minioClient)
 		})
-		return nil
-	}))
+		t.Run("ListBucketsBranchless", func(t *testing.T) {
+			masterListBucketsBranchless(t, pachClient, minioClient)
+		})
+		t.Run("GetObject", func(t *testing.T) {
+			masterGetObject(t, pachClient, minioClient)
+		})
+		t.Run("GetObjectInBranch", func(t *testing.T) {
+			masterGetObjectInBranch(t, pachClient, minioClient)
+		})
+		t.Run("StatObject", func(t *testing.T) {
+			masterStatObject(t, pachClient, minioClient)
+		})
+		t.Run("PutObject", func(t *testing.T) {
+			masterPutObject(t, pachClient, minioClient)
+		})
+		t.Run("RemoveObject", func(t *testing.T) {
+			masterRemoveObject(t, pachClient, minioClient)
+		})
+		t.Run("LargeObjects", func(t *testing.T) {
+			masterLargeObjects(t, pachClient, minioClient)
+		})
+		t.Run("GetObjectNoHead", func(t *testing.T) {
+			masterGetObjectNoHead(t, pachClient, minioClient)
+		})
+		t.Run("GetObjectNoBranch", func(t *testing.T) {
+			masterGetObjectNoBranch(t, pachClient, minioClient)
+		})
+		t.Run("GetObjectNoRepo", func(t *testing.T) {
+			masterGetObjectNoRepo(t, pachClient, minioClient)
+		})
+		t.Run("MakeBucket", func(t *testing.T) {
+			masterMakeBucket(t, pachClient, minioClient)
+		})
+		t.Run("MakeBucketWithBranch", func(t *testing.T) {
+			masterMakeBucketWithBranch(t, pachClient, minioClient)
+		})
+		t.Run("MakeBucketWithRegion", func(t *testing.T) {
+			masterMakeBucketWithRegion(t, pachClient, minioClient)
+		})
+		t.Run("MakeBucketRedundant", func(t *testing.T) {
+			masterMakeBucketRedundant(t, pachClient, minioClient)
+		})
+		t.Run("MakeBucketDifferentBranches", func(t *testing.T) {
+			masterMakeBucketDifferentBranches(t, pachClient, minioClient)
+		})
+		t.Run("BucketExists", func(t *testing.T) {
+			masterBucketExists(t, pachClient, minioClient)
+		})
+		t.Run("RemoveBucket", func(t *testing.T) {
+			masterRemoveBucket(t, pachClient, minioClient)
+		})
+		t.Run("RemoveBucketBranchless", func(t *testing.T) {
+			masterRemoveBucketBranchless(t, pachClient, minioClient)
+		})
+		t.Run("ListObjectsPaginated", func(t *testing.T) {
+			masterListObjectsPaginated(t, pachClient, minioClient)
+		})
+		t.Run("ListObjectsHeadlessBranch", func(t *testing.T) {
+			masterListObjectsHeadlessBranch(t, pachClient, minioClient)
+		})
+		t.Run("ListObjectsRecursive", func(t *testing.T) {
+			masterListObjectsRecursive(t, pachClient, minioClient)
+		})
+		// TODO: Refer to masterAuthV2 function definition.
+		//t.Run("AuthV2", func(t *testing.T) {
+		//	masterAuthV2(t, pachClient, minioClient)
+		//})
+	})
 }

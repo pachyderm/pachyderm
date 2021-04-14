@@ -8,9 +8,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
-// NewObjectClient creates a obj.Client which is cleaned up after the test exits
+// NewObjectClient creates a obj.Client which is cleaned up after the test exists
 func NewObjectClient(t testing.TB) (obj.Client, string) {
-	dir := MkdirTemp(t)
+	dir := t.TempDir()
 	objC, err := obj.NewLocalClient(dir)
 	require.NoError(t, err)
 	return objC, strings.ReplaceAll(strings.Trim(dir, "/"), "/", ".")

@@ -70,7 +70,6 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 	// return nil
 }
 
-// TODO: It would probably be better to write the output to temporary file sets and expose an operation through pfs for adding a temporary fileset to a commit.
 func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *DatumSet, status *Status) error {
 	pachClient := driver.PachClient()
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
@@ -78,25 +77,23 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup file operation client for output meta commit.
-	metaCommit := datumSet.MetaCommit
-	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta client.ModifyFileClient) error {
+	resp, err := pachClient.WithCreateFilesetClient(func(mfMeta client.ModifyFile) error {
 		// Setup file operation client for output PFS commit.
-		outputCommit := datumSet.OutputCommit
-		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS client.ModifyFileClient) (retErr error) {
+		resp, err := pachClient.WithCreateFilesetClient(func(mfPFS client.ModifyFile) (retErr error) {
 			opts := []datum.SetOption{
-				datum.WithMetaOutput(datum.NewClient(mfcMeta, pachClient, metaCommit)),
-				datum.WithPFSOutput(datum.NewClient(mfcPFS, pachClient, outputCommit)),
+				datum.WithMetaOutput(mfMeta),
+				datum.WithPFSOutput(mfPFS),
 				datum.WithStats(datumSet.Stats),
 			}
 			// Setup datum set for processing.
 			return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
-				di := datum.NewFileSetIterator(pachClient, datumSet.FileSet)
+				di := datum.NewFileSetIterator(pachClient, datumSet.FilesetId)
 				// Process each datum in the assigned datum set.
 				return di.Iterate(func(meta *datum.Meta) error {
 					ctx := pachClient.Ctx()
 					inputs := meta.Inputs
 					logger = logger.WithData(inputs)
-					env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
+					env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)
 					var opts []datum.Option
 					if driver.PipelineInfo().DatumTimeout != nil {
 						timeout, err := types.DurationFromProto(driver.PipelineInfo().DatumTimeout)
@@ -125,5 +122,15 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 				})
 			}, opts...)
 		})
+		if err != nil {
+			return err
+		}
+		datumSet.OutputFilesetId = resp.FilesetId
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+	datumSet.MetaFilesetId = resp.FilesetId
+	return nil
 }
