@@ -380,19 +380,6 @@ func PostgresStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interf
 	}
 }
 
-// TestPostgresVolume creates a persistent volume for use with StatefulSets in a
-// local deployment (used by some tests).
-func TestPostgresVolume(opts *AssetOpts, hostPath string, volumeName string, size int) (*v1.PersistentVolume, error) {
-	volumeLabels := labels(postgresName)
-	volumeLabels["namespace"] = opts.Namespace
-	volume, err := makePersistentVolume(opts, LocalBackend, hostPath, "", size, volumeName, volumeLabels)
-	if err != nil {
-		return nil, err
-	}
-	volume.Spec.PersistentVolumeReclaimPolicy = v1.PersistentVolumeReclaimDelete
-	return volume, nil
-}
-
 // PostgresVolume creates a persistent volume backed by a volume with name "name"
 func PostgresVolume(persistentDiskBackend Backend, opts *AssetOpts,
 	hostPath string, name string, size int) (*v1.PersistentVolume, error) {
