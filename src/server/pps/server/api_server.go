@@ -13,9 +13,23 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/itchyny/gojq"
+	"github.com/jmoiron/sqlx"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/robfig/cron"
+	logrus "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kube "k8s.io/client-go/kubernetes"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -48,19 +62,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
-	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/robfig/cron"
-	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/metadata"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -122,8 +123,8 @@ type apiServer struct {
 	peerPort              uint16
 	gcPercent             int
 	// collections
-	pipelines col.EtcdCollection
-	jobs      col.EtcdCollection
+	pipelines col.PostgresCollection
+	jobs      col.PostgresCollection
 }
 
 func merge(from, to map[string]bool) {
@@ -512,7 +513,7 @@ func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobSt
 }
 
 func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContext, request *pps.UpdateJobStateRequest) error {
-	jobs := a.jobs.ReadWrite(txnCtx.Stm)
+	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
 
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
@@ -530,7 +531,7 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 	jobPtr.DataTotal = request.DataTotal
 	jobPtr.Stats = request.Stats
 
-	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.Stm), jobs, jobPtr, request.State, request.Reason)
+	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, jobPtr, request.State, request.Reason)
 }
 
 // CreateJob implements the protobuf pps.CreateJob RPC
@@ -551,8 +552,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		if request.Stats == nil {
 			request.Stats = &pps.ProcessStats{}
 		}
-		pipelines := a.pipelines.ReadWrite(txnCtx.Stm)
-		jobs := a.jobs.ReadWrite(txnCtx.Stm)
+		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
+		jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
 		job = client.NewJob(uuid.NewWithoutDashes())
 		jobPtr := &pps.EtcdJobInfo{
 			Job:           job,
@@ -805,8 +806,8 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
 	if err != nil {
 		if isNotFoundErr(err) {
-			if _, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
-				return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
+			if err := col.NewSQLTx(pachClient.Ctx(), a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+				return a.jobs.ReadWrite(sqlTx).Delete(jobPtr.Job.ID)
 			}); err != nil {
 				return nil, err
 			}
@@ -930,10 +931,9 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	if err := a.stopJob(ctx, pachClient, request.Job, nil, "job deleted"); err != nil {
 		return nil, err
 	}
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
-	})
-	if err != nil {
+	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		return a.jobs.ReadWrite(sqlTx).Delete(request.Job.ID)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1995,9 +1995,11 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			}); err != nil {
 				return nil, err
 			}
-			// we just created a new commit outside of the transaction, so our transaction reads won't see it
-			// to prevent errors, start and finish a commit in the transaction with the same ID
-			// this *will* cause an STM conflict, but will succeed on retry since specCommit already exists
+			// we just created a new commit outside of the transaction, so our
+			// transaction reads won't see it to prevent errors, start and finish a
+			// commit in the transaction with the same ID this *will* cause a
+			// transaction conflict, but will succeed on retry since specCommit
+			// already exists
 			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
 				if _, err := superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
 					Parent: client.NewCommit(ppsconsts.SpecRepo, ""),
@@ -2046,7 +2048,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			oldPipelineInfo *pps.PipelineInfo
 		)
 		// Read existing PipelineInfo from PFS output repo
-		if err := a.pipelines.ReadWrite(txnCtx.Stm).Update(pipelineName, &pipelinePtr, func() error {
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineName, &pipelinePtr, func() error {
 			var err error
 
 			// We can't recover from an incomplete pipeline info here because
@@ -2222,7 +2224,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			return err
 		}
 		// Put a pointer to the new PipelineInfo commit into etcd
-		err := a.pipelines.ReadWrite(txnCtx.Stm).Create(pipelineName, pipelinePtr)
+		err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(pipelineName, pipelinePtr)
 		if isAlreadyExistsErr(err) {
 			// make sure we don't retain this commit, whether or not the delete succeeds
 			if prevSpecCommit != nil {
@@ -2407,7 +2409,7 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txnenv.TransactionConte
 		return nil, err
 	}
 	pipelinePtr := pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadWrite(txnCtx.Stm).Get(name, &pipelinePtr); err != nil {
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, errors.Errorf("pipeline \"%s\" not found", name)
 		}
@@ -2795,8 +2797,8 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	}
 	// Delete EtcdPipelineInfo
 	eg.Go(func() error {
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
+		if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+			return a.pipelines.ReadWrite(sqlTx).Delete(request.Pipeline.Name)
 		}); err != nil {
 			return errors.Wrapf(err, "collection.Delete")
 		}
@@ -3302,7 +3304,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 				}
 
 				var pipelinePtr pps.EtcdPipelineInfo
-				if err := a.pipelines.ReadWrite(txnCtx.Stm).Update(pipelineName, &pipelinePtr, func() error {
+				if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineName, &pipelinePtr, func() error {
 					pipelinePtr.AuthToken = token
 					return nil
 				}); err != nil {
@@ -3331,8 +3333,8 @@ func isNotFoundErr(err error) bool {
 }
 
 func (a *apiServer) updatePipelineSpecCommit(pachClient *client.APIClient, pipelineName string, commit *pfs.Commit) error {
-	_, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
-		pipelines := a.pipelines.ReadWrite(stm)
+	err := col.NewSQLTx(pachClient.Ctx(), a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		pipelines := a.pipelines.ReadWrite(sqlTx)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
 			return err

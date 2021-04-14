@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -27,7 +30,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform/chain"
-	"golang.org/x/sync/errgroup"
 )
 
 // TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
@@ -370,13 +372,13 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 				return err
 			}
 			// Output commit was deleted. Delete job as well
-			if _, err := pj.driver.NewSTM(func(stm col.STM) error {
+			if err := pj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobPtr := &pps.EtcdJobInfo{}
-				if err := pj.driver.Jobs().ReadWrite(stm).Get(pj.ji.Job.ID, jobPtr); err != nil {
+				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(pj.ji.Job.ID, jobPtr); err != nil {
 					return err
 				}
-				return pj.driver.DeleteJob(stm, jobPtr)
+				return pj.driver.DeleteJob(sqlTx, jobPtr)
 			}); err != nil && !col.IsErrNotFound(err) {
 				return err
 			}

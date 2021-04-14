@@ -87,7 +87,7 @@ func do(config interface{}) error {
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.Config().PPSEtcdPrefix, pipelineInfo, env.Config().PodName, env.Config().Namespace, "/")
+	workerInstance, err := worker.NewWorker(env, pipelineInfo, "/")
 	if err != nil {
 		return err
 	}
