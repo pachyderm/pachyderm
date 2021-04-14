@@ -254,7 +254,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitRequest) (_ *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return nil, a.driver.clearCommit(a.env.GetPachClient(ctx), request.Commit)
+	return &types.Empty{}, a.driver.clearCommit(a.env.GetPachClient(ctx), request.Commit)
 }
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
