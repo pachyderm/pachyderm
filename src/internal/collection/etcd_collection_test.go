@@ -212,7 +212,7 @@ func TestIndex(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	i := 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline.Name, job, col.DefaultOptions(), func() error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j1, job)
@@ -226,7 +226,7 @@ func TestIndex(t *testing.T) {
 	}))
 
 	i = 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline.Name, job, col.DefaultOptions(), func() error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j3, job)
@@ -472,7 +472,7 @@ func TestIteration(t *testing.T) {
 		ro := c.ReadOnly(context.Background())
 		testProto := &col.TestItem{}
 		i := numVals - 1
-		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
+		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func(string) error {
 			require.Equal(t, fmt.Sprintf("%d", i), testProto.ID)
 			i--
 			return nil
@@ -498,7 +498,7 @@ func TestIteration(t *testing.T) {
 		vals := make(map[string]bool)
 		ro := c.ReadOnly(context.Background())
 		testProto := &col.TestItem{}
-		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
+		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func(string) error {
 			require.False(t, vals[testProto.ID], "saw value %s twice", testProto.ID)
 			vals[testProto.ID] = true
 			return nil
