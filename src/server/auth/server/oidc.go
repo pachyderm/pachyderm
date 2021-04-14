@@ -38,10 +38,6 @@ type IDTokenClaims struct {
 	Groups        []string `json:"groups"`
 }
 
-func scopes(additionalScopes []string) []string {
-	return append([]string{oidc.ScopeOpenID, "profile", "email"}, additionalScopes...)
-}
-
 // validateOIDC validates an OIDC configuration before it's stored in etcd.
 func validateOIDCConfig(ctx context.Context, config *auth.OIDCConfig) error {
 	if _, err := url.Parse(config.Issuer); err != nil {
@@ -118,7 +114,7 @@ func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, e
 			ClientSecret: config.ClientSecret,
 			RedirectURL:  config.RedirectURI,
 			Endpoint:     oidcProvider.Endpoint(),
-			Scopes:       scopes(config.AdditionalScopes),
+			Scopes:       config.Scopes,
 		},
 	}, nil
 }
@@ -332,8 +328,8 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 		return nil, nil, errors.Wrapf(err, "could not get claims")
 	}
 
-	if !claims.EmailVerified && !config.IgnoreEmailVerified {
-		return nil, nil, errors.New("email_verified claim was false, and ignore_email_verified was not set")
+	if !claims.EmailVerified && config.RequireEmailVerified {
+		return nil, nil, errors.New("email_verified claim was false, and require_email_verified was set")
 	}
 	return idToken, &claims, nil
 }

@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestGC(t *testing.T) {
 	ctx := context.Background()
-	db := dbutil.NewTestDB(t)
+	db := testutil.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
 	s := NewTestStorage(t, db, tr)
 	gc := s.newGC()

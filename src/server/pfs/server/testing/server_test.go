@@ -24,11 +24,11 @@ import (
 	"github.com/gogo/protobuf/types"
 	pclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -81,10 +81,13 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 	return paths
 }
 
-func TestInvalidRepo(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+func TestPFS(suite *testing.T) {
+	suite.Parallel()
+
+	suite.Run("InvalidRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
 		require.YesError(t, env.PachClient.CreateRepo("/repo"))
 
 		require.NoError(t, env.PachClient.CreateRepo("lenny"))
@@ -96,15 +99,12 @@ func TestInvalidRepo(t *testing.T) {
 		require.YesError(t, env.PachClient.CreateRepo("lenny:"))
 		require.YesError(t, env.PachClient.CreateRepo("lenny,"))
 		require.YesError(t, env.PachClient.CreateRepo("lenny#"))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("CreateSameRepoInParallel", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCreateSameRepoInParallel(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		numGoros := 1000
 		errCh := make(chan error)
 		for i := 0; i < numGoros; i++ {
@@ -125,15 +125,12 @@ func TestCreateSameRepoInParallel(t *testing.T) {
 		}
 		// When creating the same repo, precisiely one attempt should succeed
 		require.Equal(t, 1, successCount)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("CreateDifferentRepoInParallel", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCreateDifferentRepoInParallel(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		numGoros := 1000
 		errCh := make(chan error)
 		for i := 0; i < numGoros; i++ {
@@ -154,15 +151,12 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 			}
 		}
 		require.Equal(t, numGoros, successCount)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("CreateRepoDeleteRepoRace", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCreateRepoDeleteRepoRace(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		for i := 0; i < 100; i++ {
 			require.NoError(t, env.PachClient.CreateRepo("foo"))
 			require.NoError(t, env.PachClient.CreateRepo("bar"))
@@ -182,15 +176,12 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 			env.PachClient.DeleteRepo("bar", true)
 			env.PachClient.DeleteRepo("foo", true)
 		}
+	})
 
-		return nil
-	}))
-}
+	suite.Run("Branch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		_, err := env.PachClient.StartCommit(repo, "master")
@@ -206,15 +197,12 @@ func TestBranch(t *testing.T) {
 		commitInfo, err = env.PachClient.InspectCommit(repo, "master")
 		require.NoError(t, err)
 		require.NotNil(t, commitInfo.ParentCommit)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ToggleBranchProvenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestToggleBranchProvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("in"))
 		require.NoError(t, env.PachClient.CreateRepo("out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{
@@ -280,38 +268,32 @@ func TestToggleBranchProvenance(t *testing.T) {
 		for _, c := range ci.Provenance {
 			require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
 		}
+	})
 
-		return nil
-	}))
-}
+	suite.Run("RecreateBranchProvenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestRecreateBranchProvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("in"))
 		require.NoError(t, env.PachClient.CreateRepo("out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
 		require.NoError(t, env.PachClient.PutFile("in", "master", "foo", strings.NewReader("foo")))
 		cis, err := env.PachClient.ListCommit("out", "", "", 0)
 		require.NoError(t, err)
-		id := cis[0].Commit.ID
 		require.Equal(t, 1, len(cis))
+		id := cis[0].Commit.ID
 		require.NoError(t, env.PachClient.DeleteBranch("out", "master", false))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", id, []*pfs.Branch{pclient.NewBranch("in", "master")}))
 		cis, err = env.PachClient.ListCommit("out", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(cis))
 		require.Equal(t, id, cis[0].Commit.ID)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("CreateAndInspectRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCreateAndInspectRepo(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -329,15 +311,12 @@ func TestCreateAndInspectRepo(t *testing.T) {
 			Repo: pclient.NewRepo("somerepo1"),
 		})
 		require.NoError(t, err)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ListRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestListRepo(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		numRepos := 10
 		var repoNames []string
 		for i := 0; i < numRepos; i++ {
@@ -349,16 +328,13 @@ func TestListRepo(t *testing.T) {
 		repoInfos, err := env.PachClient.ListRepo()
 		require.NoError(t, err)
 		require.ElementsEqualUnderFn(t, repoNames, repoInfos, RepoInfoToName)
+	})
 
-		return nil
-	}))
-}
+	// Make sure that commits of deleted repos do not resurface
+	suite.Run("CreateDeletedRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// Make sure that commits of deleted repos do not resurface
-func TestCreateDeletedRepo(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -377,16 +353,13 @@ func TestCreateDeletedRepo(t *testing.T) {
 		commitInfos, err = env.PachClient.ListCommit(repo, "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
+	})
 
-		return nil
-	}))
-}
+	// Make sure that commits of deleted repos do not resurface
+	suite.Run("ListCommitLimit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// Make sure that commits of deleted repos do not resurface
-func TestListCommitLimit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		require.NoError(t, env.PachClient.PutFile(repo, "master", "foo", strings.NewReader("foo")))
@@ -394,28 +367,26 @@ func TestListCommitLimit(t *testing.T) {
 		commitInfos, err := env.PachClient.ListCommit(repo, "", "", 1)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		return nil
-	}))
-}
+	})
 
-// The DAG looks like this before the update:
-// prov1 prov2
-//   \    /
-//    repo
-//   /    \
-// d1      d2
-//
-// Looks like this after the update:
-//
-// prov2 prov3
-//   \    /
-//    repo
-//   /    \
-// d1      d2
-func TestUpdateProvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	// The DAG looks like this before the update:
+	// prov1 prov2
+	//   \    /
+	//    repo
+	//   /    \
+	// d1      d2
+	//
+	// Looks like this after the update:
+	//
+	// prov2 prov3
+	//   \    /
+	//    repo
+	//   /    \
+	// d1      d2
+	suite.Run("UpdateProvenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
 		prov1 := "prov1"
 		require.NoError(t, env.PachClient.CreateRepo(prov1))
 		prov2 := "prov2"
@@ -453,15 +424,12 @@ func TestUpdateProvenance(t *testing.T) {
 		// We shouldn't be able to delete prov3 since it's now a provenance
 		// of other repos.
 		require.YesError(t, env.PachClient.DeleteRepo(prov3, false))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("PutFileIntoOpenCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestPutFileIntoOpenCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -478,111 +446,100 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
 
 		require.YesError(t, env.PachClient.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n")))
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("PutFileDirectoryTraversal", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	//
+	//	_, err := env.PachClient.StartCommit("repo", "master")
+	//	require.NoError(t, err)
+	//
+	//	pfc, err := env.PachClient.NewPutFileClient()
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfc.PutFile("repo", "master", "../foo", strings.NewReader("foo\n")))
+	//	require.YesError(t, pfc.Close())
+	//
+	//	fis, err := env.PachClient.ListFileAll("repo", "master", "")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 0, len(fis))
+	//
+	//	pfc, err = env.PachClient.NewPutFileClient()
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfc.PutFile("repo", "master", "foo/../../bar", strings.NewReader("foo\n")))
+	//	require.YesError(t, pfc.Close())
+	//
+	//	fis, err = env.PachClient.ListFileAll("repo", "master", "")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 0, len(fis))
+	//
+	//	pfc, err = env.PachClient.NewPutFileClient()
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfc.PutFile("repo", "master", "foo/../bar", strings.NewReader("foo\n")))
+	//	require.NoError(t, pfc.Close())
+	//
+	//	fis, err = env.PachClient.ListFileAll("repo", "master", "")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 1, len(fis))
+	//})
 
-// TODO: Make work with V2?
-//func TestPutFileDirectoryTraversal(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		require.NoError(t, env.PachClient.CreateRepo("repo"))
-//
-//		_, err := env.PachClient.StartCommit("repo", "master")
-//		require.NoError(t, err)
-//
-//		pfc, err := env.PachClient.NewPutFileClient()
-//		require.NoError(t, err)
-//		require.NoError(t, pfc.PutFile("repo", "master", "../foo", strings.NewReader("foo\n")))
-//		require.YesError(t, pfc.Close())
-//
-//		fis, err := env.PachClient.ListFileAll("repo", "master", "")
-//		require.NoError(t, err)
-//		require.Equal(t, 0, len(fis))
-//
-//		pfc, err = env.PachClient.NewPutFileClient()
-//		require.NoError(t, err)
-//		require.NoError(t, pfc.PutFile("repo", "master", "foo/../../bar", strings.NewReader("foo\n")))
-//		require.YesError(t, pfc.Close())
-//
-//		fis, err = env.PachClient.ListFileAll("repo", "master", "")
-//		require.NoError(t, err)
-//		require.Equal(t, 0, len(fis))
-//
-//		pfc, err = env.PachClient.NewPutFileClient()
-//		require.NoError(t, err)
-//		require.NoError(t, pfc.PutFile("repo", "master", "foo/../bar", strings.NewReader("foo\n")))
-//		require.NoError(t, pfc.Close())
-//
-//		fis, err = env.PachClient.ListFileAll("repo", "master", "")
-//		require.NoError(t, err)
-//		require.Equal(t, 1, len(fis))
-//
-//		return nil
-//	}))
-//}
+	// TODO: Make work with V2?
+	//// TestPutFileOverlappingPaths tests the fix for
+	//// https://github.com/pachyderm/pachyderm/v2/issues/5345.
+	//// However, I can't get the test to fail without adding a sleep to
+	//// forEachPutFile in driver.go that induces the race (at:
+	//// `if req.Delete {...eg.Go(/*here*/...)}`). Setting GOMAXPROCS to 1 and 100
+	//// doesn't seem to help. In practice, that means we're still relying on
+	//// TestPipelineBuildLifecycle and pachyderm-in-Minikube to expose the race
+	//// (Minikube seems to induce more races), but maybe this test will be useful in
+	//// conjunction with e.g. some kind of race detector.
+	//// TODO(msteffen): Get this test to fail reliably in the presence of the race.
+	//suite.Run("TestPutFileOverlappingPaths", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	files := []string{"/a", "/b", "/c"}
+	//	contents := []string{"foo", "bar", "baz"}
+	//
+	//	c := env.PachClient
+	//	c.CreateRepo("test")
+	//	for i := 0; i < 100; i++ {
+	//		pfc, err := c.NewPutFileClient()
+	//		require.NoError(t, err)
+	//		require.NoError(t, pfc.DeleteFile("test", "master", "/"))
+	//		for i, f := range files {
+	//			_, err := pfc.PutFile("test", "master", f, strings.NewReader(contents[i]))
+	//			require.NoError(t, err)
+	//		}
+	//		require.NoError(t, pfc.Close())
+	//		var actualFiles []string
+	//		c.ListFileF("test", "master", "/", 0, func(f *pfs.FileInfo) error {
+	//			actualFiles = append(actualFiles, f.File.Path)
+	//			return nil
+	//		})
+	//		require.ElementsEqual(t, files, actualFiles)
+	//	}
+	//})
 
-// TODO: Make work with V2?
-//// TestPutFileOverlappingPaths tests the fix for
-//// https://github.com/pachyderm/pachyderm/v2/issues/5345.
-//// However, I can't get the test to fail without adding a sleep to
-//// forEachPutFile in driver.go that induces the race (at:
-//// `if req.Delete {...eg.Go(/*here*/...)}`). Setting GOMAXPROCS to 1 and 100
-//// doesn't seem to help. In practice, that means we're still relying on
-//// TestPipelineBuildLifecycle and pachyderm-in-Minikube to expose the race
-//// (Minikube seems to induce more races), but maybe this test will be useful in
-//// conjunction with e.g. some kind of race detector.
-//// TODO(msteffen): Get this test to fail reliably in the presence of the race.
-//func TestPutFileOverlappingPaths(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//	files := []string{"/a", "/b", "/c"}
-//	contents := []string{"foo", "bar", "baz"}
-//		c := env.PachClient
-//		c.CreateRepo("test")
-//		for i := 0; i < 100; i++ {
-//			pfc, err := c.NewPutFileClient()
-//			require.NoError(t, err)
-//			require.NoError(t, pfc.DeleteFile("test", "master", "/"))
-//			for i, f := range files {
-//				_, err := pfc.PutFile("test", "master", f, strings.NewReader(contents[i]))
-//				require.NoError(t, err)
-//			}
-//			require.NoError(t, pfc.Close())
-//			var actualFiles []string
-//			c.ListFileF("test", "master", "/", 0, func(f *pfs.FileInfo) error {
-//				actualFiles = append(actualFiles, f.File.Path)
-//				return nil
-//			})
-//			require.ElementsEqual(t, files, actualFiles)
-//		}
-//		return nil
-//	})
-//	require.NoError(t, err)
-//}
+	suite.Run("CreateInvalidBranchName", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCreateInvalidBranchName(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		// Create a branch that's the same length as a commit ID
 		_, err := env.PachClient.StartCommit(repo, uuid.NewWithoutDashes())
 		require.YesError(t, err)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("DeleteRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestDeleteRepo(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		numRepos := 10
 		repoNames := make(map[string]bool)
 		for i := 0; i < numRepos; i++ {
@@ -609,15 +566,12 @@ func TestDeleteRepo(t *testing.T) {
 		}
 
 		require.Equal(t, len(repoInfos), numRepos-reposToRemove)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("DeleteRepoProvenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestDeleteRepoProvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		// Create two repos, one as another's provenance
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
@@ -656,15 +610,12 @@ func TestDeleteRepoProvenance(t *testing.T) {
 
 		// Everything should be consistent
 		require.NoError(t, env.PachClient.FsckFastExit())
+	})
 
-		return nil
-	}))
-}
+	suite.Run("InspectCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestInspectCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -705,16 +656,13 @@ func TestInspectCommit(t *testing.T) {
 		require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
 		require.True(t, started.Before(tStarted))
 		require.True(t, finished.After(tFinished))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("InspectCommitBlock", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestInspectCommitBlock(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestInspectCommitBlock"
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "")
 		require.NoError(t, err)
@@ -730,15 +678,12 @@ func TestInspectCommitBlock(t *testing.T) {
 		require.NotNil(t, commitInfo.Finished)
 
 		require.NoError(t, eg.Wait())
+	})
 
-		return nil
-	}))
-}
+	suite.Run("SquashCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestSquashCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -767,15 +712,12 @@ func TestSquashCommit(t *testing.T) {
 		branches, err := env.PachClient.ListBranch(repo)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(branches))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("SquashCommitOnlyCommitInBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestSquashCommitOnlyCommitInBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -796,15 +738,12 @@ func TestSquashCommitOnlyCommitInBranch(t *testing.T) {
 		repoInfo, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
 		require.Equal(t, 0, int(repoInfo.SizeBytes))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("SquashCommitFinished", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestSquashCommitFinished(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -826,33 +765,27 @@ func TestSquashCommitFinished(t *testing.T) {
 		repoInfo, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
 		require.Equal(t, 0, int(repoInfo.SizeBytes))
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("TestCleanPath", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//	commit, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "./././file", strings.NewReader("foo")))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//	_, err = env.PachClient.InspectFile(repo, commit.ID, "file")
+	//	require.NoError(t, err)
+	//})
 
-// TODO: Make work with V2?
-//func TestCleanPath(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := "TestCleanPath"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		commit, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "./././file", strings.NewReader("foo")))
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-//		_, err = env.PachClient.InspectFile(repo, commit.ID, "file")
-//		require.NoError(t, err)
-//
-//		return nil
-//	}))
-//}
+	suite.Run("BasicFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestBasicFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -868,15 +801,12 @@ func TestBasicFile(t *testing.T) {
 		var b bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "file", &b))
 		require.Equal(t, data, b.String())
+	})
 
-		return nil
-	}))
-}
+	suite.Run("SimpleFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestSimpleFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -901,15 +831,12 @@ func TestSimpleFile(t *testing.T) {
 		buffer.Reset()
 		require.NoError(t, env.PachClient.GetFile(repo, commit2.ID, "foo", &buffer))
 		require.Equal(t, "foo\nfoo\n", buffer.String())
+	})
 
-		return nil
-	}))
-}
+	suite.Run("StartCommitWithUnfinishedParent", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestStartCommitWithUnfinishedParent(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -922,15 +849,12 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("StartCommitWithDuplicatedCommitProvenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestStartCommitWithDuplicatedCommitProvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -948,15 +872,12 @@ func TestStartCommitWithDuplicatedCommitProvenance(t *testing.T) {
 		})
 
 		require.NoError(t, err)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("AncestrySyntax", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestAncestrySyntax(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1071,20 +992,17 @@ func TestAncestrySyntax(t *testing.T) {
 		commitInfo, err = env.PachClient.InspectCommit(repo, "master.3")
 		require.NoError(t, err)
 		require.Equal(t, commit3, commitInfo.Commit)
+	})
 
-		return nil
-	}))
-}
+	// TestProvenance implements the following DAG
+	//  A ─▶ B ─▶ C ─▶ D
+	//            ▲
+	//  E ────────╯
 
-// TestProvenance implements the following DAG
-//  A ─▶ B ─▶ C ─▶ D
-//            ▲
-//  E ────────╯
+	suite.Run("Provenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestProvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -1123,15 +1041,12 @@ func TestProvenance(t *testing.T) {
 		commitInfo, err = env.PachClient.InspectCommit("D", "master")
 		require.NoError(t, err)
 		require.Equal(t, 4, len(commitInfo.Provenance))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("StartCommitWithBranchNameProvenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestStartCommitWithBranchNameProvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -1176,15 +1091,12 @@ func TestStartCommitWithBranchNameProvenance(t *testing.T) {
 			require.Equal(t, expectedProvenanceB, newCommitInfo.Provenance[0])
 			require.Equal(t, expectedProvenanceA, newCommitInfo.Provenance[1])
 		}
+	})
 
-		return nil
-	}))
-}
+	suite.Run("CommitBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCommitBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 		// Make two branches provenant on the master branch
 		require.NoError(t, env.PachClient.CreateBranch("repo", "A", "", []*pfs.Branch{pclient.NewBranch("repo", "master")}))
@@ -1208,15 +1120,12 @@ func TestCommitBranch(t *testing.T) {
 		require.Equal(t, "B", commitInfo.Branch.Name)
 		require.Equal(t, 1, len(commitInfo.Provenance))
 		require.Equal(t, "master", commitInfo.Provenance[0].Branch.Name)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("CommitOnTwoBranchesProvenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCommitOnTwoBranchesProvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 
 		parentCommit, err := env.PachClient.StartCommit("repo", "master")
@@ -1259,15 +1168,12 @@ func TestCommitOnTwoBranchesProvenance(t *testing.T) {
 		bCommit, err := env.PachClient.StartCommit("repo", "B")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("repo", bCommit.ID))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("Branch1", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestBranch1(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -1301,15 +1207,12 @@ func TestBranch1(t *testing.T) {
 		require.Equal(t, 2, len(branches))
 		require.Equal(t, "master2", branches[0].Name)
 		require.Equal(t, "master", branches[1].Name)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("PutFileBig", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestPutFileBig(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1330,72 +1233,66 @@ func TestPutFileBig(t *testing.T) {
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, commit1.ID, "foo", &buffer))
 		require.Equal(t, string(expectedOutputA), buffer.String())
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("TestPutFile", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//
+	//	// Detect file conflict
+	//	commit1, err := env.PachClient.StartCommit(repo, "")
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo/bar", strings.NewReader("foo\n")))
+	//	require.YesError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+	//
+	//	commit1, err = env.PachClient.StartCommit(repo, "")
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+	//
+	//	var buffer bytes.Buffer
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit1.ID, "foo", &buffer))
+	//	require.Equal(t, "foo\nfoo\n", buffer.String())
+	//
+	//	commit2, err := env.PachClient.StartCommitParent(repo, "", commit1.ID)
+	//	require.NoError(t, err)
+	//	// file conflicts with the previous commit
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "foo/bar", strings.NewReader("foo\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n")))
+	//	require.YesError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+	//
+	//	commit2, err = env.PachClient.StartCommitParent(repo, "", commit1.ID)
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n")))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+	//
+	//	commit3, err := env.PachClient.StartCommitParent(repo, "", commit2.ID)
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit3.ID, "dir1/foo", strings.NewReader("foo\n"))) // because the directory dir does not exist
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
+	//
+	//	commit4, err := env.PachClient.StartCommitParent(repo, "", commit3.ID)
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit4.ID, "dir2/bar", strings.NewReader("bar\n")))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit4.ID))
+	//
+	//	buffer = bytes.Buffer{}
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit4.ID, "dir2/bar", &buffer))
+	//	require.Equal(t, "bar\n", buffer.String())
+	//	buffer = bytes.Buffer{}
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit4.ID, "dir2", &buffer))
+	//})
 
-// TODO: Make work with V2?
-//func TestPutFile(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := "test"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//
-//		// Detect file conflict
-//		commit1, err := env.PachClient.StartCommit(repo, "")
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
-//		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo/bar", strings.NewReader("foo\n")))
-//		require.YesError(t, env.PachClient.FinishCommit(repo, commit1.ID))
-//
-//		commit1, err = env.PachClient.StartCommit(repo, "")
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
-//		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
-//
-//		var buffer bytes.Buffer
-//		require.NoError(t, env.PachClient.GetFile(repo, commit1.ID, "foo", &buffer))
-//		require.Equal(t, "foo\nfoo\n", buffer.String())
-//
-//		commit2, err := env.PachClient.StartCommitParent(repo, "", commit1.ID)
-//		require.NoError(t, err)
-//		// file conflicts with the previous commit
-//		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "foo/bar", strings.NewReader("foo\n")))
-//		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n")))
-//		require.YesError(t, env.PachClient.FinishCommit(repo, commit2.ID))
-//
-//		commit2, err = env.PachClient.StartCommitParent(repo, "", commit1.ID)
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n")))
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
-//
-//		commit3, err := env.PachClient.StartCommitParent(repo, "", commit2.ID)
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFile(repo, commit3.ID, "dir1/foo", strings.NewReader("foo\n"))) // because the directory dir does not exist
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
-//
-//		commit4, err := env.PachClient.StartCommitParent(repo, "", commit3.ID)
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFile(repo, commit4.ID, "dir2/bar", strings.NewReader("bar\n")))
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit4.ID))
-//
-//		buffer = bytes.Buffer{}
-//		require.NoError(t, env.PachClient.GetFile(repo, commit4.ID, "dir2/bar", &buffer))
-//		require.Equal(t, "bar\n", buffer.String())
-//		buffer = bytes.Buffer{}
-//		require.NoError(t, env.PachClient.GetFile(repo, commit4.ID, "dir2", &buffer))
-//
-//		return nil
-//	}))
-//}
+	suite.Run("PutFile2", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestPutFile2(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -1438,15 +1335,12 @@ func TestPutFile2(t *testing.T) {
 		buffer.Reset()
 		require.NoError(t, env.PachClient.GetFile(repo, "foo", "file", buffer))
 		require.Equal(t, expected, buffer.String())
+	})
 
-		return nil
-	}))
-}
+	suite.Run("PutFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestPutFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader("foo")))
@@ -1462,14 +1356,12 @@ func TestPutFile(t *testing.T) {
 		buf.Reset()
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", &buf))
 		require.Equal(t, "buzz", buf.String())
-		return nil
-	}))
-}
+	})
 
-func TestPutSameFileInParallel(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("PutSameFileInParallel", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1487,15 +1379,12 @@ func TestPutSameFileInParallel(t *testing.T) {
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "foo", &buffer))
 		require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
+	})
 
-		return nil
-	}))
-}
+	suite.Run("InspectFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestInspectFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1541,15 +1430,12 @@ func TestInspectFile(t *testing.T) {
 		require.Equal(t, 2, len(fis))
 
 		require.Equal(t, len(fis), 2)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("InspectFile2", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestInspectFile2(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1586,16 +1472,13 @@ func TestInspectFile2(t *testing.T) {
 		fileInfo, err = env.PachClient.InspectFile(repo, "master", "file")
 		require.NoError(t, err)
 		require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("InspectFile3", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestInspectFile3(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestInspectFile3"
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		fileContent1 := "foo\n"
@@ -1647,14 +1530,12 @@ func TestInspectFile3(t *testing.T) {
 		fi, err = env.PachClient.InspectFile(repo, commit3.ID, "bar")
 		require.NoError(t, err)
 		require.NotNil(t, fi)
-		return nil
-	}))
-}
+	})
 
-func TestInspectDir(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("InspectDir", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1680,15 +1561,12 @@ func TestInspectDir(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
 		require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("InspectDir2", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestInspectDir2(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1723,15 +1601,12 @@ func TestInspectDir2(t *testing.T) {
 
 		_, err = env.PachClient.InspectFile(repo, "master", "dir")
 		require.NoError(t, err)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ListFileTwoCommits", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestListFileTwoCommits(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1770,15 +1645,12 @@ func TestListFileTwoCommits(t *testing.T) {
 		fis, err = env.PachClient.ListFileAll(repo, commit2.ID, "")
 		require.NoError(t, err)
 		require.Equal(t, 2*numFiles, len(fis))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ListFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestListFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1802,15 +1674,12 @@ func TestListFile(t *testing.T) {
 		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		checks()
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ListFile2", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestListFile2(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1846,15 +1715,12 @@ func TestListFile2(t *testing.T) {
 		fileInfos, err = env.PachClient.ListFileAll(repo, "master", "dir")
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fileInfos))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ListFile3", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestListFile3(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1900,16 +1766,13 @@ func TestListFile3(t *testing.T) {
 		fileInfos, err = env.PachClient.ListFileAll(repo, "master", "/")
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fileInfos))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ListFile4", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestListFile4(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestListFile"
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -1935,39 +1798,33 @@ func TestListFile4(t *testing.T) {
 			return nil
 		}))
 		require.ElementsEqual(t, []string{"/dir1/", "/dir2/"}, finfosToPaths(fis))
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("PutFileTypeConflict", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//
+	//	fileContent := "foo\n"
+	//
+	//	commit1, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "dir/1", strings.NewReader(fileContent)))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+	//
+	//	commit2, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "dir", strings.NewReader(fileContent)))
+	//	require.YesError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+	//})
 
-// TODO: Make work with V2?
-//func TestPutFileTypeConflict(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := "test"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//
-//		fileContent := "foo\n"
-//
-//		commit1, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "dir/1", strings.NewReader(fileContent)))
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
-//
-//		commit2, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "dir", strings.NewReader(fileContent)))
-//		require.YesError(t, env.PachClient.FinishCommit(repo, commit2.ID))
-//
-//		return nil
-//	}))
-//}
+	suite.Run("RootDirectory", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestRootDirectory(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1982,15 +1839,12 @@ func TestRootDirectory(t *testing.T) {
 		fileInfos, err := env.PachClient.ListFileAll(repo, commit.ID, "")
 		require.NoError(t, err)
 		require.Equal(t, 1, len(fileInfos))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("DeleteFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestDeleteFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2049,15 +1903,12 @@ func TestDeleteFile(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(repo, commit4.ID, "nonexistent"))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit4.ID))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("DeleteFile2", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestDeleteFile2(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2090,15 +1941,12 @@ func TestDeleteFile2(t *testing.T) {
 		buffer.Reset()
 		require.NoError(t, env.PachClient.GetFile(repo, commit3.ID, "file", &buffer))
 		require.Equal(t, expected, buffer.String())
+	})
 
-		return nil
-	}))
-}
+	suite.Run("DeleteFile3", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestDeleteFile3(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -2146,15 +1994,12 @@ func TestDeleteFile3(t *testing.T) {
 		require.NoError(t, err)
 		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/dir2/bar")
 		require.NoError(t, err)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("DeleteDir", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestDeleteDir(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2216,15 +2061,12 @@ func TestDeleteDir(t *testing.T) {
 		require.Equal(t, 0, len(fileInfos))
 
 		// TODO: test deleting "."
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ListCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestListCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2290,42 +2132,36 @@ func TestListCommit(t *testing.T) {
 		for i := 1; i < len(commitInfos); i++ {
 			require.Equal(t, commitInfos[i].ParentCommit, commitInfos[i-1].Commit)
 		}
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("OffsetRead", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//	commit, err := env.PachClient.StartCommit(repo, "")
+	//	require.NoError(t, err)
+	//	fileData := "foo\n"
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader(fileData)))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader(fileData)))
+	//
+	//	var buffer bytes.Buffer
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "foo", int64(len(fileData)*2)+1, 0, &buffer))
+	//	require.Equal(t, "", buffer.String())
+	//
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//
+	//	buffer.Reset()
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "foo", int64(len(fileData)*2)+1, 0, &buffer))
+	//	require.Equal(t, "", buffer.String())
+	//})
 
-// TODO: Make work with V2?
-//func TestOffsetRead(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := "TestOffsetRead"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		commit, err := env.PachClient.StartCommit(repo, "")
-//		require.NoError(t, err)
-//		fileData := "foo\n"
-//		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader(fileData)))
-//		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader(fileData)))
-//
-//		var buffer bytes.Buffer
-//		require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "foo", int64(len(fileData)*2)+1, 0, &buffer))
-//		require.Equal(t, "", buffer.String())
-//
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-//
-//		buffer.Reset()
-//		require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "foo", int64(len(fileData)*2)+1, 0, &buffer))
-//		require.Equal(t, "", buffer.String())
-//
-//		return nil
-//	}))
-//}
+	suite.Run("Branch2", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestBranch2(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2365,27 +2201,21 @@ func TestBranch2(t *testing.T) {
 		require.Equal(t, commit, branches[0].Head)
 		require.Equal(t, "branch1", branches[1].Name)
 		require.Equal(t, commit2, branches[1].Head)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("DeleteNonexistentBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestDeleteNonexistentBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestDeleteNonexistentBranch"
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		require.NoError(t, env.PachClient.DeleteBranch(repo, "doesnt_exist", false))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("SubscribeCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestSubscribeCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2426,15 +2256,12 @@ func TestSubscribeCommit(t *testing.T) {
 
 			return eg.Wait()
 		})
+	})
 
-		return nil
-	}))
-}
+	suite.Run("InspectRepoSimple", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestInspectRepoSimple(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2454,15 +2281,12 @@ func TestInspectRepoSimple(t *testing.T) {
 
 		// Size should be 0 because the files were not added to master
 		require.Equal(t, int(info.SizeBytes), 0)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("InspectRepoComplex", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestInspectRepoComplex(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2497,36 +2321,29 @@ func TestInspectRepoComplex(t *testing.T) {
 		info = infos[0]
 
 		require.Equal(t, int(info.SizeBytes), totalSize)
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("Create", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//	commit, err := env.PachClient.StartCommit(repo, "")
+	//	require.NoError(t, err)
+	//	w, err := env.PachClient.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, 0, false)
+	//	require.NoError(t, err)
+	//	require.NoError(t, w.Close())
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//	_, err = env.PachClient.InspectFile(repo, commit.ID, "foo")
+	//	require.NoError(t, err)
+	//})
 
-// TODO: Make work with V2?
-//func TestCreate(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := "test"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		commit, err := env.PachClient.StartCommit(repo, "")
-//		require.NoError(t, err)
-//		w, err := env.PachClient.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, 0, false)
-//		require.NoError(t, err)
-//		require.NoError(t, w.Close())
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-//		_, err = env.PachClient.InspectFile(repo, commit.ID, "foo")
-//		require.NoError(t, err)
-//
-//		return nil
-//	})
-//	require.NoError(t, err)
-//}
+	suite.Run("GetFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestGetFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := tu.UniqueString("test")
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "")
@@ -2550,15 +2367,12 @@ func TestGetFile(t *testing.T) {
 			err = env.PachClient.GetFile(repo, commit.ID, "dir", &buffer)
 			require.NoError(t, err)
 		})
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ManyPutsSingleFileSingleCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestManyPutsSingleFileSingleCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping long tests in short mode")
 		}
@@ -2599,77 +2413,68 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, commit1.ID, "foo", &buffer))
 		require.Equal(t, string(expectedOutput), buffer.String())
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("PutFileValidCharacters", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//
+	//	commit, err := env.PachClient.StartCommit(repo, "")
+	//	require.NoError(t, err)
+	//
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x00bar", strings.NewReader("foobar\n")))
+	//	// null characters error because when you `ls` files with null characters
+	//	// they truncate things after the null character leading to strange results
+	//	require.YesError(t, err)
+	//
+	//	// Boundary tests for valid character range
+	//	require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "\x1ffoobar", strings.NewReader("foobar\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x20bar", strings.NewReader("foobar\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foobar\x7e", strings.NewReader("foobar\n")))
+	//	require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x7fbar", strings.NewReader("foobar\n")))
+	//
+	//	// Random character tests outside and inside valid character range
+	//	require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "foobar\x0b", strings.NewReader("foobar\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "\x41foobar", strings.NewReader("foobar\n")))
+	//	require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x90bar", strings.NewReader("foobar\n")))
+	//})
 
-// TODO: Make work with V2?
-//func TestPutFileValidCharacters(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := "test"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//
-//		commit, err := env.PachClient.StartCommit(repo, "")
-//		require.NoError(t, err)
-//
-//		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x00bar", strings.NewReader("foobar\n")))
-//		// null characters error because when you `ls` files with null characters
-//		// they truncate things after the null character leading to strange results
-//		require.YesError(t, err)
-//
-//		// Boundary tests for valid character range
-//		require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "\x1ffoobar", strings.NewReader("foobar\n")))
-//		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x20bar", strings.NewReader("foobar\n")))
-//		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foobar\x7e", strings.NewReader("foobar\n")))
-//		require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x7fbar", strings.NewReader("foobar\n")))
-//
-//		// Random character tests outside and inside valid character range
-//		require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "foobar\x0b", strings.NewReader("foobar\n")))
-//		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "\x41foobar", strings.NewReader("foobar\n")))
-//		require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x90bar", strings.NewReader("foobar\n")))
-//
-//		return nil
-//	}))
-//}
+	// TODO: Make work with V2?
+	//suite.Run("BigListFile", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//	commit, err := env.PachClient.StartCommit(repo, "")
+	//	require.NoError(t, err)
+	//	var eg errgroup.Group
+	//	for i := 0; i < 25; i++ {
+	//		for j := 0; j < 25; j++ {
+	//			i := i
+	//			j := j
+	//			eg.Go(func() error {
+	//				return env.PachClient.PutFile(repo, commit.ID, fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
+	//			})
+	//		}
+	//	}
+	//	require.NoError(t, eg.Wait())
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//	for i := 0; i < 25; i++ {
+	//		files, err := env.PachClient.ListFileAll(repo, commit.ID, fmt.Sprintf("dir%d", i))
+	//		require.NoError(t, err)
+	//		require.Equal(t, 25, len(files))
+	//	}
+	//})
 
-// TODO: Make work with V2?
-//func TestBigListFile(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := "TestBigListFile"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		commit, err := env.PachClient.StartCommit(repo, "")
-//		require.NoError(t, err)
-//		var eg errgroup.Group
-//		for i := 0; i < 25; i++ {
-//			for j := 0; j < 25; j++ {
-//				i := i
-//				j := j
-//				eg.Go(func() error {
-//					return env.PachClient.PutFile(repo, commit.ID, fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
-//				})
-//			}
-//		}
-//		require.NoError(t, eg.Wait())
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-//		for i := 0; i < 25; i++ {
-//			files, err := env.PachClient.ListFileAll(repo, commit.ID, fmt.Sprintf("dir%d", i))
-//			require.NoError(t, err)
-//			require.Equal(t, 25, len(files))
-//		}
-//
-//		return nil
-//	}))
-//}
+	suite.Run("StartCommitLatestOnBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestStartCommitLatestOnBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2689,15 +2494,12 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 		commitInfo, err := env.PachClient.InspectCommit(repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, commit3.ID, commitInfo.Commit.ID)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("SetBranchTwice", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestSetBranchTwice(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2717,185 +2519,165 @@ func TestSetBranchTwice(t *testing.T) {
 		require.Equal(t, 1, len(branches))
 		require.Equal(t, "master", branches[0].Name)
 		require.Equal(t, commit2.ID, branches[0].Head.ID)
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("SyncPullPush", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo1 := "repo1"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo1))
+	//
+	//	commit1, err := env.PachClient.StartCommit(repo1, "master")
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFile(repo1, commit1.ID, "foo", strings.NewReader("foo\n"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFile(repo1, commit1.ID, "dir/bar", strings.NewReader("bar\n"))
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.FinishCommit(repo1, commit1.ID))
+	//
+	//  tmpDir := t.TempDir()
+	//	puller := pfssync.NewPuller()
+	//	require.NoError(t, puller.Pull(env.PachClient, tmpDir, repo1, commit1.ID, "/", false, false, 2, nil, ""))
+	//	_, err = puller.CleanUp()
+	//	require.NoError(t, err)
+	//
+	//	repo2 := "repo2"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo2))
+	//
+	//	commit2, err := env.PachClient.StartCommit(repo2, "master")
+	//	require.NoError(t, err)
+	//
+	//	require.NoError(t, pfssync.Push(env.PachClient, tmpDir, commit2, false))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo2, commit2.ID))
+	//
+	//	var buffer bytes.Buffer
+	//	require.NoError(t, env.PachClient.GetFile(repo2, commit2.ID, "foo", &buffer))
+	//	require.Equal(t, "foo\n", buffer.String())
+	//	buffer.Reset()
+	//	require.NoError(t, env.PachClient.GetFile(repo2, commit2.ID, "dir/bar", &buffer))
+	//	require.Equal(t, "bar\n", buffer.String())
+	//
+	//	fileInfos, err := env.PachClient.ListFile(repo2, commit2.ID, "")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(fileInfos))
+	//
+	//	commit3, err := env.PachClient.StartCommit(repo2, "master")
+	//	require.NoError(t, err)
+	//
+	//	// Test the overwrite flag.
+	//	// After this Push operation, all files should still look the same, since
+	//	// the old files were overwritten.
+	//	require.NoError(t, pfssync.Push(env.PachClient, tmpDir, commit3, true))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo2, commit3.ID))
+	//
+	//	buffer.Reset()
+	//	require.NoError(t, env.PachClient.GetFile(repo2, commit3.ID, "foo", &buffer))
+	//	require.Equal(t, "foo\n", buffer.String())
+	//	buffer.Reset()
+	//	require.NoError(t, env.PachClient.GetFile(repo2, commit3.ID, "dir/bar", &buffer))
+	//	require.Equal(t, "bar\n", buffer.String())
+	//
+	//	fileInfos, err = env.PachClient.ListFile(repo2, commit3.ID, "")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(fileInfos))
+	//
+	//	// Test Lazy files
+	//  tmpDir2 := t.TempDir()
+	//	puller = pfssync.NewPuller()
+	//	require.NoError(t, puller.Pull(env.PachClient, tmpDir2, repo1, "master", "/", true, false, 2, nil, ""))
+	//
+	//	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
+	//	require.NoError(t, err)
+	//	require.Equal(t, "bar\n", string(data))
+	//
+	//	_, err = puller.CleanUp()
+	//	require.NoError(t, err)
+	//})
+	//
+	//suite.Run("SyncFile", func(t *testing.T) {
+	//	if os.Getenv("RUN_BAD_TESTS") == "" {
+	//		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	//	}
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "repo"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//
+	//	content1 := random.String(int(pfs.ChunkSize))
+	//
+	//	commit1, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfssync.PushFile(env.PachClient, env.PachClient, &pfs.File{
+	//		Commit: commit1,
+	//		Path:   "file",
+	//	}, strings.NewReader(content1)))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+	//
+	//	var buffer bytes.Buffer
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit1.ID, "file", &buffer))
+	//	require.Equal(t, content1, buffer.String())
+	//
+	//	content2 := random.String(int(pfs.ChunkSize * 2))
+	//
+	//	commit2, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfssync.PushFile(env.PachClient, env.PachClient, &pfs.File{
+	//		Commit: commit2,
+	//		Path:   "file",
+	//	}, strings.NewReader(content2)))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+	//
+	//	buffer.Reset()
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit2.ID, "file", &buffer))
+	//	require.Equal(t, content2, buffer.String())
+	//
+	//	content3 := content2 + random.String(int(pfs.ChunkSize))
+	//
+	//	commit3, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfssync.PushFile(env.PachClient, env.PachClient, &pfs.File{
+	//		Commit: commit3,
+	//		Path:   "file",
+	//	}, strings.NewReader(content3)))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
+	//
+	//	buffer.Reset()
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit3.ID, "file", &buffer))
+	//	require.Equal(t, content3, buffer.String())
+	//})
+	//
+	//suite.Run("SyncEmptyDir", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "repo"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//
+	//	commit, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//
+	//  tmpDir := t.TempDir()
+	//
+	//	// We want to make sure that Pull creates an empty directory
+	//	// when the path that we are cloning is empty.
+	//	dir := filepath.Join(tmpDir, "tmp")
+	//
+	//	puller := pfssync.NewPuller()
+	//	require.NoError(t, puller.Pull(env.PachClient, dir, repo, commit.ID, "/", false, false, 0, nil, ""))
+	//	_, err = os.Stat(dir)
+	//	require.NoError(t, err)
+	//	_, err = puller.CleanUp()
+	//	require.NoError(t, err)
+	//})
 
-// TODO: Make work with V2?
-//func TestSyncPullPush(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo1 := "repo1"
-//		require.NoError(t, env.PachClient.CreateRepo(repo1))
-//
-//		commit1, err := env.PachClient.StartCommit(repo1, "master")
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFile(repo1, commit1.ID, "foo", strings.NewReader("foo\n"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFile(repo1, commit1.ID, "dir/bar", strings.NewReader("bar\n"))
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.FinishCommit(repo1, commit1.ID))
-//
-//		tmpDir, err := ioutil.TempDir("/tmp", "pfs")
-//		require.NoError(t, err)
-//
-//		puller := pfssync.NewPuller()
-//		require.NoError(t, puller.Pull(env.PachClient, tmpDir, repo1, commit1.ID, "/", false, false, 2, nil, ""))
-//		_, err = puller.CleanUp()
-//		require.NoError(t, err)
-//
-//		repo2 := "repo2"
-//		require.NoError(t, env.PachClient.CreateRepo(repo2))
-//
-//		commit2, err := env.PachClient.StartCommit(repo2, "master")
-//		require.NoError(t, err)
-//
-//		require.NoError(t, pfssync.Push(env.PachClient, tmpDir, commit2, false))
-//		require.NoError(t, env.PachClient.FinishCommit(repo2, commit2.ID))
-//
-//		var buffer bytes.Buffer
-//		require.NoError(t, env.PachClient.GetFile(repo2, commit2.ID, "foo", &buffer))
-//		require.Equal(t, "foo\n", buffer.String())
-//		buffer.Reset()
-//		require.NoError(t, env.PachClient.GetFile(repo2, commit2.ID, "dir/bar", &buffer))
-//		require.Equal(t, "bar\n", buffer.String())
-//
-//		fileInfos, err := env.PachClient.ListFile(repo2, commit2.ID, "")
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(fileInfos))
-//
-//		commit3, err := env.PachClient.StartCommit(repo2, "master")
-//		require.NoError(t, err)
-//
-//		// Test the overwrite flag.
-//		// After this Push operation, all files should still look the same, since
-//		// the old files were overwritten.
-//		require.NoError(t, pfssync.Push(env.PachClient, tmpDir, commit3, true))
-//		require.NoError(t, env.PachClient.FinishCommit(repo2, commit3.ID))
-//
-//		buffer.Reset()
-//		require.NoError(t, env.PachClient.GetFile(repo2, commit3.ID, "foo", &buffer))
-//		require.Equal(t, "foo\n", buffer.String())
-//		buffer.Reset()
-//		require.NoError(t, env.PachClient.GetFile(repo2, commit3.ID, "dir/bar", &buffer))
-//		require.Equal(t, "bar\n", buffer.String())
-//
-//		fileInfos, err = env.PachClient.ListFile(repo2, commit3.ID, "")
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(fileInfos))
-//
-//		// Test Lazy files
-//		tmpDir2, err := ioutil.TempDir("/tmp", "pfs")
-//		require.NoError(t, err)
-//
-//		puller = pfssync.NewPuller()
-//		require.NoError(t, puller.Pull(env.PachClient, tmpDir2, repo1, "master", "/", true, false, 2, nil, ""))
-//
-//		data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
-//		require.NoError(t, err)
-//		require.Equal(t, "bar\n", string(data))
-//
-//		_, err = puller.CleanUp()
-//		require.NoError(t, err)
-//
-//		return nil
-//	})
-//	require.NoError(t, err)
-//}
-//
-//func TestSyncFile(t *testing.T) {
-//	if os.Getenv("RUN_BAD_TESTS") == "" {
-//		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-//	}
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := "repo"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//
-//		content1 := random.String(int(pfs.ChunkSize))
-//
-//		commit1, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		require.NoError(t, pfssync.PushFile(env.PachClient, env.PachClient, &pfs.File{
-//			Commit: commit1,
-//			Path:   "file",
-//		}, strings.NewReader(content1)))
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
-//
-//		var buffer bytes.Buffer
-//		require.NoError(t, env.PachClient.GetFile(repo, commit1.ID, "file", &buffer))
-//		require.Equal(t, content1, buffer.String())
-//
-//		content2 := random.String(int(pfs.ChunkSize * 2))
-//
-//		commit2, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		require.NoError(t, pfssync.PushFile(env.PachClient, env.PachClient, &pfs.File{
-//			Commit: commit2,
-//			Path:   "file",
-//		}, strings.NewReader(content2)))
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
-//
-//		buffer.Reset()
-//		require.NoError(t, env.PachClient.GetFile(repo, commit2.ID, "file", &buffer))
-//		require.Equal(t, content2, buffer.String())
-//
-//		content3 := content2 + random.String(int(pfs.ChunkSize))
-//
-//		commit3, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		require.NoError(t, pfssync.PushFile(env.PachClient, env.PachClient, &pfs.File{
-//			Commit: commit3,
-//			Path:   "file",
-//		}, strings.NewReader(content3)))
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
-//
-//		buffer.Reset()
-//		require.NoError(t, env.PachClient.GetFile(repo, commit3.ID, "file", &buffer))
-//		require.Equal(t, content3, buffer.String())
-//
-//		return nil
-//	})
-//	require.NoError(t, err)
-//}
-//
-//func TestSyncEmptyDir(t *testing.T) {
-//	t.Parallel()
-//db := dbutil.NewTestDB(t)
-//require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := "repo"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//
-//		commit, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-//
-//		tmpDir, err := ioutil.TempDir("/tmp", "pfs")
-//		require.NoError(t, err)
-//
-//		// We want to make sure that Pull creates an empty directory
-//		// when the path that we are cloning is empty.
-//		dir := filepath.Join(tmpDir, "tmp")
-//
-//		puller := pfssync.NewPuller()
-//		require.NoError(t, puller.Pull(env.PachClient, dir, repo, commit.ID, "/", false, false, 0, nil, ""))
-//		_, err = os.Stat(dir)
-//		require.NoError(t, err)
-//		_, err = puller.CleanUp()
-//		require.NoError(t, err)
-//
-//		return nil
-//	})
-//	require.NoError(t, err)
-//}
+	suite.Run("Flush", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestFlush(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
@@ -2906,17 +2688,14 @@ func TestFlush(t *testing.T) {
 		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
+	})
 
-		return nil
-	}))
-}
+	// TestFlush2 implements the following DAG:
+	// A ─▶ B ─▶ C ─▶ D
+	suite.Run("Flush2", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestFlush2 implements the following DAG:
-// A ─▶ B ─▶ C ─▶ D
-func TestFlush2(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -2946,22 +2725,19 @@ func TestFlush2(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
+	})
 
-		return nil
-	}))
-}
+	// A
+	//  ╲
+	//   ◀
+	//    C
+	//   ◀
+	//  ╱
+	// B
+	suite.Run("Flush3", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// A
-//  ╲
-//   ◀
-//    C
-//   ◀
-//  ╱
-// B
-func TestFlush3(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -2987,15 +2763,12 @@ func TestFlush3(t *testing.T) {
 		require.Equal(t, 1, len(commitInfos))
 
 		require.Equal(t, commitInfos[0].Commit.Repo.Name, "C")
+	})
 
-		return nil
-	}))
-}
+	suite.Run("FlushRedundant", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestFlushRedundant(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		ACommit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
@@ -3003,15 +2776,12 @@ func TestFlushRedundant(t *testing.T) {
 		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("FlushCommitWithNoDownstreamRepos", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -3020,308 +2790,292 @@ func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, commit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("FlushOpenCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestFlushOpenCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
-		ACommit, err := env.PachClient.StartCommit("A", "master")
+		repo1 := "test1"
+		repo2 := "test2"
+		require.NoError(t, env.PachClient.CreateRepo(repo1))
+		require.NoError(t, env.PachClient.CreateRepo(repo2))
+		require.NoError(t, env.PachClient.CreateBranch(repo2, "master", "", []*pfs.Branch{pclient.NewBranch(repo1, "master")}))
+		commit, err := env.PachClient.StartCommit(repo1, "master")
 		require.NoError(t, err)
 
 		// do the other commits in a goro so we can block for them
-		go func() {
-			time.Sleep(5 * time.Second)
-			require.NoError(t, env.PachClient.FinishCommit("A", "master"))
-			require.NoError(t, env.PachClient.FinishCommit("B", "master"))
-		}()
+		eg, _ := errgroup.WithContext(context.Background())
+		eg.Go(func() error {
+			time.Sleep(3 * time.Second)
+			if err := env.PachClient.FinishCommit(repo1, "master"); err != nil {
+				return err
+			}
+			return env.PachClient.FinishCommit(repo2, "master")
+		})
 
-		// Flush ACommit
-		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
+		t.Cleanup(func() {
+			require.NoError(t, eg.Wait())
+		})
+
+		// Flush commit
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo1, commit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("EmptyFlush", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestEmptyFlush(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		_, err := env.PachClient.FlushCommitAll(nil, nil)
 		require.YesError(t, err)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("FlushNonExistentCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestFlushNonExistentCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		_, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
 		require.YesError(t, err)
 		repo := "FlushNonExistentCommit"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		_, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, "fake-commit")}, nil)
 		require.YesError(t, err)
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("PutFileSplit", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	if testing.Short() {
+	//		t.Skip("Skipping integration tests in short mode")
+	//	}
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//	commit, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "line2", pfs.Delimiter_LINE, 2, 0, 0, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "line3", pfs.Delimiter_LINE, 0, 8, 0, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "json2", pfs.Delimiter_JSON, 2, 0, 0, false, strings.NewReader("{}{}{}{}"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "json3", pfs.Delimiter_JSON, 0, 4, 0, false, strings.NewReader("{}{}{}{}"))
+	//	require.NoError(t, err)
+	//
+	//	files, err := env.PachClient.ListFileAll(repo, commit.ID, "line2")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(8), fileInfo.SizeBytes)
+	//	}
+	//
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//	commit2, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit2.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, commit2.ID, "json", pfs.Delimiter_JSON, 0, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
+	//	require.NoError(t, err)
+	//
+	//	files, err = env.PachClient.ListFileAll(repo, commit2.ID, "line")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 9, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	//	}
+	//
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+	//	fileInfo, err := env.PachClient.InspectFile(repo, commit.ID, "none")
+	//	require.NoError(t, err)
+	//	require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
+	//	files, err = env.PachClient.ListFileAll(repo, commit.ID, "line")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 6, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	//	}
+	//	files, err = env.PachClient.ListFileAll(repo, commit2.ID, "line")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 9, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	//	}
+	//	files, err = env.PachClient.ListFileAll(repo, commit.ID, "line2")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(8), fileInfo.SizeBytes)
+	//	}
+	//	files, err = env.PachClient.ListFileAll(repo, commit.ID, "line3")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(8), fileInfo.SizeBytes)
+	//	}
+	//	files, err = env.PachClient.ListFileAll(repo, commit.ID, "json")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 20, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(2), fileInfo.SizeBytes)
+	//	}
+	//	files, err = env.PachClient.ListFileAll(repo, commit2.ID, "json")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 30, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(2), fileInfo.SizeBytes)
+	//	}
+	//	files, err = env.PachClient.ListFileAll(repo, commit.ID, "json2")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	//	}
+	//	files, err = env.PachClient.ListFileAll(repo, commit.ID, "json3")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	//	}
+	//})
+	//
+	//suite.Run("PutFileSplitBig", func(t *testing.T) {
+	//	if os.Getenv("RUN_BAD_TESTS") == "" {
+	//		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	//	}
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	if testing.Short() {
+	//		t.Skip("Skipping integration tests in short mode")
+	//	}
+	//
+	//	// create repos
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//	commit, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	w, err := env.PachClient.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false)
+	//	require.NoError(t, err)
+	//	for i := 0; i < 1000; i++ {
+	//		_, err = w.Write([]byte("foo\n"))
+	//		require.NoError(t, err)
+	//	}
+	//	require.NoError(t, w.Close())
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//	files, err := env.PachClient.ListFileAll(repo, commit.ID, "line")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 1000, len(files))
+	//	for _, fileInfo := range files {
+	//		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	//	}
+	//})
+	//
+	//suite.Run("PutFileSplitCSV", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	// create repos
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//	_, err := env.PachClient.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 0, false,
+	//		// Weird, but this is actually two lines ("is\na" is quoted, so one cell)
+	//		strings.NewReader("this,is,a,test\n"+
+	//			"\"\"\"this\"\"\",\"is\nonly\",\"a,test\"\n"))
+	//	require.NoError(t, err)
+	//	fileInfos, err := env.PachClient.ListFileAll(repo, "master", "/data")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(fileInfos))
+	//	var contents bytes.Buffer
+	//	env.PachClient.GetFile(repo, "master", "/data/0000000000000000", &contents)
+	//	require.Equal(t, "this,is,a,test\n", contents.String())
+	//	contents.Reset()
+	//	env.PachClient.GetFile(repo, "master", "/data/0000000000000001", &contents)
+	//	require.Equal(t, "\"\"\"this\"\"\",\"is\nonly\",\"a,test\"\n", contents.String())
+	//})
+	//
+	//suite.Run("PutFileSplitSQL", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	// create repos
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//
+	//	_, err := env.PachClient.PutFileSplit(repo, "master", "/sql", pfs.Delimiter_SQL, 0, 0, 0,
+	//		false, strings.NewReader(tu.TestPGDump))
+	//	require.NoError(t, err)
+	//	fileInfos, err := env.PachClient.ListFileAll(repo, "master", "/sql")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 5, len(fileInfos))
+	//
+	//	// Get one of the SQL records & validate it
+	//	var contents bytes.Buffer
+	//	env.PachClient.GetFile(repo, "master", "/sql/0000000000000000", &contents)
+	//	// Validate that the recieved pgdump file creates the cars table
+	//	require.Matches(t, "CREATE TABLE public\\.cars", contents.String())
+	//	// Validate the SQL header more generally by passing the output of GetFile
+	//	// back through the SQL library & confirm that it parses correctly but only
+	//	// has one row
+	//	pgReader := sql.NewPGDumpReader(bufio.NewReader(bytes.NewReader(contents.Bytes())))
+	//	record, err := pgReader.ReadRow()
+	//	require.NoError(t, err)
+	//	require.Equal(t, "Tesla\tRoadster\t2008\tliterally a rocket\n", string(record))
+	//	_, err = pgReader.ReadRow()
+	//	require.YesError(t, err)
+	//	require.True(t, errors.Is(err, io.EOF))
+	//
+	//	// Create a new commit that overwrites all existing data & puts it back with
+	//	// --header-records=1
+	//	commit, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.DeleteFile(repo, commit.ID, "/sql"))
+	//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "/sql", pfs.Delimiter_SQL, 0, 0, 1,
+	//		false, strings.NewReader(tu.TestPGDump))
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//	fileInfos, err = env.PachClient.ListFileAll(repo, "master", "/sql")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 4, len(fileInfos))
+	//
+	//	// Get one of the SQL records & validate it
+	//	contents.Reset()
+	//	env.PachClient.GetFile(repo, "master", "/sql/0000000000000003", &contents)
+	//	// Validate a that the recieved pgdump file creates the cars table
+	//	require.Matches(t, "CREATE TABLE public\\.cars", contents.String())
+	//	// Validate the SQL header more generally by passing the output of GetFile
+	//	// back through the SQL library & confirm that it parses correctly but only
+	//	// has one row
+	//	pgReader = sql.NewPGDumpReader(bufio.NewReader(strings.NewReader(contents.String())))
+	//	record, err = pgReader.ReadRow()
+	//	require.NoError(t, err)
+	//	require.Equal(t, "Tesla\tRoadster\t2008\tliterally a rocket\n", string(record))
+	//	record, err = pgReader.ReadRow()
+	//	require.NoError(t, err)
+	//	require.Equal(t, "Toyota\tCorolla\t2005\tgreatest car ever made\n", string(record))
+	//	_, err = pgReader.ReadRow()
+	//	require.YesError(t, err)
+	//	require.True(t, errors.Is(err, io.EOF))
+	//})
 
-// TODO: Make work with V2?
-//func TestPutFileSplit(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		if testing.Short() {
-//			t.Skip("Skipping integration tests in short mode")
-//		}
-//
-//		// create repos
-//		repo := tu.UniqueString("TestPutFileSplit")
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		commit, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "line2", pfs.Delimiter_LINE, 2, 0, 0, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "line3", pfs.Delimiter_LINE, 0, 8, 0, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "json2", pfs.Delimiter_JSON, 2, 0, 0, false, strings.NewReader("{}{}{}{}"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "json3", pfs.Delimiter_JSON, 0, 4, 0, false, strings.NewReader("{}{}{}{}"))
-//		require.NoError(t, err)
-//
-//		files, err := env.PachClient.ListFileAll(repo, commit.ID, "line2")
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(8), fileInfo.SizeBytes)
-//		}
-//
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-//		commit2, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit2.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, commit2.ID, "json", pfs.Delimiter_JSON, 0, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
-//		require.NoError(t, err)
-//
-//		files, err = env.PachClient.ListFileAll(repo, commit2.ID, "line")
-//		require.NoError(t, err)
-//		require.Equal(t, 9, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(4), fileInfo.SizeBytes)
-//		}
-//
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
-//		fileInfo, err := env.PachClient.InspectFile(repo, commit.ID, "none")
-//		require.NoError(t, err)
-//		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
-//		files, err = env.PachClient.ListFileAll(repo, commit.ID, "line")
-//		require.NoError(t, err)
-//		require.Equal(t, 6, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(4), fileInfo.SizeBytes)
-//		}
-//		files, err = env.PachClient.ListFileAll(repo, commit2.ID, "line")
-//		require.NoError(t, err)
-//		require.Equal(t, 9, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(4), fileInfo.SizeBytes)
-//		}
-//		files, err = env.PachClient.ListFileAll(repo, commit.ID, "line2")
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(8), fileInfo.SizeBytes)
-//		}
-//		files, err = env.PachClient.ListFileAll(repo, commit.ID, "line3")
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(8), fileInfo.SizeBytes)
-//		}
-//		files, err = env.PachClient.ListFileAll(repo, commit.ID, "json")
-//		require.NoError(t, err)
-//		require.Equal(t, 20, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(2), fileInfo.SizeBytes)
-//		}
-//		files, err = env.PachClient.ListFileAll(repo, commit2.ID, "json")
-//		require.NoError(t, err)
-//		require.Equal(t, 30, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(2), fileInfo.SizeBytes)
-//		}
-//		files, err = env.PachClient.ListFileAll(repo, commit.ID, "json2")
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(4), fileInfo.SizeBytes)
-//		}
-//		files, err = env.PachClient.ListFileAll(repo, commit.ID, "json3")
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(4), fileInfo.SizeBytes)
-//		}
-//
-//		return nil
-//	}))
-//}
-//
-//func TestPutFileSplitBig(t *testing.T) {
-//	if os.Getenv("RUN_BAD_TESTS") == "" {
-//		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-//	}
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		if testing.Short() {
-//			t.Skip("Skipping integration tests in short mode")
-//		}
-//
-//		// create repos
-//		repo := tu.UniqueString("TestPutFileSplitBig")
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		commit, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		w, err := env.PachClient.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false)
-//		require.NoError(t, err)
-//		for i := 0; i < 1000; i++ {
-//			_, err = w.Write([]byte("foo\n"))
-//			require.NoError(t, err)
-//		}
-//		require.NoError(t, w.Close())
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-//		files, err := env.PachClient.ListFileAll(repo, commit.ID, "line")
-//		require.NoError(t, err)
-//		require.Equal(t, 1000, len(files))
-//		for _, fileInfo := range files {
-//			require.Equal(t, uint64(4), fileInfo.SizeBytes)
-//		}
-//
-//		return nil
-//	}))
-//}
-//
-//func TestPutFileSplitCSV(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		// create repos
-//		repo := tu.UniqueString("TestPutFileSplitCSV")
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		_, err := env.PachClient.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 0, false,
-//			// Weird, but this is actually two lines ("is\na" is quoted, so one cell)
-//			strings.NewReader("this,is,a,test\n"+
-//				"\"\"\"this\"\"\",\"is\nonly\",\"a,test\"\n"))
-//		require.NoError(t, err)
-//		fileInfos, err := env.PachClient.ListFileAll(repo, "master", "/data")
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(fileInfos))
-//		var contents bytes.Buffer
-//		env.PachClient.GetFile(repo, "master", "/data/0000000000000000", &contents)
-//		require.Equal(t, "this,is,a,test\n", contents.String())
-//		contents.Reset()
-//		env.PachClient.GetFile(repo, "master", "/data/0000000000000001", &contents)
-//		require.Equal(t, "\"\"\"this\"\"\",\"is\nonly\",\"a,test\"\n", contents.String())
-//
-//		return nil
-//	}))
-//}
-//
-//func TestPutFileSplitSQL(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		// create repos
-//		repo := tu.UniqueString("TestPutFileSplitSQL")
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//
-//		_, err := env.PachClient.PutFileSplit(repo, "master", "/sql", pfs.Delimiter_SQL, 0, 0, 0,
-//			false, strings.NewReader(tu.TestPGDump))
-//		require.NoError(t, err)
-//		fileInfos, err := env.PachClient.ListFileAll(repo, "master", "/sql")
-//		require.NoError(t, err)
-//		require.Equal(t, 5, len(fileInfos))
-//
-//		// Get one of the SQL records & validate it
-//		var contents bytes.Buffer
-//		env.PachClient.GetFile(repo, "master", "/sql/0000000000000000", &contents)
-//		// Validate that the recieved pgdump file creates the cars table
-//		require.Matches(t, "CREATE TABLE public\\.cars", contents.String())
-//		// Validate the SQL header more generally by passing the output of GetFile
-//		// back through the SQL library & confirm that it parses correctly but only
-//		// has one row
-//		pgReader := sql.NewPGDumpReader(bufio.NewReader(bytes.NewReader(contents.Bytes())))
-//		record, err := pgReader.ReadRow()
-//		require.NoError(t, err)
-//		require.Equal(t, "Tesla\tRoadster\t2008\tliterally a rocket\n", string(record))
-//		_, err = pgReader.ReadRow()
-//		require.YesError(t, err)
-//		require.True(t, errors.Is(err, io.EOF))
-//
-//		// Create a new commit that overwrites all existing data & puts it back with
-//		// --header-records=1
-//		commit, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.DeleteFile(repo, commit.ID, "/sql"))
-//		_, err = env.PachClient.PutFileSplit(repo, commit.ID, "/sql", pfs.Delimiter_SQL, 0, 0, 1,
-//			false, strings.NewReader(tu.TestPGDump))
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-//		fileInfos, err = env.PachClient.ListFileAll(repo, "master", "/sql")
-//		require.NoError(t, err)
-//		require.Equal(t, 4, len(fileInfos))
-//
-//		// Get one of the SQL records & validate it
-//		contents.Reset()
-//		env.PachClient.GetFile(repo, "master", "/sql/0000000000000003", &contents)
-//		// Validate a that the recieved pgdump file creates the cars table
-//		require.Matches(t, "CREATE TABLE public\\.cars", contents.String())
-//		// Validate the SQL header more generally by passing the output of GetFile
-//		// back through the SQL library & confirm that it parses correctly but only
-//		// has one row
-//		pgReader = sql.NewPGDumpReader(bufio.NewReader(strings.NewReader(contents.String())))
-//		record, err = pgReader.ReadRow()
-//		require.NoError(t, err)
-//		require.Equal(t, "Tesla\tRoadster\t2008\tliterally a rocket\n", string(record))
-//		record, err = pgReader.ReadRow()
-//		require.NoError(t, err)
-//		require.Equal(t, "Toyota\tCorolla\t2005\tgreatest car ever made\n", string(record))
-//		_, err = pgReader.ReadRow()
-//		require.YesError(t, err)
-//		require.True(t, errors.Is(err, io.EOF))
-//
-//		return nil
-//	}))
-//}
+	suite.Run("DiffFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestDiffFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestDiffFile2"
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		// Write foo
@@ -3416,20 +3170,17 @@ func TestDiffFile(t *testing.T) {
 		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c6.ID))
 		checks()
+	})
 
-		return nil
-	}))
-}
+	suite.Run("GlobFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestGlobFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
 
-		repo := tu.UniqueString("TestGlobFile")
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		// Write foo
@@ -3521,20 +3272,17 @@ func TestGlobFile(t *testing.T) {
 		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
 		checks()
+	})
 
-		return nil
-	}))
-}
+	suite.Run("GlobFile2", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestGlobFile2(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
 
-		repo := tu.UniqueString("TestGlobFileF")
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		_, err := env.PachClient.StartCommit(repo, "master")
@@ -3559,16 +3307,13 @@ func TestGlobFile2(t *testing.T) {
 		sort.Strings(expectedFileNames)
 		sort.Strings(actualFileNames)
 		require.Equal(t, expectedFileNames, actualFileNames)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("GlobFile3", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestGlobFile3(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestGlobFile"
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -3589,20 +3334,17 @@ func TestGlobFile3(t *testing.T) {
 		assert.ElementsMatch(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, globFile("/dir1/*"))
 		assert.ElementsMatch(t, []string{"/dir1/", "/dir2/"}, globFile("/*"))
 		assert.ElementsMatch(t, []string{"/"}, globFile("/"))
-		return nil
-	}))
-}
+	})
 
-// TestGetFileGlobOrder checks that GetFile(glob) streams data back in the
-// right order. GetFile(glob) is supposed to return a stream of data of the
-// form file1 + file2 + .. + fileN, where file1 is the lexicographically lowest
-// file matching 'glob', file2 is the next lowest, etc.
-func TestGetFileGlobOrder(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		// create repos
-		repo := tu.UniqueString("TestGetFileGlobOrder")
+	// TestGetFileGlobOrder checks that GetFile(glob) streams data back in the
+	// right order. GetFile(glob) is supposed to return a stream of data of the
+	// form file1 + file2 + .. + fileN, where file1 is the lexicographically lowest
+	// file matching 'glob', file2 is the next lowest, etc.
+	suite.Run("GetFileGlobOrder", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		var expected bytes.Buffer
@@ -3618,20 +3360,17 @@ func TestGetFileGlobOrder(t *testing.T) {
 		var output bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "/data/*", &output))
 		require.Equal(t, expected.String(), output.String())
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ApplyWriteOrder", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestApplyWriteOrder(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
 
-		repo := tu.UniqueString("TestApplyWriteOrder")
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		// Test that fails when records are applied in lexicographic order
@@ -3645,66 +3384,60 @@ func TestApplyWriteOrder(t *testing.T) {
 		fileInfos, err := env.PachClient.GlobFileAll(repo, "master", "**")
 		require.NoError(t, err)
 		require.Equal(t, 0, len(fileInfos))
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("Overwrite", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	if testing.Short() {
+	//		t.Skip("Skipping integration tests in short mode")
+	//	}
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//
+	//	// Write foo
+	//	_, err := env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFile(repo, "master", "file1", strings.NewReader("foo"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, "master", "file2", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
+	//	_, err = env.PachClient.StartCommit(repo, "master")
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFile(repo, "master", "file1", strings.NewReader("bar"))
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.PutFile(repo, "master", "file2", strings.NewReader("buzz")))
+	//	require.NoError(t, err)
+	//	_, err = env.PachClient.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, 0, true, strings.NewReader("0\n1\n2\n"))
+	//	require.NoError(t, err)
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
+	//	var buffer bytes.Buffer
+	//	require.NoError(t, env.PachClient.GetFile(repo, "master", "file1", &buffer))
+	//	require.Equal(t, "bar", buffer.String())
+	//	buffer.Reset()
+	//	require.NoError(t, env.PachClient.GetFile(repo, "master", "file2", &buffer))
+	//	require.Equal(t, "buzz", buffer.String())
+	//	fileInfos, err := env.PachClient.ListFileAll(repo, "master", "file3")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 3, len(fileInfos))
+	//	for i := 0; i < 3; i++ {
+	//		buffer.Reset()
+	//		require.NoError(t, env.PachClient.GetFile(repo, "master", fmt.Sprintf("file3/%016x", i), &buffer))
+	//		require.Equal(t, fmt.Sprintf("%d\n", i), buffer.String())
+	//	}
+	//})
 
-// TODO: Make work with V2?
-//func TestOverwrite(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		if testing.Short() {
-//			t.Skip("Skipping integration tests in short mode")
-//		}
-//
-//		repo := tu.UniqueString("TestGlob")
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//
-//		// Write foo
-//		_, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFile(repo, "master", "file1", strings.NewReader("foo"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, "master", "file2", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-//		_, err = env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFile(repo, "master", "file1", strings.NewReader("bar"))
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFile(repo, "master", "file2", strings.NewReader("buzz")))
-//		require.NoError(t, err)
-//		_, err = env.PachClient.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, 0, true, strings.NewReader("0\n1\n2\n"))
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-//		var buffer bytes.Buffer
-//		require.NoError(t, env.PachClient.GetFile(repo, "master", "file1", &buffer))
-//		require.Equal(t, "bar", buffer.String())
-//		buffer.Reset()
-//		require.NoError(t, env.PachClient.GetFile(repo, "master", "file2", &buffer))
-//		require.Equal(t, "buzz", buffer.String())
-//		fileInfos, err := env.PachClient.ListFileAll(repo, "master", "file3")
-//		require.NoError(t, err)
-//		require.Equal(t, 3, len(fileInfos))
-//		for i := 0; i < 3; i++ {
-//			buffer.Reset()
-//			require.NoError(t, env.PachClient.GetFile(repo, "master", fmt.Sprintf("file3/%016x", i), &buffer))
-//			require.Equal(t, fmt.Sprintf("%d\n", i), buffer.String())
-//		}
-//
-//		return nil
-//	}))
-//}
+	suite.Run("CopyFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCopyFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestCopyFile"
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		masterCommit, err := env.PachClient.StartCommit(repo, "master")
@@ -3732,17 +3465,15 @@ func TestCopyFile(t *testing.T) {
 		}
 		_, err = env.PachClient.InspectFile(repo, otherCommit.ID, "files/0")
 		require.NoError(t, err)
-		return nil
-	}))
-}
+	})
 
-func TestPropagateCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo1 := tu.UniqueString("TestPropagateCommit1")
+	suite.Run("PropagateCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		repo1 := "test1"
 		require.NoError(t, env.PachClient.CreateRepo(repo1))
-		repo2 := tu.UniqueString("TestPropagateCommit2")
+		repo2 := "test2"
 		require.NoError(t, env.PachClient.CreateRepo(repo2))
 		require.NoError(t, env.PachClient.CreateBranch(repo2, "master", "", []*pfs.Branch{pclient.NewBranch(repo1, "master")}))
 		commit, err := env.PachClient.StartCommit(repo1, "master")
@@ -3751,24 +3482,21 @@ func TestPropagateCommit(t *testing.T) {
 		commits, err := env.PachClient.ListCommitByRepo(repo2)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commits))
+	})
 
-		return nil
-	}))
-}
+	// TestBackfillBranch implements the following DAG:
+	//
+	// A ──▶ C
+	//  ╲   ◀
+	//   ╲ ╱
+	//    ╳
+	//   ╱ ╲
+	// 	╱   ◀
+	// B ──▶ D
+	suite.Run("BackfillBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestBackfillBranch implements the following DAG:
-//
-// A ──▶ C
-//  ╲   ◀
-//   ╲ ╱
-//    ╳
-//   ╱ ╲
-// 	╱   ◀
-// B ──▶ D
-func TestBackfillBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -3791,25 +3519,22 @@ func TestBackfillBranch(t *testing.T) {
 		commits, err = env.PachClient.ListCommitByRepo("D")
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commits))
+	})
 
-		return nil
-	}))
-}
+	// TestUpdateBranch tests the following DAG:
+	//
+	// A ─▶ B ─▶ C
+	//
+	// Then updates it to:
+	//
+	// A ─▶ B ─▶ C
+	//      ▲
+	// D ───╯
+	//
+	suite.Run("UpdateBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestUpdateBranch tests the following DAG:
-//
-// A ─▶ B ─▶ C
-//
-// Then updates it to:
-//
-// A ─▶ B ─▶ C
-//      ▲
-// D ───╯
-//
-func TestUpdateBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -3832,15 +3557,12 @@ func TestUpdateBranch(t *testing.T) {
 		cCommitInfo, err := env.PachClient.InspectCommit("C", "master")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(cCommitInfo.Provenance))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("BranchProvenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestBranchProvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		tests := [][]struct {
 			name       string
 			directProv []string
@@ -3986,15 +3708,12 @@ func TestBranchProvenance(t *testing.T) {
 		// 	require.NoError(t, env.PachClient.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master"), pclient.NewBranch("A", "master")}))
 		// 	require.NoError(t, env.PachClient.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master")}))
 		// })
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ChildCommits", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestChildCommits(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateBranch("A", "master", "", nil))
 
@@ -4086,15 +3805,12 @@ func TestChildCommits(t *testing.T) {
 		cCommit1, cCommit2 := inspect("C", cCommit1ID), inspect("C", "master")
 		require.Equal(t, cCommit1.Commit.ID, cCommit2.ParentCommit.ID)
 		require.ElementsEqualUnderFn(t, []string{cCommit2.Commit.ID}, cCommit1.ChildCommits, CommitToID)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("StartCommitFork", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestStartCommitFork(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateBranch("A", "master", "", nil))
 		commit, err := env.PachClient.StartCommit("A", "master")
@@ -4110,25 +3826,22 @@ func TestStartCommitFork(t *testing.T) {
 		commits, err := env.PachClient.ListCommit("A", "master2", "", 0)
 		require.NoError(t, err)
 		require.ElementsEqualUnderFn(t, []string{commit.ID, commit2.ID}, commits, CommitInfoToID)
+	})
 
-		return nil
-	}))
-}
+	// TestUpdateBranchNewOutputCommit tests the following corner case:
+	// A ──▶ C
+	// B
+	//
+	// Becomes:
+	//
+	// A  ╭▶ C
+	// B ─╯
+	//
+	// C should create a new output commit to process its unprocessed inputs in B
+	suite.Run("UpdateBranchNewOutputCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestUpdateBranchNewOutputCommit tests the following corner case:
-// A ──▶ C
-// B
-//
-// Becomes:
-//
-// A  ╭▶ C
-// B ─╯
-//
-// C should create a new output commit to process its unprocessed inputs in B
-func TestUpdateBranchNewOutputCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -4156,30 +3869,27 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 		commits, err = env.PachClient.ListCommit("C", "master", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commits))
+	})
 
-		return nil
-	}))
-}
+	// TestSquashCommitBigSubvenance deletes a commit that is upstream of a large
+	// stack of pipeline outputs and makes sure that parenthood and such are handled
+	// correctly.
+	// DAG (dots are commits):
+	//  schema:
+	//   ...   ─────╮
+	//              │  pipeline:
+	//  logs:       ├─▶ .............
+	//   .......... ╯
+	// Tests:
+	//   there are four cases tested here, in this order (b/c easy setup)
+	// 1. Delete parent commit -> child rewritten to point to a live commit
+	// 2. Delete branch HEAD   -> output branch rewritten to point to a live commit
+	// 3. Delete branch HEAD   -> output branch rewritten to point to nil
+	// 4. Delete parent commit -> child rewritten to point to nil
+	suite.Run("SquashCommitBigSubvenance", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestSquashCommitBigSubvenance deletes a commit that is upstream of a large
-// stack of pipeline outputs and makes sure that parenthood and such are handled
-// correctly.
-// DAG (dots are commits):
-//  schema:
-//   ...   ─────╮
-//              │  pipeline:
-//  logs:       ├─▶ .............
-//   .......... ╯
-// Tests:
-//   there are four cases tested here, in this order (b/c easy setup)
-// 1. Delete parent commit -> child rewritten to point to a live commit
-// 2. Delete branch HEAD   -> output branch rewritten to point to a live commit
-// 3. Delete branch HEAD   -> output branch rewritten to point to nil
-// 4. Delete parent commit -> child rewritten to point to nil
-func TestSquashCommitBigSubvenance(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		// two input repos, one with many commits (logs), and one with few (schema)
 		require.NoError(t, env.PachClient.CreateRepo("logs"))
 		require.NoError(t, env.PachClient.CreateRepo("schema"))
@@ -4349,28 +4059,25 @@ func TestSquashCommitBigSubvenance(t *testing.T) {
 		pipelineMaster, err = env.PachClient.InspectCommit("pipeline", "master")
 		require.NoError(t, err)
 		require.Nil(t, pipelineMaster.ParentCommit)
+	})
 
-		return nil
-	}))
-}
+	// TestSquashCommitMultipleChildrenSingleCommit tests that when you have the
+	// following commit graph in a repo:
+	// c   d
+	//  ↘ ↙
+	//   b
+	//   ↓
+	//   a
+	//
+	// and you delete commit 'b', what you end up with is:
+	//
+	// c   d
+	//  ↘ ↙
+	//   a
+	suite.Run("SquashCommitMultipleChildrenSingleCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestSquashCommitMultipleChildrenSingleCommit tests that when you have the
-// following commit graph in a repo:
-// c   d
-//  ↘ ↙
-//   b
-//   ↓
-//   a
-//
-// and you delete commit 'b', what you end up with is:
-//
-// c   d
-//  ↘ ↙
-//   a
-func TestSquashCommitMultipleChildrenSingleCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 		require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", nil))
 
@@ -4436,31 +4143,28 @@ func TestSquashCommitMultipleChildrenSingleCommit(t *testing.T) {
 
 		require.Equal(t, a.ID, dInfo.ParentCommit.ID)
 		require.Equal(t, 0, len(dInfo.ChildCommits))
+	})
 
-		return nil
-	}))
-}
+	// TestSquashCommitMultiLevelChildrenNilParent tests that when you have the
+	// following commit graph in a repo:
+	//
+	//    ↙f
+	//   c
+	//   ↓↙e
+	//   b
+	//   ↓↙d
+	//   a
+	//
+	// and you delete commits 'a', 'b' and 'c' (in a single call), what you end up
+	// with is:
+	//
+	// d e f
+	//  ↘↓↙
+	//  nil
+	suite.Run("SquashCommitMultiLevelChildrenNilParent", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestSquashCommitMultiLevelChildrenNilParent tests that when you have the
-// following commit graph in a repo:
-//
-//    ↙f
-//   c
-//   ↓↙e
-//   b
-//   ↓↙d
-//   a
-//
-// and you delete commits 'a', 'b' and 'c' (in a single call), what you end up
-// with is:
-//
-// d e f
-//  ↘↓↙
-//  nil
-func TestSquashCommitMultiLevelChildrenNilParent(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("upstream1"))
 		require.NoError(t, env.PachClient.CreateRepo("upstream2"))
 		// commit to both inputs
@@ -4578,32 +4282,29 @@ func TestSquashCommitMultiLevelChildrenNilParent(t *testing.T) {
 		require.Nil(t, dInfo.ChildCommits)
 		require.Nil(t, eInfo.ChildCommits)
 		require.Nil(t, fInfo.ChildCommits)
+	})
 
-		return nil
-	}))
-}
+	// Tests that when you have the following commit graph in a *downstream* repo:
+	//
+	//    ↙f
+	//   c
+	//   ↓↙e
+	//   b
+	//   ↓↙d
+	//   a
+	//
+	// and you delete commits 'b' and 'c' (in a single call), what you end up with
+	// is:
+	//
+	// d e f
+	//  ↘↓↙
+	//   a
+	// This makes sure that multiple live children are re-pointed at a live parent
+	// if appropriate
+	suite.Run("SquashCommitMultiLevelChildren", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// Tests that when you have the following commit graph in a *downstream* repo:
-//
-//    ↙f
-//   c
-//   ↓↙e
-//   b
-//   ↓↙d
-//   a
-//
-// and you delete commits 'b' and 'c' (in a single call), what you end up with
-// is:
-//
-// d e f
-//  ↘↓↙
-//   a
-// This makes sure that multiple live children are re-pointed at a live parent
-// if appropriate
-func TestSquashCommitMultiLevelChildren(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("upstream1"))
 		require.NoError(t, env.PachClient.CreateRepo("upstream2"))
 		// commit to both inputs
@@ -4737,23 +4438,20 @@ func TestSquashCommitMultiLevelChildren(t *testing.T) {
 		require.Nil(t, dInfo.ChildCommits)
 		require.Nil(t, eInfo.ChildCommits)
 		require.Nil(t, fInfo.ChildCommits)
+	})
 
-		return nil
-	}))
-}
+	// TestSquashCommitShrinkSubvRange is like TestSquashCommitBigSubvenance, but
+	// instead of deleting commits from "schema", this test deletes them from
+	// "logs", to make sure that the subvenance of "schema" commits is rewritten
+	// correctly. As before, there are four cases:
+	// 1. Subvenance "Lower" is increased
+	// 2. Subvenance "Upper" is decreased
+	// 3. Subvenance is not affected, because the deleted commit is between "Lower" and "Upper"
+	// 4. The entire subvenance range is deleted
+	suite.Run("SquashCommitShrinkSubvRange", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestSquashCommitShrinkSubvRange is like TestSquashCommitBigSubvenance, but
-// instead of deleting commits from "schema", this test deletes them from
-// "logs", to make sure that the subvenance of "schema" commits is rewritten
-// correctly. As before, there are four cases:
-// 1. Subvenance "Lower" is increased
-// 2. Subvenance "Upper" is decreased
-// 3. Subvenance is not affected, because the deleted commit is between "Lower" and "Upper"
-// 4. The entire subvenance range is deleted
-func TestSquashCommitShrinkSubvRange(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		// two input repos, one with many commits (logs), and one with few (schema)
 		require.NoError(t, env.PachClient.CreateRepo("logs"))
 		require.NoError(t, env.PachClient.CreateRepo("schema"))
@@ -4841,15 +4539,12 @@ func TestSquashCommitShrinkSubvRange(t *testing.T) {
 		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(schemaCommitInfo.Subvenance))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("CommitState", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCommitState(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		// two input repos, one with many commits (logs), and one with few (schema)
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
@@ -4890,15 +4585,12 @@ func TestCommitState(t *testing.T) {
 			BlockState: pfs.CommitState_READY,
 		})
 		require.NoError(t, err)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("SubscribeStates", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestSubscribeStates(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -4942,88 +4634,79 @@ func TestSubscribeStates(t *testing.T) {
 			}
 			return nil
 		})
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("PutFileCommit", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	numFiles := 25
+	//	repo := "repo"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//
+	//	var eg errgroup.Group
+	//	for i := 0; i < numFiles; i++ {
+	//		i := i
+	//		eg.Go(func() error {
+	//			return env.PachClient.PutFile(repo, "master", fmt.Sprintf("%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+	//		})
+	//	}
+	//	require.NoError(t, eg.Wait())
+	//
+	//	for i := 0; i < numFiles; i++ {
+	//		var b bytes.Buffer
+	//		require.NoError(t, env.PachClient.GetFile(repo, "master", fmt.Sprintf("%d", i), &b))
+	//		require.Equal(t, fmt.Sprintf("%d", i), b.String())
+	//	}
+	//
+	//	bi, err := env.PachClient.InspectBranch(repo, "master")
+	//	require.NoError(t, err)
+	//
+	//	eg = errgroup.Group{}
+	//	for i := 0; i < numFiles; i++ {
+	//		i := i
+	//		eg.Go(func() error {
+	//			return env.PachClient.CopyFile(repo, bi.Head.ID, fmt.Sprintf("%d", i), repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), true)
+	//		})
+	//	}
+	//	require.NoError(t, eg.Wait())
+	//
+	//	for i := 0; i < numFiles; i++ {
+	//		var b bytes.Buffer
+	//		require.NoError(t, env.PachClient.GetFile(repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), &b))
+	//		require.Equal(t, fmt.Sprintf("%d", i), b.String())
+	//	}
+	//
+	//	eg = errgroup.Group{}
+	//	for i := 0; i < numFiles; i++ {
+	//		i := i
+	//		eg.Go(func() error {
+	//			return env.PachClient.DeleteFile(repo, "master", fmt.Sprintf("%d", i))
+	//		})
+	//	}
+	//	require.NoError(t, eg.Wait())
+	//
+	//	fileInfos, err := env.PachClient.ListFileAll(repo, "master", "")
+	//	require.NoError(t, err)
+	//	require.Equal(t, 0, len(fileInfos))
+	//})
 
-// TODO: Make work with V2?
-//func TestPutFileCommit(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		numFiles := 25
-//		repo := "repo"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//
-//		var eg errgroup.Group
-//		for i := 0; i < numFiles; i++ {
-//			i := i
-//			eg.Go(func() error {
-//				return env.PachClient.PutFile(repo, "master", fmt.Sprintf("%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
-//			})
-//		}
-//		require.NoError(t, eg.Wait())
-//
-//		for i := 0; i < numFiles; i++ {
-//			var b bytes.Buffer
-//			require.NoError(t, env.PachClient.GetFile(repo, "master", fmt.Sprintf("%d", i), &b))
-//			require.Equal(t, fmt.Sprintf("%d", i), b.String())
-//		}
-//
-//		bi, err := env.PachClient.InspectBranch(repo, "master")
-//		require.NoError(t, err)
-//
-//		eg = errgroup.Group{}
-//		for i := 0; i < numFiles; i++ {
-//			i := i
-//			eg.Go(func() error {
-//				return env.PachClient.CopyFile(repo, bi.Head.ID, fmt.Sprintf("%d", i), repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), true)
-//			})
-//		}
-//		require.NoError(t, eg.Wait())
-//
-//		for i := 0; i < numFiles; i++ {
-//			var b bytes.Buffer
-//			require.NoError(t, env.PachClient.GetFile(repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), &b))
-//			require.Equal(t, fmt.Sprintf("%d", i), b.String())
-//		}
-//
-//		eg = errgroup.Group{}
-//		for i := 0; i < numFiles; i++ {
-//			i := i
-//			eg.Go(func() error {
-//				return env.PachClient.DeleteFile(repo, "master", fmt.Sprintf("%d", i))
-//			})
-//		}
-//		require.NoError(t, eg.Wait())
-//
-//		fileInfos, err := env.PachClient.ListFileAll(repo, "master", "")
-//		require.NoError(t, err)
-//		require.Equal(t, 0, len(fileInfos))
-//
-//		return nil
-//	}))
-//}
+	suite.Run("PutFileCommitNilBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestPutFileCommitNilBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", nil))
 
 		require.NoError(t, env.PachClient.PutFile(repo, "master", "file", strings.NewReader("file")))
+	})
 
-		return nil
-	}))
-}
+	suite.Run("PutFileCommitOverwrite", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestPutFileCommitOverwrite(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		numFiles := 5
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -5035,30 +4718,24 @@ func TestPutFileCommitOverwrite(t *testing.T) {
 		var b bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", &b))
 		require.Equal(t, fmt.Sprintf("%d", numFiles-1), b.String())
+	})
 
-		return nil
-	}))
-}
+	suite.Run("StartCommitOutputBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestStartCommitOutputBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("in"))
 		require.NoError(t, env.PachClient.CreateRepo("out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
 		_, err := env.PachClient.StartCommit("out", "master")
 		require.YesError(t, err)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("WalkFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestWalkFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestWalkFile"
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -5079,16 +4756,13 @@ func TestWalkFile(t *testing.T) {
 		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		checks()
+	})
 
-		return nil
-	}))
-}
+	suite.Run("WalkFile2", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestWalkFile2(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestWalkFile2"
+		repo := "WalkFile2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -5108,71 +4782,63 @@ func TestWalkFile2(t *testing.T) {
 		assert.ElementsMatch(t, []string{"/dir1/", "/dir1/file1.1", "/dir1/file1.2"}, walkFile("/dir1"))
 		assert.ElementsMatch(t, []string{"/dir1/file1.1"}, walkFile("/dir1/file1.1"))
 		assert.Len(t, walkFile("/"), 7)
-		return nil
-	}))
-}
+	})
 
-// TODO: Make work with V2?
-//func TestReadSizeLimited(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		require.NoError(t, env.PachClient.CreateRepo("test"))
-//		require.NoError(t, env.PachClient.PutFile("test", "master", "file", strings.NewReader(strings.Repeat("a", 100*units.MB))))
-//
-//		var b bytes.Buffer
-//		require.NoError(t, env.PachClient.GetFile("test", "master", "file", 0, 2*units.MB, &b))
-//		require.Equal(t, 2*units.MB, b.Len())
-//
-//		b.Reset()
-//		require.NoError(t, env.PachClient.GetFile("test", "master", "file", 2*units.MB, 2*units.MB, &b))
-//		require.Equal(t, 2*units.MB, b.Len())
-//
-//		return nil
-//	}))
-//}
+	// TODO: Make work with V2?
+	//suite.Run("ReadSizeLimited", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	require.NoError(t, env.PachClient.CreateRepo("test"))
+	//	require.NoError(t, env.PachClient.PutFile("test", "master", "file", strings.NewReader(strings.Repeat("a", 100*units.MB))))
+	//
+	//	var b bytes.Buffer
+	//	require.NoError(t, env.PachClient.GetFile("test", "master", "file", 0, 2*units.MB, &b))
+	//	require.Equal(t, 2*units.MB, b.Len())
+	//
+	//	b.Reset()
+	//	require.NoError(t, env.PachClient.GetFile("test", "master", "file", 2*units.MB, 2*units.MB, &b))
+	//	require.Equal(t, 2*units.MB, b.Len())
+	//})
 
-// TODO: Make work with V2?
-//func TestPutFiles(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		require.NoError(t, env.PachClient.CreateRepo("repo"))
-//		pfclient, err := env.PachClient.PfsAPIClient.PutFile(context.Background())
-//		require.NoError(t, err)
-//		paths := []string{"foo", "bar", "fizz", "buzz"}
-//		for _, path := range paths {
-//			require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
-//				File:  pclient.NewFile("repo", "master", path),
-//				Value: []byte(path),
-//			}))
-//		}
-//		_, err = pfclient.CloseAndRecv()
-//		require.NoError(t, err)
-//
-//		cis, err := env.PachClient.ListCommit("repo", "", "", 0)
-//		require.NoError(t, err)
-//		require.Equal(t, 1, len(cis))
-//
-//		for _, path := range paths {
-//			var b bytes.Buffer
-//			require.NoError(t, env.PachClient.GetFile("repo", "master", path, &b))
-//			require.Equal(t, path, b.String())
-//		}
-//
-//		return nil
-//	}))
-//}
+	// TODO: Make work with V2?
+	//suite.Run("PutFiles", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	//	pfclient, err := env.PachClient.PfsAPIClient.PutFile(context.Background())
+	//	require.NoError(t, err)
+	//	paths := []string{"foo", "bar", "fizz", "buzz"}
+	//	for _, path := range paths {
+	//		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+	//			File:  pclient.NewFile("repo", "master", path),
+	//			Value: []byte(path),
+	//		}))
+	//	}
+	//	_, err = pfclient.CloseAndRecv()
+	//	require.NoError(t, err)
+	//
+	//	cis, err := env.PachClient.ListCommit("repo", "", "", 0)
+	//	require.NoError(t, err)
+	//	require.Equal(t, 1, len(cis))
+	//
+	//	for _, path := range paths {
+	//		var b bytes.Buffer
+	//		require.NoError(t, env.PachClient.GetFile("repo", "master", path, &b))
+	//		require.Equal(t, path, b.String())
+	//	}
+	//})
 
-func TestPutFileURL(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("PutFileURL", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
 
-		repo := "TestPutFileURL"
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -5185,14 +4851,12 @@ func TestPutFileURL(t *testing.T) {
 		check()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		check()
-		return nil
-	}))
-}
+	})
 
-func TestPutFilesURL(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("PutFilesURL", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -5216,19 +4880,17 @@ func TestPutFilesURL(t *testing.T) {
 		check()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		check()
-		return nil
-	}))
-}
+	})
 
-func TestPutFilesObjURL(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("PutFilesObjURL", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		objC, bucket := obj.NewTestClient(t)
+		objC, bucket := tu.NewObjectClient(t)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
 			writeObj(t, objC, path, path)
@@ -5256,24 +4918,12 @@ func TestPutFilesObjURL(t *testing.T) {
 		check()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		check()
-		return nil
-	}))
-}
+	})
 
-func writeObj(t *testing.T, c obj.Client, path, content string) {
-	w, err := c.Writer(context.Background(), path)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, w.Close())
-	}()
-	_, err = w.Write([]byte(content))
-	require.NoError(t, err)
-}
+	suite.Run("GetFilesObjURL", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestGetFilesObjURL(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -5283,7 +4933,7 @@ func TestGetFilesObjURL(t *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(repo, commit.ID, path, strings.NewReader(path)))
 		}
 		check := func() {
-			objC, bucket := obj.NewTestClient(t)
+			objC, bucket := tu.NewObjectClient(t)
 			for _, path := range paths {
 				url := fmt.Sprintf("local://%s/", bucket)
 				require.NoError(t, env.PachClient.GetFileURL(repo, commit.ID, path, url))
@@ -5303,14 +4953,12 @@ func TestGetFilesObjURL(t *testing.T) {
 		check()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		check()
-		return nil
-	}))
-}
+	})
 
-func TestPutFileOutputRepo(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("PutFileOutputRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
 		inputRepo, outputRepo := "input", "output"
 		require.NoError(t, env.PachClient.CreateRepo(inputRepo))
 		require.NoError(t, env.PachClient.CreateRepo(outputRepo))
@@ -5324,60 +4972,54 @@ func TestPutFileOutputRepo(t *testing.T) {
 		buf := &bytes.Buffer{}
 		require.NoError(t, env.PachClient.GetFile(outputRepo, "master", "bar", buf))
 		require.Equal(t, "bar\n", buf.String())
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("FileHistory", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	var err error
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//	numCommits := 10
+	//	for i := 0; i < numCommits; i++ {
+	//		_, err = env.PachClient.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
+	//		require.NoError(t, err)
+	//	}
+	//	fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "file", -1)
+	//	require.NoError(t, err)
+	//	require.Equal(t, numCommits, len(fileInfos))
+	//
+	//	for i := 1; i < numCommits; i++ {
+	//		fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "file", int64(i))
+	//		require.NoError(t, err)
+	//		require.Equal(t, i, len(fileInfos))
+	//	}
+	//
+	//	require.NoError(t, env.PachClient.DeleteFile(repo, "master", "file"))
+	//	for i := 0; i < numCommits; i++ {
+	//		_, err = env.PachClient.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
+	//		require.NoError(t, err)
+	//		_, err = env.PachClient.PutFile(repo, "master", "unrelated", strings.NewReader("foo\n"))
+	//		require.NoError(t, err)
+	//	}
+	//	fileInfos, err = env.PachClient.ListFileHistory(repo, "master", "file", -1)
+	//	require.NoError(t, err)
+	//	require.Equal(t, numCommits, len(fileInfos))
+	//
+	//	for i := 1; i < numCommits; i++ {
+	//		fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "file", int64(i))
+	//		require.NoError(t, err)
+	//		require.Equal(t, i, len(fileInfos))
+	//	}
+	//})
 
-// TODO: Make work with V2?
-//func TestFileHistory(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		var err error
-//
-//		repo := "test"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		numCommits := 10
-//		for i := 0; i < numCommits; i++ {
-//			_, err = env.PachClient.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
-//			require.NoError(t, err)
-//		}
-//		fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "file", -1)
-//		require.NoError(t, err)
-//		require.Equal(t, numCommits, len(fileInfos))
-//
-//		for i := 1; i < numCommits; i++ {
-//			fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "file", int64(i))
-//			require.NoError(t, err)
-//			require.Equal(t, i, len(fileInfos))
-//		}
-//
-//		require.NoError(t, env.PachClient.DeleteFile(repo, "master", "file"))
-//		for i := 0; i < numCommits; i++ {
-//			_, err = env.PachClient.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
-//			require.NoError(t, err)
-//			_, err = env.PachClient.PutFile(repo, "master", "unrelated", strings.NewReader("foo\n"))
-//			require.NoError(t, err)
-//		}
-//		fileInfos, err = env.PachClient.ListFileHistory(repo, "master", "file", -1)
-//		require.NoError(t, err)
-//		require.Equal(t, numCommits, len(fileInfos))
-//
-//		for i := 1; i < numCommits; i++ {
-//			fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "file", int64(i))
-//			require.NoError(t, err)
-//			require.Equal(t, i, len(fileInfos))
-//		}
-//
-//		return nil
-//	}))
-//}
+	suite.Run("UpdateRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestUpdateRepo(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		var err error
 		repo := "test"
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(
@@ -5408,15 +5050,12 @@ func TestUpdateRepo(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, created, newCreated)
 		require.Equal(t, desc, ri.Description)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("DeferredProcessing", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestDeferredProcessing(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("input"))
 		require.NoError(t, env.PachClient.CreateRepo("output1"))
 		require.NoError(t, env.PachClient.CreateRepo("output2"))
@@ -5439,24 +5078,21 @@ func TestDeferredProcessing(t *testing.T) {
 		commits, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging")}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commits))
+	})
 
-		return nil
-	}))
-}
+	// TestMultiInputWithDeferredProcessing tests this DAG:
+	//
+	// input1 ─▶ deferred-output ─▶ final-output
+	//                              ▲
+	// input2 ──────────────────────╯
+	//
+	// For this test to pass, commits in 'final-output' must include commits from
+	// the provenance of 'deferred-output', *even if 'deferred-output@master' isn't
+	// the branch being propagated*
+	suite.Run("MultiInputWithDeferredProcessing", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestMultiInputWithDeferredProcessing tests this DAG:
-//
-// input1 ─▶ deferred-output ─▶ final-output
-//                              ▲
-// input2 ──────────────────────╯
-//
-// For this test to pass, commits in 'final-output' must include commits from
-// the provenance of 'deferred-output', *even if 'deferred-output@master' isn't
-// the branch being propagated*
-func TestMultiInputWithDeferredProcessing(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("input1"))
 		require.NoError(t, env.PachClient.CreateRepo("deferred-output"))
 		require.NoError(t, env.PachClient.CreateRepo("input2"))
@@ -5542,15 +5178,12 @@ func TestMultiInputWithDeferredProcessing(t *testing.T) {
 		for _, c := range ci.Provenance {
 			require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
 		}
+	})
 
-		return nil
-	}))
-}
+	suite.Run("CommitProgress", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestCommitProgress(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("in"))
 		require.NoError(t, env.PachClient.CreateRepo("out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
@@ -5566,15 +5199,12 @@ func TestCommitProgress(t *testing.T) {
 		require.Equal(t, int64(1), ci.SubvenantCommitsTotal)
 		require.Equal(t, int64(1), ci.SubvenantCommitsSuccess)
 		require.Equal(t, int64(0), ci.SubvenantCommitsFailure)
+	})
 
-		return nil
-	}))
-}
+	suite.Run("ListAll", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestListAll(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo1"))
 		require.NoError(t, env.PachClient.CreateRepo("repo2"))
 		require.NoError(t, env.PachClient.PutFile("repo1", "master", "file1", strings.NewReader("1")))
@@ -5589,95 +5219,89 @@ func TestListAll(t *testing.T) {
 		bis, err := env.PachClient.ListBranch("")
 		require.NoError(t, err)
 		require.Equal(t, 2, len(bis))
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//func seedStr(seed int64) string {
+	//	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+	//}
+	//
+	//func monkeyRetry(t *testing.T, f func() error, errMsg string) {
+	//	backoff.Retry(func() error {
+	//		err := f()
+	//		if err != nil {
+	//			require.True(t, obj.IsMonkeyError(err), "Expected monkey error (%s), %s", err.Error(), errMsg)
+	//		}
+	//		return err
+	//	}, backoff.NewInfiniteBackOff())
+	//}
+	//
+	//suite.Run("MonkeyObjectStorage", func(t *testing.T) {
+	//	// This test cannot be done in parallel because the monkey object client
+	//	// modifies global state.
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	seed := time.Now().UTC().UnixNano()
+	//	obj.InitMonkeyTest(seed)
+	//	iterations := 25
+	//	repo := "input"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo), seedStr(seed))
+	//	filePrefix := "file"
+	//	dataPrefix := "data"
+	//	var commit *pfs.Commit
+	//	var err error
+	//	buf := &bytes.Buffer{}
+	//	obj.EnableMonkeyTest()
+	//	defer obj.DisableMonkeyTest()
+	//	for i := 0; i < iterations; i++ {
+	//		file := filePrefix + strconv.Itoa(i)
+	//		data := dataPrefix + strconv.Itoa(i)
+	//		// Retry start commit until it eventually succeeds.
+	//		monkeyRetry(t, func() error {
+	//			commit, err = env.PachClient.StartCommit(repo, "")
+	//			return err
+	//		}, seedStr(seed))
+	//		// Retry put file until it eventually succeeds.
+	//		monkeyRetry(t, func() error {
+	//			if err := env.PachClient.PutFile(repo, commit.ID, file, strings.NewReader(data)); err != nil {
+	//				// Verify that the file does not exist if an error occurred.
+	//				obj.DisableMonkeyTest()
+	//				defer obj.EnableMonkeyTest()
+	//				buf.Reset()
+	//				err := env.PachClient.GetFile(repo, commit.ID, file, buf)
+	//				require.Matches(t, "not found", err.Error(), seedStr(seed))
+	//			}
+	//			return err
+	//		}, seedStr(seed))
+	//		// Retry get file until it eventually succeeds (before commit is finished).
+	//		monkeyRetry(t, func() error {
+	//			buf.Reset()
+	//			if err = env.PachClient.GetFile(repo, commit.ID, file, buf); err != nil {
+	//				return err
+	//			}
+	//			require.Equal(t, data, buf.String(), seedStr(seed))
+	//			return nil
+	//		}, seedStr(seed))
+	//		// Retry finish commit until it eventually succeeds.
+	//		monkeyRetry(t, func() error {
+	//			return env.PachClient.FinishCommit(repo, commit.ID)
+	//		}, seedStr(seed))
+	//		// Retry get file until it eventually succeeds (after commit is finished).
+	//		monkeyRetry(t, func() error {
+	//			buf.Reset()
+	//			if err = env.PachClient.GetFile(repo, commit.ID, file, buf); err != nil {
+	//				return err
+	//			}
+	//			require.Equal(t, data, buf.String(), seedStr(seed))
+	//			return nil
+	//		}, seedStr(seed))
+	//	}
+	//})
 
-// TODO: Make work with V2?
-//func seedStr(seed int64) string {
-//	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
-//}
-//
-//func monkeyRetry(t *testing.T, f func() error, errMsg string) {
-//	backoff.Retry(func() error {
-//		err := f()
-//		if err != nil {
-//			require.True(t, obj.IsMonkeyError(err), "Expected monkey error (%s), %s", err.Error(), errMsg)
-//		}
-//		return err
-//	}, backoff.NewInfiniteBackOff())
-//}
-//
-//func TestMonkeyObjectStorage(t *testing.T) {
-//	// This test cannot be done in parallel because the monkey object client
-//	// modifies global state.
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		seed := time.Now().UTC().UnixNano()
-//		obj.InitMonkeyTest(seed)
-//		iterations := 25
-//		repo := "input"
-//		require.NoError(t, env.PachClient.CreateRepo(repo), seedStr(seed))
-//		filePrefix := "file"
-//		dataPrefix := "data"
-//		var commit *pfs.Commit
-//		var err error
-//		buf := &bytes.Buffer{}
-//		obj.EnableMonkeyTest()
-//		defer obj.DisableMonkeyTest()
-//		for i := 0; i < iterations; i++ {
-//			file := filePrefix + strconv.Itoa(i)
-//			data := dataPrefix + strconv.Itoa(i)
-//			// Retry start commit until it eventually succeeds.
-//			monkeyRetry(t, func() error {
-//				commit, err = env.PachClient.StartCommit(repo, "")
-//				return err
-//			}, seedStr(seed))
-//			// Retry put file until it eventually succeeds.
-//			monkeyRetry(t, func() error {
-//				if err := env.PachClient.PutFile(repo, commit.ID, file, strings.NewReader(data)); err != nil {
-//					// Verify that the file does not exist if an error occurred.
-//					obj.DisableMonkeyTest()
-//					defer obj.EnableMonkeyTest()
-//					buf.Reset()
-//					err := env.PachClient.GetFile(repo, commit.ID, file, buf)
-//					require.Matches(t, "not found", err.Error(), seedStr(seed))
-//				}
-//				return err
-//			}, seedStr(seed))
-//			// Retry get file until it eventually succeeds (before commit is finished).
-//			monkeyRetry(t, func() error {
-//				buf.Reset()
-//				if err = env.PachClient.GetFile(repo, commit.ID, file, buf); err != nil {
-//					return err
-//				}
-//				require.Equal(t, data, buf.String(), seedStr(seed))
-//				return nil
-//			}, seedStr(seed))
-//			// Retry finish commit until it eventually succeeds.
-//			monkeyRetry(t, func() error {
-//				return env.PachClient.FinishCommit(repo, commit.ID)
-//			}, seedStr(seed))
-//			// Retry get file until it eventually succeeds (after commit is finished).
-//			monkeyRetry(t, func() error {
-//				buf.Reset()
-//				if err = env.PachClient.GetFile(repo, commit.ID, file, buf); err != nil {
-//					return err
-//				}
-//				require.Equal(t, data, buf.String(), seedStr(seed))
-//				return nil
-//			}, seedStr(seed))
-//		}
-//
-//		return nil
-//	}))
-//}
+	suite.Run("FsckFix", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestFsckFix(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		input := "input"
 		output1 := "output1"
 		output2 := "output2"
@@ -5701,82 +5325,76 @@ func TestFsckFix(t *testing.T) {
 		// Deleting should now work due to fixing, must delete 2 before 1 though.
 		require.NoError(t, env.PachClient.DeleteRepo(output2, false))
 		require.NoError(t, env.PachClient.DeleteRepo(output1, false))
+	})
 
-		return nil
-	}))
-}
+	// TODO: Make work with V2?
+	//suite.Run("PutFileAtomic", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	c := env.PachClient
+	//	test := "test"
+	//	require.NoError(t, c.CreateRepo(test))
+	//
+	//	pfc, err := c.NewPutFileClient()
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfc.PutFile(test, "master", "file1", strings.NewReader("1")))
+	//	require.NoError(t, pfc.PutFile(test, "master", "file2", strings.NewReader("2")))
+	//	require.NoError(t, pfc.Close())
+	//
+	//	cis, err := c.ListCommit(test, "master", "", 0)
+	//	require.NoError(t, err)
+	//	require.Equal(t, 1, len(cis))
+	//	var b bytes.Buffer
+	//	require.NoError(t, c.GetFile(test, "master", "file1", &b))
+	//	require.Equal(t, "1", b.String())
+	//	b.Reset()
+	//	require.NoError(t, c.GetFile(test, "master", "file2", &b))
+	//	require.Equal(t, "2", b.String())
+	//
+	//	pfc, err = c.NewPutFileClient()
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfc.PutFile(test, "master", "file3", strings.NewReader("3")))
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfc.DeleteFile(test, "master", "file1"))
+	//	require.NoError(t, pfc.Close())
+	//
+	//	cis, err = c.ListCommit(test, "master", "", 0)
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(cis))
+	//	b.Reset()
+	//	require.NoError(t, c.GetFile(test, "master", "file3", &b))
+	//	require.Equal(t, "3", b.String())
+	//	b.Reset()
+	//	require.YesError(t, c.GetFile(test, "master", "file1", &b))
+	//
+	//	// Empty PutFileClients shouldn't error or create commits
+	//	pfc, err = c.NewPutFileClient()
+	//	require.NoError(t, err)
+	//	require.NoError(t, pfc.Close())
+	//	cis, err = c.ListCommit(test, "master", "", 0)
+	//	require.NoError(t, err)
+	//	require.Equal(t, 2, len(cis))
+	//})
 
-// TODO: Make work with V2?
-//func TestPutFileAtomic(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		c := env.PachClient
-//		test := "test"
-//		require.NoError(t, c.CreateRepo(test))
-//
-//		pfc, err := c.NewPutFileClient()
-//		require.NoError(t, err)
-//		require.NoError(t, pfc.PutFile(test, "master", "file1", strings.NewReader("1")))
-//		require.NoError(t, pfc.PutFile(test, "master", "file2", strings.NewReader("2")))
-//		require.NoError(t, pfc.Close())
-//
-//		cis, err := c.ListCommit(test, "master", "", 0)
-//		require.NoError(t, err)
-//		require.Equal(t, 1, len(cis))
-//		var b bytes.Buffer
-//		require.NoError(t, c.GetFile(test, "master", "file1", &b))
-//		require.Equal(t, "1", b.String())
-//		b.Reset()
-//		require.NoError(t, c.GetFile(test, "master", "file2", &b))
-//		require.Equal(t, "2", b.String())
-//
-//		pfc, err = c.NewPutFileClient()
-//		require.NoError(t, err)
-//		require.NoError(t, pfc.PutFile(test, "master", "file3", strings.NewReader("3")))
-//		require.NoError(t, err)
-//		require.NoError(t, pfc.DeleteFile(test, "master", "file1"))
-//		require.NoError(t, pfc.Close())
-//
-//		cis, err = c.ListCommit(test, "master", "", 0)
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(cis))
-//		b.Reset()
-//		require.NoError(t, c.GetFile(test, "master", "file3", &b))
-//		require.Equal(t, "3", b.String())
-//		b.Reset()
-//		require.YesError(t, c.GetFile(test, "master", "file1", &b))
-//
-//		// Empty PutFileClients shouldn't error or create commits
-//		pfc, err = c.NewPutFileClient()
-//		require.NoError(t, err)
-//		require.NoError(t, pfc.Close())
-//		cis, err = c.ListCommit(test, "master", "", 0)
-//		require.NoError(t, err)
-//		require.Equal(t, 2, len(cis))
-//
-//		return nil
-//	}))
-//}
+	const (
+		inputRepo          = iota // create a new input repo
+		inputBranch               // create a new branch on an existing input repo
+		deleteInputBranch         // delete an input branch
+		commit                    // commit to an input branch
+		squashCommit              // squash commit from an input branch
+		outputRepo                // create a new output repo, with master branch subscribed to random other branches
+		outputBranch              // create a new output branch on an existing output repo
+		deleteOutputBranch        // delete an output branch
+	)
 
-const (
-	inputRepo          = iota // create a new input repo
-	inputBranch               // create a new branch on an existing input repo
-	deleteInputBranch         // delete an input branch
-	commit                    // commit to an input branch
-	squashCommit              // squash commit from an input branch
-	outputRepo                // create a new output repo, with master branch subscribed to random other branches
-	outputBranch              // create a new output branch on an existing output repo
-	deleteOutputBranch        // delete an output branch
-)
+	suite.Run("FuzzProvenance", func(t *testing.T) {
+		if os.Getenv("RUN_BAD_TESTS") == "" {
+			t.Skip("Skipping because RUN_BAD_TESTS was empty")
+		}
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-func TestFuzzProvenance(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		seed := time.Now().UnixNano()
 		t.Log("Random seed is", seed)
 		r := rand.New(rand.NewSource(seed))
@@ -5922,129 +5540,106 @@ func TestFuzzProvenance(t *testing.T) {
 			}
 			require.NoError(t, env.PachClient.FsckFastExit())
 		}
+	})
 
-		return nil
-	}))
-}
+	// TestPutFileLeak is a regression test for when PutFile may result in a leaked
+	// goroutine in pachd that would use up a limiter and never release it, in the
+	// situation where the client starts uploading a file but causes a short-circuit
+	// by making a protocol error in the PutFile request.
+	// TODO: Make work with V2?
+	//suite.Run("PutFileLeak", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, func(config *serviceenv.Configuration) {
+	//	  config.StoragePutFileConcurrencyLimit = 10
+	//  }, tu.NewTestDBConfig(t))
+	//
+	//	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	//
+	//	for i := 0; i < 20; i++ {
+	//		pfc, err := env.PachClient.PfsAPIClient.PutFile(env.Context)
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		err = pfc.Send(&pfs.PutFileRequest{File: pclient.NewFile("repo", "master", "1")})
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		err = pfc.Send(&pfs.PutFileRequest{File: pclient.NewFile("repo", "faster", "2")})
+	//		require.NoError(t, err)
+	//
+	//		_, err = pfc.CloseAndRecv()
+	//		require.YesError(t, err)
+	//	}
+	//})
 
-// TestPutFileLeak is a regression test for when PutFile may result in a leaked
-// goroutine in pachd that would use up a limiter and never release it, in the
-// situation where the client starts uploading a file but causes a short-circuit
-// by making a protocol error in the PutFile request.
-// TODO: Make work with V2?
-//func TestPutFileLeak(t *testing.T) {
-//	t.Parallel()
-//	pachdConfig := &serviceenv.PachdFullConfiguration{}
-//	pachdConfig.StoragePutFileConcurrencyLimit = 10
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		require.NoError(t, env.PachClient.CreateRepo("repo"))
-//
-//		for i := 0; i < 20; i++ {
-//			pfc, err := env.PachClient.PfsAPIClient.PutFile(env.Context)
-//			if err != nil {
-//				return err
-//			}
-//
-//			err = pfc.Send(&pfs.PutFileRequest{File: pclient.NewFile("repo", "master", "1")})
-//			if err != nil {
-//				return err
-//			}
-//
-//			err = pfc.Send(&pfs.PutFileRequest{File: pclient.NewFile("repo", "faster", "2")})
-//			require.NoError(t, err)
-//
-//			_, err = pfc.CloseAndRecv()
-//			require.YesError(t, err)
-//		}
-//
-//		return nil
-//	}, pachdConfig))
-//}
+	// TestAtomicHistory repeatedly writes to a file while concurrently reading
+	// its history. This checks for a regression where the repo would sometimes
+	// lock.
+	// TODO: Make work with V2?
+	//suite.Run("AtomicHistory", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	repo := "test"
+	//	require.NoError(t, env.PachClient.CreateRepo(repo))
+	//	require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", nil))
+	//	aSize := 1 * 1024 * 1024
+	//	bSize := aSize + 1024
+	//
+	//	for i := 0; i < 10; i++ {
+	//		// create a file of all A's
+	//		a := strings.Repeat("A", aSize)
+	//		_, err := env.PachClient.PutFile(repo, "master", "/file", strings.NewReader(a))
+	//		require.NoError(t, err)
+	//
+	//		// sllowwwllly replace it with all B's
+	//		ctx, cancel := context.WithCancel(context.Background())
+	//		eg, ctx := errgroup.WithContext(ctx)
+	//		eg.Go(func() error {
+	//			b := strings.Repeat("B", bSize)
+	//			r := SlowReader{underlying: strings.NewReader(b)}
+	//			_, err := env.PachClient.PutFile(repo, "master", "/file", &r)
+	//			cancel()
+	//			return err
+	//		})
+	//
+	//		// should pull /file when it's all A's
+	//		eg.Go(func() error {
+	//			for {
+	//				fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "/file", 1)
+	//				require.NoError(t, err)
+	//				require.Equal(t, len(fileInfos), 1)
+	//
+	//				// stop once B's have been written
+	//				select {
+	//				case <-ctx.Done():
+	//					return nil
+	//				default:
+	//					time.Sleep(1 * time.Millisecond)
+	//				}
+	//			}
+	//		})
+	//
+	//		require.NoError(t, eg.Wait())
+	//
+	//		// should pull /file when it's all B's
+	//		fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "/file", 1)
+	//		require.NoError(t, err)
+	//		require.Equal(t, 1, len(fileInfos))
+	//		require.Equal(t, bSize, int(fileInfos[0].SizeBytes))
+	//	}
+	//})
 
-// TestAtomicHistory repeatedly writes to a file while concurrently reading
-// its history. This checks for a regression where the repo would sometimes
-// lock.
-// TODO: Make work with V2?
-//func TestAtomicHistory(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		repo := tu.UniqueString("TestAtomicHistory")
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", nil))
-//		aSize := 1 * 1024 * 1024
-//		bSize := aSize + 1024
-//
-//		for i := 0; i < 10; i++ {
-//			// create a file of all A's
-//			a := strings.Repeat("A", aSize)
-//			_, err := env.PachClient.PutFile(repo, "master", "/file", strings.NewReader(a))
-//			require.NoError(t, err)
-//
-//			// sllowwwllly replace it with all B's
-//			ctx, cancel := context.WithCancel(context.Background())
-//			eg, ctx := errgroup.WithContext(ctx)
-//			eg.Go(func() error {
-//				b := strings.Repeat("B", bSize)
-//				r := SlowReader{underlying: strings.NewReader(b)}
-//				_, err := env.PachClient.PutFile(repo, "master", "/file", &r)
-//				cancel()
-//				return err
-//			})
-//
-//			// should pull /file when it's all A's
-//			eg.Go(func() error {
-//				for {
-//					fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "/file", 1)
-//					require.NoError(t, err)
-//					require.Equal(t, len(fileInfos), 1)
-//
-//					// stop once B's have been written
-//					select {
-//					case <-ctx.Done():
-//						return nil
-//					default:
-//						time.Sleep(1 * time.Millisecond)
-//					}
-//				}
-//			})
-//
-//			require.NoError(t, eg.Wait())
-//
-//			// should pull /file when it's all B's
-//			fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "/file", 1)
-//			require.NoError(t, err)
-//			require.Equal(t, 1, len(fileInfos))
-//			require.Equal(t, bSize, int(fileInfos[0].SizeBytes))
-//		}
-//		return nil
-//	}))
-//}
+	// TestTrigger tests branch triggers
+	suite.Run("Trigger", func(t *testing.T) {
+		if os.Getenv("RUN_BAD_TESTS") == "" {
+			t.Skip("Skipping because RUN_BAD_TESTS was empty")
+		}
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-type SlowReader struct {
-	underlying io.Reader
-	delay      time.Duration
-}
-
-func (r *SlowReader) Read(p []byte) (n int, err error) {
-	n, err = r.underlying.Read(p)
-	if r.delay == 0 {
-		time.Sleep(1 * time.Millisecond)
-	} else {
-		time.Sleep(r.delay)
-	}
-	return
-}
-
-// TestTrigger tests branch triggers
-func TestTrigger(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		c := env.PachClient
 		t.Run("Simple", func(t *testing.T) {
 			require.NoError(t, c.CreateRepo("test"))
@@ -6364,16 +5959,13 @@ func TestTrigger(t *testing.T) {
 			require.NotNil(t, bi.Head)
 			require.Equal(t, cHead, bi.Head.ID)
 		})
+	})
 
-		return nil
-	}))
-}
+	// TestTrigger tests branch trigger validation
+	suite.Run("TriggerValidation", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-// TestTrigger tests branch trigger validation
-func TestTriggerValidation(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		c := env.PachClient
 		require.NoError(t, c.CreateRepo("repo"))
 		// Must specify a branch
@@ -6424,51 +6016,48 @@ func TestTriggerValidation(t *testing.T) {
 				Provenance: []*pfs.Branch{pclient.NewBranch("in", "master")},
 			})
 		require.YesError(t, err)
-		return nil
-	}))
-}
+	})
 
-// TODO: Reenable when PFS metadata is in postgres.
-//func TestLargeDeleteRepo(t *testing.T) {
-//	t.Parallel()
-//	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-//		numRepos := 10
-//		numCommits := 1000
-//		var repos []string
-//		for i := 0; i < numRepos; i++ {
-//			repo := fmt.Sprintf("repo-%d", i)
-//			require.NoError(t, env.PachClient.CreateRepo(repo))
-//			if i > 0 {
-//				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(repos[i-1], "master")}))
-//			}
-//			repos = append(repos, repo)
-//		}
-//		for i := 0; i < numCommits; i++ {
-//			_, err := env.PachClient.StartCommit(repos[0], "master")
-//			require.NoError(t, err)
-//			require.NoError(t, env.PachClient.FinishCommit(repos[0], "master"))
-//		}
-//		repo := repos[len(repos)-1]
-//		ctx, cf := context.WithTimeout(context.Background(), time.Second)
-//		defer cf()
-//		require.YesError(t, env.PachClient.WithCtx(ctx).DeleteRepo(repo, false, true))
-//		require.YesError(t, env.PachClient.CreateBranch(repo, "test", "", nil))
-//		_, err := env.PachClient.StartCommit(repo, "master")
-//		require.YesError(t, err)
-//		for i := len(repos) - 1; i >= 0; i-- {
-//			require.NoError(t, env.PachClient.DeleteRepo(repos[i], false, true))
-//			require.NoError(t, env.PachClient.FsckFastExit())
-//		}
-//		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
-//		require.NoError(t, err)
-//		return nil
-//	}))
-//}
+	// TODO: Reenable when PFS metadata is in postgres.
+	//suite.Run("LargeDeleteRepo", func(t *testing.T) {
+	//	t.Parallel()
+	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	//
+	//	numRepos := 10
+	//	numCommits := 1000
+	//	var repos []string
+	//	for i := 0; i < numRepos; i++ {
+	//		repo := fmt.Sprintf("repo-%d", i)
+	//		require.NoError(t, env.PachClient.CreateRepo(repo))
+	//		if i > 0 {
+	//			require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(repos[i-1], "master")}))
+	//		}
+	//		repos = append(repos, repo)
+	//	}
+	//	for i := 0; i < numCommits; i++ {
+	//		_, err := env.PachClient.StartCommit(repos[0], "master")
+	//		require.NoError(t, err)
+	//		require.NoError(t, env.PachClient.FinishCommit(repos[0], "master"))
+	//	}
+	//	repo := repos[len(repos)-1]
+	//	ctx, cf := context.WithTimeout(context.Background(), time.Second)
+	//	defer cf()
+	//	require.YesError(t, env.PachClient.WithCtx(ctx).DeleteRepo(repo, false, true))
+	//	require.YesError(t, env.PachClient.CreateBranch(repo, "test", "", nil))
+	//	_, err := env.PachClient.StartCommit(repo, "master")
+	//	require.YesError(t, err)
+	//	for i := len(repos) - 1; i >= 0; i-- {
+	//		require.NoError(t, env.PachClient.DeleteRepo(repos[i], false, true))
+	//		require.NoError(t, env.PachClient.FsckFastExit())
+	//	}
+	//	_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+	//	require.NoError(t, err)
+	//})
 
-func TestRegressionOrphanedFile(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("RegressionOrphanedFile", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
 		fsclient, err := env.PachClient.NewCreateFilesetClient()
 		require.NoError(t, err)
 		data := []byte("test data")
@@ -6484,17 +6073,15 @@ func TestRegressionOrphanedFile(t *testing.T) {
 		fis, err := env.PachClient.ListFileAll(pclient.FileSetsRepoName, resp.FilesetId, "/")
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
-		return nil
-	}))
-}
+	})
 
-func TestCompaction(t *testing.T) {
-	t.Parallel()
-	config := testpachd.NewDefaultConfig()
-	config.StorageCompactionMaxFanIn = 10
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "TestCompaction"
+	suite.Run("Compaction", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, func(config *serviceenv.Configuration) {
+			config.StorageCompactionMaxFanIn = 10
+		}, tu.NewTestDBConfig(t))
+
+		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -6509,52 +6096,26 @@ func TestCompaction(t *testing.T) {
 			for j := 0; j < filesPer; j++ {
 				name := fmt.Sprintf("file%02d", j)
 				data, err := ioutil.ReadAll(randomReader(fileSetSize))
-				if err != nil {
-					return err
-				}
+				require.NoError(t, err)
 				file := tarutil.NewMemFile(name, data)
 				hdr, err := file.Header()
-				if err != nil {
-					return err
-				}
+				require.NoError(t, err)
 				fsSpec[hdr.Name] = file
 			}
-			if err := env.PachClient.PutFileTar(repo, commit1.ID, fsSpec.makeTarStream()); err != nil {
-				return err
-			}
+			require.NoError(t, env.PachClient.PutFileTar(repo, commit1.ID, fsSpec.makeTarStream()))
 			runtime.GC()
 		}
-		if err := env.PachClient.FinishCommit(repo, commit1.ID); err != nil {
-			return err
-		}
-		return nil
-	}, config))
-}
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+	})
 
-var (
-	randSeed = int64(0)
-	randMu   sync.Mutex
-)
+	suite.Run("TestModifyFileGRPC", func(subsuite *testing.T) {
+		subsuite.Parallel()
 
-func getRand() *rand.Rand {
-	randMu.Lock()
-	seed := randSeed
-	randSeed++
-	randMu.Unlock()
-	return rand.New(rand.NewSource(seed))
-}
-
-func randomReader(n int) io.Reader {
-	return io.LimitReader(getRand(), int64(n))
-}
-
-func TestModifyFileGRPC(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		repo := "modify-file-grpc-test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-		t.Run("EmptyFile", func(t *testing.T) {
+		subsuite.Run("EmptyFile", func(t *testing.T) {
+			t.Parallel()
+			env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+			repo := "test"
+			require.NoError(t, env.PachClient.CreateRepo(repo))
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
 			require.NoError(t, err)
 			files := []string{"/empty-1", "/empty-2"}
@@ -6582,7 +6143,12 @@ func TestModifyFileGRPC(t *testing.T) {
 			}))
 			require.Equal(t, 0, len(files))
 		})
-		t.Run("SingleMessageFile", func(t *testing.T) {
+
+		subsuite.Run("SingleMessageFile", func(t *testing.T) {
+			t.Parallel()
+			env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+			repo := "test"
+			require.NoError(t, env.PachClient.CreateRepo(repo))
 			filePath := "file"
 			fileContent := "foo"
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
@@ -6607,26 +6173,19 @@ func TestModifyFileGRPC(t *testing.T) {
 			require.NoError(t, env.PachClient.GetFile(repo, "master", filePath, buf))
 			require.Equal(t, fileContent, buf.String())
 		})
-		return nil
-	}))
-}
+	})
 
-func TestLoad(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	msg := random.SeedRand()
-	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("TestLoad", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 		spec := &load.CommitsSpec{}
-		if err := yaml.UnmarshalStrict([]byte(testLoad), spec); err != nil {
-			return err
-		}
+		require.NoError(t, yaml.UnmarshalStrict([]byte(testLoad), spec))
+		msg := random.SeedRand()
 		c := env.PachClient
 		repo := "test"
-		if err := c.CreateRepo(repo); err != nil {
-			return err
-		}
-		return load.Commits(c, repo, "master", spec)
-	}, testpachd.NewDefaultConfig()), msg)
+		require.NoError(t, c.CreateRepo(repo))
+		require.NoError(t, load.Commits(c, repo, "master", spec), msg)
+	})
 }
 
 var testLoad = ` 
@@ -6673,3 +6232,45 @@ fileSources:
             max: 100000000
           prob: 0.1
 `
+
+var (
+	randSeed = int64(0)
+	randMu   sync.Mutex
+)
+
+func writeObj(t *testing.T, c obj.Client, path, content string) {
+	w, err := c.Writer(context.Background(), path)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, w.Close())
+	}()
+	_, err = w.Write([]byte(content))
+	require.NoError(t, err)
+}
+
+type SlowReader struct {
+	underlying io.Reader
+	delay      time.Duration
+}
+
+func (r *SlowReader) Read(p []byte) (n int, err error) {
+	n, err = r.underlying.Read(p)
+	if r.delay == 0 {
+		time.Sleep(1 * time.Millisecond)
+	} else {
+		time.Sleep(r.delay)
+	}
+	return
+}
+
+func getRand() *rand.Rand {
+	randMu.Lock()
+	seed := randSeed
+	randSeed++
+	randMu.Unlock()
+	return rand.New(rand.NewSource(seed))
+}
+
+func randomReader(n int) io.Reader {
+	return io.LimitReader(getRand(), int64(n))
+}

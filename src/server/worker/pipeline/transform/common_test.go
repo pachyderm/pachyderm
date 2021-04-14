@@ -2,14 +2,17 @@ package transform
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"testing"
 
 	etcd "github.com/coreos/etcd/clientv3"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -18,6 +21,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
+
+// Set this to true to enable worker log statements to go to stdout
+const debug = false
 
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
@@ -113,34 +119,32 @@ func (td *testDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) 
 	return td.inner.NewSTM(cb)
 }
 
-// withTestEnv provides a test env with etcd and pachd instances and connected
+// newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func withTestEnv(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error {
-	return testpachd.WithRealEnv(db, func(realEnv *testpachd.RealEnv) error {
-		logger := logs.NewMockLogger()
-		workerDir := filepath.Join(realEnv.Directory, "worker")
-		driver, err := driver.NewDriver(
-			pipelineInfo,
-			realEnv.PachClient,
-			realEnv.EtcdClient,
-			"/pachyderm_test",
-			workerDir,
-			"namespace",
-		)
-		if err != nil {
-			return err
-		}
+func newTestEnv(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
+	realEnv := testpachd.NewRealEnv(t, dbConfig)
+	logger := logs.NewMockLogger()
+	if debug {
+		logger.Writer = os.Stdout
+	}
+	workerDir := filepath.Join(realEnv.Directory, "worker")
+	driver, err := driver.NewDriver(
+		pipelineInfo,
+		realEnv.PachClient,
+		realEnv.EtcdClient,
+		"/pachyderm_test",
+		workerDir,
+		"namespace",
+	)
+	require.NoError(t, err)
 
-		ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
-		defer cancel()
-		driver = driver.WithContext(ctx)
+	ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
+	t.Cleanup(cancel)
+	driver = driver.WithContext(ctx)
 
-		env := &testEnv{
-			RealEnv: realEnv,
-			logger:  logger,
-			driver:  &testDriver{driver},
-		}
-
-		return cb(env)
-	})
+	return &testEnv{
+		RealEnv: realEnv,
+		logger:  logger,
+		driver:  &testDriver{driver},
+	}
 }

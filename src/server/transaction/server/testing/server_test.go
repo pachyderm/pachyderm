@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -16,10 +15,48 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
-func TestEmptyTransaction(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+func requireEmptyResponse(t *testing.T, response *transaction.TransactionResponse) {
+	require.Nil(t, response.Commit)
+}
+
+func requireCommitResponse(t *testing.T, response *transaction.TransactionResponse, commit *pfs.Commit) {
+	require.Equal(t, commit, response.Commit)
+}
+
+// Helper functions for tests below
+func provStr(i interface{}) interface{} {
+	cp := i.(*pfs.CommitProvenance)
+	return fmt.Sprintf("%s@%s (%s)", cp.Commit.Repo.Name, cp.Commit.ID, cp.Branch.Name)
+}
+
+func subvStr(i interface{}) interface{} {
+	cr := i.(*pfs.CommitRange)
+	return fmt.Sprintf("%s@%s:%s@%s", cr.Lower.Repo.Name, cr.Lower.ID, cr.Upper.Repo.Name, cr.Upper.ID)
+}
+
+func expectProv(commits ...*pfs.Commit) []interface{} {
+	result := []interface{}{}
+	for _, commit := range commits {
+		result = append(result, provStr(client.NewCommitProvenance(commit.Repo.Name, "master", commit.ID)))
+	}
+	return result
+}
+
+func expectSubv(commits ...*pfs.Commit) []interface{} {
+	result := []interface{}{}
+	for _, commit := range commits {
+		result = append(result, subvStr(&pfs.CommitRange{Lower: commit, Upper: commit}))
+	}
+	return result
+}
+
+func TestTransactions(suite *testing.T) {
+	suite.Parallel()
+
+	suite.Run("TestEmptyTransaction", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
@@ -40,16 +77,12 @@ func TestEmptyTransaction(t *testing.T) {
 		info, err = env.PachClient.InspectTransaction(txn)
 		require.YesError(t, err)
 		require.Nil(t, info)
-
-		return nil
 	})
-	require.NoError(t, err)
-}
 
-func TestInvalidatedTransaction(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("TestInvalidatedTransaction", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
@@ -74,16 +107,12 @@ func TestInvalidatedTransaction(t *testing.T) {
 		// Appending to the transaction should fail
 		_, err = txnClient.PfsAPIClient.CreateRepo(txnClient.Ctx(), &pfs.CreateRepoRequest{Repo: client.NewRepo("bar")})
 		require.YesError(t, err)
-
-		return nil
 	})
-	require.NoError(t, err)
-}
 
-func TestFailedAppend(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("TestFailedAppend", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
@@ -111,24 +140,12 @@ func TestFailedAppend(t *testing.T) {
 		require.Equal(t, txn, info.Transaction)
 		require.Equal(t, 0, len(info.Requests))
 		require.Equal(t, 0, len(info.Responses))
-
-		return nil
 	})
-	require.NoError(t, err)
-}
 
-func requireEmptyResponse(t *testing.T, response *transaction.TransactionResponse) {
-	require.Nil(t, response.Commit)
-}
+	suite.Run("TestDependency", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 
-func requireCommitResponse(t *testing.T, response *transaction.TransactionResponse, commit *pfs.Commit) {
-	require.Equal(t, commit, response.Commit)
-}
-
-func TestDependency(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
@@ -183,18 +200,14 @@ func TestDependency(t *testing.T) {
 		info, err = env.PachClient.InspectTransaction(txn)
 		require.YesError(t, err)
 		require.Nil(t, info)
-
-		return nil
 	})
-	require.NoError(t, err)
-}
 
-// This is a regression test for a bug in PFS where creating a branch would
-// inspect the new commit outside of the transaction STM and fail to find it.
-func TestCreateBranch(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	// This is a regression test for a bug in PFS where creating a branch would
+	// inspect the new commit outside of the transaction STM and fail to find it.
+	suite.Run("TestCreateBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
@@ -225,16 +238,12 @@ func TestCreateBranch(t *testing.T) {
 		commitInfo, err = env.PachClient.InspectCommit(repo, branchB)
 		require.NoError(t, err)
 		require.Equal(t, commitInfo.Commit.ID, commit.ID)
-
-		return nil
 	})
-	require.NoError(t, err)
-}
 
-func TestDeleteAllTransactions(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("TestDeleteAllTransactions", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+
 		_, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
@@ -251,16 +260,12 @@ func TestDeleteAllTransactions(t *testing.T) {
 		txns, err = env.PachClient.ListTransaction()
 		require.NoError(t, err)
 		require.Equal(t, 0, len(txns))
-
-		return nil
 	})
-	require.NoError(t, err)
-}
 
-func TestMultiCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("TestMultiCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
@@ -290,49 +295,18 @@ func TestMultiCommit(t *testing.T) {
 		requireEmptyResponse(t, info.Responses[2])
 		requireCommitResponse(t, info.Responses[3], commit2)
 		requireEmptyResponse(t, info.Responses[4])
-
-		return nil
 	})
-	require.NoError(t, err)
-}
 
-// Helper functions for tests below
-func provStr(i interface{}) interface{} {
-	cp := i.(*pfs.CommitProvenance)
-	return fmt.Sprintf("%s@%s (%s)", cp.Commit.Repo.Name, cp.Commit.ID, cp.Branch.Name)
-}
+	// Test that a transactional change to multiple repos will only propagate a
+	// single commit into a downstream repo. This mimics the pfs.TestProvenance test
+	// using the following DAG:
+	//  A ─▶ B ─▶ C ─▶ D
+	//            ▲
+	//  E ────────╯
+	suite.Run("TestPropagateCommit", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 
-func subvStr(i interface{}) interface{} {
-	cr := i.(*pfs.CommitRange)
-	return fmt.Sprintf("%s@%s:%s@%s", cr.Lower.Repo.Name, cr.Lower.ID, cr.Upper.Repo.Name, cr.Upper.ID)
-}
-
-func expectProv(commits ...*pfs.Commit) []interface{} {
-	result := []interface{}{}
-	for _, commit := range commits {
-		result = append(result, provStr(client.NewCommitProvenance(commit.Repo.Name, "master", commit.ID)))
-	}
-	return result
-}
-
-func expectSubv(commits ...*pfs.Commit) []interface{} {
-	result := []interface{}{}
-	for _, commit := range commits {
-		result = append(result, subvStr(&pfs.CommitRange{Lower: commit, Upper: commit}))
-	}
-	return result
-}
-
-// Test that a transactional change to multiple repos will only propagate a
-// single commit into a downstream repo. This mimics the pfs.TestProvenance test
-// using the following DAG:
-//  A ─▶ B ─▶ C ─▶ D
-//            ▲
-//  E ────────╯
-func TestPropagateCommit(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -409,18 +383,14 @@ func TestPropagateCommit(t *testing.T) {
 
 		require.ElementsEqualUnderFn(t, expectProv(), commitInfoE.Provenance, provStr)
 		require.ElementsEqualUnderFn(t, expectSubv(commitC, commitD), commitInfoE.Subvenance, subvStr)
-
-		return nil
 	})
-	require.NoError(t, err)
-}
 
-// This test is the same as PropagateCommit except more of the operations are
-// performed within the transaction.
-func TestPropagateCommitRedux(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	// This test is the same as PropagateCommit except more of the operations are
+	// performed within the transaction.
+	suite.Run("TestPropagateCommitRedux", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
@@ -497,16 +467,12 @@ func TestPropagateCommitRedux(t *testing.T) {
 
 		require.ElementsEqualUnderFn(t, expectProv(), commitInfoE.Provenance, provStr)
 		require.ElementsEqualUnderFn(t, expectSubv(commitC, commitD), commitInfoE.Subvenance, subvStr)
-
-		return nil
 	})
-	require.NoError(t, err)
-}
 
-func TestBatchTransaction(t *testing.T) {
-	t.Parallel()
-	db := dbutil.NewTestDB(t)
-	err := testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+	suite.Run("TestBatchTransaction", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+
 		var branches []*pfs.BranchInfo
 		var info *transaction.TransactionInfo
 		var err error
@@ -577,10 +543,7 @@ func TestBatchTransaction(t *testing.T) {
 				require.Equal(t, x.Head, info.Responses[1].Commit)
 			}
 		}
-
-		return nil
 	})
-	require.NoError(t, err)
 }
 
 func TestCreatePipelineTransaction(t *testing.T) {

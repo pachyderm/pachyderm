@@ -52,6 +52,7 @@ import (
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -72,6 +73,7 @@ func init() {
 
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	switch {
 	case readiness:
@@ -423,7 +425,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env,
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
-			env.GetDBClient(),
 		)
 		if err != nil {
 			return err
@@ -597,7 +598,7 @@ func doFullMode(config interface{}) (retErr error) {
 		txnEnv := &txnenv.TransactionEnv{}
 		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix), env.GetDBClient())
+			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
 			if err != nil {
 				return err
 			}
@@ -755,7 +756,6 @@ func doFullMode(config interface{}) (retErr error) {
 				env,
 				txnEnv,
 				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
-				env.GetDBClient(),
 			)
 			if err != nil {
 				return err
@@ -838,6 +838,17 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			transactionclient.RegisterAPIServer(internalServer.Server, transactionAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, err := licenseserver.New(
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
 			return nil
 		}); err != nil {
 			return err

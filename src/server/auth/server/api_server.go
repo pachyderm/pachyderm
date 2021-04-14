@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/auth"
@@ -51,8 +53,8 @@ const (
 	// GitHookPort is 655
 	// Prometheus uses 656
 
-	// OidcPort is the port where OIDC ID Providers can send auth assertions
-	OidcPort = 657
+	// the length of interval between expired auth token cleanups
+	cleanupIntervalHours = 24
 )
 
 // DefaultOIDCConfig is the default config for the auth API server
@@ -74,9 +76,6 @@ type apiServer struct {
 	configCache             *keycache.Cache
 	clusterRoleBindingCache *keycache.Cache
 
-	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
-	// returned to users by Authenticate()
-	tokens col.Collection
 	// roleBindings is a collection of resource name -> role binding mappings.
 	roleBindings col.Collection
 	// members is a collection of username -> groups mappings.
@@ -160,14 +159,6 @@ func NewAuthServer(
 		env:        env,
 		txnEnv:     txnEnv,
 		pachLogger: log.NewLogger("auth.API"),
-		tokens: col.NewCollection(
-			env.GetEtcdClient(),
-			path.Join(etcdPrefix, tokensPrefix),
-			nil,
-			&auth.TokenInfo{},
-			nil,
-			nil,
-		),
 		members: col.NewCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),
@@ -214,6 +205,9 @@ func NewAuthServer(
 		// Watch for changes to the cluster role binding
 		go s.clusterRoleBindingCache.Watch()
 	}
+
+	s.deleteExpiredTokensRoutine()
+
 	return s, nil
 }
 
@@ -341,7 +335,6 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// initialize the root user as a cluster admin
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		roleBindings := a.roleBindings.ReadWrite(stm)
-		tokens := a.tokens.ReadWrite(stm)
 		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
 				auth.RootUser: &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
@@ -349,12 +342,8 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		}); err != nil {
 			return err
 		}
-		return tokens.Put(
-			auth.HashToken(pachToken),
-			&auth.TokenInfo{
-				Subject: auth.RootUser,
-			},
-		)
+		// TODO(acohen4): workout the transactionality
+		return a.insertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
 		return nil, err
 	}
@@ -380,7 +369,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		a.roleBindings.ReadWrite(stm).DeleteAll()
-		a.tokens.ReadWrite(stm).DeleteAll()
+		a.deleteAllAuthTokens(ctx) // need to merge with transaction changes
 		a.members.ReadWrite(stm).DeleteAll()
 		a.groups.ReadWrite(stm).DeleteAll()
 		a.authConfig.ReadWrite(stm).DeleteAll()
@@ -459,17 +448,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		username := auth.UserPrefix + email
 
 		// Generate a new Pachyderm token and write it
-		pachToken = uuid.NewWithoutDashes()
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			tokens := a.tokens.ReadWrite(stm)
-			return tokens.PutTTL(auth.HashToken(pachToken),
-				&auth.TokenInfo{
-					Subject: username,
-				},
-				defaultSessionTTLSecs)
-		}); err != nil {
+		token, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
+		if err != nil {
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
+		pachToken = token
+
 	case req.IdToken != "":
 		// Determine caller's Pachyderm/OIDC user info (email)
 		token, claims, err := a.validateIDToken(ctx, req.IdToken)
@@ -493,18 +477,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			expirationSecs = defaultSessionTTLSecs
 		}
 
-		// Generate a new Pachyderm token and write it
-		pachToken = uuid.NewWithoutDashes()
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			tokens := a.tokens.ReadWrite(stm)
-			return tokens.PutTTL(auth.HashToken(pachToken),
-				&auth.TokenInfo{
-					Subject: username,
-				},
-				expirationSecs)
-		}); err != nil {
+		t, err := a.generateAndInsertAuthToken(ctx, username, expirationSecs)
+		if err != nil {
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
+		pachToken = t
+
 	default:
 		return nil, errors.Errorf("unrecognized authentication mechanism (old pachd?)")
 	}
@@ -612,23 +590,9 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 		return nil, err
 	}
 
-	// Get TTL of user's token
-	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
-	if callerInfo.Subject != auth.PpsUser {
-		token, err := auth.GetAuthToken(ctx)
-		if err != nil {
-			return nil, err
-		}
-		ttl, err = a.tokens.ReadOnly(ctx).TTL(auth.HashToken(token)) // lookup token TTL
-		if err != nil {
-			return nil, errors.Wrapf(err, "error looking up TTL for token")
-		}
-	}
-
-	// return final result
 	return &auth.WhoAmIResponse{
-		Username: callerInfo.Subject,
-		TTL:      ttl,
+		Username:   callerInfo.Subject,
+		Expiration: callerInfo.Expiration,
 	}, nil
 }
 
@@ -903,18 +867,17 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 
 	subject = auth.RobotPrefix + subject
 
-	tokenInfo := auth.TokenInfo{
-		Subject: subject,
+	// generate new token, and write to postgres
+	var token string
+	var err error
+	if req.TTL > 0 {
+		token, err = a.generateAndInsertAuthToken(ctx, subject, req.TTL)
+	} else {
+		token, err = a.generateAndInsertAuthTokenNoTTL(ctx, subject)
 	}
-
-	// generate new token, and write to etcd
-	token := uuid.NewWithoutDashes()
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.tokens.ReadWrite(stm).PutTTL(auth.HashToken(token), &tokenInfo, req.TTL)
-	}); err != nil {
+	if err != nil {
 		return nil, err
 	}
-
 	return &auth.GetRobotTokenResponse{
 		Token: token,
 	}, nil
@@ -927,16 +890,13 @@ func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.Transaction
 		return "", err
 	}
 
-	tokenInfo := auth.TokenInfo{
-		Subject: auth.PipelinePrefix + pipeline,
-	}
-
-	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
-	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(auth.HashToken(token), &tokenInfo, -1); err != nil {
+	// TODO(acohen4): look at transaction context
+	if err := a.insertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline); err != nil {
 		return "", errors.Wrapf(err, "error storing token")
+	} else {
+		return token, nil
 	}
-	return token, nil
 }
 
 // GetOIDCLogin implements the protobuf auth.GetOIDCLogin RPC
@@ -972,8 +932,7 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionConte
 		return nil, err
 	}
 
-	tokens := a.tokens.ReadWrite(txnCtx.Stm)
-	if err := tokens.Delete(auth.HashToken(req.Token)); err != nil {
+	if err := a.deleteAuthToken(txnCtx.ClientContext, auth.HashToken(req.Token)); err != nil {
 		return nil, err
 	}
 	return &auth.RevokeAuthTokenResponse{}, nil
@@ -1246,14 +1205,20 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	}
 
 	// Lookup the token
-	var tokenInfo auth.TokenInfo
-	if err := a.tokens.ReadOnly(ctx).Get(auth.HashToken(token), &tokenInfo); err != nil {
-		if col.IsErrNotFound(err) {
+	tokenInfo, lookupErr := a.lookupAuthTokenInfo(ctx, auth.HashToken(token))
+	if lookupErr != nil {
+		if col.IsErrNotFound(lookupErr) {
 			return nil, auth.ErrBadToken
 		}
-		return nil, err
+		return nil, lookupErr
 	}
-	return &tokenInfo, nil
+	// verify token hasn't expired
+	if tokenInfo.Expiration != nil {
+		if time.Now().After(*tokenInfo.Expiration) {
+			return nil, auth.ErrExpiredToken
+		}
+	}
+	return tokenInfo, nil
 }
 
 // checkCanonicalSubjects applies checkCanonicalSubject to a list
@@ -1282,7 +1247,7 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 	// check against fixed prefixes
 	prefix += ":" // append ":" to match constants
 	switch prefix {
-	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix, auth.UserPrefix:
+	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix, auth.UserPrefix, auth.GroupPrefix:
 		break
 	default:
 		return errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
@@ -1362,40 +1327,10 @@ func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuth
 		return nil, err
 	}
 
-	extracted := make([]*auth.HashedAuthToken, 0)
-
-	tokens := a.tokens.ReadOnly(ctx)
-	var val auth.TokenInfo
-	if err := tokens.List(&val, col.DefaultOptions, func(hash string) error {
-		// Only extract robot tokens
-		if !strings.HasPrefix(val.Subject, auth.RobotPrefix) {
-			return nil
-		}
-
-		ttl, err := tokens.TTL(hash)
-		if err != nil {
-			return err
-		}
-
-		token := &auth.HashedAuthToken{
-			HashedToken: hash,
-			TokenInfo: &auth.TokenInfo{
-				Subject: val.Subject,
-			},
-		}
-		if ttl != -1 {
-			expiration, err := types.TimestampProto(time.Now().Add(time.Second * time.Duration(ttl)))
-			if err != nil {
-				return err
-			}
-			token.Expiration = expiration
-		}
-		extracted = append(extracted, token)
-		return nil
-	}); err != nil {
+	extracted, err := a.listRobotTokens(ctx)
+	if err != nil {
 		return nil, err
 	}
-
 	return &auth.ExtractAuthTokensResponse{Tokens: extracted}, nil
 }
 
@@ -1406,32 +1341,127 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 
 	var ttl int64
 	if req.Token.Expiration != nil {
-		ts, err := types.TimestampFromProto(req.Token.Expiration)
-		if err != nil {
-			return nil, err
-		}
-		ttl = int64(time.Until(ts).Seconds())
+		ttl = int64(time.Until(*req.Token.Expiration).Seconds())
 		if ttl < 0 {
 			return nil, auth.ErrExpiredToken
 		}
 	}
 
-	// Check whether the token hash already exists - we don't want to replace an existing token
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		tokens := a.tokens.ReadWrite(stm)
-		var existing auth.TokenInfo
-		err := tokens.Get(req.Token.HashedToken, &existing)
-		if err == nil {
-			return errors.New("cannot overwrite existing token with same hash")
-		} else if err != nil && !col.IsErrNotFound(err) {
-			return err
+	if err := func() error {
+		if ttl > 0 {
+			return a.insertAuthToken(ctx, req.Token.HashedToken, req.Token.Subject, ttl)
+		} else {
+			return a.insertAuthTokenNoTTL(ctx, req.Token.HashedToken, req.Token.Subject)
 		}
-
-		return tokens.PutTTL(req.Token.HashedToken,
-			req.Token.TokenInfo,
-			ttl)
-	}); err != nil {
+	}(); err != nil {
 		return nil, errors.Wrapf(err, "error restoring auth token")
 	}
+
 	return &auth.RestoreAuthTokenResponse{}, nil
+}
+
+// implements the protobuf auth.DeleteExpiredAuthTokens RPC
+func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
+	logrus.Info("Deleting expired auth tokens")
+	if _, err := a.env.GetDBClient().Exec(`DELETE FROM auth.auth_tokens WHERE NOW() > expiration`); err != nil {
+		return nil, errors.Wrapf(err, "error deleting expired tokens")
+	}
+	return &auth.DeleteExpiredAuthTokensResponse{}, nil
+}
+
+func (a *apiServer) deleteExpiredTokensRoutine() {
+	go func(ctx context.Context) {
+		for {
+			time.Sleep(time.Duration(cleanupIntervalHours) * time.Hour)
+			a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{})
+		}
+	}(context.Background())
+}
+
+// we interpret an expiration value of NULL as "lives forever".
+func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
+	var tokenInfo auth.TokenInfo
+
+	err := a.env.GetDBClient().GetContext(ctx, &tokenInfo, `SELECT subject, expiration FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash)
+
+	if err != nil {
+		return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}
+	}
+
+	return &tokenInfo, nil
+}
+
+// we will sometimes have expiration values set in the passed, since we only remove those values in the deleteExpiredTokensRoutine() goroutine
+func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.TokenInfo, error) {
+	robotTokens := make([]*auth.TokenInfo, 0)
+	if err := a.env.GetDBClient().SelectContext(ctx, &robotTokens,
+		`SELECT token_hash, subject, expiration
+		FROM auth.auth_tokens 
+		WHERE subject LIKE $1 || '%'`, auth.RobotPrefix); err != nil {
+		return nil, errors.Wrapf(err, "error querying token")
+	}
+	return robotTokens, nil
+}
+
+func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, ttlSeconds int64) (string, error) {
+	token := uuid.NewWithoutDashes()
+	if err := a.insertAuthToken(ctx, auth.HashToken(token), subject, ttlSeconds); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject string) (string, error) {
+	token := uuid.NewWithoutDashes()
+	if err := a.insertAuthTokenNoTTL(ctx, auth.HashToken(token), subject); err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+// generates a token, and stores it's hash and supporting data in postgres
+func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
+	// Register the pachd in the database
+	if _, err := a.env.GetDBClient().ExecContext(ctx,
+		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
+		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
+		if pgErr, ok := err.(*pq.Error); ok {
+			if pgErr.Code == pq.ErrorCode(pgerrcode.UniqueViolation) {
+				return errors.New("cannot overwrite existing token with same hash")
+			}
+		}
+		return errors.Wrapf(err, "error storing token")
+	}
+	return nil
+}
+
+func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
+	// Register the pachd in the database
+	if _, err := a.env.GetDBClient().ExecContext(ctx,
+		`INSERT INTO auth.auth_tokens (token_hash, subject) 
+		VALUES ($1, $2)`, tokenHash, subject); err != nil {
+		if pgErr, ok := err.(*pq.Error); ok {
+			if pgErr.Code == pq.ErrorCode(pgerrcode.UniqueViolation) {
+				return errors.New("cannot overwrite existing token with same hash")
+			}
+		}
+		return errors.Wrapf(err, "error storing token")
+	}
+	return nil
+}
+
+// TODO(acohen4): Transactionify
+func (a *apiServer) deleteAllAuthTokens(ctx context.Context) error {
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens`); err != nil {
+		return errors.Wrapf(err, "error deleting all auth tokens")
+	}
+	return nil
+}
+
+func (a *apiServer) deleteAuthToken(ctx context.Context, tokenHash string) error {
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
+		return errors.Wrapf(err, "error deleting token")
+	}
+	return nil
 }

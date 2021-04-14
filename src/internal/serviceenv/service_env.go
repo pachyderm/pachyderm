@@ -5,7 +5,6 @@ import (
 	"math"
 	"net"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -34,6 +33,8 @@ type ServiceEnv interface {
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
+	Context() context.Context
+	Close() error
 }
 
 // NonblockingServiceEnv is an implementation of ServiceEnv that initializes
@@ -77,6 +78,12 @@ type NonblockingServiceEnv struct {
 	dbClient *sqlx.DB
 	// dbEg coordinates the initialization of dbClient (see pachdEg)
 	dbEg errgroup.Group
+
+	// ctx is the background context for the environment that will be canceled
+	// when the ServiceEnv is closed - this typically only happens for orderly
+	// shutdown in tests
+	ctx    context.Context
+	cancel func()
 }
 
 // InitPachOnlyEnv initializes this service environment. This dials a GRPC
@@ -86,7 +93,8 @@ type NonblockingServiceEnv struct {
 // This call returns immediately, but GetPachClient will block
 // until the client is ready.
 func InitPachOnlyEnv(config *Configuration) *NonblockingServiceEnv {
-	env := &NonblockingServiceEnv{config: config}
+	ctx, cancel := context.WithCancel(context.Background())
+	env := &NonblockingServiceEnv{config: config, ctx: ctx, cancel: cancel}
 	env.pachAddress = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", env.config.PeerPort))
 	env.pachEg.Go(env.initPachClient)
 	return env // env is not ready yet
@@ -199,19 +207,10 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 
 func (env *NonblockingServiceEnv) initDBClient() error {
 	return backoff.Retry(func() error {
-		host, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
-		if !ok {
-			return errors.Errorf("postgres service host not found")
-		}
-		portStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
-		if !ok {
-			return errors.Errorf("postgres service port not found")
-		}
-		port, err := strconv.Atoi(portStr)
-		if err != nil {
-			return err
-		}
-		db, err := dbutil.NewDB(dbutil.WithHostPort(host, port))
+		db, err := dbutil.NewDB(
+			dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
+			dbutil.WithDBName(env.config.PostgresDBName),
+		)
 		if err != nil {
 			return err
 		}
@@ -278,4 +277,28 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 		panic("service env never connected to the database")
 	}
 	return env.dbClient
+}
+
+func (env *NonblockingServiceEnv) Context() context.Context {
+	return env.ctx
+}
+
+func (env *NonblockingServiceEnv) Close() error {
+	// Cancel anything using the ServiceEnv's context
+	env.cancel()
+
+	// Close all of the clients and return the first error.
+	// Loki client and kube client do not have a Close method.
+	eg := &errgroup.Group{}
+
+	// There is a race condition here, although not too serious because this only
+	// happens in tests and the errors should not propagate back to the clients -
+	// ideally we would close the client connection first and wait for the server
+	// RPCs to end before closing the underlying service connections (like
+	// postgres and etcd), so we don't get spurious errors. Instead, some RPCs may
+	// fail because of losing the database connection.
+	eg.Go(env.GetPachClient(context.Background()).Close)
+	eg.Go(env.GetEtcdClient().Close)
+	eg.Go(env.GetDBClient().Close)
+	return eg.Wait()
 }

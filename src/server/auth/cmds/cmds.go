@@ -67,7 +67,7 @@ func newClient(enterprise bool) (*client.APIClient, error) {
 func ActivateCmd() *cobra.Command {
 	var enterprise, supplyRootToken, onlyActivate bool
 	var issuer, redirect, clientId string
-	var trustedPeers []string
+	var trustedPeers, scopes []string
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
 		Long: `
@@ -168,6 +168,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						ClientSecret:    oidcClient.Client.Secret,
 						RedirectURI:     redirect,
 						LocalhostIssuer: true,
+						Scopes:          scopes,
 					}}); err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
 				}
@@ -200,6 +201,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						ClientSecret:    oidcClient.Client.Secret,
 						RedirectURI:     redirect,
 						LocalhostIssuer: false,
+						Scopes:          scopes,
 					}}); err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
 				}
@@ -215,6 +217,7 @@ Prompt the user to input a root token on stdin, rather than generating a random 
 	activate.PersistentFlags().StringVar(&redirect, "redirect", "http://localhost:30657/authorization-code/callback", "The redirect URL for the OIDC service")
 	activate.PersistentFlags().StringVar(&clientId, "client-id", "pachd", "The client ID for this pachd")
 	activate.PersistentFlags().StringSliceVar(&trustedPeers, "trusted-peers", []string{}, "Comma-separated list of OIDC client IDs to trust")
+	activate.PersistentFlags().StringSliceVar(&scopes, "scopes", auth.DefaultOIDCScopes, "Comma-separated list of scopes to request")
 
 	return cmdutil.CreateAlias(activate, "auth activate")
 }
@@ -224,10 +227,10 @@ Prompt the user to input a root token on stdin, rather than generating a random 
 func DeactivateCmd() *cobra.Command {
 	var enterprise bool
 	deactivate := &cobra.Command{
-		Short: "Delete all ACLs, tokens, and admins, and deactivate Pachyderm auth",
-		Long: "Deactivate Pachyderm's auth system, which will delete ALL auth " +
-			"tokens, ACLs and admins, and expose all data in the cluster to any " +
-			"user with cluster access. Use with caution.",
+		Short: "Delete all ACLs, tokens, admins, IDP integrations and OIDC clients, and deactivate Pachyderm auth",
+		Long: "Deactivate Pachyderm's auth and identity systems, which will delete ALL auth " +
+			"tokens, ACLs and admins, IDP integrations and OIDC clients, and expose all data " +
+			"in the cluster to any user with cluster access. Use with caution.",
 		Run: cmdutil.Run(func(args []string) error {
 			fmt.Println("Are you sure you want to delete ALL auth information " +
 				"(ACLs, tokens, and admins) in this cluster, and expose ALL data? yN")
@@ -243,6 +246,11 @@ func DeactivateCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+
+			// Delete any data from the identity server
+			if _, err := c.IdentityAPIClient.DeleteAll(c.Ctx(), &identity.DeleteAllRequest{}); err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
 			_, err = c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -371,8 +379,8 @@ func WhoamiCmd() *cobra.Command {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 			}
 			fmt.Printf("You are \"%s\"\n", resp.Username)
-			if resp.TTL > 0 {
-				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
+			if resp.Expiration != nil {
+				fmt.Printf("session expires: %v\n", *resp.Expiration)
 			}
 			return nil
 		}),
@@ -428,6 +436,35 @@ func GetRobotTokenCmd() *cobra.Command {
 		" This flag should be a golang duration (e.g. \"30s\" or \"1h2m3s\").")
 	getAuthToken.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Get a robot token for the enterprise context")
 	return cmdutil.CreateAlias(getAuthToken, "auth get-robot-token")
+}
+
+func GetGroupsCmd() *cobra.Command {
+	var enterprise bool
+	getGroups := &cobra.Command{
+		Use:   "{{alias}} [username]",
+		Short: "Get the list of groups a user belongs to",
+		Long:  "Get the list of groups a user belongs to. If no user is specified, the current user's groups are listed.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			c, err := newClient(enterprise)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			req := &auth.GetGroupsRequest{}
+			if len(args) == 1 {
+				req.Username = args[0]
+			}
+			resp, err := c.GetGroups(c.Ctx(), req)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			fmt.Println(strings.Join(resp.Groups, "\n"))
+			return nil
+		}),
+	}
+	getGroups.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Get group membership info from the enterprise server")
+	return cmdutil.CreateAlias(getGroups, "auth get-groups")
 }
 
 // UseAuthTokenCmd returns a cobra command that lets a user get a pachyderm
@@ -677,6 +714,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
 	commands = append(commands, CheckRepoCmd())
+	commands = append(commands, GetGroupsCmd())
 	commands = append(commands, GetRepoRoleBindingCmd())
 	commands = append(commands, SetRepoRoleBindingCmd())
 	commands = append(commands, GetClusterRoleBindingCmd())
