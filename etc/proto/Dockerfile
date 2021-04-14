@@ -13,7 +13,9 @@ RUN unzip protoc.zip -d /
 RUN cp -r /include /bin
 
 RUN go get -u -v github.com/golang/protobuf/proto
-RUN go get -u -v github.com/gogo/protobuf/protoc-gen-gofast
+RUN go get -u github.com/alta/protopatch/cmd/protoc-gen-go-patch
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go
+RUN go get -u google.golang.org/grpc/cmd/protoc-gen-go-grpc
 RUN mkdir -p ${GOPATH}/src/github.com/pachyderm/pachyderm
 RUN date +%s >/last_run_time
 

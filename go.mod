@@ -5,7 +5,6 @@ go 1.15
 require (
 	cloud.google.com/go/storage v1.3.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
-	github.com/alta/protopatch v0.3.3 // indirect
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/c-bata/go-prompt v0.2.3
@@ -29,7 +28,8 @@ require (
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
-	github.com/golang/protobuf v1.5.1
+	github.com/golang/protobuf v1.3.3
+	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
@@ -79,12 +79,11 @@ require (
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
+	golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44
 	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.29.1
-	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
