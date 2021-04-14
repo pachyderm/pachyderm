@@ -56,18 +56,19 @@ function test_bucket {
 
     echo "Running bucket $bucket_num of $num_buckets"
     # shellcheck disable=SC2207
-    tests=( $(go test -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
-    total_tests="${#tests[@]}"
+    # tests=( $(go test -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+    # total_tests="${#tests[@]}"
     # Determine the offset and length of the sub-array of tests we want to run
     # The last bucket may have a few extra tests, to accommodate rounding
     # errors from bucketing:
-    let "bucket_size=total_tests/num_buckets" \
-        "start=bucket_size * (bucket_num-1)" \
-        "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
+    # let "bucket_size=total_tests/num_buckets" \
+    #     "start=bucket_size * (bucket_num-1)" \
+    #     "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
     # test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
-    test_regex='TestService$'
-    echo "Running ${bucket_size} tests of ${total_tests} total tests"
-    make RUN="-run=\"${test_regex}\"" "${target}"
+    test_regex='TestService$$'
+    # echo "Running ${bucket_size} tests of ${total_tests} total tests"
+    echo "test_regex: \"${test_regex}\""
+    make -n RUN="-run=\"${test_regex}\"" "${target}"
 }
 
 # Clean cached test results
@@ -103,7 +104,7 @@ case "${BUCKET}" in
     pushd etc/testing/images/ubuntu_with_s3_clients
     make push-to-minikube
     popd
-    make docker-build-kafka
+    # make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
