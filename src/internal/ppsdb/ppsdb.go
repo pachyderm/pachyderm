@@ -2,27 +2,22 @@
 package ppsdb
 
 import (
-	"path"
+	"context"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-const (
-	pipelinesPrefix = "/pipelines"
-	jobsPrefix      = "/jobs"
-)
-
 // Pipelines returns an EtcdCollection of pipelines
-func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, pipelinesPrefix),
-		nil,
+func Pipelines(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+	return col.NewPostgresCollection(
+		ctx,
+		db,
+		listener,
 		&pps.EtcdPipelineInfo{},
 		nil,
 		nil,
@@ -48,13 +43,13 @@ var (
 )
 
 // Jobs returns an EtcdCollection of jobs
-func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, jobsPrefix),
-		[]*col.Index{JobsPipelineIndex, JobsOutputIndex},
+func Jobs(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+	return col.NewPostgresCollection(
+		ctx,
+		db,
+		listener,
 		&pps.EtcdJobInfo{},
-		nil,
+		[]*col.Index{JobsPipelineIndex, JobsOutputIndex},
 		nil,
 	)
 }

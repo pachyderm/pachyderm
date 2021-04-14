@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -14,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -34,7 +36,7 @@ const (
 
 type apiServer struct {
 	pachLogger log.Logger
-	env        *serviceenv.ServiceEnv
+	env        serviceenv.ServiceEnv
 
 	enterpriseTokenCache *keycache.Cache
 
@@ -50,7 +52,7 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
+func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
 		env.GetEtcdClient(),
@@ -64,7 +66,7 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 	s := &apiServer{
 		pachLogger:           log.NewLogger("enterprise.API"),
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(enterpriseTokenCol, enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseTokenCache: keycache.NewCache(enterpriseTokenCol.ReadOnly(env.Context()), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
 		configCol:            col.NewEtcdCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
 	}
@@ -144,7 +146,17 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		return nil, err
 	}
 
-	pachClient, err := client.NewFromAddress(licenseServer)
+	pachdAddress, err := grpcutil.ParsePachdAddress(licenseServer)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not parse the active context's pachd address")
+	}
+
+	var options []client.Option
+	if pachdAddress.Secured {
+		options = append(options, client.WithSystemCAs)
+	}
+
+	pachClient, err := client.NewFromAddress(pachdAddress.Hostname(), options...)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +191,8 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 		return nil, err
 	}
 
+	record := &ec.EnterpriseRecord{License: heartbeatResp.License}
+
 	// If the test heartbeat succeeded, write the state and config to etcd
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		if err := a.configCol.ReadWrite(stm).Put(configKey, &ec.EnterpriseConfig{
@@ -189,18 +203,18 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 			return err
 		}
 
-		return a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, &ec.EnterpriseRecord{License: heartbeatResp.License})
+		return a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record)
 	}); err != nil {
 		return nil, err
 	}
 
 	// Wait until watcher observes the write to the state key
 	if err := backoff.Retry(func() error {
-		record, ok := a.enterpriseTokenCache.Load().(*ec.EnterpriseRecord)
+		cachedRecord, ok := a.enterpriseTokenCache.Load().(*ec.EnterpriseRecord)
 		if !ok {
 			return errors.Errorf("could not retrieve enterprise expiration time")
 		}
-		if record.License == nil {
+		if !proto.Equal(cachedRecord, record) {
 			return errors.Errorf("enterprise not activated")
 		}
 		return nil

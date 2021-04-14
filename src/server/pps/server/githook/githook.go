@@ -10,18 +10,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net/http"
 	"path"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"gopkg.in/go-playground/webhooks.v5/github"
@@ -33,10 +31,9 @@ const apiVersion = "v1"
 
 // gitHookServer serves GetFile requests over HTTP
 type gitHookServer struct {
-	hook       *github.Webhook
-	client     *client.APIClient
-	etcdClient *etcd.Client
-	pipelines  col.EtcdCollection
+	env       serviceenv.ServiceEnv
+	hook      *github.Webhook
+	pipelines col.PostgresCollection
 }
 
 func hookPath() string {
@@ -60,29 +57,19 @@ func URLFromDomain(domain string) string {
 }
 
 // RunGitHookServer starts the webhook server
-func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) error {
-	c, err := client.NewFromAddress(address)
-	if err != nil {
-		return err
-	}
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:          []string{etcdAddress},
-		DialOptions:        client.DefaultDialOptions(),
-		MaxCallSendMsgSize: math.MaxInt32,
-		MaxCallRecvMsgSize: math.MaxInt32,
-	})
-	if err != nil {
-		return err
-	}
+func RunGitHookServer(env serviceenv.ServiceEnv) error {
 	hook, err := github.New()
 	if err != nil {
 		return err
 	}
+	pipelines, err := ppsdb.Pipelines(env.Context(), env.GetDBClient(), env.GetPostgresListener())
+	if err != nil {
+		return err
+	}
 	s := &gitHookServer{
+		env,
 		hook,
-		c,
-		etcdClient,
-		ppsdb.Pipelines(etcdClient, etcdPrefix),
+		pipelines,
 	}
 	return http.ListenAndServe(fmt.Sprintf(":%d", GitHookPort), s)
 }
@@ -119,7 +106,7 @@ func (s *gitHookServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (pipelines []*pps.PipelineInfo, inputs []*pps.GitInput, err error) {
 	payloadBranch := path.Base(payload.Ref)
-	pipelines, err = s.client.ListPipeline()
+	pipelines, err = s.env.GetPachClient(context.Background()).ListPipeline()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -151,7 +138,7 @@ func (s *gitHookServer) handlePush(pl github.PushPayload) (retErr error) {
 	}
 	if pl.Repository.Private {
 		for _, pipelineInfo := range pipelines {
-			if err := ppsutil.FailPipeline(context.Background(), s.etcdClient, s.pipelines, pipelineInfo.Pipeline.Name, fmt.Sprintf("unable to clone private github repo (%v)", pl.Repository.CloneURL)); err != nil {
+			if err := ppsutil.FailPipeline(context.Background(), s.env.GetDBClient(), s.pipelines, pipelineInfo.Pipeline.Name, fmt.Sprintf("unable to clone private github repo (%v)", pl.Repository.CloneURL)); err != nil {
 				// err will be handled but first we want to
 				// try and fail all relevant pipelines
 				logrus.Errorf("error marking pipeline %v as failed %v", pipelineInfo.Pipeline.Name, err)
@@ -178,23 +165,24 @@ func (s *gitHookServer) handlePush(pl github.PushPayload) (retErr error) {
 }
 
 func (s *gitHookServer) commitPayload(repoName string, branchName string, rawPayload []byte) (retErr error) {
-	commit, err := s.client.StartCommit(repoName, branchName)
+	client := s.env.GetPachClient(context.Background())
+	commit, err := client.StartCommit(repoName, branchName)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if retErr != nil {
-			if err := s.client.SquashCommit(repoName, commit.ID); err != nil {
+			if err := client.SquashCommit(repoName, commit.ID); err != nil {
 				logrus.Errorf("git webhook failed to delete partial commit (%v) on repo (%v) with error %v", commit.ID, repoName, err)
 			}
 			return
 		}
-		retErr = s.client.FinishCommit(repoName, commit.ID)
+		retErr = client.FinishCommit(repoName, commit.ID)
 	}()
-	if err = s.client.DeleteFile(repoName, commit.ID, "commit.json"); err != nil {
+	if err = client.DeleteFile(repoName, commit.ID, "commit.json"); err != nil {
 		return err
 	}
-	if err = s.client.PutFile(repoName, commit.ID, "commit.json", bytes.NewReader(rawPayload)); err != nil {
+	if err = client.PutFile(repoName, commit.ID, "commit.json", bytes.NewReader(rawPayload)); err != nil {
 		return err
 	}
 	return nil

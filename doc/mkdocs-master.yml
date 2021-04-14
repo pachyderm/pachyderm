@@ -12,7 +12,7 @@ repo_docs_dir: doc/docs/1.12.x
 edit_uri: ""
 
 # Copyright
-copyright: 'Copyright Pachyderm Inc, 2020'
+copyright: 'Copyright Pachyderm Inc, 2021'
 pach_featured_version: '1.12.5'
 pach_latest_version: '1.12.5'
 pach_major_minor_version: '1.12'
@@ -222,9 +222,6 @@ nav:
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
-            - Configure External Access:
-                - Overview: deploy-manage/manage/configure-external-access.md
-                - deploy-manage/manage/expose-pach-ui-ingress.md 
             - Using Pachctl Shell: deploy-manage/manage/pachctl_shell.md
             - Backup and Restore: deploy-manage/manage/backup_restore.md
             - Storage Use Optimization: deploy-manage/manage/data_management.md

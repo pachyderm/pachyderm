@@ -17,10 +17,10 @@ var _ APIServer = &validatedAPIServer{}
 
 type validatedAPIServer struct {
 	APIServer
-	env *serviceenv.ServiceEnv
+	env serviceenv.ServiceEnv
 }
 
-func newValidatedAPIServer(embeddedServer APIServer, env *serviceenv.ServiceEnv) *validatedAPIServer {
+func newValidatedAPIServer(embeddedServer APIServer, env serviceenv.ServiceEnv) *validatedAPIServer {
 	return &validatedAPIServer{
 		APIServer: embeddedServer,
 		env:       env,
@@ -70,41 +70,6 @@ func (a *validatedAPIServer) SquashCommitInTransaction(txnCtx *txnenv.Transactio
 		return err
 	}
 	return a.APIServer.SquashCommitInTransaction(txnCtx, request)
-}
-
-// CopyFile implements the protobuf pfs.CopyFile RPC
-func (a *validatedAPIServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
-	src, dst := request.Src, request.Dst
-	// Validate arguments
-	if src == nil {
-		return nil, errors.New("src cannot be nil")
-	}
-	if src.Commit == nil {
-		return nil, errors.New("src commit cannot be nil")
-	}
-	if src.Commit.Repo == nil {
-		return nil, errors.New("src commit repo cannot be nil")
-	}
-	if dst == nil {
-		return nil, errors.New("dst cannot be nil")
-	}
-	if dst.Commit == nil {
-		return nil, errors.New("dst commit cannot be nil")
-	}
-	if dst.Commit.Repo == nil {
-		return nil, errors.New("dst commit repo cannot be nil")
-	}
-	// authorization
-	if err := authserver.CheckRepoIsAuthorized(a.env.GetPachClient(ctx), src.Commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
-		return nil, err
-	}
-	if err := authserver.CheckRepoIsAuthorized(a.env.GetPachClient(ctx), dst.Commit.Repo.Name, auth.Permission_REPO_WRITE); err != nil {
-		return nil, err
-	}
-	if err := checkFilePath(dst.Path); err != nil {
-		return nil, err
-	}
-	return a.APIServer.CopyFile(ctx, request)
 }
 
 // InspectFile implements the protobuf pfs.InspectFile RPC

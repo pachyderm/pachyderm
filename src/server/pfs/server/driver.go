@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -70,7 +71,7 @@ type CommitStream interface {
 }
 
 type driver struct {
-	env *serviceenv.ServiceEnv
+	env serviceenv.ServiceEnv
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -87,10 +88,10 @@ type driver struct {
 	compactionQueue *work.TaskQueue
 }
 
-func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
+func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
 	// Setup etcd, object storage, and database clients.
 	etcdClient := env.GetEtcdClient()
-	objClient, err := NewObjClient(env.Configuration)
+	objClient, err := obj.NewClient(env.Config().StorageBackend, env.Config().StorageRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -125,11 +126,11 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.GetDBClient())
-	chunkStorageOpts, err := env.ChunkStorageOptions()
+	chunkStorageOpts, err := chunk.StorageOptions(env.Config())
 	if err != nil {
 		return nil, err
 	}
-	memCache := env.ChunkMemoryCache()
+	memCache := env.Config().ChunkMemoryCache()
 	keyStore := chunk.NewPostgresKeyStore(env.GetDBClient())
 	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
 	if err != nil {
@@ -137,7 +138,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	}
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.GetDBClient(), tracker, chunkStorageOpts...)
-	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, env.FileSetStorageOptions()...)
+	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, fileset.StorageOptions(env.Config())...)
 	// Setup compaction queue and worker.
 	d.compactionQueue, err = work.NewTaskQueue(env.Context(), etcdClient, etcdPrefix, storageTaskNamespace)
 	if err != nil {
@@ -165,7 +166,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 func (d *driver) activateAuth(txnCtx *txnenv.TransactionContext) error {
 	repos := d.repos.ReadOnly(txnCtx.ClientContext)
 	repoInfo := &pfs.RepoInfo{}
-	return repos.List(repoInfo, col.DefaultOptions(), func() error {
+	return repos.List(repoInfo, col.DefaultOptions(), func(string) error {
 		err := txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 			Type: auth.ResourceType_REPO,
 			Name: repoInfo.Repo.Name,
@@ -303,7 +304,7 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions(), func() error {
+	if err := repos.List(repoInfo, col.DefaultOptions(), func(string) error {
 		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
 			return nil
 		}
@@ -360,7 +361,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// make a list of all the commits
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadOnly(txnCtx.ClientContext).GetByIndex(pfsdb.CommitsRepoIndex, repo.Name, commitInfo, col.DefaultOptions(), func() error {
+	if err := d.commits.ReadOnly(txnCtx.ClientContext).GetByIndex(pfsdb.CommitsRepoIndex, repo.Name, commitInfo, col.DefaultOptions(), func(string) error {
 		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
@@ -882,7 +883,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
-	if d.env.DisableCommitProgressCounter {
+	if d.env.Config().DisableCommitProgressCounter {
 		return nil
 	}
 	for _, provC := range ci.Provenance {
@@ -1396,7 +1397,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		}
 		ci := &pfs.CommitInfo{}
 		lastRev := int64(-1)
-		listCallback := func(createRev int64) error {
+		listCallback := func(key string, createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -2167,7 +2168,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 
 	lastRev := int64(-1)
 	branchInfo := &pfs.BranchInfo{}
-	listCallback := func(createRev int64) error {
+	listCallback := func(key string, createRev int64) error {
 		if createRev != lastRev {
 			sendBis()
 			lastRev = createRev
@@ -2295,7 +2296,7 @@ func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pf
 		Lower: subvCommitInfo.Commit,
 		Upper: subvCommitInfo.Commit,
 	})
-	if !d.env.DisableCommitProgressCounter {
+	if !d.env.Config().DisableCommitProgressCounter {
 		commitInfo.SubvenantCommitsTotal++
 	}
 }

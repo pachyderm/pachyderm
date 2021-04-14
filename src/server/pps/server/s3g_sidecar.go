@@ -52,7 +52,7 @@ func (a *apiServer) ServeSidecarS3G() {
 
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
-	specCommit := a.env.PPSSpecCommitID
+	specCommit := a.env.Config().PPSSpecCommitID
 	if specCommit == "" {
 		// This error is not recoverable
 		panic("cannot serve sidecar S3 gateway if no spec commit is set")
@@ -208,7 +208,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	// more than one job in s.servers). When parallel jobs are implemented, the
 	// servers in s.servers won't actually serve anymore, and instead parent
 	// server will forward requests based on the request hostname
-	port := s.s.apiServer.env.S3GatewayPort
+	port := s.s.apiServer.env.Config().S3GatewayPort
 	strport := strconv.FormatInt(int64(port), 10)
 	var server *http.Server
 	err := backoff.RetryNotify(func() error {
@@ -306,7 +306,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			ClusterIP: "None",
 			Ports: []v1.ServicePort{
 				{
-					Port: int32(s.s.apiServer.env.S3GatewayPort),
+					Port: int32(s.s.apiServer.env.Config().S3GatewayPort),
 					Name: "s3-gateway-port",
 				},
 			},
@@ -363,7 +363,7 @@ func (h *handleJobsCtx) start() {
 		backoff.Retry(func() error {
 			var err error
 			watcher, err = h.s.apiServer.jobs.ReadOnly(context.Background()).WatchByIndex(
-				ppsdb.JobsPipelineIndex, h.s.pipelineInfo.Pipeline)
+				ppsdb.JobsPipelineIndex, h.s.pipelineInfo.Pipeline.Name)
 			if err != nil {
 				return errors.Wrapf(err, "error creating watch")
 			}

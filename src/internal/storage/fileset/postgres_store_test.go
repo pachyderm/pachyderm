@@ -9,6 +9,6 @@ import (
 func TestPostgresStore(t *testing.T) {
 	StoreTestSuite(t, func(t testing.TB) MetadataStore {
 		db := testutil.NewTestDB(t)
-		return testutil.NewFilesetStore(t, db)
+		return NewTestStore(t, db)
 	})
 }

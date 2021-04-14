@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"sync"
 
 	dex_api "github.com/dexidp/dex/api/v2"
 	dex_server "github.com/dexidp/dex/server"
@@ -20,51 +19,21 @@ import (
 // that are currently missing from the dex api. It also handles lazily
 // instantiating the api and storage on the first request.
 type dexAPI struct {
-	sync.RWMutex
-
-	server          dex_api.DexServer
-	logger          *logrus.Entry
-	storageProvider StorageProvider
+	api     dex_api.DexServer
+	storage dex_storage.Storage
+	logger  *logrus.Entry
 }
 
-func newDexAPI(sp StorageProvider, logger *logrus.Entry) *dexAPI {
+func newDexAPI(sp dex_storage.Storage) *dexAPI {
+	logger := logrus.WithField("source", "dex-api")
 	return &dexAPI{
-		storageProvider: sp,
-		logger:          logger,
+		api:     dex_server.NewAPI(sp, logger),
+		storage: sp,
+		logger:  logger,
 	}
-}
-
-func (a *dexAPI) api() (dex_api.DexServer, error) {
-	a.RLock()
-	if a.server == nil {
-		a.RUnlock()
-		a.Lock()
-		defer a.Unlock()
-		if a.server != nil {
-			server := a.server
-			return server, nil
-		}
-
-		storage, err := a.storageProvider.GetStorage(a.logger)
-		if err != nil {
-			return nil, err
-		}
-		a.server = dex_server.NewAPI(storage, nil)
-		server := a.server
-		return server, nil
-	}
-	server := a.server
-	a.RUnlock()
-
-	return server, nil
 }
 
 func (a *dexAPI) createClient(ctx context.Context, in *identity.CreateOIDCClientRequest) (*identity.OIDCClient, error) {
-	api, err := a.api()
-	if err != nil {
-		return nil, err
-	}
-
 	if in.Client.Name == "" {
 		return nil, errors.New("no client name specified")
 	}
@@ -83,24 +52,19 @@ func (a *dexAPI) createClient(ctx context.Context, in *identity.CreateOIDCClient
 		},
 	}
 
-	resp, err := api.CreateClient(ctx, req)
+	resp, err := a.api.CreateClient(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	if resp.AlreadyExists {
-		return nil, fmt.Errorf("OIDC client with id %q already exists", req.Client.Id)
+		return nil, identity.ErrAlreadyExists
 	}
 
 	return dexClientToPach(resp.Client), nil
 }
 
 func (a *dexAPI) updateClient(ctx context.Context, in *identity.UpdateOIDCClientRequest) error {
-	api, err := a.api()
-	if err != nil {
-		return err
-	}
-
 	req := &dex_api.UpdateClientReq{
 		Id:           in.Client.Id,
 		Name:         in.Client.Name,
@@ -108,7 +72,7 @@ func (a *dexAPI) updateClient(ctx context.Context, in *identity.UpdateOIDCClient
 		TrustedPeers: in.Client.TrustedPeers,
 	}
 
-	resp, err := api.UpdateClient(ctx, req)
+	resp, err := a.api.UpdateClient(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -121,12 +85,7 @@ func (a *dexAPI) updateClient(ctx context.Context, in *identity.UpdateOIDCClient
 }
 
 func (a *dexAPI) deleteClient(ctx context.Context, id string) error {
-	api, err := a.api()
-	if err != nil {
-		return err
-	}
-
-	resp, err := api.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: id})
+	resp, err := a.api.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: id})
 	if err != nil {
 		return err
 	}
@@ -139,11 +98,6 @@ func (a *dexAPI) deleteClient(ctx context.Context, id string) error {
 }
 
 func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error {
-	storage, err := a.storageProvider.GetStorage(a.logger)
-	if err != nil {
-		return err
-	}
-
 	if req.Connector.Id == "" {
 		return errors.New("no id specified")
 	}
@@ -168,7 +122,10 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 		Config:          []byte(req.Connector.JsonConfig),
 	}
 
-	if err := storage.CreateConnector(conn); err != nil {
+	if err := a.storage.CreateConnector(conn); err != nil {
+		if errors.Is(err, dex_storage.ErrAlreadyExists) {
+			return identity.ErrAlreadyExists
+		}
 		return err
 	}
 
@@ -176,13 +133,11 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 }
 
 func (a *dexAPI) getConnector(id string) (*identity.IDPConnector, error) {
-	storage, err := a.storageProvider.GetStorage(a.logger)
+	conn, err := a.storage.GetConnector(id)
 	if err != nil {
-		return nil, err
-	}
-
-	conn, err := storage.GetConnector(id)
-	if err != nil {
+		if errors.Is(err, dex_storage.ErrNotFound) {
+			return nil, identity.ErrInvalidID
+		}
 		return nil, err
 	}
 
@@ -190,12 +145,7 @@ func (a *dexAPI) getConnector(id string) (*identity.IDPConnector, error) {
 }
 
 func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
-	storage, err := a.storageProvider.GetStorage(a.logger)
-	if err != nil {
-		return err
-	}
-
-	return storage.UpdateConnector(in.Connector.Id, func(c dex_storage.Connector) (dex_storage.Connector, error) {
+	return a.storage.UpdateConnector(in.Connector.Id, func(c dex_storage.Connector) (dex_storage.Connector, error) {
 		oldVersion, _ := strconv.Atoi(c.ResourceVersion)
 		if oldVersion+1 != int(in.Connector.ConfigVersion) {
 			return dex_storage.Connector{}, fmt.Errorf("new config version is %v, expected %v", in.Connector.ConfigVersion, oldVersion+1)
@@ -207,7 +157,7 @@ func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 			c.Name = in.Connector.Name
 		}
 
-		if in.Connector.JsonConfig != "" {
+		if in.Connector.JsonConfig != "" && in.Connector.JsonConfig != "null" {
 			c.Config = []byte(in.Connector.JsonConfig)
 		}
 
@@ -224,21 +174,11 @@ func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 }
 
 func (a *dexAPI) deleteConnector(id string) error {
-	storage, err := a.storageProvider.GetStorage(a.logger)
-	if err != nil {
-		return err
-	}
-
-	return storage.DeleteConnector(id)
+	return a.storage.DeleteConnector(id)
 }
 
 func (a *dexAPI) listConnectors() ([]*identity.IDPConnector, error) {
-	storage, err := a.storageProvider.GetStorage(a.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	dexConnectors, err := storage.ListConnectors()
+	dexConnectors, err := a.storage.ListConnectors()
 	if err != nil {
 		return nil, err
 	}
@@ -251,12 +191,7 @@ func (a *dexAPI) listConnectors() ([]*identity.IDPConnector, error) {
 }
 
 func (a *dexAPI) listClients() ([]*identity.OIDCClient, error) {
-	storage, err := a.storageProvider.GetStorage(a.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	storageClients, err := storage.ListClients()
+	storageClients, err := a.storage.ListClients()
 	if err != nil {
 		return nil, err
 	}
@@ -269,13 +204,11 @@ func (a *dexAPI) listClients() ([]*identity.OIDCClient, error) {
 }
 
 func (a *dexAPI) getClient(id string) (*identity.OIDCClient, error) {
-	storage, err := a.storageProvider.GetStorage(a.logger)
+	client, err := a.storage.GetClient(id)
 	if err != nil {
-		return nil, err
-	}
-
-	client, err := storage.GetClient(id)
-	if err != nil {
+		if errors.Is(err, dex_storage.ErrNotFound) {
+			return nil, identity.ErrInvalidID
+		}
 		return nil, err
 	}
 	return storageClientToPach(client), nil

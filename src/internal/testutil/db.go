@@ -11,6 +11,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
@@ -38,12 +39,12 @@ type TestDatabaseDeployment interface {
 type postgresDeployment struct {
 	db      *sqlx.DB
 	address string
-	port    string
+	port    int
 }
 
-// NewPostgresDeployment creates a kubernetes namespaces containing a
-// postgres instance, lazily generated up to the specified pool size. The pool
-// will be destroyed at the end of the test or test suite that called this.
+// NewPostgresDeployment creates a kubernetes namespace containing a postgres
+// instance. The namespace will be destroyed at the end of the test or test
+// suite that called this.
 func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	manifest := &strings.Builder{}
 	encoder, err := serde.GetEncoder("json", manifest, serde.WithIndent(2), serde.WithOrigName(true))
@@ -62,8 +63,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	configMap := assets.PostgresInitConfigMap(assetOpts)
 	require.NoError(t, encoder.Encode(configMap))
 
-	storageClass, err := assets.PostgresStorageClass(assetOpts, assets.LocalBackend)
-	require.NoError(t, err)
+	storageClass := assets.PostgresStorageClass(assetOpts, assets.LocalBackend)
 	require.NoError(t, encoder.Encode(storageClass))
 
 	headlessService := assets.PostgresHeadlessService(assetOpts)
@@ -108,14 +108,13 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	postgres, err := kubeClient.CoreV1().Services(namespaceName).Get("postgres", metav1.GetOptions{})
 	require.NoError(t, err)
 
-	var port int32
+	var port int
 	for _, servicePort := range postgres.Spec.Ports {
 		if servicePort.Name == "client-port" {
-			port = servicePort.NodePort
+			port = int(servicePort.NodePort)
 		}
 	}
-	require.NotEqual(t, int32(0), port)
-	portStr := fmt.Sprintf("%d", port) // for some dumb reason golang likes to use ports as strings?
+	require.NotEqual(t, 0, port)
 
 	// Get the IP address of the nodes (any _should_ work for the service port)
 	nodes, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -130,22 +129,24 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	}
 	require.NotEqual(t, "", address)
 
-	db, err := dbutil.NewDB(dbutil.WithHostPort(address, portStr))
+	db, err := dbutil.NewDB(dbutil.WithHostPort(address, port))
 	require.NoError(t, err)
 	initConnection(t, db)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
 
-	return &postgresDeployment{db: db, address: address, port: portStr}
+	return &postgresDeployment{db: db, address: address, port: port}
 }
 
 func initConnection(t testing.TB, db *sqlx.DB) {
 	db.SetMaxOpenConns(maxOpenConnsPerPool)
 
 	// Check that the connection works
-	_, err := db.Exec("SELECT 1")
-	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := db.Exec("SELECT 1")
+		return err
+	}, backoff.NewTestingBackOff()))
 }
 
 func (pd *postgresDeployment) newDatabase(t testing.TB) string {
@@ -193,10 +194,7 @@ func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.Postgres
 	return db, listener
 }
 
-// NewTestDB connects to postgres using the default settings, creates a database with a unique name
-// then calls cb with a sqlx.DB configured to use the newly created database.
-// After cb returns the database is dropped.
-func NewTestDB(t testing.TB) *sqlx.DB {
+func newDatabase(t testing.TB) string {
 	dbName := ephemeralDBName(t)
 	require.NoError(t, withDB(func(db *sqlx.DB) error {
 		db.MustExec("CREATE DATABASE " + dbName)
@@ -212,13 +210,32 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 			}))
 		})
 	}
-	db2, err := dbutil.NewDB(dbutil.WithDBName(dbName))
+	return dbName
+}
+
+// NewTestDB connects to postgres using the default settings, creates a database
+// with a unique name then returns a sqlx.DB configured to use the newly created
+// database. After the test or suite finishes, the database is dropped.
+func NewTestDB(t testing.TB) *sqlx.DB {
+	db2, err := dbutil.NewDB(dbutil.WithDBName(newDatabase(t)))
 	require.NoError(t, err)
 	db2.SetMaxOpenConns(maxOpenConnsPerPool)
 	t.Cleanup(func() {
 		require.NoError(t, db2.Close())
 	})
 	return db2
+}
+
+// NewTestDBConfig connects to postgres using the default settings, creates a
+// database with a unique name then returns a ServiceEnv config option to
+// connect to the new database. After test test or suite finishes, the database
+// is dropped.
+func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
+	dbName := newDatabase(t)
+	return func(config *serviceenv.Configuration) {
+		serviceenv.WithPostgresHostPort(dbutil.DefaultHost, dbutil.DefaultPort)(config)
+		config.PostgresDBName = dbName
+	}
 }
 
 // withDB creates a database connection that is scoped to the passed in callback.

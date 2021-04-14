@@ -30,12 +30,12 @@ type postgresWatcher struct {
 	done       chan struct{}       // closed when the watcher is closed to interrupt selects
 	template   proto.Message
 	sqlChannel string
+	closer     sync.Once
 
 	// Filtering variables:
-	opts      watch.WatchOptions // may filter by the operation type (put or delete)
-	index     *string            // only set if the watch filters by an index (for dealing with hash collisions)
-	value     *string            // only set if 'index' is set
-	startTime *time.Time         // only set once the initial list has completed and we know the start time for the watch
+	opts  watch.WatchOptions // may filter by the operation type (put or delete)
+	index *string            // only set if the watch filters by an index (for dealing with hash collisions)
+	value *string            // only set if 'index' is set
 }
 
 func newPostgresWatch(
@@ -64,19 +64,11 @@ func (pw *postgresWatcher) Watch() <-chan *watch.Event {
 }
 
 func (pw *postgresWatcher) Close() {
-	// Close the 'done' channel to interrupt any waiting writes - because of this,
-	// a postgres watcher should not be closed multiple times.
-	close(pw.done)
-	pw.listener.unregister(pw)
-}
-
-func (pw *postgresWatcher) isClosed() bool {
-	select {
-	case <-pw.done:
-		return true
-	default:
-		return false
-	}
+	pw.closer.Do(func() {
+		// Close the 'done' channel to interrupt any waiting writes
+		close(pw.done)
+		pw.listener.unregister(pw)
+	})
 }
 
 // `forwardNotifications` is a blocking call that will forward all messages on
@@ -312,9 +304,8 @@ func (l *PostgresListener) reset(err error) {
 
 	l.channels = make(map[string]watcherSet)
 	if !l.closed {
-		if err := l.getPQL().UnlistenAll(); err != nil {
-			// `reset` is only ever called in the case of an error, so it should be fine to discard this error
-		}
+		// `reset` is only ever called in the case of an error, so it should be fine to discard this error
+		l.getPQL().UnlistenAll()
 	}
 }
 

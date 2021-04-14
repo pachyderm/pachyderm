@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/server/auth"
 	"github.com/pachyderm/pachyderm/v2/src/server/identity"
 	"github.com/pachyderm/pachyderm/v2/src/server/license"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
@@ -49,6 +50,9 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 	}).
 	Apply("create identity users table v0", func(ctx context.Context, env migrations.Env) error {
 		return identity.CreateUsersTable(ctx, env.Tx)
+	}).
+	Apply("create identity config table v0", func(ctx context.Context, env migrations.Env) error {
+		return identity.CreateConfigTable(ctx, env.Tx)
 	}).
 	Apply("create auth schema", func(ctx context.Context, env migrations.Env) error {
 		_, err := env.Tx.ExecContext(ctx, `CREATE SCHEMA auth`)

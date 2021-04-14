@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS auth.auth_tokens (
 	expiration TIMESTAMP,
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
 CREATE INDEX subject_index
 ON auth.auth_tokens (subject);
 `)

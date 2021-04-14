@@ -28,7 +28,7 @@ func objectMeta(name string, labels, annotations map[string]string, namespace st
 	}
 }
 
-func makeStorageClass(opts *AssetOpts, backend Backend, storageClassName string, storageClassLabels map[string]string) (*storagev1.StorageClass, error) {
+func makeStorageClass(opts *AssetOpts, backend Backend, storageClassName string, storageClassLabels map[string]string) *storagev1.StorageClass {
 	allowVolumeExpansion := true
 	sc := &storagev1.StorageClass{
 		TypeMeta: metav1.TypeMeta{
@@ -50,9 +50,9 @@ func makeStorageClass(opts *AssetOpts, backend Backend, storageClassName string,
 		bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
 		sc.VolumeBindingMode = &bindingMode
 	default:
-		return nil, nil
+		return nil
 	}
-	return sc, nil
+	return sc
 }
 
 func makePersistentVolume(opts *AssetOpts, persistentDiskBackend Backend, hostPath string, name string, size int, volumeName string, volumeLabels map[string]string) (*v1.PersistentVolume, error) {

@@ -13,15 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-const (
-	reposPrefix       = "/repos"
-	commitsPrefix     = "/commits"
-	branchesPrefix    = "/branches"
-	openCommitsPrefix = "/openCommits"
-	mergesPrefix      = "/merges"
-	shardsPrefix      = "/shards"
-)
-
 // Repos returns a collection of repos
 func Repos(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
 	return col.NewPostgresCollection(

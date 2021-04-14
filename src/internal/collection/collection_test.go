@@ -140,7 +140,8 @@ func checkItem(t *testing.T, item *col.TestItem, id string, value string) error 
 func checkCollection(t *testing.T, ro col.ReadOnlyCollection, expected map[string]string) {
 	testProto := &col.TestItem{}
 	actual := map[string]string{}
-	require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
+	require.NoError(t, ro.List(testProto, col.DefaultOptions(), func(id string) error {
+		require.Equal(t, id, testProto.ID)
 		actual[testProto.ID] = testProto.Value
 		return nil
 	}))
@@ -206,7 +207,7 @@ func collectionTests(
 			subsuite.Run("Empty", func(t *testing.T) {
 				t.Parallel()
 				testProto := &col.TestItem{}
-				err := emptyRead.List(testProto, col.DefaultOptions(), func() error {
+				err := emptyRead.List(testProto, col.DefaultOptions(), func(string) error {
 					return errors.Errorf("List callback should not have been called for an empty collection")
 				})
 				require.NoError(t, err)
@@ -216,7 +217,7 @@ func collectionTests(
 				t.Parallel()
 				items := map[string]string{}
 				testProto := &col.TestItem{}
-				err := defaultRead.List(testProto, col.DefaultOptions(), func() error {
+				err := defaultRead.List(testProto, col.DefaultOptions(), func(string) error {
 					items[testProto.ID] = testProto.Value
 					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
 					testProto.ID = ""
@@ -243,7 +244,7 @@ func collectionTests(
 					collect := func(order col.SortOrder) []string {
 						keys := []string{}
 						testProto := &col.TestItem{}
-						err := ro.List(testProto, &col.Options{Target: target, Order: order}, func() error {
+						err := ro.List(testProto, &col.Options{Target: target, Order: order}, func(string) error {
 							keys = append(keys, testProto.ID)
 							return nil
 						})
@@ -325,7 +326,7 @@ func collectionTests(
 				t.Parallel()
 				count := 0
 				testProto := &col.TestItem{}
-				err := defaultRead.List(testProto, col.DefaultOptions(), func() error {
+				err := defaultRead.List(testProto, col.DefaultOptions(), func(string) error {
 					count++
 					return &TestError{}
 				})
@@ -338,7 +339,7 @@ func collectionTests(
 				t.Parallel()
 				count := 0
 				testProto := &col.TestItem{}
-				err := defaultRead.List(testProto, col.DefaultOptions(), func() error {
+				err := defaultRead.List(testProto, col.DefaultOptions(), func(string) error {
 					count++
 					return errutil.ErrBreak
 				})

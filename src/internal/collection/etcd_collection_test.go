@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -212,7 +211,7 @@ func TestIndex(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	i := 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline.Name, job, col.DefaultOptions(), func() error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j1, job)
@@ -226,7 +225,7 @@ func TestIndex(t *testing.T) {
 	}))
 
 	i = 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline.Name, job, col.DefaultOptions(), func() error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j3, job)
@@ -236,103 +235,6 @@ func TestIndex(t *testing.T) {
 		i++
 		return nil
 	}))
-}
-
-func TestIndexWatch(t *testing.T) {
-	t.Parallel()
-	env := testetcd.NewEnv(t)
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
-
-	j1 := &pps.JobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p1"),
-	}
-	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		jobInfos := jobInfos.ReadWrite(stm)
-		jobInfos.Put(j1.Job.ID, j1)
-		return nil
-	})
-	require.NoError(t, err)
-
-	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
-
-	watcher, err := jobInfosReadonly.WatchByIndex(pipelineIndex, j1.Pipeline.Name)
-	eventCh := watcher.Watch()
-	require.NoError(t, err)
-	var ID string
-	job := new(pps.JobInfo)
-	event := <-eventCh
-	require.NoError(t, event.Err)
-	require.Equal(t, event.Type, watch.EventPut)
-	require.NoError(t, event.Unmarshal(&ID, job))
-	require.Equal(t, j1.Job.ID, ID)
-	require.Equal(t, j1, job)
-
-	// Now we will put j1 again, unchanged.  We want to make sure
-	// that we do not receive an event.
-	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		jobInfos := jobInfos.ReadWrite(stm)
-		jobInfos.Put(j1.Job.ID, j1)
-		return nil
-	})
-	require.NoError(t, err)
-
-	select {
-	case event := <-eventCh:
-		t.Fatalf("should not have received an event %v", event)
-	case <-time.After(2 * time.Second):
-	}
-
-	j2 := &pps.JobInfo{
-		Job:      client.NewJob("j2"),
-		Pipeline: client.NewPipeline("p1"),
-	}
-
-	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		jobInfos := jobInfos.ReadWrite(stm)
-		jobInfos.Put(j2.Job.ID, j2)
-		return nil
-	})
-	require.NoError(t, err)
-
-	event = <-eventCh
-	require.NoError(t, event.Err)
-	require.Equal(t, event.Type, watch.EventPut)
-	require.NoError(t, event.Unmarshal(&ID, job))
-	require.Equal(t, j2.Job.ID, ID)
-	require.Equal(t, j2, job)
-
-	j1Prime := &pps.JobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p3"),
-	}
-	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		jobInfos := jobInfos.ReadWrite(stm)
-		jobInfos.Put(j1.Job.ID, j1Prime)
-		return nil
-	})
-	require.NoError(t, err)
-
-	event = <-eventCh
-	require.NoError(t, event.Err)
-	require.Equal(t, event.Type, watch.EventDelete)
-	require.Nil(t, event.Value)
-	require.Equal(t, j1.Job.ID, string(event.Key))
-
-	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		jobInfos := jobInfos.ReadWrite(stm)
-		jobInfos.Delete(j2.Job.ID)
-		return nil
-	})
-	require.NoError(t, err)
-
-	event = <-eventCh
-	require.NoError(t, event.Err)
-	require.Equal(t, event.Type, watch.EventDelete)
-	require.Nil(t, event.Value)
-	require.Equal(t, j2.Job.ID, string(event.Key))
 }
 
 func TestBoolIndex(t *testing.T) {
@@ -472,7 +374,7 @@ func TestIteration(t *testing.T) {
 		ro := c.ReadOnly(context.Background())
 		testProto := &col.TestItem{}
 		i := numVals - 1
-		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
+		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func(string) error {
 			require.Equal(t, fmt.Sprintf("%d", i), testProto.ID)
 			i--
 			return nil
@@ -498,7 +400,7 @@ func TestIteration(t *testing.T) {
 		vals := make(map[string]bool)
 		ro := c.ReadOnly(context.Background())
 		testProto := &col.TestItem{}
-		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
+		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func(string) error {
 			require.False(t, vals[testProto.ID], "saw value %s twice", testProto.ID)
 			vals[testProto.ID] = true
 			return nil
@@ -521,7 +423,7 @@ func TestIteration(t *testing.T) {
 		val := &col.TestItem{}
 		vals := make(map[string]bool)
 		valsOrder := []string{}
-		require.NoError(t, ro.List(val, col.DefaultOptions(), func() error {
+		require.NoError(t, ro.List(val, col.DefaultOptions(), func(string) error {
 			require.False(t, vals[val.ID], "saw value %s twice", val.ID)
 			vals[val.ID] = true
 			valsOrder = append(valsOrder, val.ID)
@@ -533,7 +435,7 @@ func TestIteration(t *testing.T) {
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 		vals = make(map[string]bool)
 		valsOrder = []string{}
-		require.NoError(t, ro.List(val, &col.Options{col.SortByCreateRevision, col.SortAscend}, func() error {
+		require.NoError(t, ro.List(val, &col.Options{col.SortByCreateRevision, col.SortAscend}, func(string) error {
 			require.False(t, vals[val.ID], "saw value %s twice", val.ID)
 			vals[val.ID] = true
 			valsOrder = append(valsOrder, val.ID)

@@ -23,12 +23,26 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// ServiceEnv is a struct containing connections to other services in the
+// ServiceEnv contains connections to other services in the
 // cluster. In pachd, there is only one instance of this struct, but tests may
 // create more, if they want to create multiple pachyderm "clusters" served in
 // separate goroutines.
-type ServiceEnv struct {
-	*Configuration
+type ServiceEnv interface {
+	Config() *Configuration
+	GetPachClient(ctx context.Context) *client.APIClient
+	GetEtcdClient() *etcd.Client
+	GetKubeClient() *kube.Clientset
+	GetLokiClient() (*loki.Client, error)
+	GetDBClient() *sqlx.DB
+	GetPostgresListener() *col.PostgresListener
+	Context() context.Context
+	Close() error
+}
+
+// NonblockingServiceEnv is an implementation of ServiceEnv that initializes
+// clients in the background, and blocks in the getters until they're ready.
+type NonblockingServiceEnv struct {
+	config *Configuration
 
 	// pachAddress is the domain name or hostport where pachd can be reached
 	pachAddress string
@@ -36,9 +50,9 @@ type ServiceEnv struct {
 	// are based on. It contains the original GRPC client connection and has no
 	// ctx and therefore no auth credentials or cancellation
 	pachClient *client.APIClient
-	// pachEg coordinates the initialization of pachClient.  Note that ServiceEnv
+	// pachEg coordinates the initialization of pachClient.  Note that NonblockingServiceEnv
 	// uses a separate error group for each client, rather than one for all
-	// three clients, so that pachd can initialize a ServiceEnv inside of its own
+	// three clients, so that pachd can initialize a NonblockingServiceEnv inside of its own
 	// initialization (if GetEtcdClient() blocked on intialization of 'pachClient'
 	// and pachd/main.go couldn't start the pachd server until GetEtcdClient() had
 	// returned, then pachd would be unable to start)
@@ -85,10 +99,10 @@ type ServiceEnv struct {
 //
 // This call returns immediately, but GetPachClient will block
 // until the client is ready.
-func InitPachOnlyEnv(config *Configuration) *ServiceEnv {
+func InitPachOnlyEnv(config *Configuration) *NonblockingServiceEnv {
 	ctx, cancel := context.WithCancel(context.Background())
-	env := &ServiceEnv{Configuration: config, ctx: ctx, cancel: cancel}
-	env.pachAddress = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", env.PeerPort))
+	env := &NonblockingServiceEnv{config: config, ctx: ctx, cancel: cancel}
+	env.pachAddress = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", env.config.PeerPort))
 	env.pachEg.Go(env.initPachClient)
 	return env // env is not ready yet
 }
@@ -99,29 +113,33 @@ func InitPachOnlyEnv(config *Configuration) *ServiceEnv {
 //
 // This call returns immediately, but GetPachClient and GetEtcdClient block
 // until their respective clients are ready.
-func InitServiceEnv(config *Configuration) *ServiceEnv {
+func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env := InitPachOnlyEnv(config)
-	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
+	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.config.EtcdHost, env.config.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
 	env.dbEg.Go(env.initDBClient)
 	env.listenerEg.Go(env.initListener)
-	if env.LokiHost != "" && env.LokiPort != "" {
+	if env.config.LokiHost != "" && env.config.LokiPort != "" {
 		env.lokiClient = &loki.Client{
-			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.LokiHost, env.LokiPort)),
+			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.config.LokiHost, env.config.LokiPort)),
 		}
 	}
 	return env // env is not ready yet
 }
 
-// InitWithKube is like InitServiceEnv, but also assumes that it's run inside
+// InitWithKube is like InitNonblockingServiceEnv, but also assumes that it's run inside
 // a kubernetes cluster and tries to connect to the kubernetes API server.
-func InitWithKube(config *Configuration) *ServiceEnv {
+func InitWithKube(config *Configuration) *NonblockingServiceEnv {
 	env := InitServiceEnv(config)
 	env.kubeEg.Go(env.initKubeClient)
 	return env // env is not ready yet
 }
 
-func (env *ServiceEnv) initPachClient() error {
+func (env *NonblockingServiceEnv) Config() *Configuration {
+	return env.config
+}
+
+func (env *NonblockingServiceEnv) initPachClient() error {
 	// validate argument
 	if env.pachAddress == "" {
 		return errors.New("cannot initialize pach client with empty pach address")
@@ -137,7 +155,7 @@ func (env *ServiceEnv) initPachClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *ServiceEnv) initEtcdClient() error {
+func (env *NonblockingServiceEnv) initEtcdClient() error {
 	// validate argument
 	if env.etcdAddress == "" {
 		return errors.New("cannot initialize pach client with empty pach address")
@@ -161,7 +179,7 @@ func (env *ServiceEnv) initEtcdClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *ServiceEnv) initKubeClient() error {
+func (env *NonblockingServiceEnv) initKubeClient() error {
 	return backoff.Retry(func() error {
 		// Get secure in-cluster config
 		var kubeAddr string
@@ -174,8 +192,14 @@ func (env *ServiceEnv) initKubeClient() error {
 			if !ok {
 				return errors.Wrapf(err, "can't fall back to insecure kube client due to missing env var (failed to retrieve in-cluster config")
 			}
+			kubePort, ok := os.LookupEnv("KUBERNETES_PORT")
+			if !ok {
+				kubePort = ":443"
+			}
+			bearerToken, _ := os.LookupEnv("KUBERNETES_BEARER_TOKEN_FILE")
 			cfg = &rest.Config{
-				Host: fmt.Sprintf("%s:443", kubeAddr),
+				Host:            fmt.Sprintf("%s:%s", kubeAddr, kubePort),
+				BearerTokenFile: bearerToken,
 				TLSClientConfig: rest.TLSClientConfig{
 					Insecure: true,
 				},
@@ -189,11 +213,11 @@ func (env *ServiceEnv) initKubeClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *ServiceEnv) initDBClient() error {
+func (env *NonblockingServiceEnv) initDBClient() error {
 	return backoff.Retry(func() error {
 		db, err := dbutil.NewDB(
-			dbutil.WithHostPort(env.PostgresServiceHost, env.PostgresServicePort),
-			dbutil.WithDBName(env.PostgresDBName),
+			dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
+			dbutil.WithDBName(env.config.PostgresDBName),
 		)
 		if err != nil {
 			return err
@@ -203,10 +227,10 @@ func (env *ServiceEnv) initDBClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *ServiceEnv) initListener() error {
+func (env *NonblockingServiceEnv) initListener() error {
 	dsn := dbutil.GetDSN(
-		dbutil.WithHostPort(env.PostgresServiceHost, env.PostgresServicePort),
-		dbutil.WithDBName(env.PostgresDBName),
+		dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
+		dbutil.WithDBName(env.config.PostgresDBName),
 	)
 	return backoff.Retry(func() error {
 		// The PostgresListener is lazily initialized to avoid consuming too many
@@ -227,7 +251,7 @@ func (env *ServiceEnv) initListener() error {
 //
 // (Warning) Do not call this function during server setup unless it is in a goroutine.
 // A Pachyderm client is not available until the server has been setup.
-func (env *ServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
+func (env *NonblockingServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
 	if err := env.pachEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}
@@ -235,7 +259,7 @@ func (env *ServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
 }
 
 // GetEtcdClient returns the already connected etcd client without modification.
-func (env *ServiceEnv) GetEtcdClient() *etcd.Client {
+func (env *NonblockingServiceEnv) GetEtcdClient() *etcd.Client {
 	if err := env.etcdEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}
@@ -247,7 +271,7 @@ func (env *ServiceEnv) GetEtcdClient() *etcd.Client {
 
 // GetKubeClient returns the already connected Kubernetes API client without
 // modification.
-func (env *ServiceEnv) GetKubeClient() *kube.Clientset {
+func (env *NonblockingServiceEnv) GetKubeClient() *kube.Clientset {
 	if err := env.kubeEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}
@@ -259,7 +283,7 @@ func (env *ServiceEnv) GetKubeClient() *kube.Clientset {
 
 // GetLokiClient returns the loki client, it doesn't require blocking on a
 // connection because the client is just a dumb struct with no init function.
-func (env *ServiceEnv) GetLokiClient() (*loki.Client, error) {
+func (env *NonblockingServiceEnv) GetLokiClient() (*loki.Client, error) {
 	if env.lokiClient == nil {
 		return nil, errors.Errorf("loki not configured, is it running in the same namespace as pachd?")
 	}
@@ -267,7 +291,7 @@ func (env *ServiceEnv) GetLokiClient() (*loki.Client, error) {
 }
 
 // GetDBClient returns the already connected database client without modification.
-func (env *ServiceEnv) GetDBClient() *sqlx.DB {
+func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 	if err := env.dbEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}
@@ -280,7 +304,7 @@ func (env *ServiceEnv) GetDBClient() *sqlx.DB {
 // GetPostgresListener returns the already constructed database client dedicated
 // for listen operations without modification. Note that this listener lazily
 // connects to the database on the first listen operation.
-func (env *ServiceEnv) GetPostgresListener() *col.PostgresListener {
+func (env *NonblockingServiceEnv) GetPostgresListener() *col.PostgresListener {
 	if err := env.listenerEg.Wait(); err != nil {
 		panic(err)
 	}
@@ -290,16 +314,16 @@ func (env *ServiceEnv) GetPostgresListener() *col.PostgresListener {
 	return env.listener
 }
 
-func (env *ServiceEnv) Context() context.Context {
+func (env *NonblockingServiceEnv) Context() context.Context {
 	return env.ctx
 }
 
-func (env *ServiceEnv) Close() error {
+func (env *NonblockingServiceEnv) Close() error {
 	// Cancel anything using the ServiceEnv's context
 	env.cancel()
 
-	// Close all of the clients and return the first error
-	// Loki client and kube client are http-based and do not need to be closed
+	// Close all of the clients and return the first error.
+	// Loki client and kube client do not have a Close method.
 	eg := &errgroup.Group{}
 
 	// There is a race condition here, although not too serious because this only
@@ -309,8 +333,8 @@ func (env *ServiceEnv) Close() error {
 	// postgres and etcd), so we don't get spurious errors. Instead, some RPCs may
 	// fail because of losing the database connection.
 	eg.Go(env.GetPachClient(context.Background()).Close)
+	eg.Go(env.GetEtcdClient().Close)
 	eg.Go(env.GetDBClient().Close)
 	eg.Go(env.GetPostgresListener().Close)
-	eg.Go(env.GetEtcdClient().Close)
 	return eg.Wait()
 }

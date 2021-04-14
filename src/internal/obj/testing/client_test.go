@@ -318,7 +318,7 @@ func TestMicrosoftClient(t *testing.T) {
 
 func TestLocalClient(t *testing.T) {
 	t.Parallel()
-	client, err := obj.NewLocalClient(testutil.MkdirTemp(t))
+	client, err := obj.NewLocalClient(t.TempDir())
 	require.NoError(t, err)
 	runClientTests(t, LocalBackend, LocalClient, client)
 }

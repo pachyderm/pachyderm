@@ -3,17 +3,14 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -25,6 +22,28 @@ func loginAsUser(t *testing.T, user string) {
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(t, err)
 	config.WritePachTokenToConfig(token.Token, false)
+}
+
+// TestActivate tests that activating, deactivating and re-activating works.
+// This means all cluster state is being reset correctly.
+func TestActivate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetUnauthenticatedPachClient(t)
+	tu.ActivateEnterprise(t, c)
+	require.NoError(t, tu.BashCmd(`
+		echo '{{.token}}' | pachctl auth activate --supply-root-token
+		pachctl auth whoami | match {{.user}}
+		echo 'y' | pachctl auth deactivate
+		echo '{{.token}}' | pachctl auth activate --supply-root-token
+		pachctl auth whoami | match {{.user}}`,
+		"token", tu.RootToken,
+		"user", auth.RootUser,
+	).Run())
 }
 
 func TestLogin(t *testing.T) {
@@ -166,22 +185,6 @@ func TestAdmins(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestGetAndUseAuthToken(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
-
-	// Test both get-auth-token and use-auth-token; make sure that they work
-	// together with -q
-	require.NoError(t, tu.BashCmd(`pachctl auth get-auth-token -q robot:marvin \
-	  | pachctl auth use-auth-token
-	pachctl auth whoami \
-	  | match 'robot:marvin'
-		`).Run())
-}
-
 func TestGetAndUseRobotToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -258,31 +261,49 @@ func TestGetRobotTokenTTL(t *testing.T) {
 	require.NoError(t, login.Run())
 }
 
-// TestGetAuthTokenTTL tests that the --ttl argument to 'pachctl get-auth-token'
-// correctly limits the lifetime of the returned token
-func TestGetAuthTokenTTL(t *testing.T) {
+// TestGetOwnGroups tests that calling `pachctl auth get-groups` with no arguments
+// returns the current user's groups.
+func TestGetOwnGroups(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.ActivateAuth(t)
 	defer tu.DeleteAll(t)
 
-	alice := tu.UniqueString("robot:alice")
+	group := tu.UniqueString("group")
 
-	var tokenBuf bytes.Buffer
-	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token {{.alice}} --ttl=5s -q`, "alice", alice)
-	tokenCmd.Stdout = &tokenBuf
-	require.NoError(t, tokenCmd.Run())
-	token := strings.TrimSpace(tokenBuf.String())
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
+		Group: group,
+		Add:   []string{auth.RootUser}},
+	)
+	require.NoError(t, err)
 
-	time.Sleep(6 * time.Second)
-	var errMsg bytes.Buffer
-	login := tu.BashCmd(`echo {{.token}} | pachctl auth use-auth-token
-		pachctl auth whoami
-	`, "token", token)
-	login.Stderr = &errMsg
-	require.YesError(t, login.Run())
-	require.Matches(t, "try logging in", errMsg.String())
+	require.NoError(t, tu.BashCmd(`pachctl auth get-groups | match '{{ .group }}'`,
+		"group", group).Run())
+}
+
+// TestGetGroupsForUser tests that calling `pachctl auth get-groups` with an argument
+// returns the groups for the specified user.
+func TestGetGroups(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	alice := auth.RobotPrefix + tu.UniqueString("alice")
+	group := tu.UniqueString("group")
+
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
+		Group: group,
+		Add:   []string{alice}},
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, tu.BashCmd(`pachctl auth get-groups {{ .alice }} | match '{{ .group }}'`,
+		"group", group, "alice", alice).Run())
 }
 
 func TestMain(m *testing.M) {
@@ -296,15 +317,6 @@ func TestMain(m *testing.M) {
 			panic(err.Error())
 		}
 	}
-	time.Sleep(time.Second)
-	backoff.Retry(func() error {
-		cmd := tu.Cmd("pachctl", "auth", "login")
-		cmd.Stdin = strings.NewReader("admin\n")
-		cmd.Stdout, cmd.Stderr = ioutil.Discard, ioutil.Discard
-		if cmd.Run() != nil {
-			return nil // cmd errored -- auth is deactivated
-		}
-		return errors.New("auth not deactivated yet")
-	}, backoff.RetryEvery(time.Second))
+
 	os.Exit(m.Run())
 }

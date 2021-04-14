@@ -251,16 +251,16 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	newCommitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions(), func() error {
+	if err := repos.List(repoInfo, col.DefaultOptions(), func(string) error {
 		commitInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadOnly(ctx).GetByIndex(pfsdb.CommitsRepoIndex, repoInfo.Repo.Name, commitInfo, col.DefaultOptions(), func() error {
+		if err := d.commits.ReadOnly(ctx).GetByIndex(pfsdb.CommitsRepoIndex, repoInfo.Repo.Name, commitInfo, col.DefaultOptions(), func(string) error {
 			commitInfos[key(repoInfo.Repo.Name, commitInfo.Commit.ID)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 			return nil
 		}); err != nil {
 			return err
 		}
 		branchInfo := &pfs.BranchInfo{}
-		return d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, repoInfo.Repo.Name, branchInfo, col.DefaultOptions(), func() error {
+		return d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, repoInfo.Repo.Name, branchInfo, col.DefaultOptions(), func(string) error {
 			branchInfos[key(repoInfo.Repo.Name, branchInfo.Branch.Name)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
 			return nil
 		})

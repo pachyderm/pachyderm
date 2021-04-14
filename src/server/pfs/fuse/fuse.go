@@ -54,8 +54,8 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		server.Unmount()
 	}()
 	server.Serve()
-	mfcs := make(map[string]client.ModifyFileClient)
-	mfc := func(repo string) (client.ModifyFileClient, error) {
+	mfcs := make(map[string]*client.ModifyFileClient)
+	mfc := func(repo string) (*client.ModifyFileClient, error) {
 		if mfc, ok := mfcs[repo]; ok {
 			return mfc, nil
 		}

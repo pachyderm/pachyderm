@@ -16,7 +16,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // Env contains the basic setup for running end-to-end pachyderm tests entirely
@@ -31,7 +30,7 @@ type Env struct {
 
 // NewEnv constructs a default Env for testing, which will be destroyed at the
 // end of the test.
-func NewEnv(t *testing.T) *Env {
+func NewEnv(t testing.TB) *Env {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,10 +40,7 @@ func NewEnv(t *testing.T) *Env {
 	})
 	t.Cleanup(cancel)
 
-	env := &Env{
-		Context:   ctx,
-		Directory: testutil.MkdirTemp(t),
-	}
+	env := &Env{Context: ctx, Directory: t.TempDir()}
 
 	// NOTE: this is changing a GLOBAL variable in etcd. This function should not
 	// be run in the same process as production code where this may affect

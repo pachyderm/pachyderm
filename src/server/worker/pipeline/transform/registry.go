@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -27,7 +30,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform/chain"
-	"golang.org/x/sync/errgroup"
 )
 
 // TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
@@ -74,10 +76,10 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error)
 	defer pj.jdit.SetDeleter(nil)
 	// Setup file operation client for output Meta commit.
 	metaCommit := pj.metaCommitInfo.Commit
-	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta client.ModifyFileClient) error {
+	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfMeta client.ModifyFile) error {
 		// Setup file operation client for output PFS commit.
 		outputCommit := pj.commitInfo.Commit
-		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS client.ModifyFileClient) error {
+		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfPFS client.ModifyFile) error {
 			parentMetaCommit := pj.metaCommitInfo.ParentCommit
 			metaFileWalker := func(path string) ([]string, error) {
 				var files []string
@@ -91,7 +93,7 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error)
 				}
 				return files, nil
 			}
-			pj.jdit.SetDeleter(datum.NewDeleter(metaFileWalker, mfcMeta, mfcPFS))
+			pj.jdit.SetDeleter(datum.NewDeleter(metaFileWalker, mfMeta, mfPFS))
 			return cb()
 		})
 	})
@@ -370,13 +372,13 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 				return err
 			}
 			// Output commit was deleted. Delete job as well
-			if _, err := pj.driver.NewSTM(func(stm col.STM) error {
+			if err := pj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobPtr := &pps.EtcdJobInfo{}
-				if err := pj.driver.Jobs().ReadWrite(stm).Get(pj.ji.Job.ID, jobPtr); err != nil {
+				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(pj.ji.Job.ID, jobPtr); err != nil {
 					return err
 				}
-				return pj.driver.DeleteJob(stm, jobPtr)
+				return pj.driver.DeleteJob(sqlTx, jobPtr)
 			}); err != nil && !col.IsErrNotFound(err) {
 				return err
 			}
@@ -432,7 +434,6 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	eg, ctx := errgroup.WithContext(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-
 	// TODO: We need to delete the output for S3Out since we don't have a clear way to track the output in the stats commit (which means datums cannot be skipped with S3Out).
 	// If we had a way to map the output added through the S3 gateway back to the datums, and stored this in the appropriate place in the stats commit, then we would be able
 	// handle datums the same way we handle normal pipelines.
@@ -441,32 +442,38 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 	}
-
-	// TODO: This is a hack to ensure that deletions are generated before any output is uploaded.
-	// This may be resolved by either explicitly generating deletes first (somewhat similar to this hack) or
-	// relying on temporary fileset identifiers being associated with the commit after the datumsets have been
-	// generated (and therefore after the deletes).
+	// Generate the deletion operations and count the number of datums for the job.
+	var numDatums int64
 	if err := pj.withDeleter(pachClient, func() error {
-		return pj.jdit.Iterate(func(_ *datum.Meta) error { return nil })
+		return pj.jdit.Iterate(func(_ *datum.Meta) error {
+			numDatums++
+			return nil
+		})
 	}); err != nil {
 		return err
 	}
-
+	// Set up the datum set spec for the job.
+	// When the datum set spec is not set, evenly distribute the datums.
+	var setSpec *datum.SetSpec
+	if pj.driver.PipelineInfo().ChunkSpec != nil {
+		setSpec = &datum.SetSpec{
+			Number: pj.driver.PipelineInfo().ChunkSpec.Number,
+		}
+	}
+	if setSpec == nil || setSpec.Number == 0 {
+		setSpec = &datum.SetSpec{Number: numDatums / int64(reg.concurrency)}
+		if setSpec.Number == 0 {
+			setSpec.Number = 1
+		}
+	}
 	// Setup datum set subtask channel.
 	subtasks := make(chan *work.Task)
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Setup goroutine for creating datum set subtasks.
-		// TODO: When the datum set spec is not set, evenly distribute the datums.
 		eg.Go(func() error {
 			defer close(subtasks)
 			storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-			var setSpec *datum.SetSpec
-			if pj.driver.PipelineInfo().ChunkSpec != nil {
-				setSpec = &datum.SetSpec{
-					Number: int(pj.driver.PipelineInfo().ChunkSpec.Number),
-				}
-			}
-			return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.Client) error) error {
+			return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(client.ModifyFile) error) error {
 				subtask, err := createDatumSetSubtask(pachClient, pj, upload, renewer)
 				if err != nil {
 					return err
@@ -492,7 +499,17 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 						if err != nil {
 							return err
 						}
-						renewer.Remove(data.FileSet)
+						renewer.Remove(data.FilesetId)
+						repo := pj.commitInfo.Commit.Repo.Name
+						commit := pj.commitInfo.Commit.ID
+						if err := pachClient.AddFileset(repo, commit, data.OutputFilesetId); err != nil {
+							return err
+						}
+						repo = pj.metaCommitInfo.Commit.Repo.Name
+						commit = pj.metaCommitInfo.Commit.ID
+						if err := pachClient.AddFileset(repo, commit, data.MetaFilesetId); err != nil {
+							return err
+						}
 						return datum.MergeStats(stats, data.Stats)
 					},
 				)
@@ -520,21 +537,20 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	return reg.succeedJob(pj)
 }
 
-func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(datum.Client) error, renewer *renew.StringSet) (*work.Task, error) {
-	resp, err := pachClient.WithCreateFilesetClient(func(cfsc *client.CreateFilesetClient) error {
-		return upload(datum.NewClientFileset(cfsc))
+func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(client.ModifyFile) error, renewer *renew.StringSet) (*work.Task, error) {
+	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
+		return upload(mf)
 	})
 	if err != nil {
 		return nil, err
 	}
 	renewer.Add(resp.FilesetId)
 	data, err := serializeDatumSet(&DatumSet{
-		JobID: pj.ji.Job.ID,
+		JobID:        pj.ji.Job.ID,
+		OutputCommit: pj.commitInfo.Commit,
 		// TODO: It might make sense for this to be a hash of the constituent datums?
 		// That could make it possible to recover from a master restart.
-		FileSet:      resp.FilesetId,
-		OutputCommit: pj.commitInfo.Commit,
-		MetaCommit:   pj.metaCommitInfo.Commit,
+		FilesetId: resp.FilesetId,
 	})
 	if err != nil {
 		return nil, err

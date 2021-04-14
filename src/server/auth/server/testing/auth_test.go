@@ -2440,10 +2440,9 @@ func TestRestoreAuthToken(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	// Create a request to restore a token with known plaintext
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte("an-auth-token")))
 	req := &auth.RestoreAuthTokenRequest{
 		Token: &auth.TokenInfo{
-			HashedToken: hash,
+			HashedToken: fmt.Sprintf("%x", sha256.Sum256([]byte("an-auth-token"))),
 			Subject:     "robot:restored",
 		},
 	}
