@@ -87,9 +87,6 @@ func (d *driver) compactionWorker(ctx context.Context) {
 			})
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-		if errors.Is(err, context.Canceled) {
-			return err
-		}
 		log.Printf("error in compaction worker: %v", err)
 		return nil
 	})
