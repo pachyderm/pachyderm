@@ -96,8 +96,8 @@ message Context {
     // us from connecting to the wrong cluster.
     string cluster_deployment_id = 11 [(gogoproto.customname) = "ClusterDeploymentID"];
 
-    // A boolean that records whether the context points at an enterprise server,
-    // or a full-featured pachd
+    // A boolean that records whether the context points at an enterprise server.
+    // If false, the context points at a stand-alone pachd.
     bool enterprise_server = 12;
 }
 

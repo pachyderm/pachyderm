@@ -321,8 +321,8 @@ type Context struct {
 	// we ensure this is the same as what the cluster reports back, to prevent
 	// us from connecting to the wrong cluster.
 	ClusterDeploymentID string `protobuf:"bytes,11,opt,name=cluster_deployment_id,json=clusterDeploymentId,proto3" json:"cluster_deployment_id,omitempty"`
-	// A boolean that records whether the context points at an enterprise server,
-	// or a full-featured pachd
+	// A boolean that records whether the context points at an enterprise server.
+	// If false, the context points at a stand-alone pachd.
 	EnterpriseServer     bool     `protobuf:"varint,12,opt,name=enterprise_server,json=enterpriseServer,proto3" json:"enterprise_server,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
