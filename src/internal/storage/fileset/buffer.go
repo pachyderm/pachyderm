@@ -80,7 +80,7 @@ func (b *Buffer) Delete(p string, tag ...string) {
 func (b *Buffer) WalkAdditive(cb func(string, string, io.Reader) error) error {
 	for _, file := range sortFiles(b.additive) {
 		for _, part := range sortParts(file.parts) {
-			if err := cb(file.path, part.tag, part.buf); err != nil {
+			if err := cb(file.path, part.tag, bytes.NewReader(part.buf.Bytes())); err != nil {
 				return err
 			}
 		}

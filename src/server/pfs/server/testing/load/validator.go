@@ -140,6 +140,7 @@ func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ..
 	if err := vmfc.ModifyFile.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
 		return err
 	}
+	vmfc.buffer.Delete(path)
 	w := vmfc.buffer.Add(path, defaultTag)
 	_, err := io.Copy(w, bytes.NewReader(h.Sum(nil)))
 	return err
