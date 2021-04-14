@@ -62,7 +62,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	configMap := assets.PostgresInitConfigMap(assetOpts)
 	require.NoError(t, encoder.Encode(configMap))
 
-	storageClass, err := assets.PostgresStorageClass(assetOpts, assets.LocalBackend)
+	storageClass := assets.PostgresStorageClass(assetOpts, assets.LocalBackend)
 	require.NoError(t, err)
 	require.NoError(t, encoder.Encode(storageClass))
 
