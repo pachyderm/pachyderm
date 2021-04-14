@@ -183,6 +183,10 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
+		authConfig:     authConfig,
+		roleBindings:   roleBindings,
+		public:         public,
+		watchesEnabled: watchesEnabled,
 	}
 	go s.retrieveOrGeneratePPSToken()
 
