@@ -1,0 +1,88 @@
+syntax = "proto2";
+
+package go;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/alta/protopatch/patch/gopb";
+
+// Options represent Go-specific options for Protobuf messages, fields, oneofs, enums, or enum values.
+message Options {
+	// The name option renames the generated Go identifier and related identifiers.
+	// For a message, this renames the generated Go struct and nested messages or enums, if any.
+	// For a message field, this renames the generated Go struct field and getter method.
+	// For a oneof field, this renames the generated Go struct field, getter method, interface type, and wrapper types.
+	// For an enum, this renames the generated Go type.
+	// For an enum value, this renames the generated Go const.
+	optional string name = 1;
+
+	// The getter option renames the generated getter method (default: Get<Field>)
+	// so a custom getter can be implemented in its place.
+	optional string getter = 10; // TODO: implement this
+
+	// The tags option specifies additional struct tags which are appended a generated Go struct field.
+	// This option may be specified on a message field or a oneof field.
+	// The value should omit the enclosing backticks.
+	optional string tags = 20;
+
+	// The stringer option renames a generated String() method (if any)
+	// so a custom String() method can be implemented in its place.
+	optional string stringer = 30; // TODO: implement for messages
+
+	// The stringer_name option is a deprecated alias for stringer.
+	// It will be removed in a future version of this package.
+	optional string stringer_name = 31;
+}
+
+extend google.protobuf.MessageOptions {
+	optional Options message = 7001;
+}
+
+extend google.protobuf.FieldOptions {
+	optional Options field = 7001;
+}
+
+extend google.protobuf.OneofOptions {
+	optional Options oneof = 7001;
+}
+
+extend google.protobuf.EnumOptions {
+	optional Options enum = 7001;
+}
+
+extend google.protobuf.EnumValueOptions {
+	optional Options value = 7001;
+}
+
+// LintOptions represent options for linting a generated Go file.
+message LintOptions {
+	// Set all to true if all generated Go symbols should be linted.
+	// This option affects generated structs, struct fields, enum types, and value constants.
+	optional bool all = 1;
+
+	// Set messages to true if message names should be linted.
+	// This does not affect message fields.
+	optional bool messages = 2;
+
+	// Set messages to true if message field names should be linted.
+	// This does not affect message fields.
+	optional bool fields = 3;
+
+	// Set enums to true if generated enum names should be linted.
+	// This does not affect enum values.
+	optional bool enums = 4;
+
+	// Set values to true if generated enum value constants should be linted.
+	optional bool values = 5;
+
+	// Set extensions to true if generated extension names should be linted.
+	optional bool extensions = 6;
+
+	// The initialisms option lets you specify strings that should not be generated as mixed-case,
+	// Examples: ID, URL, HTTP, etc.
+	repeated string initialisms = 10;
+}
+
+extend google.protobuf.FileOptions {
+	optional LintOptions lint = 7001;
+}

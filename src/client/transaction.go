@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const transactionMetadataKey = "pach-transaction"
@@ -553,7 +554,7 @@ func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty,
 	return nil, unsupportedError("GetVersion")
 }
 
-func (c *adminBuilderClient) InspectCluster(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
+func (c *adminBuilderClient) InspectCluster(ctx context.Context, req *emptypb.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
 	return nil, unsupportedError("InspectCluster")
 }
 

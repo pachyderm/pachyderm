@@ -1,0 +1,5 @@
+protoc -Isrc --go_out=plugins=grpc,paths=source_relative:src src/admin/admin.proto
+
+protoc -Isrc --go-patch_out=plugin=go,paths=source_relative:src src/admin/admin.proto
+
+protoc -Isrc --go-patch_out=plugin=go,paths=source_relative,plugins=grpc:src src/admin/admin.proto
