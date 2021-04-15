@@ -8,7 +8,6 @@ jobs:
 
     environment:
       GOPROXY: https://proxy.golang.org
-      BUCKET: << parameters.bucket >>
 
     resource_class: large
 
