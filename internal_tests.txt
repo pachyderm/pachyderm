@@ -25,7 +25,6 @@ github.com/pachyderm/pachyderm/v2/src/internal/localcache
 github.com/pachyderm/pachyderm/v2/src/internal/log
 github.com/pachyderm/pachyderm/v2/src/internal/lokiutil
 github.com/pachyderm/pachyderm/v2/src/internal/metrics
-github.com/pachyderm/pachyderm/v2/src/internal/migrations
 github.com/pachyderm/pachyderm/v2/src/internal/netutil
 github.com/pachyderm/pachyderm/v2/src/internal/pachhash
 github.com/pachyderm/pachyderm/v2/src/internal/pager
