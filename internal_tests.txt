@@ -47,12 +47,6 @@ github.com/pachyderm/pachyderm/v2/src/internal/serde
 github.com/pachyderm/pachyderm/v2/src/internal/serviceenv
 github.com/pachyderm/pachyderm/v2/src/internal/shard
 github.com/pachyderm/pachyderm/v2/src/internal/sql
-github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset
-github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index
-github.com/pachyderm/pachyderm/v2/src/internal/storage/kv
-github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics
-github.com/pachyderm/pachyderm/v2/src/internal/storage/renew
-github.com/pachyderm/pachyderm/v2/src/internal/storage/track
 github.com/pachyderm/pachyderm/v2/src/internal/stream
 github.com/pachyderm/pachyderm/v2/src/internal/tabwriter
 github.com/pachyderm/pachyderm/v2/src/internal/tarutil
