@@ -22,7 +22,7 @@ jobs:
       - run:
           name: Run tests
           command: |
-            ./etc/testing/examples.sh
+            make test-cmds
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
           paths:
