@@ -1,11 +1,10 @@
 package keycache
 
 import (
+	"fmt"
 	"sync/atomic"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
-	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -17,6 +16,7 @@ import (
 // Cache watches a key in etcd and caches the value in an atomic value
 // This is useful for frequently read but infrequently updated values
 type Cache struct {
+	ctx          context.Context
 	c            col.Collection
 	defaultValue proto.Message
 	key          string
@@ -24,10 +24,11 @@ type Cache struct {
 }
 
 // NewCache returns a cache for the given key in the etcd collection
-func NewCache(c col.Collection, key string, defaultValue proto.Message) *Cache {
+func NewCache(ctx context.Context, c col.Collection, key string, defaultValue proto.Message) *Cache {
 	value := &atomic.Value{}
 	value.Store(defaultValue)
 	return &Cache{
+		ctx:          ctx,
 		c:            c,
 		value:        value,
 		key:          key,
@@ -44,32 +45,33 @@ func (c *Cache) Watch() {
 		}
 		defer watcher.Close()
 		for {
-			ev, ok := <-watcher.Watch()
-			if !ok {
-				return errors.New("watch closed unexpectedly")
-			}
+			select {
+			case <-c.ctx.Done():
+				return errors.New("done")
+			case ev, ok := <-watcher.Watch():
+				if !ok {
+					return errors.New("watch closed unexpectedly")
+				}
 
-			if ev.Type == watch.EventError {
-				return ev.Err
-			}
+				if ev.Type == watch.EventError {
+					return ev.Err
+				}
 
-			if string(ev.Key) == c.key {
-				switch ev.Type {
-				case watch.EventPut:
-					val := proto.Clone(c.defaultValue)
-					if err := proto.Unmarshal(ev.Value, val); err != nil {
-						return err
+				if string(ev.Key) == c.key {
+					switch ev.Type {
+					case watch.EventPut:
+						val := proto.Clone(c.defaultValue)
+						if err := proto.Unmarshal(ev.Value, val); err != nil {
+							return err
+						}
+						c.value.Store(val)
+					case watch.EventDelete:
+						c.value.Store(c.defaultValue)
 					}
-					c.value.Store(val)
-				case watch.EventDelete:
-					c.value.Store(c.defaultValue)
 				}
 			}
 		}
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logrus.Printf("error from watcher for %v: %v; retrying in %v", c.key, err, d)
-		return nil
-	})
+	}, backoff.NewInfiniteBackOff(), backoff.NotifyCtx(c.ctx, fmt.Sprintf("watcher for %v", c.key)))
 }
 
 // Load retrieves the current cached value

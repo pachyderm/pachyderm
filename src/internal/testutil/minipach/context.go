@@ -78,11 +78,15 @@ func GetTestContext(t testing.TB) *TestContext {
 	require.NoError(t, err)
 	logger.SetOutput(f)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
 	senv := &serviceenv.TestServiceEnv{
 		Configuration: config,
 		EtcdClient:    env.EtcdClient,
 		DBClient:      db,
 		Logger:        logger,
+		Context:       ctx,
 	}
 	require.NoError(t, SetupServer(senv, clientSocketPath))
 
