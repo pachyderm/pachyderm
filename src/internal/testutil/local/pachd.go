@@ -116,10 +116,6 @@ func RunLocal() (retErr error) {
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
-	ip, err := netutil.ExternalIP()
-	if err != nil {
-		return errors.Wrapf(err, "error getting pachd external ip")
-	}
 	kubeNamespace := env.Config().Namespace
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
