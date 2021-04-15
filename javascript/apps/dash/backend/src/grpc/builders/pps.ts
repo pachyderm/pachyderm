@@ -212,9 +212,14 @@ export type JobObject = {
 };
 
 export type JobInfoObject = {
-  id: Job.AsObject['id'];
+  job: {
+    id: Job.AsObject['id'];
+  };
   createdAt: JobInfo.AsObject['started'];
   state: JobState;
+  pipeline: {
+    name: Pipeline.AsObject['name'];
+  };
 };
 
 export const pipelineFromObject = ({name}: PipelineObject) => {
@@ -646,13 +651,19 @@ export const jobFromObject = ({id}: JobObject) => {
   return job;
 };
 
-export const jobInfoFromObject = ({id, createdAt, state}: JobInfoObject) => {
+export const jobInfoFromObject = ({
+  job: {id},
+  createdAt,
+  state,
+  pipeline: {name},
+}: JobInfoObject) => {
   const jobInfo = new JobInfo()
     .setState(state)
     .setStarted(
       timestampFromObject({seconds: createdAt?.seconds || 0, nanos: 0}),
     )
-    .setJob(new Job().setId(id));
+    .setJob(new Job().setId(id))
+    .setPipeline(new Pipeline().setName(name));
 
   return jobInfo;
 };

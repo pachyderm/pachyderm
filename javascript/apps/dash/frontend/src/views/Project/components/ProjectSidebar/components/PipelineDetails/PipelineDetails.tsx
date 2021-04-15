@@ -3,6 +3,7 @@ import capitalize from 'lodash/capitalize';
 import React from 'react';
 
 import PipelineInfo from './components/PipelineInfo';
+import PipelineJobs from './components/PipelineJobs';
 import PipelineJSON from './components/PipelineJSON';
 import {TAB_ID, TAB_IDS} from './constants/tabIds';
 import usePipelineDetails from './hooks/usePipelineDetails';
@@ -45,7 +46,9 @@ const PipelineDetails = () => {
         <Tabs.TabPanel id={TAB_ID.CONFIG}>
           <PipelineJSON />
         </Tabs.TabPanel>
-        <Tabs.TabPanel id={TAB_ID.JOBS}>Pipeline Jobs</Tabs.TabPanel>
+        <Tabs.TabPanel id={TAB_ID.JOBS}>
+          <PipelineJobs />
+        </Tabs.TabPanel>
       </Tabs>
     </div>
   );

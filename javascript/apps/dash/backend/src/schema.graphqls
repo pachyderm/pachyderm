@@ -170,6 +170,7 @@ input DagQueryArgs {
 input JobQueryArgs {
   projectId: ID!
   limit: Int
+  pipelineId: String
 }
 
 type Project {

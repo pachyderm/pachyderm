@@ -117,7 +117,7 @@ const projectsResolver: ProjectsResolver = {
       const [repos, pipelines, jobs] = await Promise.all([
         pachClient.pfs().listRepo(),
         pachClient.pps().listPipeline(),
-        pachClient.pps().listJobs(jobsLimit || undefined),
+        pachClient.pps().listJobs({limit: jobsLimit || undefined}),
       ]);
 
       const sizeGBytes = repos.reduce(

@@ -633,14 +633,16 @@ it('should create Job from an object', () => {
 it('should create JobInfo from an object', () => {
   const job = jobInfoFromObject({
     state: 1,
-    id: '1',
+    job: {id: '1'},
     createdAt: {
       seconds: 564645,
       nanos: 0,
     },
+    pipeline: {name: 'montage'},
   });
 
   expect(job.getState()).toBe(1);
   expect(job.getStarted()?.getSeconds()).toBe(564645);
   expect(job.getJob()?.getId()).toBe('1');
+  expect(job.getPipeline()?.getName()).toBe('montage');
 });

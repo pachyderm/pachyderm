@@ -236,6 +236,7 @@ export type DagQueryArgs = {
 export type JobQueryArgs = {
   projectId: Scalars['ID'];
   limit?: Maybe<Scalars['Int']>;
+  pipelineId?: Maybe<Scalars['String']>;
 };
 
 export type Project = {

@@ -30,6 +30,24 @@ describe('JobList', () => {
     expect(queryAllByText('See Details').length).toBe(0);
   });
 
+  it('should display a list of jobs for a pipeline', async () => {
+    const {getByRole, queryByTestId} = render(
+      <JobList projectId="1" pipelineId="montage" />,
+    );
+
+    await waitFor(() =>
+      expect(queryByTestId('JobListSkeleton__list')).not.toBeInTheDocument(),
+    );
+
+    const {queryAllByRole, queryByText} = within(getByRole('list'));
+
+    expect(queryAllByRole('listitem').length).toBe(
+      jobs['1'].filter((job) => job.getPipeline()?.getName() === 'montage')
+        .length,
+    );
+    expect(queryByText('Success')).toBeInTheDocument();
+  });
+
   it('should display a list of actions', async () => {
     const {findAllByText} = render(<JobList projectId="2" expandActions />);
 

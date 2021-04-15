@@ -2,11 +2,7 @@ import {useEffect, useMemo} from 'react';
 import {useForm} from 'react-hook-form';
 
 import {useJobs} from '@dash-frontend/hooks/useJobs';
-import {JobState} from '@graphqlTypes';
-
-interface UseJobListArgs {
-  projectId: string;
-}
+import {GetJobsQueryVariables, JobState} from '@graphqlTypes';
 
 const defaultValues = Object.keys(JobState).reduce<{[key: string]: unknown}>(
   (result, state) => {
@@ -16,8 +12,8 @@ const defaultValues = Object.keys(JobState).reduce<{[key: string]: unknown}>(
   {},
 );
 
-const useJobList = ({projectId}: UseJobListArgs) => {
-  const {jobs, loading} = useJobs(projectId);
+const useJobList = ({projectId, pipelineId}: GetJobsQueryVariables['args']) => {
+  const {jobs, loading} = useJobs({projectId, pipelineId});
   const formCtx = useForm({
     defaultValues,
   });

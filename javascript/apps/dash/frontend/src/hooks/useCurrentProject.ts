@@ -6,6 +6,7 @@ const useCurrentProject = () => {
   const {project, loading} = useProject({id: projectId});
 
   return {
+    projectId,
     currentProject: project,
     loading,
   };

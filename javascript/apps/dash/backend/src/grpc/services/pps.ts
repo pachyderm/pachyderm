@@ -37,8 +37,8 @@ const pps = ({
         );
       });
     },
-    listJobs: (limit = DEFAULT_JOBS_LIMIT) => {
-      const listJobRequest = new ListJobRequest();
+    listJobs: ({limit = DEFAULT_JOBS_LIMIT, jq = ''} = {}) => {
+      const listJobRequest = new ListJobRequest().setJqfilter(jq);
       const stream = client.listJob(listJobRequest, credentialMetadata);
 
       return new Promise<JobInfo.AsObject[]>((resolve, reject) => {

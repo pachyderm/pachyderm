@@ -6,8 +6,8 @@ import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
 import {JobState} from '@graphqlTypes';
 
 const useProjectHeader = () => {
-  const {currentProject, loading} = useCurrentProject();
-  const {jobs} = useJobs(currentProject?.id);
+  const {projectId, currentProject, loading} = useCurrentProject();
+  const {jobs} = useJobs({projectId});
 
   const numOfFailedJobs = useMemo(
     () =>
