@@ -25,6 +25,9 @@ func TestPostgresCollections(suite *testing.T) {
 
 		db, err := dbutil.NewDB(options...)
 		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, db.Close())
+		})
 
 		dsn := dbutil.GetDSN(options...)
 		listener := col.NewPostgresListener(dsn)
