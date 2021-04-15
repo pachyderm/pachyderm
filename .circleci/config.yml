@@ -10,12 +10,14 @@ jobs:
       GOPROXY: https://proxy.golang.org
       RUN_BAD_TESTS: "TRUE"
       SKIP_TESTS_WITH_DEPS: "TRUE"
-
+    
+    parallelism: 4
+    
     resource_class: large
 
     steps:
       - checkout
-
+      - run: mkdir -p $TEST_RESULTS
       - restore_cache: # restores saved cache if no changes are detected since last run
           keys:
             - go-mod-v4-{{ checksum "go.sum" }}
@@ -23,11 +25,12 @@ jobs:
       - run:
           name: Run tests
           command: |
-            make test-libs
+            PACKAGE_NAMES=$(go list ./src/internal/... | circleci tests split --split-by=timings --timings-type=classname)
+            gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- $PACKAGE_NAMES
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"            
+            - "/go/pkg/mod"
 
 workflows:
   version: 2 
