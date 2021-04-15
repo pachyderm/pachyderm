@@ -1,7 +1,6 @@
 github.com/pachyderm/pachyderm/v2/src/internal/ancestry
 github.com/pachyderm/pachyderm/v2/src/internal/auth
 github.com/pachyderm/pachyderm/v2/src/internal/backoff
-github.com/pachyderm/pachyderm/v2/src/internal/bloom
 github.com/pachyderm/pachyderm/v2/src/internal/cache/groupcachepb
 github.com/pachyderm/pachyderm/v2/src/internal/cache/server
 github.com/pachyderm/pachyderm/v2/src/internal/cert
