@@ -23,7 +23,7 @@ jobs:
       - run:
           name: Run tests
           command: |
-            make lint
+            make test-libs
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
           paths:
