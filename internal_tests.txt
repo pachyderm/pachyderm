@@ -27,8 +27,6 @@ github.com/pachyderm/pachyderm/v2/src/internal/lokiutil
 github.com/pachyderm/pachyderm/v2/src/internal/metrics
 github.com/pachyderm/pachyderm/v2/src/internal/migrations
 github.com/pachyderm/pachyderm/v2/src/internal/netutil
-github.com/pachyderm/pachyderm/v2/src/internal/obj
-github.com/pachyderm/pachyderm/v2/src/internal/obj/testing
 github.com/pachyderm/pachyderm/v2/src/internal/pachhash
 github.com/pachyderm/pachyderm/v2/src/internal/pager
 github.com/pachyderm/pachyderm/v2/src/internal/path
