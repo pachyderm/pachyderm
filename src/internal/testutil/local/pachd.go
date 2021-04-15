@@ -121,7 +121,6 @@ func RunLocal() (retErr error) {
 	if err != nil {
 		return errors.Wrapf(err, "error getting pachd external ip")
 	}
-	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.Config().PeerPort))
 	kubeNamespace := env.Config().Namespace
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 

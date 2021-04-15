@@ -30,13 +30,6 @@ import (
 )
 
 const (
-	tokensPrefix       = "/tokens"
-	roleBindingsPrefix = "/role-bindings"
-	membersPrefix      = "/members"
-	groupsPrefix       = "/groups"
-	configPrefix       = "/config"
-	oidcAuthnPrefix    = "/oidc-authns"
-
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
 
