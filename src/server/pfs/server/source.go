@@ -27,11 +27,22 @@ type source struct {
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
-func NewSource(commitInfo *pfs.CommitInfo, fileSet fileset.FileSet, full bool) Source {
+func NewSource(storage *fileset.Storage, commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
+	sc := &sourceConfig{}
+	for _, opt := range opts {
+		opt(sc)
+	}
+	if sc.full {
+		fs = storage.NewIndexResolver(fs)
+	}
+	fs = fileset.NewDirInserter(fs)
+	if sc.filter != nil {
+		fs = sc.filter(fs)
+	}
 	return &source{
 		commitInfo: commitInfo,
-		fileSet:    fileSet,
-		full:       full,
+		fileSet:    fs,
+		full:       sc.full,
 	}
 }
 

@@ -173,27 +173,17 @@ func (d *driver) copyFile(pachClient *client.APIClient, uw *fileset.UnorderedWri
 }
 
 func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob string) (Source, error) {
-	indexOpt, mf, err := parseGlob(glob)
+	glob = cleanPath(glob)
+	commitInfo, fs, err := d.openCommit(pachClient, commit, index.WithPrefix(globLiteralPrefix(glob)))
 	if err != nil {
 		return nil, err
 	}
-	commitInfo, fs, err := d.openCommit(pachClient, commit, indexOpt)
-	if err != nil {
-		return nil, err
+	opts := []SourceOption{
+		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
+			return fileset.NewGlobFilter(fs, glob, true)
+		}),
 	}
-	fs = fileset.NewDirInserter(fs)
-	var dir string
-	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-		if dir != "" && strings.HasPrefix(idx.Path, dir) {
-			return true
-		}
-		match := mf(idx.Path)
-		if match && fileset.IsDir(idx.Path) {
-			dir = idx.Path
-		}
-		return match
-	})
-	return NewSource(commitInfo, fs, false), nil
+	return NewSource(d.storage, commitInfo, fs, opts...), nil
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {
@@ -206,12 +196,15 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs
 	if err != nil {
 		return nil, err
 	}
-	fs = d.storage.NewIndexResolver(fs)
-	fs = fileset.NewDirInserter(fs)
-	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
-	})
-	s := NewSource(commitInfo, fs, true)
+	opts := []SourceOption{
+		WithFull(),
+		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
+			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+				return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
+			})
+		}),
+	}
+	s := NewSource(d.storage, commitInfo, fs, opts...)
 	var ret *pfs.FileInfo
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
@@ -233,21 +226,24 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 	if err != nil {
 		return err
 	}
-	fs = d.storage.NewIndexResolver(fs)
-	fs = fileset.NewDirInserter(fs)
-	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-		// Check for directory match (don't return directory in list)
-		if idx.Path == fileset.Clean(name, true) {
-			return false
-		}
-		// Check for file match.
-		if idx.Path == name {
-			return true
-		}
-		// Check for sub directory / file match.
-		return strings.HasPrefix(idx.Path, fileset.Clean(name, true))
-	})
-	s := NewSource(commitInfo, fs, true)
+	opts := []SourceOption{
+		WithFull(),
+		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
+			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+				// Check for directory match (don't return directory in list)
+				if idx.Path == fileset.Clean(name, true) {
+					return false
+				}
+				// Check for file match.
+				if idx.Path == name {
+					return true
+				}
+				// Check for sub directory / file match.
+				return strings.HasPrefix(idx.Path, fileset.Clean(name, true))
+			})
+		}),
+	}
+	s := NewSource(d.storage, commitInfo, fs, opts...)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(name, cleanPath(fi.File.Path)) {
 			return cb(fi)
@@ -266,11 +262,14 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(
 	if err != nil {
 		return err
 	}
-	fs = fileset.NewDirInserter(fs)
-	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
-	})
-	s := NewSource(commitInfo, fs, false)
+	opts := []SourceOption{
+		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
+			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+				return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
+			})
+		}),
+	}
+	s := NewSource(d.storage, commitInfo, fs, opts...)
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)
@@ -279,21 +278,19 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(
 
 func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) error {
 	ctx := pachClient.Ctx()
-	indexOpt, mf, err := parseGlob(glob)
+	glob = cleanPath(glob)
+	commitInfo, fs, err := d.openCommit(pachClient, commit, index.WithPrefix(globLiteralPrefix(glob)))
 	if err != nil {
 		return err
 	}
-	commitInfo, fs, err := d.openCommit(pachClient, commit, indexOpt)
-	if err != nil {
-		return err
+	opts := []SourceOption{
+		WithFull(),
+		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
+			return fileset.NewGlobFilter(fs, glob, false)
+		}),
 	}
-	fs = d.storage.NewIndexResolver(fs)
-	fs = fileset.NewDirInserter(fs)
-	s := NewSource(commitInfo, fs, true)
+	s := NewSource(d.storage, commitInfo, fs, opts...)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
-		if !mf(fi.File.Path) {
-			return nil
-		}
 		return cb(fi)
 	})
 }
@@ -347,23 +344,29 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 		if err != nil {
 			return err
 		}
-		fs = d.storage.NewIndexResolver(fs)
-		fs = fileset.NewDirInserter(fs)
-		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-			return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
-		})
-		old = NewSource(oldCommitInfo, fs, true)
+		opts := []SourceOption{
+			WithFull(),
+			WithFilter(func(fs fileset.FileSet) fileset.FileSet {
+				return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+					return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
+				})
+			}),
+		}
+		old = NewSource(d.storage, oldCommitInfo, fs, opts...)
 	}
 	newCommitInfo, fs, err := d.openCommit(pachClient, newCommit, index.WithPrefix(newName))
 	if err != nil {
 		return err
 	}
-	fs = d.storage.NewIndexResolver(fs)
-	fs = fileset.NewDirInserter(fs)
-	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-		return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
-	})
-	new := NewSource(newCommitInfo, fs, true)
+	opts := []SourceOption{
+		WithFull(),
+		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
+			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+				return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
+			})
+		}),
+	}
+	new := NewSource(d.storage, newCommitInfo, fs, opts...)
 	diff := NewDiffer(old, new)
 	return diff.Iterate(pachClient.Ctx(), cb)
 }

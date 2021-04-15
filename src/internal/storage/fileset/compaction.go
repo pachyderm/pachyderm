@@ -121,7 +121,7 @@ func (c *DistributedCompactor) compact(ctx context.Context, ids []ID, ttl time.D
 		if end > len(ids) {
 			end = len(ids)
 		}
-		id, err := c.Compact(ctx, ids[start:end], ttl)
+		id, err := c.compact(ctx, ids[start:end], ttl)
 		if err != nil {
 			return nil, err
 		}

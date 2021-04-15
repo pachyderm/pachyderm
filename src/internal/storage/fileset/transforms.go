@@ -3,9 +3,59 @@ package fileset
 import (
 	"context"
 	"io"
+	"strings"
 
+	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
+
+var _ FileSet = &globFilter{}
+
+type globFilter struct {
+	fileSet FileSet
+	glob    string
+	full    bool
+}
+
+func NewGlobFilter(fs FileSet, glob string, full ...bool) FileSet {
+	gf := &globFilter{
+		fileSet: fs,
+		glob:    glob,
+	}
+	if len(full) > 0 {
+		gf.full = full[0]
+	}
+	return gf
+}
+
+func (gf *globFilter) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
+	g, err := globlib.Compile(gf.glob, '/')
+	if err != nil {
+		return err
+	}
+	mf := func(path string) bool {
+		// TODO: This does not seem like a good approach for this edge case.
+		if path == "/" && gf.glob == "/" {
+			return true
+		}
+		path = strings.TrimRight(path, "/")
+		return g.Match(path)
+	}
+	var dir string
+	return NewIndexFilter(gf.fileSet, func(idx *index.Index) bool {
+		if gf.full {
+			if dir != "" && strings.HasPrefix(idx.Path, dir) {
+				return true
+			}
+			match := mf(idx.Path)
+			if match && IsDir(idx.Path) {
+				dir = idx.Path
+			}
+			return match
+		}
+		return mf(idx.Path)
+	}).Iterate(ctx, cb)
+}
 
 var _ FileSet = &indexFilter{}
 
