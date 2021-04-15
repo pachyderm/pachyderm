@@ -1,8 +1,8 @@
 import {useGetJobsQuery} from '@dash-frontend/generated/hooks';
 
-export const useJobs = (projectId = '') => {
+export const useJobs = (projectId = '', limit?: number) => {
   const {data, error, loading} = useGetJobsQuery({
-    variables: {args: {projectId}},
+    variables: {args: {projectId, limit}},
   });
 
   return {

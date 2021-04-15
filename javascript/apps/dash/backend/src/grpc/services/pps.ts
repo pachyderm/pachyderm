@@ -12,6 +12,8 @@ import {ServiceArgs} from '@dash-backend/lib/types';
 
 import {jobFromObject, pipelineFromObject} from '../builders/pps';
 
+import {DEFAULT_JOBS_LIMIT} from './constants/pps';
+
 const pps = ({
   pachdAddress,
   channelCredentials,
@@ -35,7 +37,7 @@ const pps = ({
         );
       });
     },
-    listJobs: () => {
+    listJobs: (limit = DEFAULT_JOBS_LIMIT) => {
       const listJobRequest = new ListJobRequest();
       const stream = client.listJob(listJobRequest, credentialMetadata);
 
@@ -44,8 +46,12 @@ const pps = ({
 
         stream.on('data', (chunk: JobInfo) => {
           jobs.push(chunk.toObject());
+          if (limit && jobs.length >= limit) {
+            stream.destroy();
+          }
         });
         stream.on('error', (err) => reject(err));
+        stream.on('close', () => resolve(jobs));
         stream.on('end', () => resolve(jobs));
       });
     },

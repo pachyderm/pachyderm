@@ -18,27 +18,27 @@ const tutorial = [
 const customerTeam = [
   jobInfoFromObject({
     state: JobState.JOB_FAILURE,
-    createdAt: {seconds: 1614126189, nanos: 0},
+    createdAt: {seconds: 1614136189, nanos: 0},
     id: '3',
   }),
   jobInfoFromObject({
     state: JobState.JOB_EGRESSING,
-    createdAt: {seconds: 1614126189, nanos: 0},
+    createdAt: {seconds: 1614146189, nanos: 0},
     id: '4',
   }),
   jobInfoFromObject({
     state: JobState.JOB_KILLED,
-    createdAt: {seconds: 1614126189, nanos: 0},
+    createdAt: {seconds: 1614156189, nanos: 0},
     id: '5',
   }),
   jobInfoFromObject({
     state: JobState.JOB_RUNNING,
-    createdAt: {seconds: 1614126189, nanos: 0},
+    createdAt: {seconds: 1614166189, nanos: 0},
     id: '6',
   }),
   jobInfoFromObject({
     state: JobState.JOB_STARTING,
-    createdAt: {seconds: 1614126189, nanos: 0},
+    createdAt: {seconds: 1614176189, nanos: 0},
     id: '7',
   }),
 ];

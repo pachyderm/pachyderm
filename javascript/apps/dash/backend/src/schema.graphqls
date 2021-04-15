@@ -169,6 +169,7 @@ input DagQueryArgs {
 
 input JobQueryArgs {
   projectId: ID!
+  limit: Int
 }
 
 type Project {
@@ -216,6 +217,7 @@ input FileQueryArgs {
 
 input ProjectDetailsQueryArgs {
   projectId: String!
+  jobsLimit: Int
 }
 
 type Tokens {

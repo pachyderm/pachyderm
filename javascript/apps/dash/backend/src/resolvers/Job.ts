@@ -13,12 +13,12 @@ const jobResolver: JobResolver = {
   Query: {
     jobs: async (
       _parent,
-      {args: {projectId}},
+      {args: {projectId, limit}},
       {pachdAddress = '', authToken = '', log},
     ) => {
       const jobs = await client({pachdAddress, authToken, projectId, log})
         .pps()
-        .listJobs();
+        .listJobs(limit || undefined);
 
       return jobs.map(jobInfoToGQLJob);
     },

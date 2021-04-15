@@ -235,6 +235,7 @@ export type DagQueryArgs = {
 
 export type JobQueryArgs = {
   projectId: Scalars['ID'];
+  limit?: Maybe<Scalars['Int']>;
 };
 
 export type Project = {
@@ -282,6 +283,7 @@ export type FileQueryArgs = {
 
 export type ProjectDetailsQueryArgs = {
   projectId: Scalars['String'];
+  jobsLimit?: Maybe<Scalars['Int']>;
 };
 
 export type Tokens = {

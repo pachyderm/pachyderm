@@ -104,7 +104,7 @@ const projectsResolver: ProjectsResolver = {
     },
     projectDetails: async (
       _field,
-      {args: {projectId}},
+      {args: {projectId, jobsLimit}},
       {pachdAddress = '', authToken = '', log},
     ) => {
       log.info({
@@ -117,7 +117,7 @@ const projectsResolver: ProjectsResolver = {
       const [repos, pipelines, jobs] = await Promise.all([
         pachClient.pfs().listRepo(),
         pachClient.pps().listPipeline(),
-        pachClient.pps().listJobs(),
+        pachClient.pps().listJobs(jobsLimit || undefined),
       ]);
 
       const sizeGBytes = repos.reduce(
