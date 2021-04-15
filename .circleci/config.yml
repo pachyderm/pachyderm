@@ -24,7 +24,7 @@ jobs:
       - run:
           name: Run tests
           command: |
-            PACKAGE_NAMES=$(go list ./src/internal/... | circleci tests split --split-by=timings --timings-type=classname)
+            PACKAGE_NAMES=$(cat internal_tests.txt | circleci tests split --split-by=timings --timings-type=classname)
             gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- $PACKAGE_NAMES
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
