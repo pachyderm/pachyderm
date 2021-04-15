@@ -76,8 +76,7 @@ func buildBindings(s ...string) *auth.RoleBinding {
 // auth, this makes sure the code path is exercised (as auth may already be
 // active when the test starts)
 func TestActivate(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
@@ -105,8 +104,7 @@ func TestActivate(t *testing.T) {
 // This should always authenticate the user as `pach:root` and give them
 // super admin status.
 func TestActivateKnownToken(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
@@ -134,8 +132,7 @@ func TestActivateKnownToken(t *testing.T) {
 // TestSuperAdminRWO tests adding and removing cluster super admins, as well as super admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestSuperAdminRWO(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, bob)
@@ -234,8 +231,7 @@ func TestSuperAdminRWO(t *testing.T) {
 // TestFSAdminRWO tests adding and removing cluster FS admins, as well as FS admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestFSAdminRWO(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, bob)
@@ -334,8 +330,7 @@ func TestFSAdminRWO(t *testing.T) {
 // when the repo's ACL is empty (indicating that no user has explicit access to
 // to the repo)
 func TestFSAdminFixBrokenRepo(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, bob)
@@ -382,8 +377,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 
 // TestCannotRemoveRootAdmin tests that trying to remove the root user as an admin returns an error.
 func TestCannotRemoveRootAdmin(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, auth.RootUser)
@@ -421,8 +415,7 @@ func TestCannotRemoveRootAdmin(t *testing.T) {
 
 func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, true)
 
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, auth.RootUser)
@@ -513,11 +506,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
 	t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	minipach.GetTestContext(t, true)
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
@@ -603,8 +592,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 // the result indicates that they're an owner of every repo in the cluster
 // (needed by the Pachyderm dashboard)
 func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -632,8 +620,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 // TestGetIndefiniteRobotToken tests that an admin can generate a robot token that never
 // times out - this is the default behaviour
 func TestGetIndefiniteRobotToken(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
@@ -654,8 +641,7 @@ func TestGetIndefiniteRobotToken(t *testing.T) {
 
 // TestGetTemporaryRobotToken tests that an admin can generate a robot token that expires
 func TestGetTemporaryRobotToken(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
@@ -679,8 +665,7 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 // TestGetRobotTokenErrorNonAdminUser tests that non-admin users can't call
 // GetRobotToken
 func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient := ctx.GetAuthenticatedPachClient(t, alice)
@@ -695,8 +680,7 @@ func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
 // TestRobotUserWhoAmI tests that robot users can call WhoAmI and get a response
 // with the right prefix
 func TestRobotUserWhoAmI(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
@@ -718,8 +702,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 // TestRobotUserACL tests that a robot user can create a repo, add users
 // to their repo, and be added to user's repo.
 func TestRobotUserACL(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, auth.RootUser)
@@ -762,8 +745,7 @@ func TestRobotUserACL(t *testing.T) {
 // TestGroupRoleBinding tests that a group can be added to a role binding
 // and confers access to members
 func TestGroupRoleBinding(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice := robot(tu.UniqueString("alice"))
 	group := group(tu.UniqueString("testGroup"))
@@ -794,8 +776,7 @@ func TestGroupRoleBinding(t *testing.T) {
 // 3) access other users' repos
 // 4) update repo ACLs,
 func TestRobotUserAdmin(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice := robot(tu.UniqueString("alice"))
 	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
@@ -848,8 +829,7 @@ func TestRobotUserAdmin(t *testing.T) {
 
 // TestTokenRevoke tests that an admin can revoke that token and it no longer works
 func TestTokenRevoke(t *testing.T) {
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, false)
 
 	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
@@ -971,8 +951,7 @@ func TestRevokeTokensForUser(t *testing.T) {
 // fails.
 func TestDeleteAllAfterDeactivate(t *testing.T) {
 	t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	t.Parallel()
-	ctx := minipach.GetTestContext(t)
+	ctx := minipach.GetTestContext(t, true)
 
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, auth.RootUser)
@@ -1037,11 +1016,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	minipach.GetTestContext(t, true)
 	alice := robot(tu.UniqueString("alice"))
 	c := tu.GetAuthenticatedPachClient(t, alice)
 
@@ -1122,11 +1097,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	minipach.GetTestContext(t, true)
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 

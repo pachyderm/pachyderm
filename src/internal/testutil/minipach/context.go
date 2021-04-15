@@ -49,14 +49,45 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
-type TestContext struct {
+type TestContext interface {
+	GetUnauthenticatedPachClient(tb testing.TB) *client.APIClient
+	GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient
+}
+
+type InMemoryTestContext struct {
 	env *serviceenv.TestServiceEnv
 }
 
-func GetTestContext(t testing.TB) *TestContext {
+func (*RemoteTestContext) GetUnauthenticatedPachClient(tb testing.TB) *client.APIClient {
+	return testutil.GetUnauthenticatedPachClient(tb)
+}
+
+func (*RemoteTestContext) GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
+	return testutil.GetAuthenticatedPachClient(tb, subject)
+}
+
+type RemoteTestContext struct{}
+
+func GetTestContext(t testing.TB, requireKube bool) TestContext {
 	t.Helper()
+
+	if os.Getenv("PACH_INMEMORY") == "" {
+		testutil.DeleteAll(t)
+		t.Cleanup(func() { testutil.DeleteAll(t) })
+		return &RemoteTestContext{}
+	}
+
+	if requireKube {
+		t.Skip("test must be run against pachd in minikube")
+	}
+
+	if ct, ok := t.(*testing.T); ok {
+		ct.Parallel()
+	}
+
 	env := testetcd.NewEnv(t)
 	testId := random.String(20)
 	clientSocketPath := path.Join(env.Directory, "pachd_socket")
@@ -88,14 +119,14 @@ func GetTestContext(t testing.TB) *TestContext {
 		Logger:        logger,
 		Context:       ctx,
 	}
-	require.NoError(t, SetupServer(senv, clientSocketPath))
+	require.NoError(t, setupServer(senv, clientSocketPath))
 
 	senv.PachClient, err = client.NewFromSocket("unix://" + clientSocketPath)
 	require.NoError(t, err)
-	return &TestContext{env: senv}
+	return &InMemoryTestContext{env: senv}
 }
 
-func (c *TestContext) GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
+func (c *InMemoryTestContext) GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
 	tb.Helper()
 	rootClient := c.GetUnauthenticatedPachClient(tb)
 	ActivateAuth(tb, rootClient)
@@ -111,12 +142,12 @@ func (c *TestContext) GetAuthenticatedPachClient(tb testing.TB, subject string) 
 }
 
 // GetUnauthenticatedPachClient returns a copy of the testing pach client with no auth token
-func (c *TestContext) GetUnauthenticatedPachClient(tb testing.TB) *client.APIClient {
+func (c *InMemoryTestContext) GetUnauthenticatedPachClient(tb testing.TB) *client.APIClient {
 	tb.Helper()
 	return c.env.PachClient.WithCtx(context.Background())
 }
 
-func SetupServer(env serviceenv.ServiceEnv, socketPath string) error {
+func setupServer(env serviceenv.ServiceEnv, socketPath string) error {
 	debug.SetGCPercent(env.Config().GCPercent)
 
 	kubeNamespace := ""
