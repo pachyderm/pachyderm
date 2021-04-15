@@ -3,7 +3,6 @@ package local
 import (
 	gotls "crypto/tls"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path"
