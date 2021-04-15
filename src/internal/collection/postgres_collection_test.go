@@ -7,16 +7,31 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestPostgresCollections(suite *testing.T) {
 	suite.Parallel()
-	postgres := testutil.NewPostgresDeployment(suite)
 
 	newCollection := func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
-		db, listener := postgres.NewDatabase(t)
+		config := serviceenv.ConfigFromOptions(testutil.NewTestDBConfig(t))
+		options := []dbutil.Option{
+			dbutil.WithHostPort(config.PostgresServiceHost, config.PostgresServicePort),
+			dbutil.WithDBName(config.PostgresDBName),
+		}
+
+		db, err := dbutil.NewDB(options...)
+		require.NoError(t, err)
+
+		dsn := dbutil.GetDSN(options...)
+		listener := col.NewPostgresListener(dsn)
+		t.Cleanup(func() {
+			require.NoError(t, listener.Close())
+		})
+
 		testCol, err := col.NewPostgresCollection(ctx, db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, nil)
 		require.NoError(t, err)
 
