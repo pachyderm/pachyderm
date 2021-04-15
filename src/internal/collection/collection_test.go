@@ -854,6 +854,6 @@ func collectionTests(
 	})
 }
 
-// test indexes
-// test multiple changes to the same row in one txn
-// test interruption
+// TODO: test indexes
+// TODO: test multiple changes to the same row in one txn
+// TODO: test interruption
