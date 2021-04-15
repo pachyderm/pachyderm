@@ -8,8 +8,7 @@ jobs:
 
     environment:
       GOPROXY: https://proxy.golang.org
-      RUN_BAD_TESTS: "TRUE"
-      SKIP_TESTS_WITH_DEPS: "TRUE"
+      TEST_RESULTS: /tmp/test-results
     
     parallelism: 4
     
