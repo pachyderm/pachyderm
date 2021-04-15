@@ -4,10 +4,12 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/client-go/kubernetes"
 )
@@ -22,6 +24,7 @@ type TestServiceEnv struct {
 	LokiClient    *loki.Client
 	DBClient      *sqlx.DB
 	Ctx           context.Context
+	Logger        *logrus.Logger
 }
 
 func (s *TestServiceEnv) Config() *Configuration {
@@ -58,4 +61,8 @@ func (s *TestServiceEnv) Close() error {
 	eg.Go(s.GetEtcdClient().Close)
 	eg.Go(s.GetDBClient().Close)
 	return eg.Wait()
+}
+
+func (s *TestServiceEnv) GetLogger(service string) log.Logger {
+	return log.NewWithLogger(service, s.Logger)
 }

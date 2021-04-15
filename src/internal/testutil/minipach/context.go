@@ -2,6 +2,7 @@ package minipach
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"runtime/debug"
 	"testing"
@@ -72,14 +73,19 @@ func GetTestContext(t testing.TB) *TestContext {
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState))
 
+	logger := log.StandardLogger()
+	f, err := os.OpenFile(path.Join(env.Directory, "pachd.log"), os.O_WRONLY|os.O_CREATE, 0755)
+	require.NoError(t, err)
+	logger.SetOutput(f)
+
 	senv := &serviceenv.TestServiceEnv{
 		Configuration: config,
 		EtcdClient:    env.EtcdClient,
 		DBClient:      db,
+		Logger:        logger,
 	}
 	require.NoError(t, SetupServer(senv, clientSocketPath))
 
-	var err error
 	senv.PachClient, err = client.NewFromSocket("unix://" + clientSocketPath)
 	require.NoError(t, err)
 	return &TestContext{env: senv}

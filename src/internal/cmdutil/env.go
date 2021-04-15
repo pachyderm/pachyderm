@@ -203,7 +203,6 @@ func getEnvTag(structField reflect.StructField) (*envTag, error) {
 		}
 		envTag.defaultValue = split[1]
 	}
-	fmt.Printf("env tag: %s\n", *envTag)
 	return envTag, nil
 }
 

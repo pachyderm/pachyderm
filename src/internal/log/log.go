@@ -41,16 +41,19 @@ type logger struct {
 
 // NewLogger creates a new logger
 func NewLogger(service string) Logger {
-	return newLogger(service, true)
+	return newLogger(service, true, logrus.StandardLogger())
 }
 
 // NewLocalLogger creates a new logger for local testing (which does not report prometheus metrics)
 func NewLocalLogger(service string) Logger {
-	return newLogger(service, false)
+	return newLogger(service, false, logrus.StandardLogger())
 }
 
-func newLogger(service string, exportStats bool) Logger {
-	l := logrus.StandardLogger()
+func NewWithLogger(service string, l *logrus.Logger) Logger {
+	return newLogger(service, false, l)
+}
+
+func newLogger(service string, exportStats bool, l *logrus.Logger) Logger {
 	l.Formatter = FormatterFunc(Pretty)
 	newLogger := &logger{
 		l.WithFields(logrus.Fields{"service": service}),
