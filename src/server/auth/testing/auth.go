@@ -114,6 +114,11 @@ func (a *InactiveAPIServer) RevokeAuthTokenInTransaction(*txnenv.TransactionCont
 	return nil, auth.ErrNotActivated
 }
 
+// RevokeAuthTokensForUser implements the RevokeAuthTokensForUser RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) RevokeAuthTokensForUser(context.Context, *auth.RevokeAuthTokensForUserRequest) (*auth.RevokeAuthTokensForUserResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // SetGroupsForUser implements the SetGroupsForUser RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) SetGroupsForUser(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error) {
 	return nil, auth.ErrNotActivated

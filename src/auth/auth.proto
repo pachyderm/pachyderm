@@ -378,6 +378,12 @@ message RestoreAuthTokenRequest {
 
 message RestoreAuthTokenResponse {}
 
+message RevokeAuthTokensForUserRequest {
+  string username = 1;
+}
+
+message RevokeAuthTokensForUserResponse {}
+
 message DeleteExpiredAuthTokensRequest {}
 
 message DeleteExpiredAuthTokensResponse {}
@@ -403,6 +409,7 @@ service API {
 
   rpc GetRobotToken(GetRobotTokenRequest) returns (GetRobotTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
+  rpc RevokeAuthTokensForUser(RevokeAuthTokensForUserRequest) returns (RevokeAuthTokensForUserResponse) {}
 
   rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
   rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}

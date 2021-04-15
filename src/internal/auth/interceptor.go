@@ -39,11 +39,12 @@ var authHandlers = map[string]authHandler{
 
 	// TODO: split GetGroups for self and others
 	// TODO: restrict GetClusterRoleBinding to cluster admins?
-	"/auth.API/CreateRoleBinding": authenticated,
-	"/auth.API/GetRoleBinding":    authenticated,
-	"/auth.API/ModifyRoleBinding": authenticated,
-	"/auth.API/RevokeAuthToken":   authenticated,
-	"/auth.API/GetGroups":         authenticated,
+	"/auth.API/CreateRoleBinding":       authenticated,
+	"/auth.API/GetRoleBinding":          authenticated,
+	"/auth.API/ModifyRoleBinding":       authenticated,
+	"/auth.API/RevokeAuthToken":         authenticated,
+	"/auth.API/RevokeAuthTokensForUser": authenticated,
+	"/auth.API/GetGroups":               authenticated,
 
 	"/auth.API/GetConfiguration":        clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_CONFIG),
 	"/auth.API/SetConfiguration":        clusterPermissions(auth.Permission_CLUSTER_AUTH_SET_CONFIG),
