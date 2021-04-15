@@ -22,11 +22,15 @@ pachctl auth activate
 
 
 This results in a single pachd pod, with authentication enabled. Proceed to configuring IDP integrations.
-Multi-cluster deployment
+### Multi-cluster deployment
 
-Deploying a stand-alone enterprise server requires using the `--enterprise` flag for pachctl deploy. If a pachyderm cluster will also be installed in the same kubernetes cluster, they should be installed in different namespaces:
+Deploying a stand-alone enterprise server requires using the `--enterprise` flag for pachctl deploy. 
+If a pachyderm cluster will also be installed in the same kubernetes cluster, they should be installed in **different namespaces**:
 
-pachctl deploy local --enterprise --namespace enterprise
+```shell
+$ kubectl
+$ pachctl deploy local --enterprise-server --namespace enterprise
+```
 
 This command deploys postgres, etcd and a deployment and service called pach-enterprise. Pach-enterprise uses the same docker image and pachd binary, but it listens on a different set of ports (31650, 31657, 31658) to avoid conflicts with pachd.
 
