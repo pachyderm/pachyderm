@@ -57,9 +57,7 @@ func (b *Buffer) Delete(p string, tag ...string) {
 		}
 	}
 	if len(tag) == 0 {
-		if _, ok := b.additive[p]; ok {
-			delete(b.additive, p)
-		}
+		delete(b.additive, p)
 		b.deletive[p] = &file{
 			path: p,
 		}
