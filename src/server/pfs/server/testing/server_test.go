@@ -485,17 +485,17 @@ func TestPFS(suite *testing.T) {
 	//})
 
 	// TODO: Make work with V2?
-	//// TestPutFileOverlappingPaths tests the fix for
+	//// PutFileOverlappingPaths tests the fix for
 	//// https://github.com/pachyderm/pachyderm/v2/issues/5345.
 	//// However, I can't get the test to fail without adding a sleep to
 	//// forEachPutFile in driver.go that induces the race (at:
 	//// `if req.Delete {...eg.Go(/*here*/...)}`). Setting GOMAXPROCS to 1 and 100
 	//// doesn't seem to help. In practice, that means we're still relying on
-	//// TestPipelineBuildLifecycle and pachyderm-in-Minikube to expose the race
+	//// PipelineBuildLifecycle and pachyderm-in-Minikube to expose the race
 	//// (Minikube seems to induce more races), but maybe this test will be useful in
 	//// conjunction with e.g. some kind of race detector.
 	//// TODO(msteffen): Get this test to fail reliably in the presence of the race.
-	//suite.Run("TestPutFileOverlappingPaths", func(t *testing.T) {
+	//suite.Run("PutFileOverlappingPaths", func(t *testing.T) {
 	//	t.Parallel()
 	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 	//
@@ -766,7 +766,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	// TODO: Make work with V2?
-	//suite.Run("TestCleanPath", func(t *testing.T) {
+	//suite.Run("CleanPath", func(t *testing.T) {
 	//	t.Parallel()
 	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 	//
@@ -992,7 +992,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit3, commitInfo.Commit)
 	})
 
-	// TestProvenance implements the following DAG
+	// Provenance implements the following DAG
 	//  A ─▶ B ─▶ C ─▶ D
 	//            ▲
 	//  E ────────╯
@@ -1234,7 +1234,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	// TODO: Make work with V2?
-	//suite.Run("TestPutFile", func(t *testing.T) {
+	//suite.Run("PutFile", func(t *testing.T) {
 	//	t.Parallel()
 	//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 	//
@@ -2708,7 +2708,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(commitInfos))
 	})
 
-	// TestFlush2 implements the following DAG:
+	// Flush2 implements the following DAG:
 	// A ─▶ B ─▶ C ─▶ D
 	suite.Run("Flush2", func(t *testing.T) {
 		t.Parallel()
@@ -3354,7 +3354,7 @@ func TestPFS(suite *testing.T) {
 		assert.ElementsMatch(t, []string{"/"}, globFile("/"))
 	})
 
-	// TestGetFileGlobOrder checks that GetFile(glob) streams data back in the
+	// GetFileGlobOrder checks that GetFile(glob) streams data back in the
 	// right order. GetFile(glob) is supposed to return a stream of data of the
 	// form file1 + file2 + .. + fileN, where file1 is the lexicographically lowest
 	// file matching 'glob', file2 is the next lowest, etc.
@@ -3502,7 +3502,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(commits))
 	})
 
-	// TestBackfillBranch implements the following DAG:
+	// BackfillBranch implements the following DAG:
 	//
 	// A ──▶ C
 	//  ╲   ◀
@@ -3530,6 +3530,9 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("C", "master"))
 		commits, err := env.PachClient.ListCommitByRepo("C")
 		require.NoError(t, err)
+		for _, commit := range commits {
+			fmt.Printf("commit: %s@%s\n", commit.Commit.Repo.Name, commit.Commit.ID)
+		}
 		require.Equal(t, 2, len(commits))
 
 		// Create a branch in D, it should receive a single commit for the heads of `A` and `B`.
@@ -3539,7 +3542,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(commits))
 	})
 
-	// TestUpdateBranch tests the following DAG:
+	// UpdateBranch tests the following DAG:
 	//
 	// A ─▶ B ─▶ C
 	//
@@ -3846,7 +3849,7 @@ func TestPFS(suite *testing.T) {
 		require.ElementsEqualUnderFn(t, []string{commit.ID, commit2.ID}, commits, CommitInfoToID)
 	})
 
-	// TestUpdateBranchNewOutputCommit tests the following corner case:
+	// UpdateBranchNewOutputCommit tests the following corner case:
 	// A ──▶ C
 	// B
 	//
@@ -3889,7 +3892,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 2, len(commits))
 	})
 
-	// TestSquashCommitBigSubvenance deletes a commit that is upstream of a large
+	// SquashCommitBigSubvenance deletes a commit that is upstream of a large
 	// stack of pipeline outputs and makes sure that parenthood and such are handled
 	// correctly.
 	// DAG (dots are commits):
@@ -4079,7 +4082,7 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, pipelineMaster.ParentCommit)
 	})
 
-	// TestSquashCommitMultipleChildrenSingleCommit tests that when you have the
+	// SquashCommitMultipleChildrenSingleCommit tests that when you have the
 	// following commit graph in a repo:
 	// c   d
 	//  ↘ ↙
@@ -4163,7 +4166,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 0, len(dInfo.ChildCommits))
 	})
 
-	// TestSquashCommitMultiLevelChildrenNilParent tests that when you have the
+	// SquashCommitMultiLevelChildrenNilParent tests that when you have the
 	// following commit graph in a repo:
 	//
 	//    ↙f
@@ -4458,7 +4461,7 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, fInfo.ChildCommits)
 	})
 
-	// TestSquashCommitShrinkSubvRange is like TestSquashCommitBigSubvenance, but
+	// SquashCommitShrinkSubvRange is like SquashCommitBigSubvenance, but
 	// instead of deleting commits from "schema", this test deletes them from
 	// "logs", to make sure that the subvenance of "schema" commits is rewritten
 	// correctly. As before, there are four cases:
@@ -5098,7 +5101,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 2, len(commits))
 	})
 
-	// TestMultiInputWithDeferredProcessing tests this DAG:
+	// MultiInputWithDeferredProcessing tests this DAG:
 	//
 	// input1 ─▶ deferred-output ─▶ final-output
 	//                              ▲
@@ -5560,7 +5563,7 @@ func TestPFS(suite *testing.T) {
 		}
 	})
 
-	// TestPutFileLeak is a regression test for when PutFile may result in a leaked
+	// PutFileLeak is a regression test for when PutFile may result in a leaked
 	// goroutine in pachd that would use up a limiter and never release it, in the
 	// situation where the client starts uploading a file but causes a short-circuit
 	// by making a protocol error in the PutFile request.
@@ -5592,7 +5595,7 @@ func TestPFS(suite *testing.T) {
 	//	}
 	//})
 
-	// TestAtomicHistory repeatedly writes to a file while concurrently reading
+	// AtomicHistory repeatedly writes to a file while concurrently reading
 	// its history. This checks for a regression where the repo would sometimes
 	// lock.
 	// TODO: Make work with V2?
@@ -5650,7 +5653,7 @@ func TestPFS(suite *testing.T) {
 	//	}
 	//})
 
-	// TestTrigger tests branch triggers
+	// Trigger tests branch triggers
 	suite.Run("Trigger", func(t *testing.T) {
 		if os.Getenv("RUN_BAD_TESTS") == "" {
 			t.Skip("Skipping because RUN_BAD_TESTS was empty")
@@ -5979,7 +5982,7 @@ func TestPFS(suite *testing.T) {
 		})
 	})
 
-	// TestTrigger tests branch trigger validation
+	// TriggerValidation tests branch trigger validation
 	suite.Run("TriggerValidation", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -6126,7 +6129,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 	})
 
-	suite.Run("TestModifyFileGRPC", func(subsuite *testing.T) {
+	suite.Run("ModifyFileGRPC", func(subsuite *testing.T) {
 		subsuite.Parallel()
 
 		subsuite.Run("EmptyFile", func(t *testing.T) {

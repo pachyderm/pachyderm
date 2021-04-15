@@ -258,37 +258,40 @@ func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection 
 // transaction is committed. If any errors occur, the transaction is rolled
 // back.  This will reattempt the transaction up to three times.
 func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	errs := []error{}
+	var lastErr error
 
-	attemptTx := func() (bool, error) {
-		tx, err := db.BeginTxx(ctx, nil)
+	attemptTx := func() error {
+		tx, err := db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
 		if err != nil {
-			return true, errors.EnsureStack(err)
+			return errors.EnsureStack(err)
 		}
 
 		defer tx.Rollback()
 
 		err = apply(tx)
 		if err != nil {
-			return true, err
+			return err
 		}
 
 		err = errors.EnsureStack(tx.Commit())
 		if err != nil {
-			return false, err
+			return err
 		}
-		return true, nil
+		return nil
 	}
 
 	for i := 0; i < 3; i++ {
-		if done, err := attemptTx(); done {
-			return err
+		if err := attemptTx(); err != nil {
+			if !isTransactionError(err) {
+				return err
+			}
+			lastErr = err
 		} else {
-			errs = append(errs, err)
+			return nil
 		}
 	}
 
-	return errors.Errorf("sql transaction rolled back too many times: %v", errs)
+	return errors.Wrap(lastErr, "sql transaction rolled back too many times")
 }
 
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
@@ -309,6 +312,14 @@ func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error
 
 func (c *postgresCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
 	return errors.New("Claim is not supported on postgres collections")
+}
+
+func isTransactionError(err error) bool {
+	pqerr := &pq.Error{}
+	if errors.As(err, pqerr) {
+		return pgerrcode.IsTransactionRollback(string(pqerr.Code))
+	}
+	return false
 }
 
 func isDuplicateKeyError(err error) bool {
@@ -453,7 +464,7 @@ func (c *postgresReadOnlyCollection) listRev(withFields map[string]string, val p
 		}
 	}
 
-	return c.list(nil, opts, func(m *model) error {
+	return c.list(withFields, opts, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
