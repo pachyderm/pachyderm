@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -67,10 +67,10 @@ type testDriver struct {
 }
 
 // Fuck golang
-func (td *testDriver) Jobs() col.EtcdCollection {
+func (td *testDriver) Jobs() col.PostgresCollection {
 	return td.inner.Jobs()
 }
-func (td *testDriver) Pipelines() col.EtcdCollection {
+func (td *testDriver) Pipelines() col.PostgresCollection {
 	return td.inner.Pipelines()
 }
 func (td *testDriver) NewTaskWorker() *work.Worker {
@@ -109,14 +109,14 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserErrorHandlingCode(ctx, logger, env)
 }
-func (td *testDriver) DeleteJob(stm col.STM, ji *pps.EtcdJobInfo) error {
-	return td.inner.DeleteJob(stm, ji)
+func (td *testDriver) DeleteJob(sqlTx *sqlx.Tx, ji *pps.EtcdJobInfo) error {
+	return td.inner.DeleteJob(sqlTx, ji)
 }
 func (td *testDriver) UpdateJobState(job string, state pps.JobState, reason string) error {
 	return td.inner.UpdateJobState(job, state, reason)
 }
-func (td *testDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
-	return td.inner.NewSTM(cb)
+func (td *testDriver) NewSQLTx(cb func(*sqlx.Tx) error) error {
+	return td.inner.NewSQLTx(cb)
 }
 
 // newTestEnv provides a test env with etcd and pachd instances and connected
@@ -129,12 +129,9 @@ func newTestEnv(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pp
 	}
 	workerDir := filepath.Join(realEnv.Directory, "worker")
 	driver, err := driver.NewDriver(
+		realEnv.ServiceEnv,
 		pipelineInfo,
-		realEnv.PachClient,
-		realEnv.EtcdClient,
-		"/pachyderm_test",
 		workerDir,
-		"namespace",
 	)
 	require.NoError(t, err)
 
