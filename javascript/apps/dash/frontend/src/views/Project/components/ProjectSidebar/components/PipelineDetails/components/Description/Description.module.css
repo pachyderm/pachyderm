@@ -1,0 +1,18 @@
+.term {
+  font-size: 0.75rem;
+  color: var(--placeholder-grey);
+  font-weight: 500;
+}
+
+.description {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.term + .description {
+  margin-top: 0.3125rem;
+}
+
+.description + .term {
+  margin-top: 0.937rem;
+}

@@ -1,7 +1,7 @@
 import {useCallback} from 'react';
 import {useHistory, useRouteMatch} from 'react-router';
 
-import usePipeline from '@dash-frontend/hooks/usePipeline';
+import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
 
@@ -17,20 +17,11 @@ const usePipelineDetails = () => {
   const {pipelineId, projectId} = useUrlState();
 
   const initialActiveTabId = deriveInitialTabId(params.tabId || '');
-  const {pipeline, loading} = usePipeline({
-    id: pipelineId,
-    projectId,
-  });
+  const {loading, pipeline} = useCurrentPipeline();
 
   const handleSwitch = useCallback(
-    (id: string) => {
-      if (id === TAB_ID.INFO) {
-        browserHistory.push(pipelineRoute({projectId, pipelineId}));
-      } else {
-        browserHistory.push(
-          pipelineRoute({projectId, pipelineId, tabId: TAB_ID.JOBS}),
-        );
-      }
+    (tabId: string) => {
+      browserHistory.push(pipelineRoute({projectId, pipelineId, tabId}));
     },
     [browserHistory, pipelineId, projectId],
   );

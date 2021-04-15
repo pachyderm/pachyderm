@@ -60,6 +60,17 @@ enum ProjectStatus {
   UNHEALTHY
 }
 
+enum PipelineType {
+  STANDARD
+  SPOUT
+  SERVICE
+}
+
+type Transform {
+  cmdList: [String!]!
+  image: String!
+}
+
 type Pipeline {
   id: ID!
   name: String!
@@ -75,8 +86,16 @@ type Pipeline {
   numOfJobsKilled: Int!
   numOfJobsEgressing: Int!
   lastJobState: JobState
-  inputs: [Input!]!
   description: String
+  type: PipelineType!
+  transform: Transform
+  inputString: String!
+  cacheSize: String!
+  datumTimeoutS: Int
+  datumTries: Int!
+  jobTimeoutS: Int
+  enableStats: Boolean!
+  outputBranch: String!
 }
 
 type InputPipeline {

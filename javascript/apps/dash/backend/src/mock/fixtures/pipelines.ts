@@ -17,13 +17,17 @@ const tutorial = [
       ]),
     )
     .setDescription('Not my favorite pipeline')
-    .setState(PipelineState.PIPELINE_FAILURE),
+    .setState(PipelineState.PIPELINE_FAILURE)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('edges'))
     .setInput(new Input().setPfs(new PFSInput().setRepo('images')))
     .setDescription('Very cool edges description')
-    .setState(PipelineState.PIPELINE_RUNNING),
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 ];
 
 const customerTeam = [
@@ -35,12 +39,16 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('reference')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_STANDBY),
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('models'))
     .setInput(new Input().setPfs(new PFSInput().setRepo('training')))
-    .setState(PipelineState.PIPELINE_RUNNING),
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('joint_call'))
@@ -50,12 +58,16 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('likelihoods')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_FAILURE),
+    .setState(PipelineState.PIPELINE_FAILURE)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('split'))
     .setInput(new Input().setPfs(new PFSInput().setRepo('raw_data')))
-    .setState(PipelineState.PIPELINE_STANDBY),
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('model'))
@@ -65,7 +77,9 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('parameters')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_STANDBY),
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('test'))
@@ -75,7 +89,9 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('model')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_STANDBY),
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('select'))
@@ -85,7 +101,9 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('model')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_STANDBY),
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('detect'))
@@ -95,13 +113,17 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('images')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_STANDBY),
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 ];
 
 const cron = [
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('processor'))
-    .setInput(new Input().setCron(new CronInput().setRepo('cron'))),
+    .setInput(new Input().setCron(new CronInput().setRepo('cron')))
+    .setOutputBranch('master')
+    .setCacheSize('64M'),
 ];
 
 const pipelines: {[projectId: string]: PipelineInfo[]} = {

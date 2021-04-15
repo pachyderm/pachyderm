@@ -120,6 +120,18 @@ export {JobState};
 
 export {ProjectStatus};
 
+export enum PipelineType {
+  Standard = 'STANDARD',
+  Spout = 'SPOUT',
+  Service = 'SERVICE',
+}
+
+export type Transform = {
+  __typename?: 'Transform';
+  cmdList: Array<Scalars['String']>;
+  image: Scalars['String'];
+};
+
 export type Pipeline = {
   __typename?: 'Pipeline';
   id: Scalars['ID'];
@@ -136,8 +148,16 @@ export type Pipeline = {
   numOfJobsKilled: Scalars['Int'];
   numOfJobsEgressing: Scalars['Int'];
   lastJobState?: Maybe<JobState>;
-  inputs: Array<Input>;
   description?: Maybe<Scalars['String']>;
+  type: PipelineType;
+  transform?: Maybe<Transform>;
+  inputString: Scalars['String'];
+  cacheSize: Scalars['String'];
+  datumTimeoutS?: Maybe<Scalars['Int']>;
+  datumTries: Scalars['Int'];
+  jobTimeoutS?: Maybe<Scalars['Int']>;
+  enableStats: Scalars['Boolean'];
+  outputBranch: Scalars['String'];
 };
 
 export type InputPipeline = {
@@ -435,6 +455,8 @@ export type ResolversTypes = ResolversObject<{
   PipelineState: PipelineState;
   JobState: JobState;
   ProjectStatus: ProjectStatus;
+  PipelineType: PipelineType;
+  Transform: ResolverTypeWrapper<Transform>;
   Pipeline: ResolverTypeWrapper<Pipeline>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
@@ -474,6 +496,7 @@ export type ResolversParentTypes = ResolversObject<{
   CronInput: CronInput;
   GitInput: GitInput;
   Input: Input;
+  Transform: Transform;
   Pipeline: Pipeline;
   Int: Scalars['Int'];
   InputPipeline: InputPipeline;
@@ -666,6 +689,15 @@ export type ProjectStatusResolvers = EnumResolverSignature<
   ResolversTypes['ProjectStatus']
 >;
 
+export type TransformResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Transform'] = ResolversParentTypes['Transform']
+> = ResolversObject<{
+  cmdList?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  image?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type PipelineResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Pipeline'] = ResolversParentTypes['Pipeline']
@@ -696,12 +728,28 @@ export type PipelineResolvers<
     ParentType,
     ContextType
   >;
-  inputs?: Resolver<Array<ResolversTypes['Input']>, ParentType, ContextType>;
   description?: Resolver<
     Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
+  type?: Resolver<ResolversTypes['PipelineType'], ParentType, ContextType>;
+  transform?: Resolver<
+    Maybe<ResolversTypes['Transform']>,
+    ParentType,
+    ContextType
+  >;
+  inputString?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  cacheSize?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  datumTimeoutS?: Resolver<
+    Maybe<ResolversTypes['Int']>,
+    ParentType,
+    ContextType
+  >;
+  datumTries?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  jobTimeoutS?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  enableStats?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  outputBranch?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -938,6 +986,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   PipelineState?: PipelineStateResolvers;
   JobState?: JobStateResolvers;
   ProjectStatus?: ProjectStatusResolvers;
+  Transform?: TransformResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;
@@ -1102,7 +1151,25 @@ export type PipelineQueryVariables = Exact<{
 }>;
 
 export type PipelineQuery = {__typename?: 'Query'} & {
-  pipeline: {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>;
+  pipeline: {__typename?: 'Pipeline'} & Pick<
+    Pipeline,
+    | 'id'
+    | 'name'
+    | 'state'
+    | 'type'
+    | 'description'
+    | 'inputString'
+    | 'cacheSize'
+    | 'datumTimeoutS'
+    | 'datumTries'
+    | 'jobTimeoutS'
+    | 'enableStats'
+    | 'outputBranch'
+  > & {
+      transform?: Maybe<
+        {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
+      >;
+    };
 };
 
 export type ProjectDetailsQueryVariables = Exact<{

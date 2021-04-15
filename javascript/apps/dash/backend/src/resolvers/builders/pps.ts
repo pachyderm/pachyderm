@@ -1,6 +1,20 @@
 import {JobInfo, JobState, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
 import fromPairs from 'lodash/fromPairs';
 
+import {PipelineType} from '@graphqlTypes';
+
+const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
+  if (pipelineInfo.service) {
+    return PipelineType.Service;
+  }
+
+  if (pipelineInfo.spout) {
+    return PipelineType.Spout;
+  }
+
+  return PipelineType.Standard;
+};
+
 export const pipelineInfoToGQLPipeline = (
   pipelineInfo: PipelineInfo.AsObject,
 ) => {
@@ -24,9 +38,20 @@ export const pipelineInfoToGQLPipeline = (
     numOfJobsKilled: jobStates[JobState.JOB_KILLED] || 0,
     numOfJobsEgressing: jobStates[JobState.JOB_EGRESSING] || 0,
     lastJobState: pipelineInfo.lastJobState || 0,
-
-    //TODO: Map this field
-    inputs: [],
+    type: derivePipelineType(pipelineInfo),
+    transform: pipelineInfo.transform
+      ? {
+          cmdList: pipelineInfo.transform.cmdList,
+          image: pipelineInfo.transform.image,
+        }
+      : undefined,
+    inputString: JSON.stringify(pipelineInfo.input, null, 2),
+    cacheSize: pipelineInfo.cacheSize,
+    datumTimeoutS: pipelineInfo.datumTimeout?.seconds,
+    datumTries: pipelineInfo.datumTries,
+    jobTimeoutS: pipelineInfo.jobTimeout?.seconds,
+    enableStats: pipelineInfo.enableStats,
+    outputBranch: pipelineInfo.outputBranch,
   };
 };
 

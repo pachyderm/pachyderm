@@ -514,6 +514,20 @@ export const PipelineDocument = gql`
     pipeline(args: $args) {
       id
       name
+      state
+      type
+      description
+      transform {
+        cmdList
+        image
+      }
+      inputString
+      cacheSize
+      datumTimeoutS
+      datumTries
+      jobTimeoutS
+      enableStats
+      outputBranch
     }
   }
 `;
