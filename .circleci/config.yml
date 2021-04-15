@@ -4,7 +4,7 @@ version: 2.1
 jobs:
   build:
     docker:
-    - image: circleci/golang:1.12
+    - image: circleci/golang:1.15
 
     environment:
       GOPROXY: https://proxy.golang.org
