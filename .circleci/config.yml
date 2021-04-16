@@ -42,9 +42,9 @@ jobs:
     docker:
       - image: circleci/golang:1.15
       # CircleCI PostgreSQL images available at: https://hub.docker.com/r/circleci/postgres/
-      - image: circleci/postgres:1.13-alpine
+      - image: circleci/postgres:13-ram
         environment: # environment variables for primary container
-          POSTGRES_USER: circleci-demo-go
+          POSTGRES_USER: postgres
           POSTGRES_DB: pgc
 
     parallelism: 4
