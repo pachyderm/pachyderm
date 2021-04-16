@@ -3,9 +3,13 @@
 # to both fetch the version of pachyderm you want to use and execute it.
 # "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e opencv"
 
+import ../etc/govars.mk
+
 SHELL := /bin/bash
-PACHCTL := pachctl
-KUBECTL := kubectl
+
+# kubectl is called by scripts, referenced here to make clear you can override default
+export KUBECTL ?= kubectl
+
 # This controls which version of iris is deployed.
 # acceptable values are python, julia, rstats
 # invoke another flavor like this:

@@ -39,15 +39,19 @@ def fetch_linux(version, bin_path):
 
 def main():
     version = sys.argv[1]
-    bin_path = os.path.join(os.environ["GOPATH"], "bin", "pachctl")
+    # TODO(msteffen) replace this with 'go env GOPATH', in case go's default
+    # changes
+    go_path = os.getenv("GOPATH", os.path.join(os.environ["HOME"], "go"))
+    go_bin = os.getenv("GOBIN", os.path.join(go_path, "bin"))
+    pachctl_path = os.path.join(go_bin, "pachctl")
 
     if sys.platform == "darwin":
-        fetch_darwin(version, bin_path)
+        fetch_darwin(version, pachctl_path)
     else:
-        fetch_linux(version, bin_path)
+        fetch_linux(version, pachctl_path)
 
-    st = os.stat(bin_path)
-    os.chmod(bin_path, st.st_mode | stat.S_IEXEC)
+    st = os.stat(pachctl_path)
+    os.chmod(pachctl_path, st.st_mode | stat.S_IEXEC)
 
 if __name__ == "__main__":
     main()

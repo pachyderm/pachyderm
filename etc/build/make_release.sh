@@ -2,7 +2,8 @@
 
 set -e
 
-GOPATH=$(go env GOPATH)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source "${SCRIPT_DIR}/../govars.sh"
 
 make VERSION_ADDITIONAL="$VERSION_ADDITIONAL" install-clean
 version="$("$GOPATH/bin/pachctl" version --client-only)"
