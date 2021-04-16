@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
 
@@ -92,8 +93,18 @@ func (jdi *JobDatumIterator) SetDeleter(deleter func(*datum.Meta) error) {
 // TODO: There is probably a clean way to cache the output datum filesets so we do not need to recompute them across iterations.
 func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 	jdi.stats.Skipped = 0
-	if jdi.parent == nil {
-		return jdi.dit.Iterate(cb)
+	for {
+		if jdi.parent == nil {
+			return jdi.dit.Iterate(cb)
+		}
+		if err := jdi.parent.dit.Iterate(func(_ *datum.Meta) error { return nil }); err != nil {
+			if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+				jdi.parent = jdi.parent.parent
+				continue
+			}
+			return err
+		}
+		break
 	}
 	pachClient := jdi.jc.pachClient.WithCtx(jdi.ctx)
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {

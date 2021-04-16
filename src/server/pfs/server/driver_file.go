@@ -178,9 +178,15 @@ func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob 
 	if err != nil {
 		return nil, err
 	}
+	mf, err := globMatchFunction(glob)
+	if err != nil {
+		return nil, err
+	}
 	opts := []SourceOption{
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
-			return fileset.NewGlobFilter(fs, glob, true)
+			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+				return mf(idx.Path)
+			}, true)
 		}),
 	}
 	return NewSource(d.storage, commitInfo, fs, opts...), nil
@@ -283,15 +289,24 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, glob
 	if err != nil {
 		return err
 	}
+	mf, err := globMatchFunction(glob)
+	if err != nil {
+		return err
+	}
 	opts := []SourceOption{
 		WithFull(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
-			return fileset.NewGlobFilter(fs, glob, false)
+			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+				return mf(idx.Path)
+			}, true)
 		}),
 	}
 	s := NewSource(d.storage, commitInfo, fs, opts...)
-	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
-		return cb(fi)
+	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+		if mf(fi.File.Path) {
+			return cb(fi)
+		}
+		return nil
 	})
 }
 
