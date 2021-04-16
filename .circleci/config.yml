@@ -37,8 +37,58 @@ jobs:
 
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
+
+  pg:
+    docker:
+      - image: circleci/golang:1.15
+      # CircleCI PostgreSQL images available at: https://hub.docker.com/r/circleci/postgres/
+      - image: circleci/postgres:1.13-alpine
+        environment: # environment variables for primary container
+          POSTGRES_USER: circleci-demo-go
+          POSTGRES_DB: pgc
+
+    parallelism: 4
+
+    environment: # environment variables for the build itself
+      TEST_RESULTS: /tmp/test-results # path to where test results will be saved
+
+    steps: # steps that comprise the `build` job
+      - checkout # check out source code to working directory
+      - run: mkdir -p $TEST_RESULTS # create the test results directory
+
+      - restore_cache: # restores saved cache if no changes are detected since last run
+          keys:
+            - go-mod-v4-{{ checksum "go.sum" }}
+
+      #  Wait for Postgres to be ready before proceeding
+      - run:
+          name: Waiting for Postgres to be ready
+          command: dockerize -wait tcp://localhost:5432 -timeout 1m
+
+      - run:
+          name: Run unit tests
+          environment: # environment variables for the database url and path to migration files
+            #CONTACTS_DB_URL: "postgres://circleci-demo-go@localhost:5432/circle_test?sslmode=disable"
+            #CONTACTS_DB_MIGRATIONS: /home/circleci/project/db/migrations
+
+          # store the results of our tests in the $TEST_RESULTS directory
+          command: |
+            PACKAGE_NAMES=$(cat pfs_tests.txt | circleci tests split)
+            gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- $PACKAGE_NAMES
+
+      - save_cache:
+          key: go-mod-v4-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+      - store_artifacts: # upload test summary for display in Artifacts
+          path: /tmp/test-results
+          destination: raw-test-output
+
+      - store_test_results: # upload test results for display in Test Summary
+          path: /tmp/test-results
 workflows:
   version: 2 
   build-workflow:
     jobs:
       - build
+      - pg
