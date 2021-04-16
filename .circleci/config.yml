@@ -65,13 +65,10 @@ jobs:
       #  Wait for Postgres to be ready before proceeding
       - run:
           name: Waiting for Postgres to be ready
-          command: dockerize -wait tcp://localhost:5432 -timeout 1m
+          command: dockerize -wait tcp://localhost:32228 -timeout 1m
 
       - run:
           name: Run unit tests
-          environment: # environment variables for the database url and path to migration files
-            #CONTACTS_DB_URL: "postgres://circleci-demo-go@localhost:5432/circle_test?sslmode=disable"
-            #CONTACTS_DB_MIGRATIONS: /home/circleci/project/db/migrations
 
           # store the results of our tests in the $TEST_RESULTS directory
           command: |
