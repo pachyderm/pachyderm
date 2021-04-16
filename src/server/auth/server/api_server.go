@@ -196,8 +196,8 @@ func NewAuthServer(
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(env.GetContext(), authConfig, configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(env.GetContext(), roleBindings, clusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(env.Context(), authConfig, configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(env.Context(), roleBindings, clusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch()

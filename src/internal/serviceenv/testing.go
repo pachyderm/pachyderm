@@ -25,7 +25,6 @@ type TestServiceEnv struct {
 	DBClient      *sqlx.DB
 	Ctx           context.Context
 	Logger        *logrus.Logger
-	Context       context.Context
 }
 
 func (s *TestServiceEnv) Config() *Configuration {
@@ -66,7 +65,4 @@ func (s *TestServiceEnv) Close() error {
 
 func (s *TestServiceEnv) GetLogger(service string) log.Logger {
 	return log.NewWithLogger(service, s.Logger)
-}
-func (s *TestServiceEnv) GetContext() context.Context {
-	return s.Context
 }

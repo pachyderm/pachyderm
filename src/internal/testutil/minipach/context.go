@@ -45,7 +45,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
@@ -90,7 +89,7 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 
 	env := testetcd.NewEnv(t)
 	testId := random.String(20)
-	clientSocketPath := path.Join(env.Directory, "pachd_socket")
+	clientSocketPath := path.Join(os.TempDir(), "pachd_socket_"+testId)
 	fmt.Printf("Test context %s - %s\n", testId, env.Directory)
 
 	fullConfig := &serviceenv.PachdFullConfiguration{}
@@ -101,7 +100,7 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 	config.StorageRoot = path.Join(env.Directory, "pach_root")
 	config.CacheRoot = path.Join(env.Directory, "cache_root")
 
-	db := dbutil.NewTestDB(t)
+	db := testutil.NewTestDB(t)
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState))
 
 	logger := log.StandardLogger()
@@ -117,7 +116,7 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 		EtcdClient:    env.EtcdClient,
 		DBClient:      db,
 		Logger:        logger,
-		Context:       ctx,
+		Ctx:           ctx,
 	}
 	require.NoError(t, setupServer(senv, clientSocketPath))
 
@@ -182,7 +181,7 @@ func setupServer(env serviceenv.ServiceEnv, socketPath string) error {
 		txnEnv := &txnenv.TransactionEnv{}
 		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix), env.GetDBClient())
+			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
 			if err != nil {
 				return err
 			}

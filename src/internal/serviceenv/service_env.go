@@ -41,7 +41,6 @@ type ServiceEnv interface {
 	Context() context.Context
 	Close() error
 	GetLogger(service string) log.Logger
-	GetContext() context.Context
 }
 
 // NonblockingServiceEnv is an implementation of ServiceEnv that initializes
