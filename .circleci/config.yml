@@ -47,6 +47,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_DB: pgc
           POSTGRES_HOST_AUTH_METHOD: trust
+          PGPORT: 32228
 
     parallelism: 4
 
