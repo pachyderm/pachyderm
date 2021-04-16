@@ -46,6 +46,7 @@ jobs:
         environment: # environment variables for primary container
           POSTGRES_USER: postgres
           POSTGRES_DB: pgc
+          POSTGRES_HOST_AUTH_METHOD: trust
 
     parallelism: 4
 
