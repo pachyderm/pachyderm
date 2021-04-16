@@ -2,7 +2,8 @@
 # removes and regenerates docs/master/reference/pachctl on the current version of the doc
 set -e
 
-GOPATH=$(go env GOPATH)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source "${SCRIPT_DIR}/../govars.sh"
 
 version="$("$GOPATH/bin/pachctl" version --client-only)"
 major_minor=$(echo "$version" | cut -f -2 -d ".")

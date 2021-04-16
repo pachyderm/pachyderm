@@ -3,11 +3,14 @@
 
 set -x
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source "${SCRIPT_DIR}/../govars.sh"
+
 # Install old version of pachctl, for migration tests
-if [[ ! -f "${GOPATH}/bin/pachctl_1_11" ]]; then
+if [[ ! -f "${GOBIN}/pachctl_1_11" ]]; then
   curl -Ls https://github.com/pachyderm/pachyderm/releases/download/v1.11.9/pachctl_1.11.9_linux_amd64.tar.gz \
-    | tar -xz pachctl_1.11.9_linux_amd64/pachctl -O >"${GOPATH}/bin/pachctl_1_11"
-  chmod +x "${GOPATH}/bin/pachctl_1_11"
+    | tar -xz pachctl_1.11.9_linux_amd64/pachctl -O >"${GOBIN}/pachctl_1_11"
+  chmod +x "${GOBIN}/pachctl_1_11"
 fi
 
 # (If 1.11 is already deployed, we're done. Otherwise, undeploy + deploy)
