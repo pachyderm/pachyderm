@@ -124,6 +124,17 @@ jobs:
           paths:
             - "/go/pkg/mod"
 
+  kind:
+    docker:
+      - image: tiltdev/circleci-kind:v1.4.0
+    resource_class: large
+
+    steps:
+      - setup_remote_docker
+      - checkout
+      - run: with-kind-cluster.sh
+
+
 workflows:
   version: 2 
   build-workflow:
@@ -131,3 +142,4 @@ workflows:
       #- internal
       #- pg
       - build
+      - kind
