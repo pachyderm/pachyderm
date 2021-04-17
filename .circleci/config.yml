@@ -133,6 +133,7 @@ jobs:
       - setup_remote_docker
       - checkout
       - run: with-kind-cluster.sh
+      - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
 
 
 workflows:
