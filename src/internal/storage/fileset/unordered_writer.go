@@ -99,9 +99,25 @@ func (uw *UnorderedWriter) serialize() error {
 		}); err != nil {
 			return err
 		}
-		return uw.buffer.WalkDeletive(func(p string, tag ...string) error {
-			return w.Delete(p, tag...)
-		})
+		prev = ""
+		var tags []string
+		if err := uw.buffer.WalkDeletive(func(p string, tag ...string) error {
+			if prev != "" && p != prev {
+				if err := w.Delete(prev, tags...); err != nil {
+					return err
+				}
+				tags = nil
+			}
+			prev = p
+			tags = append(tags, tag...)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if prev != "" {
+			return w.Delete(prev, tags...)
+		}
+		return nil
 	})
 }
 
