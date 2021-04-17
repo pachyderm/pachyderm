@@ -114,7 +114,7 @@ jobs:
           command: |
             CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o pachd "src/server/cmd/pachd/main.go"
 
-            - run:
+      - run:
           name: Build Worker
           command: |
             CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o worker "src/server/cmd/worker/main.go"
