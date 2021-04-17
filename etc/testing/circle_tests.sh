@@ -52,4 +52,4 @@ time ./etc/testing/testctl-ssh.sh "${TESTCTL_OPTIONS[@]}" \
 echo "Finished test $BUCKET."
 
 mkdir -p ~/results
-./etc/testing/testctl-ssh.sh -- cat results.json > ~/results/results.json
+./etc/testing/testctl-ssh.sh -- bash -c 'if [ -f /tmp/results.json ]; then cat /tmp/results.json; fi' > ~/results/results.json
