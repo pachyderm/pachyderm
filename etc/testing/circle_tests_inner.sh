@@ -15,7 +15,7 @@ GOPATH=/root/go
 export GOPATH
 PATH="${GOPATH}/bin:${PATH}"
 export PATH
-TESTFLAGS="-json | tee -a results.json | jq -r '.Output'"
+TESTFLAGS="-json | tee -a results.json | jq -j 'select( .Output != null ) | .Output'"
 export TESTFLAGS
 
 # Some tests (e.g. TestMigrateFrom1_7) expect
