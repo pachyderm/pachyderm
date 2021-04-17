@@ -2,7 +2,7 @@
 version: 2.1
 
 jobs:
-  build:
+  internal:
     docker:
     - image: circleci/golang:1.15
 
@@ -85,9 +85,49 @@ jobs:
 
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
+  build:
+    docker:
+    - image: circleci/golang:1.15
+
+    environment:
+      GOPROXY: https://proxy.golang.org
+
+    resource_class: large
+
+    steps:
+      - checkout
+      - restore_cache: # restores saved cache if no changes are detected since last run
+          keys:
+            - go-mod-v4-{{ checksum "go.sum" }}
+
+      - run:
+          name: Get Deps
+          command: |
+            go get github.com/go-bindata/go-bindata/...
+      - run:
+          name: Package Assets
+          command: |
+            go-bindata -o src/server/cmd/worker/assets/assets.go -pkg assets /etc/ssl/certs/...
+
+      - run:
+          name: Build Pachd
+          command: |
+            CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o pachd "src/server/cmd/pachd/main.go"
+
+            - run:
+          name: Build Worker
+          command: |
+            CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o worker "src/server/cmd/worker/main.go"
+
+      - save_cache:
+          key: go-mod-v4-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+
 workflows:
   version: 2 
   build-workflow:
     jobs:
+      #- internal
+      #- pg
       - build
-      - pg
