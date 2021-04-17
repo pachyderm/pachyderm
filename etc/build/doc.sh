@@ -21,7 +21,7 @@ doc_root="${here}/../../doc"
 pachctl_docs="${doc_root}/docs/master/reference/pachctl"
 rm -rf "${pachctl_docs}" && mkdir "${pachctl_docs}"
 # TODO(msteffen): base this on $PACHCTL?
-"${GOPATH}/bin/pachctl-doc"
+"${GOBIN}/pachctl-doc"
 
 # Remove "see also" sections, since they have bad links and aren't very
 # helpful here anyways
