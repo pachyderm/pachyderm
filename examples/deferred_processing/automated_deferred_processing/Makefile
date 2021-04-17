@@ -6,7 +6,7 @@
 # to both fetch the version of pachyderm you want to use and execute it.
 # "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e opencv"
 
-import ../../../etc/govars.mk
+include ../../../etc/govars.mk
 
 SHELL := /bin/bash
 DOCKER := docker
