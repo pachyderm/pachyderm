@@ -1,10 +1,11 @@
 #!/bin/bash
 # deploy.sh deploys a pachyderm 1.7 cluster
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source "${SCRIPT_DIR}/../../../govars.sh"
+
 set -x
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "${SCRIPT_DIR}/../govars.sh"
 
 # Install old version of pachctl, for migration tests
 if [[ ! -f "${GOBIN}/pachctl_1_7" ]]; then
