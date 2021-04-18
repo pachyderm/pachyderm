@@ -24,6 +24,10 @@ jobs:
       BUCKET: << parameters.bucket >>
       RUN_BAD_TESTS: << pipeline.parameters.run_flaky_tests >>
       RETAIN_SLOTS: << pipeline.parameters.retain_slots >>
+      BIGQUERY_PROJECT: alysha-dev-006
+      BIGQUERY_DATASET: pach_test
+      BIGQUERY_TABLE: test_runs
+      TEST_RESULTS_BUCKET: pach-test-data
 
     resource_class: small
 
@@ -57,9 +61,12 @@ jobs:
           name: Run tests
           command: |
             etc/testing/circle_tests.sh 2>&1 |ts
-      
-      - store_artifacts:
-          path: ~/results/
+
+      - run:
+          name: Upload test stats 
+          when: always
+          command: |
+            etc/testing/upload_stats.sh
 
       - run:
           name: Dump debugging info in case of failure
