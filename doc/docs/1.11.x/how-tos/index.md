@@ -37,7 +37,7 @@ data operations in Pachyderm.
         <h4 class="mdl-card__title-text">Basic Data Operations &nbsp;&nbsp;&nbsp;<i class="fa fa-cogs"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Learn about how upload your data into Pachyderm,
+        Learn about how to upload your data into Pachyderm,
         export your data out of Pachyderm, and other important
         data operations.
       </div>
@@ -103,7 +103,7 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__supporting-text">
         Learn more advanced Pachyderm data operations,
-        such as splitting, joininig, and merging your data.
+        such as splitting, joining, and merging your data.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
