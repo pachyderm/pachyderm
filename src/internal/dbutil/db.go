@@ -14,7 +14,7 @@ const (
 	// DefaultHost is the default host.
 	DefaultHost = "127.0.0.1"
 	// DefaultPort is the default port.
-	DefaultPort = 32228
+	DefaultPort = 5432
 	// DefaultUser is the default user
 	DefaultUser = "postgres"
 	// DefaultDBName is the default DB name.
