@@ -15,6 +15,8 @@ GOPATH=/root/go
 export GOPATH
 PATH="${GOPATH}/bin:${PATH}"
 export PATH
+TESTFLAGS="-json | tee -a /tmp/results.json | jq -j 'select( .Output != null ) | .Output'"
+export TESTFLAGS
 
 # Some tests (e.g. TestMigrateFrom1_7) expect
 # $GOPATH/src/github.com/pachyderm/pachyderm to point to .
