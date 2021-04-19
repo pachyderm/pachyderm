@@ -153,8 +153,13 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 		skippedFilesetIterator := datum.NewFileSetIterator(pachClient, skippedFilesetID)
 		outputFilesetID, err = jdi.withDatumFileset(pachClient, func(s *datum.Set) error {
 			return datum.Merge([]datum.Iterator{skippedFilesetIterator, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
-				// Datum only exists in the parent job.
 				if len(metas) == 1 {
+					// Datum was skipped, but does not exist in the parent job output.
+					if metas[0].JobID == jdi.jobID {
+						jdi.stats.Skipped--
+						return s.UploadMeta(metas[0], datum.WithPrefixIndex())
+					}
+					// Datum only exists in the parent job.
 					return jdi.deleteDatum(metas[0])
 				}
 				// Check if a skipped datum was not successfully processed by the parent.

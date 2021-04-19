@@ -1369,6 +1369,15 @@ func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.Delet
 	return &auth.DeleteExpiredAuthTokensResponse{}, nil
 }
 
+func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.RevokeAuthTokensForUserRequest) (resp *auth.RevokeAuthTokensForUserResponse, retErr error) {
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, req.Username); err != nil {
+		return nil, errors.Wrapf(err, "error deleting all auth tokens")
+	}
+	return &auth.RevokeAuthTokensForUserResponse{}, nil
+}
+
 func (a *apiServer) deleteExpiredTokensRoutine() {
 	go func(ctx context.Context) {
 		for {

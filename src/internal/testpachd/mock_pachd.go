@@ -82,6 +82,7 @@ type whoAmIFunc func(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse
 type getOIDCLoginFunc func(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error)
 type getRobotTokenFunc func(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error)
 type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
+type revokeAuthTokensForUserFunc func(context.Context, *auth.RevokeAuthTokensForUserRequest) (*auth.RevokeAuthTokensForUserResponse, error)
 type setGroupsForUserFunc func(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error)
 type modifyMembersFunc func(context.Context, *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error)
 type getGroupsFunc func(context.Context, *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error)
@@ -103,6 +104,7 @@ type mockWhoAmI struct{ handler whoAmIFunc }
 type mockGetOIDCLogin struct{ handler getOIDCLoginFunc }
 type mockGetRobotToken struct{ handler getRobotTokenFunc }
 type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
+type mockRevokeAuthTokensForUser struct{ handler revokeAuthTokensForUserFunc }
 type mockSetGroupsForUser struct{ handler setGroupsForUserFunc }
 type mockModifyMembers struct{ handler modifyMembersFunc }
 type mockGetGroups struct{ handler getGroupsFunc }
@@ -123,6 +125,7 @@ func (mock *mockWhoAmI) Use(cb whoAmIFunc)                                   { m
 func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)                       { mock.handler = cb }
 func (mock *mockGetRobotToken) Use(cb getRobotTokenFunc)                     { mock.handler = cb }
 func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)                 { mock.handler = cb }
+func (mock *mockRevokeAuthTokensForUser) Use(cb revokeAuthTokensForUserFunc) { mock.handler = cb }
 func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)               { mock.handler = cb }
 func (mock *mockModifyMembers) Use(cb modifyMembersFunc)                     { mock.handler = cb }
 func (mock *mockGetGroups) Use(cb getGroupsFunc)                             { mock.handler = cb }
@@ -149,6 +152,7 @@ type mockAuthServer struct {
 	GetOIDCLogin            mockGetOIDCLogin
 	GetRobotToken           mockGetRobotToken
 	RevokeAuthToken         mockRevokeAuthToken
+	RevokeAuthTokensForUser mockRevokeAuthTokensForUser
 	SetGroupsForUser        mockSetGroupsForUser
 	ModifyMembers           mockModifyMembers
 	GetGroups               mockGetGroups
@@ -229,6 +233,12 @@ func (api *authServerAPI) RevokeAuthToken(ctx context.Context, req *auth.RevokeA
 		return api.mock.RevokeAuthToken.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.RevokeAuthToken")
+}
+func (api *authServerAPI) RevokeAuthTokensForUser(ctx context.Context, req *auth.RevokeAuthTokensForUserRequest) (*auth.RevokeAuthTokensForUserResponse, error) {
+	if api.mock.RevokeAuthTokensForUser.handler != nil {
+		return api.mock.RevokeAuthTokensForUser.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.RevokeAuthTokensForUser")
 }
 func (api *authServerAPI) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error) {
 	if api.mock.SetGroupsForUser.handler != nil {

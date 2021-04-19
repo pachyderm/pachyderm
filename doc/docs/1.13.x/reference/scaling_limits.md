@@ -7,7 +7,7 @@ Our free Pachyderm Community Edition contains **built-in scaling limitations and
 
 ## Scaling Limits
 
-|**Number of pipelines** deployed| **Number of workers** for each pipeline|
+|**Number of concurrent pipelines** deployed| **Number of workers** for each pipeline|
 |------|------|
 |Community Users can deploy **up to 16 pipelines**.| Community Users can run **up to 8 workers in parallel** on each pipeline.|
 
