@@ -41,11 +41,11 @@ jobs:
   pg:
     docker:
       - image: circleci/golang:1.15
-      # CircleCI PostgreSQL images available at: https://hub.docker.com/r/circleci/postgres/
         environment:
           DATABASE_URL: "postgres://postgres:pw1234@localhost:5432/pgc?sslmode=disable"
-      - image: circleci/postgres:13
-        environment: # environment variables for primary container
+      
+      - image: postgres:13.0-alpine
+        environment:
           POSTGRES_USER: postgres
           POSTGRES_DB: pgc
           #POSTGRES_HOST_AUTH_METHOD: trust
