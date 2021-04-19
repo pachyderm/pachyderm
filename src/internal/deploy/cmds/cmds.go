@@ -240,11 +240,12 @@ func contextCreate(namePrefix, namespace, serverCert string, enterpriseServer bo
 	}
 
 	newContext := &config.Context{
-		Source:      config.ContextSource_IMPORTED,
-		ClusterName: clusterName,
-		AuthInfo:    authInfo,
-		Namespace:   namespace,
-		ServerCAs:   serverCert,
+		Source:           config.ContextSource_IMPORTED,
+		ClusterName:      clusterName,
+		AuthInfo:         authInfo,
+		Namespace:        namespace,
+		ServerCAs:        serverCert,
+		EnterpriseServer: enterpriseServer,
 	}
 
 	equivalentContextName, equivalentContext := findEquivalentContext(cfg, newContext)

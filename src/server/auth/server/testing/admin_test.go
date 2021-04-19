@@ -928,6 +928,88 @@ func TestTokenRevoke(t *testing.T) {
 	require.Equal(t, 0, len(repos))
 }
 
+func TestRevokeTokensForUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	contains := func(tokens []*auth.TokenInfo, hashedToken string) bool {
+		for _, v := range tokens {
+			if v.HashedToken == hashedToken {
+				return true
+			}
+		}
+		return false
+	}
+
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// Create repo (so alice has something to list)
+	repo := tu.UniqueString("TestTokenRevoke")
+	require.NoError(t, rootClient.CreateRepo(repo))
+
+	alice := tu.UniqueString("robot:alice")
+	bob := tu.UniqueString("robot:bob")
+
+	// mint two tokens for Alice
+	aliceTokenA, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: alice,
+	})
+	require.NoError(t, err)
+
+	aliceTokenB, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: alice,
+	})
+	require.NoError(t, err)
+
+	// mint one token for Bob
+	bobToken, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: bob,
+	})
+	require.NoError(t, err)
+
+	// verify all three tokens are extractable
+	extractTokensResp, extractErr := rootClient.ExtractAuthTokens(rootClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.NoError(t, extractErr)
+
+	preRevokeTokens := extractTokensResp.Tokens
+	require.Equal(t, 3, len(preRevokeTokens), "all three tokens should be returned")
+	require.True(t, contains(preRevokeTokens, auth.HashToken(aliceTokenA.Token)), "Alice's Token A should be extracted")
+	require.True(t, contains(preRevokeTokens, auth.HashToken(aliceTokenB.Token)), "Alice's Token B should be extracted")
+	require.True(t, contains(preRevokeTokens, auth.HashToken(bobToken.Token)), "Bob's Token should be extracted")
+
+	aliceClient := tu.GetUnauthenticatedPachClient(t)
+	aliceClient.SetAuthToken(aliceTokenA.Token)
+
+	bobClient := tu.GetUnauthenticatedPachClient(t)
+	bobClient.SetAuthToken(bobToken.Token)
+
+	// delete all tokens for user Alice
+	_, revokeErr := rootClient.RevokeAuthTokensForUser(rootClient.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: alice})
+	require.NoError(t, revokeErr)
+
+	// verify Alice can no longer authenticate with either of her tokens
+	_, whoAmIErr := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.YesError(t, whoAmIErr)
+
+	aliceClient.SetAuthToken(aliceTokenB.Token)
+	_, whoAmIErr = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.YesError(t, whoAmIErr)
+
+	// verify Bob can still authenticate with his token
+	_, whoAmIErr = bobClient.WhoAmI(bobClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, whoAmIErr)
+
+	// verify only Bob's tokens are extractable
+	extractTokensResp, extractErr = rootClient.ExtractAuthTokens(rootClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.NoError(t, extractErr)
+	postRevokeTokens := extractTokensResp.Tokens
+	require.Equal(t, 1, len(postRevokeTokens), "There should now be two fewer tokens extracted")
+	require.True(t, contains(postRevokeTokens, auth.HashToken(bobToken.Token)), "Bob's Token should be extracted")
+}
+
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)
 // pipelines works if auth was deactivated after they were created. Pipelines
 // store a unique auth token after auth is activated, and if that auth token

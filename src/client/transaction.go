@@ -514,6 +514,9 @@ func (c *authBuilderClient) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCL
 func (c *authBuilderClient) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest, opts ...grpc.CallOption) (*auth.RevokeAuthTokenResponse, error) {
 	return nil, unsupportedError("RevokeAuthToken")
 }
+func (c *authBuilderClient) RevokeAuthTokensForUser(ctx context.Context, req *auth.RevokeAuthTokensForUserRequest, opts ...grpc.CallOption) (*auth.RevokeAuthTokensForUserResponse, error) {
+	return nil, unsupportedError("RevokeAuthTokensForUser")
+}
 func (c *authBuilderClient) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest, opts ...grpc.CallOption) (*auth.SetGroupsForUserResponse, error) {
 	return nil, unsupportedError("SetGroupsForUser")
 }
