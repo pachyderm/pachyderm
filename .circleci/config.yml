@@ -52,6 +52,7 @@ jobs:
           POSTGRES_PASSWORD: pw1234
           PGPORT: 32228
 
+    resource_class: large
     parallelism: 4
 
     environment: # environment variables for the build itself
