@@ -4,6 +4,7 @@ import {useEffect, useState} from 'react';
 
 import linkStateAsJobState from '@dash-frontend/lib/linkStateAsJobState';
 import nodeStateAsPipelineState from '@dash-frontend/lib/nodeStateAsPipelineState';
+import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {
   Dag,
   JobState,
@@ -18,6 +19,7 @@ import error from '../images/error.svg';
 import noAccess from '../images/noAccess.svg';
 import pipeline from '../images/pipeline.svg';
 import repo from '../images/repo.svg';
+import deriveRepoNameFromNode from '../utils/deriveRepoNameFromNode';
 
 import useRouteController from './useRouteController';
 
@@ -27,6 +29,9 @@ const NODE_IMAGE_Y_OFFSET = -20;
 const NODE_IMAGE_PREVIEW_Y_OFFSET = -20;
 const ORIGINAL_NODE_IMAGE_WIDTH = 170;
 const ORIGINAL_NODE_IMAGE_HEIGHT = 102;
+const NODE_TOOLTIP_WIDTH = 250;
+const NODE_TOOLTIP_HEIGHT = 80;
+const NODE_TOOLTIP_OFFSET = -88;
 
 const convertNodeStateToDagState = (state: Node['state']) => {
   if (!state) return '';
@@ -190,8 +195,34 @@ const generateNodeGroups = (
           .html(
             (d) =>
               `<p class="label" style="height:${nodeHeight}px">${
-                d.access ? d.name : 'No Access'
+                d.access ? deriveRepoNameFromNode(d) : 'No Access'
               }</p>`,
+          );
+
+      !preview &&
+        enter
+          .append('foreignObject')
+          .attr('class', 'nodeTooltip')
+          .attr('width', NODE_TOOLTIP_WIDTH)
+          .attr('height', NODE_TOOLTIP_HEIGHT)
+          .style('min-height', NODE_TOOLTIP_HEIGHT)
+          .attr('y', NODE_TOOLTIP_OFFSET)
+          .attr('x', -(NODE_TOOLTIP_WIDTH / 4))
+          .append('xhtml:span')
+          .html(
+            (d) => `<p class="tooltipText" style="min-height: ${
+              NODE_TOOLTIP_HEIGHT - 9
+            }px">
+                ${deriveRepoNameFromNode(d)}
+                <br /><br />
+                ${
+                  d.type === NodeType.Pipeline
+                    ? `${d.type.toLowerCase()} status: ${readablePipelineState(
+                        d.state || '',
+                      )}`
+                    : ''
+                }
+              </p>`,
           );
 
       enter

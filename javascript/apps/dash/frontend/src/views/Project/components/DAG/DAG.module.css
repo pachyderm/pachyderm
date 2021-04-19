@@ -23,16 +23,23 @@
   fill: var(--white);
 }
   
-.base :global .nodeGroup:hover .node .label, .base :global .nodeGroup.selected .node .label {
+.base :global .nodeGroup:hover .node .label,
+.base :global .nodeGroup.selected .node .label {
   background-color: var(--background-blue);
 }
 
-.base :global .nodeGroup.error:hover .node .label, .base :global .nodeGroup.selected.error .node .label {
+.base :global .nodeGroup.error:hover .node .label,
+.base :global .nodeGroup.selected.error .node .label {
   background-color: var(--background-pink);
 }
 
-.base :global .nodeGroup.busy:hover, .base :global .nodeGroup.selected.busy {
-  opacity: 0.5;
+.base :global .nodeGroup.busy:hover .label,
+.base :global .nodeGroup.selected.busy .label,
+.base :global .nodeGroup.busy:hover use,
+.base :global .nodeGroup.selected.busy use {
+  opacity: #f4f9fa;
+  color: #8e8f91;
+  box-shadow: 0 1px 2px 0 var(--line-grey);
 }
 
 .base :global .pipeline {
@@ -60,28 +67,63 @@
   stroke: var(--pachyderm-black);
   stroke-width: 1.5px;
   marker-end: url(#end-arrow);
+  stroke-linejoin: bevel;
 }
 
 .base :global .link:hover {
   cursor: pointer;
 }
 
-.base :global .link.transferring, .base :global .link.selected{
+.base :global .link.transferring,
+.base :global .link.selected{
   stroke: var(--pachyderm-green);
-  stroke-width: 2px;
+  stroke-width: 1.5px;
   marker-end: url(#end-arrow-active);
 }
 
-.base :global .link.errorTarget.selected, .base :global .link.errorSource.selected {
+.base :global .link.errorTarget.selected,
+.base :global .link.errorSource.selected {
   stroke: var(--error-red);
-  stroke-width: 2px;
+  stroke-width: 1.5px;
   marker-end: url(#end-arrow-error);
 }
 
-.base :global .link.errorSource, .base :global .link.busySource {
+.base :global .link.errorSource,
+.base :global .link.busySource {
   stroke-dasharray: 0.25rem;
 }
 
 .base :global .circle {
   fill: var(--success-green)
+}
+.base :global .nodeTooltip {
+  pointer-events: none;
+}
+
+.base :global .nodeTooltip .tooltipText {
+  box-shadow: 0 1px 2px 0 var(--border-grey);
+  border-radius: 2px;
+  font-size: var(--font-size-body-small);
+  text-transform: capitalize;
+  background-color: var(--pachyderm-black);
+  color: var(--white);
+  padding: 0.75rem;
+  opacity: 0;
+}
+
+.base :global .nodeTooltip .tooltipText:after {
+  width: 5px;
+  height: 20px;
+  margin-left: calc(50% - 20px);
+  content: "";
+  display: block;
+  position: fixed;
+  bottom: -11px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--pachyderm-black);
+}
+
+.base :global .nodeGroup:hover .nodeTooltip .tooltipText {
+  opacity: 1;
 }
