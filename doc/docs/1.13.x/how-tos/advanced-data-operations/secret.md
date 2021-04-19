@@ -34,9 +34,20 @@ Next, run the following to actually create the secret in the Pachyderm Kubernete
 ```shell
 $ pachctl create secret -f myfirstsecret.json 
 ```
+
+You can run `pachctl list secret` to verify that your secret has been properly created.
+You should see output that looks like the following:
+
+```
+NAME     TYPE                           CREATED        
+mysecret kubernetes.io/dockerconfigjson 11 seconds ago 
+```
+!!! Note
+   Use `pachctl delete secret` to delete a secret given its name,  `pachctl inspect secret`
 You can now edit your pipeline specification file as follow.
 
 ## Reference a Secret in Pachyderm's specification file
+Now that your secret is created, you will need to notify your pipeline by updating your pipeline [specification file](https://docs.pachyderm.com/latest/reference/pipeline_spec/#json-manifest-format).
 In Pachyderm, a Secret can be used in three different ways:
 
 1. As a container environment variable.
@@ -87,15 +98,3 @@ In Pachyderm, a Secret can be used in three different ways:
    }
    ```
 For more general information on Secrets, read [Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/secret/).
-
-
-
-
-
-    transform.secrets is an array of secrets. You can use the secrets to embed sensitive data, such as credentials. The secrets reference Kubernetes secrets by name and specify a path to map the secrets or an environment variable (env_var) that the value should be bound to. Secrets must set name which should be the name of a secret in Kubernetes. Secrets must also specify either mount_path or env_var and key. See more information about Kubernetes secrets here.
-
-transform.image_pull_secrets is an array of image pull secrets, image pull secrets are similar to secrets except that they are mounted before the containers are created so they can be used to provide credentials for image pulling. For example, if you are using a private Docker registry for your images, you can specify it by running the following command:
-
-
-kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
-And then, notify your pipeline about it by using "image_pull_secrets": [ "myregistrykey" ]. Read more about image pull secrets here
