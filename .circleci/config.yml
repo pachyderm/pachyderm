@@ -75,8 +75,7 @@ jobs:
 
           # store the results of our tests in the $TEST_RESULTS directory
           command: |
-            PACKAGE_NAMES=$(cat pfs_tests.txt | circleci tests split)
-            gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- $PACKAGE_NAMES
+            gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- ./src/interna/storage/...
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
           paths:
