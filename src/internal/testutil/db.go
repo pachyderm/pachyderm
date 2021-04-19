@@ -22,7 +22,7 @@ import (
 // set this to false if you want to keep the database around
 var cleanup = true
 
-const postgresMaxConnections = 100
+const postgresMaxConnections = 10
 
 // we want to divide the total number of connections we can have up among the
 // concurrently running tests
