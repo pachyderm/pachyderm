@@ -68,7 +68,7 @@ jobs:
       #  Wait for Postgres to be ready before proceeding
       - run:
           name: Waiting for Postgres to be ready
-          command: dockerize -wait tcp://localhost:5423 -timeout 1m
+          command: dockerize -wait tcp://localhost:5432 -timeout 1m
 
       - run:
           name: Run unit tests
