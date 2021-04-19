@@ -11,7 +11,7 @@ func TestPostgresTracker(t *testing.T) {
 	t.Parallel()
 	TestTracker(t, func(testing.TB) Tracker {
 		db := testutil.NewTestDB(t)
-		db.MustExec("CREATE SCHEMA storage")
+		db.MustExec("CREATE SCHEMA IF NOT exists storage")
 		db.MustExec(schema)
 		return NewPostgresTracker(db)
 	})
