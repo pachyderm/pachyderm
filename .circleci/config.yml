@@ -46,8 +46,9 @@ jobs:
         environment: # environment variables for primary container
           POSTGRES_USER: postgres
           POSTGRES_DB: pgc
-          POSTGRES_HOST_AUTH_METHOD: trust
-          PGPORT: 32228
+          #POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_PASSWORD: pw1234
+          PGPORT: 5432
 
     parallelism: 4
 
@@ -74,7 +75,8 @@ jobs:
           command: |
             PACKAGE_NAMES=$(cat pfs_tests.txt | circleci tests split)
             gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- $PACKAGE_NAMES
-
+        environment:
+          DATABASE_URL: "postgres://postgres:pw1234@localhost:5432/pgc"
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
           paths:
@@ -140,7 +142,7 @@ workflows:
   version: 2 
   build-workflow:
     jobs:
-      - internal
-      #- pg
+      #- internal
+      - pg
       #- build
       #- kind
