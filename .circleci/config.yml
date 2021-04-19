@@ -43,7 +43,7 @@ jobs:
       - image: circleci/golang:1.15
       # CircleCI PostgreSQL images available at: https://hub.docker.com/r/circleci/postgres/
         environment:
-          DATABASE_URL: "postgres://postgres:pw1234@localhost:5432/pgc"
+          DATABASE_URL: "postgres://postgres:pw1234@localhost:5432/pgc?sslmode=disable"
       - image: circleci/postgres:13-ram
         environment: # environment variables for primary container
           POSTGRES_USER: postgres
