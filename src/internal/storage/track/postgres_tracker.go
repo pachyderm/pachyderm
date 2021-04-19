@@ -253,14 +253,14 @@ func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
 }
 
 var schema = `
-	CREATE TABLE IF NOT EXISTS storage.tracker_objects (
+	CREATE TABLE storage.tracker_objects (
 		int_id BIGSERIAL PRIMARY KEY,
 		str_id VARCHAR(4096) UNIQUE,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		expires_at TIMESTAMP
 	);
 
-	CREATE TABLE IF NOT EXISTS storage.tracker_refs (
+	CREATE TABLE storage.tracker_refs (
 		from_id INT8 NOT NULL,
 		to_id INT8 NOT NULL,
 		PRIMARY KEY (from_id, to_id)

@@ -50,7 +50,7 @@ jobs:
           POSTGRES_DB: pgc
           #POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_PASSWORD: pw1234
-          PGPORT: 5432
+          PGPORT: 32228
 
     parallelism: 1
 
@@ -68,7 +68,7 @@ jobs:
       #  Wait for Postgres to be ready before proceeding
       - run:
           name: Waiting for Postgres to be ready
-          command: dockerize -wait tcp://localhost:5432 -timeout 1m
+          command: dockerize -wait tcp://localhost:32228 -timeout 1m
 
       - run:
           name: Run unit tests

@@ -18,9 +18,6 @@ import (
 )
 
 func TestPortForwardError(t *testing.T) {
-	if os.Getenv("SKIP_TESTS_WITH_DEPS") == "TRUE" {
-		t.Skip("Skipping because SKIP_TESTS_WITH_DEPS was true")
-	}
 	cfgFile := testConfig(t, "localhost:30650")
 	defer os.Remove(cfgFile.Name())
 	os.Setenv("PACH_CONFIG", cfgFile.Name())

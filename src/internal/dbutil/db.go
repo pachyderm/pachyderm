@@ -2,8 +2,6 @@ package dbutil
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -14,7 +12,7 @@ const (
 	// DefaultHost is the default host.
 	DefaultHost = "127.0.0.1"
 	// DefaultPort is the default port.
-	DefaultPort = 5432
+	DefaultPort = 32228
 	// DefaultUser is the default user
 	DefaultUser = "postgres"
 	// DefaultDBName is the default DB name.
@@ -40,38 +38,32 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 		name:         DefaultDBName,
 		maxOpenConns: DefaultMaxOpenConns,
 	}
-	var dsn string
-	if uri := os.Getenv("DATABASE_URL"); uri != "" {
-		dsn = uri
-	} else {
-		for _, opt := range opts {
-			opt(dbc)
-		}
-		fields := map[string]string{
-			"sslmode": "disable",
-		}
-		if dbc.host != "" {
-			fields["host"] = dbc.host
-		}
-		if dbc.port != 0 {
-			fields["port"] = strconv.Itoa(dbc.port)
-		}
-		if dbc.name != "" {
-			fields["dbname"] = dbc.name
-		}
-		if dbc.user != "" {
-			fields["user"] = dbc.user
-		}
-		if dbc.password != "" {
-			fields["password"] = dbc.password
-		}
-		var dsnParts []string
-		for k, v := range fields {
-			dsnParts = append(dsnParts, k+"="+v)
-		}
-		dsn = strings.Join(dsnParts, " ")
+	for _, opt := range opts {
+		opt(dbc)
 	}
-	fmt.Printf("DSN: %s", dsn)
+	fields := map[string]string{
+		"sslmode": "disable",
+	}
+	if dbc.host != "" {
+		fields["host"] = dbc.host
+	}
+	if dbc.port != 0 {
+		fields["port"] = strconv.Itoa(dbc.port)
+	}
+	if dbc.name != "" {
+		fields["dbname"] = dbc.name
+	}
+	if dbc.user != "" {
+		fields["user"] = dbc.user
+	}
+	if dbc.password != "" {
+		fields["password"] = dbc.password
+	}
+	var dsnParts []string
+	for k, v := range fields {
+		dsnParts = append(dsnParts, k+"="+v)
+	}
+	dsn := strings.Join(dsnParts, " ")
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
