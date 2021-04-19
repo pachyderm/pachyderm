@@ -2,6 +2,7 @@ package dbutil
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -70,7 +71,7 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 		}
 		dsn = strings.Join(dsnParts, " ")
 	}
-
+	fmt.Printf("DSN: %s", dsn)
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, err

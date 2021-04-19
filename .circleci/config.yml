@@ -42,7 +42,7 @@ jobs:
     docker:
       - image: circleci/golang:1.15
         environment:
-          DATABASE_URL: "postgres://postgres:pw1234@localhost:5432/pgc?sslmode=disable"
+          #DATABASE_URL: "postgres://postgres:pw1234@localhost:5432/pgc?sslmode=disable"
       
       - image: postgres:13.0-alpine
         environment:
