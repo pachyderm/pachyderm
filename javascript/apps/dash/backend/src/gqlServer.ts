@@ -5,6 +5,7 @@ import {ApolloServer, gql} from 'apollo-server-express';
 import {v4 as uuid} from 'uuid';
 
 import loggingPlugin from '@dash-backend/apollo/plugins/loggingPlugin';
+import client from '@dash-backend/grpc/client';
 import baseLogger from '@dash-backend/lib/log';
 import resolvers from '@dash-backend/resolvers';
 import {Account} from '@graphqlTypes';
@@ -20,8 +21,12 @@ const gqlServer = new ApolloServer({
       account = await getAccountFromIdToken(idToken);
     }
 
+    const pachdAddress = req.header('pachd-address');
+    const authToken = req.header('auth-token');
+    const projectId = req.body?.variables?.args?.projectId;
+
     const log = baseLogger.child({
-      pachdAddress: req.header('pachd-address'),
+      pachdAddress,
       operationId: uuid(),
       account: {
         id: account?.id,
@@ -29,11 +34,19 @@ const gqlServer = new ApolloServer({
       },
     });
 
-    return {
-      authToken: req.header('auth-token'),
-      pachdAddress: req.header('pachd-address'),
+    const pachClient = client({
+      authToken,
+      pachdAddress,
+      projectId,
       log,
+    });
+
+    return {
       account,
+      authToken,
+      log,
+      pachClient,
+      pachdAddress,
     };
   },
   // TODO: Maybe move this and add global error messaging

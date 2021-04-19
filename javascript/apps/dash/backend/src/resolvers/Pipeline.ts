@@ -11,13 +11,7 @@ interface PipelineResolver {
 
 const pipelineResolver: PipelineResolver = {
   Query: {
-    pipeline: async (
-      _field,
-      {args: {projectId, id}},
-      {pachdAddress = '', authToken = '', log},
-    ) => {
-      const pachClient = client({pachdAddress, projectId, authToken, log});
-
+    pipeline: async (_field, {args: {id}}, {pachClient}) => {
       const pipeline = await pachClient.pps().inspectPipeline(id);
 
       return pipelineInfoToGQLPipeline(pipeline);

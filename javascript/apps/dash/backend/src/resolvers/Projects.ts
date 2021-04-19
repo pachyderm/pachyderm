@@ -78,13 +78,7 @@ const projectsResolver: ProjectsResolver = {
         await pachClient.projects().inspectProject(id),
       );
     },
-    projects: async (
-      _field,
-      _args,
-      {pachdAddress = '', authToken = '', log},
-    ) => {
-      const pachClient = client({pachdAddress, authToken, log});
-
+    projects: async (_field, _args, {pachClient, log}) => {
       try {
         const projects = await pachClient.projects().listProject();
 
@@ -102,17 +96,11 @@ const projectsResolver: ProjectsResolver = {
         }
       }
     },
-    projectDetails: async (
-      _field,
-      {args: {projectId, jobsLimit}},
-      {pachdAddress = '', authToken = '', log},
-    ) => {
+    projectDetails: async (_field, {args: {jobsLimit}}, {pachClient, log}) => {
       log.info({
         eventSource: 'projectDetails resolver',
         event: 'returning project details',
       });
-
-      const pachClient = client({pachdAddress, authToken, projectId, log});
 
       const [repos, pipelines, jobs] = await Promise.all([
         pachClient.pfs().listRepo(),

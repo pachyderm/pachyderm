@@ -26,15 +26,13 @@ const fileResolver: FileResolver = {
     files: async (
       _parent,
       {args: {commitId, path, repoName}},
-      {pachdAddress = '', authToken = '', log},
+      {pachClient},
     ) => {
-      const files = await client({pachdAddress, authToken, log})
-        .pfs()
-        .listFile({
-          commitId: commitId || 'master',
-          path: path || '/',
-          repoName,
-        });
+      const files = await pachClient.pfs().listFile({
+        commitId: commitId || 'master',
+        path: path || '/',
+        repoName,
+      });
 
       return files.map((file) => ({
         commitId: file.file?.commit?.id || '',

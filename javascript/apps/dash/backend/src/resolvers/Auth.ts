@@ -46,7 +46,7 @@ const authResolver: AuthResolver = {
     },
   },
   Mutation: {
-    exchangeCode: async (_field, {code}, {pachdAddress = '', log}) => {
+    exchangeCode: async (_field, {code}, {pachClient, log}) => {
       const {OAUTH_REDIRECT_URI: redirectUri = ''} = process.env;
 
       try {
@@ -66,9 +66,7 @@ const authResolver: AuthResolver = {
           },
         );
 
-        const pachToken = await client({pachdAddress, log})
-          .auth()
-          .authenticate(idToken);
+        const pachToken = await pachClient.auth().authenticate(idToken);
 
         return {pachToken, idToken};
       } catch (e) {

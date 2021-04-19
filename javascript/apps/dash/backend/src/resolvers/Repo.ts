@@ -9,10 +9,8 @@ interface RepoResolver {
 
 const repoResolver: RepoResolver = {
   Query: {
-    repos: async (_parent, _args, {pachdAddress = '', authToken = '', log}) => {
-      const repos = await client({pachdAddress, authToken, log})
-        .pfs()
-        .listRepo();
+    repos: async (_parent, _args, {pachClient}) => {
+      const repos = await pachClient.pfs().listRepo();
 
       return repos.map((repo) => ({
         createdAt: repo.created?.seconds || 0,

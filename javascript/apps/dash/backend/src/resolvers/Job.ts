@@ -11,18 +11,14 @@ interface JobResolver {
 
 const jobResolver: JobResolver = {
   Query: {
-    jobs: async (
-      _parent,
-      {args: {projectId, pipelineId, limit}},
-      {pachdAddress = '', authToken = '', log},
-    ) => {
+    jobs: async (_parent, {args: {pipelineId, limit}}, {pachClient}) => {
       let jq = '';
 
       if (pipelineId) {
         jq = `select(.pipeline.name == "${pipelineId}")`;
       }
 
-      const jobs = await client({pachdAddress, authToken, projectId, log})
+      const jobs = await pachClient
         .pps()
         .listJobs({limit: limit || undefined, jq});
 

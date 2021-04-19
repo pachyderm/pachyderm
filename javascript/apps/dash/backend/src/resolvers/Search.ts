@@ -14,14 +14,8 @@ interface SearchResolver {
 
 const searchResolver: SearchResolver = {
   Query: {
-    searchResults: async (
-      _parent,
-      {query},
-      {pachdAddress = '', authToken = '', log},
-    ) => {
+    searchResults: async (_parent, {query}, {pachClient, log}) => {
       if (query) {
-        const pachClient = client({pachdAddress, authToken, log});
-
         //Check if query is commit or job id
         if (UUID_WITHOUT_DASHES_REGEX.test(query)) {
           try {

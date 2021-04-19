@@ -6,8 +6,11 @@ import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 import client from '@dash-backend/grpc/client';
 import {Node, JobState, Account, Link} from '@graphqlTypes';
 
+export type PachClient = ReturnType<typeof client>;
+
 export interface UnauthenticatedContext {
   authToken?: string;
+  pachClient: PachClient;
   pachdAddress?: string;
   log: Logger;
   account?: Account;

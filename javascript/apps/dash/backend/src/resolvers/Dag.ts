@@ -182,10 +182,8 @@ const dagResolver: DagResolver = {
     dag: async (
       _field,
       {args: {projectId, nodeHeight, nodeWidth}},
-      {pachdAddress = '', authToken = '', log},
+      {pachClient, log},
     ) => {
-      const pachClient = client({pachdAddress, authToken, projectId, log});
-
       // TODO: Error handling
       const [repos, pipelines] = await Promise.all([
         pachClient.pfs().listRepo(),
@@ -204,10 +202,8 @@ const dagResolver: DagResolver = {
     dags: async (
       _field,
       {args: {projectId, nodeHeight, nodeWidth}},
-      {pachdAddress = '', authToken = '', log},
+      {pachClient, log},
     ) => {
-      const pachClient = client({pachdAddress, authToken, projectId, log});
-
       // TODO: Error handling
       const [repos, pipelines] = await Promise.all([
         pachClient.pfs().listRepo(),
