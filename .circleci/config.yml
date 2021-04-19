@@ -140,7 +140,7 @@ workflows:
   version: 2 
   build-workflow:
     jobs:
-      #- internal
+      - internal
       #- pg
-      - build
-      - kind
+      #- build
+      #- kind
