@@ -75,7 +75,7 @@ jobs:
 
           # store the results of our tests in the $TEST_RESULTS directory
           command: |
-            gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- ./src/interna/storage/...
+            gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- ./src/internal/storage/...
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
           paths:
