@@ -167,11 +167,11 @@ Once your Pachyderm application is registered with your IdP (here Auth0),
 and your IdP-Pachyderm connector config file created (here with the Auth0 parameters), **connect your IdP to Pachyderm** by running the following command:
 
 ```shell
-$ pachctl idp create-connector --config -oidc-dex-connector.json
+$ pachctl idp create-connector --config oidc-dex-connector.json
 ```
 or
 ```shell
-$ pachctl idp create-connector --config -oidc-dex-connector.yaml
+$ pachctl idp create-connector --config oidc-dex-connector.yaml
 ```
 Check your connector's parameters by running:
 ```shell
