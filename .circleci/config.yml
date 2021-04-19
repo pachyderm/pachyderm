@@ -42,6 +42,8 @@ jobs:
     docker:
       - image: circleci/golang:1.15
       # CircleCI PostgreSQL images available at: https://hub.docker.com/r/circleci/postgres/
+        environment:
+          DATABASE_URL: "postgres://postgres:pw1234@localhost:5432/pgc"
       - image: circleci/postgres:13-ram
         environment: # environment variables for primary container
           POSTGRES_USER: postgres
@@ -75,8 +77,6 @@ jobs:
           command: |
             PACKAGE_NAMES=$(cat pfs_tests.txt | circleci tests split)
             gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- $PACKAGE_NAMES
-        environment:
-          DATABASE_URL: "postgres://postgres:pw1234@localhost:5432/pgc"
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
           paths:
