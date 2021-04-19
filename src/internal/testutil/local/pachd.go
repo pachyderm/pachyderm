@@ -144,11 +144,6 @@ func RunLocal() (retErr error) {
 		return err
 	}
 
-	identityStorageProvider, err := identity_server.NewStorageProvider(env)
-	if err != nil {
-		return err
-	}
-
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		var pfsAPIServer pfs_server.APIServer
@@ -196,6 +191,10 @@ func RunLocal() (retErr error) {
 			return err
 		}
 
+		identityStorageProvider, err := identity_server.NewStorageProvider(env)
+		if err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,

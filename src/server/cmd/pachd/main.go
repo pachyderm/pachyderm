@@ -555,12 +555,6 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return errors.Wrapf(err, "getClusterID")
 	}
-
-	identityStorageProvider, err := identity_server.NewStorageProvider(env)
-	if err != nil {
-		return err
-	}
-
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
@@ -640,6 +634,10 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 
+		identityStorageProvider, err := identity_server.NewStorageProvider(env)
+		if err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,
