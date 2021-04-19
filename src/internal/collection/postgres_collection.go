@@ -280,7 +280,7 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 		return nil
 	}
 
-	for i := 0; i < 3; i++ {
+	for {
 		if err := attemptTx(); err != nil {
 			if !isTransactionError(err) {
 				return err
