@@ -13,6 +13,7 @@ PATH="${GOPATH}/bin:/root/go/bin:${PATH}"
 export PATH
 
 if [ -f /tmp/results.json ]; then
-  go get github.com/actgardner/test-stat
-  test-stat /tmp/results.json
+  curl -L https://github.com/actgardner/test-stat/releases/download/0.1/test-stat-linux-amd64-0.1 -o test-stat
+  chmod +x test-stat
+  ./test-stat /tmp/results.json
 fi
