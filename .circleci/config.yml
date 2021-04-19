@@ -52,8 +52,8 @@ jobs:
           POSTGRES_PASSWORD: pw1234
           PGPORT: 32228
 
-    resource_class: large
-    parallelism: 4
+    resource_class: 2xlarge
+    parallelism: 6
 
     environment: # environment variables for the build itself
       TEST_RESULTS: /tmp/test-results # path to where test results will be saved
