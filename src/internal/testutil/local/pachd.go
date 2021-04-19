@@ -401,6 +401,17 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, err := licenseserver.New(
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
