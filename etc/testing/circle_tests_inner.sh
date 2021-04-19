@@ -15,7 +15,7 @@ GOPATH=/root/go
 export GOPATH
 PATH="${GOPATH}/bin:${PATH}"
 export PATH
-TESTFLAGS="| tee -a /tmp/results"
+TESTFLAGS="| stdbuf -i0 tee -a /tmp/results"
 export TESTFLAGS
 
 # Some tests (e.g. TestMigrateFrom1_7) expect
