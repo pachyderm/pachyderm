@@ -202,9 +202,6 @@ func RunLocal() (retErr error) {
 				identityStorageProvider,
 				true,
 			)
-			if err != nil {
-				return err
-			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
