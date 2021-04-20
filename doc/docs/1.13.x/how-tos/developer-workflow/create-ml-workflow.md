@@ -29,7 +29,7 @@ Such a pipeline enables you to achieve the following goals:
 
 The following diagram demonstrates an ML pipeline:
 
-![Example of a machine learning workflow](../assets/images/d_ml_workflow.svg)
+![Example of a machine learning workflow](../../assets/images/d_ml_workflow.svg)
 
 You can update the training dataset at any time
 to automatically train a new persisted model. Also, you can use
@@ -46,4 +46,4 @@ enables you to avoid manual updates to historical results or swapping
 ML models in production.
 
 For examples of ML workflows in Pachyderm see
-[Machine Learning Examples](../examples/examples.md#machine-learning).
+[Machine Learning Examples](../../examples/examples.md#machine-learning).

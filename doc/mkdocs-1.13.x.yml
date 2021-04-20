@@ -147,8 +147,9 @@ nav:
             - Overview: how-tos/developer-workflow/index.md
             - Working with Pipelines: how-tos/developer-workflow/working-with-pipelines.md
             - Build Pipelines: how-tos/developer-workflow/build-pipelines.md
-            - Build Flag: how-tos/developer-workflow/build-flag.md
+            - Build Flag: how-tos/developer-workflow/build-flag.md  
             - CI/CD Integration: how-tos/developer-workflow/ci-cd-integration.md
+            - Create a Machine Learning Workflow: how-tos/developer-workflow/create-ml-workflow.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md
         - Load Your Data Into Pachyderm: how-tos/load-data-into-pachyderm.md

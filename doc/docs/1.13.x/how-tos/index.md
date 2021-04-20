@@ -10,20 +10,27 @@ data operations in Pachyderm.
         <h4 class="mdl-card__title-text">Workflow &nbsp;&nbsp;&nbsp;<i class="fa fa-rocket"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        These how-tos help you to organize your
-        Pachyderm workflow.
+        Organize your Pachyderm workflow.
       </div>
       <div class="mdl-card__actions mdl-card--border">
-        <ul>
+       <ul>
           <li><a href="developer-workflow/" class="md-typeset md-link">
-          Working with Data and Pipelines
-          </a>
+          Developer Workflow</a>
           </li>
-          <li><a href="developer-workflow/ci-cd-integration/" class="md-typeset md-link">
+          <li><a href="developer-workflow/working-with-pipelines" class="md-typeset md-link">
+          Working with Data and Pipelines</a>
+          </li>
+          <li><a href="developer-workflow/build-pipelines" class="md-typeset md-link">
+          Build pipelines</a>
+          </li>
+          <li><a href="developer-workflow/build-flag" class="md-typeset md-link">
+          Build Flag</a>
+          </li>
+          <li><a href="developer-workflow/ci-cd-integration" class="md-typeset md-link">
           CI/CD Integration
           </a>
           </li>
-          <li><a href="create-ml-workflow/" class="md-typeset md-link">
+          <li><a href="developer-workflow/create-ml-workflow" class="md-typeset md-link">
           Create a Machine Learning Workflow
           </a>
           </li>
