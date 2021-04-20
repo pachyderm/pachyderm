@@ -15,6 +15,8 @@ GOPATH=/root/go
 export GOPATH
 PATH="${GOPATH}/bin:${PATH}"
 export PATH
+TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
+export TESTFLAGS
 
 # Some tests (e.g. TestMigrateFrom1_7) expect
 # $GOPATH/src/github.com/pachyderm/pachyderm to point to .
