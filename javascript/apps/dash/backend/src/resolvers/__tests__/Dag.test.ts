@@ -1,5 +1,5 @@
 import {executeOperation} from '@dash-backend/testHelpers';
-import {Dag} from '@graphqlTypes';
+import {Dag, PipelineState} from '@graphqlTypes';
 
 const doesLinkExistInDag = (
   expectedLink: {source: string; target: string},
@@ -162,5 +162,29 @@ describe('Dag resolver', () => {
     expect(
       doesLinkExistInDag({source: 'detect', target: 'detect_repo'}, dags?.[2]),
     ).toBe(true);
+  });
+
+  it('should send dag id as name of oldest repo', async () => {
+    const {data} = await executeOperation<{dags: Dag[]}>('getDags', {
+      args: {projectId: '2', nodeWidth: 120, nodeHeight: 60},
+    });
+
+    const dags = data?.dags;
+
+    expect(dags?.[0].id).toBe('samples');
+    expect(dags?.[1].id).toBe('training');
+    expect(dags?.[2].id).toBe('images');
+  });
+
+  it('should surface a pipeline error to dag', async () => {
+    const {data} = await executeOperation<{dags: Dag[]}>('getDags', {
+      args: {projectId: '2', nodeWidth: 120, nodeHeight: 60},
+    });
+
+    const dags = data?.dags;
+
+    expect(dags?.[0].priorityPipelineState).toBe('PIPELINE_FAILURE');
+    expect(dags?.[1].priorityPipelineState).toBe(null);
+    expect(dags?.[2].priorityPipelineState).toBe(null);
   });
 });

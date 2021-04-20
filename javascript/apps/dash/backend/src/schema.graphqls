@@ -157,8 +157,10 @@ type Link {
 }
 
 type Dag {
+  id: String!
   nodes: [Node!]!
   links: [Link!]!
+  priorityPipelineState: PipelineState
 }
 
 input DagQueryArgs {

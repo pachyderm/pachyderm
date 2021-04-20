@@ -202,6 +202,8 @@ export const GetDagDocument = gql`
           y
         }
       }
+      id
+      priorityPipelineState
     }
   }
 `;
@@ -284,6 +286,8 @@ export const GetDagsDocument = gql`
           y
         }
       }
+      id
+      priorityPipelineState
     }
   }
 `;

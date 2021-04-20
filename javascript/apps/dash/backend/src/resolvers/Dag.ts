@@ -1,9 +1,14 @@
 import {RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
-import {Input, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
+import {
+  Input,
+  PipelineInfo,
+  PipelineState,
+} from '@pachyderm/proto/pb/pps/pps_pb';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatten from 'lodash/flatten';
 import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
+import minBy from 'lodash/minBy';
 
 import client from '@dash-backend/grpc/client';
 import disconnectedComponents from '@dash-backend/lib/disconnectedComponents';
@@ -51,6 +56,7 @@ const deriveVertices = (
     type: NodeType.Repo,
     state: null,
     access: true,
+    created: r.created,
     // detect out output repos as those name matching a pipeline
     parents: r.repo && pipelineMap[r.repo.name] ? [r.repo.name] : [],
   }));
@@ -71,6 +77,8 @@ const normalizeDAGData = async (
   vertices: Vertex[],
   nodeWidth: number,
   nodeHeight: number,
+  id: string,
+  priorityPipelineState?: PipelineState,
 ) => {
   // Calculate the indicies of the nodes in the DAG, as
   // the "link" object requires the source & target attributes
@@ -174,7 +182,18 @@ const normalizeDAGData = async (
   return {
     nodes,
     links,
+    id,
+    priorityPipelineState,
   };
+};
+
+const getPriorityPipelineState = (pipelines: PipelineInfo.AsObject[]) => {
+  if (pipelines.some((p) => p.state === PipelineState.PIPELINE_CRASHING)) {
+    return PipelineState.PIPELINE_CRASHING;
+  }
+  if (pipelines.some((p) => p.state === PipelineState.PIPELINE_FAILURE)) {
+    return PipelineState.PIPELINE_FAILURE;
+  }
 };
 
 const dagResolver: DagResolver = {
@@ -197,7 +216,16 @@ const dagResolver: DagResolver = {
       });
       const allVertices = deriveVertices(repos, pipelines);
 
-      return normalizeDAGData(allVertices, nodeWidth, nodeHeight);
+      const id = minBy(repos, (r) => r.created?.seconds)?.repo?.name || '';
+      const priorityPipelineState = getPriorityPipelineState(pipelines);
+
+      return normalizeDAGData(
+        allVertices,
+        nodeWidth,
+        nodeHeight,
+        id,
+        priorityPipelineState,
+      );
     },
     dags: async (
       _field,
@@ -224,9 +252,34 @@ const dagResolver: DagResolver = {
       });
       const components = disconnectedComponents(allVertices);
 
-      return components.map(async (component) =>
-        normalizeDAGData(component, nodeWidth, nodeHeight),
-      );
+      return components.map((component) => {
+        const componentRepos = repos.filter((repo) =>
+          component.find(
+            (c) =>
+              c.type === NodeType.Repo && c.name === `${repo.repo?.name}_repo`,
+          ),
+        );
+        const componentPipelines = pipelines.filter((pipeline) =>
+          component.find(
+            (c) =>
+              c.type === NodeType.Pipeline &&
+              c.name === pipeline.pipeline?.name,
+          ),
+        );
+        const id =
+          minBy(componentRepos, (r) => r.created?.seconds)?.repo?.name || '';
+        const priorityPipelineState = getPriorityPipelineState(
+          componentPipelines,
+        );
+
+        return normalizeDAGData(
+          component,
+          nodeWidth,
+          nodeHeight,
+          id,
+          priorityPipelineState,
+        );
+      });
     },
   },
 };

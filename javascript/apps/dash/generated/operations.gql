@@ -49,6 +49,8 @@ query getDag($args: DagQueryArgs!) {
         y
       }
     }
+    id
+    priorityPipelineState
   }
 }
 query getDags($args: DagQueryArgs!) {
@@ -82,6 +84,8 @@ query getDags($args: DagQueryArgs!) {
         y
       }
     }
+    id
+    priorityPipelineState
   }
 }
 query getFiles($args: FileQueryArgs!) {

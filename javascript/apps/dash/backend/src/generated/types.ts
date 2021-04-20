@@ -223,8 +223,10 @@ export type Link = {
 
 export type Dag = {
   __typename?: 'Dag';
+  id: Scalars['String'];
   nodes: Array<Node>;
   links: Array<Link>;
+  priorityPipelineState?: Maybe<PipelineState>;
 };
 
 export type DagQueryArgs = {
@@ -865,8 +867,14 @@ export type DagResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Dag'] = ResolversParentTypes['Dag']
 > = ResolversObject<{
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   nodes?: Resolver<Array<ResolversTypes['Node']>, ParentType, ContextType>;
   links?: Resolver<Array<ResolversTypes['Link']>, ParentType, ContextType>;
+  priorityPipelineState?: Resolver<
+    Maybe<ResolversTypes['PipelineState']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1045,44 +1053,7 @@ export type GetDagQueryVariables = Exact<{
 }>;
 
 export type GetDagQuery = {__typename?: 'Query'} & {
-  dag: {__typename?: 'Dag'} & {
-    nodes: Array<
-      {__typename?: 'Node'} & Pick<
-        Node,
-        'id' | 'name' | 'type' | 'access' | 'state' | 'x' | 'y'
-      >
-    >;
-    links: Array<
-      {__typename?: 'Link'} & Pick<
-        Link,
-        'id' | 'source' | 'target' | 'sourceState' | 'targetState' | 'state'
-      > & {
-          bendPoints: Array<
-            {__typename?: 'PointCoordinates'} & Pick<
-              PointCoordinates,
-              'x' | 'y'
-            >
-          >;
-          startPoint: {__typename?: 'PointCoordinates'} & Pick<
-            PointCoordinates,
-            'x' | 'y'
-          >;
-          endPoint: {__typename?: 'PointCoordinates'} & Pick<
-            PointCoordinates,
-            'x' | 'y'
-          >;
-        }
-    >;
-  };
-};
-
-export type GetDagsQueryVariables = Exact<{
-  args: DagQueryArgs;
-}>;
-
-export type GetDagsQuery = {__typename?: 'Query'} & {
-  dags: Array<
-    {__typename?: 'Dag'} & {
+  dag: {__typename?: 'Dag'} & Pick<Dag, 'id' | 'priorityPipelineState'> & {
       nodes: Array<
         {__typename?: 'Node'} & Pick<
           Node,
@@ -1110,7 +1081,44 @@ export type GetDagsQuery = {__typename?: 'Query'} & {
             >;
           }
       >;
-    }
+    };
+};
+
+export type GetDagsQueryVariables = Exact<{
+  args: DagQueryArgs;
+}>;
+
+export type GetDagsQuery = {__typename?: 'Query'} & {
+  dags: Array<
+    {__typename?: 'Dag'} & Pick<Dag, 'id' | 'priorityPipelineState'> & {
+        nodes: Array<
+          {__typename?: 'Node'} & Pick<
+            Node,
+            'id' | 'name' | 'type' | 'access' | 'state' | 'x' | 'y'
+          >
+        >;
+        links: Array<
+          {__typename?: 'Link'} & Pick<
+            Link,
+            'id' | 'source' | 'target' | 'sourceState' | 'targetState' | 'state'
+          > & {
+              bendPoints: Array<
+                {__typename?: 'PointCoordinates'} & Pick<
+                  PointCoordinates,
+                  'x' | 'y'
+                >
+              >;
+              startPoint: {__typename?: 'PointCoordinates'} & Pick<
+                PointCoordinates,
+                'x' | 'y'
+              >;
+              endPoint: {__typename?: 'PointCoordinates'} & Pick<
+                PointCoordinates,
+                'x' | 'y'
+              >;
+            }
+        >;
+      }
   >;
 };
 
