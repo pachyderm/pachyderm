@@ -22,6 +22,7 @@
     "cookie-parser": "1.4.5",
     "elkjs": "0.7.1",
     "express": "4.17.1",
+    "filesize": "6.2.6",
     "graphql": "15.5.0",
     "jsonwebtoken": "8.5.1",
     "lodash": "4.17.20",

@@ -2,7 +2,6 @@ import {render, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import {BYTES_IN_GIG} from '@dash-backend/lib/constants';
 import {
   createServiceError,
   mockServer,
@@ -207,9 +206,7 @@ describe('Landing', () => {
     const pipelineStatus = await findByLabelText('Pipeline Status');
 
     expect(repoPipelineCount.textContent).toEqual('17/17');
-    expect(dataSize.textContent).toEqual(
-      `${(3000 / BYTES_IN_GIG).toFixed(8)}GB`,
-    );
+    expect(dataSize.textContent).toEqual('2.93 KB');
     expect(pipelineStatus.textContent).toEqual('UnhealthyInspect');
   });
 });

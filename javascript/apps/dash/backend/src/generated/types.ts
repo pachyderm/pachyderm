@@ -254,7 +254,8 @@ export type ProjectDetails = {
   __typename?: 'ProjectDetails';
   repoCount: Scalars['Int'];
   pipelineCount: Scalars['Int'];
-  sizeGBytes: Scalars['Float'];
+  sizeBytes: Scalars['Float'];
+  sizeDisplay: Scalars['String'];
   jobs: Array<Job>;
 };
 
@@ -896,7 +897,8 @@ export type ProjectDetailsResolvers<
 > = ResolversObject<{
   repoCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   pipelineCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  sizeGBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1190,7 +1192,7 @@ export type ProjectDetailsQueryVariables = Exact<{
 export type ProjectDetailsQuery = {__typename?: 'Query'} & {
   projectDetails: {__typename?: 'ProjectDetails'} & Pick<
     ProjectDetails,
-    'sizeGBytes' | 'repoCount' | 'pipelineCount'
+    'sizeDisplay' | 'repoCount' | 'pipelineCount'
   > & {
       jobs: Array<
         {__typename?: 'Job'} & Pick<Job, 'id' | 'state' | 'createdAt'>

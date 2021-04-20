@@ -132,7 +132,7 @@ query pipeline($args: PipelineQueryArgs!) {
 }
 query projectDetails($args: ProjectDetailsQueryArgs!) {
   projectDetails(args: $args) {
-    sizeGBytes
+    sizeDisplay
     repoCount
     pipelineCount
     jobs {

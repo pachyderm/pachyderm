@@ -186,7 +186,8 @@ type Project {
 type ProjectDetails {
   repoCount: Int!
   pipelineCount: Int!
-  sizeGBytes: Float!
+  sizeBytes: Float!
+  sizeDisplay: String!
   jobs: [Job!]!
 }
 

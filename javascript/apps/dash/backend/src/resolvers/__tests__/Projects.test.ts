@@ -1,6 +1,5 @@
 import {status} from '@grpc/grpc-js';
 
-import {BYTES_IN_GIG} from '@dash-backend/lib/constants';
 import projects from '@dash-backend/mock/fixtures/projects';
 import {
   mockServer,
@@ -92,7 +91,7 @@ describe('Projects Resolver', () => {
 
       const projectDetails = data?.projectDetails;
 
-      expect(projectDetails?.sizeGBytes).toBe(3000 / BYTES_IN_GIG);
+      expect(projectDetails?.sizeDisplay).toBe('2.93 KB');
       expect(projectDetails?.repoCount).toBe(3);
       expect(projectDetails?.pipelineCount).toBe(2);
       expect(projectDetails?.jobs).toHaveLength(2);

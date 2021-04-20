@@ -4,7 +4,7 @@ import {ApolloError} from 'apollo-server-express';
 import Logger from 'bunyan';
 
 import client from '@dash-backend/grpc/client';
-import {BYTES_IN_GIG} from '@dash-backend/lib/constants';
+import formatBytes from '@dash-backend/lib/formatBytes';
 import {GRPCClient} from '@dash-backend/lib/types';
 import {PipelineState, ProjectStatus, QueryResolvers} from '@graphqlTypes';
 
@@ -108,13 +108,11 @@ const projectsResolver: ProjectsResolver = {
         pachClient.pps().listJobs({limit: jobsLimit || undefined}),
       ]);
 
-      const sizeGBytes = repos.reduce(
-        (sum, r) => sum + r.sizeBytes / BYTES_IN_GIG,
-        0,
-      );
+      const totalSizeBytes = repos.reduce((sum, r) => sum + r.sizeBytes, 0);
 
       return {
-        sizeGBytes,
+        sizeBytes: totalSizeBytes,
+        sizeDisplay: formatBytes(totalSizeBytes),
         repoCount: repos.length,
         pipelineCount: pipelines.length,
         jobs: jobs.map((job) => ({

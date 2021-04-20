@@ -587,7 +587,7 @@ export type PipelineQueryResult = Apollo.QueryResult<
 export const ProjectDetailsDocument = gql`
   query projectDetails($args: ProjectDetailsQueryArgs!) {
     projectDetails(args: $args) {
-      sizeGBytes
+      sizeDisplay
       repoCount
       pipelineCount
       jobs {
