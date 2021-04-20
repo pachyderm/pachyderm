@@ -502,23 +502,13 @@ func resourceKey(r *auth.Resource) string {
 	return fmt.Sprintf("%s:%s", r.Type, r.Name)
 }
 
-// AuthorizeInTransaction is identical to Authorize except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) AuthorizeInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	req *auth.AuthorizeRequest,
-) (resp *auth.AuthorizeResponse, retErr error) {
+func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, principal string, resource *auth.Resource, permissions map[auth.Permission]bool) (*authorizeRequest, error) {
 	binding, err := a.getClusterRoleBinding(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-	if err != nil {
-		return nil, err
-	}
-
-	request := newAuthorizeRequest(callerInfo.Subject, req.Permissions, a.getGroups)
+	request := newAuthorizeRequest(principal, permissions, a.getGroups)
 
 	// Check the permissions at the cluster level
 	if err := request.evaluateRoleBinding(txnCtx.ClientContext, binding); err != nil {
@@ -528,30 +518,48 @@ func (a *apiServer) AuthorizeInTransaction(
 	// If all the permissions are satisfied by the cached cluster binding don't
 	// retrieve the resource bindings. If the resource in question is the whole
 	// cluster we should also exit early
-	if request.satisfied() || req.Resource.Type == auth.ResourceType_CLUSTER {
-		return &auth.AuthorizeResponse{
-			Principal:  callerInfo.Subject,
-			Authorized: request.satisfied(),
-			Missing:    request.missing(),
-			Satisfied:  request.satisfiedPermissions,
-		}, nil
+	if request.isSatisfied() || resource.Type == auth.ResourceType_CLUSTER {
+		return request, nil
 	}
 
 	// Get the role bindings for the resource to check
 	var roleBinding auth.RoleBinding
-	if err := a.roleBindings.ReadWrite(txnCtx.Stm).Get(resourceKey(req.Resource), &roleBinding); err != nil {
+	if err := a.roleBindings.ReadWrite(txnCtx.Stm).Get(resourceKey(resource), &roleBinding); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, &auth.ErrNoRoleBinding{*req.Resource}
+			return nil, &auth.ErrNoRoleBinding{*resource}
 		}
-		return nil, errors.Wrapf(err, "error getting role bindings for %s \"%s\"", req.Resource.Type, req.Resource.Name)
+		return nil, errors.Wrapf(err, "error getting role bindings for %s \"%s\"", resource.Type, resource.Name)
 	}
 	if err := request.evaluateRoleBinding(txnCtx.ClientContext, &roleBinding); err != nil {
+		return nil, err
+	}
+	return request, nil
+}
+
+// AuthorizeInTransaction is identical to Authorize except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServer) AuthorizeInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	req *auth.AuthorizeRequest,
+) (resp *auth.AuthorizeResponse, retErr error) {
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
+	if err != nil {
+		return nil, err
+	}
+
+	permissions := make(map[auth.Permission]bool)
+	for _, p := range req.Permissions {
+		permissions[p] = true
+	}
+
+	request, err := a.evaluateRoleBindingInTransaction(txnCtx, callerInfo.Subject, req.Resource, permissions)
+	if err != nil {
 		return nil, err
 	}
 
 	return &auth.AuthorizeResponse{
 		Principal:  callerInfo.Subject,
-		Authorized: request.satisfied(),
+		Authorized: request.isSatisfied(),
 		Missing:    request.missing(),
 		Satisfied:  request.satisfiedPermissions,
 	}, nil
@@ -574,6 +582,44 @@ func (a *apiServer) Authorize(
 		return nil, err
 	}
 	return response, nil
+}
+
+func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.GetPermissionsForPrincipalRequest) (resp *auth.GetPermissionsResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	permissions := make(map[auth.Permission]bool)
+	for p := range auth.Permission_name {
+		permissions[auth.Permission(p)] = true
+	}
+
+	var request *authorizeRequest
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		var err error
+		request, err = a.evaluateRoleBindingInTransaction(txnCtx, req.Principal, req.Resource, permissions)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	return &auth.GetPermissionsResponse{
+		Roles:       request.roles(),
+		Permissions: request.satisfied(),
+	}, nil
+
+}
+
+// GetPermissions implements the protobuf auth.GetPermissions RPC
+func (a *apiServer) GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest) (resp *auth.GetPermissionsResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.GetPermissionsForPrincipal(ctx, &auth.GetPermissionsForPrincipalRequest{Principal: callerInfo.Subject, Resource: req.Resource})
 }
 
 // WhoAmI implements the protobuf auth.WhoAmI RPC

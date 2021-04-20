@@ -17,27 +17,36 @@ type groupLookupFn func(ctx context.Context, subject string) ([]string, error)
 type authorizeRequest struct {
 	subject              string
 	permissions          map[auth.Permission]bool
+	roleMap              map[string]bool
 	satisfiedPermissions []auth.Permission
 	groupsForSubject     groupLookupFn
 	groups               []string
 }
 
-func newAuthorizeRequest(subject string, permissions []auth.Permission, groupsForSubject groupLookupFn) *authorizeRequest {
-	permissionMap := make(map[auth.Permission]bool)
-	for _, p := range permissions {
-		permissionMap[p] = true
-	}
-
+func newAuthorizeRequest(subject string, permissions map[auth.Permission]bool, groupsForSubject groupLookupFn) *authorizeRequest {
 	return &authorizeRequest{
 		subject:              subject,
-		permissions:          permissionMap,
+		roleMap:              make(map[string]bool),
+		permissions:          permissions,
 		groupsForSubject:     groupsForSubject,
 		satisfiedPermissions: make([]auth.Permission, 0),
 	}
 }
 
-// satisfied returns true if no permissions remain
-func (r *authorizeRequest) satisfied() bool {
+func (r *authorizeRequest) roles() []string {
+	roles := make([]string, 0, len(r.roleMap))
+	for r := range r.roleMap {
+		roles = append(roles, r)
+	}
+	return roles
+}
+
+func (r *authorizeRequest) satisfied() []auth.Permission {
+	return r.satisfiedPermissions
+}
+
+// isSatisfied returns true if no permissions remain
+func (r *authorizeRequest) isSatisfied() bool {
 	return len(r.permissions) == 0
 }
 
@@ -98,6 +107,12 @@ func (r *authorizeRequest) evaluateRoleBindingForSubject(subject string, binding
 
 	if entry, ok := binding.Entries[subject]; ok {
 		for role := range entry.Roles {
+			// Don't look up permissions for a role we already saw in another binding
+			if _, ok := r.roleMap[role]; ok {
+				continue
+			}
+			r.roleMap[role] = true
+
 			permissions, err := permissionsForRole(role)
 			if err != nil {
 				return err

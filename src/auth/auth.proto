@@ -238,6 +238,28 @@ message AuthorizeResponse {
   string principal = 4;
 }
 
+// GetPermissions evaluates the current user's permissions on a resource
+message GetPermissionsRequest {
+  Resource resource = 1;
+}
+
+// GetPermissionsForPrincipal evaluates an arbitrary principal's permissions
+// on a resource 
+message GetPermissionsForPrincipalRequest {
+  Resource resource = 1;
+
+  string principal = 2;
+}
+
+message GetPermissionsResponse {
+  // permissions is the set of permissions the principal has
+  repeated Permission permissions = 1;
+
+  // roles is the set of roles the principal has 
+  repeated string roles = 2;
+}
+
+
 message ModifyRoleBindingRequest {
   // resource is the resource to modify the role bindings on 
   Resource resource = 1;
@@ -402,6 +424,8 @@ service API {
 
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
+  rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse) {}
+  rpc GetPermissionsForPrincipal(GetPermissionsForPrincipalRequest) returns (GetPermissionsResponse) {}
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
 
   rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
