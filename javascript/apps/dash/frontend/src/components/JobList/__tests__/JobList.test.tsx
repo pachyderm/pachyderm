@@ -100,4 +100,13 @@ describe('JobList', () => {
     expect(queryByTextWithinList('Killed')).not.toBeInTheDocument();
     expect(queryByTextWithinList('Egressing')).not.toBeInTheDocument();
   });
+
+  it('should display an empty state if there are no jobs', async () => {
+    const {findByText, queryByRole} = render(<JobList projectId="5" />);
+
+    const startedText = await findByText("Let's Start");
+
+    expect(startedText).toBeInTheDocument();
+    expect(queryByRole('list')).not.toBeInTheDocument();
+  });
 });

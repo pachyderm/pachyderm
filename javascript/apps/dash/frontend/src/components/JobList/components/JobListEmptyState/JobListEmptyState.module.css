@@ -1,0 +1,26 @@
+.base {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 2rem;
+}
+
+.circle {
+  margin-top: 5.475rem;
+  height: 10rem;
+  width: 10rem;
+  border-radius: 50%;
+  border: 1px solid #979797;
+  background-color: #D8D8D8;
+}
+
+.create {
+  margin-top: 1rem;
+  font-size: var(--font-size-body-medium);
+  text-align: center;
+}
+
+.start {
+  margin-top: 1rem;
+  font-size: var(--font-size-body-large);
+}

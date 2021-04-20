@@ -3,6 +3,7 @@ import React from 'react';
 
 import {GetJobsQueryVariables} from '@graphqlTypes';
 
+import JobListEmptyState from './components/JobListEmptyState';
 import JobListItem from './components/JobListItem';
 import JobListSkeleton from './components/JobListSkeleton';
 import JobListStatusFilter from './components/JobListStatusFilter';
@@ -26,6 +27,8 @@ const JobList: React.FC<JobListProps> = ({
   });
 
   if (loading) return <JobListSkeleton expandActions={expandActions} />;
+
+  if (jobs.length === 0) return <JobListEmptyState />;
 
   return (
     <Form formContext={formCtx}>
