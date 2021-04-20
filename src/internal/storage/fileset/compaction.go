@@ -38,7 +38,7 @@ func indexOfCompacted(factor int64, inputs []*Primitive) int {
 	return l
 }
 
-// Compact writes the contents of ids to a new fileset with the specified ttl and returns the ID
+// Compact compacts the contents of ids into a new fileset with the specified ttl and returns the ID.
 // Compact always returns the ID of a primitive fileset.
 func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts ...index.Option) (*ID, error) {
 	var size int64
@@ -86,28 +86,14 @@ func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionBatc
 	}
 }
 
-// Compact runs a compaction on the ids
+// Compact compacts the contents of ids into a new fileset with the specified ttl and returns the ID.
+// Compact always returns the ID of a primitive fileset.
 func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-	ids, err := c.s.Flatten(ctx, ids)
+	var err error
+	ids, err = c.s.Flatten(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	prims, err := c.s.getPrimitives(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-	if isCompacted(c.s.compactionConfig, prims) {
-		return c.s.Compose(ctx, ids, ttl)
-	}
-	i := indexOfCompacted(c.s.compactionConfig.LevelFactor, prims)
-	id, err := c.compact(ctx, ids[i:], ttl)
-	if err != nil {
-		return nil, err
-	}
-	return c.Compact(ctx, append(ids[:i], *id), ttl)
-}
-
-func (c *DistributedCompactor) compact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	if len(ids) <= c.maxFanIn {
 		return c.shardedCompact(ctx, ids, ttl)
 	}
@@ -121,13 +107,13 @@ func (c *DistributedCompactor) compact(ctx context.Context, ids []ID, ttl time.D
 		if end > len(ids) {
 			end = len(ids)
 		}
-		id, err := c.compact(ctx, ids[start:end], ttl)
+		id, err := c.Compact(ctx, ids[start:end], ttl)
 		if err != nil {
 			return nil, err
 		}
 		results = append(results, *id)
 	}
-	return c.compact(ctx, results, ttl)
+	return c.Compact(ctx, results, ttl)
 }
 
 func (c *DistributedCompactor) shardedCompact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
@@ -149,4 +135,28 @@ func (c *DistributedCompactor) shardedCompact(ctx context.Context, ids []ID, ttl
 		return nil, errors.Errorf("results are a different length than tasks")
 	}
 	return c.s.Concat(ctx, results, ttl)
+}
+
+// CompactCallback is the standard callback signature for a compaction operation.
+type CompactCallback func(context.Context, []ID, time.Duration) (*ID, error)
+
+// CompactLevelBased performs a level-based compaction on the passed in filesets.
+func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, ttl time.Duration, compact CompactCallback) (*ID, error) {
+	ids, err := s.Flatten(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	prims, err := s.getPrimitives(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	if isCompacted(s.compactionConfig, prims) {
+		return s.Compose(ctx, ids, ttl)
+	}
+	i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
+	id, err := compact(ctx, ids[i:], ttl)
+	if err != nil {
+		return nil, err
+	}
+	return s.CompactLevelBased(ctx, append(ids[:i], *id), ttl, compact)
 }

@@ -806,6 +806,8 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 	return userCommitProvenance, nil
 }
 
+// TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
+// We are going to want to move the compaction to the read side, and just mark the commit as finished here.
 func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
 	ctx := txnCtx.Client.Ctx()
 	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
