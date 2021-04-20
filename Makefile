@@ -33,12 +33,12 @@ GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 
-# Upper bound for travis test timeout
-# You should be able to specify your own timeout, but by default, use the same bound as travis
+# Default upper bound for test timeouts
+# You can specify your own, but this is what CI uses
 TIMEOUT ?= 3600s
 
 install:
-	# GOPATH/bin must be on your PATH to access these binaries:
+	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
 	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
