@@ -14,7 +14,7 @@ The creation of a Secret in Pachyderm *requires a JSON configuration file*.
 
 A good way to create this file is:
 
-1. to generate it by calling a dry-run of the `kubectl create secret ...` command 
+1. to generate it by calling a dry-run of the `kubectl create secret ... --dry-run=client  --output=json > myfirstsecret.json` command.
 1. then call `pachctl create secret -f <yourgeneratedsecretfile.json>`.
 
 !!! Info "Reminder"
