@@ -1167,6 +1167,49 @@ func TestListAndInspectRepo(t *testing.T) {
 	}
 }
 
+// TestGetPermissions tests that GetPermissions and GetPermissionsForPrincipal work for repos and the cluster itself
+func TestGetPermissions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// alice creates a repo and makes Bob a writer
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoWriterRole}))
+
+	// alice can get her own permissions on the cluster (none) and on the repo (repoOwner)
+	permissions, err := aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}})
+	require.NoError(t, err)
+	require.Nil(t, permissions.Roles)
+
+	permissions, err = aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}})
+	require.NoError(t, err)
+	require.Equal(t, []string{"repoOwner"}, permissions.Roles)
+
+	// the root user can get bob's permissions
+	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
+	require.NoError(t, err)
+	require.Nil(t, permissions.Roles)
+
+	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}, Principal: bob})
+	require.NoError(t, err)
+	require.Equal(t, []string{"repoWriter"}, permissions.Roles)
+
+	// alice cannot get bob's permissions
+	permissions, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
+	require.YesError(t, err)
+	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
+
+	permissions, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}, Principal: bob})
+	require.YesError(t, err)
+	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
+}
+
 func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
