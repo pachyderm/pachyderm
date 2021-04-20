@@ -106,7 +106,7 @@ In Pachyderm, a Secret can be used in three different ways:
 
       [Image pull Secrets](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod) are a different kind of secret used to store access credentials to your private image registry. 
       
-      You reference Image Pull Secrets (or Docker Registry Secrets) by listing their **`name`** in the `image_pull_secrets` field of your pipeline specification file.
+      You reference Image Pull Secrets (or Docker Registry Secrets) by listing their name in the **`image_pull_secrets`** field of your pipeline specification file.
 
       ```JSON
       "transform": {
