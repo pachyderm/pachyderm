@@ -31,9 +31,12 @@ import (
 )
 
 const (
+<<<<<<< HEAD
 	// oidc etcd object prefix
 	oidcAuthnPrefix = "/oidc-authns"
 
+=======
+>>>>>>> aaa7a2f57ba59d9981fc00ba3b375c23c7bc8945
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
 

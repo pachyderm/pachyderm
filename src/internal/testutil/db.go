@@ -197,14 +197,16 @@ func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.Postgres
 func newDatabase(t testing.TB) string {
 	dbName := ephemeralDBName(t)
 	require.NoError(t, withDB(func(db *sqlx.DB) error {
-		db.MustExec("CREATE DATABASE " + dbName)
+		_, err := db.Exec("CREATE DATABASE " + dbName)
+		require.NoError(t, err)
 		t.Log("database", dbName, "successfully created")
 		return nil
 	}))
 	if cleanup {
 		t.Cleanup(func() {
 			require.NoError(t, withDB(func(db *sqlx.DB) error {
-				db.MustExec("DROP DATABASE " + dbName)
+				_, err := db.Exec("DROP DATABASE " + dbName)
+				require.NoError(t, err)
 				t.Log("database", dbName, "successfully deleted")
 				return nil
 			}))

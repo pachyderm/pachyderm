@@ -57,25 +57,25 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
-	servEnv := serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
+	realEnv.ServiceEnv = serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
 
 	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
-	realEnv.PachClient = servEnv.GetPachClient(servEnv.Context())
+	realEnv.PachClient = realEnv.ServiceEnv.GetPachClient(realEnv.ServiceEnv.Context())
 
 	t.Cleanup(func() {
-		require.NoError(t, servEnv.Close())
+		require.NoError(t, realEnv.ServiceEnv.Close())
 	})
 
-	err = migrations.ApplyMigrations(servEnv.Context(), servEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
+	err = migrations.ApplyMigrations(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
 	require.NoError(t, err)
-	err = migrations.BlockUntil(servEnv.Context(), servEnv.GetDBClient(), clusterstate.DesiredClusterState)
+	err = migrations.BlockUntil(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 
 	txnEnv := &txnenv.TransactionEnv{}
 
 	etcdPrefix := ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(
-		servEnv,
+		realEnv.ServiceEnv,
 		txnEnv,
 		etcdPrefix,
 	)
@@ -83,12 +83,12 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 
 	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
 
-	realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv, etcdPrefix)
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
 
-	txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, &realEnv.MockPPSTransactionServer.api)
+	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, &realEnv.MockPPSTransactionServer.api)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)

@@ -11,10 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
-const (
-	transactionsPrefix = "/transactions"
-)
-
 // Transactions returns a collection of open transactions
 func Transactions(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
 	return col.NewPostgresCollection(

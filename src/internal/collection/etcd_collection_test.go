@@ -32,10 +32,6 @@ var (
 	}
 )
 
-func pipelineKey(p *pps.Pipeline) string {
-	return p.Name
-}
-
 func TestEtcdCollections(suite *testing.T) {
 	suite.Parallel()
 	etcdEnv := testetcd.NewEnv(suite)
