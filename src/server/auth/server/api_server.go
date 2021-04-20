@@ -1214,6 +1214,10 @@ func setToList(set map[string]bool) []string {
 }
 
 func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, error) {
+	if err := a.isActive(ctx); err != nil {
+		return nil, err
+	}
+
 	token, err := auth.GetAuthToken(ctx)
 	if err != nil {
 		return nil, err

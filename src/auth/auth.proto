@@ -129,20 +129,21 @@ message RoleBinding {
 enum Permission {
   UNKNOWN = 0;
 
-  CLUSTER_MODIFY_BINDINGS                = 100;
-  CLUSTER_GET_BINDINGS                   = 101;
+  CLUSTER_MODIFY_BINDINGS                          = 100;
+  CLUSTER_GET_BINDINGS                             = 101;
 
-  CLUSTER_AUTH_ACTIVATE                  = 102;
-  CLUSTER_AUTH_DEACTIVATE                = 103;
-  CLUSTER_AUTH_GET_CONFIG                = 104;
-  CLUSTER_AUTH_SET_CONFIG                = 105;
-  CLUSTER_AUTH_GET_ROBOT_TOKEN           = 139;
-  CLUSTER_AUTH_MODIFY_GROUP_MEMBERS      = 109;
-  CLUSTER_AUTH_GET_GROUPS                = 110;
-  CLUSTER_AUTH_GET_GROUP_USERS           = 111;
-  CLUSTER_AUTH_EXTRACT_TOKENS            = 112;
-  CLUSTER_AUTH_RESTORE_TOKEN             = 113;
-  CLUSTER_AUTH_DELETE_EXPIRED_TOKENS     = 140;
+  CLUSTER_AUTH_ACTIVATE                            = 102;
+  CLUSTER_AUTH_DEACTIVATE                          = 103;
+  CLUSTER_AUTH_GET_CONFIG                          = 104;
+  CLUSTER_AUTH_SET_CONFIG                          = 105;
+  CLUSTER_AUTH_GET_ROBOT_TOKEN                     = 139;
+  CLUSTER_AUTH_MODIFY_GROUP_MEMBERS                = 109;
+  CLUSTER_AUTH_GET_GROUPS                          = 110;
+  CLUSTER_AUTH_GET_GROUP_USERS                     = 111;
+  CLUSTER_AUTH_EXTRACT_TOKENS                      = 112;
+  CLUSTER_AUTH_RESTORE_TOKEN                       = 113;
+  CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL       = 141;
+  CLUSTER_AUTH_DELETE_EXPIRED_TOKENS               = 140;
 
 
   CLUSTER_ENTERPRISE_ACTIVATE            = 114;
