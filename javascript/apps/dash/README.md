@@ -44,3 +44,14 @@ This feature is still under development, and will likely change.
 `make launch-prod`
 
 This will start the production server at `localhost:3000`. Additionally, if you'd like to test the production UI/API against the mock gRPC & Auth server, you can run `npm run start:mock` from /backend and add a `.env.production.local` file that replicates the variables found in `.env.test`.
+
+## Deploying Dash
+
+### Environment variables
+You can find a list of the default variables configured in the dash container in the `.env.production` file. The variables you _may_ need to override in your deployment are:
+
+- PACHD_ADDRESS
+- OAUTH_CLIENT_ID
+- OAUTH_CLIENT_SECRET
+- OAUTH_REDIRECT_URI
+- ISSUER_URI

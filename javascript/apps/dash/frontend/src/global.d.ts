@@ -22,6 +22,7 @@ declare global {
       OAUTH_CLIENT_ID: string;
       OAUTH_CLIENT_SECRET: string;
       OAUTH_PACHD_CLIENT_ID: string;
+      PACHD_ADDRESS: string;
     }
   }
 }

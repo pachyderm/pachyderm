@@ -7,7 +7,7 @@
     "build": "rm -rf dist && tsc -p tsconfig.json && cp src/mock/mockPrivate.key dist/mock/mockPrivate.key",
     "generate-types": "graphql-codegen",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
-    "start": "NODE_PATH=dist/ NODE_ENV=production DOTENV_FLOW_PATH=../ node -r dotenv-flow/config dist/index.js",
+    "start": "NODE_PATH=dist/ NODE_ENV=production DOTENV_FLOW_PATH=../ node -r module-alias/register -r dotenv-flow/config dist/index.js",
     "start:dev": "LOG_LEVEL=debug NODE_ENV=development DOTENV_FLOW_PATH=../ nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
     "start:test": "LOG_LEVEL=debug NODE_ENV=test DOTENV_FLOW_PATH=../ nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
     "start:mock": "LOG_LEVEL=debug NODE_PATH=dist/ NODE_ENV=test DOTENV_FLOW_PATH=../ MOCK_AUTH_PORT=30658 MOCK_GRPC_PORT=50051 nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/mock/index.ts",
@@ -26,6 +26,7 @@
     "jsonwebtoken": "8.5.1",
     "lodash": "4.17.20",
     "mime-types": "2.1.29",
+    "module-alias": "^2.2.2",
     "openid-client": "4.4.0",
     "uuid": "8.3.2"
   },
@@ -55,5 +56,9 @@
     "ts-node": "9.1.1",
     "tsconfig-paths": "3.9.0",
     "typescript": "4.1.2"
+  },
+  "_moduleAliases": {
+    "@dash-backend": "./dist",
+    "@graphqlTypes": "./dist/generated/types.js"
   }
 }

@@ -6,7 +6,7 @@ import log from '@dash-backend/lib/log';
 
 const handleFileDownload = async (req: Request, res: Response) => {
   const authToken = req.cookies.dashAuthToken;
-  const pachdAddress = req.cookies.dashAddress;
+  const pachdAddress = process.env.PACHD_ADDRESS;
   const sameOrigin = req.get('origin') === undefined;
 
   if (!sameOrigin || !authToken || !pachdAddress) {

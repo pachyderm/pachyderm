@@ -75,7 +75,7 @@ const checkPachVersion = async () => {
 const writePachdAddress = async () => {
   console.log('Writing pachd address to .env.dev.local...');
   try {
-    await writeToEnv('REACT_APP_PACHD_ADDRESS', LOCAL_PACHD_ADDRESS);
+    await writeToEnv('PACHD_ADDRESS', LOCAL_PACHD_ADDRESS);
     console.log(`${LOCAL_PACHD_ADDRESS} ✅`);
   } catch (e) {
     console.error('Problem writing pachd address to .env.dev.local:', e);

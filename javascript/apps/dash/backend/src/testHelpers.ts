@@ -31,7 +31,6 @@ const executeOperation = async <T>(
       }),
       headers: {
         'id-token': generateIdTokenForAccount(mockServer.state.account),
-        'pachd-address': `localhost:${process.env.GRPC_PORT}`,
         'Content-Type': 'application/json',
         ...headers,
       },
@@ -61,7 +60,6 @@ const createOperation = async <T>(
       }),
       headers: {
         'id-token': generateIdTokenForAccount(mockServer.state.account),
-        'pachd-address': `localhost:${process.env.GRPC_PORT}`,
         'Content-Type': 'application/json',
         ...headers,
       },

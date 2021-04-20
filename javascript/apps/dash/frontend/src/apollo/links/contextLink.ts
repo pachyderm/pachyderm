@@ -10,7 +10,6 @@ export const contextLink = () =>
         ...headers,
         'auth-token': authToken,
         'id-token': idToken,
-        'pachd-address': process.env.REACT_APP_PACHD_ADDRESS,
       },
     };
   });

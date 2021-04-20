@@ -60,12 +60,6 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
           secure: true,
         },
       );
-      Cookies.set('dashAddress', process.env.REACT_APP_PACHD_ADDRESS || '', {
-        expires: COOKIE_EXPIRES,
-        httpOnly: true,
-        sameSite: 'strict',
-        secure: true,
-      });
 
       client.writeQuery({
         query: GET_LOGGED_IN_QUERY,

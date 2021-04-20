@@ -21,7 +21,7 @@ const gqlServer = new ApolloServer({
       account = await getAccountFromIdToken(idToken);
     }
 
-    const pachdAddress = req.header('pachd-address');
+    const pachdAddress = process.env.PACHD_ADDRESS;
     const authToken = req.header('auth-token');
     const projectId = req.body?.variables?.args?.projectId;
 
