@@ -1,11 +1,20 @@
 import {
   CronInput,
+  Egress,
   Input,
   PFSInput,
   Pipeline,
   PipelineInfo,
   PipelineState,
+  SchedulingSpec,
 } from '@pachyderm/proto/pb/pps/pps_pb';
+
+// Need to define this up here, as the node selector
+// map is a mutable set that can't be initialized with
+// values
+const schedulingSpec = new SchedulingSpec();
+schedulingSpec.setPriorityClassName('high-priority');
+schedulingSpec.getNodeSelectorMap().set('disktype', 'ssd');
 
 const tutorial = [
   new PipelineInfo()
@@ -19,7 +28,10 @@ const tutorial = [
     .setDescription('Not my favorite pipeline')
     .setState(PipelineState.PIPELINE_FAILURE)
     .setOutputBranch('master')
-    .setCacheSize('64M'),
+    .setCacheSize('64M')
+    .setEgress(new Egress().setUrl('https://egress.com'))
+    .setS3Out(true)
+    .setSchedulingSpec(schedulingSpec),
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('edges'))

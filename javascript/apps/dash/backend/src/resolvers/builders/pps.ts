@@ -52,6 +52,22 @@ export const pipelineInfoToGQLPipeline = (
     jobTimeoutS: pipelineInfo.jobTimeout?.seconds,
     enableStats: pipelineInfo.enableStats,
     outputBranch: pipelineInfo.outputBranch,
+    s3OutputRepo:
+      pipelineInfo.s3Out && pipelineInfo.pipeline
+        ? `s3//${pipelineInfo.pipeline.name}`
+        : undefined,
+    egress: Boolean(pipelineInfo.egress),
+    schedulingSpec: pipelineInfo.schedulingSpec
+      ? {
+          nodeSelectorMap: pipelineInfo.schedulingSpec.nodeSelectorMap.map(
+            ([key, value]) => ({
+              key,
+              value,
+            }),
+          ),
+          priorityClassName: pipelineInfo.schedulingSpec.priorityClassName,
+        }
+      : undefined,
   };
 };
 

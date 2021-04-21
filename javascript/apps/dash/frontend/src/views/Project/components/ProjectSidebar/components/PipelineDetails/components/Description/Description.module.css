@@ -16,3 +16,8 @@
 .description + .term {
   margin-top: 0.937rem;
 }
+
+.skeleton {
+  margin: 0;
+  max-width: none;
+}

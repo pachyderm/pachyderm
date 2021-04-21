@@ -71,6 +71,16 @@ type Transform {
   image: String!
 }
 
+type NodeSelector {
+  key: String!
+  value: String!
+}
+
+type SchedulingSpec {
+  nodeSelectorMap: [NodeSelector!]!
+  priorityClassName: String!
+}
+
 type Pipeline {
   id: ID!
   name: String!
@@ -96,6 +106,9 @@ type Pipeline {
   jobTimeoutS: Int
   enableStats: Boolean!
   outputBranch: String!
+  s3OutputRepo: String
+  egress: Boolean!
+  schedulingSpec: SchedulingSpec
 }
 
 type InputPipeline {

@@ -132,6 +132,18 @@ export type Transform = {
   image: Scalars['String'];
 };
 
+export type NodeSelector = {
+  __typename?: 'NodeSelector';
+  key: Scalars['String'];
+  value: Scalars['String'];
+};
+
+export type SchedulingSpec = {
+  __typename?: 'SchedulingSpec';
+  nodeSelectorMap: Array<NodeSelector>;
+  priorityClassName: Scalars['String'];
+};
+
 export type Pipeline = {
   __typename?: 'Pipeline';
   id: Scalars['ID'];
@@ -158,6 +170,9 @@ export type Pipeline = {
   jobTimeoutS?: Maybe<Scalars['Int']>;
   enableStats: Scalars['Boolean'];
   outputBranch: Scalars['String'];
+  s3OutputRepo?: Maybe<Scalars['String']>;
+  egress: Scalars['Boolean'];
+  schedulingSpec?: Maybe<SchedulingSpec>;
 };
 
 export type InputPipeline = {
@@ -463,6 +478,8 @@ export type ResolversTypes = ResolversObject<{
   ProjectStatus: ProjectStatus;
   PipelineType: PipelineType;
   Transform: ResolverTypeWrapper<Transform>;
+  NodeSelector: ResolverTypeWrapper<NodeSelector>;
+  SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
   Pipeline: ResolverTypeWrapper<Pipeline>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
@@ -503,6 +520,8 @@ export type ResolversParentTypes = ResolversObject<{
   GitInput: GitInput;
   Input: Input;
   Transform: Transform;
+  NodeSelector: NodeSelector;
+  SchedulingSpec: SchedulingSpec;
   Pipeline: Pipeline;
   Int: Scalars['Int'];
   InputPipeline: InputPipeline;
@@ -704,6 +723,32 @@ export type TransformResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type NodeSelectorResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['NodeSelector'] = ResolversParentTypes['NodeSelector']
+> = ResolversObject<{
+  key?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  value?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SchedulingSpecResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['SchedulingSpec'] = ResolversParentTypes['SchedulingSpec']
+> = ResolversObject<{
+  nodeSelectorMap?: Resolver<
+    Array<ResolversTypes['NodeSelector']>,
+    ParentType,
+    ContextType
+  >;
+  priorityClassName?: Resolver<
+    ResolversTypes['String'],
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type PipelineResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Pipeline'] = ResolversParentTypes['Pipeline']
@@ -756,6 +801,17 @@ export type PipelineResolvers<
   jobTimeoutS?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   enableStats?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   outputBranch?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  s3OutputRepo?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  egress?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  schedulingSpec?: Resolver<
+    Maybe<ResolversTypes['SchedulingSpec']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1000,6 +1056,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   JobState?: JobStateResolvers;
   ProjectStatus?: ProjectStatusResolvers;
   Transform?: TransformResolvers<ContextType>;
+  NodeSelector?: NodeSelectorResolvers<ContextType>;
+  SchedulingSpec?: SchedulingSpecResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;
@@ -1178,9 +1236,24 @@ export type PipelineQuery = {__typename?: 'Query'} & {
     | 'jobTimeoutS'
     | 'enableStats'
     | 'outputBranch'
+    | 's3OutputRepo'
+    | 'egress'
   > & {
       transform?: Maybe<
         {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
+      >;
+      schedulingSpec?: Maybe<
+        {__typename?: 'SchedulingSpec'} & Pick<
+          SchedulingSpec,
+          'priorityClassName'
+        > & {
+            nodeSelectorMap: Array<
+              {__typename?: 'NodeSelector'} & Pick<
+                NodeSelector,
+                'key' | 'value'
+              >
+            >;
+          }
       >;
     };
 };

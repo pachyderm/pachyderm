@@ -128,6 +128,15 @@ query pipeline($args: PipelineQueryArgs!) {
     jobTimeoutS
     enableStats
     outputBranch
+    s3OutputRepo
+    egress
+    schedulingSpec {
+      nodeSelectorMap {
+        key
+        value
+      }
+      priorityClassName
+    }
   }
 }
 query projectDetails($args: ProjectDetailsQueryArgs!) {

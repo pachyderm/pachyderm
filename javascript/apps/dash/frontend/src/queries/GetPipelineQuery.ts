@@ -19,6 +19,15 @@ export const GET_PIPELINE_QUERY = gql`
       jobTimeoutS
       enableStats
       outputBranch
+      s3OutputRepo
+      egress
+      schedulingSpec {
+        nodeSelectorMap {
+          key
+          value
+        }
+        priorityClassName
+      }
     }
   }
 `;

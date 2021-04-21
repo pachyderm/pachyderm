@@ -4,7 +4,7 @@ import React from 'react';
 
 import PipelineInfo from './components/PipelineInfo';
 import PipelineJobs from './components/PipelineJobs';
-import PipelineJSON from './components/PipelineJSON';
+import PipelineSpec from './components/PipelineSpec';
 import {TAB_ID, TAB_IDS} from './constants/tabIds';
 import usePipelineDetails from './hooks/usePipelineDetails';
 import styles from './PipelineDetails.module.css';
@@ -43,8 +43,8 @@ const PipelineDetails = () => {
         <Tabs.TabPanel id={TAB_ID.INFO}>
           <PipelineInfo />
         </Tabs.TabPanel>
-        <Tabs.TabPanel id={TAB_ID.CONFIG}>
-          <PipelineJSON />
+        <Tabs.TabPanel id={TAB_ID.SPEC}>
+          <PipelineSpec />
         </Tabs.TabPanel>
         <Tabs.TabPanel id={TAB_ID.JOBS}>
           <PipelineJobs />

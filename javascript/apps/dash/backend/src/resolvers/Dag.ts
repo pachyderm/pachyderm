@@ -10,7 +10,6 @@ import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
 import minBy from 'lodash/minBy';
 
-import client from '@dash-backend/grpc/client';
 import disconnectedComponents from '@dash-backend/lib/disconnectedComponents';
 import {LinkInputData, NodeInputData, Vertex} from '@dash-backend/lib/types';
 import {Link, Node, NodeType, QueryResolvers} from '@graphqlTypes';
