@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -22,10 +21,10 @@ import (
 )
 
 type postgresCollection struct {
+	table    string
 	db       *sqlx.DB
 	listener *PostgresListener
 	template proto.Message
-	table    string
 	indexes  []*Index
 	keyCheck func(string) error
 }
@@ -42,18 +41,13 @@ type model struct {
 	Proto     []byte
 }
 
-func tableName(template proto.Message) string {
-	templateType := reflect.TypeOf(template).Elem()
-	return strings.ToLower(templateType.Name())
-}
-
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(db *sqlx.DB, listener *PostgresListener, template proto.Message, indexes []*Index, keyCheck func(string) error) PostgresCollection {
+func NewPostgresCollection(name string, db *sqlx.DB, listener *PostgresListener, template proto.Message, indexes []*Index, keyCheck func(string) error) PostgresCollection {
 	return &postgresCollection{
+		table:    name,
 		db:       db,
 		listener: listener,
 		template: template,
-		table:    tableName(template),
 		indexes:  indexes,
 		keyCheck: keyCheck,
 	}

@@ -32,16 +32,11 @@ func newDriver(
 	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 ) (*driver, error) {
-	db := env.GetDBClient()
-	transactions, err := transactiondb.Transactions(context.Background(), db, env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
 
 	return &driver{
 		txnEnv:       txnEnv,
 		db:           env.GetDBClient(),
-		transactions: transactions,
+		transactions: transactiondb.Transactions(env.GetDBClient(), env.GetPostgresListener()),
 	}, nil
 }
 

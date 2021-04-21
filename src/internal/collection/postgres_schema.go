@@ -105,45 +105,47 @@ $$ language 'plpgsql';
 	return nil
 }
 
-func SetupPostgresCollection(ctx context.Context, sqlTx *sqlx.Tx, pgc PostgresCollection) error {
-	col := pgc.(*postgresCollection)
-	columns := []string{
-		"createdat timestamp with time zone default current_timestamp",
-		"updatedat timestamp with time zone default current_timestamp",
-		"proto bytea",
-		"version text",
-		"key text primary key",
-	}
+func SetupPostgresCollections(ctx context.Context, sqlTx *sqlx.Tx, collections ...PostgresCollection) error {
+	for _, pgc := range collections {
+		col := pgc.(*postgresCollection)
+		columns := []string{
+			"createdat timestamp with time zone default current_timestamp",
+			"updatedat timestamp with time zone default current_timestamp",
+			"proto bytea",
+			"version text",
+			"key text primary key",
+		}
 
-	indexFields := []string{"'key'"}
-	for _, idx := range col.indexes {
-		name := indexFieldName(idx)
-		columns = append(columns, name+" text")
-		indexFields = append(indexFields, "'"+name+"'")
-	}
+		indexFields := []string{"'key'"}
+		for _, idx := range col.indexes {
+			name := indexFieldName(idx)
+			columns = append(columns, name+" text")
+			indexFields = append(indexFields, "'"+name+"'")
+		}
 
-	// TODO: create indexes on table
-	createTable := fmt.Sprintf("create table if not exists collections.%s (%s);", col.table, strings.Join(columns, ", "))
-	if _, err := sqlTx.Exec(createTable); err != nil {
-		return errors.EnsureStack(err)
-	}
+		// TODO: create indexes on table
+		createTable := fmt.Sprintf("create table if not exists collections.%s (%s);", col.table, strings.Join(columns, ", "))
+		if _, err := sqlTx.Exec(createTable); err != nil {
+			return errors.EnsureStack(err)
+		}
 
-	updatedatTrigger := fmt.Sprintf(`
-create trigger updatedat_trigger
-  before insert or update or delete on collections.%s
-  for each row execute procedure collections.updatedat_trigger_fn();
-`, col.table)
-	if _, err := sqlTx.ExecContext(ctx, updatedatTrigger); err != nil {
-		return errors.EnsureStack(err)
-	}
+		updatedatTrigger := fmt.Sprintf(`
+	create trigger updatedat_trigger
+		before insert or update or delete on collections.%s
+		for each row execute procedure collections.updatedat_trigger_fn();
+	`, col.table)
+		if _, err := sqlTx.ExecContext(ctx, updatedatTrigger); err != nil {
+			return errors.EnsureStack(err)
+		}
 
-	notifyTrigger := fmt.Sprintf(`
-create trigger notify_trigger
-  after insert or update or delete on collections.%s
-  for each row execute procedure collections.notify_trigger_fn(%s);
-`, col.table, strings.Join(indexFields, ", "))
-	if _, err := sqlTx.ExecContext(ctx, notifyTrigger); err != nil {
-		return errors.EnsureStack(err)
+		notifyTrigger := fmt.Sprintf(`
+	create trigger notify_trigger
+		after insert or update or delete on collections.%s
+		for each row execute procedure collections.notify_trigger_fn(%s);
+	`, col.table, strings.Join(indexFields, ", "))
+		if _, err := sqlTx.ExecContext(ctx, notifyTrigger); err != nil {
+			return errors.EnsureStack(err)
+		}
 	}
 	return nil
 }

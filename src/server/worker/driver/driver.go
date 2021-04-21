@@ -134,14 +134,8 @@ func NewDriver(
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	jobs, err := ppsdb.Jobs(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
-	pipelines, err := ppsdb.Pipelines(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
+	jobs := ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
+	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
 	result := &driver{
 		env:             env,
 		ctx:             env.Context(),

@@ -131,71 +131,15 @@ func NewAuthServer(
 	watchesEnabled bool,
 ) (APIServer, error) {
 
-	authConfig, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.OIDCConfig{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	roleBindings, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.RoleBinding{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	members, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.Groups{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	groups, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.Users{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	oidcStates, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.SessionInfo{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	s := &apiServer{
 		env:            env,
 		txnEnv:         txnEnv,
 		pachLogger:     log.NewLogger("auth.API"),
-		authConfig:     authConfig,
-		roleBindings:   roleBindings,
-		members:        members,
-		groups:         groups,
-		oidcStates:     oidcStates,
+		authConfig:     authConfigCollection(env.GetDBClient(), env.GetPostgresListener()),
+		roleBindings:   roleBindingsCollection(env.GetDBClient(), env.GetPostgresListener()),
+		members:        membersCollection(env.GetDBClient(), env.GetPostgresListener()),
+		groups:         groupsCollection(env.GetDBClient(), env.GetPostgresListener()),
+		oidcStates:     oidcStatesCollection(env.GetDBClient(), env.GetPostgresListener()),
 		public:         public,
 		watchesEnabled: watchesEnabled,
 	}
@@ -207,8 +151,8 @@ func NewAuthServer(
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(s.authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(s.roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch()

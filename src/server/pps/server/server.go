@@ -39,14 +39,6 @@ func NewAPIServer(
 	peerPort uint16,
 	gcPercent int,
 ) (APIServer, error) {
-	pipelines, err := ppsdb.Pipelines(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
-	jobs, err := ppsdb.Jobs(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
 	apiServer := &apiServer{
 		Logger:                log.NewLogger("pps.API"),
 		env:                   env,
@@ -65,8 +57,8 @@ func NewAPIServer(
 		noExposeDockerSocket:  noExposeDockerSocket,
 		reporter:              reporter,
 		workerUsesRoot:        workerUsesRoot,
-		pipelines:             pipelines,
-		jobs:                  jobs,
+		pipelines:             ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener()),
+		jobs:                  ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener()),
 		workerGrpcPort:        workerGrpcPort,
 		port:                  port,
 		httpPort:              httpPort,
@@ -92,14 +84,6 @@ func NewSidecarAPIServer(
 	httpPort uint16,
 	peerPort uint16,
 ) (APIServer, error) {
-	pipelines, err := ppsdb.Pipelines(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
-	jobs, err := ppsdb.Jobs(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
 	apiServer := &apiServer{
 		Logger:         log.NewLogger("pps.API"),
 		env:            env,
@@ -109,8 +93,8 @@ func NewSidecarAPIServer(
 		reporter:       reporter,
 		namespace:      namespace,
 		workerUsesRoot: true,
-		pipelines:      pipelines,
-		jobs:           jobs,
+		pipelines:      ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener()),
+		jobs:           ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener()),
 		workerGrpcPort: workerGrpcPort,
 		httpPort:       httpPort,
 		peerPort:       peerPort,

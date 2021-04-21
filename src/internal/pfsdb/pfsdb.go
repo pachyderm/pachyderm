@@ -2,8 +2,6 @@
 package pfsdb
 
 import (
-	"context"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 
@@ -13,10 +11,29 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+const (
+	reposCollectionName       = "repos"
+	branchesCollectionName    = "branches"
+	commitsCollectionName     = "commits"
+	openCommitsCollectionName = "open_commits"
+)
+
+// AllCollections returns a list of all the PFS collections for
+// postgres-initialization purposes. These collections are not usable for
+// querying.
+func AllCollections() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, nil, nil),
+		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, []*col.Index{CommitsRepoIndex}, nil),
+		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, []*col.Index{BranchesRepoIndex}, nil),
+		col.NewPostgresCollection(openCommitsCollectionName, nil, nil, nil, nil, nil),
+	}
+}
+
 // Repos returns a collection of repos
-func Repos(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		ctx,
+		"repos",
 		db,
 		listener,
 		&pfs.RepoInfo{},
@@ -37,9 +54,9 @@ func CommitKey(commit *pfs.Commit) string {
 }
 
 // Commits returns a collection of commits
-func Commits(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+func Commits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		ctx,
+		"commits",
 		db,
 		listener,
 		&pfs.CommitInfo{},
@@ -60,9 +77,9 @@ func BranchKey(branch *pfs.Branch) string {
 }
 
 // Branches returns a collection of branches
-func Branches(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		ctx,
+		"branches",
 		db,
 		listener,
 		&pfs.BranchInfo{},
@@ -77,9 +94,9 @@ func Branches(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) 
 }
 
 // OpenCommits returns a collection of open commits
-func OpenCommits(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+func OpenCommits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		ctx,
+		"open_commits",
 		db,
 		listener,
 		&pfs.Commit{},

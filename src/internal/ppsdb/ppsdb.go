@@ -2,8 +2,6 @@
 package ppsdb
 
 import (
-	"context"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 
@@ -12,10 +10,25 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
+const (
+	pipelinesCollectionName = "pipelines"
+	jobsCollectionName      = "jobs"
+)
+
+// AllCollections returns a list of all the PPS API collections for
+// postgres-initialization purposes. These collections are not usable for
+// querying.
+func AllCollections() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(pipelinesCollectionName, nil, nil, nil, nil, nil),
+		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, []*col.Index{JobsPipelineIndex, JobsOutputIndex}, nil),
+	}
+}
+
 // Pipelines returns an EtcdCollection of pipelines
-func Pipelines(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+func Pipelines(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		ctx,
+		pipelinesCollectionName,
 		db,
 		listener,
 		&pps.EtcdPipelineInfo{},
@@ -43,9 +56,9 @@ var (
 )
 
 // Jobs returns an EtcdCollection of jobs
-func Jobs(ctx context.Context, db *sqlx.DB, listener *col.PostgresListener) (col.PostgresCollection, error) {
+func Jobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		ctx,
+		jobsCollectionName,
 		db,
 		listener,
 		&pps.EtcdJobInfo{},
