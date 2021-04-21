@@ -30,10 +30,10 @@ Before deploying Pachyderm IDE, configure the following prerequisites:
 [Deploy Pachyderm](../)
 on a supported Kubernetes platforms:
 
-  - Google Kubernetes Engine (GKE)
-  - Amazon Elastic Container Service (EKS)
-  - Docker Desktop for Mac
-  - Minikube
+    - Google Kubernetes Engine (GKE)
+    - Amazon Elastic Kubernetes Service (EKS)
+    - Docker Desktop for Mac
+    - Minikube
 
     For more information about JupyterHub requirements for Kubernetes,
     see [Zero to JupyterHub with Kubernetes](https://zero-to-jupyterhub.readthedocs.io/en/latest/).

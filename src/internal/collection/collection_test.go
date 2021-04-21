@@ -491,6 +491,25 @@ func collectionTests(
 					})
 					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
 				})
+
+				subsuite.Run("NoRollbackOnExists", func(t *testing.T) {
+					t.Parallel()
+					overwriteID := makeID(5)
+					newID := makeID(10)
+					readOnly, writer := initCollection(t)
+					err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+						testProto := makeProto(overwriteID)
+						if err := rw.Create(testProto.ID, testProto); err == nil {
+							return errors.New("Expected col.ErrExists, but got no error")
+						} else if !col.IsErrExists(err) {
+							return err
+						}
+						testProto = makeProto(newID)
+						return rw.Create(testProto.ID, testProto)
+					})
+					require.NoError(t, err)
+					checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
+				})
 			})
 		})
 

@@ -132,50 +132,6 @@ func NewAuthServer(
 	watchesEnabled bool,
 ) (APIServer, error) {
 
-	authConfig, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.OIDCConfig{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	roleBindings, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.RoleBinding{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	members, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.Groups{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	groups, err := col.NewPostgresCollection(
-		context.Background(),
-		env.GetDBClient(),
-		env.GetPostgresListener(),
-		&auth.Users{},
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
 	oidcStates := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(oidcAuthnPrefix),
@@ -184,18 +140,15 @@ func NewAuthServer(
 		nil,
 		nil,
 	)
-	if err != nil {
-		return nil, err
-	}
 
 	s := &apiServer{
 		env:            env,
 		txnEnv:         txnEnv,
 		pachLogger:     log.NewLogger("auth.API"),
-		authConfig:     authConfig,
-		roleBindings:   roleBindings,
-		members:        members,
-		groups:         groups,
+		authConfig:     authConfigCollection(env.GetDBClient(), env.GetPostgresListener()),
+		roleBindings:   roleBindingsCollection(env.GetDBClient(), env.GetPostgresListener()),
+		members:        membersCollection(env.GetDBClient(), env.GetPostgresListener()),
+		groups:         groupsCollection(env.GetDBClient(), env.GetPostgresListener()),
 		oidcStates:     oidcStates,
 		public:         public,
 		watchesEnabled: watchesEnabled,
@@ -208,8 +161,8 @@ func NewAuthServer(
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(s.authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(s.roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch()
@@ -1377,6 +1330,15 @@ func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.Delet
 		return nil, errors.Wrapf(err, "error deleting expired tokens")
 	}
 	return &auth.DeleteExpiredAuthTokensResponse{}, nil
+}
+
+func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.RevokeAuthTokensForUserRequest) (resp *auth.RevokeAuthTokensForUserResponse, retErr error) {
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, req.Username); err != nil {
+		return nil, errors.Wrapf(err, "error deleting all auth tokens")
+	}
+	return &auth.RevokeAuthTokensForUserResponse{}, nil
 }
 
 func (a *apiServer) deleteExpiredTokensRoutine() {

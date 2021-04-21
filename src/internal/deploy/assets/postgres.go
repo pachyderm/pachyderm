@@ -108,10 +108,7 @@ func WritePostgresAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBack
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-postgres-nodes or --static-postgres-volume needs to be provided")
 	}
-	if err := encoder.Encode(PostgresService(opts)); err != nil {
-		return err
-	}
-	return nil
+	return encoder.Encode(PostgresService(opts))
 }
 
 // PostgresDeployment generates a Deployment for the pachyderm postgres instance.
@@ -381,19 +378,6 @@ func PostgresStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interf
 			"volumeClaimTemplates": pvcTemplates,
 		},
 	}
-}
-
-// TestPostgresVolume creates a persistent volume for use with StatefulSets in a
-// local deployment (used by some tests).
-func TestPostgresVolume(opts *AssetOpts, hostPath string, volumeName string, size int) (*v1.PersistentVolume, error) {
-	volumeLabels := labels(postgresName)
-	volumeLabels["namespace"] = opts.Namespace
-	volume, err := makePersistentVolume(opts, LocalBackend, hostPath, "", size, volumeName, volumeLabels)
-	if err != nil {
-		return nil, err
-	}
-	volume.Spec.PersistentVolumeReclaimPolicy = v1.PersistentVolumeReclaimDelete
-	return volume, nil
 }
 
 // PostgresVolume creates a persistent volume backed by a volume with name "name"

@@ -95,22 +95,10 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	if err != nil {
 		return nil, err
 	}
-	repos, err := pfsdb.Repos(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
-	commits, err := pfsdb.Commits(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
-	branches, err := pfsdb.Branches(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
-	openCommits, err := pfsdb.OpenCommits(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return nil, err
-	}
+	repos := pfsdb.Repos(env.GetDBClient(), env.GetPostgresListener())
+	commits := pfsdb.Commits(env.GetDBClient(), env.GetPostgresListener())
+	branches := pfsdb.Branches(env.GetDBClient(), env.GetPostgresListener())
+	openCommits := pfsdb.OpenCommits(env.GetDBClient(), env.GetPostgresListener())
 
 	// Setup driver struct.
 	d := &driver{

@@ -415,11 +415,16 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 		return nil, 0, errors.Wrap(err, "failed to initialize port forwarder")
 	}
 
-	port, err := fw.RunForDaemon(0, 650)
+	var port uint16
+	if context.EnterpriseServer {
+		port, err = fw.RunForEnterpriseServer(0, 650)
+	} else {
+		port, err = fw.RunForDaemon(0, 650)
+	}
+
 	if err != nil {
 		return nil, 0, err
 	}
-
 	log.Debugf("Implicit port forwarder listening on port %d", port)
 
 	return fw, port, nil

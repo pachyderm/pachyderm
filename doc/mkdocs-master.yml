@@ -180,7 +180,7 @@ nav:
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
             - Getting Started with Pachyderm Hub: hub/hub_getting_started.md
-            - Helm install: deploy-manage/deploy/helm_install.md
+            - Deploy with Helm: deploy-manage/deploy/helm_install.md
             - Deploy on ...:
                 - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
                 - Deploy on AWS:

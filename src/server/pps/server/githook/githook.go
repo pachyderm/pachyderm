@@ -62,10 +62,7 @@ func RunGitHookServer(env serviceenv.ServiceEnv) error {
 	if err != nil {
 		return err
 	}
-	pipelines, err := ppsdb.Pipelines(env.Context(), env.GetDBClient(), env.GetPostgresListener())
-	if err != nil {
-		return err
-	}
+	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
 	s := &gitHookServer{
 		env,
 		hook,
