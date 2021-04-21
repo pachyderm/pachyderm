@@ -1,6 +1,6 @@
 # Export Your Data with `egress`
 
-The `egress` field in the Pachyderm [pipeline specification](../../../reference/pipeline_spec)
+The `egress` field in the Pachyderm [pipeline specification](../../../../reference/pipeline_spec)
 enables you to push the results of a pipeline to an
 external datastore such as Amazon S3, Google Cloud Storage, or
 Azure Blob Storage. After the user code has finished running, but

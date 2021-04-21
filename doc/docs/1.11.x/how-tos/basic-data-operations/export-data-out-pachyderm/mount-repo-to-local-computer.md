@@ -59,7 +59,7 @@ write access to the mounted repositories, which means that you can
 open the files for editing and put them back to the Pachyderm
 repository. 
 
-For example, you have the [OpenCV example pipeline](../../../getting_started/beginner_tutorial/#image-processing-with-opencv)
+For example, you have the [OpenCV example pipeline](../../../../getting_started/beginner_tutorial/#image-processing-with-opencv)
 up and running. If you want to edit files in the `images`
 repository, experiment with brightness and contrast
 settings in `liberty.png`, and finally have your `edges`
@@ -129,72 +129,72 @@ For example, `pfs`.
 
 1. Run `pachctl mount` for a repository and branch that you want to mount:
 
-   ```shell
-   pachctl mount <path-on-your-computer> [flags]
-   ```
+      ```shell
+      pachctl mount <path-on-your-computer> [flags]
+      ```
 
-   **Example:**
+      **Example:**
 
-   * If you want to mount all the repositories in your Pachyderm cluster 
-   to a `pfs` directory on your computer and give `WRITE` access to them, run:
+      * If you want to mount all the repositories in your Pachyderm cluster 
+      to a `pfs` directory on your computer and give `WRITE` access to them, run:
 
-   ```shell
-   pachctl mount pfs --write
-   ```
+      ```shell
+      pachctl mount pfs --write
+      ```
 
-   * If you want to mount the master branch of the `images` repo
-   and enable file editing in this repository, run:
+      * If you want to mount the master branch of the `images` repo
+      and enable file editing in this repository, run:
 
-   ```shell
-   pachctl mount pfs --repos images@master+w
-   ```
+      ```shell
+      pachctl mount pfs --repos images@master+w
+      ```
 
-   To give read-only access, omit `+w`.
+      To give read-only access, omit `+w`.
 
-   **System Response:**
+      **System Response:**
 
-   ```
-   ro for images: &{Branch:master Write:true}
-   ri: repo:<name:"montage" > created:<seconds:1591812554 nanos:348079652 > size_bytes:1345398 description:"Output repo for pipeline montage." branches:<repo:<name:"montage" > name:"master" >
-   continue
-   ri: repo:<name:"edges" > created:<seconds:1591812554 nanos:201592492 > size_bytes:136795 description:"Output repo for pipeline edges." branches:<repo:<name:"edges" > name:"master" >
-   continue
-   ri: repo:<name:"images" > created:<seconds:1591812554 nanos:28450609 > size_bytes:244068 branches:<repo:<name:"images" > name:"master" >
-   MkdirAll /var/folders/jl/mm3wrxqd75l9r1_d0zktphdw0000gn/T/pfs201409498/images
-   ```
+      ```
+      ro for images: &{Branch:master Write:true}
+      ri: repo:<name:"montage" > created:<seconds:1591812554 nanos:348079652 > size_bytes:1345398 description:"Output repo for pipeline montage." branches:<repo:<name:"montage" > name:"master" >
+      continue
+      ri: repo:<name:"edges" > created:<seconds:1591812554 nanos:201592492 > size_bytes:136795 description:"Output repo for pipeline edges." branches:<repo:<name:"edges" > name:"master" >
+      continue
+      ri: repo:<name:"images" > created:<seconds:1591812554 nanos:28450609 > size_bytes:244068 branches:<repo:<name:"images" > name:"master" >
+      MkdirAll /var/folders/jl/mm3wrxqd75l9r1_d0zktphdw0000gn/T/pfs201409498/images
+      ```
 
-   The command runs in your terminal until you terminate it
-   by pressing `CTRL+C`.
+      The command runs in your terminal until you terminate it
+      by pressing `CTRL+C`.
 
 1. You can check that the repo was mounted by running the mount command
 in your terminal:
 
-   ```shell hl_lines="7"
-   mount
-   /dev/disk1s1 on / (apfs, local, read-only, journaled)
-   devfs on /dev (devfs, local, nobrowse)
-   /dev/disk1s2 on /System/Volumes/Data (apfs, local, journaled, nobrowse)
-   /dev/disk1s5 on /private/var/vm (apfs, local, journaled, nobrowse)
-   map auto_home on /System/Volumes/Data/home (autofs, automounted, nobrowse)
-   pachctl@osxfuse0 on /Users/testuser/pfs (osxfuse, nodev, nosuid, synchronous, mounted by testuser)
-   ```
+      ```shell hl_lines="7"
+      mount
+      /dev/disk1s1 on / (apfs, local, read-only, journaled)
+      devfs on /dev (devfs, local, nobrowse)
+      /dev/disk1s2 on /System/Volumes/Data (apfs, local, journaled, nobrowse)
+      /dev/disk1s5 on /private/var/vm (apfs, local, journaled, nobrowse)
+      map auto_home on /System/Volumes/Data/home (autofs, automounted, nobrowse)
+      pachctl@osxfuse0 on /Users/testuser/pfs (osxfuse, nodev, nosuid, synchronous, mounted by testuser)
+      ```
 
 1. Access your mountpoint.
 
-   For example, in macOS, open Finder, press
-   `CMD + SHIFT + G`, and type the mountpoint location. If you have mounted
-   the repo to `~/pfs`, type `~/pfs`.
+      For example, in macOS, open Finder, press
+      `CMD + SHIFT + G`, and type the mountpoint location. If you have mounted
+      the repo to `~/pfs`, type `~/pfs`.
 
-   ![finder-repo-mount](../../assets/images/s_finder_repo_mount.png)
+      ![finder-repo-mount](../../../assets/images/s_finder_repo_mount.png)
 
 1. Edit the files as needed.
 1. When ready, add your changes to the Pachyderm repo by stopping
 the `pachctl mount` command with `CTRL+C` or by running `pachctl unmount
 <mountpoint>`.
 
-   If you have mounted a writable Pachyderm share interrupting the
-   `pachctl mount` command results in uploads
-   your changes to the corresponding repo and branch, which is equivalent
-   to running the `pachctl put file` command. You can check that
-   Pachyderm runs a new job for this work by listing current jobs with
-   `pachctl list job`.
+      If you have mounted a writable Pachyderm share interrupting the
+      `pachctl mount` command results in uploads
+      your changes to the corresponding repo and branch, which is equivalent
+      to running the `pachctl put file` command. You can check that
+      Pachyderm runs a new job for this work by listing current jobs with
+      `pachctl list job`.

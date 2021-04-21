@@ -2,8 +2,8 @@
 
 !!! info
     Before you read this section, make sure that you are familiar with
-    the [Data Concepts](../concepts/data-concepts/index.md) and
-    [Pipeline Concepts](../concepts/pipeline-concepts/index.md).
+    the [Data Concepts](../../concepts/data-concepts/index.md) and
+    [Pipeline Concepts](../../concepts/pipeline-concepts/index.md).
 
 The data that you commit to Pachyderm is stored in an object store of your
 choice, such as Amazon S3, MinIO, Google Cloud Storage, or other. Pachyderm
@@ -38,36 +38,35 @@ continuously with the following special types of pipelines:
   * **Spout:** A spout enables you to continuously load
   streaming data from a streaming data source, such as a messaging system
   or message queue into Pachyderm. 
-  See [Spout](../concepts/pipeline-concepts/pipeline/spout.md).
+  See [Spout](../../concepts/pipeline-concepts/pipeline/spout.md).
 
   * **Cron:** A cron triggers your pipeline periodically based on the
   interval that you configure in your pipeline spec.
-  See [Cron](../concepts/pipeline-concepts/pipeline/cron.md).
+  See [Cron](../../concepts/pipeline-concepts/pipeline/cron.md).
 
   **Note:** Pipelines enable you to do much more than just ingressing
   data into Pachyderm. Pipelines can run all kinds of data transformations
   on your input data sources, such as a Pachyderm repository, and be
   configured to run your code automatically as new data is committed.
   For more information, see
-  [Pipeline](../concepts/pipeline-concepts/pipeline/index.md).
+  [Pipeline](../../concepts/pipeline-concepts/pipeline/index.md).
 
 * By using a Pachyderm language client. This option is ideal
 for Go or Python users who want to push data into Pachyderm from
 services or applications written in those languages. If you did not find your
 favorite language in the list of supported language clients,
 Pachyderm uses a protobuf API which supports many other languages.
-See [Pachyderm Language Clients](../reference/clients.md).
+See [Pachyderm Language Clients](../../reference/clients.md).
 
 If you are using the Pachyderm Enterprise version, you can use these
 additional options:
 
 * By using the S3 gateway. This option is great to use with the existing tools
 and libraries that interact with S3-compatible object stores.
-See [Using the S3 Gateway](../../deploy-manage/manage/s3gateway/).
+See [Using the S3 Gateway](../../../deploy-manage/manage/s3gateway/).
 
 * By using the Pachyderm dashboard. The Pachyderm Enterprise dashboard
 provides a convenient way to upload data right from the UI.
-<!--TBA link to the PachHub tutorial-->
 
 !!! note
     In the Pachyderm UI, you can only specify an S3 data source.
@@ -100,9 +99,9 @@ To load your data into a repository, complete the following steps:
 
 1. Create a Pachyderm repository:
 
-   ```shell
-   pachctl create repo <repo name>
-   ```
+    ```shell
+    pachctl create repo <repo name>
+    ```
 
 1. Select from the following options:
 
