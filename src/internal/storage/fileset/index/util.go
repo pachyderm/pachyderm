@@ -59,45 +59,11 @@ func SizeBytes(idx *Index) int64 {
 		return size
 	}
 	if idx.File != nil {
-		if idx.File.DataRefs != nil {
-			for _, dataRef := range idx.File.DataRefs {
-				size += dataRef.SizeBytes
-			}
-			return size
-		}
-		for _, part := range idx.File.Parts {
-			for _, dataRef := range part.DataRefs {
-				size += dataRef.SizeBytes
-			}
+		for _, dataRef := range idx.File.DataRefs {
+			size += dataRef.SizeBytes
 		}
 	}
 	return size
-}
-
-// TODO: Change this such that it returns a new index with the updated fields, rather than updating in place.
-func resolveParts(idx *Index) {
-	if idx.File.DataRefs == nil {
-		return
-	}
-	dataRefs := idx.File.DataRefs
-	offset := dataRefs[0].OffsetBytes
-	size := dataRefs[0].SizeBytes
-	for _, part := range idx.File.Parts {
-		bytesLeft := part.SizeBytes
-		for size <= bytesLeft {
-			part.DataRefs = append(part.DataRefs, newDataRef(dataRefs[0].Ref, offset, size))
-			bytesLeft -= size
-			dataRefs = dataRefs[1:]
-			if len(dataRefs) == 0 {
-				return
-			}
-			offset = dataRefs[0].OffsetBytes
-			size = dataRefs[0].SizeBytes
-		}
-		part.DataRefs = append(part.DataRefs, newDataRef(dataRefs[0].Ref, offset, bytesLeft))
-		offset += bytesLeft
-		size -= bytesLeft
-	}
 }
 
 func newDataRef(chunkRef *chunk.Ref, offset, size int64) *chunk.DataRef {
@@ -105,11 +71,5 @@ func newDataRef(chunkRef *chunk.Ref, offset, size int64) *chunk.DataRef {
 		Ref:         chunkRef,
 		OffsetBytes: offset,
 		SizeBytes:   size,
-	}
-}
-
-func unresolveParts(idx *Index) {
-	for _, part := range idx.File.Parts {
-		part.DataRefs = nil
 	}
 }

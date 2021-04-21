@@ -25,7 +25,7 @@ func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker) *Storage {
 func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) error {
 	if len(deletive) > 0 && deletive[0] {
 		if err := fs.Iterate(ctx, func(f File) error {
-			return deleteIndex(w, f.Index())
+			return w.Delete(f.Index().Path)
 		}, deletive...); err != nil {
 			return err
 		}
@@ -33,18 +33,6 @@ func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) err
 	return fs.Iterate(ctx, func(f File) error {
 		return w.Copy(f)
 	})
-}
-
-func deleteIndex(w *Writer, idx *index.Index) error {
-	p := idx.Path
-	if len(idx.File.Parts) == 0 {
-		return w.Delete(p)
-	}
-	var tags []string
-	for _, part := range idx.File.Parts {
-		tags = append(tags, part.Tag)
-	}
-	return w.Delete(p, tags...)
 }
 
 // WriteTarEntry writes an tar entry for f to w
@@ -144,12 +132,4 @@ func (i *Iterator) Next() (File, error) {
 	case err := <-i.errChan:
 		return nil, err
 	}
-}
-
-func getDataRefs(parts []*index.Part) []*chunk.DataRef {
-	var dataRefs []*chunk.DataRef
-	for _, part := range parts {
-		dataRefs = append(dataRefs, part.DataRefs...)
-	}
-	return dataRefs
 }

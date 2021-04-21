@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"path"
 	"path/filepath"
 	"strings"
@@ -83,7 +82,7 @@ func (d *driver) withCommitUnorderedWriter(pachClient *client.APIClient, commit 
 
 func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
 	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}, opts...)
-	uw, err := d.storage.NewUnorderedWriter(ctx, d.getDefaultTag(), opts...)
+	uw, err := d.storage.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,11 +103,6 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringS
 	}
 	renewer.Add(compactedID.HexString())
 	return compactedID, nil
-}
-
-func (d *driver) getDefaultTag() string {
-	// TODO: change this to a constant like "input" or "default"
-	return fmt.Sprintf("%012d", time.Now().UnixNano())
 }
 
 func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, opts ...index.Option) (*pfs.CommitInfo, fileset.FileSet, error) {

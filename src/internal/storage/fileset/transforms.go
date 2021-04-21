@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -83,4 +84,29 @@ func (im *indexMap) Index() *index.Index {
 
 func (im *indexMap) Content(w io.Writer) error {
 	return im.inner.Content(w)
+}
+
+var _ FileSet = &errOnDuplicate{}
+
+type errOnDuplicate struct {
+	fs FileSet
+}
+
+// NewErrOnDuplicate errors when a duplicate index path appears in the iteration.
+func NewErrOnDuplicate(fs FileSet) FileSet {
+	return &errOnDuplicate{
+		fs: fs,
+	}
+}
+
+func (eod *errOnDuplicate) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
+	var prev *index.Index
+	return eod.fs.Iterate(ctx, func(f File) error {
+		idx := f.Index()
+		if prev != nil && idx.Path == prev.Path {
+			return errors.Errorf("duplicate file (%v) output by merge", idx.Path)
+		}
+		prev = idx
+		return nil
+	}, deletive...)
 }

@@ -3,6 +3,7 @@ package fileset
 import (
 	"context"
 	"io"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -58,73 +59,49 @@ func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 			}
 			return cb(newFileReader(ctx, mr.chunks, fss[0].file.Index()))
 		}
-		idx := mergeFile(fss)
-		// Handle a full delete.
-		if len(idx.File.Parts) == 0 {
-			return nil
-		}
-		return cb(newMergeFileReader(ctx, mr.chunks, idx))
-	})
-}
-
-func mergeFile(fss []*fileStream) *index.Index {
-	mergeIdx := &index.Index{
-		Path: fss[0].file.Index().Path,
-		File: &index.File{},
-	}
-	var ps []*partStream
-	for _, fs := range fss {
-		idx := fs.file.Index()
-		if fs.deletive && idx.File.Parts == nil {
-			break
-		}
-		ps = append(ps, &partStream{
-			parts:    idx.File.Parts,
-			deletive: fs.deletive,
-		})
-	}
-	// Merge the parts based on the lexicograhical ordering of the tags.
-	mergeIdx.File.Parts = mergeParts(ps)
-	return mergeIdx
-}
-
-func mergeParts(pss []*partStream) []*index.Part {
-	if len(pss) == 0 {
-		return nil
-	}
-	var ss []stream.Stream
-	for i := len(pss) - 1; i >= 0; i-- {
-		pss[i].priority = len(ss)
-		ss = append(ss, pss[i])
-	}
-	pq := stream.NewPriorityQueue(ss)
-	var mergedParts []*index.Part
-	pq.Iterate(func(ss []stream.Stream, _ ...string) error {
-		for i := 0; i < len(ss); i++ {
-			ps := ss[i].(*partStream)
-			if ps.deletive {
-				return nil
+		idxs := mergeFile(fss)
+		for _, idx := range sortIndexes(idxs) {
+			if err := cb(newMergeFileReader(ctx, mr.chunks, idx)); err != nil {
+				return err
 			}
-			mergedParts = mergePart(mergedParts, ps.part)
 		}
 		return nil
 	})
-	return mergedParts
 }
 
-func mergePart(parts []*index.Part, part *index.Part) []*index.Part {
-	if len(parts) == 0 {
-		return []*index.Part{part}
-	}
-	lastPart := parts[len(parts)-1]
-	if lastPart.Tag == part.Tag {
-		if part.DataRefs != nil {
-			lastPart.DataRefs = append(lastPart.DataRefs, part.DataRefs...)
+func mergeFile(fss []*fileStream) map[string]*index.Index {
+	idxs := make(map[string]*index.Index)
+	// TODO: Might as well just swap the priority in the priority queue from lowest to highest during set up.
+	// That lines up more with how we lay out the filesets.
+	for i := len(fss) - 1; i >= 0; i-- {
+		idx := fss[i].file.Index()
+		if fss[i].deletive {
+			idxs = make(map[string]*index.Index)
+			continue
 		}
-		lastPart.SizeBytes += part.SizeBytes
-		return parts
+		if _, ok := idxs[idx.File.Tag]; !ok {
+			idxs[idx.File.Tag] = &index.Index{
+				Path: idx.Path,
+				File: &index.File{
+					Tag: idx.File.Tag,
+				},
+			}
+		}
+		mergeIdx := idxs[idx.File.Tag]
+		mergeIdx.File.DataRefs = append(mergeIdx.File.DataRefs, idx.File.DataRefs...)
 	}
-	return append(parts, part)
+	return idxs
+}
+
+func sortIndexes(idxs map[string]*index.Index) []*index.Index {
+	var result []*index.Index
+	for _, idx := range idxs {
+		result = append(result, idx)
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].File.Tag < result[j].File.Tag
+	})
+	return result
 }
 
 func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error) error {
@@ -137,33 +114,11 @@ func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error)
 	}
 	pq := stream.NewPriorityQueue(ss)
 	return pq.Iterate(func(ss []stream.Stream, _ ...string) error {
-		var idxs []*index.Index
-		for _, s := range ss {
-			idxs = append(idxs, s.(*fileStream).file.Index())
-		}
-		idx := mergeDeletes(idxs)
-		return cb(newFileReader(ctx, mr.chunks, idx))
+		idx := ss[0].(*fileStream).file.Index()
+		return cb(newFileReader(ctx, mr.chunks, &index.Index{
+			Path: idx.Path,
+		}))
 	})
-}
-
-func mergeDeletes(idxs []*index.Index) *index.Index {
-	mergeIdx := &index.Index{
-		Path: idxs[0].Path,
-		File: &index.File{},
-	}
-	var ps []*partStream
-	for _, idx := range idxs {
-		// Handle full delete.
-		if idx.File.Parts == nil {
-			return mergeIdx
-		}
-		ps = append(ps, &partStream{
-			parts: idx.File.Parts,
-		})
-	}
-	// Merge the parts based on the lexicograhical ordering of the tags.
-	mergeIdx.File.Parts = mergeParts(ps)
-	return mergeIdx
 }
 
 // MergeFileReader is an abstraction for reading a merged file.
@@ -190,8 +145,7 @@ func (mfr *MergeFileReader) Index() *index.Index {
 
 // Content returns the content of the merged file.
 func (mfr *MergeFileReader) Content(w io.Writer) error {
-	dataRefs := getDataRefs(mfr.idx.File.Parts)
-	r := mfr.chunks.NewReader(mfr.ctx, dataRefs)
+	r := mfr.chunks.NewReader(mfr.ctx, mfr.idx.File.DataRefs)
 	return r.Get(w)
 }
 
@@ -214,28 +168,4 @@ func (fs *fileStream) Key() string {
 
 func (fs *fileStream) Priority() int {
 	return fs.priority
-}
-
-type partStream struct {
-	parts    []*index.Part
-	part     *index.Part
-	priority int
-	deletive bool
-}
-
-func (ps *partStream) Next() error {
-	if len(ps.parts) == 0 {
-		return io.EOF
-	}
-	ps.part = ps.parts[0]
-	ps.parts = ps.parts[1:]
-	return nil
-}
-
-func (ps *partStream) Key() string {
-	return ps.part.Tag
-}
-
-func (ps *partStream) Priority() int {
-	return ps.priority
 }

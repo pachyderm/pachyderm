@@ -13,8 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-const defaultTag = "tag"
-
 type ValidatorSpec struct{}
 
 type Validator struct {
@@ -36,7 +34,7 @@ func NewValidator(client Client, spec *ValidatorSpec) (Client, *Validator) {
 // TODO: The performance of this is bad.
 func (v *Validator) RandomFile() (string, error) {
 	files := make(map[string]struct{})
-	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
+	if err := v.buffer.WalkAdditive(func(p string, r io.Reader, _ ...string) error {
 		files[p] = struct{}{}
 		return nil
 	}); err != nil {
@@ -57,7 +55,7 @@ type file struct {
 
 func (v *Validator) Validate(client Client, repo, commit string) (retErr error) {
 	var files []*file
-	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
+	if err := v.buffer.WalkAdditive(func(p string, r io.Reader, _ ...string) error {
 		buf := &bytes.Buffer{}
 		if _, err := io.Copy(buf, r); err != nil {
 			return err
@@ -110,7 +108,7 @@ type validatorClient struct {
 }
 
 func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) error {
-	return vc.Client.WithModifyFileClient(ctx, repo, commit, func(mf client.ModifyFile) (retErr error) {
+	return vc.Client.WithModifyFileClient(ctx, repo, commit, func(mf client.ModifyFile) error {
 		vmfc := &validatorModifyFileClient{
 			ModifyFile: mf,
 			buffer:     fileset.NewBuffer(),
@@ -121,8 +119,8 @@ func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, commi
 		for _, p := range vmfc.deletes {
 			vc.validator.buffer.Delete(p)
 		}
-		return vmfc.buffer.WalkAdditive(func(p, tag string, r io.Reader) (retErr error) {
-			w := vc.validator.buffer.Add(p, tag)
+		return vmfc.buffer.WalkAdditive(func(p string, r io.Reader, tag ...string) error {
+			w := vc.validator.buffer.Add(p, tag...)
 			_, err := io.Copy(w, r)
 			return err
 		})
@@ -135,13 +133,13 @@ type validatorModifyFileClient struct {
 	deletes []string
 }
 
-func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) (retErr error) {
+func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) error {
 	h := pfs.NewHash()
 	if err := vmfc.ModifyFile.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
 		return err
 	}
 	vmfc.buffer.Delete(path)
-	w := vmfc.buffer.Add(path, defaultTag)
+	w := vmfc.buffer.Add(path)
 	_, err := io.Copy(w, bytes.NewReader(h.Sum(nil)))
 	return err
 }

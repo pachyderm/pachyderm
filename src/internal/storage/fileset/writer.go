@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -15,28 +16,7 @@ import (
 // since no chunks will get created. The solution we have in mind is to write a small number of bytes
 // for a size zero file, then either not store references to them or ignore them at read time.
 
-// FileWriter provides functionality for writing a file.
-type FileWriter struct {
-	w   *Writer
-	cw  *chunk.Writer
-	idx *index.Index
-}
-
-// Add sets an add tag for the next set of bytes.
-func (fw *FileWriter) Add(tag string) {
-	fw.idx.File.Parts = append(fw.idx.File.Parts, &index.Part{Tag: tag})
-}
-
-func (fw *FileWriter) Write(data []byte) (int, error) {
-	parts := fw.idx.File.Parts
-	if len(parts) < 1 {
-		panic("must specify a tag before writing")
-	}
-	part := parts[len(parts)-1]
-	part.SizeBytes += int64(len(data))
-	fw.w.sizeBytes += int64(len(data))
-	return fw.cw.Write(data)
-}
+// TODO: Might need to think a bit more about fileset sizes and whether deletes should be represented.
 
 // Writer provides functionality for writing a file set.
 type Writer struct {
@@ -73,21 +53,20 @@ func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chu
 	return w
 }
 
-// Add creates an add operation for a file and provides a scoped file writer.
-// TODO: change to `Add(p string, tag string, r io.Reader) error`, remove FileWriter object from API.
-func (w *Writer) Add(p string) (*FileWriter, error) {
+func (w *Writer) Add(path string, r io.Reader, tag ...string) error {
 	idx := &index.Index{
-		Path: p,
+		Path: path,
 		File: &index.File{},
 	}
-	if err := w.nextIdx(idx); err != nil {
-		return nil, err
+	if len(tag) > 0 {
+		idx.File.Tag = tag[0]
 	}
-	return &FileWriter{
-		w:   w,
-		cw:  w.cw,
-		idx: idx,
-	}, nil
+	if err := w.nextIdx(idx); err != nil {
+		return err
+	}
+	n, err := io.Copy(w.cw, r)
+	w.sizeBytes += n
+	return err
 }
 
 func (w *Writer) nextIdx(idx *index.Index) error {
@@ -103,21 +82,16 @@ func (w *Writer) nextIdx(idx *index.Index) error {
 }
 
 // Delete creates a delete operation for a file.
-func (w *Writer) Delete(p string, tags ...string) error {
+func (w *Writer) Delete(path string) error {
 	if w.deletePath != "" {
-		if err := w.checkPath(w.deletePath, p); err != nil {
+		if err := w.checkPath(w.deletePath, path); err != nil {
 			return err
 		}
 	}
-	w.deletePath = p
+	w.deletePath = path
 	idx := &index.Index{
-		Path: p,
+		Path: path,
 		File: &index.File{},
-	}
-	if len(tags) > 0 && tags[0] != "" {
-		for _, tag := range tags {
-			idx.File.Parts = append(idx.File.Parts, &index.Part{Tag: tag})
-		}
 	}
 	return w.deletive.WriteIndex(idx)
 }
@@ -133,34 +107,23 @@ func (w *Writer) checkPath(prev, p string) error {
 }
 
 // Copy copies a file to the file set writer.
-func (w *Writer) Copy(file File) error {
+func (w *Writer) Copy(file File, tag ...string) error {
 	idx := file.Index()
 	copyIdx := &index.Index{
 		Path: idx.Path,
-		File: &index.File{
-			Parts: idx.File.Parts,
-		},
+		File: &index.File{},
+	}
+	if len(tag) > 0 {
+		copyIdx.File.Tag = tag[0]
 	}
 	if err := w.nextIdx(copyIdx); err != nil {
 		return err
 	}
 	// Copy the file data refs if they are resolved.
-	if idx.File.DataRefs != nil {
-		for _, dataRef := range idx.File.DataRefs {
-			w.sizeBytes += dataRef.SizeBytes
-			if err := w.cw.Copy(dataRef); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	// Copy the file part data refs otherwise.
-	for _, part := range idx.File.Parts {
-		for _, dataRef := range part.DataRefs {
-			w.sizeBytes += dataRef.SizeBytes
-			if err := w.cw.Copy(dataRef); err != nil {
-				return err
-			}
+	for _, dataRef := range idx.File.DataRefs {
+		w.sizeBytes += dataRef.SizeBytes
+		if err := w.cw.Copy(dataRef); err != nil {
+			return err
 		}
 	}
 	return nil

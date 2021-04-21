@@ -353,7 +353,6 @@ message URLFileSource {
 
 message DeleteFile {
   string file = 1; 
-  string tag = 2;
 }
 
 message CopyFile {

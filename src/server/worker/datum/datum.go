@@ -397,7 +397,7 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 			if err != nil {
 				return err
 			}
-			if err := pfsOutputClient.DeleteFile(file, client.WithTagDeleteFile(ID)); err != nil {
+			if err := pfsOutputClient.DeleteFile(file); err != nil {
 				return err
 			}
 		}
