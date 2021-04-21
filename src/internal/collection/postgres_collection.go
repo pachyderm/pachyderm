@@ -90,7 +90,7 @@ func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection 
 // NewSQLTx starts a transaction on the given DB, passes it to the callback, and
 // finishes the transaction afterwards. If the callback was successful, the
 // transaction is committed. If any errors occur, the transaction is rolled
-// back.  This will reattempt the transaction up to three times.
+// back.  This will reattempt the transaction forever.
 func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
 	var lastErr error
 
