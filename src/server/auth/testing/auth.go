@@ -134,6 +134,11 @@ func (a *InactiveAPIServer) GetGroups(context.Context, *auth.GetGroupsRequest) (
 	return nil, auth.ErrNotActivated
 }
 
+// GetGroupsForPrincipal implements the GetGroups RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetGroupsForPrincipal(context.Context, *auth.GetGroupsForPrincipalRequest) (*auth.GetGroupsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // GetUsers implements the GetUsers RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetUsers(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error) {
 	return nil, auth.ErrNotActivated

@@ -2035,8 +2035,8 @@ func TestModifyMembers(t *testing.T) {
 			}
 
 			for username, groups := range test.Expected {
-				groupsActual, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
-					Username: username,
+				groupsActual, err := adminClient.GetGroupsForPrincipal(adminClient.Ctx(), &auth.GetGroupsForPrincipalRequest{
+					Principal: username,
 				})
 				require.NoError(t, err)
 				require.ElementsEqual(t, groups, groupsActual.Groups)
@@ -2073,8 +2073,8 @@ func TestSetGroupsForUser(t *testing.T) {
 		Groups:   groups,
 	})
 	require.NoError(t, err)
-	groupsActual, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
-		Username: alice,
+	groupsActual, err := adminClient.GetGroupsForPrincipal(adminClient.Ctx(), &auth.GetGroupsForPrincipalRequest{
+		Principal: alice,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t, groups, groupsActual.Groups)
@@ -2092,8 +2092,8 @@ func TestSetGroupsForUser(t *testing.T) {
 		Groups:   groups,
 	})
 	require.NoError(t, err)
-	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
-		Username: alice,
+	groupsActual, err = adminClient.GetGroupsForPrincipal(adminClient.Ctx(), &auth.GetGroupsForPrincipalRequest{
+		Principal: alice,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t, groups, groupsActual.Groups)
@@ -2111,8 +2111,8 @@ func TestSetGroupsForUser(t *testing.T) {
 		Groups:   groups,
 	})
 	require.NoError(t, err)
-	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
-		Username: alice,
+	groupsActual, err = adminClient.GetGroupsForPrincipal(adminClient.Ctx(), &auth.GetGroupsForPrincipalRequest{
+		Principal: alice,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t, groups, groupsActual.Groups)
@@ -2130,8 +2130,8 @@ func TestSetGroupsForUser(t *testing.T) {
 		Groups:   groups,
 	})
 	require.NoError(t, err)
-	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
-		Username: alice,
+	groupsActual, err = adminClient.GetGroupsForPrincipal(adminClient.Ctx(), &auth.GetGroupsForPrincipalRequest{
+		Principal: alice,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t, groups, groupsActual.Groups)
@@ -2144,7 +2144,7 @@ func TestSetGroupsForUser(t *testing.T) {
 	}
 }
 
-func TestGetGroupsEmpty(t *testing.T) {
+func TestGetOwnGroups(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

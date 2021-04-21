@@ -86,6 +86,7 @@ type revokeAuthTokensForUserFunc func(context.Context, *auth.RevokeAuthTokensFor
 type setGroupsForUserFunc func(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error)
 type modifyMembersFunc func(context.Context, *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error)
 type getGroupsFunc func(context.Context, *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error)
+type getGroupsForPrincipalFunc func(context.Context, *auth.GetGroupsForPrincipalRequest) (*auth.GetGroupsResponse, error)
 type getUsersFunc func(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error)
 type extractAuthTokensFunc func(context.Context, *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error)
 type restoreAuthTokenFunc func(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error)
@@ -108,6 +109,7 @@ type mockRevokeAuthTokensForUser struct{ handler revokeAuthTokensForUserFunc }
 type mockSetGroupsForUser struct{ handler setGroupsForUserFunc }
 type mockModifyMembers struct{ handler modifyMembersFunc }
 type mockGetGroups struct{ handler getGroupsFunc }
+type mockGetGroupsForPrincipal struct{ handler getGroupsForPrincipalFunc }
 type mockGetUsers struct{ handler getUsersFunc }
 type mockExtractAuthTokens struct{ handler extractAuthTokensFunc }
 type mockRestoreAuthToken struct{ handler restoreAuthTokenFunc }
@@ -129,6 +131,7 @@ func (mock *mockRevokeAuthTokensForUser) Use(cb revokeAuthTokensForUserFunc) { m
 func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)               { mock.handler = cb }
 func (mock *mockModifyMembers) Use(cb modifyMembersFunc)                     { mock.handler = cb }
 func (mock *mockGetGroups) Use(cb getGroupsFunc)                             { mock.handler = cb }
+func (mock *mockGetGroupsForPrincipal) Use(cb getGroupsForPrincipalFunc)     { mock.handler = cb }
 func (mock *mockGetUsers) Use(cb getUsersFunc)                               { mock.handler = cb }
 func (mock *mockExtractAuthTokens) Use(cb extractAuthTokensFunc)             { mock.handler = cb }
 func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)               { mock.handler = cb }
@@ -156,6 +159,7 @@ type mockAuthServer struct {
 	SetGroupsForUser        mockSetGroupsForUser
 	ModifyMembers           mockModifyMembers
 	GetGroups               mockGetGroups
+	GetGroupsForPrincipal   mockGetGroupsForPrincipal
 	GetUsers                mockGetUsers
 	ExtractAuthTokens       mockExtractAuthTokens
 	RestoreAuthToken        mockRestoreAuthToken
@@ -257,6 +261,12 @@ func (api *authServerAPI) GetGroups(ctx context.Context, req *auth.GetGroupsRequ
 		return api.mock.GetGroups.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetGroups")
+}
+func (api *authServerAPI) GetGroupsForPrincipal(ctx context.Context, req *auth.GetGroupsForPrincipalRequest) (*auth.GetGroupsResponse, error) {
+	if api.mock.GetGroupsForPrincipal.handler != nil {
+		return api.mock.GetGroupsForPrincipal.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetGroupsForPrincipal")
 }
 func (api *authServerAPI) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (*auth.GetUsersResponse, error) {
 	if api.mock.GetUsers.handler != nil {

@@ -1103,34 +1103,19 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 		return nil, err
 	}
 
-	var target string
-	if req.Username != "" && req.Username != callerInfo.Subject {
-		pachClient := a.env.GetPachClient(ctx)
-		resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
-			Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
-			Permissions: []auth.Permission{
-				auth.Permission_CLUSTER_AUTH_GET_GROUPS,
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		if !resp.Authorized {
-			return nil, &auth.ErrNotAuthorized{
-				Subject:  resp.Principal,
-				Resource: auth.Resource{Type: auth.ResourceType_CLUSTER},
-				Required: []auth.Permission{
-					auth.Permission_CLUSTER_AUTH_GET_GROUPS,
-				},
-			}
-		}
-		target = req.Username
-	} else {
-		target = callerInfo.Subject
+	groups, err := a.getGroups(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
 	}
+	return &auth.GetGroupsResponse{Groups: groups}, nil
+}
 
-	groups, err := a.getGroups(ctx, target)
+// GetGroupsForPrincipal implements the protobuf auth.GetGroupsForPrincipal RPC
+func (a *apiServer) GetGroupsForPrincipal(ctx context.Context, req *auth.GetGroupsForPrincipalRequest) (resp *auth.GetGroupsResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	groups, err := a.getGroups(ctx, req.Principal)
 	if err != nil {
 		return nil, err
 	}
