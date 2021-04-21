@@ -586,7 +586,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	} else {
 		// On a normal insert, an error would invalidate the transaction, so do
 		// nothing and check the number of rows affected afterwards.
-		query += "on conflict do nothing"
+		query += " on conflict do nothing"
 	}
 
 	result, err := c.tx.NamedExec(query, params)
