@@ -492,32 +492,36 @@ func UseAuthTokenCmd() *cobra.Command {
 	return cmdutil.CreateAlias(useAuthToken, "auth use-auth-token")
 }
 
-// CheckRepoCmd returns a cobra command that sends an "Authorize" RPC to Pachd, to
-// determine whether the specified user has access to the specified repo.
+// CheckRepoCmd returns a cobra command that sends a GetPermissions request to
+// pachd to determine what permissions a user has on the repo.
 func CheckRepoCmd() *cobra.Command {
 	check := &cobra.Command{
-		Use:   "{{alias}} <permission> <repo>",
-		Short: "Check whether you have the specificed permission on 'repo'",
-		Long:  "Check whether you have the specificed permission on 'repo'",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			permission, ok := auth.Permission_value[args[0]]
-			if !ok {
-				return fmt.Errorf("unknown permission %q", args[0])
-			}
-			repo := args[1]
+		Use:   "{{alias}} <repo> [<user>]",
+		Short: "Check the permissions a user has on 'repo'",
+		Long:  "Check the permissions a user has on 'repo'",
+		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
+			repo := args[0]
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			resp, err := c.Authorize(c.Ctx(), &auth.AuthorizeRequest{
-				Resource:    &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
-				Permissions: []auth.Permission{auth.Permission(permission)},
-			})
+
+			var perms *auth.GetPermissionsResponse
+			if len(args) == 2 {
+				perms, err = c.GetPermissionsForPrincipal(c.Ctx(), &auth.GetPermissionsForPrincipalRequest{
+					Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+					Principal: args[1],
+				})
+			} else {
+				perms, err = c.GetPermissions(c.Ctx(), &auth.GetPermissionsRequest{
+					Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+				})
+			}
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Printf("%t\n", resp.Authorized)
+			fmt.Printf("Roles: %v\nPermissions: %v\n", perms.Roles, perms.Permissions)
 			return nil
 		}),
 	}

@@ -73,6 +73,16 @@ func (a *InactiveAPIServer) Authenticate(context.Context, *auth.AuthenticateRequ
 	return nil, auth.ErrNotActivated
 }
 
+// GetPermissions implements the GetPermissions RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetPermissions(context.Context, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetPermissionsForPrincipal implements the GetPermissions RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetPermissionsForPrincipal(context.Context, *auth.GetPermissionsForPrincipalRequest) (*auth.GetPermissionsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // Authorize implements the Authorize RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) Authorize(context.Context, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
 	return nil, auth.ErrNotActivated
