@@ -708,6 +708,7 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, robot(robotUser), who.Username)
+
 	require.True(t, who.Expiration.After(time.Now()))
 	require.True(t, who.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
 }

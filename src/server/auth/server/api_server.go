@@ -47,11 +47,6 @@ const (
 	// accessed so we cache them.
 	clusterRoleBindingKey = "CLUSTER:"
 
-	// GitHookPort is 655
-	// Prometheus uses 656
-
-	// OidcPort is the port where OIDC ID Providers can send auth assertions
-	OidcPort = 657
 	// the length of interval between expired auth token cleanups
 	cleanupIntervalHours = 24
 )
@@ -240,7 +235,7 @@ func waitForError(name string, required bool, cb func() error) {
 // getClusterRoleBinding attempts to get the current cluster role bindings,
 // and returns an error if auth is not activated. This can require hitting
 // postgres if watches are not enabled (in the worker sidecar).
-func (a *apiServer) getClusterRoleBindingInTransaction(txnCtx *txnenv.TransactionContext) (*auth.RoleBinding, error) {
+func (a *apiServer) getClusterRoleBinding(ctx context.Context) (*auth.RoleBinding, error) {
 	if a.watchesEnabled {
 		bindings, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
 		if !ok {
@@ -254,7 +249,7 @@ func (a *apiServer) getClusterRoleBindingInTransaction(txnCtx *txnenv.Transactio
 	}
 
 	var binding auth.RoleBinding
-	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(clusterRoleBindingKey, &binding); err != nil {
+	if err := a.roleBindings.ReadOnly(ctx).Get(clusterRoleBindingKey, &binding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrNotActivated
 		}
@@ -264,13 +259,7 @@ func (a *apiServer) getClusterRoleBindingInTransaction(txnCtx *txnenv.Transactio
 }
 
 func (a *apiServer) isActive(ctx context.Context) error {
-	return a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		return a.isActiveInTransaction(txnCtx)
-	})
-}
-
-func (a *apiServer) isActiveInTransaction(txnCtx *txnenv.TransactionContext) error {
-	_, err := a.getClusterRoleBindingInTransaction(txnCtx)
+	_, err := a.getClusterRoleBinding(ctx)
 	return err
 }
 
@@ -529,12 +518,13 @@ func (a *apiServer) AuthorizeInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	req *auth.AuthorizeRequest,
 ) (resp *auth.AuthorizeResponse, retErr error) {
-	binding, err := a.getClusterRoleBindingInTransaction(txnCtx)
+	binding, err := a.getClusterRoleBinding(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
 
-	callerInfo, err := a.getAuthenticatedUserInTransaction(txnCtx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
+
 	if err != nil {
 		return nil, err
 	}
@@ -621,7 +611,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 // It doesn't do any auth checks itself - the calling method should ensure the user is allowed to delete this resource.
 // This is not an RPC, this is only called in-process.
 func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource) error {
-	if err := a.isActiveInTransaction(txnCtx); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return err
 	}
 
@@ -683,12 +673,6 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionCon
 	// Call Create, this will raise an error if the role binding already exists.
 	key := resourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
-	// TODO(acohen4): what should the collision semantics be here?
-	if b, err := a.GetRoleBindingInTransaction(txnCtx, &auth.GetRoleBindingRequest{Resource: resource}); err != nil {
-		return err
-	} else if len(b.Binding.Entries) > 0 {
-		return nil
-	}
 
 	if err := roleBindings.Create(key, bindings); err != nil {
 		return err
@@ -743,7 +727,8 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	req *auth.ModifyRoleBindingRequest,
 ) (*auth.ModifyRoleBindingResponse, error) {
-	if err := a.isActiveInTransaction(txnCtx); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
+
 		return nil, err
 	}
 
@@ -848,7 +833,7 @@ func (a *apiServer) GetRoleBindingInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	req *auth.GetRoleBindingRequest,
 ) (*auth.GetRoleBindingResponse, error) {
-	if err := a.isActiveInTransaction(txnCtx); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
@@ -914,7 +899,7 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 // GetPipelineAuthTokenInTransaction is an internal API used to create a pipeline token for a given pipeline.
 // Not an RPC.
 func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) (string, error) {
-	if err := a.isActiveInTransaction(txnCtx); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return "", err
 	}
 
@@ -955,7 +940,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 }
 
 func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
-	if err := a.isActiveInTransaction(txnCtx); err != nil {
+	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
@@ -1208,8 +1193,8 @@ func setToList(set map[string]bool) []string {
 	return list
 }
 
-func (a *apiServer) getAuthenticatedUserInTransaction(txnCtx *txnenv.TransactionContext) (*auth.TokenInfo, error) {
-	token, err := auth.GetAuthToken(txnCtx.ClientContext)
+func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, error) {
+	token, err := auth.GetAuthToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1224,39 +1209,25 @@ func (a *apiServer) getAuthenticatedUserInTransaction(txnCtx *txnenv.Transaction
 	}
 
 	// try to lookup pre-computed subject
-	if subject := internalauth.GetWhoAmI(txnCtx.ClientContext); subject != "" {
+	if subject := internalauth.GetWhoAmI(ctx); subject != "" {
 		return &auth.TokenInfo{
 			Subject: subject,
 		}, nil
 	}
 
-	// Lookup the token
-	tokenInfo, lookupErr := a.lookupAuthTokenInfoInTransaction(txnCtx, auth.HashToken(token))
+	tokenInfo, lookupErr := a.lookupAuthTokenInfo(ctx, auth.HashToken(token))
 	if lookupErr != nil {
 		if col.IsErrNotFound(lookupErr) {
 			return nil, auth.ErrBadToken
 		}
 		return nil, lookupErr
 	}
+
 	// verify token hasn't expired
-	if tokenInfo.Expiration != nil {
-		if time.Now().After(*tokenInfo.Expiration) {
-			return nil, auth.ErrExpiredToken
-		}
+	if tokenInfo.Expiration != nil && time.Now().After(*tokenInfo.Expiration) {
+		return nil, auth.ErrExpiredToken
 	}
 	return tokenInfo, nil
-}
-
-func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, error) {
-	var t *auth.TokenInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		var err error
-		t, err = a.getAuthenticatedUserInTransaction(txnCtx)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return t, nil
 }
 
 // checkCanonicalSubjects applies checkCanonicalSubject to a list
@@ -1418,10 +1389,10 @@ func (a *apiServer) deleteExpiredTokensRoutine() {
 }
 
 // we interpret an expiration value of NULL as "lives forever".
-func (a *apiServer) lookupAuthTokenInfoInTransaction(txnCtx *txnenv.TransactionContext, tokenHash string) (*auth.TokenInfo, error) {
+func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
 	var tokenInfo auth.TokenInfo
 
-	err := txnCtx.SqlTx.GetContext(txnCtx.ClientContext, &tokenInfo, `SELECT subject, expiration FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash)
+	err := a.env.GetDBClient().GetContext(ctx, &tokenInfo, `SELECT subject, expiration FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash)
 
 	if err != nil {
 		return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}

@@ -2481,6 +2481,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	require.True(t, auth.IsErrExpiredToken(err))
 
 	// restore a token with an expiration date in the future
+	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
 	futureExpiration := time.Now().Add(10 * time.Minute)
 	req.Token.Expiration = &futureExpiration
 
