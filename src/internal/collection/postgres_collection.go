@@ -583,10 +583,28 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	query := fmt.Sprintf("insert into collections.%s (%s) values (%s)", c.table, columnList, paramList)
 	if upsert {
 		query = fmt.Sprintf("%s on conflict (key) do update set (%s) = (%s)", query, columnList, paramList)
+	} else {
+		// On a normal insert, an error would invalidate the transaction, so do
+		// nothing and check the number of rows affected afterwards.
+		query += " on conflict do nothing"
 	}
 
-	_, err = c.tx.NamedExec(query, params)
-	return c.mapSQLError(err, key)
+	result, err := c.tx.NamedExec(query, params)
+	if err != nil {
+		return c.mapSQLError(err, key)
+	}
+
+	if !upsert {
+		count, err := result.RowsAffected()
+		if err != nil {
+			return c.mapSQLError(err, key)
+		}
+
+		if count != int64(1) {
+			return errors.WithStack(ErrExists{c.table, key})
+		}
+	}
+	return nil
 }
 
 func (c *postgresReadWriteCollection) Upsert(key string, val proto.Message, f func() error) error {
