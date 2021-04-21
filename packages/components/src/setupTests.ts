@@ -10,9 +10,3 @@ Object.defineProperty(window, 'crypto', {
   configurable: true,
   writable: true,
 });
-
-Object.defineProperty(window, 'location', {
-  configurable: true,
-  value: {...window.location},
-  writable: true,
-});

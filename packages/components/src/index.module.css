@@ -1,9 +1,10 @@
 @import url('https://fonts.googleapis.com/css?family=Montserrat:400,500,600,800&display=swap');
+@import url('https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,600,800&display=swap');
 
 :root {
   /* fonts */
   --font-family: 'Montserrat', sans-serif;
-  --font-family-mono: 'Menlo', monospace;
+  --font-family-mono: 'Roboto Mono', monospace;
 
   /* colors */
   --pachyderm-black: #020408;
@@ -86,4 +87,8 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 0;
   margin-bottom: 0.5rem;
   line-height: 1.2;
+}
+
+pre {
+  font-family: 'Roboto Mono', monospace;
 }

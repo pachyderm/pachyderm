@@ -1,17 +1,18 @@
 import noop from 'lodash/noop';
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {generatePath, useHistory, useRouteMatch} from 'react-router-dom';
 
 import Tab from './components/Tab';
 import TabPanel from './components/TabPanel';
 import TabsHeader from './components/TabsHeader';
 import TabsContext from './TabsContext';
 
-export interface TabsProps {
+export interface StatefulTabsProps {
   initialActiveTabId: string;
   onSwitch?: (activeTab: string) => void;
 }
 
-const Tabs: React.FC<TabsProps> = ({
+const StatefulTabs: React.FC<StatefulTabsProps> = ({
   children,
   initialActiveTabId,
   onSwitch = noop,
@@ -34,4 +35,60 @@ const Tabs: React.FC<TabsProps> = ({
   );
 };
 
-export default Object.assign(Tabs, {Tab, TabsHeader, TabPanel});
+interface RouterTabsProps
+  extends Omit<StatefulTabsProps, 'initialActiveTabId'> {
+  basePath: string;
+  basePathTabId: string;
+  tabIdParam?: string;
+}
+
+const RouterTabs: React.FC<RouterTabsProps> = ({
+  children,
+  onSwitch = noop,
+  basePath,
+  basePathTabId,
+  tabIdParam = 'tabId',
+}) => {
+  const match = useRouteMatch<{[key: string]: string}>(basePath);
+  const browserHistory = useHistory();
+
+  const activeTabId = useMemo(() => {
+    if (!match) {
+      return '';
+    }
+
+    return match.params[tabIdParam] || basePathTabId;
+  }, [match, tabIdParam, basePathTabId]);
+
+  const setActiveTabId = useCallback(
+    (tabId: string) => {
+      browserHistory.push(
+        generatePath(basePath, {...(match?.params || {}), [tabIdParam]: tabId}),
+      );
+    },
+    [browserHistory, basePath, tabIdParam, match],
+  );
+
+  useEffect(() => {
+    if (activeTabId) onSwitch(activeTabId);
+  }, [activeTabId, onSwitch]);
+
+  const contextValue = useMemo(
+    () => ({
+      activeTabId,
+      setActiveTabId,
+    }),
+    [activeTabId, setActiveTabId],
+  );
+
+  return (
+    <TabsContext.Provider value={contextValue}>{children}</TabsContext.Provider>
+  );
+};
+
+export default Object.assign(StatefulTabs, {
+  Tab,
+  TabsHeader,
+  TabPanel,
+  RouterTabs,
+});

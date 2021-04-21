@@ -1,0 +1,24 @@
+.link {
+  color: var(--pachyderm-plum);
+  font-weight: 600;
+}
+
+.link:not([href]) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.link:active,
+.link:hover,
+.link:focus {
+  color: var(--hover-plum);
+  text-decoration: none;
+}
+
+.link:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.small {
+  font-size: var(--font-size-body-medium);
+}

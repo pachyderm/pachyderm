@@ -20,6 +20,7 @@ export * from './Icon';
 export * from './Info';
 export * from './Input';
 export * from './Label';
+export * from './Link';
 export * from './Page';
 export * from './RadioButton';
 export * from './Search';
