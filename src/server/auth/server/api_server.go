@@ -47,6 +47,9 @@ const (
 	// accessed so we cache them.
 	clusterRoleBindingKey = "CLUSTER:"
 
+	// GitHookPort is 655
+	// Prometheus uses 656
+
 	// the length of interval between expired auth token cleanups
 	cleanupIntervalHours = 24
 )
@@ -477,7 +480,6 @@ func (a *apiServer) AuthorizeInTransaction(
 	}
 
 	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-
 	if err != nil {
 		return nil, err
 	}
@@ -626,7 +628,6 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionCon
 	// Call Create, this will raise an error if the role binding already exists.
 	key := resourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
-
 	if err := roleBindings.Create(key, bindings); err != nil {
 		return err
 	}
@@ -681,7 +682,6 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	req *auth.ModifyRoleBindingRequest,
 ) (*auth.ModifyRoleBindingResponse, error) {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
-
 		return nil, err
 	}
 
@@ -840,7 +840,6 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 	} else {
 		token, err = a.generateAndInsertAuthTokenNoTTL(ctx, subject)
 	}
-
 	if err != nil {
 		return nil, err
 	}
@@ -1309,7 +1308,6 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 		}
 	}
 
-	// Check whether the token hash already exists - we don't want to replace an existing token
 	if err := func() error {
 		if ttl > 0 {
 			return a.insertAuthToken(ctx, req.Token.HashedToken, req.Token.Subject, ttl)
@@ -1394,7 +1392,6 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
-	// Register the pachd in the database
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
 		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
@@ -1409,7 +1406,6 @@ func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subje
 }
 
 func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
-	// Register the pachd in the database
 	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		err := a.insertAuthTokenNoTTLInTransaction(txnCtx, tokenHash, subject)
 		return err
@@ -1417,7 +1413,6 @@ func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, 
 }
 
 func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txnenv.TransactionContext, tokenHash string, subject string) error {
-	// Register the pachd in the database
 	if _, err := txnCtx.SqlTx.ExecContext(txnCtx.ClientContext,
 		`INSERT INTO auth.auth_tokens (token_hash, subject) 
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
