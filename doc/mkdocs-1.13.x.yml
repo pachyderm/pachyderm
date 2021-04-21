@@ -159,6 +159,13 @@ nav:
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
             - Ingress and Egress Data from an External Object Store: how-tos/basic-data-operations/ingressing_from_diff_cloud.md
             - Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
+        - Pipeline Operations:
+            - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
+            - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
+            - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
+            - Run a Pipeline on a Specific Commit: how-tos/pipeline-operations/run_pipeline.md
+            - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
+            - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
         - Split Data:
@@ -169,13 +176,6 @@ nav:
             - Overview: how-tos/use-pachyderm-ide/index.md
             - Using the Pachyderm IDE with python-pachyderm: how-tos/use-pachyderm-ide/using-pachyderm-ide.md
         - Mount a Volume: how-tos/mount-volume.md
-        - Pipeline Operations:
-            - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
-            - Create a Pipeline: how-tos/create-pipeline.md
-            - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
-            - Update a Pipeline: how-tos/updating_pipelines.md
-            - Delete a Pipeline: how-tos/delete-pipeline.md
-            - Monitor Job Progress: how-tos/monitor-job-progress.md
         - Processing Time-Windowed Data: how-tos/time_windows.md
         - Use Transactions: how-tos/use-transactions-to-run-multiple-commands.md
         - Skip Failed Datums: how-tos/err_cmd.md

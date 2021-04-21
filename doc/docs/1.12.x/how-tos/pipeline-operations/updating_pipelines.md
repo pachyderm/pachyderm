@@ -11,7 +11,7 @@ the `pachctl update pipeline` command.
 ## Update Your Pipeline Specification
 
 If you need to update your
-[pipeline specification](../reference/pipeline_spec.md), such as change the
+[pipeline specification](../../reference/pipeline_spec.md), such as change the
 parallelism settings, add an input repository, or other, you need to update your
 JSON file and then run the `pachctl update pipeline`command.
 By default, when you update your code, the new pipeline specification
@@ -59,7 +59,7 @@ tag to your new image.
 If you use a private registry or any other registry that is different
 from the default value, use the `--registry` flag to specify it.
 Make sure that you specify the private registry in the [pipeline
-specification](../reference/pipeline_spec.md).
+specification](../../reference/pipeline_spec.md).
 
 For example, if you want to push a `pachyderm/opencv` image to a
 registry located at `localhost:5000`, you need to add this in

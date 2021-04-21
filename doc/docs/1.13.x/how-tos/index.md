@@ -78,28 +78,32 @@ data operations in Pachyderm.
         <h4 class="mdl-card__title-text">Pipeline Operations &nbsp;&nbsp;&nbsp;<i class="fa fa-book"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Learn basic pipeline operations.
+        Learn pipeline operations.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
            <li><a href="https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums" class="md-typeset md-link">
            Test datums
            </a>
-           <li><a href="create-pipeline/" class="md-typeset md-link">
+           <li><a href="pipeline-operations/create-pipeline/" class="md-typeset md-link">
            Create a Pipeline
            </a>
            </li>
            </li>
-           <li><a href="updating_pipelines/" class="md-typeset md-link">
+           <li><a href="pipeline-operations/updating_pipelines/" class="md-typeset md-link">
            Update a Pipeline
            </a>
            </li>
-           <li><a href="run_pipeline/" class="md-typeset md-link">
+           <li><a href="pipeline-operations/run_pipeline/" class="md-typeset md-link">
            Run a Pipeline on a Specific Commit
            </a>
            </li>
-           <li><a href="delete-pipeline/" class="md-typeset md-link">
+           <li><a href="pipeline-operations/delete-pipeline/" class="md-typeset md-link">
            Delete a Pipeline
+           </a>
+           </li>
+          <li><a href="pipeline-operations/monitor-job-progress" class="md-typeset md-link">
+           Monitor Job Progress
            </a>
            </li>
         </ul>
