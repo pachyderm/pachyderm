@@ -24,7 +24,6 @@ const gqlServer = new ApolloServer({
     const pachdAddress = process.env.PACHD_ADDRESS;
     const authToken = req.header('auth-token');
     const projectId = req.body?.variables?.args?.projectId;
-
     const log = baseLogger.child({
       pachdAddress,
       operationId: uuid(),
@@ -33,12 +32,11 @@ const gqlServer = new ApolloServer({
         email: account?.email,
       },
     });
-
     const pachClient = client({
       authToken,
+      log,
       pachdAddress,
       projectId,
-      log,
     });
 
     return {

@@ -41,7 +41,7 @@ export type Query = {
   project: Project;
   projectDetails: ProjectDetails;
   projects: Array<Project>;
-  repos: Array<Repo>;
+  repo: Repo;
   searchResults: SearchResults;
 };
 
@@ -71,6 +71,10 @@ export type QueryProjectArgs = {
 
 export type QueryProjectDetailsArgs = {
   args: ProjectDetailsQueryArgs;
+};
+
+export type QueryRepoArgs = {
+  args: RepoQueryArgs;
 };
 
 export type QuerySearchResultsArgs = {
@@ -182,11 +186,13 @@ export type InputPipeline = {
 
 export type Repo = {
   __typename?: 'Repo';
-  name: Scalars['ID'];
-  createdAt: Scalars['Int'];
-  sizeInBytes: Scalars['Int'];
   description: Scalars['String'];
-  isPipelineOutput: Scalars['Boolean'];
+  createdAt: Scalars['Int'];
+  id: Scalars['ID'];
+  name: Scalars['ID'];
+  sizeBytes: Scalars['Int'];
+  sizeDisplay: Scalars['String'];
+  linkedPipeline?: Maybe<Pipeline>;
 };
 
 export type Pach = {
@@ -332,6 +338,11 @@ export type AuthConfig = {
 };
 
 export type PipelineQueryArgs = {
+  projectId: Scalars['String'];
+  id: Scalars['ID'];
+};
+
+export type RepoQueryArgs = {
   projectId: Scalars['String'];
   id: Scalars['ID'];
 };
@@ -506,6 +517,7 @@ export type ResolversTypes = ResolversObject<{
   SearchResults: ResolverTypeWrapper<SearchResults>;
   AuthConfig: ResolverTypeWrapper<AuthConfig>;
   PipelineQueryArgs: PipelineQueryArgs;
+  RepoQueryArgs: RepoQueryArgs;
   Mutation: ResolverTypeWrapper<{}>;
 }>;
 
@@ -546,6 +558,7 @@ export type ResolversParentTypes = ResolversObject<{
   SearchResults: SearchResults;
   AuthConfig: AuthConfig;
   PipelineQueryArgs: PipelineQueryArgs;
+  RepoQueryArgs: RepoQueryArgs;
   Mutation: {};
 }>;
 
@@ -603,7 +616,12 @@ export type QueryResolvers<
     ParentType,
     ContextType
   >;
-  repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
+  repo?: Resolver<
+    ResolversTypes['Repo'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryRepoArgs, 'args'>
+  >;
   searchResults?: Resolver<
     ResolversTypes['SearchResults'],
     ParentType,
@@ -827,12 +845,14 @@ export type RepoResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Repo'] = ResolversParentTypes['Repo']
 > = ResolversObject<{
-  name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  sizeInBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  isPipelineOutput?: Resolver<
-    ResolversTypes['Boolean'],
+  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  linkedPipeline?: Resolver<
+    Maybe<ResolversTypes['Pipeline']>,
     ParentType,
     ContextType
   >;
@@ -1293,4 +1313,19 @@ export type ProjectsQuery = {__typename?: 'Query'} & {
       'id' | 'name' | 'description' | 'createdAt' | 'status'
     >
   >;
+};
+
+export type RepoQueryVariables = Exact<{
+  args: RepoQueryArgs;
+}>;
+
+export type RepoQuery = {__typename?: 'Query'} & {
+  repo: {__typename?: 'Repo'} & Pick<
+    Repo,
+    'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
+  > & {
+      linkedPipeline?: Maybe<
+        {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>
+      >;
+    };
 };

@@ -1,24 +1,39 @@
-import client from '@dash-backend/grpc/client';
-import {QueryResolvers} from '@graphqlTypes';
+import formatBytes from '@dash-backend/lib/formatBytes';
+import {QueryResolvers, RepoResolvers} from '@graphqlTypes';
+
+import {pipelineInfoToGQLPipeline} from './builders/pps';
 
 interface RepoResolver {
   Query: {
-    repos: QueryResolvers['repos'];
+    repo: QueryResolvers['repo'];
   };
+  Repo: RepoResolvers;
 }
 
 const repoResolver: RepoResolver = {
   Query: {
-    repos: async (_parent, _args, {pachClient}) => {
-      const repos = await pachClient.pfs().listRepo();
+    repo: async (_parent, {args: {id}}, {pachClient}) => {
+      const repo = await pachClient.pfs().inspectRepo(id);
 
-      return repos.map((repo) => ({
-        createdAt: repo.created?.seconds || 0,
-        description: repo.description,
-        isPipelineOutput: false, // TODO: How do we derive this?
-        name: repo.repo?.name || '',
-        sizeInBytes: repo.sizeBytes,
-      }));
+      return {
+        createdAt: repo?.created?.seconds || 0,
+        description: repo?.description || '',
+        id: repo?.repo?.name || '',
+        name: repo?.repo?.name || '',
+        sizeBytes: repo?.sizeBytes || 0,
+        sizeDisplay: formatBytes(repo?.sizeBytes || 0),
+      };
+    },
+  },
+  Repo: {
+    linkedPipeline: async (repo, _args, {pachClient}) => {
+      try {
+        return pipelineInfoToGQLPipeline(
+          await pachClient.pps().inspectPipeline(repo.id),
+        );
+      } catch (err) {
+        return null;
+      }
     },
   },
 };

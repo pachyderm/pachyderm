@@ -11,6 +11,7 @@ import {
 } from '../../constants/projectPaths';
 
 import PipelineDetails from './components/PipelineDetails';
+import RepoDetails from './components/RepoDetails';
 import useProjectSidebar from './hooks/useProjectSidebar';
 
 const ProjectSidebar = () => {
@@ -28,7 +29,7 @@ const ProjectSidebar = () => {
             <JobList projectId={projectId} expandActions showStatusFilter />
           </Route>
           <Route path={REPO_PATH} exact>
-            <div>TODO: Repo</div>
+            <RepoDetails />
           </Route>
           <Route path={[PIPELINE_PATH]} exact>
             <PipelineDetails />

@@ -1,0 +1,8 @@
+.base {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1.5625rem;
+  max-width: 16.5rem;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+}

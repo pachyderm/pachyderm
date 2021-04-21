@@ -41,7 +41,7 @@ describe('ProjectSidebar', () => {
         queryByTestId('PipelineDetails__pipelineNameSkeleton'),
       ).toBeInTheDocument();
 
-      const pipelineName = await findByTestId('PipelineDetails__pipelineName');
+      const pipelineName = await findByTestId('Title__name');
 
       expect(pipelineName).toHaveTextContent('montage');
     });
@@ -50,11 +50,13 @@ describe('ProjectSidebar', () => {
   describe('repos', () => {
     it('should display repo details', async () => {
       // TODO: update this with _actual_ repo details
-      window.history.replaceState('', '', '/project/1/repo/1');
+      window.history.replaceState('', '', '/project/1/repo/montage');
 
-      const {findByText} = render(<Project />);
+      const {findByTestId} = render(<Project />);
 
-      expect(await findByText('TODO: Repo'));
+      const repoName = await findByTestId('Title__name');
+
+      expect(repoName).toHaveTextContent('montage');
     });
   });
 });

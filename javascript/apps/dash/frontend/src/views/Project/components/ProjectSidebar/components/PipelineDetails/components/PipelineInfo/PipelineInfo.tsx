@@ -7,7 +7,7 @@ import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 
-import Description from '../Description';
+import Description from '../../../Description';
 
 const PipelineInfo = () => {
   const {projectId, pipelineId} = useUrlState();

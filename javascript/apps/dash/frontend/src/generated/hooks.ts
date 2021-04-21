@@ -775,3 +775,65 @@ export type ProjectsQueryResult = Apollo.QueryResult<
   Types.ProjectsQuery,
   Types.ProjectsQueryVariables
 >;
+export const RepoDocument = gql`
+  query repo($args: RepoQueryArgs!) {
+    repo(args: $args) {
+      createdAt
+      description
+      id
+      linkedPipeline {
+        id
+        name
+      }
+      name
+      sizeDisplay
+    }
+  }
+`;
+
+/**
+ * __useRepoQuery__
+ *
+ * To run a query within a React component, call `useRepoQuery` and pass it any options that fit your needs.
+ * When your component renders, `useRepoQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useRepoQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useRepoQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.RepoQuery,
+    Types.RepoQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.RepoQuery, Types.RepoQueryVariables>(
+    RepoDocument,
+    options,
+  );
+}
+export function useRepoLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.RepoQuery,
+    Types.RepoQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<Types.RepoQuery, Types.RepoQueryVariables>(
+    RepoDocument,
+    options,
+  );
+}
+export type RepoQueryHookResult = ReturnType<typeof useRepoQuery>;
+export type RepoLazyQueryHookResult = ReturnType<typeof useRepoLazyQuery>;
+export type RepoQueryResult = Apollo.QueryResult<
+  Types.RepoQuery,
+  Types.RepoQueryVariables
+>;

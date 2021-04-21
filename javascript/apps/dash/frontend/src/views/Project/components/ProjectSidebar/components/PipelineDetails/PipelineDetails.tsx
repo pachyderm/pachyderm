@@ -2,6 +2,8 @@ import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
+import Title from '../Title';
+
 import PipelineInfo from './components/PipelineInfo';
 import PipelineJobs from './components/PipelineJobs';
 import PipelineSpec from './components/PipelineSpec';
@@ -24,12 +26,7 @@ const PipelineDetails = () => {
           data-testid={'PipelineDetails__pipelineNameSkeleton'}
         />
       ) : (
-        <p
-          className={styles.name}
-          data-testid={'PipelineDetails__pipelineName'}
-        >
-          {pipelineName}
-        </p>
+        <Title>{pipelineName}</Title>
       )}
       <Tabs initialActiveTabId={initialActiveTabId} onSwitch={handleSwitch}>
         <Tabs.TabsHeader className={styles.tabsHeader}>

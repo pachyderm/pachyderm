@@ -116,13 +116,15 @@ type InputPipeline {
 }
 
 type Repo {
-  name: ID!
-  createdAt: Int!
-  sizeInBytes: Int!
   description: String!
+  createdAt: Int!
+  id: ID!
+  name: ID!
+  sizeBytes: Int!
+  sizeDisplay: String!
 
-  # The Dash API will have to derive this field, unless core pach can expose it for us...
-  isPipelineOutput: Boolean!
+  # The Dash API will have to derive this field until core pach can expose it for us
+  linkedPipeline: Pipeline
 }
 
 type Pach {
@@ -264,11 +266,16 @@ input PipelineQueryArgs {
   id: ID!
 }
 
+input RepoQueryArgs {
+  projectId: String!
+  id: ID!
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
   pipeline(args: PipelineQueryArgs!): Pipeline!
-  repos: [Repo!]!
+  repo(args: RepoQueryArgs!): Repo!
   projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
   jobs(args: JobQueryArgs!): [Job!]!
   dag(args: DagQueryArgs!): Dag!

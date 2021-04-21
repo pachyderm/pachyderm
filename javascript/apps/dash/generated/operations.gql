@@ -169,3 +169,16 @@ query projects {
     status
   }
 }
+query repo($args: RepoQueryArgs!) {
+  repo(args: $args) {
+    createdAt
+    description
+    id
+    linkedPipeline {
+      id
+      name
+    }
+    name
+    sizeDisplay
+  }
+}

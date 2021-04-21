@@ -1,14 +1,22 @@
 import {APIClient} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {
+  CommitInfo,
   FileInfo,
   GetFileRequest,
+  InspectRepoRequest,
+  ListCommitRequest,
   ListFileRequest,
   ListRepoRequest,
   RepoInfo,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
-import {fileFromObject, FileObject} from '@dash-backend/grpc/builders/pfs';
+import {
+  fileFromObject,
+  FileObject,
+  repoFromObject,
+  RepoObject,
+} from '@dash-backend/grpc/builders/pfs';
 import {ServiceArgs} from '@dash-backend/lib/types';
 
 const pfs = ({
@@ -69,6 +77,24 @@ const pfs = ({
         });
       });
     },
+    listCommit: (params: RepoObject) => {
+      const listCommitRequest = new ListCommitRequest();
+      const repo = repoFromObject(params);
+
+      listCommitRequest.setRepo(repo);
+
+      const stream = client.listCommit(listCommitRequest, credentialMetadata);
+
+      return new Promise<CommitInfo.AsObject[]>((resolve, reject) => {
+        const commits: CommitInfo.AsObject[] = [];
+
+        stream.on('data', (chunk: CommitInfo) =>
+          commits.push(chunk.toObject()),
+        );
+        stream.on('error', (err) => reject(err));
+        stream.on('end', () => resolve(commits));
+      });
+    },
     listRepo: () => {
       return new Promise<RepoInfo.AsObject[]>((resolve, reject) => {
         client.listRepo(
@@ -80,6 +106,26 @@ const pfs = ({
             }
 
             return resolve(res.toObject().repoInfoList);
+          },
+        );
+      });
+    },
+    inspectRepo: (name: RepoObject['name']) => {
+      return new Promise<RepoInfo.AsObject>((resolve, reject) => {
+        const inspectRepoRequest = new InspectRepoRequest();
+        const repo = repoFromObject({name});
+
+        inspectRepoRequest.setRepo(repo);
+
+        client.inspectRepo(
+          inspectRepoRequest,
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+
+            return resolve(res.toObject());
           },
         );
       });

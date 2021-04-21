@@ -1,0 +1,10 @@
+.base {
+  padding: 0 1.5625rem;
+  width: 24.0625rem;
+}
+
+.name {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 1.25rem;
+}
