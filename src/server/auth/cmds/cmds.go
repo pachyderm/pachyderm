@@ -451,11 +451,13 @@ func GetGroupsCmd() *cobra.Command {
 			}
 			defer c.Close()
 
-			req := &auth.GetGroupsRequest{}
+			var resp *auth.GetGroupsResponse
 			if len(args) == 1 {
-				req.Username = args[0]
+				resp, err = c.GetGroupsForPrincipal(c.Ctx(), &auth.GetGroupsForPrincipalRequest{Principal: args[0]})
+			} else {
+				resp, err = c.GetGroups(c.Ctx(), &auth.GetGroupsRequest{})
 			}
-			resp, err := c.GetGroups(c.Ctx(), req)
+
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}

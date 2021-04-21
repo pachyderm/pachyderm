@@ -526,6 +526,9 @@ func (c *authBuilderClient) ModifyMembers(ctx context.Context, req *auth.ModifyM
 func (c *authBuilderClient) GetGroups(ctx context.Context, req *auth.GetGroupsRequest, opts ...grpc.CallOption) (*auth.GetGroupsResponse, error) {
 	return nil, unsupportedError("GetGroups")
 }
+func (c *authBuilderClient) GetGroupsForPrincipal(ctx context.Context, req *auth.GetGroupsForPrincipalRequest, opts ...grpc.CallOption) (*auth.GetGroupsResponse, error) {
+	return nil, unsupportedError("GetGroupsForPrincipal")
+}
 func (c *authBuilderClient) GetUsers(ctx context.Context, req *auth.GetUsersRequest, opts ...grpc.CallOption) (*auth.GetUsersResponse, error) {
 	return nil, unsupportedError("GetUsers")
 }

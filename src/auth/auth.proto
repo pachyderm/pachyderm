@@ -345,8 +345,10 @@ message ModifyMembersRequest {
 
 message ModifyMembersResponse {}
 
-message GetGroupsRequest {
-  string username = 1;
+message GetGroupsRequest {}
+
+message GetGroupsForPrincipalRequest {
+  string principal = 1;
 }
 
 message GetGroupsResponse {
@@ -414,6 +416,7 @@ service API {
   rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
   rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
   rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
+  rpc GetGroupsForPrincipal(GetGroupsForPrincipalRequest) returns (GetGroupsResponse) {}
   rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
 
   rpc ExtractAuthTokens(ExtractAuthTokensRequest) returns (ExtractAuthTokensResponse) {}
