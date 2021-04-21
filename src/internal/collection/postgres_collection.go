@@ -21,14 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
-const (
-	modifiedTriggerName  = "update_modified_trigger"
-	modifiedFunctionName = "update_modified_time"
-	watchTriggerName     = "notify_watch_trigger"
-	watchBaseName        = "pwc" // "Pachyderm Watch Channel"
-	indexBaseName        = "idx"
-)
-
 type postgresCollection struct {
 	db       *sqlx.DB
 	listener *PostgresListener
@@ -38,121 +30,8 @@ type postgresCollection struct {
 	keyCheck func(string) error
 }
 
-func indexFieldName(name string) string {
-	return indexBaseName + "_" + name
-}
-
-func ensureModifiedTrigger(tx *sqlx.Tx, table string) error {
-	// Create trigger to update the modified timestamp (no way to do this without recreating it each time?)
-	dropTrigger := fmt.Sprintf("drop trigger if exists %s on %s;", modifiedTriggerName, table)
-	if _, err := tx.Exec(dropTrigger); err != nil {
-		return errors.EnsureStack(err)
-	}
-
-	createFunction := fmt.Sprintf("create or replace function %s() returns trigger as $$ begin new.updatedat = now(); return new; end; $$ language 'plpgsql';", modifiedFunctionName)
-	if _, err := tx.Exec(createFunction); err != nil {
-		return errors.EnsureStack(err)
-	}
-
-	createTrigger := fmt.Sprintf("create trigger %s before insert or update or delete on %s for each row execute procedure %s();", modifiedTriggerName, table, modifiedFunctionName)
-	if _, err := tx.Exec(createTrigger); err != nil {
-		return errors.EnsureStack(err)
-	}
-	return nil
-}
-
-func ensureNotifyTrigger(tx *sqlx.Tx, table string, indexes []*Index) error {
-	functionName := "func_" + watchTriggerName
-	dropTrigger := fmt.Sprintf("drop trigger if exists %s on %s;", watchTriggerName, table)
-	if _, err := tx.Exec(dropTrigger); err != nil {
-		return errors.EnsureStack(err)
-	}
-
-	// This trigger function will publish events on various channels that may be
-	// interested in changes to this object. There is a table-wide channel that
-	// will receive notifications for every change to the table, as well as
-	// deterministically named channels for listening to changes on a specific row
-	// or index value.
-
-	// For indexed notifications, we publish to a channel based on a hash of the
-	// field and value being indexed on. There may be collisions where a channel
-	// receives notifications for unrelated events (either from the same change or
-	// different changes), so the payload includes enough information to filter
-	// those events out.
-
-	// The payload format is [field, value, key, operation, timestamp, protobuf],
-	// although the payload must be a string so these are joined with space
-	// delimiters and base64-encoded where appropriate.
-	createFunction := fmt.Sprintf(`
-create or replace function %s() returns trigger as $$
-declare
-  row record;
-	encoded_key text;
-	base_payload text;
-	payload_end text;
-	payload text;
-	base_channel text;
-	channel text;
-	field text;
-	value text;
-	old_value text;
-begin
-  case tg_op
-	when 'INSERT', 'UPDATE' then
-	  row := new;
-	when 'DELETE' then
-	  row := old;
-	else
-	  raise exception 'Unrecognized tg_op: "%%"', tg_op;
-	end case;
-
-	encoded_key := encode(row.key::bytea, 'base64');
-	payload_end := date_part('epoch', now())::text || ' ' || encode(row.proto, 'base64');
-	base_payload := encoded_key || ' ' || tg_op || ' ' || payload_end;
-	base_channel := '%s_' || tg_table_name;
-
-	if tg_argv is not null then
-		foreach field in array tg_argv loop
-			execute 'select ($1).' || field || '::text;' into value using row;
-			if value is not null then
-				payload := field || ' ' || encode(value::bytea, 'base64') || ' ' || base_payload;
-				channel := base_channel || '_' || md5(field || ' ' || value);
-				perform pg_notify(channel, payload);
-
-				/* If an update changes this field value, we need to delete it from any watchers of the old value */
-				if tg_op = 'UPDATE' then
-					execute 'select ($1).' || field || '::text;' into old_value using old;
-					if old_value is not null and old_value is distinct from value then
-						payload := field || ' ' || encode(old_value::bytea, 'base64') || ' ' || encoded_key || ' DELETE ' || payload_end;
-						channel := base_channel || '_' || md5(field || ' ' || old_value);
-						perform pg_notify(channel, payload);
-					end if;
-				end if;
-			end if;
-		end loop;
-	end if;
-
-	payload := 'key ' || encoded_key || ' ' || base_payload;
-	perform pg_notify(base_channel, payload);
-
-	return row;
-end;
-$$ language 'plpgsql';
-	`, functionName, watchBaseName)
-	if _, err := tx.Exec(createFunction); err != nil {
-		return errors.EnsureStack(err)
-	}
-
-	indexFields := []string{"key"}
-	for _, idx := range indexes {
-		indexFields = append(indexFields, "'"+indexFieldName(idx.Name)+"'")
-	}
-
-	createTrigger := fmt.Sprintf("create trigger %s after insert or update or delete on %s for each row execute procedure %s(%s);", watchTriggerName, table, functionName, strings.Join(indexFields, ", "))
-	if _, err := tx.Exec(createTrigger); err != nil {
-		return errors.EnsureStack(err)
-	}
-	return nil
+func indexFieldName(idx *Index) string {
+	return "idx_" + idx.Name
 }
 
 type model struct {
@@ -163,60 +42,21 @@ type model struct {
 	Proto     []byte
 }
 
-// Ensure the table and all indices exist
-func ensureCollection(ctx context.Context, db *sqlx.DB, table string, indexes []*Index) error {
-	columns := []string{
-		"createdat timestamp with time zone default current_timestamp",
-		"updatedat timestamp with time zone default current_timestamp",
-		"proto bytea",
-		"version text",
-		"key text primary key",
-	}
-
-	for _, idx := range indexes {
-		columns = append(columns, indexFieldName(idx.Name)+" text")
-	}
-	// TODO: create indexes on table
-
-	return NewSQLTx(ctx, db, func(tx *sqlx.Tx) error {
-		createTable := fmt.Sprintf("create table if not exists %s (%s);", table, strings.Join(columns, ", "))
-		if _, err := tx.Exec(createTable); err != nil {
-			return errors.EnsureStack(err)
-		}
-		// TODO: drop all existing triggers/functions on this collection to make
-		// sure we don't leave any hanging around due to a rename
-		if err := ensureModifiedTrigger(tx, table); err != nil {
-			return err
-		}
-		if err := ensureNotifyTrigger(tx, table, indexes); err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
 func tableName(template proto.Message) string {
 	templateType := reflect.TypeOf(template).Elem()
-	return strings.ToLower(templateType.Name()) + "s"
+	return strings.ToLower(templateType.Name())
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(ctx context.Context, db *sqlx.DB, listener *PostgresListener, template proto.Message, indexes []*Index, keyCheck func(string) error) (PostgresCollection, error) {
-	table := tableName(template)
-
-	if err := ensureCollection(ctx, db, table, indexes); err != nil {
-		return nil, err
-	}
-
-	c := &postgresCollection{
+func NewPostgresCollection(db *sqlx.DB, listener *PostgresListener, template proto.Message, indexes []*Index, keyCheck func(string) error) PostgresCollection {
+	return &postgresCollection{
 		db:       db,
 		listener: listener,
 		template: template,
-		table:    table,
+		table:    tableName(template),
 		indexes:  indexes,
 		keyCheck: keyCheck,
 	}
-	return c, nil
 }
 
 // Indexes passed into queries are required to be the same object used at
@@ -237,7 +77,7 @@ func (c *postgresCollection) validateIndex(index *Index) error {
 }
 
 func (c *postgresCollection) tableWatchChannel() string {
-	return watchBaseName + "_" + c.table
+	return "pwc_" + c.table
 }
 
 func (c *postgresCollection) indexWatchChannel(field string, value string) string {
@@ -338,7 +178,7 @@ type postgresReadOnlyCollection struct {
 
 func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.QueryerContext) (*model, error) {
 	result := &model{}
-	queryString := fmt.Sprintf("select proto, updatedat from %s where key = $1;", c.table)
+	queryString := fmt.Sprintf("select proto, updatedat from collections.%s where key = $1;", c.table)
 	if err := sqlx.GetContext(ctx, q, result, queryString, key); err != nil {
 		return nil, c.mapSQLError(err, key)
 	}
@@ -357,7 +197,7 @@ func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, v
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
-	return c.list(map[string]string{indexFieldName(index.Name): indexVal}, opts, func(m *model) error {
+	return c.list(map[string]string{indexFieldName(index): indexVal}, opts, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -388,7 +228,7 @@ func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string
 }
 
 func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
-	query := fmt.Sprintf("select key, createdat, updatedat, proto from %s", c.table)
+	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	params := map[string]interface{}{}
 	if len(withFields) > 0 {
@@ -486,11 +326,11 @@ func (c *postgresReadOnlyCollection) GetRevByIndex(index *Index, indexVal string
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
-	return c.listRev(map[string]string{indexFieldName(index.Name): indexVal}, val, opts, f)
+	return c.listRev(map[string]string{indexFieldName(index): indexVal}, val, opts, f)
 }
 
 func (c *postgresReadOnlyCollection) Count() (int64, error) {
-	query := fmt.Sprintf("select count(*) from %s", c.table)
+	query := fmt.Sprintf("select count(*) from collections.%s", c.table)
 	row := c.db.QueryRowContext(c.ctx, query)
 
 	var result int64
@@ -600,7 +440,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 
 	options := watch.SumOptions(opts...)
 
-	channelName := c.indexWatchChannel(indexFieldName(index.Name), indexVal)
+	channelName := c.indexWatchChannel(indexFieldName(index), indexVal)
 	watcher, err := c.listener.listen(channelName, c.template, nil, nil, options)
 	if err != nil {
 		return nil, err
@@ -611,7 +451,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 		lastUpdated := time.Time{}
 		val := cloneProtoMsg(c.template)
 		opts := &Options{Target: options.SortTarget, Order: options.SortOrder}
-		withFields := map[string]string{indexFieldName(index.Name): indexVal}
+		withFields := map[string]string{indexFieldName(index): indexVal}
 		if err := c.list(withFields, opts, func(m *model) error {
 			if err := proto.Unmarshal(m.Proto, val); err != nil {
 				return errors.EnsureStack(err)
@@ -684,7 +524,7 @@ func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Messa
 	}
 
 	for _, idx := range c.indexes {
-		params[indexFieldName(idx.Name)] = idx.Extract(val)
+		params[indexFieldName(idx)] = idx.Extract(val)
 	}
 
 	return params, nil
@@ -708,7 +548,7 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 		updateFields = append(updateFields, fmt.Sprintf("%s = :%s", k, k))
 	}
 
-	query := fmt.Sprintf("update %s set %s where key = :key", c.table, strings.Join(updateFields, ", "))
+	query := fmt.Sprintf("update collections.%s set %s where key = :key", c.table, strings.Join(updateFields, ", "))
 
 	_, err = c.tx.NamedExec(query, params)
 	return c.mapSQLError(err, key)
@@ -735,7 +575,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	columnList := strings.Join(columns, ", ")
 	paramList := strings.Join(paramNames, ", ")
 
-	query := fmt.Sprintf("insert into %s (%s) values (%s)", c.table, columnList, paramList)
+	query := fmt.Sprintf("insert into collections.%s (%s) values (%s)", c.table, columnList, paramList)
 	if upsert {
 		query = fmt.Sprintf("%s on conflict (key) do update set (%s) = (%s)", query, columnList, paramList)
 	}
@@ -759,7 +599,7 @@ func (c *postgresReadWriteCollection) Create(key string, val proto.Message) erro
 }
 
 func (c *postgresReadWriteCollection) Delete(key string) error {
-	query := fmt.Sprintf("delete from %s where key = $1", c.table)
+	query := fmt.Sprintf("delete from collections.%s where key = $1", c.table)
 	res, err := c.tx.Exec(query, key)
 	if err != nil {
 		return c.mapSQLError(err, key)
@@ -774,7 +614,7 @@ func (c *postgresReadWriteCollection) Delete(key string) error {
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
-	query := fmt.Sprintf("delete from %s", c.table)
+	query := fmt.Sprintf("delete from collections.%s", c.table)
 	_, err := c.tx.Exec(query)
 	return c.mapSQLError(err, "")
 }
@@ -783,7 +623,7 @@ func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal strin
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
-	query := fmt.Sprintf("delete from %s where %s = $1", c.table, indexFieldName(index.Name))
+	query := fmt.Sprintf("delete from collections.%s where %s = $1", c.table, indexFieldName(index))
 	_, err := c.tx.Exec(query, indexVal)
 	return c.mapSQLError(err, "")
 }

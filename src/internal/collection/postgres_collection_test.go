@@ -35,7 +35,17 @@ func TestPostgresCollections(suite *testing.T) {
 			require.NoError(t, listener.Close())
 		})
 
-		testCol, err := col.NewPostgresCollection(ctx, db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, nil)
+		testCol := col.NewPostgresCollection(db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, nil)
+
+		err = dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+			if err := col.CreatePostgresSchema(ctx, sqlTx); err != nil {
+				return err
+			}
+			if err := col.SetupPostgresV0(ctx, sqlTx); err != nil {
+				return err
+			}
+			return col.SetupPostgresCollection(ctx, sqlTx, testCol)
+		})
 		require.NoError(t, err)
 
 		readCallback := func(ctx context.Context) col.ReadOnlyCollection {
