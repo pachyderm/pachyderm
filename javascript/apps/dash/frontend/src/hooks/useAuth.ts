@@ -5,6 +5,7 @@ import {useCallback, useEffect} from 'react';
 
 import {useExchangeCodeMutation} from '@dash-frontend/generated/hooks';
 import useAuthConfig from '@dash-frontend/hooks/useAuthConfig';
+import useSubscriptionClient from '@dash-frontend/providers/SubscriptionClientProvider/hooks/useSubscriptionClient';
 import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
 import {MutationExchangeCodeArgs} from '@graphqlTypes';
 
@@ -18,6 +19,7 @@ interface UseAuthArgs {
 
 const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
   const client = useApolloClient();
+  const {client: subscriptionClient} = useSubscriptionClient();
   const loggedIn = useLoggedIn();
   const {authConfig, error: authConfigError} = useAuthConfig({
     skip: loggedIn,
@@ -70,8 +72,11 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
           ),
         },
       });
+
+      // reset websocket connection to add new auth info
+      subscriptionClient?.close(false, false);
     }
-  }, [client, codeMutationData]);
+  }, [client, codeMutationData, subscriptionClient]);
 
   return {
     exchangeCode,

@@ -87,7 +87,7 @@ const generateLinks = (
 ) => {
   const link = svgParent
     .selectAll<SVGPathElement, Link>('.link')
-    .data(links)
+    .data(links, (d) => d.id)
     .join<SVGPathElement>('path')
     .attr('d', (d) => d3.line()(getLineArray(d)))
     .attr('class', getLinkStyles)
@@ -102,6 +102,7 @@ const generateLinks = (
       links.filter(
         (d) => linkStateAsJobState(d.state) === JobState.JOB_RUNNING,
       ),
+      (d) => d.id,
     )
     .join<SVGCircleElement>('circle')
     .attr('r', 6)
@@ -174,86 +175,103 @@ const generateNodeGroups = (
 ) => {
   const nodeGroup = svgParent
     .selectAll<SVGGElement, Node>('.nodeGroup')
-    .data(nodes)
-    .join((group) => {
-      const enter = group
-        .append<SVGGElement>('g')
-        .attr('class', 'nodeGroup')
-        .attr('id', (d) => `${d.name}GROUP`)
-        .attr('transform', (d) => `translate (${d.x}, ${d.y})`)
-        .on('click', (_event, d) => handleSelectNode(d))
-        .on('mouseover', (_event, d) => setHoveredNode(d.name))
-        .on('mouseout', () => setHoveredNode(''));
+    .data(nodes, (d) => d.name)
+    .join(
+      (enter) => {
+        const group = enter
+          .append<SVGGElement>('g')
+          .attr('class', 'nodeGroup')
+          .attr('id', (d) => `${d.name}GROUP`)
+          .attr('transform', (d) => `translate (${d.x}, ${d.y})`)
+          .on('click', (_event, d) => handleSelectNode(d))
+          .on('mouseover', (_event, d) => setHoveredNode(d.name))
+          .on('mouseout', () => setHoveredNode(''));
 
-      !preview &&
-        enter
-          .append('foreignObject')
-          .attr('class', 'node')
-          .attr('width', nodeWidth)
-          .attr('height', nodeHeight)
-          .append('xhtml:span')
-          .html(
-            (d) =>
-              `<p class="label" style="height:${nodeHeight}px">${
-                d.access ? deriveRepoNameFromNode(d) : 'No Access'
-              }</p>`,
-          );
+        !preview &&
+          group
+            .append('foreignObject')
+            .attr('class', 'node')
+            .attr('width', nodeWidth)
+            .attr('height', nodeHeight)
+            .append('xhtml:span')
+            .html(
+              (d) =>
+                `<p class="label" style="height:${nodeHeight}px">${
+                  d.access ? d.name : 'No Access'
+                }</p>`,
+            );
 
-      !preview &&
-        enter
-          .append('foreignObject')
-          .attr('class', 'nodeTooltip')
-          .attr('width', NODE_TOOLTIP_WIDTH)
-          .attr('height', NODE_TOOLTIP_HEIGHT)
-          .style('min-height', NODE_TOOLTIP_HEIGHT)
-          .attr('y', NODE_TOOLTIP_OFFSET)
-          .attr('x', -(NODE_TOOLTIP_WIDTH / 4))
-          .append('xhtml:span')
-          .html(
-            (d) => `<p class="tooltipText" style="min-height: ${
-              NODE_TOOLTIP_HEIGHT - 9
-            }px">
-                ${deriveRepoNameFromNode(d)}
-                <br /><br />
-                ${
-                  d.type === NodeType.Pipeline
-                    ? `${d.type.toLowerCase()} status: ${readablePipelineState(
-                        d.state || '',
-                      )}`
-                    : ''
-                }
-              </p>`,
-          );
+        !preview &&
+          group
+            .append('foreignObject')
+            .attr('class', 'nodeTooltip')
+            .attr('width', NODE_TOOLTIP_WIDTH)
+            .attr('height', NODE_TOOLTIP_HEIGHT)
+            .style('min-height', NODE_TOOLTIP_HEIGHT)
+            .attr('y', NODE_TOOLTIP_OFFSET)
+            .attr('x', -(NODE_TOOLTIP_WIDTH / 4))
+            .append('xhtml:span')
+            .html(
+              (d) => `<p class="tooltipText" style="min-height: ${
+                NODE_TOOLTIP_HEIGHT - 9
+              }px">
+                    ${deriveRepoNameFromNode(d)}
+                    <br /><br />
+                    ${
+                      d.type === NodeType.Pipeline
+                        ? `${d.type.toLowerCase()} status: ${readablePipelineState(
+                            d.state || '',
+                          )}`
+                        : ''
+                    }
+                  </p>`,
+            );
 
-      enter
-        .append<SVGUseElement>('use')
-        .attr('xlink:href', (d) => {
-          if (d.access) {
-            if (d.type === NodeType.Repo) return '#nodeImageRepo';
-            if (d.type === NodeType.Pipeline) return '#nodeImagePipeline';
-          }
-          return '#nodeImageNoAccess';
-        })
-        .attr('transform', `scale(${nodeHeight / ORIGINAL_NODE_IMAGE_HEIGHT})`)
-        .attr('x', () => (ORIGINAL_NODE_IMAGE_WIDTH - nodeWidth) / 2)
-        .attr('y', (d) =>
-          !preview ? NODE_IMAGE_Y_OFFSET : NODE_IMAGE_PREVIEW_Y_OFFSET,
-        )
-        .attr('pointer-events', 'none');
+        group
+          .append<SVGUseElement>('use')
+          .attr('xlink:href', (d) => {
+            if (d.access) {
+              if (d.type === NodeType.Repo) return '#nodeImageRepo';
+              if (d.type === NodeType.Pipeline) return '#nodeImagePipeline';
+            }
+            return '#nodeImageNoAccess';
+          })
+          .attr(
+            'transform',
+            `scale(${nodeHeight / ORIGINAL_NODE_IMAGE_HEIGHT})`,
+          )
+          .attr('x', () => (ORIGINAL_NODE_IMAGE_WIDTH - nodeWidth) / 2)
+          .attr('y', (d) =>
+            !preview ? NODE_IMAGE_Y_OFFSET : NODE_IMAGE_PREVIEW_Y_OFFSET,
+          )
+          .attr('pointer-events', 'none');
 
-      enter
-        .append<SVGUseElement>('use')
-        .attr('xlink:href', (d) => {
+        group
+          .append<SVGUseElement>('use')
+          .attr('id', (d) => `${d.name}State`)
+          .attr('xlink:href', (d) => {
+            const state = convertNodeStateToDagState(d.state);
+            if (state === 'busy') return '#nodeIconBusy';
+            if (state === 'error') return '#nodeIconError';
+            return null;
+          })
+          .attr('x', nodeWidth - NODE_ICON_X_OFFSET)
+          .attr('y', NODE_ICON_Y_OFFSET)
+          .attr('pointer-events', 'none');
+        return group;
+      },
+      (update) => {
+        update.attr('transform', (d) => `translate (${d.x}, ${d.y})`);
+        update.select(`#${update.data.name}State`).attr('xlink:href', (d) => {
           const state = convertNodeStateToDagState(d.state);
           if (state === 'busy') return '#nodeIconBusy';
           if (state === 'error') return '#nodeIconError';
           return null;
-        })
-        .attr('x', nodeWidth - NODE_ICON_X_OFFSET)
-        .attr('y', NODE_ICON_Y_OFFSET)
-        .attr('pointer-events', 'none');
-      return enter;
-    });
+        });
+        return update;
+      },
+      (exit) => exit.remove(),
+    );
 
   return nodeGroup;
 };

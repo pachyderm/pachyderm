@@ -255,7 +255,7 @@ export type GetDagQueryResult = Apollo.QueryResult<
   Types.GetDagQueryVariables
 >;
 export const GetDagsDocument = gql`
-  query getDags($args: DagQueryArgs!) {
+  subscription getDags($args: DagQueryArgs!) {
     dags(args: $args) {
       nodes {
         id
@@ -293,51 +293,37 @@ export const GetDagsDocument = gql`
 `;
 
 /**
- * __useGetDagsQuery__
+ * __useGetDagsSubscription__
  *
- * To run a query within a React component, call `useGetDagsQuery` and pass it any options that fit your needs.
- * When your component renders, `useGetDagsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * To run a query within a React component, call `useGetDagsSubscription` and pass it any options that fit your needs.
+ * When your component renders, `useGetDagsSubscription` returns an object from Apollo Client that contains loading, error, and data properties
  * you can use to render your UI.
  *
- * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ * @param baseOptions options that will be passed into the subscription, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
  *
  * @example
- * const { data, loading, error } = useGetDagsQuery({
+ * const { data, loading, error } = useGetDagsSubscription({
  *   variables: {
  *      args: // value for 'args'
  *   },
  * });
  */
-export function useGetDagsQuery(
-  baseOptions: Apollo.QueryHookOptions<
-    Types.GetDagsQuery,
-    Types.GetDagsQueryVariables
+export function useGetDagsSubscription(
+  baseOptions: Apollo.SubscriptionHookOptions<
+    Types.GetDagsSubscription,
+    Types.GetDagsSubscriptionVariables
   >,
 ) {
   const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useQuery<Types.GetDagsQuery, Types.GetDagsQueryVariables>(
-    GetDagsDocument,
-    options,
-  );
+  return Apollo.useSubscription<
+    Types.GetDagsSubscription,
+    Types.GetDagsSubscriptionVariables
+  >(GetDagsDocument, options);
 }
-export function useGetDagsLazyQuery(
-  baseOptions?: Apollo.LazyQueryHookOptions<
-    Types.GetDagsQuery,
-    Types.GetDagsQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useLazyQuery<Types.GetDagsQuery, Types.GetDagsQueryVariables>(
-    GetDagsDocument,
-    options,
-  );
-}
-export type GetDagsQueryHookResult = ReturnType<typeof useGetDagsQuery>;
-export type GetDagsLazyQueryHookResult = ReturnType<typeof useGetDagsLazyQuery>;
-export type GetDagsQueryResult = Apollo.QueryResult<
-  Types.GetDagsQuery,
-  Types.GetDagsQueryVariables
+export type GetDagsSubscriptionHookResult = ReturnType<
+  typeof useGetDagsSubscription
 >;
+export type GetDagsSubscriptionResult = Apollo.SubscriptionResult<Types.GetDagsSubscription>;
 export const GetFilesDocument = gql`
   query getFiles($args: FileQueryArgs!) {
     files(args: $args) {

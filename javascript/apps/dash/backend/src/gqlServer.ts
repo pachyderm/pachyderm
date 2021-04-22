@@ -13,17 +13,27 @@ import {Account} from '@graphqlTypes';
 import {getAccountFromIdToken} from './lib/auth';
 
 const gqlServer = new ApolloServer({
-  context: async ({req}) => {
-    const idToken = req.header('id-token');
-
+  context: async ({req, connection}) => {
+    let idToken: string | undefined;
+    let authToken: string | undefined;
+    let projectId: string | undefined;
     let account: Account | undefined;
+
+    if (connection) {
+      idToken = connection.context['id-token'];
+      authToken = connection.context['auth-token'];
+      projectId = connection.variables?.args?.projectId;
+    } else {
+      idToken = req.header('id-token');
+      authToken = req.header('auth-token');
+      projectId = req.body?.variables?.args?.projectId;
+    }
+
     if (idToken) {
       account = await getAccountFromIdToken(idToken);
     }
 
     const pachdAddress = process.env.PACHD_ADDRESS;
-    const authToken = req.header('auth-token');
-    const projectId = req.body?.variables?.args?.projectId;
     const log = baseLogger.child({
       pachdAddress,
       operationId: uuid(),
@@ -59,6 +69,9 @@ const gqlServer = new ApolloServer({
     fs.readFileSync(path.join(__dirname, '../src/schema.graphqls'), 'utf8'),
   ),
   plugins: [loggingPlugin],
+  subscriptions: {
+    path: '/subscriptions',
+  },
 });
 
 export default gqlServer;

@@ -279,11 +279,14 @@ type Query {
   projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
   jobs(args: JobQueryArgs!): [Job!]!
   dag(args: DagQueryArgs!): Dag!
-  dags(args: DagQueryArgs!): [Dag!]!
   files(args: FileQueryArgs!): [File!]!
   account: Account!
   searchResults(query: String!): SearchResults!
   authConfig: AuthConfig!
+}
+
+type Subscription {
+  dags(args: DagQueryArgs!): [Dag!]!
 }
 
 type Mutation {

@@ -4,24 +4,43 @@ import {
   PipelineInfo,
   PipelineState,
 } from '@pachyderm/proto/pb/pps/pps_pb';
+import {PubSub} from 'apollo-server-express';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatten from 'lodash/flatten';
 import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
 import minBy from 'lodash/minBy';
+import objectHash from 'object-hash';
 
 import disconnectedComponents from '@dash-backend/lib/disconnectedComponents';
 import {LinkInputData, NodeInputData, Vertex} from '@dash-backend/lib/types';
-import {Link, Node, NodeType, QueryResolvers} from '@graphqlTypes';
+import {withCancel} from '@dash-backend/lib/withCancel';
+import {
+  Dag,
+  Link,
+  Node,
+  NodeType,
+  QueryResolvers,
+  SubscriptionResolvers,
+} from '@graphqlTypes';
 
 interface DagResolver {
   Query: {
     dag: QueryResolvers['dag'];
-    dags: QueryResolvers['dags'];
+  };
+  Subscription: {
+    dags: SubscriptionResolvers['dags'];
   };
 }
 
+type IntervalRecord = {
+  interval: NodeJS.Timeout;
+  count: number;
+};
+
+const intervalMap: Record<string, IntervalRecord> = {};
 const elk = new ELK();
+const pubsub = new PubSub();
 
 const flattenPipelineInput = (input: Input.AsObject): string[] => {
   const result = [];
@@ -226,59 +245,124 @@ const dagResolver: DagResolver = {
         priorityPipelineState,
       );
     },
-    dags: async (
-      _field,
-      {args: {projectId, nodeHeight, nodeWidth}},
-      {pachClient, log},
-    ) => {
-      // TODO: Error handling
-      const [repos, pipelines] = await Promise.all([
-        pachClient.pfs().listRepo(),
-        pachClient.pps().listPipeline(),
-      ]);
+  },
+  Subscription: {
+    dags: {
+      subscribe: (
+        _field,
+        {args: {projectId, nodeHeight, nodeWidth}},
+        {pachClient, log, account},
+      ) => {
+        let prevReposHash = '';
+        let prevPipelinesHash = '';
+        let dags: Dag[] = [];
 
-      log.info({
-        eventSource: 'dag resolver',
-        event: 'deriving vertices for dag',
-        meta: {projectId},
-      });
-      const allVertices = deriveVertices(repos, pipelines);
+        const getDags = async (triggerString: string) => {
+          // TODO: Error handling
+          const [repos, pipelines] = await Promise.all([
+            pachClient.pfs().listRepo(),
+            pachClient.pps().listPipeline(),
+          ]);
 
-      log.info({
-        eventSource: 'dag resolver',
-        event: 'discovering disconnected components',
-        meta: {projectId},
-      });
-      const components = disconnectedComponents(allVertices);
+          const reposHash = objectHash(repos, {unorderedArrays: true});
+          const pipelinesHash = objectHash(pipelines, {unorderedArrays: true});
 
-      return components.map((component) => {
-        const componentRepos = repos.filter((repo) =>
-          component.find(
-            (c) =>
-              c.type === NodeType.Repo && c.name === `${repo.repo?.name}_repo`,
-          ),
-        );
-        const componentPipelines = pipelines.filter((pipeline) =>
-          component.find(
-            (c) =>
-              c.type === NodeType.Pipeline &&
-              c.name === pipeline.pipeline?.name,
-          ),
-        );
-        const id =
-          minBy(componentRepos, (r) => r.created?.seconds)?.repo?.name || '';
-        const priorityPipelineState = getPriorityPipelineState(
-          componentPipelines,
-        );
+          if (
+            prevReposHash === reposHash &&
+            prevPipelinesHash === pipelinesHash
+          ) {
+            return;
+          }
 
-        return normalizeDAGData(
-          component,
-          nodeWidth,
-          nodeHeight,
-          id,
-          priorityPipelineState,
-        );
-      });
+          prevReposHash = reposHash;
+          prevPipelinesHash = pipelinesHash;
+
+          log.info({
+            eventSource: 'dag resolver',
+            event: 'deriving vertices for dag',
+            meta: {projectId},
+          });
+          const allVertices = deriveVertices(repos, pipelines);
+
+          log.info({
+            eventSource: 'dag resolver',
+            event: 'discovering disconnected components',
+            meta: {projectId},
+          });
+          const components = disconnectedComponents(allVertices);
+
+          dags = await Promise.all(
+            components.map((component) => {
+              const componentRepos = repos.filter((repo) =>
+                component.find(
+                  (c) =>
+                    c.type === NodeType.Repo &&
+                    c.name === `${repo.repo?.name}_repo`,
+                ),
+              );
+              const componentPipelines = pipelines.filter((pipeline) =>
+                component.find(
+                  (c) =>
+                    c.type === NodeType.Pipeline &&
+                    c.name === pipeline.pipeline?.name,
+                ),
+              );
+              const id =
+                minBy(componentRepos, (r) => r.created?.seconds)?.repo?.name ||
+                '';
+              const priorityPipelineState = getPriorityPipelineState(
+                componentPipelines,
+              );
+
+              return normalizeDAGData(
+                component,
+                nodeWidth,
+                nodeHeight,
+                id,
+                priorityPipelineState,
+              );
+            }),
+          );
+
+          pubsub.publish(triggerString, {
+            dags,
+          });
+        };
+
+        // initial polling, 3000 is arbitrary
+        if (!intervalMap[projectId]) {
+          intervalMap[projectId] = {
+            interval: setInterval(async () => {
+              await getDags('DAGS_UPDATED');
+            }, 3000),
+            count: 0,
+          };
+        }
+
+        // get initial DAG so first request does not have to wait
+        process.nextTick(async () => {
+          intervalMap[projectId].count += 1;
+          await getDags(`${account.id}_DAGS_UPDATED`);
+        });
+
+        const asyncIterator = pubsub.asyncIterator([
+          `${account.id}_DAGS_UPDATED`,
+          'DAGS_UPDATED',
+        ]);
+
+        const onCancel = () => {
+          intervalMap[projectId].count -= 1;
+          if (intervalMap[projectId].count === 0) {
+            clearInterval(intervalMap[projectId].interval);
+            delete intervalMap[projectId];
+          }
+        };
+
+        return withCancel(asyncIterator, onCancel);
+      },
+      resolve: (result: {dags: Dag[]}) => {
+        return result.dags;
+      },
     },
   },
 };

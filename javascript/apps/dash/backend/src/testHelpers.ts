@@ -1,11 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 
+import {ApolloClient, DocumentNode, InMemoryCache} from '@apollo/client/core';
+import {WebSocketLink} from '@apollo/client/link/ws';
 import {Metadata, StatusBuilder, status} from '@grpc/grpc-js';
 import {callErrorFromStatus} from '@grpc/grpc-js/build/src/call';
 import {ApolloError} from 'apollo-server-errors';
 import {sign} from 'jsonwebtoken';
 import fetch from 'node-fetch';
+import {SubscriptionClient} from 'subscriptions-transport-ws';
+import ws from 'ws';
 
 import mockServer from '@dash-backend/mock';
 import keys from '@dash-backend/mock/fixtures/keys';
@@ -110,8 +114,44 @@ const createServiceError = (statusArgs: {
   return callErrorFromStatus({...defaultStatusArgs, ...statusObj});
 };
 
+const getWsClient = () => {
+  const client = new SubscriptionClient(
+    `ws://localhost:${process.env.GRAPHQL_PORT}/subscriptions`,
+    {
+      reconnect: true,
+      connectionParams: () => ({
+        'id-token': generateIdTokenForAccount(mockServer.state.account),
+        'pachd-address': `localhost:${process.env.GRPC_PORT}`,
+        'auth-token': 'xyz',
+      }),
+    },
+    ws,
+  );
+  return client;
+};
+
+const createSubscriptionClients = <T>(
+  query: DocumentNode,
+  variables: Record<string, unknown> = {},
+) => {
+  const wsClient = getWsClient();
+  const link = new WebSocketLink(wsClient);
+  const client = new ApolloClient({link, cache: new InMemoryCache()});
+
+  const observable = client.subscribe<T>({
+    query: query,
+    variables,
+  });
+
+  const close = () => wsClient.close();
+
+  return {close, observable};
+};
+
 export {
+  createSubscriptionClients,
   status,
+  getWsClient,
   createServiceError,
   mockServer,
   graphqlServer,

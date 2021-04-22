@@ -53,7 +53,7 @@ query getDag($args: DagQueryArgs!) {
     priorityPipelineState
   }
 }
-query getDags($args: DagQueryArgs!) {
+subscription getDags($args: DagQueryArgs!) {
   dags(args: $args) {
     nodes {
       id

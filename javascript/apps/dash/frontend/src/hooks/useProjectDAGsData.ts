@@ -1,4 +1,4 @@
-import {useGetDagsQuery} from '@dash-frontend/generated/hooks';
+import {useGetDagsSubscription} from '@dash-frontend/generated/hooks';
 import {DagQueryArgs} from '@graphqlTypes';
 
 export const useProjectDagsData = ({
@@ -6,7 +6,7 @@ export const useProjectDagsData = ({
   nodeWidth,
   nodeHeight,
 }: DagQueryArgs) => {
-  const {data, error, loading} = useGetDagsQuery({
+  const {data, error, loading} = useGetDagsSubscription({
     variables: {args: {projectId, nodeHeight, nodeWidth}},
   });
 

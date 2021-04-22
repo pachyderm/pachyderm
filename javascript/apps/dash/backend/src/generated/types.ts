@@ -33,7 +33,6 @@ export type Query = {
   account: Account;
   authConfig: AuthConfig;
   dag: Dag;
-  dags: Array<Dag>;
   files: Array<File>;
   jobs: Array<Job>;
   loggedIn: Scalars['Boolean'];
@@ -46,10 +45,6 @@ export type Query = {
 };
 
 export type QueryDagArgs = {
-  args: DagQueryArgs;
-};
-
-export type QueryDagsArgs = {
   args: DagQueryArgs;
 };
 
@@ -347,6 +342,15 @@ export type RepoQueryArgs = {
   id: Scalars['ID'];
 };
 
+export type Subscription = {
+  __typename?: 'Subscription';
+  dags: Array<Dag>;
+};
+
+export type SubscriptionDagsArgs = {
+  args: DagQueryArgs;
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
   exchangeCode: Tokens;
@@ -518,6 +522,7 @@ export type ResolversTypes = ResolversObject<{
   AuthConfig: ResolverTypeWrapper<AuthConfig>;
   PipelineQueryArgs: PipelineQueryArgs;
   RepoQueryArgs: RepoQueryArgs;
+  Subscription: ResolverTypeWrapper<{}>;
   Mutation: ResolverTypeWrapper<{}>;
 }>;
 
@@ -559,6 +564,7 @@ export type ResolversParentTypes = ResolversObject<{
   AuthConfig: AuthConfig;
   PipelineQueryArgs: PipelineQueryArgs;
   RepoQueryArgs: RepoQueryArgs;
+  Subscription: {};
   Mutation: {};
 }>;
 
@@ -573,12 +579,6 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryDagArgs, 'args'>
-  >;
-  dags?: Resolver<
-    Array<ResolversTypes['Dag']>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryDagsArgs, 'args'>
   >;
   files?: Resolver<
     Array<ResolversTypes['File']>,
@@ -1054,6 +1054,19 @@ export type AuthConfigResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type SubscriptionResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription']
+> = ResolversObject<{
+  dags?: SubscriptionResolver<
+    Array<ResolversTypes['Dag']>,
+    'dags',
+    ParentType,
+    ContextType,
+    RequireFields<SubscriptionDagsArgs, 'args'>
+  >;
+}>;
+
 export type MutationResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']
@@ -1096,6 +1109,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Account?: AccountResolvers<ContextType>;
   SearchResults?: SearchResultsResolvers<ContextType>;
   AuthConfig?: AuthConfigResolvers<ContextType>;
+  Subscription?: SubscriptionResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
 }>;
 
@@ -1164,11 +1178,11 @@ export type GetDagQuery = {__typename?: 'Query'} & {
     };
 };
 
-export type GetDagsQueryVariables = Exact<{
+export type GetDagsSubscriptionVariables = Exact<{
   args: DagQueryArgs;
 }>;
 
-export type GetDagsQuery = {__typename?: 'Query'} & {
+export type GetDagsSubscription = {__typename?: 'Subscription'} & {
   dags: Array<
     {__typename?: 'Dag'} & Pick<Dag, 'id' | 'priorityPipelineState'> & {
         nodes: Array<

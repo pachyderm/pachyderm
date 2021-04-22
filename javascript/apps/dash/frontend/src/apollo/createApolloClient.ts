@@ -5,24 +5,27 @@ import {
   ApolloLink,
 } from '@apollo/client';
 import {History as BrowserHistory} from 'history';
+import {SubscriptionClient} from 'subscriptions-transport-ws/dist/client';
 
 import {errorLink} from '@dash-frontend/apollo/links/errorLink';
 import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
 
 import {contextLink} from './links/contextLink';
-import {httpLink} from './links/httpLink';
+import {splitLink} from './links/splitLink';
 
 const createApolloClient = (
   browserHistory: BrowserHistory,
-): ApolloClient<NormalizedCacheObject> => {
+): {
+  client: ApolloClient<NormalizedCacheObject>;
+  webSocketClient: SubscriptionClient;
+} => {
   const cache = new InMemoryCache();
+  const {webSocketClient, split} = splitLink();
 
-  const link = ApolloLink.from([contextLink(), errorLink(), httpLink()]);
-
+  const link = ApolloLink.from([contextLink(), errorLink(), split]);
   const resolvers = {};
 
   const client = new ApolloClient({cache, link, resolvers});
-
   client.writeQuery({
     data: {
       loggedIn: Boolean(
@@ -47,7 +50,7 @@ const createApolloClient = (
     ),
   );
 
-  return client;
+  return {client, webSocketClient};
 };
 
 export default createApolloClient;

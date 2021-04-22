@@ -1,4 +1,4 @@
-import {Server} from 'http';
+import {Server, createServer as httpCreateServer} from 'http';
 import {AddressInfo} from 'net';
 import path from 'path';
 
@@ -52,7 +52,9 @@ const attachWebServer = (app: Express) => {
 const createServer = () => {
   const app = express();
 
-  gqlServer.applyMiddleware({app, path: '/graphql'});
+  gqlServer.applyMiddleware({app});
+  const httpServer = httpCreateServer(app);
+  gqlServer.installSubscriptionHandlers(httpServer);
 
   if (process.env.NODE_ENV !== 'development') {
     attachWebServer(app);
@@ -61,11 +63,14 @@ const createServer = () => {
   return {
     start: async () => {
       return new Promise<string>((res) => {
-        app.locals.server = app.listen({port: PORT}, () => {
+        app.locals.server = httpServer.listen(PORT, () => {
           const address: AddressInfo = app.locals.server.address();
 
           log.info(
             `Server ready at http://localhost:${address.port}${gqlServer.graphqlPath}`,
+          );
+          log.info(
+            `Subscriptions ready at http://localhost:${address.port}${gqlServer.subscriptionsPath}`,
           );
 
           res(String(address.port));
