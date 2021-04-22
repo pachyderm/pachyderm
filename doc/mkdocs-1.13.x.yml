@@ -168,17 +168,17 @@ nav:
             - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
-        - Split Data:
-            - Overview: how-tos/splitting-data/index.md
-            - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
-            - Adjusting Data Processing by Splitting Data: how-tos/splitting-data/adjusting_data_processing_w_split.md
+            - Split Data:
+                - Overview: how-tos/advanced-data-operations/splitting-data/index.md
+                - Splitting Data for Distributed Processing: how-tos/advanced-data-operations/splitting-data/splitting.md
+                - Adjusting Data Processing by Splitting Data: how-tos/advanced-data-operations/splitting-data/adjusting_data_processing_w_split.md
+            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md
+            - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
+            - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md    
+            - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md   
         - Use Pachyderm IDE:
             - Overview: how-tos/use-pachyderm-ide/index.md
             - Using the Pachyderm IDE with python-pachyderm: how-tos/use-pachyderm-ide/using-pachyderm-ide.md
-        - Mount a Volume: how-tos/mount-volume.md
-        - Processing Time-Windowed Data: how-tos/time_windows.md
-        - Use Transactions: how-tos/use-transactions-to-run-multiple-commands.md
-        - Skip Failed Datums: how-tos/err_cmd.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:

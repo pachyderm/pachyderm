@@ -42,7 +42,7 @@ the data repository and the other updates the parameters repository.
 The following animation shows the standard Pachyderm workflow without
 a transaction:
 
-![Standard workflow](../assets/images/transaction_wrong.gif)
+![Standard workflow](../../assets/images/transaction_wrong.gif)
 
 In Pachyderm, a pipeline starts as soon as a new commit lands in
 a repository. In the diagram above, as soon as `commit 1` is added
@@ -59,7 +59,7 @@ With transactions, you can ensure that only one job triggers with
 both the new `data` and `parameters`. The following animation
 demonstrates how transactions work:
 
-![Transactions workflow](../assets/images/transaction_right.gif)
+![Transactions workflow](../../assets/images/transaction_right.gif)
 
 The transaction ensures that a single job runs for the two commits
 that were started within the transaction.
@@ -70,7 +70,7 @@ organizational and performance reasons.
 
 ### Switching from Staging to Master Simultaneously
 
-If you are using [deferred processing](../../concepts/advanced-concepts/deferred_processing/)
+If you are using [deferred processing](../../../concepts/advanced-concepts/deferred_processing/)
 in your repositories because you want to commit your changes frequently
 without triggering jobs every time, then transactions can help you
 manage deferred processing with multiple inputs. You commit your
@@ -170,11 +170,11 @@ Other supporting commands for transactions include the following commands:
 
 | Command      | Description |
 | ------------ | ----------- |
-| `pachctl list transaction` | List all unfinished transactions available in the Pachyderm cluster. |
-| `pachctl stop transaction` | Remove the currently active transaction from the local Pachyderm config file. The transaction remains in the Pachyderm cluster and can be resumed later. |
-| `pachctl resume transaction` | Set an already-existing transaction as the active transaction in the local Pachyderm config file. |
-| `pachctl delete transaction` | Deletes a transaction from the Pachyderm cluster. |
-| `pachctl inspect transaction` | Provides detailed information about an existing transaction, including which operations it will perform. By default, displays information about the current transaction. If you specify a transaction ID, displays information about the corresponding transaction. |
+| pachctl list transaction| List all unfinished transactions available in the Pachyderm cluster. |
+| pachctl stop transaction | Remove the currently active transaction from the local Pachyderm config file. The transaction remains in the Pachyderm cluster and can be resumed later. |
+| pachctl resume transaction | Set an already-existing transaction as the active transaction in the local Pachyderm config file. |
+| pachctl delete transaction | Deletes a transaction from the Pachyderm cluster. |
+| pachctl inspect transaction | Provides detailed information about an existing transaction, including which operations it will perform. By default, displays information about the current transaction. If you specify a transaction ID, displays information about the corresponding transaction. |
 
 ## Supported Operations
 

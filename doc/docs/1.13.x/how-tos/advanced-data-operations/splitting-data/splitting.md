@@ -2,7 +2,7 @@
 
 Before you read this section, make sure that you understand
 the concepts described in
-[Distributed Computing](../../concepts/advanced-concepts/distributed_computing.md).
+[Distributed Computing](../../../concepts/advanced-concepts/distributed_computing.md).
 
 Pachyderm enables you to parallelize computations over data as long as
 that data can be split up into multiple *datums*.  However, in many
@@ -51,9 +51,9 @@ To complete this example, follow the steps below:
 
 1. Create a `users` repository by running:
 
-   ```shell
-   pachctl create repo users
-   ```
+      ```shell
+      pachctl create repo users
+      ```
 
 1. Create a file called `user_data.csv` with the
 contents listed above.
@@ -61,61 +61,61 @@ contents listed above.
 1. Put your `user_data.csv` file into Pachyderm and
 automatically split it into separate datums for each line:
 
-   ```shell
-   pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
-   ```
+      ```shell
+      pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
+      ```
 
-   The `--split line` argument specifies that Pachyderm
-   splits this file into lines, and the `--target-file-datums 1`
-   argument specifies that each resulting file must include
-   at most one datum or one line.
+      The `--split line` argument specifies that Pachyderm
+      splits this file into lines, and the `--target-file-datums 1`
+      argument specifies that each resulting file must include
+      at most one datum or one line.
 
 1. View the list of files in the master branch of the `users`
 repository:
 
-   ```shell
-   pachctl list file users@master
-   ```
+      ```shell
+      pachctl list file users@master
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
-   NAME                 TYPE                SIZE
-   user_data.csv   dir                 5.346 KiB
-   ```
+      ```shell
+      NAME                 TYPE                SIZE
+      user_data.csv   dir                 5.346 KiB
+      ```
 
-   If you run `pachctl list file` command for the master branch
-   in the `users` repository, Pachyderm
-   still shows the `user_data.csv` entity to you as one
-   entity in the repo
-   However, this entity is now a directory that contains all
-   of the split records.
+      If you run `pachctl list file` command for the master branch
+      in the `users` repository, Pachyderm
+      still shows the `user_data.csv` entity to you as one
+      entity in the repo
+      However, this entity is now a directory that contains all
+      of the split records.
 
 1. To view the detailed information about
 the `user_data.csv` file, run the command with the file name
 specified after a colon:
 
-   ```shell
-   pachctl list file users@master:user_data.csv
-   ```
+      ```shell
+      pachctl list file users@master:user_data.csv
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
-   NAME                             TYPE                SIZE
-   user_data.csv/0000000000000000   file                43 B
-   user_data.csv/0000000000000001   file                39 B
-   user_data.csv/0000000000000002   file                37 B
-   user_data.csv/0000000000000003   file                34 B
-   user_data.csv/0000000000000004   file                35 B
-   user_data.csv/0000000000000005   file                41 B
-   user_data.csv/0000000000000006   file                32 B
-   etc...
-   ```
+      ```shell
+      NAME                             TYPE                SIZE
+      user_data.csv/0000000000000000   file                43 B
+      user_data.csv/0000000000000001   file                39 B
+      user_data.csv/0000000000000002   file                37 B
+      user_data.csv/0000000000000003   file                34 B
+      user_data.csv/0000000000000004   file                35 B
+      user_data.csv/0000000000000005   file                41 B
+      user_data.csv/0000000000000006   file                32 B
+      etc...
+      ```
 
-   Then, a pipeline that takes the repo `users` as input
-   with a glob pattern of `/user_data.csv/*` processes each
-   user record, such as each line in the CSV file in parallel.
+      Then, a pipeline that takes the repo `users` as input
+      with a glob pattern of `/user_data.csv/*` processes each
+      user record, such as each line in the CSV file in parallel.
 
 ### JSON and Text File Splitting Examples
 
@@ -125,23 +125,23 @@ JSON blobs as well. See the examples below.
 * Split a `json` file on `json` blobs by putting each `json`
 blob into a separate file.
 
-  ```shell
-  pachctl put file users@master -f user_data.json --split json --target-file-datums 1
-  ```
+   ```shell
+   pachctl put file users@master -f user_data.json --split json --target-file-datums 1
+   ```
 
 * Split a `json` file on `json` blobs by putting three `json`
 blobs into each split file.
 
-  ```shell
-  pachctl put file users@master -f user_data.json --split json --target-file-datums 3
-  ```
+   ```shell
+   pachctl put file users@master -f user_data.json --split json --target-file-datums 3
+   ```
 
 * Split a file on lines by putting each 100-bytes chunk into
 the split files.
 
-  ```shell
-  pachctl put file users@master -f user_data.txt --split line --target-file-bytes 100
-  ```
+   ```shell
+   pachctl put file users@master -f user_data.txt --split line --target-file-bytes 100
+   ```
 
 ## Specifying a Header
 
@@ -154,78 +154,79 @@ To specify a header, complete the following steps:
 1. Create a new or use an existing data file. For example, the `user_data.csv`
 from the section above with the following header:
 
-   ```shell
-   NUMBER,EMAIL,IP_ADDRESS
-   ```
+      ```shell
+      NUMBER,EMAIL,IP_ADDRESS
+      ```
 
 1. Create a new repository or use an existing one:
 
-   ```shell
-   pachctl create repo users
-   ```
+      ```shell
+      pachctl create repo users
+      ```
 
 1. Put your file into the repository by separating the header from
 other lines:
 
-   ```shell
-   pachctl put file users@master -f user_data.csv --split=csv --header-records=1 --target-file-datums=1
-   ```
+      ```shell
+      pachctl put file users@master -f user_data.csv --split=csv --header-records=1 --target-file-datums=1
+      ```
 
 1. Verify that the file was added and split:
 
-   ```shell
-   pachctl list file users@master:/user_data.csv
-   ```
+      ```shell
+      pachctl list file users@master:/user_data.csv
+      ```
 
-   **Example:**
+      **Example:**
 
-   ```shell
-   NAME                            TYPE SIZE
-   /user_data.csv/0000000000000000 file 70B
-   /user_data.csv/0000000000000001 file 66B
-   /user_data.csv/0000000000000002 file 64B
-   /user_data.csv/0000000000000003 file 61B
-   /user_data.csv/0000000000000004 file 62B
-   /user_data.csv/0000000000000005 file 68B
-   /user_data.csv/0000000000000006 file 59B
-   /user_data.csv/0000000000000007 file 59B
-   /user_data.csv/0000000000000008 file 71B
-   /user_data.csv/0000000000000009 file 65B
-   ```
+      ```shell
+      NAME                            TYPE SIZE
+      /user_data.csv/0000000000000000 file 70B
+      /user_data.csv/0000000000000001 file 66B
+      /user_data.csv/0000000000000002 file 64B
+      /user_data.csv/0000000000000003 file 61B
+      /user_data.csv/0000000000000004 file 62B
+      /user_data.csv/0000000000000005 file 68B
+      /user_data.csv/0000000000000006 file 59B
+      /user_data.csv/0000000000000007 file 59B
+      /user_data.csv/0000000000000008 file 71B
+      /user_data.csv/0000000000000009 file 65B
+      ```
 
 1. Get the first file from the repository:
 
-   ```shell
-   pachctl get file users@master:/user_data.csv/0000000000000000
-   ```
+      ```shell
+      pachctl get file users@master:/user_data.csv/0000000000000000
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
-   NUMBER,EMAIL,IP_ADDRESS
-   1,cyukhtin0@stumbleupon.com,144.155.176.12
-   ```
+      ```shell
+      NUMBER,EMAIL,IP_ADDRESS
+      1,cyukhtin0@stumbleupon.com,144.155.176.12
+      ```
+
 1. Get all files:
 
-   ```shell
-   pachctl get file users@master:/user_data.csv/*
-   ```
+      ```shell
+      pachctl get file users@master:/user_data.csv/*
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```csv
-   NUMBER,EMAIL,IP_ADDRESS
-   1,cyukhtin0@stumbleupon.com,144.155.176.12
-   2,csisneros1@over-blog.com,26.119.26.5
-   3,jeye2@instagram.com,13.165.230.106
-   4,rnollet3@hexun.com,58.52.147.83
-   5,bposkitt4@irs.gov,51.247.120.167
-   6,vvenmore5@hubpages.com,161.189.245.212
-   7,lcoyte6@ask.com,56.13.147.134
-   8,atuke7@psu.edu,78.178.247.163
-   9,nmorrell8@howstuffworks.com,28.172.10.170
-   10,afynn9@google.com.au,166.14.112.65
-   ```
+      ```csv
+      NUMBER,EMAIL,IP_ADDRESS
+      1,cyukhtin0@stumbleupon.com,144.155.176.12
+      2,csisneros1@over-blog.com,26.119.26.5
+      3,jeye2@instagram.com,13.165.230.106
+      4,rnollet3@hexun.com,58.52.147.83
+      5,bposkitt4@irs.gov,51.247.120.167
+      6,vvenmore5@hubpages.com,161.189.245.212
+      7,lcoyte6@ask.com,56.13.147.134
+      8,atuke7@psu.edu,78.178.247.163
+      9,nmorrell8@howstuffworks.com,28.172.10.170
+      10,afynn9@google.com.au,166.14.112.65
+      ```
 
 For more information, type `pachctl put file --help`.
 
@@ -261,11 +262,11 @@ steps:
 
 1. Generate a `pgdump` file:
 
-   **Example:**
+      **Example:**
 
-   ```shell
-   pg_dump -t users -f users.pgdump
-   ```
+      ```shell
+      pg_dump -t users -f users.pgdump
+      ```
 
 1. View the `pgdump` file:
 
@@ -337,44 +338,44 @@ steps:
 
 4. View the information about your repository:
 
-   ```shell
-   pachctl list file data@master
-   ```
+      ```shell
+      pachctl list file data@master
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
-   NAME         TYPE SIZE
-   users        dir  914B
-   ```
+      ```shell
+      NAME         TYPE SIZE
+      users        dir  914B
+      ```
 
-   The `users.pgdump` file is added to the master branch in the `data`
-   repository.
+      The `users.pgdump` file is added to the master branch in the `data`
+      repository.
 
 5. View the information about the `users.pgdump` file:
 
-   ```shell
+      ```shell
 
-   pachctl list file data@master:users
-   ```
+      pachctl list file data@master:users
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
-   NAME                           TYPE SIZE
-   /users/0000000000000000        file 20B
-   /users/0000000000000001        file 18B
-   ```
+      ```shell
+      NAME                           TYPE SIZE
+      /users/0000000000000000        file 20B
+      /users/0000000000000001        file 18B
+      ```
 
 6. In your pipeline, where you have started and forked PostgreSQL,
 you can load the data by running the following or a similar script:
 
-   ```
-   cat /pfs/data/users/* | sudo -u postgres psql
-   ```
+      ```
+      cat /pfs/data/users/* | sudo -u postgres psql
+      ```
 
-   By using the glob pattern `/*`, this code loads each raw PostgreSQL chunk
-   into your PostgreSQL instance for processing by your pipeline.
+      By using the glob pattern `/*`, this code loads each raw PostgreSQL chunk
+      into your PostgreSQL instance for processing by your pipeline.
 
 
 !!! tip

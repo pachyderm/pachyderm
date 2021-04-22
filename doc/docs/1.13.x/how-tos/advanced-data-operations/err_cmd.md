@@ -6,8 +6,8 @@
 
 !!! note
     Before you read this section, make sure that you understand such
-    concepts as [Datum](../../concepts/pipeline-concepts/datum/) and
-    [Pipeline](../../concepts/pipeline-concepts/pipeline/).
+    concepts as [Datum](../../../concepts/pipeline-concepts/datum/) and
+    [Pipeline](../../../concepts/pipeline-concepts/pipeline/).
 
 When Pachyderm processes your data, it breaks it up into units of
 computation called datums. Each datum is processed separately.
@@ -36,7 +36,7 @@ to run the second pipeline.
 The following diagram describes how Pachyderm transformation and error
 code work:
 
-![err_cmd logic](../assets/images/err_cmd_workflow.svg)
+![err_cmd logic](../../assets/images/err_cmd_workflow.svg)
 
 Here is what is happening in the diagram above:
 
@@ -56,7 +56,7 @@ as failed, and, consequently, the job is marked as failed.
 You can view the processed, skipped, and recovered datums in the `PROGRESS`
 field in the output of the `pachctl list job` command:
 
-![Datums in progress](../assets/images/datums_in_progress.svg)
+![Datums in progress](../../assets/images/datums_in_progress.svg)
 
 Pachyderm writes only processed datums of successful jobs to the output
 commit so that these datums can be processed by downstream pipelines.

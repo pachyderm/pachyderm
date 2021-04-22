@@ -80,7 +80,7 @@ data operations in Pachyderm.
       <div class="mdl-card__supporting-text">
         Learn pipeline operations.
       </div>
-       <div class="mdl-card__actions mdl-card--border">
+      <div class="mdl-card__actions mdl-card--border">
         <ul>
            <li><a href="https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums" class="md-typeset md-link">
            Test datums
@@ -117,27 +117,34 @@ data operations in Pachyderm.
         <h4 class="mdl-card__title-text">Advanced Data Operations &nbsp;&nbsp;&nbsp;<i class="fa fa-flask"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Learn more advanced Pachyderm data operations,
-        such as splitting, joining, and merging your data.
+        Manage Secrets, split your data, use transactions, skip failed datum...
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="splitting-data/" class="md-typeset md-link">
+          <li><a href="advanced-data-operations/secrets" class="md-typeset md-link">
+           Create and Manage Secrets 
+           </a>
+           </li>
+           <li><a href="advanced-data-operations/splitting-data" class="md-typeset md-link">
            Split Data
            </a>
            </li>
-           <li><a href="time_windows/" class="md-typeset md-link">
+           <li><a href="advanced-data-operations/time_windows" class="md-typeset md-link">
            Processing Time-Windowed Data
            </a>
           </li>
           </li>
-           <li><a href="use-transactions-to-run-multiple-commands/" class="md-typeset md-link">
+           <li><a href="advanced-data-operations/use-transactions-to-run-multiple-commands" class="md-typeset md-link">
            Use Transactions
            </a>
           </li>
-           <li><a href="err_cmd/" class="md-typeset md-link">
+           <li><a href="advanced-data-operations/err_cmd" class="md-typeset md-link">
            Skip Failed Datums
            </a>
+          </li>
+          <li><a href="advanced-data-operations/mount-volume" class="md-typeset md-link">
+           Attach a Volume to your Pipeline
+          </a>
           </li>
         </ul>
       </div>
