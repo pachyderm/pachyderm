@@ -3,11 +3,10 @@ package fileset
 import (
 	"context"
 	"io"
-	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
 // MergeReader is an abstraction for reading merged filesets.
@@ -35,7 +34,7 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, deletiv
 }
 
 func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
-	var ss []stream
+	var ss []stream.Stream
 	for _, fs := range mr.fileSets {
 		ss = append(ss, &fileStream{
 			iterator: NewIterator(ctx, fs, true),
@@ -47,29 +46,11 @@ func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 			priority: len(ss),
 		})
 	}
-	pq := newPriorityQueue(ss)
-	var skipPrefix string
-	var skipPriority int
-	return pq.iterate(func(ss []stream, _ ...string) error {
+	pq := stream.NewPriorityQueue(ss)
+	return pq.Iterate(func(ss []stream.Stream, _ ...string) error {
 		var fss []*fileStream
 		for _, s := range ss {
 			fss = append(fss, s.(*fileStream))
-		}
-		if skipPrefix != "" && strings.HasPrefix(fss[0].key(), skipPrefix) {
-			for i, fs := range fss {
-				if fs.streamPriority() < skipPriority {
-					fss = fss[:i]
-					break
-				}
-			}
-		}
-		if len(fss) == 0 {
-			return nil
-		}
-		if IsDir(fss[0].key()) {
-			skipPrefix = fss[0].key()
-			skipPriority = fss[0].streamPriority()
-			return nil
 		}
 		if len(fss) == 1 {
 			if fss[0].deletive {
@@ -111,14 +92,14 @@ func mergeParts(pss []*partStream) []*index.Part {
 	if len(pss) == 0 {
 		return nil
 	}
-	var ss []stream
+	var ss []stream.Stream
 	for i := len(pss) - 1; i >= 0; i-- {
 		pss[i].priority = len(ss)
 		ss = append(ss, pss[i])
 	}
-	pq := newPriorityQueue(ss)
+	pq := stream.NewPriorityQueue(ss)
 	var mergedParts []*index.Part
-	pq.iterate(func(ss []stream, _ ...string) error {
+	pq.Iterate(func(ss []stream.Stream, _ ...string) error {
 		for i := 0; i < len(ss); i++ {
 			ps := ss[i].(*partStream)
 			if ps.deletive {
@@ -147,15 +128,15 @@ func mergePart(parts []*index.Part, part *index.Part) []*index.Part {
 }
 
 func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error) error {
-	var ss []stream
+	var ss []stream.Stream
 	for _, fs := range mr.fileSets {
 		ss = append(ss, &fileStream{
 			iterator: NewIterator(ctx, fs, true),
 			priority: len(ss),
 		})
 	}
-	pq := newPriorityQueue(ss)
-	return pq.iterate(func(ss []stream, _ ...string) error {
+	pq := stream.NewPriorityQueue(ss)
+	return pq.Iterate(func(ss []stream.Stream, _ ...string) error {
 		var idxs []*index.Index
 		for _, s := range ss {
 			idxs = append(idxs, s.(*fileStream).file.Index())
@@ -201,8 +182,10 @@ func newMergeFileReader(ctx context.Context, chunks *chunk.Storage, idx *index.I
 }
 
 // Index returns the index for the merged file.
+// TODO: Removed clone because it had a significant performance impact for small files.
+// May want to revisit.
 func (mfr *MergeFileReader) Index() *index.Index {
-	return proto.Clone(mfr.idx).(*index.Index)
+	return mfr.idx
 }
 
 // Content returns the content of the merged file.
@@ -219,17 +202,17 @@ type fileStream struct {
 	deletive bool
 }
 
-func (fs *fileStream) next() error {
+func (fs *fileStream) Next() error {
 	var err error
 	fs.file, err = fs.iterator.Next()
 	return err
 }
 
-func (fs *fileStream) key() string {
+func (fs *fileStream) Key() string {
 	return fs.file.Index().Path
 }
 
-func (fs *fileStream) streamPriority() int {
+func (fs *fileStream) Priority() int {
 	return fs.priority
 }
 
@@ -240,7 +223,7 @@ type partStream struct {
 	deletive bool
 }
 
-func (ps *partStream) next() error {
+func (ps *partStream) Next() error {
 	if len(ps.parts) == 0 {
 		return io.EOF
 	}
@@ -249,10 +232,10 @@ func (ps *partStream) next() error {
 	return nil
 }
 
-func (ps *partStream) key() string {
+func (ps *partStream) Key() string {
 	return ps.part.Tag
 }
 
-func (ps *partStream) streamPriority() int {
+func (ps *partStream) Priority() int {
 	return ps.priority
 }

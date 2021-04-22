@@ -60,7 +60,7 @@ func (s *objectAdapter) Get(ctx context.Context, key []byte, cb ValueCallback) (
 		if _, err := io.Copy(buf, rc); err != nil {
 			return err
 		}
-		return AssertNotModified(buf.Bytes(), cb)
+		return cb(buf.Bytes())
 	})
 }
 

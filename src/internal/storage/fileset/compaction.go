@@ -8,49 +8,17 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
-// IsCompacted returns true if the fileset is already in compacted form.
-func (s *Storage) IsCompacted(ctx context.Context, id ID) (bool, error) {
-	md, err := s.store.Get(ctx, id)
+// IsCompacted returns true if the filesets are already in compacted form.
+func (s *Storage) IsCompacted(ctx context.Context, ids []ID) (bool, error) {
+	prims, err := s.flattenPrimitives(ctx, ids)
 	if err != nil {
 		return false, err
 	}
-	switch x := md.Value.(type) {
-	case *Metadata_Composite:
-		ids, err := x.Composite.PointsTo()
-		if err != nil {
-			return false, err
-		}
-		ids, err = s.Flatten(ctx, ids)
-		if err != nil {
-			return false, err
-		}
-		layers, err := s.getPrimitiveBatch(ctx, ids)
-		if err != nil {
-			return false, err
-		}
-		return isCompacted(s.levelFactor, layers), nil
-	case *Metadata_Primitive:
-		return true, nil
-	default:
-		// TODO: should it be?
-		return false, errors.Errorf("IsCompacted is not defined for empty filesets")
-	}
+	return isCompacted(s.compactionConfig, prims), nil
 }
 
-func (s *Storage) getPrimitiveBatch(ctx context.Context, ids []ID) ([]*Primitive, error) {
-	var layers []*Primitive
-	for _, id := range ids {
-		prim, err := s.getPrimitive(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		layers = append(layers, prim)
-	}
-	return layers, nil
-}
-
-func isCompacted(factor int64, layers []*Primitive) bool {
-	return indexOfCompacted(factor, layers) == len(layers)
+func isCompacted(config *CompactionConfig, prims []*Primitive) bool {
+	return config.FixedDelay > int64(len(prims)) || indexOfCompacted(config.LevelFactor, prims) == len(prims)
 }
 
 // indexOfCompacted returns the last value of i for which the "compacted relationship"
@@ -70,30 +38,22 @@ func indexOfCompacted(factor int64, inputs []*Primitive) int {
 	return l
 }
 
-// Compact compacts a set of filesets into an output fileset.
+// Compact compacts the contents of ids into a new fileset with the specified ttl and returns the ID.
+// Compact always returns the ID of a primitive fileset.
 func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts ...index.Option) (*ID, error) {
-	ids, err := s.Flatten(ctx, ids)
+	var size int64
+	w := s.newWriter(ctx, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
+		size += index.SizeBytes(idx)
+		return nil
+	}))
+	fs, err := s.Open(ctx, ids, opts...)
 	if err != nil {
 		return nil, err
 	}
-	inputs, err := s.getPrimitiveBatch(ctx, ids)
-	if err != nil {
+	if err := CopyFiles(ctx, w, fs, true); err != nil {
 		return nil, err
 	}
-	i := indexOfCompacted(s.levelFactor, inputs)
-	if i == len(inputs) {
-		return s.Compose(ctx, ids, ttl)
-	}
-	// merge everything from i onward into a single layer
-	merged, err := s.Merge(ctx, ids[i:], ttl)
-	if err != nil {
-		return nil, err
-	}
-	// replace everything from i onward with the merged version
-	ids2 := []ID{}
-	ids2 = append(ids2, ids[:i]...)
-	ids2 = append(ids2, *merged)
-	return s.Compact(ctx, ids2, ttl)
+	return w.Close()
 }
 
 // CompactionTask contains everything needed to perform the smallest unit of compaction
@@ -126,8 +86,14 @@ func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionBatc
 	}
 }
 
-// Compact runs a compaction on the ids
+// Compact compacts the contents of ids into a new fileset with the specified ttl and returns the ID.
+// Compact always returns the ID of a primitive fileset.
 func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+	var err error
+	ids, err = c.s.Flatten(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	if len(ids) <= c.maxFanIn {
 		return c.shardedCompact(ctx, ids, ttl)
 	}
@@ -169,4 +135,28 @@ func (c *DistributedCompactor) shardedCompact(ctx context.Context, ids []ID, ttl
 		return nil, errors.Errorf("results are a different length than tasks")
 	}
 	return c.s.Concat(ctx, results, ttl)
+}
+
+// CompactCallback is the standard callback signature for a compaction operation.
+type CompactCallback func(context.Context, []ID, time.Duration) (*ID, error)
+
+// CompactLevelBased performs a level-based compaction on the passed in filesets.
+func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, ttl time.Duration, compact CompactCallback) (*ID, error) {
+	ids, err := s.Flatten(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	prims, err := s.getPrimitives(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	if isCompacted(s.compactionConfig, prims) {
+		return s.Compose(ctx, ids, ttl)
+	}
+	i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
+	id, err := compact(ctx, ids[i:], ttl)
+	if err != nil {
+		return nil, err
+	}
+	return s.CompactLevelBased(ctx, append(ids[:i], *id), ttl, compact)
 }
