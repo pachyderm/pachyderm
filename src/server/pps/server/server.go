@@ -1,6 +1,8 @@
 package server
 
 import (
+	"path"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
@@ -19,51 +21,34 @@ type APIServer interface {
 func NewAPIServer(
 	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
-	namespace string,
-	workerImage string,
-	workerSidecarImage string,
-	workerImagePullPolicy string,
-	storageRoot string,
-	storageBackend string,
-	storageHostPath string,
-	cacheRoot string,
-	iamRole string,
-	imagePullSecret string,
-	noExposeDockerSocket bool,
 	reporter *metrics.Reporter,
-	workerUsesRoot bool,
-	workerGrpcPort uint16,
-	port uint16,
-	httpPort uint16,
-	peerPort uint16,
-	gcPercent int,
 ) (APIServer, error) {
+	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix)
 	apiServer := &apiServer{
 		Logger:                log.NewLogger("pps.API"),
 		env:                   env,
 		txnEnv:                txnEnv,
 		etcdPrefix:            etcdPrefix,
-		namespace:             namespace,
-		workerImage:           workerImage,
-		workerSidecarImage:    workerSidecarImage,
-		workerImagePullPolicy: workerImagePullPolicy,
-		storageRoot:           storageRoot,
-		storageBackend:        storageBackend,
-		storageHostPath:       storageHostPath,
-		cacheRoot:             cacheRoot,
-		iamRole:               iamRole,
-		imagePullSecret:       imagePullSecret,
-		noExposeDockerSocket:  noExposeDockerSocket,
+		namespace:             env.Config().Namespace,
+		workerImage:           env.Config().WorkerImage,
+		workerSidecarImage:    env.Config().WorkerSidecarImage,
+		workerImagePullPolicy: env.Config().WorkerImagePullPolicy,
+		storageRoot:           env.Config().StorageRoot,
+		storageBackend:        env.Config().StorageBackend,
+		storageHostPath:       env.Config().StorageHostPath,
+		cacheRoot:             env.Config().CacheRoot,
+		iamRole:               env.Config().IAMRole,
+		imagePullSecret:       env.Config().ImagePullSecret,
+		noExposeDockerSocket:  env.Config().NoExposeDockerSocket,
 		reporter:              reporter,
-		workerUsesRoot:        workerUsesRoot,
+		workerUsesRoot:        env.Config().WorkerUsesRoot,
 		pipelines:             ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
 		jobs:                  ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
-		workerGrpcPort:        workerGrpcPort,
-		port:                  port,
-		httpPort:              httpPort,
-		peerPort:              peerPort,
-		gcPercent:             gcPercent,
+		workerGrpcPort:        env.Config().PPSWorkerPort,
+		port:                  env.Config().Port,
+		httpPort:              env.Config().HTTPPort,
+		peerPort:              env.Config().PeerPort,
+		gcPercent:             env.Config().GCPercent,
 	}
 	apiServer.validateKube()
 	go apiServer.master()

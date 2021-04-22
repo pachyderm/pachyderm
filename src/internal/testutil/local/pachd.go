@@ -123,7 +123,6 @@ func RunLocal() (retErr error) {
 		return errors.Wrapf(err, "error getting pachd external ip")
 	}
 	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.Config().PeerPort))
-	kubeNamespace := env.Config().Namespace
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
 	// Setup External Pachd GRPC Server.
@@ -168,25 +167,7 @@ func RunLocal() (retErr error) {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
-				kubeNamespace,
-				env.Config().WorkerImage,
-				env.Config().WorkerSidecarImage,
-				env.Config().WorkerImagePullPolicy,
-				env.Config().StorageRoot,
-				env.Config().StorageBackend,
-				env.Config().StorageHostPath,
-				env.Config().CacheRoot,
-				env.Config().IAMRole,
-				env.Config().ImagePullSecret,
-				env.Config().NoExposeDockerSocket,
 				reporter,
-				env.Config().WorkerUsesRoot,
-				env.Config().PPSWorkerPort,
-				env.Config().Port,
-				env.Config().HTTPPort,
-				env.Config().PeerPort,
-				env.Config().GCPercent,
 			)
 			if err != nil {
 				return err
@@ -330,25 +311,7 @@ func RunLocal() (retErr error) {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
-				kubeNamespace,
-				env.Config().WorkerImage,
-				env.Config().WorkerSidecarImage,
-				env.Config().WorkerImagePullPolicy,
-				env.Config().StorageRoot,
-				env.Config().StorageBackend,
-				env.Config().StorageHostPath,
-				env.Config().CacheRoot,
-				env.Config().IAMRole,
-				env.Config().ImagePullSecret,
-				env.Config().NoExposeDockerSocket,
 				reporter,
-				env.Config().WorkerUsesRoot,
-				env.Config().PPSWorkerPort,
-				env.Config().Port,
-				env.Config().HTTPPort,
-				env.Config().PeerPort,
-				env.Config().GCPercent,
 			)
 			if err != nil {
 				return err
