@@ -2,10 +2,12 @@ package minipach
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"runtime/debug"
 	"testing"
+	"time"
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
@@ -41,13 +43,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	kube "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
@@ -79,32 +83,56 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 		return &RemoteTestContext{}
 	}
 
-	if requireKube {
-		t.Skip("test must be run against pachd in minikube")
-	}
-
 	if ct, ok := t.(*testing.T); ok {
 		ct.Parallel()
 	}
 
-	env := testetcd.NewEnv(t)
+	sharedVolume := os.Getenv("SHARED_DATA_DIR")
 	testId := random.String(20)
+	dataDir := path.Join(sharedVolume, testId)
 	clientSocketPath := path.Join(os.TempDir(), "pachd_socket_"+testId)
-	fmt.Printf("Test context %s - %s\n", testId, env.Directory)
+	fmt.Printf("Test context %s - %s\n", testId, dataDir)
+
+	db := testutil.NewPostgresDeployment(t)
 
 	fullConfig := &serviceenv.PachdFullConfiguration{}
 	require.NoError(t, cmdutil.Populate(fullConfig))
 	config := serviceenv.NewConfiguration(fullConfig)
 
 	config.PostgresServiceSSL = "disable"
-	config.StorageRoot = path.Join(env.Directory, "pach_root")
-	config.CacheRoot = path.Join(env.Directory, "cache_root")
+	config.StorageRoot = path.Join(dataDir, "pach_root")
+	config.CacheRoot = path.Join(dataDir, "cache_root")
+	config.EtcdPrefix = testId
 
-	db := testutil.NewTestDB(t)
+	cfg := &rest.Config{
+		Host:            os.Getenv("KUBERNETES_PORT_443_TCP_ADDR"),
+		BearerTokenFile: os.Getenv("KUBERNETES_BEARER_TOKEN_FILE"),
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: true,
+		},
+	}
+
+	etcdClient, err := etcd.New(etcd.Config{
+		Endpoints: []string{"127.0.0.1:2379"},
+		// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
+		// while waiting for etcd to come up (makes startup net faster)
+		DialTimeout:        3 * time.Minute,
+		DialOptions:        client.DefaultDialOptions(), // SA1019 can't call grpc.Dial directly
+		MaxCallSendMsgSize: math.MaxInt32,
+		MaxCallRecvMsgSize: math.MaxInt32,
+	})
+	require.NoError(t, err)
+
+	kubeClient, err := kube.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	_, err = kubeClient.CoreV1().Namespaces().Create(context.Background(), v1.Namespace{Name: testId})
+	require.NoError(t, err)
+
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState))
 
 	logger := log.StandardLogger()
-	f, err := os.OpenFile(path.Join(env.Directory, "pachd.log"), os.O_WRONLY|os.O_CREATE, 0755)
+	f, err := os.OpenFile(path.Join(dataDir, "pachd.log"), os.O_WRONLY|os.O_CREATE, 0755)
 	require.NoError(t, err)
 	logger.SetOutput(f)
 
@@ -113,9 +141,10 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 
 	senv := &serviceenv.TestServiceEnv{
 		Configuration: config,
-		EtcdClient:    env.EtcdClient,
+		EtcdClient:    etcdClient,
 		DBClient:      db,
 		Logger:        logger,
+		KubeClient:    kubeClient,
 		Ctx:           ctx,
 	}
 	require.NoError(t, setupServer(senv, clientSocketPath))

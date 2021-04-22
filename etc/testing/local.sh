@@ -23,21 +23,7 @@ kubectl config use-context minikube
 forward postgres 32228:5432
 forward etcd 2379
 
-echo '{"pachd_address": "grpc://localhost:650", "source": 2}' | pachctl config set context "local" --overwrite && pachctl config set active-context "local"
-
-export ETCD_SERVICE_HOST="127.0.0.1"
-export ETCD_SERVICE_PORT=2379
-export POSTGRES_SERVICE_HOST="127.0.0.1"
-export POSTGRES_SERVICE_PORT=32228
-export POSTGRES_SERVICE_SSL=disable
-export STORAGE_BACKEND=LOCAL
-export WORKER_IMAGE=pachyderm/worker:local
-export WORKER_SIDECAR_IMAGE=pachyderm/pachd:local
-export STORAGE_UPLOAD_CONCURRENCY_LIMIT=100
-
-export PACH_ROOT=/tmp/pach/storage
-export STORAGE_HOST_PATH=/tmp/pach/storage
-export PACH_CACHE_ROOT=/tmp/pach/cache
+export SHARED_DATA_DIR=/tmp/pach/
 
 # connect to the k8s API in minikube
 export KUBERNETES_PORT_443_TCP_ADDR=$(minikube ip)
