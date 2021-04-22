@@ -1939,7 +1939,12 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		var specCommit *pfs.Commit
 		if prevSpecCommit != nil {
 			specCommit = *prevSpecCommit
+			defer func() {
+				// overwrite with current commit pointer
+				*prevSpecCommit = specCommit
+			}()
 		}
+
 		if specCommit != nil {
 			if !update {
 				// for new pipelines, we'll check for newness when the pipeline collection entry is created
@@ -2015,11 +2020,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			}); err != nil {
 				return specCommit, err
 			}
-		}
-
-		if prevSpecCommit != nil {
-			// overwrite with current commit pointer
-			*prevSpecCommit = specCommit
 		}
 		return specCommit, nil
 	}

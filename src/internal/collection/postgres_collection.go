@@ -92,8 +92,6 @@ func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection 
 // transaction is committed. If any errors occur, the transaction is rolled
 // back.  This will reattempt the transaction forever.
 func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	var lastErr error
-
 	attemptTx := func() error {
 		tx, err := db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
 		if err != nil {
@@ -119,13 +117,10 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 			if !isTransactionError(err) {
 				return err
 			}
-			lastErr = err
 		} else {
 			return nil
 		}
 	}
-
-	return errors.Wrap(lastErr, "sql transaction rolled back too many times")
 }
 
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
