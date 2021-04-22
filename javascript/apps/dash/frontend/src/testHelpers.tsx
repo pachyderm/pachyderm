@@ -36,7 +36,7 @@ export const MockDAG: React.FC<{dag: Dag}> = ({dag}) => {
     <Route path={PROJECT_PATHS}>
       Selected node: {selectedNode?.name}
       {dag.nodes.map((n) => (
-        <button key={n.name} onClick={() => navigateToNode(n)}>
+        <button key={n.name} onClick={() => navigateToNode(n, dag.id)}>
           {n.name}
         </button>
       ))}

@@ -33,7 +33,11 @@ describe('ProjectSidebar', () => {
 
   describe('pipelines', () => {
     it('should display pipeline details', async () => {
-      window.history.replaceState('', '', '/project/1/pipeline/montage');
+      window.history.replaceState(
+        '',
+        '',
+        '/project/1/dag/images/pipeline/montage',
+      );
 
       const {queryByTestId, findByTestId} = render(<Project />);
 
@@ -50,7 +54,7 @@ describe('ProjectSidebar', () => {
   describe('repos', () => {
     it('should display repo details', async () => {
       // TODO: update this with _actual_ repo details
-      window.history.replaceState('', '', '/project/1/repo/montage');
+      window.history.replaceState('', '', '/project/1/dag/images/repo/montage');
 
       const {findByTestId} = render(<Project />);
 

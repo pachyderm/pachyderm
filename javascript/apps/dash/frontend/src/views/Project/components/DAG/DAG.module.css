@@ -3,7 +3,25 @@
   border-radius: 3px;
   font-size: var(--font-size-body-medium);
   margin-bottom: 1.25rem;
+  overflow-x: hidden;
+  background: var(--white);
+  padding: 2rem 0 0 1rem;
 }
+
+.pipelineStatus {
+  background-color: var(--background-pink);
+  color: var(--pachyderm-coral);
+  padding: 0.25rem 1rem;
+  position: absolute;
+  margin-top: -1rem;
+  border-radius: 1rem;
+}
+
+.base:hover {
+  cursor: pointer;
+  box-shadow: 0 2px 4px 0 var(--border-grey);
+}
+
 .base.draggable:hover {
   cursor: grab;
 }
@@ -21,22 +39,23 @@
   box-shadow: 0 1px 2px 0 var(--border-grey);
   background-color: white;
   fill: var(--white);
+  border: solid 1px var(--line-grey);
 }
   
-.base :global .nodeGroup:hover .node .label,
-.base :global .nodeGroup.selected .node .label {
+.base :global .nodeGroup.interactive:hover .node .label,
+.base :global .nodeGroup.interactive.selected .node .label {
   background-color: var(--background-blue);
 }
 
-.base :global .nodeGroup.error:hover .node .label,
-.base :global .nodeGroup.selected.error .node .label {
+.base :global .nodeGroup.interactive.error:hover .node .label,
+.base :global .nodeGroup.interactive.selected.error .node .label {
   background-color: var(--background-pink);
 }
 
-.base :global .nodeGroup.busy:hover .label,
-.base :global .nodeGroup.selected.busy .label,
-.base :global .nodeGroup.busy:hover use,
-.base :global .nodeGroup.selected.busy use {
+.base :global .nodeGroup.interactive.busy:hover .label,
+.base :global .nodeGroup.interactive.selected.busy .label,
+.base :global .nodeGroup.interactive.busy:hover use,
+.base :global .nodeGroup.interactive.selected.busy use {
   opacity: #f4f9fa;
   color: #8e8f91;
   box-shadow: 0 1px 2px 0 var(--line-grey);

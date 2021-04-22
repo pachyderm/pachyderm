@@ -34,7 +34,7 @@ describe('useRouteController', () => {
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/repo/likelihoods`,
+      `/project/${projectId}/dag/samples/repo/likelihoods`,
     );
 
     const {findByText} = render(<TestBed />);
@@ -46,7 +46,7 @@ describe('useRouteController', () => {
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/pipeline/likelihoods`,
+      `/project/${projectId}/dag/samples/pipeline/likelihoods`,
     );
 
     const {findByText} = render(<TestBed />);
@@ -64,7 +64,7 @@ describe('useRouteController', () => {
 
     await waitFor(() =>
       expect(window.location.pathname).toBe(
-        `/project/${projectId}/repo/likelihoods`,
+        `/project/${projectId}/dag/samples/repo/likelihoods`,
       ),
     );
   });
@@ -79,7 +79,7 @@ describe('useRouteController', () => {
 
     await waitFor(() =>
       expect(window.location.pathname).toBe(
-        `/project/${projectId}/pipeline/likelihoods`,
+        `/project/${projectId}/dag/samples/pipeline/likelihoods`,
       ),
     );
   });

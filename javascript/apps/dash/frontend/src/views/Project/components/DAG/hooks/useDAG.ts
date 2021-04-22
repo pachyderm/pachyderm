@@ -169,10 +169,17 @@ const generateNodeGroups = (
   nodes: Node[],
   nodeWidth: number,
   nodeHeight: number,
-  preview = false,
-  handleSelectNode: (n: Node) => void,
+  isInteractive = true,
+  handleSelectNode: (n: Node, dagId: string) => void,
   setHoveredNode: React.Dispatch<React.SetStateAction<string>>,
+  dagId: string,
 ) => {
+  svgParent
+    .selectAll<SVGGElement, Node>('.nodeGroup')
+    .data(nodes, (d) => d.name)
+    .exit()
+    .remove();
+
   const nodeGroup = svgParent
     .selectAll<SVGGElement, Node>('.nodeGroup')
     .data(nodes, (d) => d.name)
@@ -183,25 +190,30 @@ const generateNodeGroups = (
           .attr('class', 'nodeGroup')
           .attr('id', (d) => `${d.name}GROUP`)
           .attr('transform', (d) => `translate (${d.x}, ${d.y})`)
-          .on('click', (_event, d) => handleSelectNode(d))
-          .on('mouseover', (_event, d) => setHoveredNode(d.name))
-          .on('mouseout', () => setHoveredNode(''));
+          .on(
+            'click',
+            (_event, d) => isInteractive && handleSelectNode(d, dagId),
+          )
+          .on(
+            'mouseover',
+            (_event, d) => isInteractive && setHoveredNode(d.name),
+          )
+          .on('mouseout', () => isInteractive && setHoveredNode(''));
 
-        !preview &&
-          group
-            .append('foreignObject')
-            .attr('class', 'node')
-            .attr('width', nodeWidth)
-            .attr('height', nodeHeight)
-            .append('xhtml:span')
-            .html(
-              (d) =>
-                `<p class="label" style="height:${nodeHeight}px">${
-                  d.access ? d.name : 'No Access'
-                }</p>`,
-            );
+        group
+          .append('foreignObject')
+          .attr('class', 'node')
+          .attr('width', nodeWidth)
+          .attr('height', nodeHeight)
+          .append('xhtml:span')
+          .html(
+            (d) =>
+              `<p class="label" style="height:${nodeHeight}px">${
+                d.access ? d.name : 'No Access'
+              }</p>`,
+          );
 
-        !preview &&
+        isInteractive &&
           group
             .append('foreignObject')
             .attr('class', 'nodeTooltip')
@@ -215,16 +227,16 @@ const generateNodeGroups = (
               (d) => `<p class="tooltipText" style="min-height: ${
                 NODE_TOOLTIP_HEIGHT - 9
               }px">
-                    ${deriveRepoNameFromNode(d)}
-                    <br /><br />
-                    ${
-                      d.type === NodeType.Pipeline
-                        ? `${d.type.toLowerCase()} status: ${readablePipelineState(
-                            d.state || '',
-                          )}`
-                        : ''
-                    }
-                  </p>`,
+                  ${deriveRepoNameFromNode(d)}
+                  <br /><br />
+                  ${
+                    d.type === NodeType.Pipeline
+                      ? `${d.type.toLowerCase()} status: ${readablePipelineState(
+                          d.state || '',
+                        )}`
+                      : ''
+                  }
+                </p>`,
             );
 
         group
@@ -242,7 +254,7 @@ const generateNodeGroups = (
           )
           .attr('x', () => (ORIGINAL_NODE_IMAGE_WIDTH - nodeWidth) / 2)
           .attr('y', (d) =>
-            !preview ? NODE_IMAGE_Y_OFFSET : NODE_IMAGE_PREVIEW_Y_OFFSET,
+            isInteractive ? NODE_IMAGE_Y_OFFSET : NODE_IMAGE_PREVIEW_Y_OFFSET,
           )
           .attr('pointer-events', 'none');
 
@@ -288,7 +300,10 @@ type useDAGProps = {
   nodeWidth: number;
   nodeHeight: number;
   data: Dag;
-  preview: boolean;
+  isInteractive: boolean;
+  setLargestDagWidth: React.Dispatch<React.SetStateAction<number | null>>;
+  largestDagWidth: number | null;
+  dagCount: number;
 };
 
 const useDAG = ({
@@ -298,9 +313,14 @@ const useDAG = ({
   setSVGParentSize,
   nodeWidth,
   nodeHeight,
-  preview = false,
+  isInteractive = true,
+  setLargestDagWidth,
+  largestDagWidth,
+  dagCount,
 }: useDAGProps) => {
-  const {selectedNode, navigateToNode} = useRouteController({dag: data});
+  const {selectedNode, navigateToNode, navigateToDag} = useRouteController({
+    dag: data,
+  });
   const [hoveredNode, setHoveredNode] = useState('');
 
   // Pre-build steps
@@ -322,9 +342,10 @@ const useDAG = ({
       data.nodes,
       nodeWidth,
       nodeHeight,
-      preview,
+      isInteractive,
       navigateToNode,
       setHoveredNode,
+      id,
     );
 
     const zoomed = (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
@@ -334,7 +355,7 @@ const useDAG = ({
 
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.1, 4])
+      .scaleExtent([0.6, 1])
       .on('zoom', zoomed);
 
     svg.call(zoom);
@@ -356,26 +377,38 @@ const useDAG = ({
       )
       .translate(-(xMin + xMax) / 2, -(yMin + yMax) / 2);
     svg.call(zoom.transform, transform);
-  }, [id, nodeHeight, nodeWidth, data, svgParentSize, preview, navigateToNode]);
+
+    !isInteractive && zoom.on('zoom', null);
+  }, [
+    id,
+    nodeHeight,
+    nodeWidth,
+    data,
+    svgParentSize,
+    isInteractive,
+    navigateToNode,
+  ]);
 
   // Update node classes based on react state
   useEffect(() => {
     const graph = d3.select<SVGGElement, unknown>(`#${id}Graph`);
 
-    !preview &&
+    isInteractive &&
       graph
         .selectAll<SVGGElement, Node>('.nodeGroup')
         .attr(
           'class',
           (d) =>
-            `${`nodeGroup ${convertNodeStateToDagState(d.state)}`} ${
+            `${`nodeGroup ${
+              isInteractive ? 'interactive' : ''
+            } ${convertNodeStateToDagState(d.state)}`} ${
               [selectedNode?.name, hoveredNode].includes(d.name)
                 ? 'selected'
                 : ''
             }`,
         );
 
-    !preview &&
+    isInteractive &&
       graph.selectAll<SVGPathElement, Link>('.link').attr('class', (d) => {
         return `${getLinkStyles(d)} ${
           [selectedNode?.name, hoveredNode].includes(d.source) ||
@@ -384,20 +417,40 @@ const useDAG = ({
             : ''
         }`;
       });
-  }, [id, preview, selectedNode, hoveredNode]);
+  }, [id, isInteractive, selectedNode, hoveredNode]);
 
   // Post-build steps
   useEffect(() => {
     const svgElement = d3.select<SVGSVGElement, null>(`#${id}`).node();
+    const parentElement = d3
+      .select<HTMLTableRowElement, null>(`#${id}Base`)
+      .node();
 
-    // Set parent svg with and height to our SVG's content-defined bounding box to readjust graph positioning
-    if (svgElement) {
+    if (svgElement && parentElement) {
+      const svgWidth = svgElement.getBBox().width + nodeWidth * 2;
+      const parentWidth = parentElement.clientWidth;
+
+      // send up DAG width for scaling across DAGs
+      if (svgWidth > (largestDagWidth || parentWidth)) {
+        setLargestDagWidth(svgWidth);
+      }
+      // send up DAG size to wrapper
       setSVGParentSize({
-        width: svgElement.getBBox().width + nodeWidth,
-        height: svgElement.getBBox().width + nodeHeight,
+        width: svgElement.getBBox().width,
+        height: svgElement.getBBox().height + nodeHeight,
       });
     }
-  }, [id, setSVGParentSize, nodeHeight, nodeWidth]);
+  }, [
+    id,
+    setSVGParentSize,
+    nodeHeight,
+    nodeWidth,
+    largestDagWidth,
+    setLargestDagWidth,
+    dagCount,
+  ]);
+
+  return {navigateToDag};
 };
 
 export default useDAG;

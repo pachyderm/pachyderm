@@ -12,7 +12,7 @@ import Title from '../Title';
 import styles from './RepoDetails.module.css';
 
 const RepoDetails = () => {
-  const {projectId} = useUrlState();
+  const {projectId, dagId} = useUrlState();
   const {loading, repo} = useCurrentRepo();
 
   return (
@@ -32,6 +32,7 @@ const RepoDetails = () => {
             <Link
               to={pipelineRoute({
                 projectId,
+                dagId,
                 pipelineId: repo?.linkedPipeline?.id,
               })}
             >

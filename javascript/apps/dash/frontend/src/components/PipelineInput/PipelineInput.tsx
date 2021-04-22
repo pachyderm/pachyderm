@@ -9,12 +9,17 @@ import {JSONBlockProps} from '../JSONBlock/JSONBlock';
 
 import styles from './PipelineInput.module.css';
 
-const generateInputObject = (jsonString: string, projectId: string) => {
+const generateInputObject = (
+  jsonString: string,
+  projectId: string,
+  dagId: string,
+) => {
   const json = JSON.parse(jsonString, (key, value) => {
     if (key === 'repo') {
       return `
         <a href=${repoRoute({
           projectId,
+          dagId,
           repoId: value,
         })} id=${`__repo${value}`} class=repoLink>${value}</a>
       `.trim();
@@ -29,19 +34,25 @@ const generateInputObject = (jsonString: string, projectId: string) => {
 interface PipelineInputProps extends JSONBlockProps {
   inputString: string;
   projectId: string;
+  dagId: string;
 }
 
 const PipelineInput: React.FC<PipelineInputProps> = ({
   inputString,
   projectId,
+  dagId,
   className,
   ...rest
 }) => {
   const browserHistory = useHistory();
 
   const html = useMemo(() => {
-    return JSON.stringify(generateInputObject(inputString, projectId), null, 2);
-  }, [inputString, projectId]);
+    return JSON.stringify(
+      generateInputObject(inputString, projectId, dagId),
+      null,
+      2,
+    );
+  }, [inputString, projectId, dagId]);
 
   useEffect(() => {
     const links = Array.from(

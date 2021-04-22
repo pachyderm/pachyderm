@@ -11,7 +11,6 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   });
 
   return {
-    dagCount: dags?.length || 0,
     dags,
     error,
     loading,

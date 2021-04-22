@@ -9,18 +9,20 @@ const useUrlState = () => {
     exact: true,
   });
 
-  const projectId =
-    match && match.params.projectId
-      ? decodeURIComponent(match.params.projectId)
-      : '';
-  const repoId =
-    match && match.params.repoId ? decodeURIComponent(match.params.repoId) : '';
-  const pipelineId =
-    match && match.params.pipelineId
-      ? decodeURIComponent(match.params.pipelineId)
-      : '';
+  const projectId = match?.params.projectId
+    ? decodeURIComponent(match.params.projectId)
+    : '';
+  const repoId = match?.params.repoId
+    ? decodeURIComponent(match.params.repoId)
+    : '';
+  const pipelineId = match?.params.pipelineId
+    ? decodeURIComponent(match.params.pipelineId)
+    : '';
+  const dagId = match?.params.dagId
+    ? decodeURIComponent(match.params.dagId)
+    : '';
 
-  return {projectId, repoId, pipelineId};
+  return {projectId, dagId, repoId, pipelineId};
 };
 
 export default useUrlState;

@@ -5,13 +5,14 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   pipelineRoute,
   repoRoute,
+  dagRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 import {Dag, Node, NodeType} from '@graphqlTypes';
 
 import deriveRouteParamFromNode from '../utils/deriveRepoNameFromNode';
 
 interface UseRouteControllerArgs {
-  dag: Dag;
+  dag?: Dag;
 }
 
 const useRouteController = ({dag}: UseRouteControllerArgs) => {
@@ -19,15 +20,26 @@ const useRouteController = ({dag}: UseRouteControllerArgs) => {
 
   const browserHistory = useHistory();
 
+  const navigateToDag = useCallback(
+    (dagIndex: string) => {
+      browserHistory.push(dagRoute({projectId, dagId: dagIndex}));
+    },
+    [browserHistory, projectId],
+  );
+
   const navigateToNode = useCallback(
-    (n: Node) => {
+    (n: Node, dagId: string) => {
       if (n.type === NodeType.Repo) {
         browserHistory.push(
-          repoRoute({projectId, repoId: deriveRouteParamFromNode(n)}),
+          repoRoute({projectId, dagId, repoId: deriveRouteParamFromNode(n)}),
         );
       } else {
         browserHistory.push(
-          pipelineRoute({projectId, pipelineId: deriveRouteParamFromNode(n)}),
+          pipelineRoute({
+            projectId,
+            dagId,
+            pipelineId: deriveRouteParamFromNode(n),
+          }),
         );
       }
     },
@@ -40,7 +52,7 @@ const useRouteController = ({dag}: UseRouteControllerArgs) => {
     }
 
     if (repoId) {
-      return dag.nodes.find((n) => {
+      return dag?.nodes.find((n) => {
         return (
           n.type === NodeType.Repo && deriveRouteParamFromNode(n) === repoId
         );
@@ -48,7 +60,7 @@ const useRouteController = ({dag}: UseRouteControllerArgs) => {
     }
 
     if (pipelineId) {
-      return dag.nodes.find((n) => {
+      return dag?.nodes.find((n) => {
         return n.type === NodeType.Pipeline && n.name === pipelineId;
       });
     }
@@ -57,6 +69,7 @@ const useRouteController = ({dag}: UseRouteControllerArgs) => {
   return {
     selectedNode,
     navigateToNode,
+    navigateToDag,
   };
 };
 

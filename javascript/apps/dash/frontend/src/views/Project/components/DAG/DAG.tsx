@@ -1,76 +1,98 @@
+import {Group, Circle, Tooltip} from '@pachyderm/components';
 import classnames from 'classnames';
 import * as d3 from 'd3';
-import React, {useState, useEffect} from 'react';
+import noop from 'lodash/noop';
+import React, {useState} from 'react';
 
+import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {Dag} from '@graphqlTypes';
 
 import styles from './DAG.module.css';
 import useDAG from './hooks/useDAG';
+import useRouteController from './hooks/useRouteController';
 
 type DagProps = {
   count: number;
   data: Dag;
   id: string;
-  fixedWidth?: number;
-  fixedHeight?: number;
   nodeWidth: number;
   nodeHeight: number;
-  preview?: boolean;
+  isInteractive?: boolean;
+  setLargestDagWidth: React.Dispatch<React.SetStateAction<number | null>>;
+  largestDagWidth: number | null;
 };
 
 const DAG: React.FC<DagProps> = ({
   count,
   data,
   id,
-  fixedHeight,
-  fixedWidth,
   nodeWidth,
   nodeHeight,
-  preview = false,
+  isInteractive = true,
+  setLargestDagWidth,
+  largestDagWidth,
 }) => {
   const [svgParentSize, setSVGParentSize] = useState({
     width: 0,
     height: 0,
   });
 
-  useDAG({
+  const {navigateToDag} = useDAG({
     id,
     svgParentSize,
     setSVGParentSize,
     nodeWidth,
     nodeHeight,
     data,
-    preview,
+    isInteractive,
+    setLargestDagWidth,
+    largestDagWidth,
+    dagCount: count,
   });
-  // The constants here are static sizes on the page. When the UI gets developed further we can adjust these
-  const dagHeight = fixedHeight
-    ? fixedHeight
-    : Math.max(300, window.innerHeight / count - 120);
-  const dagWidth = fixedWidth
-    ? fixedWidth
-    : Math.max(svgParentSize.width, window.innerWidth - 80);
 
-  useEffect(() => {
-    const parent = d3.select<HTMLTableRowElement, null>(`#${id}Base`);
-    const width = parent.node()?.clientWidth || 0;
-    const height = parent.node()?.clientHeight || 0;
-    setSVGParentSize({width, height});
-  }, [id]);
+  const parent = d3.select<HTMLTableRowElement, null>(`#${id}Base`);
+  const svgElement = d3.select<SVGSVGElement, null>(`#${id}`).node();
+
+  const dagWidth = svgElement ? svgElement.getBBox().width + nodeWidth * 2 : 0;
+  const dagHeight = svgElement
+    ? svgElement.getBBox().height + nodeHeight * 2
+    : 0;
+
+  const parentWidth = parent.node()?.clientWidth || 0;
+  const height =
+    count > 1 ? dagHeight : Math.max(300, window.innerHeight - 160);
 
   return (
     <div
       id={`${id}Base`}
       className={classnames(styles.base, {
-        [styles.draggable]: !preview,
+        [styles.draggable]: isInteractive,
       })}
+      onClick={!isInteractive ? () => navigateToDag(data.id) : noop}
     >
+      {data.priorityPipelineState && (
+        <Tooltip tooltipText={data.priorityPipelineState} tooltipKey="status">
+          <span className={styles.pipelineStatus}>
+            <Group spacing={8} align="center">
+              <Circle color="red" />
+              {readablePipelineState(data.priorityPipelineState)}
+            </Group>
+          </span>
+        </Tooltip>
+      )}
       <svg
         id={id}
-        preserveAspectRatio="xMaxYMax meet"
+        preserveAspectRatio="xMinYMid meet"
         viewBox={`0 0 ${dagWidth} ${dagHeight}`}
         className={styles.parent}
-        width={fixedWidth}
-        height={fixedHeight}
+        width={parentWidth}
+        height={height}
+        style={{
+          zoom:
+            count !== 1 && largestDagWidth && dagWidth !== largestDagWidth
+              ? parentWidth / largestDagWidth
+              : undefined,
+        }}
       >
         <g id={`${id}Graph`} />
       </svg>

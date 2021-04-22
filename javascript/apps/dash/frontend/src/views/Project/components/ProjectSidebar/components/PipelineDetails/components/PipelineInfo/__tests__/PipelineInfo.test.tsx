@@ -13,7 +13,7 @@ import PipelineInfoComponent from '../PipelineInfo';
 describe('PipelineInfo', () => {
   const PipelineInfo = withContextProviders(() => {
     return (
-      <Route path="/project/:projectId/pipeline/:pipelineId">
+      <Route path="/project/:projectId/dag/:dagId/pipeline/:pipelineId">
         <PipelineInfoComponent />
       </Route>
     );
@@ -22,11 +22,12 @@ describe('PipelineInfo', () => {
   it('should display information about the pipeline', async () => {
     const projectId = '1';
     const pipelineId = 'montage';
+    const dagId = 'images';
 
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/pipeline/${pipelineId}`,
+      `/project/${projectId}/dag/${dagId}/pipeline/${pipelineId}`,
     );
 
     const {queryByTestId, getByText} = render(<PipelineInfo />);
@@ -49,7 +50,7 @@ describe('PipelineInfo', () => {
     expect(outputRepo).toHaveTextContent(`${pipelineId} output repo`);
     expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
       'href',
-      `/project/${projectId}/repo/${pipelineId}`,
+      `/project/${projectId}/dag/${dagId}/repo/${pipelineId}`,
     );
 
     expect(getByText('Cache Size').nextElementSibling).toHaveTextContent('64M');

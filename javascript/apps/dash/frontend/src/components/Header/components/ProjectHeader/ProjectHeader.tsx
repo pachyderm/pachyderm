@@ -3,6 +3,8 @@ import React from 'react';
 import {Link} from 'react-router-dom';
 
 import Badge from '@dash-frontend/components/Badge';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {projectRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import {ReactComponent as BackArrowSvg} from './BackArrow.svg';
 import useProjectHeader from './hooks/useProjectHeader';
@@ -15,6 +17,7 @@ const ProjectHeader = () => {
     seeJobsUrl,
     loading,
   } = useProjectHeader();
+  const {projectId} = useUrlState();
 
   return (
     <>
@@ -25,17 +28,19 @@ const ProjectHeader = () => {
         />
       </Link>
 
-      <h1 className={styles.projectName}>
-        {loading ? (
-          <SkeletonDisplayText
-            data-testid="ProjectHeader__projectNameLoader"
-            className={styles.projectNameLoader}
-            blueShimmer
-          />
-        ) : (
-          projectName
-        )}
-      </h1>
+      <Link to={projectRoute({projectId})}>
+        <h1 className={styles.projectName}>
+          {loading ? (
+            <SkeletonDisplayText
+              data-testid="ProjectHeader__projectNameLoader"
+              className={styles.projectNameLoader}
+              blueShimmer
+            />
+          ) : (
+            projectName
+          )}
+        </h1>
+      </Link>
 
       <Link className={styles.seeJobs} to={seeJobsUrl}>
         <div className={styles.seeJobsContent}>

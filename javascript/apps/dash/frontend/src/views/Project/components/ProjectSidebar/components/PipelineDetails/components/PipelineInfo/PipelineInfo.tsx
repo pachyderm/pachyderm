@@ -9,7 +9,7 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 
 const PipelineInfo = () => {
-  const {projectId, pipelineId} = useUrlState();
+  const {projectId, dagId, pipelineId} = useUrlState();
   const {pipeline, loading} = useCurrentPipeline();
 
   return (
@@ -27,7 +27,7 @@ const PipelineInfo = () => {
       </Description>
 
       <Description term="Output Repo" loading={loading}>
-        <Link to={repoRoute({projectId, repoId: pipelineId})}>
+        <Link to={repoRoute({projectId, dagId: dagId, repoId: pipelineId})}>
           {pipeline?.name} output repo
         </Link>
       </Description>
