@@ -146,39 +146,43 @@ nav:
             - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
             - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
     - How-Tos:
-        - Overview: how-tos/index.md
-        - Workflow: 
+         - Overview: how-tos/index.md
+         - Workflow: 
             - Overview: how-tos/developer-workflow/index.md
             - Working with Pipelines: how-tos/developer-workflow/working-with-pipelines.md
             - Build Pipelines: how-tos/developer-workflow/build-pipelines.md
-            - Build Flag: how-tos/developer-workflow/build-flag.md
+            - Build Flag: how-tos/developer-workflow/build-flag.md  
             - CI/CD Integration: how-tos/developer-workflow/ci-cd-integration.md
-        - Load Your Data Into Pachyderm: how-tos/load-data-into-pachyderm.md
-        - Export Your Data From Pachyderm:
-            - Overview: how-tos/export-data-out-pachyderm/index.md
-            - Export Your Data with pachctl: how-tos/export-data-out-pachyderm/export-data-pachctl.md
-            - Export Your Data with egress: how-tos/export-data-out-pachyderm/export-data-egress.md
-            - Mount a Repo to a Local Computer: how-tos/export-data-out-pachyderm/mount-repo-to-local-computer.md
-        - Split Data:
-            - Overview: how-tos/splitting-data/index.md
-            - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
-            - Adjusting Data Processing by Splitting Data: how-tos/splitting-data/adjusting_data_processing_w_split.md
-        - Create a Machine Learning Workflow: how-tos/create-ml-workflow.md
-        - Use Pachyderm IDE:
+            - Create a Machine Learning Workflow: how-tos/developer-workflow/create-ml-workflow.md
+         - Basic Data Operations:
+            - Load Your Data Into Pachyderm: how-tos/basic-data-operations/load-data-into-pachyderm.md
+            - Export Your Data From Pachyderm:
+                - Overview: how-tos/basic-data-operations/export-data-out-pachyderm/index.md
+                - Export Your Data with pachctl: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl.md
+                - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
+                - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
+            - Ingress and Egress Data from an External Object Store: how-tos/basic-data-operations/ingressing_from_diff_cloud.md
+            - Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
+         - Pipeline Operations:
+            - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
+            - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
+            - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
+            - Run a Pipeline on a Specific Commit: how-tos/pipeline-operations/run_pipeline.md
+            - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
+            - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
+         - Advanced Data Operations: 
+            - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
+            - Split Data:
+                - Overview: how-tos/advanced-data-operations/splitting-data/index.md
+                - Splitting Data for Distributed Processing: how-tos/advanced-data-operations/splitting-data/splitting.md
+                - Adjusting Data Processing by Splitting Data: how-tos/advanced-data-operations/splitting-data/adjusting_data_processing_w_split.md
+            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md
+            - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
+            - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md        
+            - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md
+         - Use Pachyderm IDE:
             - Overview: how-tos/use-pachyderm-ide/index.md
             - Using the Pachyderm IDE with python-pachyderm: how-tos/use-pachyderm-ide/using-pachyderm-ide.md
-        - Mount a Volume: how-tos/mount-volume.md
-        - Pipeline Operations:
-            - Create a Pipeline: how-tos/create-pipeline.md
-            - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
-            - Update a Pipeline: how-tos/updating_pipelines.md
-            - Delete a Pipeline: how-tos/delete-pipeline.md
-            - Monitor Job Progress: how-tos/monitor-job-progress.md
-        - Processing Time-Windowed Data: how-tos/time_windows.md
-        - Use Transactions: how-tos/use-transactions-to-run-multiple-commands.md
-        - Delete Data: how-tos/removing_data_from_pachyderm.md
-        - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
-        - Skip Failed Datums: how-tos/err_cmd.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
