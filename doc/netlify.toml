@@ -54,7 +54,20 @@
 
 [[redirects]]
   from = "/archive/*"
-  to = "/latest/archive/:splat"
+  to = "/latest/archive/"
+  status = 301
+  force = true
+
+
+[[redirects]]
+  from = "/1.10.x/*"
+  to = "/latest/archive/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/1.9.x/*"
+  to = "/latest/archive/"
   status = 301
   force = true
 
@@ -77,18 +90,6 @@
   force = true
 
 [[redirects]]
-  from = "/how-tos/use-jupyterhub/"
-  to = "/latest/how-tos/use-pachyderm-ide/"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/how-tos/use-jupyterhub/using-jupyterhub/"
-  to = "/latest/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
-  status = 301
-  force = true
-
-[[redirects]]
   from = "/latest/how-tos/use-jupyterhub/"
   to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301
@@ -97,18 +98,6 @@
 [[redirects]]
   from = "/latest/how-tos/use-jupyterhub/using-jupyterhub/"
   to = "/latest/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/how-tos/distributed_computing/"
-  to = "/latest/concepts/pipeline-concepts/distributed_computing/"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/how-tos/deferred_processing/"
-  to = "/latest/concepts/advanced-concepts/deferred_processing/"
   status = 301
   force = true
 
@@ -227,13 +216,13 @@
   force = true
 
 [[redirects]]
-  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+  from = "/latest/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
   to = "/latest/deploy-manage/deploy/deploy-pachyderm-ide/"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/deploy-manage/deploy/migrations/"
+  from = "/latest/deploy-manage/deploy/migrations/"
   to = "/latest/deploy-manage/manage/migrations/"
   status = 301
   force = true
@@ -253,12 +242,6 @@
 [[redirects]]
   from = "/latest/enterprise/saml/"
   to = "/latest/enterprise/auth/saml/saml/"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/enterprise/"
-  to = "/latest/enterprise/overview/"
   status = 301
   force = true
 
