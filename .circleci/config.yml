@@ -19,7 +19,7 @@ jobs:
         type: string
 
     environment:
-      PPS_BUCKETS: "4"
+      PPS_BUCKETS: "8"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
       RUN_BAD_TESTS: << pipeline.parameters.run_flaky_tests >>
@@ -115,5 +115,9 @@ workflows:
               - PPS2
               - PPS3
               - PPS4
+              - PPS5
+              - PPS6
+              - PPS7
+              - PPS8
               - EXAMPLES
               - OBJECT
