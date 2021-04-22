@@ -26,6 +26,8 @@ type commitStore interface {
 	GetDiffFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
 	// DropFilesets clears the diff and total filesets for the commit.
 	DropFilesets(ctx context.Context, commit *pfs.Commit) error
+	// DropFilesetsTx is identical to DropFilesets except it runs in the provided transaction.
+	DropFilesetsTx(tx *sqlx.Tx, commit *pfs.Commit) error
 }
 
 var _ commitStore = &postgresCommitStore{}

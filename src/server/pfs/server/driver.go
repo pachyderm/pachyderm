@@ -376,8 +376,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s/%s", prov.Commit.Repo.Name, prov.Commit.ID)
 			}
 		}
-		// TODO: use DropFilesetsTx
-		if err := d.commitStore.DropFilesets(txnCtx.ClientContext, ci.Commit); err != nil {
+		if err := d.commitStore.DropFilesetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
 			return err
 		}
 	}
@@ -1467,7 +1466,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				return err
 			}
 			// Delete the commit's filesets
-			if err := d.commitStore.DropFilesets(txnCtx.Client.Ctx(), commit); err != nil {
+			if err := d.commitStore.DropFilesetsTx(txnCtx.SqlTx, commit); err != nil {
 				return err
 			}
 			if commit.ID == lower.ID {
