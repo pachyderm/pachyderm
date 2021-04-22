@@ -20,50 +20,70 @@ spec:
   - name: api-grpc-peer
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30653
-    {{- end }}
     port: 653
+    {{ else }}
+    port: 30653
+    {{- end }}
+    protocol: TCP
     targetPort: peer-port
   - name: api-grpc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30650
-    {{- end }}
     port: 650
+    {{ else }}
+    port: 30650
+    {{- end }}
+    protocol: TCP
     targetPort: api-grpc-port
   - name: trace-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30651
-    {{- end }}
     port: 651
+    {{ else }}
+    port: 30651
+    {{- end }}
+    protocol: TCP
     targetPort: trace-port
   - name: api-http-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30652
-    {{- end }}
     port: 652
+    {{ else }}
+    port: 30652
+    {{- end }}
+    protocol: TCP
     targetPort: api-http-port
   - name: saml-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30654
-    {{- end }}
     port: 654
+    {{ else }}
+    port: 30654
+    {{- end }}
     targetPort: saml-port
   - name: oidc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30657
-    {{- end }}
     port: 657
+    {{ else }}
+    port: 30657
+    {{- end }}
     targetPort: oidc-port
   - name: api-git-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30655
-    {{- end }}
     port: 655
+    {{ else }}
+    port: 30655
+    {{- end }}
     targetPort: api-git-port
   - name: s3gateway-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30600
-    {{- end }}
     port: 600
+    {{ else }}
+    port: 30600
+    {{- end }}
     targetPort: s3gateway-port
   - name: prom-metrics
     {{- if eq .Values.pachd.service.type "NodePort" }}
