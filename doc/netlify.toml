@@ -50,7 +50,7 @@
   from = "/en/latest/*"
   to = "/latest/:splat"
   status = 301
-  force = false
+  force = true
 
 [[redirects]]
   from = "/archive/*"
