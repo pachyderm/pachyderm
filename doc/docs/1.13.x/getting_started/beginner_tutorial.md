@@ -493,7 +493,7 @@ Pachyderm locally, you can use what you've learned to build on or
 change this pipeline. You can also dig in and learn more details about:
 
 - [Deploying Pachyderm to the cloud or on prem](../deploy-manage/deploy/index.md)
-- [Load Your Data into Pachyderm](../how-tos/load-data-into-pachyderm.md)
+- [Load Your Data into Pachyderm](../how-tos/basic-data-operations/load-data-into-pachyderm.md)
 - [Working with Pipelines](../how-tos/developer-workflow/working-with-pipelines.md)
 
 We'd love to help and see what you come up with, so submit any

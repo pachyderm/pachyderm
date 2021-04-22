@@ -777,7 +777,7 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
-For more information, see [Exporting Data by using egress](../../how-tos/export-data-out-pachyderm/#export-your-data-with-egress)
+For more information, see [Exporting Data by using egress](../../how-tos/basic-data-operations/export-data-out-pachyderm/#export-your-data-with-egress)
 
 ### Standby (optional)
 

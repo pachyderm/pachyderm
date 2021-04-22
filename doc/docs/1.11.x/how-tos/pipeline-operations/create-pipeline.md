@@ -126,5 +126,5 @@ To access the old files, complete the following steps:
 !!! note "See Also:"
     - [Pipelines](../../../concepts/pipeline-concepts/pipeline/)
     - [Pipeline Specification](../../../reference/pipeline_spec/)
-    - [Update a Pipeline](../../updating_pipelines/)
-    - [Delete a Pipelie](../../delete-pipeline/)
+    - [Update a Pipeline](../updating_pipelines/)
+    - [Delete a Pipeline](../delete-pipeline/)
