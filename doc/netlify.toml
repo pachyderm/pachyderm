@@ -41,6 +41,12 @@
   force = true
 
 [[redirects]]
+  from = "/en/latest/cookbook/combining.html"
+  to = "https://docs.pachyderm.com/latest/examples/examples/#lazy-shuffle-pipeline"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/en/latest/*"
   to = "/latest/:splat"
   status = 301
@@ -273,12 +279,3 @@
   to = "/latest/contributing/:splat"
   status = 301
   force = true
-
-
-
-
-
-
-
-
-
