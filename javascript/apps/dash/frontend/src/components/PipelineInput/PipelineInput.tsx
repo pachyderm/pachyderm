@@ -1,3 +1,4 @@
+import classnames from 'classnames';
 import React, {useEffect, useMemo} from 'react';
 import {useHistory} from 'react-router';
 
@@ -6,6 +7,8 @@ import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 import JSONBlock from '../JSONBlock';
 import {JSONBlockProps} from '../JSONBlock/JSONBlock';
 
+import styles from './PipelineInput.module.css';
+
 const generateInputObject = (jsonString: string, projectId: string) => {
   const json = JSON.parse(jsonString, (key, value) => {
     if (key === 'repo') {
@@ -13,7 +16,7 @@ const generateInputObject = (jsonString: string, projectId: string) => {
         <a href=${repoRoute({
           projectId,
           repoId: value,
-        })} id=${`__repo${value}`}>${value}</a>
+        })} id=${`__repo${value}`} class=repoLink>${value}</a>
       `.trim();
     }
 
@@ -31,6 +34,7 @@ interface PipelineInputProps extends JSONBlockProps {
 const PipelineInput: React.FC<PipelineInputProps> = ({
   inputString,
   projectId,
+  className,
   ...rest
 }) => {
   const browserHistory = useHistory();
@@ -71,6 +75,7 @@ const PipelineInput: React.FC<PipelineInputProps> = ({
         // eslint-disable-next-line @typescript-eslint/naming-convention
         __html: html,
       }}
+      className={classnames(styles.base, className)}
       {...rest}
     />
   );

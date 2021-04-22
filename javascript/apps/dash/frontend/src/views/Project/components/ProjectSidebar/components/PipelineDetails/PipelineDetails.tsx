@@ -2,6 +2,8 @@ import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
+import {PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+
 import Title from '../Title';
 
 import PipelineInfo from './components/PipelineInfo';
@@ -12,12 +14,7 @@ import usePipelineDetails from './hooks/usePipelineDetails';
 import styles from './PipelineDetails.module.css';
 
 const PipelineDetails = () => {
-  const {
-    initialActiveTabId,
-    loading,
-    pipelineName,
-    handleSwitch,
-  } = usePipelineDetails();
+  const {loading, pipelineName} = usePipelineDetails();
 
   return (
     <div className={styles.base}>
@@ -28,7 +25,7 @@ const PipelineDetails = () => {
       ) : (
         <Title>{pipelineName}</Title>
       )}
-      <Tabs initialActiveTabId={initialActiveTabId} onSwitch={handleSwitch}>
+      <Tabs.RouterTabs basePathTabId={TAB_ID.INFO} basePath={PIPELINE_PATH}>
         <Tabs.TabsHeader className={styles.tabsHeader}>
           {TAB_IDS.map((tabId) => (
             <Tabs.Tab id={tabId} key={tabId}>
@@ -46,7 +43,7 @@ const PipelineDetails = () => {
         <Tabs.TabPanel id={TAB_ID.JOBS}>
           <PipelineJobs />
         </Tabs.TabPanel>
-      </Tabs>
+      </Tabs.RouterTabs>
     </div>
   );
 };

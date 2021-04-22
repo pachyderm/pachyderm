@@ -31,7 +31,7 @@ const ProjectSidebar = () => {
           <Route path={REPO_PATH} exact>
             <RepoDetails />
           </Route>
-          <Route path={[PIPELINE_PATH]} exact>
+          <Route path={PIPELINE_PATH} exact>
             <PipelineDetails />
           </Route>
         </Switch>

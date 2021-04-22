@@ -1,6 +1,6 @@
+import {Link} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
-import {Link} from 'react-router-dom';
 
 import Description from '@dash-frontend/components/Description';
 import PipelineStateComponent from '@dash-frontend/components/PipelineState';

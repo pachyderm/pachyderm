@@ -1,4 +1,4 @@
-import {SkeletonDisplayText} from '@pachyderm/components';
+import {SkeletonDisplayText, Link} from '@pachyderm/components';
 import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 
@@ -29,14 +29,14 @@ const RepoDetails = () => {
         </Description>
         <Description loading={loading} term="Linked Pipeline">
           {repo?.linkedPipeline ? (
-            <a
-              href={pipelineRoute({
+            <Link
+              to={pipelineRoute({
                 projectId,
                 pipelineId: repo?.linkedPipeline?.id,
               })}
             >
               {repo.linkedPipeline?.name}
-            </a>
+            </Link>
           ) : (
             'N/A'
           )}

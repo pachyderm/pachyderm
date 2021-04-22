@@ -1,0 +1,20 @@
+.base :global .repoLink {
+  color: var(--pachyderm-plum);
+  font-weight: 600;
+}
+
+.base :global .repoLink:not([href]) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.base :global .repoLink:active,
+.base :global .repoLink:hover,
+.base :global .repoLink:focus {
+  color: var(--hover-plum);
+  text-decoration: none;
+}
+
+.base :global .repoLink:focus:not([class$='focus-visible']) {
+  outline: none;
+}

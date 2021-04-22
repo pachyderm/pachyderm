@@ -1,6 +1,3 @@
-@import url('https://fonts.googleapis.com/css?family=Montserrat:400,500,600,800&display=swap');
-@import url('https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,600,800&display=swap');
-
 :root {
   --header-height: 4.25rem;
 }
@@ -28,8 +25,4 @@ main {
 
 body, div[id=root], html, main {
   height: 100%;
-}
-
-pre {
-  font-family: 'Roboto Mono', monospace;
 }
