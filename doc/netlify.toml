@@ -160,55 +160,55 @@
   status = 301
   force = true
 
-[redirects]]
+[[redirects]]
   from = "/latest/how-tos/time_windows/"
   to = "/latest/how-tos/advanced-data-operations/time_windows/"
   status = 301
   force = true
 
-[redirects]]
+[[redirects]]
   from = "/latest/how-tos/use-transactions-to-run-multiple-commands/"
   to = "/latest/how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands/"
   status = 301
   force = true
 
-[redirects]]
+[[redirects]]
   from = "/latest/how-tos/err_cmd/"
   to = "/latest/how-tos/advanced-data-operations/err_cmd/"
   status = 301
   force = true
 
-[redirects]]
+[[redirects]]
   from = "/latest/how-tos/create-pipeline/"
   to = "/latest/how-tos/pipeline-operations/create-pipeline/"
   status = 301
   force = true
 
-[redirects]]
+[[redirects]]
   from = "/latest/how-tos/run_pipeline/"
   to = "/latest/how-tos/pipeline-operations/run_pipeline/"
   status = 301
   force = true
 
-[redirects]]
+[[redirects]]
   from = "/latest/how-tos/updating_pipelines/"
   to = "/latest/how-tos/pipeline-operations/updating_pipelines/"
   status = 301
   force = true
 
-[redirects]]
+[[redirects]]
   from = "/latest/how-tos/delete-pipeline/"
   to = "/latest/how-tos/pipeline-operations/delete-pipeline/"
   status = 301
   force = true
 
-[redirects]]
+[[redirects]]
   from = "/latest/how-tos/monitor-job-progress/"
   to = "/latest/how-tos/pipeline-operations/monitor-job-progress/"
   status = 301
   force = true
 
-[redirects]]
+[[redirects]]
   from = "/latest/how-tos/create-ml-workflow/"
   to = "/latest/how-tos/developer-workflow/create-ml-workflow/"
   status = 301
@@ -275,7 +275,7 @@
   force = true
 
 [[redirects]]
-  from = "/contributing/*"
-  to = "/latest/contributing/:splat"
-  status = 301
-  force = true
+    from = "/contributing/*"
+    to = "/latest/contributing/:splat"
+    status = 301
+    force = true
