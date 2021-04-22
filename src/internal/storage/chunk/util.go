@@ -16,7 +16,7 @@ import (
 // NewTestStorage creates a local storage instance for testing during the lifetime of
 // the callback.
 func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
-	objC := obj.NewTestClient(t)
+	objC, _ := obj.NewTestClient(t)
 	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))
 	return objC, NewStorage(objC, kv.NewMemCache(10), db, tr, opts...)

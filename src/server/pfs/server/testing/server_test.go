@@ -4890,7 +4890,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		objC, bucket := tu.NewObjectClient(t)
+		objC, bucket := obj.NewTestClient(t)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
 			writeObj(t, objC, path, path)
@@ -6234,12 +6234,7 @@ var (
 )
 
 func writeObj(t *testing.T, c obj.Client, path, content string) {
-	w, err := c.Writer(context.Background(), path)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, w.Close())
-	}()
-	_, err = w.Write([]byte(content))
+	err := c.Put(context.Background(), path, strings.NewReader(content))
 	require.NoError(t, err)
 }
 

@@ -2,7 +2,6 @@ package kv
 
 import (
 	"context"
-	"errors"
 )
 
 // ValueCallback is the type of functions used to access values
