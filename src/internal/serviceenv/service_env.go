@@ -325,13 +325,6 @@ func (env *NonblockingServiceEnv) Close() error {
 	// Close all of the clients and return the first error.
 	// Loki client and kube client do not have a Close method.
 	eg := &errgroup.Group{}
-
-	// There is a race condition here, although not too serious because this only
-	// happens in tests and the errors should not propagate back to the clients -
-	// ideally we would close the client connection first and wait for the server
-	// RPCs to end before closing the underlying service connections (like
-	// postgres and etcd), so we don't get spurious errors. Instead, some RPCs may
-	// fail because of losing the database connection.
 	eg.Go(env.GetPachClient(context.Background()).Close)
 	eg.Go(env.GetEtcdClient().Close)
 	eg.Go(env.GetDBClient().Close)

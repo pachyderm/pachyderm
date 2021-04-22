@@ -499,6 +499,12 @@ func (c *authBuilderClient) DeleteRoleBinding(ctx context.Context, req *auth.Res
 func (c *authBuilderClient) Authenticate(ctx context.Context, req *auth.AuthenticateRequest, opts ...grpc.CallOption) (*auth.AuthenticateResponse, error) {
 	return nil, unsupportedError("Authenticate")
 }
+func (c *authBuilderClient) GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest, opts ...grpc.CallOption) (*auth.GetPermissionsResponse, error) {
+	return nil, unsupportedError("GetPermissions")
+}
+func (c *authBuilderClient) GetPermissionsForPrincipal(ctx context.Context, req *auth.GetPermissionsForPrincipalRequest, opts ...grpc.CallOption) (*auth.GetPermissionsResponse, error) {
+	return nil, unsupportedError("GetPermissionsForPrincipal")
+}
 func (c *authBuilderClient) Authorize(ctx context.Context, req *auth.AuthorizeRequest, opts ...grpc.CallOption) (*auth.AuthorizeResponse, error) {
 	return nil, unsupportedError("Authorize")
 }
@@ -525,6 +531,9 @@ func (c *authBuilderClient) ModifyMembers(ctx context.Context, req *auth.ModifyM
 }
 func (c *authBuilderClient) GetGroups(ctx context.Context, req *auth.GetGroupsRequest, opts ...grpc.CallOption) (*auth.GetGroupsResponse, error) {
 	return nil, unsupportedError("GetGroups")
+}
+func (c *authBuilderClient) GetGroupsForPrincipal(ctx context.Context, req *auth.GetGroupsForPrincipalRequest, opts ...grpc.CallOption) (*auth.GetGroupsResponse, error) {
+	return nil, unsupportedError("GetGroupsForPrincipal")
 }
 func (c *authBuilderClient) GetUsers(ctx context.Context, req *auth.GetUsersRequest, opts ...grpc.CallOption) (*auth.GetUsersResponse, error) {
 	return nil, unsupportedError("GetUsers")

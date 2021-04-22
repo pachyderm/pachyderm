@@ -40,7 +40,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 	}
 	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.SizeBytes)))
 	if repoInfo.AuthInfo != nil {
-		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.Permissions)
+		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.Roles)
 	}
 	fmt.Fprintf(w, "%s\t", repoInfo.Description)
 	fmt.Fprintln(w)

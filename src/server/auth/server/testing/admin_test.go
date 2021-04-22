@@ -642,23 +642,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	infos, err = rootClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, []auth.Permission{
-			auth.Permission_REPO_READ,
-			auth.Permission_REPO_WRITE,
-			auth.Permission_REPO_MODIFY_BINDINGS,
-			auth.Permission_REPO_DELETE,
-			auth.Permission_REPO_INSPECT_COMMIT,
-			auth.Permission_REPO_LIST_COMMIT,
-			auth.Permission_REPO_DELETE_COMMIT,
-			auth.Permission_REPO_CREATE_BRANCH,
-			auth.Permission_REPO_LIST_BRANCH,
-			auth.Permission_REPO_DELETE_BRANCH,
-			auth.Permission_REPO_LIST_FILE,
-			auth.Permission_REPO_INSPECT_FILE,
-			auth.Permission_REPO_ADD_PIPELINE_READER,
-			auth.Permission_REPO_REMOVE_PIPELINE_READER,
-			auth.Permission_REPO_ADD_PIPELINE_WRITER,
-		}, info.AuthInfo.Permissions)
+		require.ElementsEqual(t, []string{"clusterAdmin"}, info.AuthInfo.Roles)
 	}
 }
 

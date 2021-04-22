@@ -63,7 +63,16 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	realEnv.PachClient = realEnv.ServiceEnv.GetPachClient(realEnv.ServiceEnv.Context())
 
 	t.Cleanup(func() {
-		require.NoError(t, realEnv.ServiceEnv.Close())
+		// There is a race condition here, although not too serious because this only
+		// happens in tests and the errors should not propagate back to the clients -
+		// ideally we would close the client connection first and wait for the server
+		// RPCs to end before closing the underlying service connections (like
+		// postgres and etcd), so we don't get spurious errors. Instead, some RPCs may
+		// fail because of losing the database connection.
+		// TODO: It appears the postgres db.Close() may return errors due to
+		// background goroutines using a closed TCP session because we don't do an
+		// orderly shutdown, so we don't check the error here.
+		realEnv.ServiceEnv.Close()
 	})
 
 	err = migrations.ApplyMigrations(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)

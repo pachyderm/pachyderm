@@ -404,6 +404,7 @@ func (c APIClient) GetFileTar(repo, commit, path string) (io.Reader, error) {
 	return c.getFileTar(repo, commit, path)
 }
 
+// GetFileReader gets a reader for the specified path
 // TODO: This should probably be an io.ReadCloser so we can close the rpc if the full file isn't read.
 func (c APIClient) GetFileReader(repo, commit, path string) (io.Reader, error) {
 	r, err := c.getFileTar(repo, commit, path)
@@ -482,6 +483,7 @@ func (gfrs *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return gfrs.offset, nil
 }
 
+// GetFileURL gets the file at the specified URL
 func (c APIClient) GetFileURL(repo, commit, path, URL string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
@@ -498,6 +500,7 @@ func (c APIClient) GetFileURL(repo, commit, path, URL string) (retErr error) {
 	return err
 }
 
+// InspectFile returns metadata about the specified file
 func (c APIClient) InspectFile(repo, commit, path string) (_ *pfs.FileInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)

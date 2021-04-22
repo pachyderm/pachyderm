@@ -56,7 +56,7 @@ const (
 	defaultIDEHubImage  = "pachyderm/ide-hub"
 	defaultIDEUserImage = "pachyderm/ide-user"
 
-	defaultIDEVersion      = "2.0.0-a1"
+	defaultIDEVersion      = "2.0.0-a2"
 	defaultIDEChartVersion = "0.9.1" // see https://jupyterhub.github.io/helm-chart/
 
 	etcdNodePort = 32379

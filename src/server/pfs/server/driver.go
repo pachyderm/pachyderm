@@ -244,46 +244,29 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 		return nil, err
 	}
 	if includeAuth {
-		permissions, err := d.getPermissions(txnCtx.Client, repo)
+		permissions, roles, err := d.getPermissions(txnCtx.Client, repo)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return result, nil
 			}
 			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repo.Name)
 		}
-		result.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions}
+		result.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
 	}
 	return result, nil
 }
 
-func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([]auth.Permission, error) {
+func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([]auth.Permission, []string, error) {
 	ctx := pachClient.Ctx()
 
-	resp, err := pachClient.AuthAPIClient.Authorize(ctx, &auth.AuthorizeRequest{
+	resp, err := pachClient.AuthAPIClient.GetPermissions(ctx, &auth.GetPermissionsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
-		Permissions: []auth.Permission{
-			auth.Permission_REPO_READ,
-			auth.Permission_REPO_WRITE,
-			auth.Permission_REPO_MODIFY_BINDINGS,
-			auth.Permission_REPO_DELETE,
-			auth.Permission_REPO_INSPECT_COMMIT,
-			auth.Permission_REPO_LIST_COMMIT,
-			auth.Permission_REPO_DELETE_COMMIT,
-			auth.Permission_REPO_CREATE_BRANCH,
-			auth.Permission_REPO_LIST_BRANCH,
-			auth.Permission_REPO_DELETE_BRANCH,
-			auth.Permission_REPO_LIST_FILE,
-			auth.Permission_REPO_INSPECT_FILE,
-			auth.Permission_REPO_ADD_PIPELINE_READER,
-			auth.Permission_REPO_REMOVE_PIPELINE_READER,
-			auth.Permission_REPO_ADD_PIPELINE_WRITER,
-		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return resp.Satisfied, nil
+	return resp.Permissions, resp.Roles, nil
 }
 
 func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.ListRepoResponse, error) {
@@ -297,9 +280,9 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 			return nil
 		}
 		if includeAuth && authSeemsActive {
-			permissions, err := d.getPermissions(pachClient, repoInfo.Repo)
+			permissions, roles, err := d.getPermissions(pachClient, repoInfo.Repo)
 			if err == nil {
-				repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions}
+				repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {
