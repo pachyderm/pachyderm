@@ -6,11 +6,7 @@
 # workflows. All variables assigned here use ?= so that they can be overridden
 # by environment variables/other Makefiles
 
-ifeq ($(OS),Windows_NT)
-  export GOPATH ?= $(shell cygpath -u $(shell go env GOPATH))
-else
-  export GOPATH ?= $(shell go env GOPATH)
-endif
+export GOPATH ?= $(shell go env GOPATH)
 
 # Set GOBIN based on GOPATH
 # TODO(msteffen) As of Apr. 2021, 'go env GOBIN' doesn't always return a path,
@@ -19,4 +15,8 @@ export GOBIN ?= $(GOPATH)/bin
 
 # Set PACHCTL based on GOBIN (want compiled pachctl to override system
 # pachctl, if any)
-export PACHCTL ?= $(GOBIN)/pachctl
+ifeq ($(OS),Windows_NT)
+  export PACHCTL ?= $(shell cygpath -u $(GOBIN)/pachctl)
+else
+  export PACHCTL ?= $(GOBIN)/pachctl
+endif
