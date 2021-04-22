@@ -1,8 +1,9 @@
-import {Info, Group, InfoSVG} from '@pachyderm/components';
+import {Group, InfoSVG} from '@pachyderm/components';
 import React from 'react';
 import {Link} from 'react-router-dom';
 
-import JobList from '@dash-frontend/components/JobList';
+import Description from '@dash-frontend/components/Description';
+import JobListStatic from '@dash-frontend/components/JobList/components/JobListStatic';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {Project} from '@graphqlTypes';
 
@@ -17,23 +18,18 @@ type ProjectPreviewProps = {
 const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
   const {projectDetails, loading} = useProjectDetails(project.id);
 
-  if (!projectDetails || loading) return null; // TODO loading view
-
   return (
     <div className={styles.base}>
       <div className={styles.topContent}>
         <Group spacing={24} vertical>
           <h4 className={styles.title}>Project Preview</h4>
-          <Info
-            header="Total No. of Repos/Pipelines"
-            headerId="total-repos-and-pipelines"
-          >
-            {projectDetails.repoCount}/{projectDetails.repoCount}
-          </Info>
-          <Info header="Total Data Size" headerId="total-data-size">
-            {projectDetails.sizeDisplay}
-          </Info>
-          <Info header="Pipeline Status" headerId="pipeline-status">
+          <Description term="Total No. of Repos/Pipelines" loading={loading}>
+            {projectDetails?.repoCount}/{projectDetails?.repoCount}
+          </Description>
+          <Description term="Total Data Size" loading={loading}>
+            {projectDetails?.sizeDisplay}
+          </Description>
+          <Description term="Pipeline Status" loading={loading}>
             <div className={styles.inline}>
               <ProjectStatus status={project.status} />
               {project.status.toString() === 'UNHEALTHY' && (
@@ -47,12 +43,16 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
                 </span>
               )}
             </div>
-          </Info>
+          </Description>
           <Group.Divider />
           <h4 className={styles.subTitle}>Last 30 Jobs</h4>
         </Group>
       </div>
-      <JobList projectId={project.id} />
+      <JobListStatic
+        projectId={project.id}
+        jobs={projectDetails?.jobs}
+        loading={loading}
+      />
     </div>
   );
 };

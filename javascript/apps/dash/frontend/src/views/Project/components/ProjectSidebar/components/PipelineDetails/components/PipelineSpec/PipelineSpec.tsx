@@ -1,11 +1,10 @@
 import React from 'react';
 
+import Description from '@dash-frontend/components/Description';
 import JSONBlock from '@dash-frontend/components/JSONBlock';
 import PipelineInput from '@dash-frontend/components/PipelineInput';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-
-import Description from '../../../Description';
 
 import styles from './PipelineSpec.module.css';
 

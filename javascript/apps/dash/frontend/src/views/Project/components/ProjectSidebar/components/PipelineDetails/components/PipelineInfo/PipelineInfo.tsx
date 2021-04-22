@@ -2,12 +2,11 @@ import capitalize from 'lodash/capitalize';
 import React from 'react';
 import {Link} from 'react-router-dom';
 
+import Description from '@dash-frontend/components/Description';
 import PipelineStateComponent from '@dash-frontend/components/PipelineState';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
-
-import Description from '../../../Description';
 
 const PipelineInfo = () => {
   const {projectId, pipelineId} = useUrlState();

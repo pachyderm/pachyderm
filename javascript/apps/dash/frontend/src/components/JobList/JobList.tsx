@@ -3,12 +3,9 @@ import React from 'react';
 
 import {GetJobsQueryVariables} from '@graphqlTypes';
 
-import JobListEmptyState from './components/JobListEmptyState';
-import JobListItem from './components/JobListItem';
-import JobListSkeleton from './components/JobListSkeleton';
+import JobListStatic from './components/JobListStatic';
 import JobListStatusFilter from './components/JobListStatusFilter';
 import useJobList from './hooks/useJobList';
-import styles from './JobList.module.css';
 
 type JobListProps = {
   expandActions?: boolean;
@@ -26,19 +23,18 @@ const JobList: React.FC<JobListProps> = ({
     pipelineId,
   });
 
-  if (loading) return <JobListSkeleton expandActions={expandActions} />;
-
-  if (jobs.length === 0) return <JobListEmptyState />;
-
   return (
     <Form formContext={formCtx}>
-      {showStatusFilter && <JobListStatusFilter jobs={jobs} />}
+      {showStatusFilter && jobs.length !== 0 && !loading && (
+        <JobListStatusFilter jobs={jobs} />
+      )}
 
-      <ul className={styles.base} data-testid={`JobList__project${projectId}`}>
-        {filteredJobs.map((job) => (
-          <JobListItem job={job} key={job.id} expandActions={expandActions} />
-        ))}
-      </ul>
+      <JobListStatic
+        projectId={projectId}
+        loading={loading}
+        jobs={filteredJobs}
+        expandActions={expandActions}
+      />
     </Form>
   );
 };

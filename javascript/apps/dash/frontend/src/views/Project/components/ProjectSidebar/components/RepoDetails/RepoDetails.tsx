@@ -2,11 +2,11 @@ import {SkeletonDisplayText} from '@pachyderm/components';
 import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 
+import Description from '@dash-frontend/components/Description';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
 
-import Description from '../Description';
 import Title from '../Title';
 
 import styles from './RepoDetails.module.css';

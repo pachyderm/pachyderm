@@ -197,16 +197,9 @@ describe('Landing', () => {
     const error = createServiceError({code: status.UNIMPLEMENTED});
     mockServer.setProjectsError(error);
 
-    const {findByLabelText} = render(<Landing />);
+    const {findByText} = render(<Landing />);
 
-    const repoPipelineCount = await findByLabelText(
-      'Total No. of Repos/Pipelines',
-    );
-    const dataSize = await findByLabelText('Total Data Size');
-    const pipelineStatus = await findByLabelText('Pipeline Status');
-
-    expect(repoPipelineCount.textContent).toEqual('17/17');
-    expect(dataSize.textContent).toEqual('2.93 KB');
-    expect(pipelineStatus.textContent).toEqual('UnhealthyInspect');
+    expect(await findByText('17/17')).toBeInTheDocument();
+    expect(await findByText('2.93 KB')).toBeInTheDocument();
   });
 });
