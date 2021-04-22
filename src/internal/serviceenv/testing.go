@@ -48,6 +48,10 @@ func (s *TestServiceEnv) Context() context.Context {
 	return s.Ctx
 }
 
+func (s *TestServiceEnv) ClusterID() string {
+	return "testing"
+}
+
 func (s *TestServiceEnv) Close() error {
 	eg := &errgroup.Group{}
 	eg.Go(s.GetPachClient(context.Background()).Close)
