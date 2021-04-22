@@ -119,6 +119,96 @@
   force = true
 
 [[redirects]]
+  from = "/latest/how-tos/load-data-into-pachyderm/"
+  to = "/latest/how-tos/basic-data-operations/load-data-into-pachyderm/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/how-tos/export-data-out-pachyderm/*"
+  to = "/latest/how-tos/basic-data-operations/export-data-out-pachyderm/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/how-tos/removing_data_from_pachyderm/"
+  to = "/latest/how-tos/basic-data-operations/removing_data_from_pachyderm/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/how-tos/ingressing_from_diff_cloud/"
+  to = "/latest/how-tos/basic-data-operations/ingressing_from_diff_cloud/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/how-tos/splitting-data/*"
+  to = "/latest/how-tos/advanced-data-operations/splitting-data/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/how-tos/mount-volume/"
+  to = "/latest/how-tos/advanced-data-operations/mount-volume/"
+  status = 301
+  force = true
+
+[redirects]]
+  from = "/latest/how-tos/time_windows/"
+  to = "/latest/how-tos/advanced-data-operations/time_windows/"
+  status = 301
+  force = true
+
+[redirects]]
+  from = "/latest/how-tos/use-transactions-to-run-multiple-commands/"
+  to = "/latest/how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands/"
+  status = 301
+  force = true
+
+[redirects]]
+  from = "/latest/how-tos/err_cmd/"
+  to = "/latest/how-tos/advanced-data-operations/err_cmd/"
+  status = 301
+  force = true
+
+[redirects]]
+  from = "/latest/how-tos/create-pipeline/"
+  to = "/latest/how-tos/pipeline-operations/create-pipeline/"
+  status = 301
+  force = true
+
+[redirects]]
+  from = "/latest/how-tos/run_pipeline/"
+  to = "/latest/how-tos/pipeline-operations/run_pipeline/"
+  status = 301
+  force = true
+
+[redirects]]
+  from = "/latest/how-tos/updating_pipelines/"
+  to = "/latest/how-tos/pipeline-operations/updating_pipelines/"
+  status = 301
+  force = true
+
+[redirects]]
+  from = "/latest/how-tos/delete-pipeline/"
+  to = "/latest/how-tos/pipeline-operations/delete-pipeline/"
+  status = 301
+  force = true
+
+[redirects]]
+  from = "/latest/how-tos/monitor-job-progress/"
+  to = "/latest/how-tos/pipeline-operations/monitor-job-progress/"
+  status = 301
+  force = true
+
+[redirects]]
+  from = "/latest/how-tos/create-ml-workflow/"
+  to = "/latest/how-tos/developer-workflow/create-ml-workflow/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/how-tos/*"
   to = "/latest/how-tos/:splat"
   status = 301
