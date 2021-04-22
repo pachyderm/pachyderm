@@ -1,10 +1,8 @@
 package chunk
 
 import (
-	"bytes"
 	"context"
 	"io"
-	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -30,16 +28,14 @@ func newReader(ctx context.Context, client Client, memCache kv.GetPut, dataRefs 
 
 // Iterate iterates over the data readers for the data references.
 func (r *Reader) Iterate(cb func(*DataReader) error) error {
-	var seed *DataReader
 	for _, dataRef := range r.dataRefs {
-		dr := newDataReader(r.ctx, r.client, r.memCache, dataRef, seed)
+		dr := newDataReader(r.ctx, r.client, r.memCache, dataRef)
 		if err := cb(dr); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
 		}
-		seed = dr
 	}
 	return nil
 }
@@ -52,26 +48,19 @@ func (r *Reader) Get(w io.Writer) error {
 }
 
 // DataReader is an abstraction that lazily reads data referenced by a data reference.
-// The seed is set to avoid re-downloading a chunk that is shared between this data reference
-// and the prior in a chain of data references.
-// TODO: Probably don't need seed with caching.
 type DataReader struct {
-	ctx        context.Context
-	memCache   kv.GetPut
-	client     Client
-	dataRef    *DataRef
-	seed       *DataReader
-	getChunkMu sync.Mutex
-	chunk      []byte
+	ctx      context.Context
+	client   Client
+	memCache kv.GetPut
+	dataRef  *DataRef
 }
 
-func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, dataRef *DataRef, seed *DataReader) *DataReader {
+func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, dataRef *DataRef) *DataReader {
 	return &DataReader{
 		ctx:      ctx,
 		client:   client,
 		memCache: memCache,
 		dataRef:  dataRef,
-		seed:     seed,
 	}
 }
 
@@ -82,35 +71,9 @@ func (dr *DataReader) DataRef() *DataRef {
 
 // Get writes the data referenced by the data reference.
 func (dr *DataReader) Get(w io.Writer) error {
-	if err := dr.getChunk(); err != nil {
+	return Get(dr.ctx, dr.client, dr.memCache, dr.dataRef.Ref, func(chunk []byte) error {
+		data := chunk[dr.dataRef.OffsetBytes : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
+		_, err := w.Write(data)
 		return err
-	}
-	data := dr.chunk[dr.dataRef.OffsetBytes : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
-	_, err := w.Write(data)
-	return err
-}
-
-func (dr *DataReader) getChunk() error {
-	dr.getChunkMu.Lock()
-	defer dr.getChunkMu.Unlock()
-	if dr.chunk != nil {
-		return nil
-	}
-	// Use seed chunk if possible.
-	if dr.seed != nil && bytes.Equal(dr.dataRef.Ref.Id, dr.seed.dataRef.Ref.Id) {
-		if err := dr.seed.getChunk(); err != nil {
-			return err
-		}
-		dr.chunk = dr.seed.chunk
-		return nil
-	}
-	// Get chunk from object storage.
-	buf := &bytes.Buffer{}
-	if err := Get(dr.ctx, dr.memCache, dr.dataRef.Ref, buf, func(ctx context.Context, id ID, cb kv.ValueCallback) error {
-		return dr.client.Get(ctx, id, cb)
-	}); err != nil {
-		return err
-	}
-	dr.chunk = buf.Bytes()
-	return nil
+	})
 }

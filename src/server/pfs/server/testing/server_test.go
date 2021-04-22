@@ -35,8 +35,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/testing/load"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v2"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -1354,25 +1356,6 @@ func TestPFS(suite *testing.T) {
 		buf.Reset()
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", &buf))
 		require.Equal(t, "buzz", buf.String())
-	})
-
-	suite.Run("PutFileLongName", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-
-		fileName := `oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>oaidhzoshd<>&><%~$%<#>oandoancoasid1><&%$><%U>`
-
-		commit, err := env.PachClient.StartCommit(repo, "")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, fileName, strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-
-		var buffer bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(repo, commit.ID, fileName, &buffer))
-		require.Equal(t, "foo\n", buffer.String())
 	})
 
 	suite.Run("PutSameFileInParallel", func(t *testing.T) {
@@ -6191,7 +6174,64 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, fileContent, buf.String())
 		})
 	})
+
+	suite.Run("TestLoad", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		spec := &load.CommitsSpec{}
+		require.NoError(t, yaml.UnmarshalStrict([]byte(testLoad), spec))
+		msg := random.SeedRand()
+		c := env.PachClient
+		repo := "test"
+		require.NoError(t, c.CreateRepo(repo))
+		require.NoError(t, load.Commits(c, repo, "master", spec), msg)
+	})
 }
+
+var testLoad = ` 
+count: 5
+operations:
+  - count: 5
+    fuzzOperations:
+      - operation:
+          putFile:
+              files:
+                  count: 5
+                  fuzzFile:
+                      - file:
+                          source: "random"
+                        prob: 1
+        prob: 0.7
+      - operation:
+          deleteFile:
+              count: 5
+              directoryProb: 0.5
+        prob: 0.3 
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      directory:
+        depth: 3 
+        run: 5
+      fuzzSize:
+        - size:
+            min: 1000
+            max: 10000
+          prob: 0.3
+        - size:
+            min: 10000
+            max: 100000
+          prob: 0.3
+        - size:
+            min: 1000000
+            max: 10000000
+          prob: 0.3
+        - size:
+            min: 10000000
+            max: 100000000
+          prob: 0.1
+`
 
 var (
 	randSeed = int64(0)

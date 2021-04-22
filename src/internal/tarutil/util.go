@@ -277,3 +277,27 @@ func Export(storageRoot string, w io.Writer, opts ...ExportOption) (retErr error
 		})
 	})
 }
+
+// Reader converts a set of files to a tar stream.
+// TODO: Probably should just go to disk for this.
+func NewReader(files []File) (io.Reader, error) {
+	buf := &bytes.Buffer{}
+	if err := WithWriter(buf, func(tw *tar.Writer) error {
+		for _, file := range files {
+			hdr, err := file.Header()
+			if err != nil {
+				return err
+			}
+			if err := tw.WriteHeader(hdr); err != nil {
+				return err
+			}
+			if err := file.Content(tw); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}

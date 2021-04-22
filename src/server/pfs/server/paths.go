@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
@@ -18,22 +17,19 @@ func globLiteralPrefix(glob string) string {
 	return glob[:idx[0]]
 }
 
-func parseGlob(glob string) (index.Option, func(string) bool, error) {
-	glob = cleanPath(glob)
-	opt := index.WithPrefix(globLiteralPrefix(glob))
+func globMatchFunction(glob string) (func(string) bool, error) {
 	g, err := globlib.Compile(glob, '/')
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	mf := func(path string) bool {
+	return func(path string) bool {
 		// TODO: This does not seem like a good approach for this edge case.
 		if path == "/" && glob == "/" {
 			return true
 		}
 		path = strings.TrimRight(path, "/")
 		return g.Match(path)
-	}
-	return opt, mf, nil
+	}, nil
 }
 
 // pathIsChild determines if the path child is an immediate child of the path parent

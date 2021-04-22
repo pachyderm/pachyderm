@@ -36,16 +36,13 @@ type testPart struct {
 
 func appendFile(t *testing.T, w *Writer, path string, parts []*testPart) {
 	// Write content and tags.
-	err := w.Add(path, func(fw *FileWriter) error {
-		for _, part := range parts {
-			fw.Add(part.tag)
-			if _, err := fw.Write(part.data); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	fw, err := w.Add(path)
 	require.NoError(t, err)
+	for _, part := range parts {
+		fw.Add(part.tag)
+		_, err := fw.Write(part.data)
+		require.NoError(t, err)
+	}
 }
 
 func writeFileSet(t *testing.T, s *Storage, files []*testFile) ID {

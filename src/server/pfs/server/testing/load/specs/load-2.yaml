@@ -1,0 +1,22 @@
+count: 5
+operations:
+  - count: 5
+    fuzzOperations:
+      - operation:
+          putFile:
+            files:
+              count: 100000 
+                fuzzFile:
+                  - file:
+                      source: "random"
+                    prob: 1
+        prob: 1
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      fuzzSize:
+        - size:
+            min: 100
+            max: 1000
+          prob: 1 

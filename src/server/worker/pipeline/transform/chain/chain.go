@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
 
@@ -92,8 +93,18 @@ func (jdi *JobDatumIterator) SetDeleter(deleter func(*datum.Meta) error) {
 // TODO: There is probably a clean way to cache the output datum filesets so we do not need to recompute them across iterations.
 func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 	jdi.stats.Skipped = 0
-	if jdi.parent == nil {
-		return jdi.dit.Iterate(cb)
+	for {
+		if jdi.parent == nil {
+			return jdi.dit.Iterate(cb)
+		}
+		if err := jdi.parent.dit.Iterate(func(_ *datum.Meta) error { return nil }); err != nil {
+			if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+				jdi.parent = jdi.parent.parent
+				continue
+			}
+			return err
+		}
+		break
 	}
 	pachClient := jdi.jc.pachClient.WithCtx(jdi.ctx)
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
@@ -117,7 +128,7 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 			parentFilesetIterator := datum.NewFileSetIterator(pachClient, parentFilesetID)
 			var err error
 			if outputFilesetID, err = jdi.withDatumFileset(pachClient, func(outputSet *datum.Set) error {
-				return datum.Merge([]datum.Iterator{filesetIterator, parentFilesetIterator}, func(metas []*datum.Meta) error {
+				return datum.Merge([]datum.Iterator{parentFilesetIterator, filesetIterator}, func(metas []*datum.Meta) error {
 					if len(metas) == 1 {
 						if metas[0].JobID != jdi.jobID {
 							return nil
@@ -152,7 +163,7 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 		// Also create deletion operations appropriately.
 		skippedFilesetIterator := datum.NewFileSetIterator(pachClient, skippedFilesetID)
 		outputFilesetID, err = jdi.withDatumFileset(pachClient, func(s *datum.Set) error {
-			return datum.Merge([]datum.Iterator{skippedFilesetIterator, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
+			return datum.Merge([]datum.Iterator{jdi.parent.outputDit, skippedFilesetIterator}, func(metas []*datum.Meta) error {
 				if len(metas) == 1 {
 					// Datum was skipped, but does not exist in the parent job output.
 					if metas[0].JobID == jdi.jobID {

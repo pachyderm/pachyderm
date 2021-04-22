@@ -75,15 +75,7 @@ func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chu
 
 // Add creates an add operation for a file and provides a scoped file writer.
 // TODO: change to `Add(p string, tag string, r io.Reader) error`, remove FileWriter object from API.
-func (w *Writer) Add(p string, cb func(*FileWriter) error) error {
-	fw, err := w.newFileWriter(p, w.cw)
-	if err != nil {
-		return err
-	}
-	return cb(fw)
-}
-
-func (w *Writer) newFileWriter(p string, cw *chunk.Writer) (*FileWriter, error) {
+func (w *Writer) Add(p string) (*FileWriter, error) {
 	idx := &index.Index{
 		Path: p,
 		File: &index.File{},
@@ -93,7 +85,7 @@ func (w *Writer) newFileWriter(p string, cw *chunk.Writer) (*FileWriter, error) 
 	}
 	return &FileWriter{
 		w:   w,
-		cw:  cw,
+		cw:  w.cw,
 		idx: idx,
 	}, nil
 }
