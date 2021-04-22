@@ -6,7 +6,6 @@ Namely, `generic` (or Opaque), `tls`, or `docker-registry`.
 !!! Warning
       As of today, Pachyderm *only supports the JSON format for Kubernetes' Secrets files*.
 
-
 To use a Secret in Pachyderm, you need to:
 
 1. Create it.
@@ -17,8 +16,8 @@ The creation of a Secret in Pachyderm *requires a JSON configuration file*.
 
 A good way to create this file is:
 
-1. to generate it by calling a dry-run of the `kubectl create secret ... --dry-run=client  --output=json > myfirstsecret.json` command.
-1. then call `pachctl create secret -f myfirstsecret.json`.
+1. To generate it by calling a dry-run of the `kubectl create secret ... --dry-run=client  --output=json > myfirstsecret.json` command.
+1. Then call `pachctl create secret -f myfirstsecret.json`.
 
 !!! Info "Reminder"
       Kubernetes Secrets are, by default, stored as *unencrypted base64-encoded* strings (i.e., the values for all keys in the data field have to be base64-encoded strings). When using the `kubectl create secret` command, the encoding is done for you. If you choose to manually create your JSON file, make sure to use your own base 64 encoder.
@@ -80,7 +79,7 @@ In Pachyderm, a Secret can be used in three different ways:
 
 1. **As a container environment variable**:
 
-      In this case, in Pachyderm's pipeline specification file, you need to reference Kubernetes's Secret by its:
+      In this case, in Pachyderm's pipeline specification file, you need to reference Kubernetes' Secret by its:
 
       - **`name`**
       - and specify an environment variable named **`env_var`** that the value of your  **`key`** should be bound to. 
@@ -142,7 +141,7 @@ In Pachyderm, a Secret can be used in three different ways:
 
 1. **As a file in a volume mounted on a container**:
 
-      In this case, in Pachyderm's pipeline specification file, you need to reference Kubernetes's Secret by its:
+      In this case, in Pachyderm's pipeline specification file, you need to reference Kubernetes' Secret by its:
 
       -  **`name`**
       - and specify the mount point (**`mount_path`**) to the secret (ex: `"/var/my-app-secret"`).
