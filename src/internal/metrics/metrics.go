@@ -29,7 +29,7 @@ type Reporter struct {
 
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
-func NewReporter(clusterID string, env serviceenv.ServiceEnv) *Reporter {
+func NewReporter(env serviceenv.ServiceEnv) *Reporter {
 	var r *router
 	if env.Config().MetricsEndpoint != "" {
 		r = newRouter(env.Config().MetricsEndpoint)
@@ -38,7 +38,7 @@ func NewReporter(clusterID string, env serviceenv.ServiceEnv) *Reporter {
 	}
 	reporter := &Reporter{
 		router:    r,
-		clusterID: clusterID,
+		clusterID: env.ClusterID(),
 		env:       env,
 	}
 	go reporter.reportClusterMetrics()
