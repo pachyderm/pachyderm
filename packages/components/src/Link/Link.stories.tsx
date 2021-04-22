@@ -3,7 +3,7 @@ import {BrowserRouter} from 'react-router-dom';
 
 import {ButtonLink} from '../ButtonLink';
 
-import Link from './';
+import {Link} from './';
 
 export default {title: 'Link'};
 

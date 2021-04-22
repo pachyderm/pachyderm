@@ -1,5 +1,4 @@
-import Link, {LinkProps as BaseProps} from './Link';
+import {LinkProps as BaseProps} from './Link';
+export {default as Link} from './Link';
 
 export type LinkProps = BaseProps;
-
-export default Link;
