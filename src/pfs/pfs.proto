@@ -47,9 +47,14 @@ message RepoInfo {
 // Pachyderm dashboard to render repo access appropriately. To set a user's auth
 // scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto)
 message RepoAuthInfo {
-  // The callers access level to the relevant repo (e.g. may be OWNER even if
-  // the user isn't an OWNER of the repo, if they're an admin for the cluster)
+  // The callers access level to the relevant repo. These are very granular
+  // permissions - for the end user it makes sense to show them the roles
+  // they have instead.
   repeated auth.Permission permissions = 1;
+
+  // The caller's roles on the relevant repo. This includes inherited
+  // roles from the cluster, group membership, etc.
+  repeated string roles = 2;
 }
 
 message BranchInfo {

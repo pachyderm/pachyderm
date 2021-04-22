@@ -73,6 +73,16 @@ func (a *InactiveAPIServer) Authenticate(context.Context, *auth.AuthenticateRequ
 	return nil, auth.ErrNotActivated
 }
 
+// GetPermissions implements the GetPermissions RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetPermissions(context.Context, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetPermissionsForPrincipal implements the GetPermissions RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetPermissionsForPrincipal(context.Context, *auth.GetPermissionsForPrincipalRequest) (*auth.GetPermissionsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // Authorize implements the Authorize RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) Authorize(context.Context, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -114,6 +124,11 @@ func (a *InactiveAPIServer) RevokeAuthTokenInTransaction(*txnenv.TransactionCont
 	return nil, auth.ErrNotActivated
 }
 
+// RevokeAuthTokensForUser implements the RevokeAuthTokensForUser RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) RevokeAuthTokensForUser(context.Context, *auth.RevokeAuthTokensForUserRequest) (*auth.RevokeAuthTokensForUserResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // SetGroupsForUser implements the SetGroupsForUser RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) SetGroupsForUser(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -126,6 +141,11 @@ func (a *InactiveAPIServer) ModifyMembers(context.Context, *auth.ModifyMembersRe
 
 // GetGroups implements the GetGroups RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetGroups(context.Context, *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetGroupsForPrincipal implements the GetGroups RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetGroupsForPrincipal(context.Context, *auth.GetGroupsForPrincipalRequest) (*auth.GetGroupsResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

@@ -2,6 +2,9 @@
 *~
 *#*
 
+# vim temporary files
+*.sw[a-p]
+
 # For context helper script config
 .ctx
 
@@ -22,6 +25,7 @@ doc/_build
 _obj
 _test
 *.DS_Store
+/_worktree_data
 
 # Architecture specific extensions/prefixes
 ./*.[568vq]
@@ -37,18 +41,7 @@ _testmain.go
 
 *.exe
 
-*.swp
-*.swo
-
 _tmp
-etc/initdev/.vagrant
-src/cmd/pfs/pfs-roler
-src/cmd/pfs/pfs-volume-driver
-src/cmd/pfs/pfs
-src/cmd/pfsd/pfsd
-src/cmd/pps/pps
-src/cmd/ppsd/ppsd
-/.goxc.local.json
 /build/
 /etc/testing/s3gateway/s3-tests
 /etc/testing/s3gateway/*.txt
@@ -61,3 +54,5 @@ src/cmd/ppsd/ppsd
 *.pyc
 __pycache__
 
+# local env vars
+/.envrc

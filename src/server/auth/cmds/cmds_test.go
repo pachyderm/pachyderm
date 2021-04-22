@@ -17,6 +17,10 @@ import (
 
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
 func loginAsUser(t *testing.T, user string) {
+	if user == auth.RootUser {
+		config.WritePachTokenToConfig(tu.RootToken, false)
+		return
+	}
 	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	robot := strings.TrimPrefix(user, auth.RobotPrefix)
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
@@ -123,7 +127,8 @@ func TestCheckGetSet(t *testing.T) {
 	loginAsUser(t, alice)
 	require.NoError(t, tu.BashCmd(`
 		pachctl create repo {{.repo}}
-		pachctl auth check repo REPO_MODIFY_BINDINGS {{.repo}}
+		pachctl auth check repo {{.repo}} \
+                        | match 'Roles: \[repoOwner\]'
 		pachctl auth get repo {{.repo}} \
 			| match {{.alice}}
 		`,
@@ -132,6 +137,7 @@ func TestCheckGetSet(t *testing.T) {
 		"repo", tu.UniqueString("TestGet-repo"),
 	).Run())
 
+	repo := tu.UniqueString("TestGet-repo")
 	// Test 'pachctl auth set'
 	require.NoError(t, tu.BashCmd(`pachctl create repo {{.repo}}
 		pachctl auth set repo {{.repo}} repoReader {{.bob}}
@@ -141,7 +147,20 @@ func TestCheckGetSet(t *testing.T) {
 		`,
 		"alice", alice,
 		"bob", bob,
-		"repo", tu.UniqueString("TestGet-repo"),
+		"repo", repo,
+	).Run())
+
+	// Test checking another user's permissions
+	loginAsUser(t, auth.RootUser)
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth check repo {{.repo}} {{.alice}} \
+			| match "Roles: \[repoOwner\]" 
+                pachctl auth check repo {{.repo}} {{.bob}} \
+			| match "Roles: \[repoReader\]" 
+		`,
+		"alice", alice,
+		"bob", bob,
+		"repo", repo,
 	).Run())
 }
 

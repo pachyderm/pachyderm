@@ -129,20 +129,21 @@ message RoleBinding {
 enum Permission {
   UNKNOWN = 0;
 
-  CLUSTER_MODIFY_BINDINGS                = 100;
-  CLUSTER_GET_BINDINGS                   = 101;
+  CLUSTER_MODIFY_BINDINGS                          = 100;
+  CLUSTER_GET_BINDINGS                             = 101;
 
-  CLUSTER_AUTH_ACTIVATE                  = 102;
-  CLUSTER_AUTH_DEACTIVATE                = 103;
-  CLUSTER_AUTH_GET_CONFIG                = 104;
-  CLUSTER_AUTH_SET_CONFIG                = 105;
-  CLUSTER_AUTH_GET_ROBOT_TOKEN           = 139;
-  CLUSTER_AUTH_MODIFY_GROUP_MEMBERS      = 109;
-  CLUSTER_AUTH_GET_GROUPS                = 110;
-  CLUSTER_AUTH_GET_GROUP_USERS           = 111;
-  CLUSTER_AUTH_EXTRACT_TOKENS            = 112;
-  CLUSTER_AUTH_RESTORE_TOKEN             = 113;
-  CLUSTER_AUTH_DELETE_EXPIRED_TOKENS     = 140;
+  CLUSTER_AUTH_ACTIVATE                            = 102;
+  CLUSTER_AUTH_DEACTIVATE                          = 103;
+  CLUSTER_AUTH_GET_CONFIG                          = 104;
+  CLUSTER_AUTH_SET_CONFIG                          = 105;
+  CLUSTER_AUTH_GET_ROBOT_TOKEN                     = 139;
+  CLUSTER_AUTH_MODIFY_GROUP_MEMBERS                = 109;
+  CLUSTER_AUTH_GET_GROUPS                          = 110;
+  CLUSTER_AUTH_GET_GROUP_USERS                     = 111;
+  CLUSTER_AUTH_EXTRACT_TOKENS                      = 112;
+  CLUSTER_AUTH_RESTORE_TOKEN                       = 113;
+  CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL       = 141;
+  CLUSTER_AUTH_DELETE_EXPIRED_TOKENS               = 140;
 
 
   CLUSTER_ENTERPRISE_ACTIVATE            = 114;
@@ -237,6 +238,28 @@ message AuthorizeResponse {
   // principal is the principal the request was evaluated for
   string principal = 4;
 }
+
+// GetPermissions evaluates the current user's permissions on a resource
+message GetPermissionsRequest {
+  Resource resource = 1;
+}
+
+// GetPermissionsForPrincipal evaluates an arbitrary principal's permissions
+// on a resource 
+message GetPermissionsForPrincipalRequest {
+  Resource resource = 1;
+
+  string principal = 2;
+}
+
+message GetPermissionsResponse {
+  // permissions is the set of permissions the principal has
+  repeated Permission permissions = 1;
+
+  // roles is the set of roles the principal has 
+  repeated string roles = 2;
+}
+
 
 message ModifyRoleBindingRequest {
   // resource is the resource to modify the role bindings on 
@@ -345,8 +368,10 @@ message ModifyMembersRequest {
 
 message ModifyMembersResponse {}
 
-message GetGroupsRequest {
-  string username = 1;
+message GetGroupsRequest {}
+
+message GetGroupsForPrincipalRequest {
+  string principal = 1;
 }
 
 message GetGroupsResponse {
@@ -378,6 +403,12 @@ message RestoreAuthTokenRequest {
 
 message RestoreAuthTokenResponse {}
 
+message RevokeAuthTokensForUserRequest {
+  string username = 1;
+}
+
+message RevokeAuthTokensForUserResponse {}
+
 message DeleteExpiredAuthTokensRequest {}
 
 message DeleteExpiredAuthTokensResponse {}
@@ -394,6 +425,8 @@ service API {
 
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
+  rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse) {}
+  rpc GetPermissionsForPrincipal(GetPermissionsForPrincipalRequest) returns (GetPermissionsResponse) {}
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
 
   rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
@@ -403,10 +436,12 @@ service API {
 
   rpc GetRobotToken(GetRobotTokenRequest) returns (GetRobotTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
+  rpc RevokeAuthTokensForUser(RevokeAuthTokensForUserRequest) returns (RevokeAuthTokensForUserResponse) {}
 
   rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
   rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
   rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
+  rpc GetGroupsForPrincipal(GetGroupsForPrincipalRequest) returns (GetGroupsResponse) {}
   rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
 
   rpc ExtractAuthTokens(ExtractAuthTokensRequest) returns (ExtractAuthTokensResponse) {}
