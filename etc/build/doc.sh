@@ -2,9 +2,10 @@
 
 set -e
 
-GOPATH=$(go env GOPATH)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source "${SCRIPT_DIR}/../govars.sh"
 
-version="$("$GOPATH/bin/pachctl" version --client-only)"
+version="$("${PACHCTL}" version --client-only)"
 major_minor=$(echo "$version" | cut -f -2 -d ".")
 echo "--- Updating docs for version: $version"
 
@@ -19,7 +20,8 @@ here="$(dirname "${0}")"
 doc_root="${here}/../../doc"
 pachctl_docs="${doc_root}/docs/master/reference/pachctl"
 rm -rf "${pachctl_docs}" && mkdir "${pachctl_docs}"
-"${GOPATH}/bin/pachctl-doc"
+# TODO(msteffen): base this on $PACHCTL?
+"${GOBIN}/pachctl-doc"
 
 # Remove "see also" sections, since they have bad links and aren't very
 # helpful here anyways

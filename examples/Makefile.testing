@@ -16,14 +16,11 @@
 # "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e  -f Makefile.testing dirty-testing-cluster)"
 
 
+include ../etc/govars.mk
 include Makefile
 
 SHELL := /bin/bash
-ECHO := echo
-# kubectl is called by scripts, referenced here to make clear you can override default
-KUBECTL := kubectl
-PACHCTL := pachctl
-
+ECHO ?= echo
 
 STATS := .enable_stats=true
 DETECTMODEL := .pipeline.name="object-detect"|.input.cross[1].pfs.repo="object-model"|.input.cross[1].pfs.name="model"

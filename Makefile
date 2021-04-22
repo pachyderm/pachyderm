@@ -4,6 +4,8 @@
 # DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####
 
+include etc/govars.mk
+
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Don't set the version to the git hash in CI, as it breaks the go build cache.
 ifdef CIRCLE_BRANCH
@@ -31,31 +33,17 @@ GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 
-ifeq ($(OS),Windows_NT)
-	GOPATH = $(shell cygpath -u $(shell go env GOPATH))
-else
-	GOPATH = $(shell go env GOPATH)
-endif
-
-GOBIN = $(GOPATH)/bin
-
-ifdef TRAVIS_BUILD_NUMBER
-	# Upper bound for travis test timeout
-	TIMEOUT = 3600s
-else
-ifndef TIMEOUT
-	# You should be able to specify your own timeout, but by default we'll use the same bound as travis
-	TIMEOUT = 3600s
-endif
-endif
+# Default upper bound for test timeouts
+# You can specify your own, but this is what CI uses
+TIMEOUT ?= 3600s
 
 install:
-	# GOPATH/bin must be on your PATH to access these binaries:
+	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
 	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
-	@rm -f $(GOBIN)/pachctl
+	@rm -f $(PACHCTL)
 	@make install
 
 install-doc:
@@ -106,7 +94,7 @@ docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
 docker-build-pipeline-build: install
-	VERSION=$$($(GOBIN)/pachctl version --client-only) DOCKER_BUILDKIT=1 \
+	VERSION=$$($(PACHCTL) version --client-only) DOCKER_BUILDKIT=1 \
 	  goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 docker-build-proto:
@@ -152,10 +140,10 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 
 docker-push-pipeline-build: install
-	$(SKIP) ls etc/pipeline-build | xargs -I {} docker push pachyderm/{}-build:$$(pachctl version --client-only)
+	$(SKIP) ls etc/pipeline-build | xargs -I {} docker push pachyderm/{}-build:$$($(PACHCTL) version --client-only)
 
 docker-push-pipeline-build-to-minikube: install
-	$(SKIP) ls etc/pipeline-build | xargs -I {} etc/kube/push-to-minikube.sh pachyderm/{}-build:$$(pachctl version --client-only)
+	$(SKIP) ls etc/pipeline-build | xargs -I {} etc/kube/push-to-minikube.sh pachyderm/{}-build:$$($(PACHCTL) version --client-only)
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -193,7 +181,7 @@ launch-release-vm:
 	  echo "minikube is still up. Run 'make clean-launch-kube'"; \
 	  exit 1; \
 	fi
-	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM) --tag=v$$(pachctl version --client-only)
+	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM) --tag=v$$($(PACHCTL) version --client-only)
 
 clean-launch-kube:
 	@# clean up both of the following cases:
@@ -205,14 +193,14 @@ clean-launch-kube:
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	$(GOBIN)/pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
+	$(PACHCTL) deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	$(GOBIN)/pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	$(PACHCTL) deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
@@ -220,16 +208,16 @@ launch-dev: check-kubectl check-kubectl-connection install
 launch-enterprise: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
-	$(GOBIN)/pachctl deploy local --no-guaranteed -d --enterprise-server --namespace enterprise  --pachd-memory-request 128M --postgres-memory-request 128M --etcd-memory-request 128M --pachd-cpu-request 100m --postgres-cpu-request 100m --etcd-cpu-request 100m --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	$(PACHCTL) deploy local --no-guaranteed -d --enterprise-server --namespace enterprise  --pachd-memory-request 128M --postgres-memory-request 128M --etcd-memory-request 128M --pachd-cpu-request 100m --postgres-cpu-request 100m --etcd-cpu-request 100m --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pach-enterprise enterprise; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl install
-	yes | $(GOBIN)/pachctl undeploy
+	yes | $(PACHCTL) undeploy
 
 clean-launch-dev: check-kubectl install
-	yes | $(GOBIN)/pachctl undeploy
+	yes | $(PACHCTL) undeploy
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -269,42 +257,42 @@ test-pfs-server: test-postgres
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage: test-postgres
-	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT)
-	go test -count=1 ./src/internal/migrations/...
+	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -count=1 ./src/internal/migrations/... $(TESTFLAGS)
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN)
+	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT)
-	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT)
-	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT)
-	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
-	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT)
-	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT)
-	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-transaction:
-	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-client:
-	go test -count=1 -cover $$(go list ./src/client/...)
+	go test -count=1 -cover $$(go list ./src/client/...) $(TESTFLAGS)
 
 test-object-clients:
 	# The parallelism is lowered here because these tests run several pachd
 	# deployments in kubernetes which may contest resources.
-	go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2
+	go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2 $(TESTFLAGS)
 
 test-libs:
-	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT)
-	go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off
-	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT)
-	go test -count=1 ./src/internal/work -timeout $(TIMEOUT)
+	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off $(TESTFLAGS)
+	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -count=1 ./src/internal/work -timeout $(TIMEOUT) $(TESTFLAGS)
 
 # TODO: Readd when s3 gateway is implemented in V2.
 #test-s3gateway-conformance:
@@ -322,34 +310,34 @@ test-libs:
 #	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 #
 test-s3gateway-unit: test-postgres
-	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-fuse:
-	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
+	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS)
 
 test-local:
-	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-auth:
-	yes | pachctl delete all
-	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
+	yes | $(PACHCTL) delete all
+	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-identity:
 	etc/testing/forward-postgres.sh
-	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN)
+	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-license:
-	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) $(RUN)
+	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-admin:
-	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN)
+	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-enterprise:
-	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-enterprise-integration:
 	go install ./src/testing/match
-	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-tls:
 	./etc/testing/test_tls.sh
@@ -358,7 +346,7 @@ test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT)
+	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
 
 clean: clean-launch clean-launch-kube
 
@@ -417,7 +405,7 @@ follow-logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs -f pod'
 
 google-cluster-manifest:
-	@$(GOBIN)/pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@$(PACHCTL) deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
@@ -435,7 +423,7 @@ clean-google-cluster:
 	gcloud compute disks delete $(STORAGE_NAME)
 
 amazon-cluster-manifest: install
-	@$(GOBIN)/pachctl deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@$(PACHCTL) deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
@@ -459,7 +447,7 @@ amazon-clean:
         fi;done;
 
 microsoft-cluster-manifest:
-	@$(GOBIN)/pachctl deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
+	@$(PACHCTL) deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
 
 microsoft-cluster:
 	azure group create --name $(AZURE_RESOURCE_GROUP) --location $(AZURE_LOCATION)

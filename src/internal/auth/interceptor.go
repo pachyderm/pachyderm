@@ -37,7 +37,6 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/WhoAmI":       unauthenticated,
 	"/auth.API/GetOIDCLogin": unauthenticated,
 
-	// TODO: split GetGroups for self and others
 	// TODO: restrict GetClusterRoleBinding to cluster admins?
 	"/auth.API/CreateRoleBinding":       authenticated,
 	"/auth.API/GetRoleBinding":          authenticated,
@@ -45,17 +44,20 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/RevokeAuthToken":         authenticated,
 	"/auth.API/RevokeAuthTokensForUser": authenticated,
 	"/auth.API/GetGroups":               authenticated,
+	"/auth.API/GetPermissions":          authenticated,
 
-	"/auth.API/GetConfiguration":        clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_CONFIG),
-	"/auth.API/SetConfiguration":        clusterPermissions(auth.Permission_CLUSTER_AUTH_SET_CONFIG),
-	"/auth.API/GetRobotToken":           clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_ROBOT_TOKEN),
-	"/auth.API/SetGroupsForUser":        clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),
-	"/auth.API/ModifyMembers":           clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),
-	"/auth.API/GetUsers":                clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_GROUP_USERS),
-	"/auth.API/ExtractAuthTokens":       clusterPermissions(auth.Permission_CLUSTER_AUTH_EXTRACT_TOKENS),
-	"/auth.API/RestoreAuthToken":        clusterPermissions(auth.Permission_CLUSTER_AUTH_RESTORE_TOKEN),
-	"/auth.API/Deactivate":              clusterPermissions(auth.Permission_CLUSTER_AUTH_DEACTIVATE),
-	"/auth.API/DeleteExpiredAuthTokens": clusterPermissions(auth.Permission_CLUSTER_AUTH_DELETE_EXPIRED_TOKENS),
+	"/auth.API/GetGroupsForPrincipal":      clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_GROUPS),
+	"/auth.API/GetPermissionsForPrincipal": clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL),
+	"/auth.API/GetConfiguration":           clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_CONFIG),
+	"/auth.API/SetConfiguration":           clusterPermissions(auth.Permission_CLUSTER_AUTH_SET_CONFIG),
+	"/auth.API/GetRobotToken":              clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_ROBOT_TOKEN),
+	"/auth.API/SetGroupsForUser":           clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),
+	"/auth.API/ModifyMembers":              clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),
+	"/auth.API/GetUsers":                   clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_GROUP_USERS),
+	"/auth.API/ExtractAuthTokens":          clusterPermissions(auth.Permission_CLUSTER_AUTH_EXTRACT_TOKENS),
+	"/auth.API/RestoreAuthToken":           clusterPermissions(auth.Permission_CLUSTER_AUTH_RESTORE_TOKEN),
+	"/auth.API/Deactivate":                 clusterPermissions(auth.Permission_CLUSTER_AUTH_DEACTIVATE),
+	"/auth.API/DeleteExpiredAuthTokens":    clusterPermissions(auth.Permission_CLUSTER_AUTH_DELETE_EXPIRED_TOKENS),
 
 	//
 	// Debug API
