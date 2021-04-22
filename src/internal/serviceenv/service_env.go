@@ -332,17 +332,9 @@ func (env *NonblockingServiceEnv) Close() error {
 	// RPCs to end before closing the underlying service connections (like
 	// postgres and etcd), so we don't get spurious errors. Instead, some RPCs may
 	// fail because of losing the database connection.
-	eg.Go(func() error {
-		return errors.EnsureStack(env.GetPachClient(context.Background()).Close())
-	})
-	eg.Go(func() error {
-		return errors.EnsureStack(env.GetEtcdClient().Close())
-	})
-	eg.Go(func() error {
-		return errors.EnsureStack(env.GetDBClient().Close())
-	})
-	eg.Go(func() error {
-		return errors.EnsureStack(env.GetPostgresListener().Close())
-	})
+	eg.Go(env.GetPachClient(context.Background()).Close)
+	eg.Go(env.GetEtcdClient().Close)
+	eg.Go(env.GetDBClient().Close)
+	eg.Go(env.GetPostgresListener().Close)
 	return eg.Wait()
 }
