@@ -3,10 +3,6 @@ package obj
 import (
 	"context"
 	"io"
-	"io/ioutil"
-	"os"
-	"path"
-	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -39,4 +35,12 @@ func WithPipe(wcb func(w io.Writer) error, rcb func(r io.Reader) error) error {
 		return pr.Close()
 	})
 	return eg.Wait()
+}
+
+// NewTestClient creates a obj.Client which is cleaned up after the test exists
+func NewTestClient(t testing.TB) Client {
+	dir := t.TempDir()
+	objC, err := NewLocalClient(dir)
+	require.NoError(t, err)
+	return objC
 }
