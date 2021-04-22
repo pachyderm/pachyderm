@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -128,6 +129,17 @@ func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *mi
 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
 	require.NoError(t, err)
 	require.Equal(t, "content2", fetchedContent)
+}
+
+func masterPutObjectLarge(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testputlargeobject")
+	require.NoError(t, pachClient.CreateRepo(repo))
+	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
+
+	const size = 3e9
+	r := io.LimitReader(rand.Reader, size)
+	_, err := minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r, int64(size), minio.PutObjectOptions{ContentType: "text/plain", DisableMultipart: true})
+	require.NoError(t, err)
 }
 
 func masterRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
@@ -447,6 +459,9 @@ func TestMasterDriver(t *testing.T) {
 		})
 		t.Run("PutObject", func(t *testing.T) {
 			masterPutObject(t, pachClient, minioClient)
+		})
+		t.Run("PutLargeObject", func(t *testing.T) {
+			masterPutObjectLarge(t, pachClient, minioClient)
 		})
 		t.Run("RemoveObject", func(t *testing.T) {
 			masterRemoveObject(t, pachClient, minioClient)

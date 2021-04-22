@@ -22,8 +22,8 @@ const (
 	multipartRepo        = "_s3gateway_multipart_"
 	maxAllowedParts      = 10000
 	maxRequestBodyLength = 128 * 1024 * 1024 //128mb
-	requestTimeout       = 10 * time.Second
-	readBodyTimeout      = 5 * time.Second
+	requestTimeout       = 20 * time.Minute
+	readBodyTimeout      = requestTimeout / 2
 
 	// The S3 storage class that all PFS content will be reported to be stored in
 	globalStorageClass = "STANDARD"
@@ -103,7 +103,7 @@ func Server(env *serviceenv.ServiceEnv, driver Driver) (*http.Server, error) {
 		driver:          driver,
 	}
 
-	s3Server := s2.NewS2(logger, maxRequestBodyLength, readBodyTimeout)
+	s3Server := s2.NewS2(logger, 0, readBodyTimeout)
 	s3Server.Auth = c
 	s3Server.Service = c
 	s3Server.Bucket = c
