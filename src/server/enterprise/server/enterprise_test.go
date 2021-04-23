@@ -11,13 +11,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 const year = 365 * 24 * time.Hour
 
 func TestValidateActivationCode(t *testing.T) {
-	_, err := validateActivationCode(testutil.GetTestEnterpriseCode(t))
+	_, err := validateActivationCode(tu.GetTestEnterpriseCode(t))
 	require.NoError(t, err)
 }
 
@@ -25,11 +25,12 @@ func TestGetState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	client := testutil.GetPachClient(t)
+	tu.DeleteAll(t)
+	client := tu.GetPachClient(t)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	_, err := client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
+		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetState(context.Background(),
@@ -63,7 +64,7 @@ func TestGetState(t *testing.T) {
 	require.NoError(t, err)
 	_, err = client.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testutil.GetTestEnterpriseCode(t),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        expiresProto,
 		})
 	require.NoError(t, err)
@@ -98,11 +99,12 @@ func TestGetActivationCode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	client := testutil.GetPachClient(t)
+	tu.DeleteAll(t)
+	client := tu.GetPachClient(t)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	_, err := client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
+		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetActivationCode(context.Background(),
@@ -120,8 +122,8 @@ func TestGetActivationCode(t *testing.T) {
 		if time.Until(expires) <= year {
 			return errors.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
 		}
-		if resp.ActivationCode != testutil.GetTestEnterpriseCode(t) {
-			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode(t))
+		if resp.ActivationCode != tu.GetTestEnterpriseCode(t) {
+			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, tu.GetTestEnterpriseCode(t))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -132,7 +134,7 @@ func TestGetActivationCode(t *testing.T) {
 	require.NoError(t, err)
 	_, err = client.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testutil.GetTestEnterpriseCode(t),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        expiresProto,
 		})
 	require.NoError(t, err)
@@ -152,8 +154,8 @@ func TestGetActivationCode(t *testing.T) {
 		if expires.Unix() != respExpires.Unix() {
 			return errors.Errorf("expected enterprise expiration to be %v, but was %v", expires, respExpires)
 		}
-		if resp.ActivationCode != testutil.GetTestEnterpriseCode(t) {
-			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode(t))
+		if resp.ActivationCode != tu.GetTestEnterpriseCode(t) {
+			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, tu.GetTestEnterpriseCode(t))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -164,9 +166,8 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	aliceClient := testutil.GetAuthenticatedPachClient(t, "alice")
+	tu.DeleteAll(t)
+	aliceClient := tu.GetAuthenticatedPachClient(t, "alice")
 	_, err := aliceClient.Enterprise.GetActivationCode(aliceClient.Ctx(), &enterprise.GetActivationCodeRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -176,11 +177,12 @@ func TestDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	client := testutil.GetPachClient(t)
+	tu.DeleteAll(t)
+	client := tu.GetPachClient(t)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	_, err := client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
+		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetState(context.Background(),
@@ -218,7 +220,8 @@ func TestDoubleDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	client := testutil.GetPachClient(t)
+	tu.DeleteAll(t)
+	client := tu.GetPachClient(t)
 
 	// Deactivate cluster and make sure its state is NONE (enterprise might be
 	// active at the start of this test?)
