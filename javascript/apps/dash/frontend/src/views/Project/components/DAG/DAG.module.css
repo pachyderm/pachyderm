@@ -143,6 +143,6 @@
   border-top: 5px solid var(--pachyderm-black);
 }
 
-.base :global .nodeGroup:hover .nodeTooltip .tooltipText {
+.base :global .nodeGroup.interactive:hover .nodeTooltip .tooltipText {
   opacity: 1;
 }

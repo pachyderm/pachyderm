@@ -189,16 +189,21 @@ const generateNodeGroups = (
           .append<SVGGElement>('g')
           .attr('class', 'nodeGroup')
           .attr('id', (d) => `${d.name}GROUP`)
-          .attr('transform', (d) => `translate (${d.x}, ${d.y})`)
-          .on(
-            'click',
-            (_event, d) => isInteractive && handleSelectNode(d, dagId),
-          )
+          .attr('transform', (d) => `translate (${d.x}, ${d.y})`);
+
+        group
+          .on('click', (_event, d) => {
+            group.classed('interactive') && handleSelectNode(d, dagId);
+          })
           .on(
             'mouseover',
-            (_event, d) => isInteractive && setHoveredNode(d.name),
+            (_event, d) =>
+              group.classed('interactive') && setHoveredNode(d.name),
           )
-          .on('mouseout', () => isInteractive && setHoveredNode(''));
+          .on(
+            'mouseout',
+            () => group.classed('interactive') && setHoveredNode(''),
+          );
 
         group
           .append('foreignObject')
@@ -213,20 +218,19 @@ const generateNodeGroups = (
               }</p>`,
           );
 
-        isInteractive &&
-          group
-            .append('foreignObject')
-            .attr('class', 'nodeTooltip')
-            .attr('width', NODE_TOOLTIP_WIDTH)
-            .attr('height', NODE_TOOLTIP_HEIGHT)
-            .style('min-height', NODE_TOOLTIP_HEIGHT)
-            .attr('y', NODE_TOOLTIP_OFFSET)
-            .attr('x', -(NODE_TOOLTIP_WIDTH / 4))
-            .append('xhtml:span')
-            .html(
-              (d) => `<p class="tooltipText" style="min-height: ${
-                NODE_TOOLTIP_HEIGHT - 9
-              }px">
+        group
+          .append('foreignObject')
+          .attr('class', 'nodeTooltip')
+          .attr('width', NODE_TOOLTIP_WIDTH)
+          .attr('height', NODE_TOOLTIP_HEIGHT)
+          .style('min-height', NODE_TOOLTIP_HEIGHT)
+          .attr('y', NODE_TOOLTIP_OFFSET)
+          .attr('x', -(NODE_TOOLTIP_WIDTH / 4))
+          .append('xhtml:span')
+          .html(
+            (d) => `<p class="tooltipText" style="min-height: ${
+              NODE_TOOLTIP_HEIGHT - 9
+            }px">
                   ${deriveRepoNameFromNode(d)}
                   <br /><br />
                   ${
@@ -237,10 +241,11 @@ const generateNodeGroups = (
                       : ''
                   }
                 </p>`,
-            );
+          );
 
         group
           .append<SVGUseElement>('use')
+          .attr('id', (d) => `${d.name}Image`)
           .attr('xlink:href', (d) => {
             if (d.access) {
               if (d.type === NodeType.Repo) return '#nodeImageRepo';
@@ -252,10 +257,12 @@ const generateNodeGroups = (
             'transform',
             `scale(${nodeHeight / ORIGINAL_NODE_IMAGE_HEIGHT})`,
           )
-          .attr('x', () => (ORIGINAL_NODE_IMAGE_WIDTH - nodeWidth) / 2)
-          .attr('y', (d) =>
-            isInteractive ? NODE_IMAGE_Y_OFFSET : NODE_IMAGE_PREVIEW_Y_OFFSET,
+          .attr('y', () =>
+            group.classed('interactive')
+              ? NODE_IMAGE_Y_OFFSET
+              : NODE_IMAGE_PREVIEW_Y_OFFSET,
           )
+          .attr('x', () => (ORIGINAL_NODE_IMAGE_WIDTH - nodeWidth) / 2)
           .attr('pointer-events', 'none');
 
         group
@@ -273,7 +280,6 @@ const generateNodeGroups = (
         return group;
       },
       (update) => {
-        update.attr('transform', (d) => `translate (${d.x}, ${d.y})`);
         update.select(`#${update.data.name}State`).attr('xlink:href', (d) => {
           const state = convertNodeStateToDagState(d.state);
           if (state === 'busy') return '#nodeIconBusy';
@@ -393,20 +399,17 @@ const useDAG = ({
   useEffect(() => {
     const graph = d3.select<SVGGElement, unknown>(`#${id}Graph`);
 
-    isInteractive &&
-      graph
-        .selectAll<SVGGElement, Node>('.nodeGroup')
-        .attr(
-          'class',
-          (d) =>
-            `${`nodeGroup ${
-              isInteractive ? 'interactive' : ''
-            } ${convertNodeStateToDagState(d.state)}`} ${
-              [selectedNode?.name, hoveredNode].includes(d.name)
-                ? 'selected'
-                : ''
-            }`,
-        );
+    graph
+      .selectAll<SVGGElement, Node>('.nodeGroup')
+      .attr(
+        'class',
+        (d) =>
+          `${`nodeGroup ${
+            isInteractive ? 'interactive' : ''
+          } ${convertNodeStateToDagState(d.state)}`} ${
+            [selectedNode?.name, hoveredNode].includes(d.name) ? 'selected' : ''
+          }`,
+      );
 
     isInteractive &&
       graph.selectAll<SVGPathElement, Link>('.link').attr('class', (d) => {
