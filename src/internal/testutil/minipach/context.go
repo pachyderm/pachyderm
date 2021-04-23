@@ -50,8 +50,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -144,10 +142,9 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 	config.CacheRoot = path.Join(dataDir, "cache_root")
 	config.EtcdPrefix = testId
 	config.PostgresDBName = testId
-	config.Namespace = testId
+	config.Namespace = "default"
 	config.WorkerImage = "pachyderm/worker:local"
 	config.WorkerSidecarImage = "pachyderm/pachd:local"
-	// TODO: create etcd and postgres services in namespace
 
 	cfg := &rest.Config{
 		Host:            os.Getenv("KUBERNETES_PORT_443_TCP_ADDR") + ":8443",
@@ -169,30 +166,6 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 	require.NoError(t, err)
 
 	kubeClient, err := kube.NewForConfig(cfg)
-	require.NoError(t, err)
-
-	_, err = kubeClient.CoreV1().Namespaces().Create(&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testId}})
-	require.NoError(t, err)
-
-	_, err = kubeClient.CoreV1().Secrets(testId).Create(&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "pachyderm-storage-secret"}})
-	require.NoError(t, err)
-
-	_, err = kubeClient.CoreV1().Services(testId).Create(&v1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: "etcd"},
-		Spec: v1.ServiceSpec{
-			Type:         v1.ServiceTypeExternalName,
-			ExternalName: "etcd.default",
-		},
-	})
-	require.NoError(t, err)
-
-	_, err = kubeClient.CoreV1().Services(testId).Create(&v1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: "postgres"},
-		Spec: v1.ServiceSpec{
-			Type:         v1.ServiceTypeExternalName,
-			ExternalName: "postgres.default",
-		},
-	})
 	require.NoError(t, err)
 
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState))
