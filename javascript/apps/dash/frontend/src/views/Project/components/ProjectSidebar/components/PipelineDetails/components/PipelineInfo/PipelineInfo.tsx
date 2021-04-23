@@ -22,13 +22,13 @@ const PipelineInfo = () => {
         {capitalize(pipeline?.type)}
       </Description>
 
-      <Description term="Description" loading={loading} lines={2}>
+      <Description term="Description" loading={loading}>
         {pipeline?.description ? pipeline.description : 'N/A'}
       </Description>
 
       <Description term="Output Repo" loading={loading}>
         <Link to={repoRoute({projectId, dagId: dagId, repoId: pipelineId})}>
-          {pipeline?.name} output repo
+          {pipeline?.name}
         </Link>
       </Description>
 

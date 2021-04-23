@@ -47,7 +47,7 @@ describe('PipelineInfo', () => {
     );
 
     const outputRepo = getByText('Output Repo').nextElementSibling;
-    expect(outputRepo).toHaveTextContent(`${pipelineId} output repo`);
+    expect(outputRepo).toHaveTextContent(pipelineId);
     expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
       'href',
       `/project/${projectId}/dag/${dagId}/repo/${pipelineId}`,

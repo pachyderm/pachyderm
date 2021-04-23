@@ -9,6 +9,14 @@
   font-weight: 600;
 }
 
+.singleLineLoading {
+  max-width: 8rem;
+}
+
+.singleLineLoading > div > div:first-child {
+  margin: .09375rem 0;
+}
+
 .term + .description {
   margin-top: 0.3125rem;
 }

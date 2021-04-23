@@ -1,4 +1,3 @@
-import {SkeletonDisplayText} from '@pachyderm/components';
 import React from 'react';
 
 import useAccount from '@dash-frontend/hooks/useAccount';
@@ -12,9 +11,7 @@ const Account: React.FC = () => {
 
   if (loading || !loggedIn) {
     return (
-      <div className={styles.loaderContainer} data-testid={'Account__loader'}>
-        <SkeletonDisplayText blueShimmer className={styles.loader} />
-      </div>
+      <div className={styles.loaderContainer} data-testid={'Account__loader'} />
     );
   }
 

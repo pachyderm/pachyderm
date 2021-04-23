@@ -20,10 +20,12 @@ const Description: React.FC<DescriptionProps> = ({
       <dt className={styles.term}>{term}</dt>
       <dd className={styles.description}>
         {loading ? (
-          <SkeletonBodyText
-            lines={lines}
-            data-testid={`Description__${term}Skeleton`}
-          />
+          <div className={lines === 1 ? styles.singleLineLoading : undefined}>
+            <SkeletonBodyText
+              lines={lines}
+              data-testid={`Description__${term}Skeleton`}
+            />
+          </div>
         ) : (
           children
         )}

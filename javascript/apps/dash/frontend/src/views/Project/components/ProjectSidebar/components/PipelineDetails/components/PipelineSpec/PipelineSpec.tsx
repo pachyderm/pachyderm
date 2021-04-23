@@ -14,7 +14,7 @@ const PipelineSpec = () => {
 
   return (
     <dl>
-      <Description term="Inputs" loading={loading} lines={5}>
+      <Description term="Inputs" loading={loading} lines={9}>
         {pipeline && (
           <PipelineInput
             inputString={pipeline.inputString}
@@ -25,41 +25,45 @@ const PipelineSpec = () => {
         )}
       </Description>
 
-      <Description term="Transform" loading={loading} lines={3}>
-        {pipeline?.transform ? (
-          <JSONBlock>
-            {JSON.stringify(
-              {
-                image: pipeline.transform.image,
-                cmd: pipeline.transform.cmdList,
-              },
-              null,
-              2,
-            )}
-          </JSONBlock>
-        ) : (
-          'N/A'
-        )}
-      </Description>
+      {!loading && (
+        <Description term="Transform">
+          {pipeline?.transform ? (
+            <JSONBlock>
+              {JSON.stringify(
+                {
+                  image: pipeline.transform.image,
+                  cmd: pipeline.transform.cmdList,
+                },
+                null,
+                2,
+              )}
+            </JSONBlock>
+          ) : (
+            'N/A'
+          )}
+        </Description>
+      )}
 
-      <Description term="Scheduling Spec" loading={loading} lines={5}>
-        {pipeline?.schedulingSpec ? (
-          <JSONBlock>
-            {JSON.stringify(
-              {
-                nodeSelectorMap: pipeline.schedulingSpec.nodeSelectorMap.map(
-                  ({key, value}) => `${key}:${value}`,
-                ),
-                priorityClassName: pipeline.schedulingSpec.priorityClassName,
-              },
-              null,
-              2,
-            )}
-          </JSONBlock>
-        ) : (
-          'N/A'
-        )}
-      </Description>
+      {!loading && (
+        <Description term="Scheduling Spec">
+          {pipeline?.schedulingSpec ? (
+            <JSONBlock>
+              {JSON.stringify(
+                {
+                  nodeSelectorMap: pipeline.schedulingSpec.nodeSelectorMap.map(
+                    ({key, value}) => `${key}:${value}`,
+                  ),
+                  priorityClassName: pipeline.schedulingSpec.priorityClassName,
+                },
+                null,
+                2,
+              )}
+            </JSONBlock>
+          ) : (
+            'N/A'
+          )}
+        </Description>
+      )}
     </dl>
   );
 };

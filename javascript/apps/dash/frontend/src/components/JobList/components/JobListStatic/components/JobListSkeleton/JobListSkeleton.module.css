@@ -17,13 +17,60 @@
 
 .item {
   width: 100%;
-  display: block;
+  display: inline-flex;
   font-size: 0.75rem;
   color: var(--pachyderm-black);
-  padding: 0.75rem;
+  padding: 1.02rem;
+}
+
+.item > div:first-of-type {
+  width: 100%;
+  max-width: 6rem;
+  margin-right: 1rem;
+}
+
+.item > div:last-of-type{
+  flex: 1;
+  width: 100%;
 }
 
 .base.expandActions .item {
   padding-left: 1.625rem;
   padding-right: 3.875rem;
+}
+
+.item:nth-of-type(1) {
+  opacity: 0.9;
+}
+
+.item:nth-of-type(2) {
+  opacity: 0.8;
+}
+
+.item:nth-of-type(3) {
+  opacity: 0.7;
+}
+
+.item:nth-of-type(4) {
+  opacity: 0.6;
+}
+
+.item:nth-of-type(5) {
+  opacity: 0.5;
+}
+
+.item:nth-of-type(6) {
+  opacity: 0.4;
+}
+
+.item:nth-of-type(7) {
+  opacity: 0.3;
+}
+
+.item:nth-of-type(8) {
+  opacity: 0.2;
+}
+
+.item:nth-of-type(9) {
+  opacity: 0.1;
 }

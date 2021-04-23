@@ -22,17 +22,38 @@ const JobListSkeleton: React.FC<JobListSkeletonProps> = ({
     >
       <li className={styles.item}>
         <SkeletonDisplayText className={styles.skeleton} />
-      </li>
-      <li className={styles.item}>
         <SkeletonDisplayText className={styles.skeleton} />
       </li>
       <li className={styles.item}>
         <SkeletonDisplayText className={styles.skeleton} />
-      </li>
-      <li className={styles.item}>
         <SkeletonDisplayText className={styles.skeleton} />
       </li>
       <li className={styles.item}>
+        <SkeletonDisplayText className={styles.skeleton} />
+        <SkeletonDisplayText className={styles.skeleton} />
+      </li>
+      <li className={styles.item}>
+        <SkeletonDisplayText className={styles.skeleton} />
+        <SkeletonDisplayText className={styles.skeleton} />
+      </li>
+      <li className={styles.item}>
+        <SkeletonDisplayText className={styles.skeleton} />
+        <SkeletonDisplayText className={styles.skeleton} />
+      </li>
+      <li className={styles.item}>
+        <SkeletonDisplayText className={styles.skeleton} />
+        <SkeletonDisplayText className={styles.skeleton} />
+      </li>
+      <li className={styles.item}>
+        <SkeletonDisplayText className={styles.skeleton} />
+        <SkeletonDisplayText className={styles.skeleton} />
+      </li>
+      <li className={styles.item}>
+        <SkeletonDisplayText className={styles.skeleton} />
+        <SkeletonDisplayText className={styles.skeleton} />
+      </li>
+      <li className={styles.item}>
+        <SkeletonDisplayText className={styles.skeleton} />
         <SkeletonDisplayText className={styles.skeleton} />
       </li>
     </ul>
