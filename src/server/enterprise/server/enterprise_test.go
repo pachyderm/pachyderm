@@ -34,9 +34,13 @@ func TestGetState(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	client := tu.GetPachClient(t)
+	// Clear enterprise activation
+	_, err := client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	_, err := client.Enterprise.Activate(context.Background(),
+	_, err = client.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -108,9 +112,13 @@ func TestGetActivationCode(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	client := tu.GetPachClient(t)
+	// Clear enterprise activation
+	_, err := client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	_, err := client.Enterprise.Activate(context.Background(),
+	_, err = client.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -172,10 +180,31 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	tu.DeleteAll(t)
+	client := tu.GetPachClient(t)
+	// Clear enterprise activation
+	_, err := client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	_, err = client.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := client.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_ACTIVE {
+			return errors.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
 	aliceClient := tu.GetAuthenticatedPachClient(t, "alice")
-	_, err := aliceClient.Enterprise.GetActivationCode(aliceClient.Ctx(), &enterprise.GetActivationCodeRequest{})
+	_, err = aliceClient.Enterprise.GetActivationCode(aliceClient.Ctx(), &enterprise.GetActivationCodeRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 }
@@ -186,9 +215,13 @@ func TestDeactivate(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	client := tu.GetPachClient(t)
+	// Clear enterprise activation
+	_, err := client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	_, err := client.Enterprise.Activate(context.Background(),
+	_, err = client.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -229,10 +262,29 @@ func TestDoubleDeactivate(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	client := tu.GetPachClient(t)
-
-	// Deactivate cluster and make sure its state is NONE (enterprise might be
-	// active at the start of this test?)
+	// Clear enterprise activation
 	_, err := client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	_, err = client.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := client.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_ACTIVE {
+			return errors.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	// Deactivate cluster and make sure its state is NONE
+	_, err = client.Enterprise.Deactivate(context.Background(),
 		&enterprise.DeactivateRequest{})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -263,6 +315,10 @@ func TestParallelism(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	c := tu.GetPachClient(t)
+	// Clear enterprise activation
+	_, err := c.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
