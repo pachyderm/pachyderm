@@ -331,6 +331,7 @@ func TestParallelism(t *testing.T) {
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
+	// Create pipeline with enterprise-level parallelism -- should fail
 	pipeline := tu.UniqueString(t.Name())
 	err = c.CreatePipeline(
 		pipeline,
@@ -362,24 +363,76 @@ func TestParallelism(t *testing.T) {
 		if resp.State != enterprise.State_ACTIVE {
 			return errors.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
 		}
-		expires, err := types.TimestampFromProto(resp.Info.Expires)
-		if err != nil {
-			return err
-		}
-		if time.Until(expires) <= year {
-			return errors.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
-		}
-		activationCode, err := unmarshalActivationCode(resp.ActivationCode)
-		if err != nil {
-			return err
-		}
-		if activationCode.Signature != "" {
-			return errors.Errorf("incorrect activation code signature, expected empty string")
-		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 
+	// Create pipeline with enterprise-level parallelism -- succeeds now
 	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 10,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	for i := 0; i < 10; i++ {
+		buf.Reset()
+		require.NoError(t, c.GetFile(pipeline, "master", strconv.Itoa(i), 0, 0, &buf))
+		require.NoError(t, err)
+		require.Equal(t, "foo", buf.String())
+	}
+}
+
+// TestUpdatePipelineParallelism is almost identical to TestParallelism, but it
+// tests the 'update pipeline' codepath, which included a bug fixed by #6008
+func TestUpdatePipelineParallelism(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	c := tu.GetPachClient(t)
+	// Clear enterprise activation
+	_, err := c.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
+
+	dataRepo := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		_, err = c.PutFile(dataRepo, "master", strconv.Itoa(i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	pipeline := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	// Update the pipeline to enterprise-level of parallelism -- should fail
+	err = c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -391,7 +444,41 @@ func TestParallelism(t *testing.T) {
 		},
 		client.NewPFSInput(dataRepo, "/*"),
 		"",
-		false,
+		true,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "parallelism", err.Error())
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	_, err = c.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := c.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_ACTIVE {
+			return errors.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	// Update the pipeline to enterprise-level of parallelism -- succeeds now
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 10,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		true,
 	))
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
