@@ -1,11 +1,13 @@
 package minipach
 
 import (
+	"encoding/base64"
 	"fmt"
 	"math"
 	"os"
 	"path"
 	"runtime/debug"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,16 +46,34 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
+
+// withDB creates a database connection that is scoped to the passed in callback.
+func withDB(cb func(*sqlx.DB) error, opts ...dbutil.Option) (retErr error) {
+	db, err := dbutil.NewDB(opts...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := db.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	return cb(db)
+}
 
 type TestContext interface {
 	GetUnauthenticatedPachClient(tb testing.TB) *client.APIClient
@@ -88,12 +108,32 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 	}
 
 	sharedVolume := os.Getenv("SHARED_DATA_DIR")
-	testId := random.String(20)
+	testId := strings.ToLower(base64.RawURLEncoding.EncodeToString([]byte(random.String(20))))
 	dataDir := path.Join(sharedVolume, testId)
 	clientSocketPath := path.Join(os.TempDir(), "pachd_socket_"+testId)
+	os.Mkdir(dataDir, os.ModePerm)
 	fmt.Printf("Test context %s - %s\n", testId, dataDir)
 
-	db := testutil.NewPostgresDeployment(t)
+	require.NoError(t, withDB(func(db *sqlx.DB) error {
+		db.MustExec("CREATE DATABASE " + testId)
+		t.Log("database", testId, "successfully created")
+		return nil
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, withDB(func(db *sqlx.DB) error {
+			db.MustExec("DROP DATABASE " + testId)
+			t.Log("database", testId, "successfully deleted")
+			return nil
+		}))
+	})
+
+	options := []dbutil.Option{
+		dbutil.WithDBName(testId),
+	}
+
+	db, err := dbutil.NewDB(options...)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
 	fullConfig := &serviceenv.PachdFullConfiguration{}
 	require.NoError(t, cmdutil.Populate(fullConfig))
@@ -103,9 +143,14 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 	config.StorageRoot = path.Join(dataDir, "pach_root")
 	config.CacheRoot = path.Join(dataDir, "cache_root")
 	config.EtcdPrefix = testId
+	config.PostgresDBName = testId
+	config.Namespace = testId
+	config.WorkerImage = "pachyderm/worker:local"
+	config.WorkerSidecarImage = "pachyderm/pachd:local"
+	// TODO: create etcd and postgres services in namespace
 
 	cfg := &rest.Config{
-		Host:            os.Getenv("KUBERNETES_PORT_443_TCP_ADDR"),
+		Host:            os.Getenv("KUBERNETES_PORT_443_TCP_ADDR") + ":8443",
 		BearerTokenFile: os.Getenv("KUBERNETES_BEARER_TOKEN_FILE"),
 		TLSClientConfig: rest.TLSClientConfig{
 			Insecure: true,
@@ -126,7 +171,28 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 	kubeClient, err := kube.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	_, err = kubeClient.CoreV1().Namespaces().Create(context.Background(), v1.Namespace{Name: testId})
+	_, err = kubeClient.CoreV1().Namespaces().Create(&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testId}})
+	require.NoError(t, err)
+
+	_, err = kubeClient.CoreV1().Secrets(testId).Create(&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "pachyderm-storage-secret"}})
+	require.NoError(t, err)
+
+	_, err = kubeClient.CoreV1().Services(testId).Create(&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "etcd"},
+		Spec: v1.ServiceSpec{
+			Type:         v1.ServiceTypeExternalName,
+			ExternalName: "etcd.default",
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = kubeClient.CoreV1().Services(testId).Create(&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "postgres"},
+		Spec: v1.ServiceSpec{
+			Type:         v1.ServiceTypeExternalName,
+			ExternalName: "postgres.default",
+		},
+	})
 	require.NoError(t, err)
 
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState))
@@ -178,7 +244,6 @@ func (c *InMemoryTestContext) GetUnauthenticatedPachClient(tb testing.TB) *clien
 func setupServer(env serviceenv.ServiceEnv, socketPath string) error {
 	debug.SetGCPercent(env.Config().GCPercent)
 
-	kubeNamespace := ""
 	var reporter *metrics.Reporter
 
 	authInterceptor := auth.NewInterceptor(env)
@@ -225,7 +290,7 @@ func setupServer(env serviceenv.ServiceEnv, socketPath string) error {
 				env,
 				txnEnv,
 				path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
-				kubeNamespace,
+				env.Config().Namespace,
 				env.Config().WorkerImage,
 				env.Config().WorkerSidecarImage,
 				env.Config().WorkerImagePullPolicy,
