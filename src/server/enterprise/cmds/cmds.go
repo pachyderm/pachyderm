@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 
@@ -106,7 +107,7 @@ func DeactivateCmd() *cobra.Command {
 
 // RegisterCmd returns a cobra.Command that registers this cluster with a remote Enterprise Server.
 func RegisterCmd() *cobra.Command {
-	var id, pachdAddr, enterpriseAddr string
+	var id, pachdAddr, pachdEntAddr, enterpriseAddr, clusterId string
 	register := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Register the cluster with an enterprise license server",
@@ -124,11 +125,17 @@ func RegisterCmd() *cobra.Command {
 			}
 			defer ec.Close()
 
+			if pachdEntAddr == "" {
+				pachdEntAddr = pachdAddr
+			}
+
 			// Register the pachd with the license server
 			resp, err := ec.License.AddCluster(ec.Ctx(),
 				&license.AddClusterRequest{
-					Id:      id,
-					Address: pachdAddr,
+					Id:                  id,
+					Address:             pachdEntAddr,
+					UserAddress:         pachdAddr,
+					ClusterDeploymentId: clusterId,
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not register pachd with the license service")
@@ -149,8 +156,10 @@ func RegisterCmd() *cobra.Command {
 		}),
 	}
 	register.PersistentFlags().StringVar(&id, "id", "", "the id for this cluster")
-	register.PersistentFlags().StringVar(&pachdAddr, "pachd-address", "", "the address for the enterprise server to reach this pachd")
+	register.PersistentFlags().StringVar(&pachdAddr, "pachd-address", "", "the address for a user to reach this pachd")
+	register.PersistentFlags().StringVar(&pachdEntAddr, "pachd-enterprise-address", "", "the address for the enterprise server to reach this pachd")
 	register.PersistentFlags().StringVar(&enterpriseAddr, "enterprise-server-address", "", "the address for the pachd to reach the enterprise server")
+	register.PersistentFlags().StringVar(&clusterId, "cluster-deployment-id", "", "the deployment id of the cluster being registered")
 
 	return cmdutil.CreateAlias(register, "enterprise register")
 }
@@ -192,6 +201,50 @@ func GetStateCmd() *cobra.Command {
 	return cmdutil.CreateAlias(getState, "enterprise get-state")
 }
 
+func SyncContextsCmd() *cobra.Command {
+	syncContexts := &cobra.Command{
+		Short: "Pull all available Pachyderm Cluster contexts into your pachctl config",
+		Long:  "Pull all available Pachyderm Cluster contexts into your pachctl config",
+		Run: cmdutil.Run(func(args []string) error {
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			resp, err := c.License.ListUserClusters(c.Ctx(), &license.ListUserClustersRequest{})
+			if err != nil {
+				return err
+			}
+
+			// update the pach_address of all existing contexts, and add the rest as well.
+			for _, cluster := range resp.Clusters {
+				if context, ok := cfg.V2.Contexts[cluster.Id]; ok {
+					context.ClusterDeploymentID = cluster.ClusterDeploymentId
+					context.PachdAddress = cluster.Address
+				} else {
+					cfg.V2.Contexts[cluster.Id] = &config.Context{
+						ClusterDeploymentID: cluster.ClusterDeploymentId,
+						PachdAddress:        cluster.Address,
+						Source:              3, // what's the source? should we populate it here?
+					}
+				}
+			}
+
+			err = cfg.Write()
+			if err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(syncContexts, "enterprise sync-contexts")
+}
+
 // Cmds returns pachctl commands related to Pachyderm Enterprise
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
@@ -206,6 +259,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, RegisterCmd())
 	commands = append(commands, DeactivateCmd())
 	commands = append(commands, GetStateCmd())
+	commands = append(commands, SyncContextsCmd())
 
 	return commands
 }

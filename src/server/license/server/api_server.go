@@ -214,7 +214,9 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 	}
 
 	// Register the pachd in the database
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO license.clusters (id, address, secret, version, auth_enabled) VALUES ($1, $2, $3, $4, $5)`, req.Id, req.Address, secret, "unknown", false); err != nil {
+	if _, err := a.env.GetDBClient().ExecContext(ctx,
+		`INSERT INTO license.clusters (id, address, secret, cluster_deployment_id, user_address, version, auth_enabled) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`, req.Id, req.Address, secret, req.ClusterDeploymentId, req.UserAddress, "unknown", false); err != nil {
 		// throw a unique error if the error is a primary key uniqueness violation
 		if pgErr, ok := err.(*pq.Error); ok {
 			if pgErr.Code == pgerrcode.UniqueViolation {
@@ -341,4 +343,16 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 		return nil, err
 	}
 	return &lc.UpdateClusterResponse{}, nil
+}
+
+func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserClustersRequest) (resp *lc.ListUserClustersResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	clusters := make([]*lc.UserClusterInfo, 0)
+	if err := a.env.GetDBClient().SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address FROM lc.clusters`); err != nil {
+		return nil, err
+	}
+	return &lc.ListUserClustersResponse{
+		Clusters: clusters,
+	}, nil
 }
