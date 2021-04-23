@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
 	"golang.org/x/sync/errgroup"
@@ -12,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 )
 
@@ -39,38 +41,38 @@ func newMicrosoftClient(container string, accountName string, accountKey string)
 	return &microsoftClient{container: (&blobSvc).GetContainerReference(container)}, nil
 }
 
-func (c *microsoftClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
-	return newMicrosoftWriter(ctx, c, name), nil
-}
-
-func (c *microsoftClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	blobRange := blobRange(offset, size)
-	if blobRange == nil {
-		return c.container.GetBlobReference(name).Get(nil)
+// TODO: remove the writer, and respect the context.
+func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) error {
+	w := newMicrosoftWriter(ctx, c, name)
+	if _, err := io.Copy(w, r); err != nil {
+		w.Close()
+		return err
 	}
-	return c.container.GetBlobReference(name).GetRange(&storage.GetBlobRangeOptions{Range: blobRange})
+	return w.Close()
 }
 
-func blobRange(offset, size uint64) *storage.BlobRange {
-	if offset == 0 && size == 0 {
-		return nil
-	} else if size == 0 {
-		return &storage.BlobRange{Start: offset}
+// TODO: should respect context
+func (c *microsoftClient) Get(_ context.Context, name string, w io.Writer) (retErr error) {
+	r, err := c.container.GetBlobReference(name).Get(nil)
+	if err != nil {
+		return err
 	}
-	// TODO: This doesn't handle a read with offset: 0, size: 1 correctly - it
-	// will end up with Start: 0, End: 0, which the client library interprets as
-	// the full range of the object. Tried a workaround with manually providing
-	// the 'Range' header, but could not make it work, it may be impossible at the
-	// Azure service level. Possible workaround - read an extra byte, and wrap the
-	// reader to throw away the extra byte.
-	return &storage.BlobRange{Start: offset, End: offset + size - 1}
+	defer func() {
+		if err := r.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err = io.Copy(w, r)
+	return err
 }
 
+// TODO: should respect context
 func (c *microsoftClient) Delete(_ context.Context, name string) error {
 	_, err := c.container.GetBlobReference(name).DeleteIfExists(nil)
 	return err
 }
 
+// TODO: should respect context
 func (c *microsoftClient) Walk(_ context.Context, name string, f func(name string) error) error {
 	var marker string
 	for {
@@ -95,30 +97,30 @@ func (c *microsoftClient) Walk(_ context.Context, name string, f func(name strin
 	return nil
 }
 
-func (c *microsoftClient) Exists(ctx context.Context, name string) bool {
+// TODO: should respect context
+func (c *microsoftClient) Exists(ctx context.Context, name string) (bool, error) {
 	exists, err := c.container.GetBlobReference(name).Exists()
 	tracing.TagAnySpan(ctx, "exists", exists, "err", err)
-	return exists
+	if err != nil {
+		err = c.transformError(err, name)
+		return false, err
+	}
+	return exists, nil
 }
 
-func (c *microsoftClient) IsRetryable(err error) (ret bool) {
+func (c *microsoftClient) transformError(err error, name string) error {
+	const minWait = 250 * time.Millisecond
 	microsoftErr := &storage.AzureStorageServiceError{}
 	if !errors.As(err, &microsoftErr) {
-		return false
+		return err
 	}
-	return microsoftErr.StatusCode >= 500
-}
-
-func (c *microsoftClient) IsNotExist(err error) bool {
-	microsoftErr := &storage.AzureStorageServiceError{}
-	if !errors.As(err, &microsoftErr) {
-		return false
+	if microsoftErr.StatusCode >= 500 {
+		return pacherr.WrapTransient(err, minWait)
 	}
-	return microsoftErr.StatusCode == 404
-}
-
-func (c *microsoftClient) IsIgnorable(err error) bool {
-	return false
+	if microsoftErr.StatusCode == 404 {
+		return pacherr.NewNotExist(c.container.Name, name)
+	}
+	return err
 }
 
 type microsoftWriter struct {

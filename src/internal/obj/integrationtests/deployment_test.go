@@ -1,4 +1,4 @@
-package testing
+package integrationtests
 
 import (
 	"bytes"
@@ -302,7 +302,6 @@ func TestAmazonDeployment(t *testing.T) {
 		Retries:        obj.DefaultRetries,
 		Timeout:        obj.DefaultTimeout,
 		UploadACL:      obj.DefaultUploadACL,
-		Reverse:        obj.DefaultReverse,
 		PartSize:       obj.DefaultPartSize,
 		MaxUploadParts: obj.DefaultMaxUploadParts,
 		DisableSSL:     obj.DefaultDisableSSL,
