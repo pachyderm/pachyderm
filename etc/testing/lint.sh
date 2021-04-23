@@ -20,7 +20,7 @@ done
 
 # Update golint once a day, or if it isn't installed
 if [ -z "$(find "$(command -v golint)" -mtime -1 2>/dev/null)" ]; then
-  go get -u golang.org/x/lint/golint
+  go install golang.org/x/lint/golint
 fi
 
 find "./src" \
@@ -36,7 +36,7 @@ fi
 
 # Update staticcheck once a day, or if it isn't installed
 if [ -z "$(find "$(command -v staticcheck)" -mtime -1 2>/dev/null)" ]; then
-  go get -u honnef.co/go/tools/cmd/staticcheck
+  go install honnef.co/go/tools/cmd/staticcheck
 fi
 staticcheck "${GIT_REPO_DIR}/..."
 
