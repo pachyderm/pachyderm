@@ -139,6 +139,7 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 
 	config.PostgresServiceSSL = "disable"
 	config.StorageRoot = path.Join(dataDir, "pach_root")
+	config.StorageHostPath = path.Join(dataDir, "pach_root")
 	config.CacheRoot = path.Join(dataDir, "cache_root")
 	config.EtcdPrefix = testId
 	config.PostgresDBName = testId
