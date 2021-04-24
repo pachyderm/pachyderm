@@ -117,13 +117,13 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 		t.Log("database", testId, "successfully created")
 		return nil
 	}))
-	t.Cleanup(func() {
+	/*t.Cleanup(func() {
 		require.NoError(t, withDB(func(db *sqlx.DB) error {
 			db.MustExec("DROP DATABASE " + testId)
 			t.Log("database", testId, "successfully deleted")
 			return nil
 		}))
-	})
+	})*/
 
 	options := []dbutil.Option{
 		dbutil.WithDBName(testId),
@@ -143,6 +143,7 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 	config.CacheRoot = path.Join(dataDir, "cache_root")
 	config.EtcdPrefix = testId
 	config.PostgresDBName = testId
+	config.PipelineLabel = testId
 	config.Namespace = "default"
 	config.WorkerImage = "pachyderm/worker:local"
 	config.WorkerSidecarImage = "pachyderm/pachd:local"
@@ -168,8 +169,6 @@ func GetTestContext(t testing.TB, requireKube bool) TestContext {
 
 	kubeClient, err := kube.NewForConfig(cfg)
 	require.NoError(t, err)
-
-	require.NoError(t, migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState))
 
 	logger := log.StandardLogger()
 	f, err := os.OpenFile(path.Join(dataDir, "pachd.log"), os.O_WRONLY|os.O_CREATE, 0755)
@@ -219,6 +218,10 @@ func setupServer(env serviceenv.ServiceEnv, socketPath string) error {
 	debug.SetGCPercent(env.Config().GCPercent)
 
 	var reporter *metrics.Reporter
+
+	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+		return err
+	}
 
 	authInterceptor := auth.NewInterceptor(env)
 	externalServer, err := grpcutil.NewServer(

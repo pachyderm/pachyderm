@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -91,8 +92,12 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 			// then we might delete the RC for brand-new pipeline 'foo'). Even if we
 			// do delete a live pipeline's RC, it'll be fixed in the next cycle)
 			kc := m.a.env.GetKubeClient().CoreV1().ReplicationControllers(m.a.env.Config().Namespace)
+			labelSelector := "suite=pachyderm,pipelineName"
+			if m.a.env.Config().PipelineLabel != "" {
+				labelSelector = fmt.Sprintf("%v,pipelineFilter=%v", labelSelector, m.a.env.Config().PipelineLabel)
+			}
 			rcs, err := kc.List(metav1.ListOptions{
-				LabelSelector: "suite=pachyderm,pipelineName",
+				LabelSelector: labelSelector,
 			})
 			if err != nil {
 				// No sensible error recovery here (e.g .if we can't reach k8s). We'll

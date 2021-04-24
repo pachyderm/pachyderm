@@ -30,6 +30,7 @@ import (
 
 const (
 	pipelineNameLabel         = "pipelineName"
+	pipelineFilterLabel       = "pipelineFilter"
 	pachVersionAnnotation     = "version"
 	specCommitAnnotation      = "specCommit"
 	hashedAuthTokenAnnotation = "authTokenHash"
@@ -497,6 +498,10 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels[pipelineNameLabel] = pipelineName
+	if a.env.Config().PipelineLabel != "" {
+		labels[pipelineFilterLabel] = a.env.Config().PipelineLabel
+	}
+
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage

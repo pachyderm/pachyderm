@@ -18,6 +18,7 @@ import (
 // TestSetGetConfigBasic sets an auth config and then retrieves it, to make
 // sure it's stored propertly
 func TestSetGetConfigBasic(t *testing.T) {
+	t.Skip("identity is not supported")
 	minipach.GetTestContext(t, true)
 
 	tu.ConfigureOIDCProvider(t)
@@ -45,6 +46,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 
 // TestIssuerNotLocalhost sets an auth config with LocalhostIssuer = false
 func TestIssuerNotLocalhost(t *testing.T) {
+	t.Skip("identity is not supported")
 	minipach.GetTestContext(t, true)
 
 	tu.ConfigureOIDCProvider(t)
