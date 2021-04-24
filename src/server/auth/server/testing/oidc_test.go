@@ -12,6 +12,7 @@ import (
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
 // auth code flow
 func TestOIDCAuthCodeFlow(t *testing.T) {
+	t.Skip("OIDC isn't working yet")
 	minipach.GetTestContext(t, true)
 	tu.ConfigureOIDCProvider(t)
 
@@ -36,6 +37,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 
 // TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
 func TestOIDCTrustedApp(t *testing.T) {
+	t.Skip("OIDC isn't working yet")
 	minipach.GetTestContext(t, true)
 	tu.ConfigureOIDCProvider(t)
 	testClient := tu.GetUnauthenticatedPachClient(t)

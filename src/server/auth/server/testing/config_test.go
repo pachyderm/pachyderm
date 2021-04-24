@@ -83,6 +83,7 @@ func TestIssuerNotLocalhost(t *testing.T) {
 // TestGetSetConfigAdminOnly confirms that only cluster admins can get/set the
 // auth config
 func TestGetSetConfigAdminOnly(t *testing.T) {
+	t.Skip("identity is not supported")
 	minipach.GetTestContext(t, true)
 
 	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
@@ -145,6 +146,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 // TestConfigRestartAuth sets a config, then Deactivates+Reactivates auth, then
 // calls GetConfig on an empty cluster to be sure the config was cleared
 func TestConfigRestartAuth(t *testing.T) {
+	t.Skip("identity is not supported")
 	minipach.GetTestContext(t, true)
 
 	tu.ConfigureOIDCProvider(t)
@@ -227,6 +229,7 @@ func TestConfigRestartAuth(t *testing.T) {
 // TestSetGetNilConfig tests that setting an empty config and setting a nil
 // config are treated & persisted differently
 func TestSetGetNilConfig(t *testing.T) {
+	t.Skip("identity is not supported")
 	minipach.GetTestContext(t, true)
 
 	tu.ConfigureOIDCProvider(t)

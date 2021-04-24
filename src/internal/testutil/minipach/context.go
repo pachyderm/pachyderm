@@ -92,7 +92,7 @@ func (*RemoteTestContext) GetAuthenticatedPachClient(tb testing.TB, subject stri
 
 type RemoteTestContext struct{}
 
-func GetTestContext(t testing.TB, requireKube bool) TestContext {
+func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
 	t.Helper()
 
 	if os.Getenv("PACH_INMEMORY") == "" {

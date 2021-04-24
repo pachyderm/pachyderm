@@ -92,7 +92,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 			// then we might delete the RC for brand-new pipeline 'foo'). Even if we
 			// do delete a live pipeline's RC, it'll be fixed in the next cycle)
 			kc := m.a.env.GetKubeClient().CoreV1().ReplicationControllers(m.a.env.Config().Namespace)
-			labelSelector := "suite=pachyderm,pipelineName"
+			labelSelector := "suite=pachyderm"
 			if m.a.env.Config().PipelineLabel != "" {
 				labelSelector = fmt.Sprintf("%v,pipelineFilter=%v", labelSelector, m.a.env.Config().PipelineLabel)
 			}
@@ -179,13 +179,16 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 	ctx := pollClient.Ctx()
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
+		selector := map[string]string{
+			"component": "worker",
+		}
+		if m.a.env.Config().PipelineLabel != "" {
+			selector["pipelineFilter"] = m.a.env.Config().PipelineLabel
+		}
 		kubePipelineWatch, err := m.a.env.GetKubeClient().CoreV1().Pods(m.a.namespace).Watch(
 			metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{
-						"component": "worker",
-					})),
-				Watch: true,
+				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(selector)),
+				Watch:         true,
 			})
 		if err != nil {
 			return errors.Wrap(err, "failed to watch kubernetes pods")
