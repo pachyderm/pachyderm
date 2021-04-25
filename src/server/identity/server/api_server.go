@@ -53,7 +53,7 @@ func NewIdentityServer(env serviceenv.ServiceEnv, public bool) identity.APIServe
 	}
 
 	if public {
-		web := newDexWeb(env, env.GetDexDB(), server)
+		web := newDexWeb(env, server)
 		go func() {
 			if err := http.ListenAndServe(dexHTTPPort, web); err != nil {
 				logrus.WithError(err).Fatalf("error setting up and/or running the identity server")

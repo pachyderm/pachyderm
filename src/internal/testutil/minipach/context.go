@@ -119,14 +119,16 @@ func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
 		t.Log("database", testId, "successfully created")
 		return nil
 	}))
-	t.Cleanup(func() {
-		require.NoError(t, withDB(func(db *sqlx.DB) error {
-			db.MustExec("DROP DATABASE " + testId)
-			db.MustExec("DROP DATABASE " + testId + "_dex")
-			t.Log("database", testId, "successfully deleted")
-			return nil
-		}))
-	})
+	/*
+		t.Cleanup(func() {
+			require.NoError(t, withDB(func(db *sqlx.DB) error {
+				db.MustExec("DROP DATABASE " + testId)
+				db.MustExec("DROP DATABASE " + testId + "_dex")
+				t.Log("database", testId, "successfully deleted")
+				return nil
+			}))
+		})
+	*/
 
 	options := []dbutil.Option{
 		dbutil.WithDBName(testId),
@@ -160,7 +162,7 @@ func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
 	}
 
 	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints: []string{"127.0.0.1:2379"},
+		Endpoints: []string{"127.0.0.1:32379"},
 		// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
 		// while waiting for etcd to come up (makes startup net faster)
 		DialTimeout:        3 * time.Minute,
@@ -193,6 +195,7 @@ func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
 			Mode: "disable",
 		},
 	}).Open(log.NewEntry(log.New()).WithField("source", "identity-db"))
+	require.NoError(t, err)
 	t.Cleanup(func() { dexDB.Close() })
 
 	senv := &serviceenv.TestServiceEnv{

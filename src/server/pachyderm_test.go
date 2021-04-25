@@ -34,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/minipach"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -62,12 +63,8 @@ func newCountBreakFunc(maxCount int) func(func() error) error {
 }
 
 func TestSimplePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -103,12 +100,9 @@ func TestSimplePipeline(t *testing.T) {
 }
 
 func TestRepoSize(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// create a data repo
 	dataRepo := tu.UniqueString("TestRepoSize_data")
@@ -169,12 +163,8 @@ func TestRepoSize(t *testing.T) {
 }
 
 func TestPFSPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPFSPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -210,12 +200,8 @@ func TestPFSPipeline(t *testing.T) {
 }
 
 func TestPipelineWithParallelism(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineWithParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -317,12 +303,8 @@ func TestPipelineWithParallelism(t *testing.T) {
 //}
 
 func TestDatumDedup(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestDatumDedup_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -370,12 +352,8 @@ func TestDatumDedup(t *testing.T) {
 }
 
 func TestPipelineInputDataModification(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineInputDataModification_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -445,12 +423,8 @@ func TestPipelineInputDataModification(t *testing.T) {
 }
 
 func TestMultipleInputsFromTheSameBranch(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameBranch_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -520,12 +494,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 }
 
 func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameRepoDifferentBranches_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1116,12 +1086,8 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //}
 
 func TestPipelineFailure(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1163,12 +1129,8 @@ func TestPipelineFailure(t *testing.T) {
 }
 
 func TestPipelineErrorHandling(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	t.Run("ErrCmd", func(t *testing.T) {
 
@@ -1293,14 +1255,8 @@ func TestPipelineErrorHandling(t *testing.T) {
 }
 
 func TestEgressFailure(t *testing.T) {
-	// TODO: Fail job after certain number of failures, or just keep restarting?
-	t.Skip("Fail job after certain number of failures, or just keep restarting?")
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestEgressFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1343,11 +1299,8 @@ func TestEgressFailure(t *testing.T) {
 }
 
 func TestLazyPipelinePropagation(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestLazyPipelinePropagation_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1400,12 +1353,9 @@ func TestLazyPipelinePropagation(t *testing.T) {
 }
 
 func TestLazyPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestLazyPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1449,12 +1399,9 @@ func TestLazyPipeline(t *testing.T) {
 }
 
 func TestEmptyFiles(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestShufflePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1580,12 +1527,9 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 // B-->C
 // When we commit to A we expect to see 1 commit on C rather than 2.
 func TestProvenance(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 	bPipeline := tu.UniqueString("B")
@@ -1663,12 +1607,9 @@ func TestProvenance(t *testing.T) {
 //  \ /
 //   D
 func TestProvenance2(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 	bPipeline := tu.UniqueString("B")
@@ -1757,12 +1698,9 @@ func TestProvenance2(t *testing.T) {
 // A -> B -> C
 // and ensures that calling StopPipeline on B does not create an commit in C.
 func TestStopPipelineExtraCommit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 	bPipeline := tu.UniqueString("B")
@@ -1822,12 +1760,9 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 
 // TestFlushCommit
 func TestFlushCommit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	prefix := tu.UniqueString("repo")
 	makeRepoName := func(i int) string {
 		return fmt.Sprintf("%s-%d", prefix, i)
@@ -1869,12 +1804,9 @@ func TestFlushCommit(t *testing.T) {
 }
 
 func TestFlushCommitFailures(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	dataRepo := tu.UniqueString("TestFlushCommitFailures")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	prefix := tu.UniqueString("TestFlushCommitFailures")
@@ -1943,12 +1875,9 @@ func TestFlushCommitFailures(t *testing.T) {
 }
 
 func TestFlushCommitAfterCreatePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -1981,12 +1910,9 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 
 // TestRecreatePipeline tracks #432
 func TestRecreatePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -2020,12 +1946,8 @@ func TestRecreatePipeline(t *testing.T) {
 }
 
 func TestDeletePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -2123,12 +2045,9 @@ func TestDeletePipeline(t *testing.T) {
 }
 
 func TestPipelineState(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	pipeline := tu.UniqueString("pipeline")
@@ -2188,12 +2107,9 @@ func TestPipelineState(t *testing.T) {
 }
 
 func TestPipelineJobCounts(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	pipeline := tu.UniqueString("pipeline")
@@ -2237,12 +2153,8 @@ func TestPipelineJobCounts(t *testing.T) {
 
 // TestUpdatePipelineThatHasNoOutput tracks #1637
 func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestUpdatePipelineThatHasNoOutput")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2297,12 +2209,8 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 }
 
 func TestAcceptReturnCode(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestAcceptReturnCode")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2341,12 +2249,9 @@ func TestAcceptReturnCode(t *testing.T) {
 }
 
 func TestPrettyPrinting(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPrettyPrinting_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2392,12 +2297,9 @@ func TestPrettyPrinting(t *testing.T) {
 }
 
 func TestDeleteAll(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	// this test cannot be run in parallel because it deletes everything
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
+
 	// create repos
 	dataRepo := tu.UniqueString("TestDeleteAll_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2435,13 +2337,9 @@ func TestDeleteAll(t *testing.T) {
 }
 
 func TestRecursiveCp(t *testing.T) {
-	// TODO: Implement support for symlinks, then convert this test back to a symlink copy.
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestRecursiveCp_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2478,12 +2376,8 @@ func TestRecursiveCp(t *testing.T) {
 }
 
 func TestPipelineUniqueness(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -2684,11 +2578,9 @@ func TestUpdatePipeline(t *testing.T) {
 }
 
 func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
+
 	dataRepo := tu.UniqueString("TestUpdatePipelineWithInProgressCommitsAndStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipeline := tu.UniqueString("pipeline")
@@ -2734,12 +2626,9 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 }
 
 func TestUpdateFailedPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestUpdateFailedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2798,13 +2687,11 @@ func TestUpdateFailedPipeline(t *testing.T) {
 }
 
 func TestUpdateStoppedPipeline(t *testing.T) {
-	// Pipeline should be updated, but should not be restarted
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	// Pipeline should be updated, but should not be restarted
+
 	// create repo & pipeline
 	dataRepo := tu.UniqueString("TestUpdateStoppedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2914,12 +2801,9 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 }
 
 func TestUpdatePipelineRunningJob(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3001,11 +2885,9 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 }
 
 func TestManyFilesSingleCommit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
+
 	// create repos
 	dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3024,11 +2906,9 @@ func TestManyFilesSingleCommit(t *testing.T) {
 }
 
 func TestManyFilesSingleOutputCommit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
+
 	dataRepo := tu.UniqueString("TestManyFilesSingleOutputCommit_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	branch := "master"
@@ -3066,12 +2946,9 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 }
 
 func TestStopPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3116,11 +2993,9 @@ func TestStopPipeline(t *testing.T) {
 }
 
 func TestStandby(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
 	t.Run("ChainOf10", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
 
@@ -3239,12 +3114,8 @@ func TestStandby(t *testing.T) {
 }
 
 func TestStopStandbyPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3336,9 +3207,8 @@ func TestStopStandbyPipeline(t *testing.T) {
 }
 
 func TestPipelineEnv(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// make a secret to reference
 	k := tu.GetKubeClient(t)
@@ -3354,8 +3224,6 @@ func TestPipelineEnv(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineEnv_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3422,12 +3290,9 @@ func TestPipelineEnv(t *testing.T) {
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3470,12 +3335,9 @@ func TestPipelineWithFullObjects(t *testing.T) {
 }
 
 func TestPipelineWithExistingInputCommits(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3518,8 +3380,8 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 }
 
 func TestPipelineThatSymlinks(t *testing.T) {
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
@@ -3578,12 +3440,9 @@ func TestPipelineThatSymlinks(t *testing.T) {
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/v2/issues/797
 func TestChainedPipelines(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 
@@ -3653,12 +3512,9 @@ func TestChainedPipelines(t *testing.T) {
 // |
 // D
 func TestChainedPipelinesNoDelay(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 
@@ -3742,12 +3598,9 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 }
 
 func TestPipelineJobDeletion(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3783,12 +3636,9 @@ func TestPipelineJobDeletion(t *testing.T) {
 }
 
 func TestStopJob(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestStopJob")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3870,12 +3720,9 @@ func TestGetLogsWithStats(t *testing.T) {
 }
 
 func testGetLogs(t *testing.T, enableStats bool) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	iter := c.GetLogs("", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
@@ -4079,11 +3926,9 @@ func testGetLogs(t *testing.T, enableStats bool) {
 }
 
 func TestManyLogs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
+
 	// create repos
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4130,12 +3975,10 @@ func TestManyLogs(t *testing.T) {
 }
 
 func TestLokiLogs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	tu.ActivateEnterprise(t, c)
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
+
+	minipach.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4190,12 +4033,8 @@ func TestLokiLogs(t *testing.T) {
 }
 
 func TestAllDatumsAreProcessed(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo1 := tu.UniqueString("TestAllDatumsAreProcessed_data1")
 	require.NoError(t, c.CreateRepo(dataRepo1))
@@ -4241,12 +4080,8 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 }
 
 func TestDatumStatusRestart(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestDatumDedup_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4374,12 +4209,9 @@ func TestSystemResourceRequests(t *testing.T) {
 // TestPipelineResourceRequest creates a pipeline with a resource request, and
 // makes sure that's passed to k8s (by inspecting the pipeline's pods)
 func TestPipelineResourceRequest(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceRequest")
 	pipelineName := tu.UniqueString("TestPipelineResourceRequest_Pipeline")
@@ -4446,12 +4278,9 @@ func TestPipelineResourceRequest(t *testing.T) {
 }
 
 func TestPipelineResourceLimit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
 	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
@@ -4514,12 +4343,9 @@ func TestPipelineResourceLimit(t *testing.T) {
 }
 
 func TestPipelineResourceLimitDefaults(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
 	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
@@ -4572,12 +4398,9 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 }
 
 func TestPipelinePartialResourceRequest(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelinePartialResourceRequest")
 	pipelineName := tu.UniqueString("pipeline")
@@ -4652,12 +4475,9 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 }
 
 func TestPipelineCrashing(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineCrashing_data")
 	pipelineName := tu.UniqueString("TestPipelineCrashing_pipeline")
@@ -4700,12 +4520,9 @@ func TestPipelineCrashing(t *testing.T) {
 }
 
 func TestPodOpts(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPodSpecOpts_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4869,12 +4686,8 @@ func TestPodOpts(t *testing.T) {
 }
 
 func TestPipelineLargeOutput(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineInputDataModification_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4909,12 +4722,8 @@ func TestPipelineLargeOutput(t *testing.T) {
 }
 
 func TestJoinInput(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	var repos []string
 	for i := 0; i < 2; i++ {
@@ -4968,12 +4777,8 @@ func TestJoinInput(t *testing.T) {
 }
 
 func TestGroupInput(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	t.Run("Basic", func(t *testing.T) {
 		repo := tu.UniqueString("TestGroupInput")
@@ -5267,12 +5072,8 @@ func TestGroupInput(t *testing.T) {
 }
 
 func TestUnionInput(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	var repos []string
 	for i := 0; i < 4; i++ {
@@ -5831,13 +5632,10 @@ func TestUnionInput(t *testing.T) {
 //}
 
 func TestPipelineOnStatsBranch(t *testing.T) {
-	// TODO: Implement support for symlinks, then convert this test back to a symlink copy.
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	// TODO: Implement support for symlinks, then convert this test back to a symlink copy.
 
 	dataRepo := tu.UniqueString("TestPipelineOnStatsBranch_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5884,12 +5682,9 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 }
 
 func TestSkippedDatums(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5952,12 +5747,9 @@ func TestSkippedDatums(t *testing.T) {
 }
 
 func TestCronPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {
 		pipeline1 := tu.UniqueString("cron1-")
 		require.NoError(t, c.CreatePipeline(
@@ -6236,12 +6028,9 @@ func TestCronPipeline(t *testing.T) {
 }
 
 func TestSelfReferentialPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	pipeline := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreatePipeline(
 		pipeline,
@@ -6256,12 +6045,9 @@ func TestSelfReferentialPipeline(t *testing.T) {
 }
 
 func TestPipelineBadImage(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	pipeline1 := tu.UniqueString("bad_pipeline_1_")
 	require.NoError(t, c.CreatePipeline(
 		pipeline1,
@@ -6300,12 +6086,9 @@ func TestPipelineBadImage(t *testing.T) {
 }
 
 func TestFixPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestFixPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6368,10 +6151,8 @@ func TestFixPipeline(t *testing.T) {
 }
 
 func TestListJobOutput(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestListJobOutput_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6421,10 +6202,8 @@ func TestListJobOutput(t *testing.T) {
 }
 
 func TestListJobTruncated(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestListJobTruncated_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6483,12 +6262,8 @@ func TestListJobTruncated(t *testing.T) {
 }
 
 func TestPipelineEnvVarAlias(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineEnvVarAlias_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6600,10 +6375,8 @@ func TestMaxQueueSize(t *testing.T) {
 }
 
 func TestHTTPAuth(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, true)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	clientAddr := c.GetAddress()
 	host, _, err := net.SplitHostPort(clientAddr)
@@ -6652,10 +6425,8 @@ func TestHTTPAuth(t *testing.T) {
 
 func TestHTTPGetFile(t *testing.T) {
 	// TODO: Check if this runs in CI.
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, true)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestHTTPGetFile_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6706,11 +6477,8 @@ func TestHTTPGetFile(t *testing.T) {
 }
 
 func TestService(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestService_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6865,11 +6633,8 @@ func TestService(t *testing.T) {
 }
 
 func TestServiceEnvVars(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString(t.Name() + "-input")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6967,12 +6732,8 @@ func TestServiceEnvVars(t *testing.T) {
 }
 
 func TestChunkSpec(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestChunkSpec_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7040,12 +6801,8 @@ func TestChunkSpec(t *testing.T) {
 }
 
 func TestLongDatums(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestLongDatums_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7762,12 +7519,8 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //}
 
 func TestPipelineWithDatumTimeout(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeout_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7885,12 +7638,8 @@ func TestListDatumDuringJob(t *testing.T) {
 	require.Equal(t, 1, len(dis))
 }
 func TestPipelineWithDatumTimeoutControl(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeoutControl_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7934,12 +7683,8 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 }
 
 func TestPipelineWithJobTimeout(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeout_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7992,12 +7737,8 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 }
 
 func TestCommitDescription(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -8083,12 +7824,8 @@ func TestGetFileWithEmptyCommits(t *testing.T) {
 }
 
 func TestPipelineDescription(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineDescription_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8110,12 +7847,8 @@ func TestPipelineDescription(t *testing.T) {
 }
 
 func TestListJobInputCommits(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	aRepo := tu.UniqueString("TestListJobInputCommits_data_a")
 	require.NoError(t, c.CreateRepo(aRepo))
@@ -8210,12 +7943,8 @@ func TestListJobInputCommits(t *testing.T) {
 // TestCancelJob creates a long-running job and then kills it, testing that the
 // user process is killed.
 func TestCancelJob(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Create an input repo
 	repo := tu.UniqueString("TestCancelJob")
@@ -8306,12 +8035,8 @@ func TestCancelJob(t *testing.T) {
 // running (which tests that only one job can run at a time), and then is
 // cancelled.
 func TestCancelManyJobs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Create an input repo
 	repo := tu.UniqueString("TestCancelManyJobs")
@@ -8456,12 +8181,8 @@ func TestCancelManyJobs(t *testing.T) {
 // deletes the job's output commit and cancels the job. This should start
 // another job that processes the original input HEAD commit's parent.
 func TestSquashCommitRunsJob(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Create an input repo
 	repo := tu.UniqueString("TestSquashCommitRunsJob")
@@ -8590,13 +8311,8 @@ func TestSquashCommitRunsJob(t *testing.T) {
 }
 
 func TestEntryPoint(t *testing.T) {
-	// TODO: Check if this runs in CI.
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString(t.Name() + "-data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8636,11 +8352,9 @@ func TestEntryPoint(t *testing.T) {
 }
 
 func TestDeleteSpecRepo(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
 	dataRepo := tu.UniqueString("TestDeleteSpecRepo_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -8711,11 +8425,9 @@ func TestDeleteSpecRepo(t *testing.T) {
 //}
 
 func TestDontReadStdin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
 	dataRepo := tu.UniqueString("TestDontReadStdin_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -8745,12 +8457,8 @@ func TestDontReadStdin(t *testing.T) {
 }
 
 func TestStatsDeleteAll(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8803,12 +8511,9 @@ func TestStatsDeleteAll(t *testing.T) {
 }
 
 func TestRapidUpdatePipelines(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	pipeline := tu.UniqueString(t.Name() + "-pipeline-")
 	cronInput := client.NewCronInput("time", "@every 30s")
 	cronInput.Cron.Overwrite = true
@@ -8904,12 +8609,8 @@ func TestRapidUpdatePipelines(t *testing.T) {
 //}
 
 func TestInspectJob(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	_, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{})
 	require.YesError(t, err)
@@ -9093,12 +8794,8 @@ func TestPipelineVersions(t *testing.T) {
 
 // TestDeferredCross is a repro for https://github.com/pachyderm/pachyderm/v2/issues/5172
 func TestDeferredCross(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// make repo for our dataset
 	dataSet := tu.UniqueString("dataset")
@@ -9176,12 +8873,8 @@ func TestDeferredCross(t *testing.T) {
 }
 
 func TestDeferredProcessing(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestDeferredProcessing_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9237,12 +8930,9 @@ func TestDeferredProcessing(t *testing.T) {
 }
 
 func TestPipelineHistory(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineHistory_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9638,12 +9328,8 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 // TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
 // requests to pachd with no 'pipeline' field doesn't kill pachd
 func TestCreatePipelineErrorNoPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Create input repo
 	dataRepo := tu.UniqueString(t.Name() + "-data")
@@ -9667,12 +9353,8 @@ func TestCreatePipelineErrorNoPipeline(t *testing.T) {
 // TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
 // requests to pachd with no 'transform' or 'pipeline' field doesn't kill pachd
 func TestCreatePipelineError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Create input repo
 	dataRepo := tu.UniqueString(t.Name() + "-data")
@@ -9695,12 +9377,8 @@ func TestCreatePipelineError(t *testing.T) {
 // TestCreatePipelineErrorNoCmd tests that sending a CreatePipeline request to
 // pachd with no 'transform.cmd' field doesn't kill pachd
 func TestCreatePipelineErrorNoCmd(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Create input data
 	dataRepo := tu.UniqueString(t.Name() + "-data")
@@ -9819,12 +9497,8 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 // TestPodPatchUnmarshalling tests the fix for issues #3483, by adding a
 // PodPatch to a pipeline spec and making sure it's applied correctly
 func TestPodPatchUnmarshalling(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Create input data
 	dataRepo := tu.UniqueString(t.Name() + "-data-")
@@ -9898,12 +9572,8 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 }
 
 func TestSecrets(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	b := []byte(
 		`{
@@ -9946,17 +9616,12 @@ func TestSecrets(t *testing.T) {
 
 // Test that an unauthenticated user can't call secrets APIS
 func TestSecretsUnauthenticated(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	// Enable auth on the cluster
-	tu.DeleteAll(t)
-	tu.GetAuthenticatedPachClient(t, auth.RootUser)
-	defer tu.DeleteAll(t)
+	testCtx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Get an unauthenticated client
-	c := tu.GetPachClient(t)
 	c.SetAuthToken("")
 
 	b := []byte(
@@ -10532,12 +10197,8 @@ func TestMalformedPipeline(t *testing.T) {
 //}
 
 func TestDebug(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -10624,11 +10285,9 @@ func TestDebug(t *testing.T) {
 }
 
 func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
+
 	input := tu.UniqueString("in")
 	pipelineA := tu.UniqueString("A")
 	pipelineB := tu.UniqueString("B")
@@ -10680,12 +10339,9 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 }
 
 func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	inputA := tu.UniqueString("A")
 	inputB := tu.UniqueString("B")
 	inputC := tu.UniqueString("C")
@@ -10723,12 +10379,9 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 }
 
 func TestPipelineSpecCommitCleanup(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 	input := tu.UniqueString("in")
 	pipeline := tu.UniqueString("pipeline")
 
