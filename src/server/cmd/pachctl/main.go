@@ -11,6 +11,7 @@ import (
 )
 
 func main() {
+	fmt.print("hahahahahah")
 	// Remove kubernetes client flags from the spf13 flag set
 	// (we link the kubernetes client, so otherwise they're in 'pachctl --help')
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
