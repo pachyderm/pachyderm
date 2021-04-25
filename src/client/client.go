@@ -473,6 +473,7 @@ func NewForTest() (*APIClient, error) {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
+	fmt.Println("plsaaaa")
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
