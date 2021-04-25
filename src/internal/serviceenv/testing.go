@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	dex_storage "github.com/dexidp/dex/storage"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
@@ -23,6 +24,7 @@ type TestServiceEnv struct {
 	KubeClient    *kube.Clientset
 	LokiClient    *loki.Client
 	DBClient      *sqlx.DB
+	DexDB         dex_storage.Storage
 	Ctx           context.Context
 	Logger        *logrus.Logger
 }
@@ -65,4 +67,8 @@ func (s *TestServiceEnv) Close() error {
 
 func (s *TestServiceEnv) GetLogger(service string) log.Logger {
 	return log.NewWithLogger(service, s.Logger)
+}
+
+func (s *TestServiceEnv) GetDexDB() dex_storage.Storage {
+	return s.DexDB
 }

@@ -16,6 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	dex_storage "github.com/dexidp/dex/storage"
+	dex_sql "github.com/dexidp/dex/storage/sql"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
@@ -38,6 +40,7 @@ type ServiceEnv interface {
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
 	ClusterID() string
+	GetDexDB() dex_storage.Storage
 	Context() context.Context
 	Close() error
 	GetLogger(service string) log.Logger
@@ -349,4 +352,23 @@ func (env *NonblockingServiceEnv) GetLogger(service string) log.Logger {
 
 func (env *NonblockingServiceEnv) GetContext() context.Context {
 	return context.Background()
+}
+
+func (env *NonblockingServiceEnv) GetDexDB() dex_storage.Storage {
+	db, err := (&dex_sql.Postgres{
+		NetworkDB: dex_sql.NetworkDB{
+			Database: env.Config().IdentityServerDatabase,
+			User:     env.Config().IdentityServerUser,
+			Password: env.Config().IdentityServerPassword,
+			Host:     env.Config().PostgresServiceHost,
+			Port:     uint16(env.Config().PostgresServicePort),
+		},
+		SSL: dex_sql.SSL{
+			Mode: env.Config().PostgresServiceSSL,
+		},
+	}).Open(logrus.NewEntry(logrus.New()).WithField("source", "identity-db"))
+	if err != nil {
+		panic(fmt.Sprintf("unable to connect to dex db: %v ", err))
+	}
+	return db
 }

@@ -17,7 +17,7 @@ import (
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/v2/src/health"
-	//identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
+	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -36,7 +36,7 @@ import (
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/health"
-	//identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
+	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -46,6 +46,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	dex_sql "github.com/dexidp/dex/storage/sql"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -114,16 +115,18 @@ func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
 
 	require.NoError(t, withDB(func(db *sqlx.DB) error {
 		db.MustExec("CREATE DATABASE " + testId)
+		db.MustExec("CREATE DATABASE " + testId + "_dex")
 		t.Log("database", testId, "successfully created")
 		return nil
 	}))
-	/*t.Cleanup(func() {
+	t.Cleanup(func() {
 		require.NoError(t, withDB(func(db *sqlx.DB) error {
 			db.MustExec("DROP DATABASE " + testId)
+			db.MustExec("DROP DATABASE " + testId + "_dex")
 			t.Log("database", testId, "successfully deleted")
 			return nil
 		}))
-	})*/
+	})
 
 	options := []dbutil.Option{
 		dbutil.WithDBName(testId),
@@ -178,6 +181,20 @@ func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
+	dexDB, err := (&dex_sql.Postgres{
+		NetworkDB: dex_sql.NetworkDB{
+			Database: testId + "_dex",
+			User:     dbutil.DefaultUser,
+			Password: dbutil.DefaultUser,
+			Host:     dbutil.DefaultHost,
+			Port:     dbutil.DefaultPort,
+		},
+		SSL: dex_sql.SSL{
+			Mode: "disable",
+		},
+	}).Open(log.NewEntry(log.New()).WithField("source", "identity-db"))
+	t.Cleanup(func() { dexDB.Close() })
+
 	senv := &serviceenv.TestServiceEnv{
 		Configuration: config,
 		EtcdClient:    etcdClient,
@@ -185,11 +202,13 @@ func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
 		Logger:        logger,
 		KubeClient:    kubeClient,
 		Ctx:           ctx,
+		DexDB:         dexDB,
 	}
 	require.NoError(t, setupServer(senv, clientSocketPath))
 
 	senv.PachClient, err = client.NewFromSocket("unix://" + clientSocketPath)
 	require.NoError(t, err)
+	t.Cleanup(func() { senv.PachClient.DeleteAll() })
 	return &InMemoryTestContext{env: senv}
 }
 
@@ -240,14 +259,6 @@ func setupServer(env serviceenv.ServiceEnv, socketPath string) error {
 		return err
 	}
 
-	// TODO: support Dex
-	/*
-		identityStorageProvider, err := identity_server.NewStorageProvider(env)
-		if err != nil {
-			return err
-		}
-	*/
-
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		var pfsAPIServer pfs_server.APIServer
@@ -295,22 +306,16 @@ func setupServer(env serviceenv.ServiceEnv, socketPath string) error {
 			return err
 		}
 
-		/*
-			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
-					env,
-					identityStorageProvider,
-					false,
-				)
-				if err != nil {
-					return err
-				}
-				identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
-				return nil
-			}); err != nil {
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer := identity_server.NewIdentityServer(env, false)
+			if err != nil {
 				return err
 			}
-		*/
+			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {

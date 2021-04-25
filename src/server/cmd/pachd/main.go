@@ -151,11 +151,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		return err
 	}
 
-	identityStorageProvider, err := identity_server.NewStorageProvider(env)
-	if err != nil {
-		return err
-	}
-
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		var authAPIServer authserver.APIServer
@@ -224,11 +219,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				env,
-				identityStorageProvider,
-				true,
-			)
+			idAPIServer := identity_server.NewIdentityServer(env, true)
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -318,11 +309,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				env,
-				identityStorageProvider,
-				false,
-			)
+			idAPIServer := identity_server.NewIdentityServer(env, false)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -535,11 +522,6 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 
-	identityStorageProvider, err := identity_server.NewStorageProvider(env)
-	if err != nil {
-		return err
-	}
-
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(env)
@@ -601,11 +583,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				env,
-				identityStorageProvider,
-				true,
-			)
+			idAPIServer := identity_server.NewIdentityServer(env, true)
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -737,11 +715,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				env,
-				identityStorageProvider,
-				false,
-			)
+			idAPIServer := identity_server.NewIdentityServer(env, false)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
