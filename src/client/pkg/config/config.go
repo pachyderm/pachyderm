@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -25,6 +26,8 @@ var pachctlConfigPath = filepath.Join("/pachctl", "config.json")
 
 var configMu sync.Mutex
 var value *Config
+
+var pachydermConfig string
 
 func configPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {
@@ -69,6 +72,11 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 	return c.V2.ActiveContext, context, nil
 }
 
+func InitConfig(pachyderm string) {
+	fmt.Println("init pachyderm config")
+	pachydermConfig = pachyderm
+}
+
 // Read loads the Pachyderm config on this machine.
 // If an existing configuration cannot be found, it sets up the defaults. Read
 // returns a nil Config if and only if it returns a non-nil error.
@@ -77,21 +85,14 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 	defer configMu.Unlock()
 
 	if value == nil || ignoreCache {
-		// Read json file
-		p := configPath()
-		if raw, err := ioutil.ReadFile(p); err == nil {
-			err = json.Unmarshal(raw, &value)
+		if pachydermConfig != "" {
+			err := json.Unmarshal([]byte(pachydermConfig), &value)
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not parse config json at %q", p)
 			}
-		} else if errors.Is(err, os.ErrNotExist) {
-			// File doesn't exist, so create a new config
-			log.Debugf("No config detected at %q. Generating new config...", p)
-			value = &Config{}
 		} else {
-			return nil, errors.Wrapf(err, "could not read config at %q", p)
+			return nil, errors.New("pachydermConfig is empty")
 		}
-
 		updated := false
 
 		if value.UserID == "" {
