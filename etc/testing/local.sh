@@ -24,7 +24,8 @@ forward postgres 32228:5432
 forward etcd 32379:2379
 
 export SHARED_DATA_DIR=/tmp/pach/
-mkdir $SHARED_DATA_DIR/logs
+mkdir -p $SHARED_DATA_DIR/logs
+rm -f $SHARED_DATA_DIR/logs/*
 
 # connect to the k8s API in minikube
 export KUBERNETES_PORT_443_TCP_ADDR=$(minikube ip)

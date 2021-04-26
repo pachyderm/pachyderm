@@ -286,25 +286,7 @@ func setupServer(env serviceenv.ServiceEnv, socketPath string) error {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
-				env.Config().Namespace,
-				env.Config().WorkerImage,
-				env.Config().WorkerSidecarImage,
-				env.Config().WorkerImagePullPolicy,
-				env.Config().StorageRoot,
-				env.Config().StorageBackend,
-				env.Config().StorageHostPath,
-				env.Config().CacheRoot,
-				env.Config().IAMRole,
-				env.Config().ImagePullSecret,
-				env.Config().NoExposeDockerSocket,
 				reporter,
-				env.Config().WorkerUsesRoot,
-				env.Config().PPSWorkerPort,
-				env.Config().Port,
-				env.Config().HTTPPort,
-				env.Config().PeerPort,
-				env.Config().GCPercent,
 			)
 			if err != nil {
 				return err
@@ -376,10 +358,7 @@ func setupServer(env serviceenv.ServiceEnv, socketPath string) error {
 			return err
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
-				ID:           "",
-				DeploymentID: env.Config().DeploymentID,
-			}))
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(env))
 			return nil
 		}); err != nil {
 			return err
