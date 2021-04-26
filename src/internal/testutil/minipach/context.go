@@ -217,8 +217,10 @@ func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 	senv.PachClient, err = client.NewFromSocket("unix://" + clientSocketPath)
 	require.NoError(t, err)
 	close(senv.Ready)
-	t.Cleanup(func() { senv.PachClient.DeleteAll() })
-	return &InMemoryTestContext{env: senv}
+
+	testCtx := &InMemoryTestContext{env: senv}
+	t.Cleanup(func() { testCtx.GetAuthenticatedPachClient(t, authclient.RootUser).DeleteAll() })
+	return testCtx
 }
 
 func (c *InMemoryTestContext) GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
