@@ -28,7 +28,7 @@ func (s *TestServiceEnv) Config() *Configuration {
 	return s.Configuration
 }
 
-func (s *TestServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
+func (s *TestServiceEnv) GetPachClient(ctx context.Context, _ ...bool) *client.APIClient {
 	return s.PachClient
 }
 func (s *TestServiceEnv) GetEtcdClient() *etcd.Client {
