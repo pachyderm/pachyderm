@@ -1902,17 +1902,7 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	pachClient := a.env.GetPachClient(ctx)
-	if prevPi, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name); err == nil {
-		if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > enterpriselimits.Parallelism &&
-			(prevPi.ParallelismSpec == nil || prevPi.ParallelismSpec.Constant < pipelineInfo.ParallelismSpec.Constant) {
-			enterprisemetrics.IncEnterpriseFailures()
-			return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
-				enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
-		}
-		// Pipeline already exists so we allow people to update it even if
-		// they're over the limits.
-		return nil
-	}
+
 	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
@@ -1922,6 +1912,21 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *
 		// Enterprise is enabled so anything goes.
 		return nil
 	}
+
+	if prevPi, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name); err == nil &&
+		prevPi.ParallelismSpec != nil &&
+		prevPi.ParallelismSpec.Constant >= pipelineInfo.ParallelismSpec.Constant {
+		// Pipeline already exists so we allow people to update it even if
+		// they're over the limits.
+		return nil
+	}
+
+	if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > enterpriselimits.Parallelism {
+		enterprisemetrics.IncEnterpriseFailures()
+		return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
+			enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+	}
+
 	pipelines, err := a.pipelines.ReadOnly(ctx).Count()
 	if err != nil {
 		return err
@@ -1930,11 +1935,6 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *
 		enterprisemetrics.IncEnterpriseFailures()
 		return errors.Errorf("%s requires an activation key to create more than %d total pipelines (you have %d). %s\n\n%s",
 			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, pipelines, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
-	}
-	if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > enterpriselimits.Parallelism {
-		enterprisemetrics.IncEnterpriseFailures()
-		return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
-			enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 	}
 	return nil
 }
