@@ -1,0 +1,19 @@
+{
+  "pipeline": {
+    "name": "s3_protocol_enabled_pipeline"
+  },
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "labresults",
+      "name": "labresults",
+      "s3": true
+    }
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "stdin": [ "set -x && mkdir -p /tmp/result && aws --endpoint-url $S3_ENDPOINT s3 ls && aws --endpoint-url $S3_ENDPOINT s3 cp s3://labresults/ /tmp/result/ --recursive && aws --endpoint-url $S3_ENDPOINT s3 cp /tmp/result/ s3://out --recursive" ],
+    "image": "pachyderm/ubuntu-with-s3-clients:v0.0.1"
+  },
+  "s3_out": true
+}
