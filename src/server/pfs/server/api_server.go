@@ -472,28 +472,18 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.PutFi
 		if src.Recursive {
 			path := strings.TrimPrefix(url.Object, "/")
 			return 0, objClient.Walk(ctx, path, func(name string) error {
-				r, err := objClient.Reader(ctx, name, 0, 0)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					if err := r.Close(); retErr == nil {
-						retErr = err
-					}
-				}()
-				return uw.Put(filepath.Join(src.Path, strings.TrimPrefix(name, path)), req.Append, r, req.Tag)
+				return obj.WithPipe(func(w io.Writer) error {
+					return objClient.Get(ctx, name, w)
+				}, func(r io.Reader) error {
+					return uw.Put(filepath.Join(src.Path, strings.TrimPrefix(name, path)), req.Append, r, req.Tag)
+				})
 			})
 		}
-		r, err := objClient.Reader(ctx, url.Object, 0, 0)
-		if err != nil {
-			return 0, err
-		}
-		defer func() {
-			if err := r.Close(); retErr == nil {
-				retErr = err
-			}
-		}()
-		return 0, uw.Put(src.Path, req.Append, r, req.Tag)
+		return 0, obj.WithPipe(func(w io.Writer) error {
+			return objClient.Get(ctx, url.Object, w)
+		}, func(r io.Reader) error {
+			return uw.Put(src.Path, req.Append, r, req.Tag)
+		})
 	}
 }
 
@@ -579,19 +569,15 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 		if fi.FileType != pfs.FileType_FILE {
 			return nil
 		}
-		w, err := objClient.Writer(ctx, filepath.Join(parsedURL.Object, fi.File.Path))
-		if err != nil {
+		if err := obj.WithPipe(func(w io.Writer) error {
+			return file.Content(w)
+		}, func(r io.Reader) error {
+			return objClient.Put(ctx, filepath.Join(parsedURL.Object, fi.File.Path), r)
+		}); err != nil {
 			return err
 		}
-		defer func() {
-			if err := w.Close(); retErr == nil {
-				retErr = err
-			}
-			if retErr == nil {
-				bytesWritten += int64(fi.SizeBytes)
-			}
-		}()
-		return file.Content(w)
+		bytesWritten += int64(fi.SizeBytes)
+		return nil
 	})
 	return bytesWritten, err
 }

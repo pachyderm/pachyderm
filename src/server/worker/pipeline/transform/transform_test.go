@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"testing"
 	"time"
@@ -315,16 +314,14 @@ func TestTransformPipeline(suite *testing.T) {
 		for _, file := range files {
 			hdr, err := file.Header()
 			require.NoError(t, err)
-			r, err := objC.Reader(context.Background(), hdr.Name, 0, 0)
-			require.NoError(t, err)
-			defer func() {
-				require.NoError(t, r.Close())
-			}()
+
 			buf1 := &bytes.Buffer{}
 			require.NoError(t, file.Content(buf1))
+
 			buf2 := &bytes.Buffer{}
-			_, err = io.Copy(buf2, r)
+			err = objC.Get(context.Background(), hdr.Name, buf2)
 			require.NoError(t, err)
+
 			require.True(t, bytes.Equal(buf1.Bytes(), buf2.Bytes()))
 		}
 	})
