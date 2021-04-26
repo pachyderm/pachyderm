@@ -3,6 +3,7 @@
 set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# shellcheck source=./../govars.sh
 source "${SCRIPT_DIR}/../govars.sh"
 
 make VERSION_ADDITIONAL="$VERSION_ADDITIONAL" install-clean

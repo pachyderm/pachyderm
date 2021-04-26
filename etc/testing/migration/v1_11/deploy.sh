@@ -2,6 +2,7 @@
 # deploy.sh deploys a pachyderm 1.11.9 cluster (the first release with auth extract/restore)
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# shellcheck source=./../../../govars.sh
 source "${SCRIPT_DIR}/../../../govars.sh"
 
 set -x
