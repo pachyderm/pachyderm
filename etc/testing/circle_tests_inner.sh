@@ -17,6 +17,8 @@ PATH="${GOPATH}/bin:${PATH}"
 export PATH
 TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
 export TESTFLAGS
+SHELL="/bin/bash -o pipefail"
+export SHELL
 
 # Some tests (e.g. TestMigrateFrom1_7) expect
 # $GOPATH/src/github.com/pachyderm/pachyderm to point to .
