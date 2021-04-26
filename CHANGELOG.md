@@ -1,6 +1,12 @@
 
 # Changelog
 
+## 1.13.1
+- Fixes a bug that would fail enterprise check when autoscaling is enabled (#6008)
+- Changes to increase the maximum size of an object that can be uploaded in a single request to the s3 gateway. This is the recommended workaround for issues with multipart uploads to output repos (#6005)
+- Fixes a bug that would cause high scheduling latency for goroutines (#5973)
+- Fixes a bug that would limit the number of writes handled in S3 gateway (#5956)
+
 ## 1.13.0
 Deprecation notice: The following pachctl deploy flags are deprecated and will be removed in a future release. Deprecated flags: dash-image, dashboard-only, no-dashboard, expose-object-api, storage-v2, shards, no-rbac, no-guaranteed, static-etcd-volume, disable-ssl, max-upload-parts, no-verify-ssl, obj-log-options, part-size, retries, reverse, timeout, upload-acl
 
