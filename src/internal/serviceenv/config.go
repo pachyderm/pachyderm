@@ -30,6 +30,8 @@ type GlobalConfiguration struct {
 	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
 	PostgresDBName      string `env:"POSTGRES_DATABASE_NAME"`
+	PachdServiceHost    string `env:"PACHD_SERVICE_HOST"`
+	PachdServicePort    string `env:"PACHD_SERVICE_PORT"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
 	// Because both pachd and worker need to know the spec commit (the worker so
@@ -48,8 +50,6 @@ type PachdFullConfiguration struct {
 // PachdSpecificConfiguration contains the pachd specific configuration.
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
-	PachdServiceHost           string `env:"PACHD_SERVICE_HOST"`
-	PachdServicePort           string `env:"PACHD_SERVICE_PORT"`
 	NumShards                  uint64 `env:"NUM_SHARDS,default=32"`
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
