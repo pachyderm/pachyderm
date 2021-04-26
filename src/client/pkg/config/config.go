@@ -88,7 +88,7 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		if pachydermConfig != "" {
 			err := json.Unmarshal([]byte(pachydermConfig), &value)
 			if err != nil {
-				return nil, errors.Wrapf(err, "could not parse config json at %q", p)
+				return nil, errors.Wrapf(err, "could not parse config json at %q")
 			}
 		} else {
 			return nil, errors.New("pachydermConfig is empty")
