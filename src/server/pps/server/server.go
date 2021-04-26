@@ -85,5 +85,5 @@ func NewSidecarAPIServer(
 		peerPort:       peerPort,
 	}
 	go apiServer.ServeSidecarS3G()
-	return apiServer, nil
+	return newSidecarAPIServer(apiServer, env), nil
 }

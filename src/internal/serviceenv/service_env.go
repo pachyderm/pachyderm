@@ -5,6 +5,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -31,7 +32,7 @@ const clusterIDKey = "cluster-id"
 // separate goroutines.
 type ServiceEnv interface {
 	Config() *Configuration
-	GetPachClient(ctx context.Context) *client.APIClient
+	GetPachClient(ctx context.Context, service ...bool) *client.APIClient
 	GetEtcdClient() *etcd.Client
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
@@ -59,6 +60,14 @@ type NonblockingServiceEnv struct {
 	// and pachd/main.go couldn't start the pachd server until GetEtcdClient() had
 	// returned, then pachd would be unable to start)
 	pachEg errgroup.Group
+
+	// servicePachClient is the "template" service pach client (client connected through the pachd service)
+	// other clients returned by this library are based on. It contains the original GRPC client
+	// connection and has no ctx and therefore no auth credentials or cancellation.
+	servicePachClient *client.APIClient
+	// servicePachEg coordinates the initialization of servicePachClient (see pachdEg)
+	servicePachEg   errgroup.Group
+	servicePachOnce sync.Once
 
 	// etcdAddress is the domain name or hostport where etcd can be reached
 	etcdAddress string
@@ -176,10 +185,22 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
+func (env *NonblockingServiceEnv) initServicePachClient() error {
+	// Initialize service pach client
+	return backoff.Retry(func() error {
+		var err error
+		env.servicePachClient, err = client.NewFromAddress(net.JoinHostPort(env.config.PachdServiceHost, env.config.PachdServicePort))
+		if err != nil {
+			return errors.Wrapf(err, "failed to initialize service pach client")
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
 func (env *NonblockingServiceEnv) initEtcdClient() error {
 	// validate argument
 	if env.etcdAddress == "" {
-		return errors.New("cannot initialize pach client with empty pach address")
+		return errors.New("cannot initialize etcd client with empty etcd address")
 	}
 	// Initialize etcd
 	return backoff.Retry(func() error {
@@ -258,7 +279,17 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 //
 // (Warning) Do not call this function during server setup unless it is in a goroutine.
 // A Pachyderm client is not available until the server has been setup.
-func (env *NonblockingServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
+func (env *NonblockingServiceEnv) GetPachClient(ctx context.Context, service ...bool) *client.APIClient {
+	if len(service) > 0 && service[0] {
+		// Initialize service pach client lazily since it will not be used in non-master worker environments.
+		env.servicePachOnce.Do(func() {
+			env.servicePachEg.Go(env.initServicePachClient)
+		})
+		if err := env.servicePachEg.Wait(); err != nil {
+			panic(err) // If env can't connect, there's no sensible way to recover
+		}
+		return env.servicePachClient.WithCtx(ctx)
+	}
 	if err := env.pachEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}

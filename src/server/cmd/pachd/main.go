@@ -404,7 +404,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	txnEnv := &txnenv.TransactionEnv{}
 	var pfsAPIServer pfs_server.APIServer
 	if err := logGRPCServerSetup("PFS API", func() error {
-		pfsAPIServer, err = pfs_server.NewAPIServer(
+		pfsAPIServer, err = pfs_server.NewSidecarAPIServer(
 			env,
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),

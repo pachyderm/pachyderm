@@ -20,3 +20,12 @@ func NewAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 	}
 	return newValidatedAPIServer(a, env), nil
 }
+
+// NewSidecarAPIServer creates a sidecar APIServer.
+func NewSidecarAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (APIServer, error) {
+	a, err := NewAPIServer(env, txnEnv, etcdPrefix)
+	if err != nil {
+		return nil, err
+	}
+	return newSidecarAPIServer(a, env), nil
+}

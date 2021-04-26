@@ -48,6 +48,8 @@ type PachdFullConfiguration struct {
 // PachdSpecificConfiguration contains the pachd specific configuration.
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
+	PachdServiceHost           string `env:"PACHD_SERVICE_HOST"`
+	PachdServicePort           string `env:"PACHD_SERVICE_PORT"`
 	NumShards                  uint64 `env:"NUM_SHARDS,default=32"`
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
