@@ -414,8 +414,7 @@ func TestCannotRemoveRootAdmin(t *testing.T) {
 }
 
 func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
-	t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	ctx := minipach.GetTestContext(t, true)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, auth.RootUser)
@@ -505,10 +504,9 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
-	t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	minipach.GetTestContext(t, true)
+	ctx := minipach.GetTestContext(t, true)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, rootClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// alice creates a repo
 	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
@@ -830,7 +828,6 @@ func TestRobotUserAdmin(t *testing.T) {
 // TestTokenRevoke tests that an admin can revoke that token and it no longer works
 func TestTokenRevoke(t *testing.T) {
 	ctx := minipach.GetTestContext(t, false)
-
 	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Create repo (so alice has something to list)
@@ -863,11 +860,8 @@ func TestTokenRevoke(t *testing.T) {
 }
 
 func TestRevokeTokensForUser(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	ctx := minipach.GetTestContext(t, false)
+	rootClient := ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	contains := func(tokens []*auth.TokenInfo, hashedToken string) bool {
 		for _, v := range tokens {
@@ -877,8 +871,6 @@ func TestRevokeTokensForUser(t *testing.T) {
 		}
 		return false
 	}
-
-	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Create repo (so alice has something to list)
 	repo := tu.UniqueString("TestTokenRevoke")
@@ -914,10 +906,10 @@ func TestRevokeTokensForUser(t *testing.T) {
 	require.True(t, contains(preRevokeTokens, auth.HashToken(aliceTokenB.Token)), "Alice's Token B should be extracted")
 	require.True(t, contains(preRevokeTokens, auth.HashToken(bobToken.Token)), "Bob's Token should be extracted")
 
-	aliceClient := tu.GetUnauthenticatedPachClient(t)
+	aliceClient := ctx.GetUnauthenticatedPachClient(t)
 	aliceClient.SetAuthToken(aliceTokenA.Token)
 
-	bobClient := tu.GetUnauthenticatedPachClient(t)
+	bobClient := ctx.GetUnauthenticatedPachClient(t)
 	bobClient.SetAuthToken(bobToken.Token)
 
 	// delete all tokens for user Alice
@@ -950,8 +942,7 @@ func TestRevokeTokensForUser(t *testing.T) {
 // is used in the deletion process, DeletePipeline (and therefore DeleteAll)
 // fails.
 func TestDeleteAllAfterDeactivate(t *testing.T) {
-	t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	ctx := minipach.GetTestContext(t, true)
+	ctx := minipach.GetTestContext(t, false)
 
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, auth.RootUser)
@@ -1016,9 +1007,9 @@ func TestDeleteRCInStandby(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
-	minipach.GetTestContext(t, true)
+	ctx := minipach.GetTestContext(t, false)
 	alice := robot(tu.UniqueString("alice"))
-	c := tu.GetAuthenticatedPachClient(t, alice)
+	c := ctx.GetAuthenticatedPachClient(t, alice)
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
@@ -1097,9 +1088,9 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
-	minipach.GetTestContext(t, true)
+	ctx := minipach.GetTestContext(t, false)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := ctx.GetAuthenticatedPachClient(t, alice)
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
@@ -1204,13 +1195,10 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	// TODO: Reenable when finishing job state is transactional.
 	t.Skip("Job state does not get finished in a transaction, so stats commit is left open")
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	ctx := minipach.GetTestContext(t, false)
+
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, rootClient := ctx.GetAuthenticatedPachClient(t, alice), ctx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())

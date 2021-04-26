@@ -93,13 +93,17 @@ func (*RemoteTestContext) GetAuthenticatedPachClient(tb testing.TB, subject stri
 
 type RemoteTestContext struct{}
 
-func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
+func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 	t.Helper()
 
 	if os.Getenv("PACH_INMEMORY") == "" {
 		testutil.DeleteAll(t)
 		t.Cleanup(func() { testutil.DeleteAll(t) })
 		return &RemoteTestContext{}
+	}
+
+	if requiresRealDeployment {
+		t.Skip("Skipping for in-memory tests")
 	}
 
 	if ct, ok := t.(*testing.T); ok {
@@ -176,7 +180,7 @@ func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
 	require.NoError(t, err)
 
 	logger := log.StandardLogger()
-	f, err := os.OpenFile(path.Join(dataDir, "pachd.log"), os.O_WRONLY|os.O_CREATE, 0755)
+	f, err := os.OpenFile(path.Join(sharedVolume, "logs", t.Name()), os.O_WRONLY|os.O_CREATE, 0755)
 	require.NoError(t, err)
 	logger.SetOutput(f)
 

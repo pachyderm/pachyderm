@@ -78,7 +78,12 @@ jobs:
             # NB: kubeconfig is used by testctl-ssh.sh, not kubectl. It has
             # address and private key for ssh embedded in it.
             export KUBECONFIG=$(pwd)/kubeconfig
+            etc/testing/testctl-rsync.sh /tmp/pach/logs /tmp/logs
             etc/testing/testctl-ssh.sh -- ./project/pachyderm/etc/testing/kube_debug.sh
+  
+      - store_artifacts:
+          path: /tmp/logs
+          destination: logs
 
       ## retry on failure
       #- run:

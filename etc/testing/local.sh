@@ -19,13 +19,12 @@ forward() {
 # make sure we're testing against minikube
 kubectl config use-context minikube
 
-kubectl delete deployment pachd
-
 # port-forward postgres and etcd
 forward postgres 32228:5432
 forward etcd 32379:2379
 
 export SHARED_DATA_DIR=/tmp/pach/
+mkdir $SHARED_DATA_DIR/logs
 
 # connect to the k8s API in minikube
 export KUBERNETES_PORT_443_TCP_ADDR=$(minikube ip)
