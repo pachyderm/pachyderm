@@ -3207,7 +3207,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 }
 
 func TestPipelineEnv(t *testing.T) {
-	testCtx := minipach.GetTestContext(t, false)
+	testCtx := minipach.GetTestContext(t, true)
 	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// make a secret to reference
@@ -4151,9 +4151,8 @@ func TestDatumStatusRestart(t *testing.T) {
 // and etcd default resource requests. This prevents them from overloading
 // nodes and getting evicted, which can slow down or break a cluster.
 func TestSystemResourceRequests(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, true)
+
 	kubeClient := tu.GetKubeClient(t)
 
 	// Expected resource requests for pachyderm system pods:
@@ -9228,11 +9227,8 @@ func TestPipelineHistory(t *testing.T) {
 // pipelines can be created (i.e. that the PPS master doesn't crashloop due to
 // the missing output repo).
 func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	testCtx := minipach.GetTestContext(t, true)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
