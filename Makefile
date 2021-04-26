@@ -321,7 +321,6 @@ test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-auth:
-	yes | $(PACHCTL) delete all
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-identity:
