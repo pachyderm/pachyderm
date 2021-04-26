@@ -17,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -179,6 +180,19 @@ func (env *ServiceEnv) initKubeClient() error {
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
+func (env *ServiceEnv) GetRunningContainerImage() (string, error) {
+	podname := "blah"   //get from downward API
+	namespace := "blah" //get namespade from downward API
+	currentPod, err := env.GetKubeClient().CoreV1().Pods(namespace).Get(podname, metav1.GetOptions{})
+	if err != nil {
+		return "", errors.Wrap(err, "currentPod")
+	}
+	container := currentPod.Spec.Containers[0] //TODO Ensure this is the pachd pod
+
+	return container.Image, nil //TODO sprintf change to worker image from pachd image
+
 }
 
 // GetPachClient returns a pachd client with the same authentication

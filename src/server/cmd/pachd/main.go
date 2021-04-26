@@ -125,6 +125,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if env.EtcdPrefix == "" {
 		env.EtcdPrefix = col.DefaultPrefix
 	}
+
 	clusterID, err := getClusterID(env.GetEtcdClient())
 	if err != nil {
 		return errors.Wrapf(err, "getClusterID")
@@ -329,6 +330,8 @@ func doFullMode(config interface{}) (retErr error) {
 		env.NumShards,
 		env.Namespace,
 	)
+	currentRunningImage, err := env.GetRunningContainerImage()
+	workerImage := "blah" //TODO turn current running image into worker image
 	go func() {
 		if err := sharder.AssignRoles(address); err != nil {
 			log.Printf("error from sharder.AssignRoles: %s", grpcutil.ScrubGRPC(err))
@@ -407,8 +410,8 @@ func doFullMode(config interface{}) (retErr error) {
 				txnEnv,
 				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 				kubeNamespace,
-				env.WorkerImage,
-				env.WorkerSidecarImage,
+				workerImage,
+				currentRunningImage, //TODO double check sidecar is pachd image
 				env.WorkerImagePullPolicy,
 				env.StorageRoot,
 				env.StorageBackend,
@@ -577,8 +580,8 @@ func doFullMode(config interface{}) (retErr error) {
 				txnEnv,
 				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 				kubeNamespace,
-				env.WorkerImage,
-				env.WorkerSidecarImage,
+				workerImage,
+				currentRunningImage, //TODO double check if this is pachd
 				env.WorkerImagePullPolicy,
 				env.StorageRoot,
 				env.StorageBackend,
