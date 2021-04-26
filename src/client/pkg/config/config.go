@@ -126,10 +126,10 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		}
 
 		if updated && !readOnly {
-			log.Debugf("Rewriting config at %q.", p)
+			log.Debugf("Rewriting config at %q.")
 
 			if err := value.Write(); err != nil {
-				return nil, errors.Wrapf(err, "could not rewrite config at %q", p)
+				return nil, errors.Wrapf(err, "could not rewrite config at %q")
 			}
 		}
 	}
