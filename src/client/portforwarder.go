@@ -17,9 +17,12 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // enables support for configs with auth
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 )
+
+var kubeConfigStr = ``
 
 // PortForwarder handles proxying local traffic to a kubernetes pod
 type PortForwarder struct {
@@ -33,6 +36,10 @@ type PortForwarder struct {
 	shutdown      bool
 }
 
+func PassKubeConfig(kubeConfig string) {
+	kubeConfigStr = kubeConfig
+}
+
 // NewPortForwarder creates a new port forwarder
 func NewPortForwarder(context *config.Context, namespace string) (*PortForwarder, error) {
 	if namespace == "" {
@@ -43,7 +50,7 @@ func NewPortForwarder(context *config.Context, namespace string) (*PortForwarder
 	}
 
 	kubeConfig := config.KubeConfig(context)
-
+	clientcmd.InitLoader(kubeConfigStr)
 	kubeClientConfig, err := kubeConfig.ClientConfig()
 	if err != nil {
 		return nil, err
