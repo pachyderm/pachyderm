@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/minipach"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -14,11 +15,8 @@ import (
 // - No dash in pipeline name
 // - Input must have branch and glob
 func TestInvalidCreatePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
@@ -62,11 +60,9 @@ func TestInvalidCreatePipeline(t *testing.T) {
 
 // Make sure that pipeline validation checks that all inputs exist
 func TestPipelineThatUseNonexistentInputs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
+
 	pipelineName := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreatePipeline(
 		pipelineName,
@@ -84,11 +80,8 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 
 // Make sure that pipeline validation checks that all inputs exist
 func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -121,11 +114,8 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 }
 
 func TestPipelineInvalidParallelism(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// Set up repo
 	dataRepo := tu.UniqueString("TestPipelineInvalidParallelism")

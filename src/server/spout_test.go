@@ -16,14 +16,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/minipach"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 func TestSpoutPachctl(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	testCtx := minipach.GetTestContext(t, false)
 
 	// helper functions for SpoutPachctl
 	putFileCommand := func(branch, flags, file string) string {
@@ -34,9 +33,7 @@ func TestSpoutPachctl(t *testing.T) {
 	}
 
 	t.Run("SpoutAuth", func(t *testing.T) {
-		tu.DeleteAll(t)
-		defer tu.DeleteAll(t)
-		c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+		c := testCtx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 		dataRepo := tu.UniqueString("TestSpoutAuth_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
@@ -93,8 +90,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 	})
 	t.Run("SpoutAuthEnabledAfter", func(t *testing.T) {
-		tu.DeleteAll(t)
-		c := tu.GetPachClient(t)
+		c := testCtx.GetUnauthenticatedPachClient(t)
 
 		dataRepo := tu.UniqueString("TestSpoutAuthEnabledAfter_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
@@ -131,8 +127,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 
 		// now let's authenticate, and make sure the spout fails due to a lack of authorization
-		c = tu.GetAuthenticatedPachClient(t, auth.RootUser)
-		defer tu.DeleteAll(t)
+		c = testCtx.GetAuthenticatedPachClient(t, auth.RootUser)
 
 		// make sure we can delete commits
 		err = c.SquashCommit(pipeline, "master")
@@ -183,9 +178,8 @@ func TestSpoutPachctl(t *testing.T) {
 }
 
 func testSpout(t *testing.T, usePachctl bool) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	c := tu.GetPachClient(t)
+	testCtx := minipach.GetTestContext(t, false)
+	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	putFileCommand := func(branch, flags, file string) string {
 		if usePachctl {

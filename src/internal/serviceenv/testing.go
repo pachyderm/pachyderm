@@ -27,6 +27,7 @@ type TestServiceEnv struct {
 	DexDB         dex_storage.Storage
 	Ctx           context.Context
 	Logger        *logrus.Logger
+	Ready         chan interface{}
 }
 
 func (s *TestServiceEnv) Config() *Configuration {
@@ -34,6 +35,7 @@ func (s *TestServiceEnv) Config() *Configuration {
 }
 
 func (s *TestServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
+	<-s.Ready
 	return s.PachClient.WithCtx(ctx)
 }
 func (s *TestServiceEnv) GetEtcdClient() *etcd.Client {

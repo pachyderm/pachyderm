@@ -206,11 +206,13 @@ func GetTestContext(t testing.TB, runsInMemory ...bool) TestContext {
 		KubeClient:    kubeClient,
 		Ctx:           ctx,
 		DexDB:         dexDB,
+		Ready:         make(chan interface{}),
 	}
 	require.NoError(t, setupServer(senv, clientSocketPath))
 
 	senv.PachClient, err = client.NewFromSocket("unix://" + clientSocketPath)
 	require.NoError(t, err)
+	close(senv.Ready)
 	t.Cleanup(func() { senv.PachClient.DeleteAll() })
 	return &InMemoryTestContext{env: senv}
 }
