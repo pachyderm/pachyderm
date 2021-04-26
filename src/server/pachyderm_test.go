@@ -3720,7 +3720,7 @@ func TestGetLogsWithStats(t *testing.T) {
 }
 
 func testGetLogs(t *testing.T, enableStats bool) {
-	testCtx := minipach.GetTestContext(t, false)
+	testCtx := minipach.GetTestContext(t, true)
 	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	iter := c.GetLogs("", "", nil, "", false, false, 0)
@@ -3926,7 +3926,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 }
 
 func TestManyLogs(t *testing.T) {
-	testCtx := minipach.GetTestContext(t, false)
+	testCtx := minipach.GetTestContext(t, true)
 	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	// create repos
@@ -3975,7 +3975,7 @@ func TestManyLogs(t *testing.T) {
 }
 
 func TestLokiLogs(t *testing.T) {
-	testCtx := minipach.GetTestContext(t, false)
+	testCtx := minipach.GetTestContext(t, true)
 	c := testCtx.GetUnauthenticatedPachClient(t)
 
 	minipach.ActivateEnterprise(t, c)
