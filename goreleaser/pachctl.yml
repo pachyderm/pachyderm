@@ -59,6 +59,7 @@ nfpms:
       amd64: amd64
     vendor: Pachyderm
     homepage: https://www.pachyderm.com/
+    maintainer: Pachyderm <info@pachyderm.io>
     description: "Reproducible data science"
     formats:
       - deb
