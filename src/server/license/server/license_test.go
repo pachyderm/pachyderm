@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -422,9 +421,5 @@ func TestListUserClusters(t *testing.T) {
 	var userClustersResp *license.ListUserClustersResponse
 	userClustersResp, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
 	require.NoError(t, err)
-
-	for _, v := range userClustersResp.Clusters {
-		fmt.Printf("User Cluster::: %v\n", v)
-	}
 	require.Equal(t, 1, len(userClustersResp.Clusters))
 }
