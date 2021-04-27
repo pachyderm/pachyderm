@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -30,6 +31,9 @@ import (
 )
 
 const (
+	// oidc etcd object prefix
+	oidcAuthnPrefix = "/oidc-authns"
+
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
 
@@ -78,7 +82,7 @@ type apiServer struct {
 	// collection containing the auth config (under the key configKey)
 	authConfig col.PostgresCollection
 	// oidcStates  contains the set of OIDC nonces for requests that are in progress
-	oidcStates col.PostgresCollection
+	oidcStates col.EtcdCollection
 
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
@@ -131,6 +135,15 @@ func NewAuthServer(
 	watchesEnabled bool,
 ) (APIServer, error) {
 
+	oidcStates := col.NewEtcdCollection(
+		env.GetEtcdClient(),
+		path.Join(oidcAuthnPrefix),
+		nil,
+		&auth.SessionInfo{},
+		nil,
+		nil,
+	)
+
 	s := &apiServer{
 		env:            env,
 		txnEnv:         txnEnv,
@@ -139,7 +152,7 @@ func NewAuthServer(
 		roleBindings:   roleBindingsCollection(env.GetDBClient(), env.GetPostgresListener()),
 		members:        membersCollection(env.GetDBClient(), env.GetPostgresListener()),
 		groups:         groupsCollection(env.GetDBClient(), env.GetPostgresListener()),
-		oidcStates:     oidcStatesCollection(env.GetDBClient(), env.GetPostgresListener()),
+		oidcStates:     oidcStates,
 		public:         public,
 		watchesEnabled: watchesEnabled,
 	}
@@ -288,8 +301,8 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 
 	// Store a new Pachyderm token (as the caller is authenticating) and
 	// initialize the root user as a cluster admin
-	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		roleBindings := a.roleBindings.ReadWrite(sqlTx)
+	if err := a.txnEnv.WithWriteContext(ctx, func(txCtx *txnenv.TransactionContext) error {
+		roleBindings := a.roleBindings.ReadWrite(txCtx.SqlTx)
 		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
 				auth.RootUser: &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
@@ -297,8 +310,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		}); err != nil {
 			return err
 		}
-		// TODO(acohen4): workout the transactionality
-		return a.insertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser)
+		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
 		return nil, err
 	}
@@ -324,7 +336,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 
 	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		a.roleBindings.ReadWrite(sqlTx).DeleteAll()
-		a.deleteAllAuthTokens(ctx) // need to merge with transaction changes
+		a.deleteAllAuthTokens(ctx, sqlTx)
 		a.members.ReadWrite(sqlTx).DeleteAll()
 		a.groups.ReadWrite(sqlTx).DeleteAll()
 		a.authConfig.ReadWrite(sqlTx).DeleteAll()
@@ -402,11 +414,11 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		username := auth.UserPrefix + email
 
 		// Generate a new Pachyderm token and write it
-		token, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
+		t, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
-		pachToken = token
+		pachToken = t
 
 	case req.IdToken != "":
 		// Determine caller's Pachyderm/OIDC user info (email)
@@ -824,7 +836,6 @@ func (a *apiServer) GetRoleBindingInTransaction(
 		return nil, err
 	}
 
-	// Read role bindings from etcd
 	var roleBindings auth.RoleBinding
 	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(resourceKey(req.Resource), &roleBindings); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
@@ -891,8 +902,7 @@ func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.Transaction
 	}
 
 	token := uuid.NewWithoutDashes()
-	// TODO(acohen4): look at transaction context
-	if err := a.insertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline); err != nil {
+	if err := a.insertAuthTokenNoTTLInTransaction(txnCtx, auth.HashToken(token), auth.PipelinePrefix+pipeline); err != nil {
 		return "", errors.Wrapf(err, "error storing token")
 	} else {
 		return token, nil
@@ -932,7 +942,7 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionConte
 		return nil, err
 	}
 
-	if err := a.deleteAuthToken(txnCtx.ClientContext, auth.HashToken(req.Token)); err != nil {
+	if err := a.deleteAuthToken(txnCtx.ClientContext, txnCtx.SqlTx, auth.HashToken(req.Token)); err != nil {
 		return nil, err
 	}
 	return &auth.RevokeAuthTokenResponse{}, nil
@@ -1192,7 +1202,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		}, nil
 	}
 
-	// Lookup the token
 	tokenInfo, lookupErr := a.lookupAuthTokenInfo(ctx, auth.HashToken(token))
 	if lookupErr != nil {
 		if col.IsErrNotFound(lookupErr) {
@@ -1200,11 +1209,10 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		}
 		return nil, lookupErr
 	}
+
 	// verify token hasn't expired
-	if tokenInfo.Expiration != nil {
-		if time.Now().After(*tokenInfo.Expiration) {
-			return nil, auth.ErrExpiredToken
-		}
+	if tokenInfo.Expiration != nil && time.Now().After(*tokenInfo.Expiration) {
+		return nil, auth.ErrExpiredToken
 	}
 	return tokenInfo, nil
 }
@@ -1419,7 +1427,6 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
-	// Register the pachd in the database
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
 		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
@@ -1434,8 +1441,14 @@ func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subje
 }
 
 func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
-	// Register the pachd in the database
-	if _, err := a.env.GetDBClient().ExecContext(ctx,
+	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		err := a.insertAuthTokenNoTTLInTransaction(txnCtx, tokenHash, subject)
+		return err
+	})
+}
+
+func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txnenv.TransactionContext, tokenHash string, subject string) error {
+	if _, err := txnCtx.SqlTx.ExecContext(txnCtx.ClientContext,
 		`INSERT INTO auth.auth_tokens (token_hash, subject) 
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
 		if pgErr, ok := err.(*pq.Error); ok {
@@ -1448,16 +1461,15 @@ func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, 
 	return nil
 }
 
-// TODO(acohen4): Transactionify
-func (a *apiServer) deleteAllAuthTokens(ctx context.Context) error {
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens`); err != nil {
+func (a *apiServer) deleteAllAuthTokens(ctx context.Context, sqlTx *sqlx.Tx) error {
+	if _, err := sqlTx.ExecContext(ctx, `DELETE FROM auth.auth_tokens`); err != nil {
 		return errors.Wrapf(err, "error deleting all auth tokens")
 	}
 	return nil
 }
 
-func (a *apiServer) deleteAuthToken(ctx context.Context, tokenHash string) error {
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
+func (a *apiServer) deleteAuthToken(ctx context.Context, sqlTx *sqlx.Tx, tokenHash string) error {
+	if _, err := sqlTx.ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
 		return errors.Wrapf(err, "error deleting token")
 	}
 	return nil

@@ -71,14 +71,3 @@ func groupsCollection(db *sqlx.DB, listener *col.PostgresListener) col.PostgresC
 		nil,
 	)
 }
-
-func oidcStatesCollection(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
-	return col.NewPostgresCollection(
-		oidcStatesCollectionName,
-		db,
-		listener,
-		&auth.SessionInfo{},
-		nil,
-		nil,
-	)
-}

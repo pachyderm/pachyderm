@@ -380,7 +380,7 @@ func WhoamiCmd() *cobra.Command {
 			}
 			fmt.Printf("You are \"%s\"\n", resp.Username)
 			if resp.Expiration != nil {
-				fmt.Printf("session expires: %v\n", *resp.Expiration)
+				fmt.Printf("session expires: %v\n", resp.Expiration.Format(time.RFC822))
 			}
 			return nil
 		}),

@@ -1887,6 +1887,7 @@ func (m *GetOIDCLoginResponse) GetState() string {
 	return ""
 }
 
+// Robot token API (TODO: add access controls)
 type GetRobotTokenRequest struct {
 	// The returned token will allow the caller to access resources as this
 	// robot user
