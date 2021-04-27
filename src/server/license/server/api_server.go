@@ -185,7 +185,12 @@ func (a *apiServer) validateClusterConfig(ctx context.Context, address string) e
 	}
 
 	// Attempt to connect to the pachd
-	pachClient, err := client.NewFromAddress(pachdAddress.Hostname(), options...)
+	var pachClient *client.APIClient
+	if pachdAddress.UnixSocket != "" {
+		pachClient, err = client.NewFromSocket(pachdAddress.UnixSocket)
+	} else {
+		pachClient, err = client.NewFromAddress(pachdAddress.Hostname(), options...)
+	}
 	if err != nil {
 		return errors.Wrapf(err, "unable to create client for %q", address)
 	}

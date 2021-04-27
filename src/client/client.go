@@ -155,6 +155,24 @@ type clientSettings struct {
 	streamInterceptors   []grpc.StreamClientInterceptor
 }
 
+// NewFromSocket constructs a new APIClient on a unix socket
+func NewFromSocket(addr string) (*APIClient, error) {
+	// Apply creation options
+	settings := clientSettings{
+		maxConcurrentStreams: DefaultMaxConcurrentStreams,
+		dialTimeout:          DefaultDialTimeout,
+	}
+	c := &APIClient{
+		addr:         addr,
+		limiter:      limit.New(settings.maxConcurrentStreams),
+		gzipCompress: settings.gzipCompress,
+	}
+	if err := c.connect(settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 // NewFromAddress constructs a new APIClient for the server at addr.
 func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 	// Validate address
@@ -766,7 +784,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	addr := c.addr
-	if !strings.HasPrefix(addr, "dns:///") {
+	if !strings.HasPrefix(addr, "dns:///") && !strings.HasPrefix(addr, "unix://") {
 		addr = "dns:///" + c.addr
 	}
 
