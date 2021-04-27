@@ -9,6 +9,7 @@ import {SubscriptionClient} from 'subscriptions-transport-ws/dist/client';
 
 import {errorLink} from '@dash-frontend/apollo/links/errorLink';
 import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
+import {Node, Link, Dag} from '@graphqlTypes';
 
 import {contextLink} from './links/contextLink';
 import {splitLink} from './links/splitLink';
@@ -19,7 +20,33 @@ const createApolloClient = (
   client: ApolloClient<NormalizedCacheObject>;
   webSocketClient: SubscriptionClient;
 } => {
-  const cache = new InMemoryCache();
+  const cache = new InMemoryCache({
+    typePolicies: {
+      Subscription: {
+        fields: {
+          dags: {
+            merge(_existing: Dag[], incoming: Dag[]) {
+              return incoming;
+            },
+          },
+        },
+      },
+      Dag: {
+        fields: {
+          nodes: {
+            merge(_existing: Node[], incoming: Node[]) {
+              return incoming;
+            },
+          },
+          links: {
+            merge(_existing: Link[], incoming: Link[]) {
+              return incoming;
+            },
+          },
+        },
+      },
+    },
+  });
   const {webSocketClient, split} = splitLink();
 
   const link = ApolloLink.from([contextLink(), errorLink(), split]);

@@ -1,0 +1,33 @@
+.link {
+  stroke: var(--pachyderm-black);
+  stroke-width: 1.5px;
+  marker-end: url(#end-arrow);
+  stroke-linejoin: bevel;
+}
+
+.link:hover {
+  cursor: pointer;
+}
+
+.link.transferring,
+.link.selected{
+  stroke: var(--pachyderm-green);
+  stroke-width: 1.5px;
+  marker-end: url(#end-arrow-active);
+}
+
+.link.errorTarget.selected,
+.link.errorSource.selected {
+  stroke: var(--error-red);
+  stroke-width: 1.5px;
+  marker-end: url(#end-arrow-error);
+}
+
+.link.errorSource,
+.link.busySource {
+  stroke-dasharray: 0.25rem;
+}
+
+.circle {
+  fill: var(--success-green)
+}

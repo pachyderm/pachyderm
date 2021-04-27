@@ -7,16 +7,12 @@ import {
   repoRoute,
   dagRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-import {Dag, Node, NodeType} from '@graphqlTypes';
+import {Node, NodeType} from '@graphqlTypes';
 
 import deriveRouteParamFromNode from '../utils/deriveRepoNameFromNode';
 
-interface UseRouteControllerArgs {
-  dag?: Dag;
-}
-
-const useRouteController = ({dag}: UseRouteControllerArgs) => {
-  const {projectId, repoId, pipelineId} = useUrlState();
+const useRouteController = () => {
+  const {projectId, repoId, pipelineId, dagId} = useUrlState();
 
   const browserHistory = useHistory();
 
@@ -28,7 +24,7 @@ const useRouteController = ({dag}: UseRouteControllerArgs) => {
   );
 
   const navigateToNode = useCallback(
-    (n: Node, dagId: string) => {
+    (n: Node) => {
       if (n.type === NodeType.REPO) {
         browserHistory.push(
           repoRoute({projectId, dagId, repoId: deriveRouteParamFromNode(n)}),
@@ -43,7 +39,7 @@ const useRouteController = ({dag}: UseRouteControllerArgs) => {
         );
       }
     },
-    [browserHistory, projectId],
+    [browserHistory, projectId, dagId],
   );
 
   const selectedNode = useMemo(() => {
@@ -52,19 +48,13 @@ const useRouteController = ({dag}: UseRouteControllerArgs) => {
     }
 
     if (repoId) {
-      return dag?.nodes.find((n) => {
-        return (
-          n.type === NodeType.REPO && deriveRouteParamFromNode(n) === repoId
-        );
-      });
+      return `${repoId}_repo`;
     }
 
     if (pipelineId) {
-      return dag?.nodes.find((n) => {
-        return n.type === NodeType.PIPELINE && n.name === pipelineId;
-      });
+      return pipelineId;
     }
-  }, [repoId, pipelineId, dag]);
+  }, [repoId, pipelineId]);
 
   return {
     selectedNode,

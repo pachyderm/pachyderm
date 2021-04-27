@@ -30,13 +30,13 @@ export const withContextProviders = (
 };
 
 export const MockDAG: React.FC<{dag: Dag}> = ({dag}) => {
-  const {selectedNode, navigateToNode} = useRouteController({dag});
+  const {selectedNode, navigateToNode} = useRouteController();
 
   return (
     <Route path={PROJECT_PATHS}>
-      Selected node: {selectedNode?.name}
+      Selected node: {selectedNode}
       {dag.nodes.map((n) => (
-        <button key={n.name} onClick={() => navigateToNode(n, dag.id)}>
+        <button key={n.name} onClick={() => navigateToNode(n)}>
           {n.name}
         </button>
       ))}

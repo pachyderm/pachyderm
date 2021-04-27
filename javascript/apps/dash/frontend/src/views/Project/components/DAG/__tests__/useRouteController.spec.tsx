@@ -55,6 +55,12 @@ describe('useRouteController', () => {
   });
 
   it('should update the url correctly when selecting a repo', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      `/project/${projectId}/dag/samples/pipeline/likelihoods`,
+    );
+
     const {findByText} = render(<TestBed />);
 
     const imagesRepo = await findByText('likelihoods_repo');
@@ -70,6 +76,12 @@ describe('useRouteController', () => {
   });
 
   it('should update the url correctly when selecting a pipeline', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      `/project/${projectId}/dag/samples/repo/likelihoods`,
+    );
+
     const {findByText} = render(<TestBed />);
 
     const edgesPipeline = await findByText('likelihoods');

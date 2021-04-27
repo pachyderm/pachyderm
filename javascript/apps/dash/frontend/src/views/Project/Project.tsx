@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import {Redirect} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
@@ -7,10 +8,11 @@ import ProjectSidebar from './components/ProjectSidebar';
 import {NODE_HEIGHT, NODE_WIDTH} from './constants/nodeSizes';
 import {useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
+import {dagRoute} from './utils/routes';
 
 const Project: React.FC = () => {
   const {dags, error, loading} = useProjectView(NODE_WIDTH, NODE_HEIGHT);
-  const {dagId} = useUrlState();
+  const {dagId, projectId} = useUrlState();
   const [largestDagWidth, setLargestDagWidth] = useState<number | null>(null);
 
   if (error) return <h1 className={styles.base}>{JSON.stringify(error)}</h1>;
@@ -18,6 +20,10 @@ const Project: React.FC = () => {
 
   const dagFromRoute = dags.find((dag) => dag.id === dagId);
   const dagsToShow = dagFromRoute ? [dagFromRoute] : dags;
+
+  if (!dagFromRoute && dagsToShow.length === 1) {
+    return <Redirect to={dagRoute({projectId, dagId: dagsToShow[0].id})} />;
+  }
 
   return (
     <div className={styles.wrapper}>
