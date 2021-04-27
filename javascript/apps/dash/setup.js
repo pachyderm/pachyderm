@@ -89,7 +89,7 @@ const activateAuth = async () => {
     await executePachCommand('auth activate');
     console.log('Auth activated ✅');
   } catch (e) {
-    if (String(e).includes('OIDC client with id "pachd" already exists')) {
+    if (String(e).includes('ID already exists')) {
       console.log('Auth was previously activated ⚠️');
     } else {
       console.error('Problem activating auth:', e);
@@ -140,12 +140,17 @@ const configureGithubConnector = async () => {
 
   console.log('Configuring Github connector...');
   try {
-    await executePachCommand(`idp create-connector --id github --name github --type github --config - <<EOF
+    await executePachCommand(`idp create-connector --config - <<EOF
       {
-        "clientID": "${clientId}",
-        "clientSecret": "${clientSecret}",
-        "redirectURI": "http://localhost:30658/callback",
-        "org": "pachyderm"
+        "id": "github",
+        "name": "github",
+        "type": "github",
+        "config": {
+          "clientID": "${clientId}",
+          "clientSecret": "${clientSecret}",
+          "redirectURI": "http://localhost:30658/callback",
+          "org": "pachyderm"
+        }
       }`);
     console.log(`Connector configured with client ID ${clientId} ✅`);
   } catch (e) {
@@ -171,8 +176,12 @@ const configureOIDCProvider = async () => {
       }`);
     console.log('OIDC Provider configured ✅');
   } catch (e) {
-    console.log('Problem configuring connector:', e);
-    exit(1);
+    if (String(e).includes('ID already exists')) {
+      console.log('Provider previously configured ⚠️');
+    } else {
+      console.log('Problem configuring connector:', e);
+      exit(1);
+    }
   }
 }
 
@@ -184,7 +193,7 @@ const configureDashClient = async () => {
     await writeToEnv('OAUTH_CLIENT_SECRET', secret);
     console.log('Dash client configured ✅');
   } catch (e) {
-    if (String(e).includes(`"dash" already exists`)) {
+    if (String(e).includes('ID already exists')) {
       console.log('Dash client was previously configured ⚠️');
     } else {
       console.log('Problem configuring dash client:', e);
