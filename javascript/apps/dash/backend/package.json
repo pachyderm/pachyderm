@@ -4,7 +4,7 @@
   "private": true,
   "proxy": "http://localhost:3000",
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json && cp src/mock/mockPrivate.key dist/mock/mockPrivate.key",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "generate-types": "graphql-codegen",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "start": "NODE_PATH=dist/ NODE_ENV=production DOTENV_FLOW_PATH=../ node -r module-alias/register -r dotenv-flow/config dist/index.js",
