@@ -64,7 +64,7 @@ func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APISe
 	)
 
 	s := &apiServer{
-		pachLogger:           log.NewLogger("enterprise.API"),
+		pachLogger:           log.NewLogger("enterprise.API", env.Logger()),
 		env:                  env,
 		enterpriseTokenCache: keycache.NewCache(enterpriseTokenCol, enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,

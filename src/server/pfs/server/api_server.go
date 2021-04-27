@@ -47,7 +47,7 @@ func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 		return nil, err
 	}
 	s := &apiServer{
-		Logger: log.NewLogger("pfs.API"),
+		Logger: log.NewLogger("pfs.API", env.Logger()),
 		driver: d,
 		env:    env,
 		txnEnv: txnEnv,
