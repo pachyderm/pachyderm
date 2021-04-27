@@ -1,5 +1,4 @@
 import {QueryResolvers} from '@dash-backend/generated/types';
-import client from '@dash-backend/grpc/client';
 
 import {jobInfoToGQLJob} from './builders/pps';
 

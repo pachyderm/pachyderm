@@ -29,7 +29,7 @@ const useRouteController = ({dag}: UseRouteControllerArgs) => {
 
   const navigateToNode = useCallback(
     (n: Node, dagId: string) => {
-      if (n.type === NodeType.Repo) {
+      if (n.type === NodeType.REPO) {
         browserHistory.push(
           repoRoute({projectId, dagId, repoId: deriveRouteParamFromNode(n)}),
         );
@@ -54,14 +54,14 @@ const useRouteController = ({dag}: UseRouteControllerArgs) => {
     if (repoId) {
       return dag?.nodes.find((n) => {
         return (
-          n.type === NodeType.Repo && deriveRouteParamFromNode(n) === repoId
+          n.type === NodeType.REPO && deriveRouteParamFromNode(n) === repoId
         );
       });
     }
 
     if (pipelineId) {
       return dag?.nodes.find((n) => {
-        return n.type === NodeType.Pipeline && n.name === pipelineId;
+        return n.type === NodeType.PIPELINE && n.name === pipelineId;
       });
     }
   }, [repoId, pipelineId, dag]);

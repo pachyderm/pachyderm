@@ -1,4 +1,3 @@
-import client from '@dash-backend/grpc/client';
 import {QueryResolvers} from '@graphqlTypes';
 
 import {pipelineInfoToGQLPipeline} from './builders/pps';

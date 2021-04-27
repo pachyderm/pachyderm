@@ -4,7 +4,7 @@ import {useForm} from 'react-hook-form';
 import {useJobs} from '@dash-frontend/hooks/useJobs';
 import {GetJobsQueryVariables, JobState} from '@graphqlTypes';
 
-const defaultValues = Object.keys(JobState).reduce<{[key: string]: unknown}>(
+const defaultValues = Object.values(JobState).reduce<{[key: string]: unknown}>(
   (result, state) => {
     result[state] = true;
     return result;

@@ -1,8 +1,7 @@
 import {Circle, Group} from '@pachyderm/components';
-import capitalize from 'lodash/capitalize';
 import React, {useMemo} from 'react';
 
-import pipelineStateAsString from '@dash-frontend/lib/pipelineStateAsString';
+import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {PipelineState as PipelineStateEnum} from '@graphqlTypes';
 
 interface PipelineStateProps {
@@ -11,10 +10,7 @@ interface PipelineStateProps {
 
 const PipelineState: React.FC<PipelineStateProps> = ({state}) => {
   const color = useMemo(() => {
-    const enumValue =
-      PipelineStateEnum[(state as unknown) as keyof typeof PipelineStateEnum];
-
-    switch (enumValue) {
+    switch (state) {
       case PipelineStateEnum.PIPELINE_PAUSED:
       case PipelineStateEnum.PIPELINE_RESTARTING:
       case PipelineStateEnum.PIPELINE_RUNNING:
@@ -29,7 +25,7 @@ const PipelineState: React.FC<PipelineStateProps> = ({state}) => {
   return (
     <Group spacing={8} align="center">
       <Circle color={color} />
-      {capitalize(pipelineStateAsString(state))}
+      {readablePipelineState(state)}
     </Group>
   );
 };

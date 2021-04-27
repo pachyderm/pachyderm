@@ -1,23 +1,27 @@
 import {JobInfo, JobState, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
 import fromPairs from 'lodash/fromPairs';
 
-import {PipelineType} from '@graphqlTypes';
+import {
+  toGQLJobState,
+  toGQLPipelineState,
+} from '@dash-backend/lib/gqlEnumMappers';
+import {Job, Pipeline, PipelineType} from '@graphqlTypes';
 
 const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
   if (pipelineInfo.service) {
-    return PipelineType.Service;
+    return PipelineType.SERVICE;
   }
 
   if (pipelineInfo.spout) {
-    return PipelineType.Spout;
+    return PipelineType.SPOUT;
   }
 
-  return PipelineType.Standard;
+  return PipelineType.STANDARD;
 };
 
 export const pipelineInfoToGQLPipeline = (
   pipelineInfo: PipelineInfo.AsObject,
-) => {
+): Pipeline => {
   const jobStates = fromPairs(pipelineInfo.jobCountsMap);
 
   return {
@@ -28,7 +32,7 @@ export const pipelineInfoToGQLPipeline = (
     description: pipelineInfo.description || '',
     version: pipelineInfo.version,
     createdAt: pipelineInfo.createdAt?.seconds || 0,
-    state: pipelineInfo.state || 0,
+    state: toGQLPipelineState(pipelineInfo.state),
     stopped: pipelineInfo.stopped,
     recentError: pipelineInfo.recentError,
     numOfJobsStarting: jobStates[JobState.JOB_STARTING] || 0,
@@ -37,7 +41,7 @@ export const pipelineInfoToGQLPipeline = (
     numOfJobsSucceeding: jobStates[JobState.JOB_SUCCESS] || 0,
     numOfJobsKilled: jobStates[JobState.JOB_KILLED] || 0,
     numOfJobsEgressing: jobStates[JobState.JOB_EGRESSING] || 0,
-    lastJobState: pipelineInfo.lastJobState || 0,
+    lastJobState: toGQLJobState(pipelineInfo.lastJobState),
     type: derivePipelineType(pipelineInfo),
     transform: pipelineInfo.transform
       ? {
@@ -71,10 +75,10 @@ export const pipelineInfoToGQLPipeline = (
   };
 };
 
-export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject) => {
+export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
   return {
     id: jobInfo.job?.id || '',
-    state: jobInfo.state,
+    state: toGQLJobState(jobInfo.state),
     createdAt: jobInfo.started?.seconds || 0,
   };
 };

@@ -3,10 +3,6 @@
 /* eslint-disable import/no-duplicates */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import {FileType} from '@pachyderm/proto/pb/pfs/pfs_pb';
-import {PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
-import {JobState} from '@pachyderm/proto/pb/pps/pps_pb';
-import {ProjectStatus} from '@pachyderm/proto/pb/projects/projects_pb';
 import {GraphQLResolveInfo} from 'graphql';
 
 import {Context} from '@dash-backend/lib/types';
@@ -16,9 +12,6 @@ export type RequireFields<T, K extends keyof T> = {
   [X in Exclude<keyof T, K>]?: T[X];
 } &
   {[P in K]-?: NonNullable<T[P]>};
-export type EnumResolverSignature<T, AllowedValues = any> = {
-  [key in keyof T]?: AllowedValues;
-};
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
   ID: string;
@@ -95,9 +88,9 @@ export type GitInput = {
 };
 
 export enum InputType {
-  Pfs = 'PFS',
-  Cron = 'CRON',
-  Git = 'GIT',
+  PFS = 'PFS',
+  CRON = 'CRON',
+  GIT = 'GIT',
 }
 
 export type Input = {
@@ -113,16 +106,34 @@ export type Input = {
   gitInput?: Maybe<GitInput>;
 };
 
-export {PipelineState};
+export enum PipelineState {
+  PIPELINE_STARTING = 'PIPELINE_STARTING',
+  PIPELINE_RUNNING = 'PIPELINE_RUNNING',
+  PIPELINE_RESTARTING = 'PIPELINE_RESTARTING',
+  PIPELINE_FAILURE = 'PIPELINE_FAILURE',
+  PIPELINE_PAUSED = 'PIPELINE_PAUSED',
+  PIPELINE_STANDBY = 'PIPELINE_STANDBY',
+  PIPELINE_CRASHING = 'PIPELINE_CRASHING',
+}
 
-export {JobState};
+export enum JobState {
+  JOB_STARTING = 'JOB_STARTING',
+  JOB_RUNNING = 'JOB_RUNNING',
+  JOB_FAILURE = 'JOB_FAILURE',
+  JOB_SUCCESS = 'JOB_SUCCESS',
+  JOB_KILLED = 'JOB_KILLED',
+  JOB_EGRESSING = 'JOB_EGRESSING',
+}
 
-export {ProjectStatus};
+export enum ProjectStatus {
+  HEALTHY = 'HEALTHY',
+  UNHEALTHY = 'UNHEALTHY',
+}
 
 export enum PipelineType {
-  Standard = 'STANDARD',
-  Spout = 'SPOUT',
-  Service = 'SERVICE',
+  STANDARD = 'STANDARD',
+  SPOUT = 'SPOUT',
+  SERVICE = 'SERVICE',
 }
 
 export type Transform = {
@@ -203,8 +214,8 @@ export type Job = {
 };
 
 export enum NodeType {
-  Pipeline = 'PIPELINE',
-  Repo = 'REPO',
+  PIPELINE = 'PIPELINE',
+  REPO = 'REPO',
 }
 
 export type Node = {
@@ -275,7 +286,11 @@ export type ProjectDetails = {
   jobs: Array<Job>;
 };
 
-export {FileType};
+export enum FileType {
+  RESERVED = 'RESERVED',
+  DIR = 'DIR',
+  FILE = 'FILE',
+}
 
 export type Timestamp = {
   __typename?: 'Timestamp';
@@ -701,37 +716,6 @@ export type InputResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type PipelineStateResolvers = EnumResolverSignature<
-  {
-    PIPELINE_STARTING?: any;
-    PIPELINE_RUNNING?: any;
-    PIPELINE_RESTARTING?: any;
-    PIPELINE_FAILURE?: any;
-    PIPELINE_PAUSED?: any;
-    PIPELINE_STANDBY?: any;
-    PIPELINE_CRASHING?: any;
-  },
-  ResolversTypes['PipelineState']
->;
-
-export type JobStateResolvers = EnumResolverSignature<
-  {
-    JOB_STARTING?: any;
-    JOB_RUNNING?: any;
-    JOB_FAILURE?: any;
-    JOB_SUCCESS?: any;
-    JOB_KILLED?: any;
-    JOB_MERGING?: any;
-    JOB_EGRESSING?: any;
-  },
-  ResolversTypes['JobState']
->;
-
-export type ProjectStatusResolvers = EnumResolverSignature<
-  {HEALTHY?: any; UNHEALTHY?: any},
-  ResolversTypes['ProjectStatus']
->;
-
 export type TransformResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Transform'] = ResolversParentTypes['Transform']
@@ -979,11 +963,6 @@ export type ProjectDetailsResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type FileTypeResolvers = EnumResolverSignature<
-  {RESERVED?: any; DIR?: any; FILE?: any},
-  ResolversTypes['FileType']
->;
-
 export type TimestampResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Timestamp'] = ResolversParentTypes['Timestamp']
@@ -1085,9 +1064,6 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   CronInput?: CronInputResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
   Input?: InputResolvers<ContextType>;
-  PipelineState?: PipelineStateResolvers;
-  JobState?: JobStateResolvers;
-  ProjectStatus?: ProjectStatusResolvers;
   Transform?: TransformResolvers<ContextType>;
   NodeSelector?: NodeSelectorResolvers<ContextType>;
   SchedulingSpec?: SchedulingSpecResolvers<ContextType>;
@@ -1102,7 +1078,6 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Dag?: DagResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
-  FileType?: FileTypeResolvers;
   Timestamp?: TimestampResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
   Tokens?: TokensResolvers<ContextType>;

@@ -1,7 +1,6 @@
 import {ApolloError} from 'apollo-server-express';
 
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
-import client from '@dash-backend/grpc/client';
 import {QueryResolvers} from '@graphqlTypes';
 
 import {jobInfoToGQLJob, pipelineInfoToGQLPipeline} from './builders/pps';

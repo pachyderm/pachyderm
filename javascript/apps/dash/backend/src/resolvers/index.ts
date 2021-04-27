@@ -1,13 +1,7 @@
 import merge from 'lodash/merge';
 
 import authenticated from '@dash-backend/middleware/authenticated';
-import {
-  PipelineState,
-  Resolvers,
-  JobState,
-  ProjectStatus,
-  FileType,
-} from '@graphqlTypes';
+import {Resolvers} from '@graphqlTypes';
 
 import authResolver from './Auth';
 import dagResolver from './Dag';
@@ -19,10 +13,6 @@ import repoResolver from './Repo';
 import searchResolver from './Search';
 
 const resolvers: Resolvers = merge(
-  {JobState: JobState},
-  {PipelineState: PipelineState},
-  {ProjectStatus: ProjectStatus},
-  {FileType: FileType},
   fileResolver,
   dagResolver,
   repoResolver,

@@ -10,10 +10,7 @@ const useProjectHeader = () => {
   const {jobs} = useJobs({projectId});
 
   const numOfFailedJobs = useMemo(
-    () =>
-      jobs.filter(
-        (job) => String(JobState[job.state]) === String(JobState.JOB_FAILURE),
-      ).length,
+    () => jobs.filter((job) => job.state === JobState.JOB_FAILURE).length,
     [jobs],
   );
 

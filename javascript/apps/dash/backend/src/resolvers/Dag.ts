@@ -13,6 +13,10 @@ import minBy from 'lodash/minBy';
 import objectHash from 'object-hash';
 
 import disconnectedComponents from '@dash-backend/lib/disconnectedComponents';
+import {
+  toGQLJobState,
+  toGQLPipelineState,
+} from '@dash-backend/lib/gqlEnumMappers';
 import {LinkInputData, NodeInputData, Vertex} from '@dash-backend/lib/types';
 import {withCancel} from '@dash-backend/lib/withCancel';
 import {
@@ -22,6 +26,7 @@ import {
   NodeType,
   QueryResolvers,
   SubscriptionResolvers,
+  PipelineState as GQLPipelineState,
 } from '@graphqlTypes';
 
 interface DagResolver {
@@ -71,7 +76,7 @@ const deriveVertices = (
 
   const repoNodes = repos.map((r) => ({
     name: `${r.repo?.name}_repo`,
-    type: NodeType.Repo,
+    type: NodeType.REPO,
     state: null,
     access: true,
     created: r.created,
@@ -81,10 +86,10 @@ const deriveVertices = (
 
   const pipelineNodes = pipelines.map((p) => ({
     name: p.pipeline?.name || '',
-    type: NodeType.Pipeline,
-    state: p.state,
+    type: NodeType.PIPELINE,
+    state: toGQLPipelineState(p.state),
     access: true,
-    jobState: p.lastJobState,
+    jobState: toGQLJobState(p.lastJobState),
     parents: p.input ? flattenPipelineInput(p.input) : [],
   }));
 
@@ -96,7 +101,7 @@ const normalizeDAGData = async (
   nodeWidth: number,
   nodeHeight: number,
   id: string,
-  priorityPipelineState?: PipelineState,
+  priorityPipelineState?: GQLPipelineState,
 ) => {
   // Calculate the indicies of the nodes in the DAG, as
   // the "link" object requires the source & target attributes
@@ -207,10 +212,10 @@ const normalizeDAGData = async (
 
 const getPriorityPipelineState = (pipelines: PipelineInfo.AsObject[]) => {
   if (pipelines.some((p) => p.state === PipelineState.PIPELINE_CRASHING)) {
-    return PipelineState.PIPELINE_CRASHING;
+    return toGQLPipelineState(PipelineState.PIPELINE_CRASHING);
   }
   if (pipelines.some((p) => p.state === PipelineState.PIPELINE_FAILURE)) {
-    return PipelineState.PIPELINE_FAILURE;
+    return toGQLPipelineState(PipelineState.PIPELINE_FAILURE);
   }
 };
 
@@ -296,14 +301,14 @@ const dagResolver: DagResolver = {
               const componentRepos = repos.filter((repo) =>
                 component.find(
                   (c) =>
-                    c.type === NodeType.Repo &&
+                    c.type === NodeType.REPO &&
                     c.name === `${repo.repo?.name}_repo`,
                 ),
               );
               const componentPipelines = pipelines.filter((pipeline) =>
                 component.find(
                   (c) =>
-                    c.type === NodeType.Pipeline &&
+                    c.type === NodeType.PIPELINE &&
                     c.name === pipeline.pipeline?.name,
                 ),
               );

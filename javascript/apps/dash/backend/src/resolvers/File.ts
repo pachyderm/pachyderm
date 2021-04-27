@@ -1,7 +1,7 @@
 import {FileInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 import {QueryResolvers} from '@dash-backend/generated/types';
-import client from '@dash-backend/grpc/client';
+import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
 
 interface FileResolver {
   Query: {
@@ -43,7 +43,7 @@ const fileResolver: FileResolver = {
         path: file.file?.path || '/',
         repoName: file.file?.commit?.repo?.name || '',
         sizeBytes: file.sizeBytes,
-        type: file.fileType,
+        type: toGQLFileType(file.fileType),
       }));
     },
   },

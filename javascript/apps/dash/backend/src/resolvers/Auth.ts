@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {ApolloError, AuthenticationError} from 'apollo-server-express';
 
-import client from '@dash-backend/grpc/client';
 import {getOIDCClient, getTokenIssuer} from '@dash-backend/lib/auth';
 import {UnauthenticatedContext} from '@dash-backend/lib/types';
 import {AuthConfig, MutationResolvers, QueryResolvers} from '@graphqlTypes';

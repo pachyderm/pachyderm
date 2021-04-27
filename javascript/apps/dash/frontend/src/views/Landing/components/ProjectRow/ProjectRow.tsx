@@ -5,7 +5,6 @@ import noop from 'lodash/noop';
 import React from 'react';
 import {useHistory} from 'react-router';
 
-import projectStatusAsString from '@dash-frontend/lib/projectStatusAsString';
 import {Project} from '@graphqlTypes';
 
 import ProjectStatus from '../ProjectStatus';
@@ -30,9 +29,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   return (
     <tr
       className={classNames(styles.row, {
-        [styles[
-          `${projectStatusAsString(project.status)}Selected`
-        ]]: isSelected,
+        [styles[`${project.status}Selected`]]: isSelected,
       })}
       onClick={(e: React.MouseEvent<HTMLTableRowElement, MouseEvent>) =>
         setSelectedProject()

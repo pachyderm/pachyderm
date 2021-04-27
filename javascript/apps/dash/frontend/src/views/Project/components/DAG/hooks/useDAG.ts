@@ -2,8 +2,6 @@ import * as d3 from 'd3';
 import {D3ZoomEvent} from 'd3';
 import {useEffect, useState} from 'react';
 
-import linkStateAsJobState from '@dash-frontend/lib/linkStateAsJobState';
-import nodeStateAsPipelineState from '@dash-frontend/lib/nodeStateAsPipelineState';
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {
   Dag,
@@ -36,7 +34,7 @@ const NODE_TOOLTIP_OFFSET = -88;
 const convertNodeStateToDagState = (state: Node['state']) => {
   if (!state) return '';
 
-  switch (nodeStateAsPipelineState(state)) {
+  switch (state) {
     case PipelineState.PIPELINE_STANDBY:
     case PipelineState.PIPELINE_PAUSED:
       return 'idle';
@@ -54,10 +52,9 @@ const convertNodeStateToDagState = (state: Node['state']) => {
 
 const getLinkStyles = (d: Link) => {
   let className = 'link';
-  if (linkStateAsJobState(d.state) === JobState.JOB_RUNNING)
+  if (d.state === JobState.JOB_RUNNING)
     className = className.concat(' transferring');
-  if (linkStateAsJobState(d.state) === JobState.JOB_FAILURE)
-    className = className.concat(' error');
+  if (d.state === JobState.JOB_FAILURE) className = className.concat(' error');
 
   className = className.concat(
     ` ${convertNodeStateToDagState(d.sourceState)}Source`,
@@ -99,9 +96,7 @@ const generateLinks = (
   svgParent
     .selectAll<SVGCircleElement, Link>('.circle')
     .data(
-      links.filter(
-        (d) => linkStateAsJobState(d.state) === JobState.JOB_RUNNING,
-      ),
+      links.filter((d) => d.state === JobState.JOB_RUNNING),
       (d) => d.id,
     )
     .join<SVGCircleElement>('circle')
@@ -234,7 +229,7 @@ const generateNodeGroups = (
                   ${deriveRepoNameFromNode(d)}
                   <br /><br />
                   ${
-                    d.type === NodeType.Pipeline
+                    d.type === NodeType.PIPELINE
                       ? `${d.type.toLowerCase()} status: ${readablePipelineState(
                           d.state || '',
                         )}`
@@ -248,8 +243,8 @@ const generateNodeGroups = (
           .attr('id', (d) => `${d.name}Image`)
           .attr('xlink:href', (d) => {
             if (d.access) {
-              if (d.type === NodeType.Repo) return '#nodeImageRepo';
-              if (d.type === NodeType.Pipeline) return '#nodeImagePipeline';
+              if (d.type === NodeType.REPO) return '#nodeImageRepo';
+              if (d.type === NodeType.PIPELINE) return '#nodeImagePipeline';
             }
             return '#nodeImageNoAccess';
           })

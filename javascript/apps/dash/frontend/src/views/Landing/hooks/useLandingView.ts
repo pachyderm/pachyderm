@@ -6,7 +6,6 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
 import {useProjects} from '@dash-frontend/hooks/useProjects';
-import projectStatusAsString from '@dash-frontend/lib/projectStatusAsString';
 import {Project} from '@graphqlTypes';
 
 type sortOptions = {
@@ -89,10 +88,7 @@ export const useLandingView = () => {
 
   const filteredProjects = useMemo(() => {
     return sortedProjects.filter((project) => {
-      return (
-        filters[projectStatusAsString(project.status)] &&
-        project.name.includes(searchValue)
-      );
+      return filters[project.status] && project.name.includes(searchValue);
     });
   }, [filters, searchValue, sortedProjects]);
 

@@ -1,12 +1,17 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
+import {PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
 import {Project} from '@pachyderm/proto/pb/projects/projects_pb';
 import {ApolloError} from 'apollo-server-express';
 import Logger from 'bunyan';
 
 import client from '@dash-backend/grpc/client';
 import formatBytes from '@dash-backend/lib/formatBytes';
+import {
+  toGQLJobState,
+  toGQLProjectStatus,
+} from '@dash-backend/lib/gqlEnumMappers';
 import {GRPCClient} from '@dash-backend/lib/types';
-import {PipelineState, ProjectStatus, QueryResolvers} from '@graphqlTypes';
+import {ProjectStatus, QueryResolvers} from '@graphqlTypes';
 
 interface ProjectsResolver {
   Query: {
@@ -23,7 +28,7 @@ const rpcToGraphqlProject = (project: Project.AsObject) => {
     name: project.name,
     description: project.description,
     createdAt: project.createdat?.seconds || 0,
-    status: project.status,
+    status: toGQLProjectStatus(project.status),
     id: project.id,
   };
 };
@@ -117,7 +122,7 @@ const projectsResolver: ProjectsResolver = {
         pipelineCount: pipelines.length,
         jobs: jobs.map((job) => ({
           id: job.job?.id || '',
-          state: job.state,
+          state: toGQLJobState(job.state),
           createdAt: job.started?.seconds || 0,
         })),
       };

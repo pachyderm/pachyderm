@@ -2,7 +2,6 @@ import {Group, Circle} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React, {useMemo} from 'react';
 
-import projectStatusAsString from '@dash-frontend/lib/projectStatusAsString';
 import {ProjectStatus as ProjectStatusEnum} from '@graphqlTypes';
 
 type ProjectStatusType = {
@@ -11,11 +10,7 @@ type ProjectStatusType = {
 
 const ProjectStatus: React.FC<ProjectStatusType> = ({status}) => {
   const color = useMemo(() => {
-    if (
-      ProjectStatusEnum[
-        (status as unknown) as keyof typeof ProjectStatusEnum
-      ] === ProjectStatusEnum.HEALTHY
-    ) {
+    if (status === ProjectStatusEnum.HEALTHY) {
       return 'green';
     }
 
@@ -25,7 +20,7 @@ const ProjectStatus: React.FC<ProjectStatusType> = ({status}) => {
   return (
     <Group spacing={8} align="center">
       <Circle color={color} />
-      {capitalize(projectStatusAsString(status))}
+      {capitalize(status)}
     </Group>
   );
 };

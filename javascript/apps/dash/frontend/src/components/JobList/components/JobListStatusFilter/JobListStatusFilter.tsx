@@ -7,7 +7,7 @@ import {GetJobsQuery, JobState} from '@graphqlTypes';
 
 import styles from './JobListStatusFilter.module.css';
 
-export const jobStates = Object.keys(JobState).map((state) => ({
+export const jobStates = Object.values(JobState).map((state) => ({
   label: readableJobState(state),
   value: state,
 }));
