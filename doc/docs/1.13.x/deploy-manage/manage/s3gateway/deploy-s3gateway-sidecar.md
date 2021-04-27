@@ -1,21 +1,25 @@
-# Create an S3-enabled Pipeline
+# S3 Protocol Enabled Pipelines
+//TODO
+Also named **Sidecar S3 Gateway** as it is exposed through a sidecar instance in a pipeline worker pod.
+!!! Note
+    Note that this use case of the S3 Gateway differs from its [main and more general use case](index.md) as the latter exists independently and outside of any pipeline lifecycle.
 
-If you want to use Pachyderm with such platforms like Kubeflow or
-Apache™ Spark, you need to create an S3-enabled Pachyderm pipeline.
+
+Let's say you wish to run a platform (namely Kubeflow or
+Apache™ Spark) inside of a Pachyderm cluster. Such products
+have the ability to interact with object stores 
+but do not work with local file systems.
+They will need to to access Pachyderm repo via the S3 Gateway.
+
+If you want to use Pachyderm with such platforms, you need to create an S3-enabled Pachyderm pipeline.
 Such a pipeline ensures that data provenance of the pipelines that
 run in those external systems is properly preserved and is tied to
 corresponding Pachyderm jobs.
 
-Pachyderm can deploys the S3 gateway in the `pachd` pod. Also,
-you can deploy a separate S3 gateway instance as a sidecar container
-in your pipeline worker pod. The former is
-typically used when you need to configure an ingress or egress with
-object storage tooling, such as MinIO, boto3, and others. The latter
-is needed when you use Pachyderm with external data processing
-platforms, such as Kubeflow or Apache Spark, that interact with
-object stores but do not work with local file systems.
+You can deploy a separate S3 gateway instance as a sidecar container
+in your pipeline worker pod. 
 
-The master S3 gateway exists independently and outside of the
+The main S3 gateway exists independently and outside of the
 pipeline lifecycle. Therefore, if a
 Kubeflow pod connects through the master S3 gateway, the Pachyderm pipelines
 created in Kubeflow do not properly maintain data provenance. When the
@@ -85,23 +89,28 @@ S3 gateway instance:
 ```json
 {
   "pipeline": {
-    "name": "test"
+    "name": "s3_protocol_enabled_pipeline"
   },
   "input": {
     "pfs": {
       "glob": "/",
-      "repo": "s3://images",
-      "s3": "true"
+      "repo": "labresults",
+      "name": "labresults",
+      "s3": true
     }
   },
   "transform": {
-    "cmd": [ "python3", "/edges.py" ],
-    "image": "pachyderm/opencv"
+    "cmd": [ "sh" ],
+    "stdin": [ "set -x && mkdir -p /tmp/result && aws --endpoint-url $S3_ENDPOINT s3 ls && aws --endpoint-url $S3_ENDPOINT s3 cp s3://labresults/ /tmp/result/ --recursive && aws --endpoint-url $S3_ENDPOINT s3 cp /tmp/result/ s3://out --recursive" ],
+    "image": "pachyderm/ubuntu-with-s3-clients:v0.0.1"
   },
   "s3_out": true
 }
 ```
 
+
+
 !!! note "See Also:"
+    - [Complete S3 Gateway API reference](../../../../reference/s3gateway_api/)
     - [Pipeline Specification](../../../../reference/pipeline_spec/#input)
     - [Configure Environment Variables](../../../deploy/environment-variables/)
