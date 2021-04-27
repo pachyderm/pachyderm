@@ -22,6 +22,11 @@ type TestServiceEnv struct {
 	LokiClient    *loki.Client
 	DBClient      *sqlx.DB
 	Ctx           context.Context
+
+	// Ready is a channel that blocks `GetPachClient` until it's closed.
+	// This avoids a race when we need to instantiate the server before
+	// getting a client pointing at the same server.
+	Ready chan interface{}
 }
 
 func (s *TestServiceEnv) Config() *Configuration {
@@ -29,7 +34,8 @@ func (s *TestServiceEnv) Config() *Configuration {
 }
 
 func (s *TestServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
-	return s.PachClient
+	<-s.Ready
+	return s.PachClient.WithCtx(ctx)
 }
 func (s *TestServiceEnv) GetEtcdClient() *etcd.Client {
 	return s.EtcdClient
