@@ -107,16 +107,17 @@ func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 		t.Skip("Skipping for in-memory tests")
 	}
 
+	testId := strings.ToLower(base64.RawURLEncoding.EncodeToString([]byte(random.String(20))))
+	sharedVolume := os.Getenv("SHARED_DATA_DIR")
+	dataDir := path.Join(sharedVolume, testId)
+	fmt.Printf("Test context %s - %s\n", testId, dataDir)
+
 	if ct, ok := t.(*testing.T); ok {
 		ct.Parallel()
 	}
 
-	sharedVolume := os.Getenv("SHARED_DATA_DIR")
-	testId := strings.ToLower(base64.RawURLEncoding.EncodeToString([]byte(random.String(20))))
-	dataDir := path.Join(sharedVolume, testId)
 	clientSocketPath := path.Join(dataDir, "pachd_socket_"+testId)
 	os.Mkdir(dataDir, os.ModePerm)
-	fmt.Printf("Test context %s - %s\n", testId, dataDir)
 
 	fullConfig := &serviceenv.PachdFullConfiguration{}
 	require.NoError(t, cmdutil.Populate(fullConfig))
@@ -175,8 +176,8 @@ func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 	kubeClient, err := kube.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	logger := log.StandardLogger()
-	f, err := os.OpenFile(path.Join(sharedVolume, "logs", t.Name()), os.O_WRONLY|os.O_CREATE, 0755)
+	logger := log.New()
+	f, err := os.OpenFile(path.Join(dataDir, "pachd.log"), os.O_WRONLY|os.O_CREATE, 0755)
 	require.NoError(t, err)
 	logger.SetOutput(f)
 
