@@ -107,7 +107,7 @@ func DeactivateCmd() *cobra.Command {
 
 // RegisterCmd returns a cobra.Command that registers this cluster with a remote Enterprise Server.
 func RegisterCmd() *cobra.Command {
-	var id, pachdAddr, pachdEntAddr, enterpriseAddr, clusterId string
+	var id, pachdAddr, pachdUsrAddr, enterpriseAddr, clusterId string
 	register := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Register the cluster with an enterprise license server",
@@ -125,12 +125,12 @@ func RegisterCmd() *cobra.Command {
 			}
 			defer ec.Close()
 
-			if pachdEntAddr == "" {
-				pachdEntAddr = ec.GetAddress()
+			if pachdUsrAddr == "" {
+				pachdUsrAddr = c.GetAddress()
 			}
 
 			if pachdAddr == "" {
-				pachdAddr = c.GetAddress()
+				pachdAddr = ec.GetAddress()
 			}
 
 			if clusterId == "" {
@@ -145,8 +145,8 @@ func RegisterCmd() *cobra.Command {
 			resp, err := ec.License.AddCluster(ec.Ctx(),
 				&license.AddClusterRequest{
 					Id:                  id,
-					Address:             pachdEntAddr,
-					UserAddress:         pachdAddr,
+					Address:             pachdAddr,
+					UserAddress:         pachdUsrAddr,
 					ClusterDeploymentId: clusterId,
 				})
 			if err != nil {
@@ -168,8 +168,8 @@ func RegisterCmd() *cobra.Command {
 		}),
 	}
 	register.PersistentFlags().StringVar(&id, "id", "", "the id for this cluster")
-	register.PersistentFlags().StringVar(&pachdAddr, "pachd-address", "", "the address for a user to reach this pachd")
-	register.PersistentFlags().StringVar(&pachdEntAddr, "pachd-enterprise-address", "", "the address for the enterprise server to reach this pachd")
+	register.PersistentFlags().StringVar(&pachdAddr, "pachd-address", "", "the address for the enterprise server to reach this pachd")
+	register.PersistentFlags().StringVar(&pachdUsrAddr, "pachd-user-address", "", "the address for a user to reach this pachd")
 	register.PersistentFlags().StringVar(&enterpriseAddr, "enterprise-server-address", "", "the address for the pachd to reach the enterprise server")
 	register.PersistentFlags().StringVar(&clusterId, "cluster-deployment-id", "", "the deployment id of the cluster being registered")
 
