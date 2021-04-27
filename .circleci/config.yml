@@ -68,6 +68,9 @@ jobs:
           command: |
             etc/testing/upload_stats.sh
 
+      - store_test_results:
+          path: /tmp/test-results
+
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
