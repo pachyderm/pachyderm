@@ -127,6 +127,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "GC_PERCENT",
 		Value: strconv.FormatInt(int64(a.gcPercent), 10),
+	}, {
+		Name:  "POSTGRES_DATABASE_NAME",
+		Value: a.env.Config().PostgresDBName,
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
