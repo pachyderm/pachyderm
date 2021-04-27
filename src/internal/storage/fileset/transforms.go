@@ -3,6 +3,7 @@ package fileset
 import (
 	"context"
 	"io"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
@@ -10,23 +11,41 @@ import (
 var _ FileSet = &indexFilter{}
 
 type indexFilter struct {
-	pred func(idx *index.Index) bool
-	x    FileSet
+	fs        FileSet
+	predicate func(*index.Index) bool
+	full      bool
 }
 
-// NewIndexFilter filters x using pred
-func NewIndexFilter(x FileSet, pred func(idx *index.Index) bool) FileSet {
-	return &indexFilter{x: x, pred: pred}
+// NewIndexFilter filters fs using predicate.
+func NewIndexFilter(fs FileSet, predicate func(idx *index.Index) bool, full ...bool) FileSet {
+	idxf := &indexFilter{
+		fs:        fs,
+		predicate: predicate,
+	}
+	if len(full) > 0 {
+		idxf.full = full[0]
+	}
+	return idxf
 }
 
-func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
-	return fil.x.Iterate(ctx, func(fr File) error {
-		idx := fr.Index()
-		if fil.pred(idx) {
-			return cb(fr)
+func (idxf *indexFilter) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
+	var dir string
+	return idxf.fs.Iterate(ctx, func(f File) error {
+		idx := f.Index()
+		if idxf.full {
+			if dir != "" && strings.HasPrefix(idx.Path, dir) {
+				return cb(f)
+			}
+			match := idxf.predicate(idx)
+			if match && IsDir(idx.Path) {
+				dir = idx.Path
+			}
+		}
+		if idxf.predicate(idx) {
+			return cb(f)
 		}
 		return nil
-	})
+	}, deletive...)
 }
 
 var _ FileSet = &indexMapper{}
@@ -41,14 +60,14 @@ func NewIndexMapper(x FileSet, fn func(*index.Index) *index.Index) FileSet {
 	return &indexMapper{x: x, fn: fn}
 }
 
-func (im *indexMapper) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
+func (im *indexMapper) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
 	return im.x.Iterate(ctx, func(fr File) error {
 		y := im.fn(fr.Index())
 		return cb(&indexMap{
 			idx:   y,
 			inner: fr,
 		})
-	})
+	}, deletive...)
 }
 
 var _ File = &indexMap{}

@@ -14,48 +14,58 @@ import (
 	"golang.org/x/net/context"
 )
 
-func (d *driver) compact(master *work.Master, ids []fileset.ID) (*fileset.ID, error) {
-	workerFunc := func(ctx context.Context, tasks []fileset.CompactionTask) ([]fileset.ID, error) {
-		workTasks := make([]*work.Task, len(tasks))
-		for i, task := range tasks {
-			serInputs := make([]string, len(task.Inputs))
-			for i := range task.Inputs {
-				serInputs[i] = task.Inputs[i].HexString()
+func (d *driver) compact(ctx context.Context, ids []fileset.ID) (*fileset.ID, error) {
+	return d.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+		var id *fileset.ID
+		if err := d.compactionQueue.RunTaskBlock(ctx, func(master *work.Master) error {
+			workerFunc := func(ctx context.Context, tasks []fileset.CompactionTask) ([]fileset.ID, error) {
+				workTasks := make([]*work.Task, len(tasks))
+				for i, task := range tasks {
+					serInputs := make([]string, len(task.Inputs))
+					for i := range task.Inputs {
+						serInputs[i] = task.Inputs[i].HexString()
+					}
+					any, err := serializeCompactionTask(&CompactionTask{
+						Inputs: serInputs,
+						Range: &PathRange{
+							Lower: task.PathRange.Lower,
+							Upper: task.PathRange.Upper,
+						},
+					})
+					if err != nil {
+						return nil, err
+					}
+					workTasks[i] = &work.Task{Data: any}
+				}
+				var results []fileset.ID
+				if err := master.RunSubtasks(workTasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
+					if taskInfo.Result == nil {
+						return errors.Errorf("no result set for compaction work.TaskInfo")
+					}
+					res, err := deserializeCompactionResult(taskInfo.Result)
+					if err != nil {
+						return err
+					}
+					id, err := fileset.ParseID(res.Id)
+					if err != nil {
+						return err
+					}
+					results = append(results, *id)
+					return nil
+				}); err != nil {
+					return nil, err
+				}
+				return results, nil
 			}
-			any, err := serializeCompactionTask(&CompactionTask{
-				Inputs: serInputs,
-				Range: &PathRange{
-					Lower: task.PathRange.Lower,
-					Upper: task.PathRange.Upper,
-				},
-			})
-			if err != nil {
-				return nil, err
-			}
-			workTasks[i] = &work.Task{Data: any}
-		}
-		var results []fileset.ID
-		if err := master.RunSubtasks(workTasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
-			if taskInfo.Result == nil {
-				return errors.Errorf("no result set for compaction work.TaskInfo")
-			}
-			res, err := deserializeCompactionResult(taskInfo.Result)
-			if err != nil {
-				return err
-			}
-			id, err := fileset.ParseID(res.Id)
-			if err != nil {
-				return err
-			}
-			results = append(results, *id)
-			return nil
+			dc := fileset.NewDistributedCompactor(d.storage, d.env.Config().StorageCompactionMaxFanIn, workerFunc)
+			var err error
+			id, err = dc.Compact(master.Ctx(), ids, ttl)
+			return err
 		}); err != nil {
 			return nil, err
 		}
-		return results, nil
-	}
-	dc := fileset.NewDistributedCompactor(d.storage, d.env.Config().StorageCompactionMaxFanIn, workerFunc)
-	return dc.Compact(master.Ctx(), ids, defaultTTL)
+		return id, nil
+	})
 }
 
 func (d *driver) compactionWorker(ctx context.Context) {

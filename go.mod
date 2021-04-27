@@ -80,7 +80,7 @@ require (
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
+	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/tools v0.1.0
 	google.golang.org/api v0.15.0
@@ -90,6 +90,7 @@ require (
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
+	gopkg.in/yaml.v2 v2.2.8
 	helm.sh/helm/v3 v3.1.2
 	honnef.co/go/tools v0.1.3 // indirect
 	k8s.io/api v0.17.4

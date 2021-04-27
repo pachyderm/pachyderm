@@ -254,7 +254,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitRequest) (_ *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return nil, a.driver.clearCommit(a.env.GetPachClient(ctx), request.Commit)
+	return &types.Empty{}, a.driver.clearCommit(a.env.GetPachClient(ctx), request.Commit)
 }
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
@@ -551,9 +551,16 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 		if request.URL != "" {
 			return getFileURL(ctx, request.URL, src)
 		}
-		gfw := newGetFileWriter(grpcutil.NewStreamingBytesWriter(server))
-		err = getFileTar(ctx, gfw, src)
-		return gfw.bytesWritten, err
+		var bytesWritten int64
+		err = grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
+			var err error
+			bytesWritten, err = withGetFileWriter(w, func(w io.Writer) error {
+				return getFileTar(ctx, w, src)
+			})
+			return err
+		})
+		return bytesWritten, err
+
 	})
 }
 
@@ -589,13 +596,15 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 	return bytesWritten, err
 }
 
+func withGetFileWriter(w io.Writer, cb func(io.Writer) error) (int64, error) {
+	gfw := &getFileWriter{w: w}
+	err := cb(gfw)
+	return gfw.bytesWritten, err
+}
+
 type getFileWriter struct {
 	w            io.Writer
 	bytesWritten int64
-}
-
-func newGetFileWriter(w io.Writer) *getFileWriter {
-	return &getFileWriter{w: w}
 }
 
 func (gfw *getFileWriter) Write(data []byte) (int, error) {

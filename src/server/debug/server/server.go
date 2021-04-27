@@ -60,7 +60,7 @@ type collectFunc func(*tar.Writer, ...string) error
 
 func (s *debugServer) handleRedirect(
 	pachClient *client.APIClient,
-	w io.Writer,
+	server grpcutil.StreamingBytesServer,
 	filter *debug.Filter,
 	collectPachd collectFunc,
 	collectPipeline collectPipelineFunc,
@@ -68,58 +68,60 @@ func (s *debugServer) handleRedirect(
 	redirect redirectFunc,
 	collect collectFunc,
 ) error {
-	return withDebugWriter(w, func(tw *tar.Writer) error {
-		// Handle filter.
-		pachdContainerPrefix := join(pachdPrefix, s.name, "pachd")
-		if filter != nil {
-			switch f := filter.Filter.(type) {
-			case *debug.Filter_Pachd:
-				return collectPachd(tw, pachdContainerPrefix)
-			case *debug.Filter_Pipeline:
-				pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name)
-				if err != nil {
-					return err
-				}
-				return s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect)
-			case *debug.Filter_Worker:
-				if f.Worker.Redirected {
-					// Collect the storage container.
-					if s.sidecarClient == nil {
-						return collect(tw, client.PPSWorkerSidecarContainerName)
-					}
-					// Collect the user container.
-					if err := collect(tw, client.PPSWorkerUserContainerName); err != nil {
-						return err
-					}
-					// Redirect to the storage container.
-					r, err := redirect(s.sidecarClient.DebugClient, filter)
+	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
+		return withDebugWriter(w, func(tw *tar.Writer) error {
+			// Handle filter.
+			pachdContainerPrefix := join(pachdPrefix, s.name, "pachd")
+			if filter != nil {
+				switch f := filter.Filter.(type) {
+				case *debug.Filter_Pachd:
+					return collectPachd(tw, pachdContainerPrefix)
+				case *debug.Filter_Pipeline:
+					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name)
 					if err != nil {
 						return err
 					}
-					return collectDebugStream(tw, r)
+					return s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect)
+				case *debug.Filter_Worker:
+					if f.Worker.Redirected {
+						// Collect the storage container.
+						if s.sidecarClient == nil {
+							return collect(tw, client.PPSWorkerSidecarContainerName)
+						}
+						// Collect the user container.
+						if err := collect(tw, client.PPSWorkerUserContainerName); err != nil {
+							return err
+						}
+						// Redirect to the storage container.
+						r, err := redirect(s.sidecarClient.DebugClient, filter)
+						if err != nil {
+							return err
+						}
+						return collectDebugStream(tw, r)
 
+					}
+					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(f.Worker.Pod, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					return s.handleWorkerRedirect(tw, pod, collectWorker, redirect)
 				}
-				pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(f.Worker.Pod, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				return s.handleWorkerRedirect(tw, pod, collectWorker, redirect)
 			}
-		}
-		// No filter, collect everything.
-		if err := collectPachd(tw, pachdContainerPrefix); err != nil {
-			return err
-		}
-		pipelineInfos, err := pachClient.ListPipeline()
-		if err != nil {
-			return err
-		}
-		for _, pipelineInfo := range pipelineInfos {
-			if err := s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
+			// No filter, collect everything.
+			if err := collectPachd(tw, pachdContainerPrefix); err != nil {
 				return err
 			}
-		}
-		return nil
+			pipelineInfos, err := pachClient.ListPipeline()
+			if err != nil {
+				return err
+			}
+			for _, pipelineInfo := range pipelineInfos {
+				if err := s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 	})
 }
 
@@ -224,7 +226,7 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
-		grpcutil.NewStreamingBytesWriter(server),
+		server,
 		request.Filter,
 		collectProfileFunc(request.Profile),
 		nil,
@@ -287,7 +289,7 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
-		grpcutil.NewStreamingBytesWriter(server),
+		server,
 		request.Filter,
 		collectBinary,
 		nil,
@@ -330,7 +332,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
-		grpcutil.NewStreamingBytesWriter(server),
+		server,
 		request.Filter,
 		s.collectPachdDumpFunc(pachClient, request.Limit),
 		s.collectPipelineDumpFunc(pachClient, request.Limit),

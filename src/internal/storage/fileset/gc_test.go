@@ -17,11 +17,10 @@ func TestGC(t *testing.T) {
 	s := NewTestStorage(t, db, tr)
 	gc := s.newGC()
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
-	err := w.Add("a.txt", func(fw *FileWriter) error {
-		fw.Add("tag1")
-		_, err := fw.Write([]byte("test data"))
-		return err
-	})
+	fw, err := w.Add("a.txt")
+	require.NoError(t, err)
+	fw.Add("tag1")
+	_, err = fw.Write([]byte("test data"))
 	require.NoError(t, err)
 	id, err := w.Close()
 	require.NoError(t, err)
