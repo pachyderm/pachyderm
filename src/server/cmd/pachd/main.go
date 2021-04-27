@@ -32,7 +32,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
@@ -54,7 +53,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"go.uber.org/automaxprocs/maxprocs"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -153,11 +151,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		return err
 	}
 
-	clusterID, err := getClusterID(env.GetEtcdClient())
-	if err != nil {
-		return errors.Wrapf(err, "getClusterID")
-	}
-
 	identityStorageProvider, err := identity_server.NewStorageProvider(env)
 	if err != nil {
 		return err
@@ -217,10 +210,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
-				ID:           clusterID,
-				DeploymentID: env.Config().DeploymentID,
-			}))
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(env))
 			return nil
 		}); err != nil {
 			return err
@@ -314,10 +304,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
-				ID:           clusterID,
-				DeploymentID: env.Config().DeploymentID,
-			}))
+			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(env))
 			return nil
 		}); err != nil {
 			return err
@@ -394,13 +381,9 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
-	clusterID, err := getClusterID(env.GetEtcdClient())
-	if err != nil {
-		return errors.Wrapf(err, "getClusterID")
-	}
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
-		reporter = metrics.NewReporter(clusterID, env)
+		reporter = metrics.NewReporter(env)
 	}
 	authInterceptor := auth.NewInterceptor(env)
 	server, err := grpcutil.NewServer(
@@ -552,11 +535,6 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 
-	clusterID, err := getClusterID(env.GetEtcdClient())
-	if err != nil {
-		return errors.Wrapf(err, "getClusterID")
-	}
-
 	identityStorageProvider, err := identity_server.NewStorageProvider(env)
 	if err != nil {
 		return err
@@ -564,7 +542,7 @@ func doFullMode(config interface{}) (retErr error) {
 
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
-		reporter = metrics.NewReporter(clusterID, env)
+		reporter = metrics.NewReporter(env)
 	}
 	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.Config().EtcdHost, env.Config().EtcdPort))
 	ip, err := netutil.ExternalIP()
@@ -572,7 +550,6 @@ func doFullMode(config interface{}) (retErr error) {
 		return errors.Wrapf(err, "error getting pachd external ip")
 	}
 	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.Config().PeerPort))
-	kubeNamespace := env.Config().Namespace
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
 	// Setup External Pachd GRPC Server.
@@ -612,25 +589,7 @@ func doFullMode(config interface{}) (retErr error) {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
-				kubeNamespace,
-				env.Config().WorkerImage,
-				env.Config().WorkerSidecarImage,
-				env.Config().WorkerImagePullPolicy,
-				env.Config().StorageRoot,
-				env.Config().StorageBackend,
-				env.Config().StorageHostPath,
-				env.Config().CacheRoot,
-				env.Config().IAMRole,
-				env.Config().ImagePullSecret,
-				env.Config().NoExposeDockerSocket,
 				reporter,
-				env.Config().WorkerUsesRoot,
-				env.Config().PPSWorkerPort,
-				env.Config().Port,
-				env.Config().HTTPPort,
-				env.Config().PeerPort,
-				env.Config().GCPercent,
 			)
 			if err != nil {
 				return err
@@ -703,10 +662,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
-				ID:           clusterID,
-				DeploymentID: env.Config().DeploymentID,
-			}))
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(env))
 			return nil
 		}); err != nil {
 			return err
@@ -770,25 +726,7 @@ func doFullMode(config interface{}) (retErr error) {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
-				kubeNamespace,
-				env.Config().WorkerImage,
-				env.Config().WorkerSidecarImage,
-				env.Config().WorkerImagePullPolicy,
-				env.Config().StorageRoot,
-				env.Config().StorageBackend,
-				env.Config().StorageHostPath,
-				env.Config().CacheRoot,
-				env.Config().IAMRole,
-				env.Config().ImagePullSecret,
-				env.Config().NoExposeDockerSocket,
 				reporter,
-				env.Config().WorkerUsesRoot,
-				env.Config().PPSWorkerPort,
-				env.Config().Port,
-				env.Config().HTTPPort,
-				env.Config().PeerPort,
-				env.Config().GCPercent,
 			)
 			if err != nil {
 				return err
@@ -878,10 +816,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
-				ID:           clusterID,
-				DeploymentID: env.Config().DeploymentID,
-			}))
+			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(env))
 			return nil
 		}); err != nil {
 			return err
@@ -960,28 +895,6 @@ func doFullMode(config interface{}) (retErr error) {
 		return http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
 	})
 	return <-errChan
-}
-
-const clusterIDKey = "cluster-id"
-
-func getClusterID(client *etcd.Client) (string, error) {
-	resp, err := client.Get(context.Background(),
-		clusterIDKey)
-
-	// if it's a key not found error then we create the key
-	if resp.Count == 0 {
-		// This might error if it races with another pachd trying to set the
-		// cluster id so we ignore the error.
-		client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
-	} else if err != nil {
-		return "", err
-	} else {
-		// We expect there to only be one value for this key
-		id := string(resp.Kvs[0].Value)
-		return id, nil
-	}
-
-	return getClusterID(client)
 }
 
 func logGRPCServerSetup(name string, f func() error) (retErr error) {

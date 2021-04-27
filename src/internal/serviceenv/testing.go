@@ -9,6 +9,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/client-go/kubernetes"
 )
@@ -23,6 +24,7 @@ type TestServiceEnv struct {
 	LokiClient       *loki.Client
 	DBClient         *sqlx.DB
 	PostgresListener *col.PostgresListener
+	Log              *log.Logger
 	Ctx              context.Context
 }
 
@@ -51,6 +53,14 @@ func (s *TestServiceEnv) GetPostgresListener() *col.PostgresListener {
 
 func (s *TestServiceEnv) Context() context.Context {
 	return s.Ctx
+}
+
+func (s *TestServiceEnv) ClusterID() string {
+	return "testing"
+}
+
+func (s *TestServiceEnv) Logger() *log.Logger {
+	return s.Log
 }
 
 func (s *TestServiceEnv) Close() error {

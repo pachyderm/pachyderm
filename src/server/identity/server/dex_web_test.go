@@ -21,7 +21,10 @@ import (
 )
 
 func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
-	env := &serviceenv.TestServiceEnv{DBClient: testutil.NewTestDB(t)}
+	env := &serviceenv.TestServiceEnv{
+		DBClient: testutil.NewTestDB(t),
+		Log:      logrus.New(),
+	}
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState))
 	require.NoError(t, migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState))
 	return env

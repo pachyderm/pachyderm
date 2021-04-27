@@ -158,7 +158,7 @@ func NewAuthServer(
 	s := &apiServer{
 		env:        env,
 		txnEnv:     txnEnv,
-		pachLogger: log.NewLogger("auth.API"),
+		pachLogger: log.NewLogger("auth.API", env.Logger()),
 		members: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),
@@ -196,8 +196,8 @@ func NewAuthServer(
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(env.Context(), authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(env.Context(), roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch()

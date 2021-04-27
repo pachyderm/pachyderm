@@ -4890,7 +4890,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		objC, bucket := tu.NewObjectClient(t)
+		objC, bucket := obj.NewTestClient(t)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
 			writeObj(t, objC, path, path)
@@ -4939,13 +4939,8 @@ func TestPFS(suite *testing.T) {
 				require.NoError(t, env.PachClient.GetFileURL(repo, commit.ID, path, url))
 			}
 			for _, path := range paths {
-				r, err := objC.Reader(context.Background(), path, 0, 0)
-				require.NoError(t, err)
-				defer func() {
-					require.NoError(t, r.Close())
-				}()
 				buf := &bytes.Buffer{}
-				_, err = io.Copy(buf, r)
+				err := objC.Get(context.Background(), path, buf)
 				require.NoError(t, err)
 				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
 			}
@@ -6239,12 +6234,7 @@ var (
 )
 
 func writeObj(t *testing.T, c obj.Client, path, content string) {
-	w, err := c.Writer(context.Background(), path)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, w.Close())
-	}()
-	_, err = w.Write([]byte(content))
+	err := c.Put(context.Background(), path, strings.NewReader(content))
 	require.NoError(t, err)
 }
 

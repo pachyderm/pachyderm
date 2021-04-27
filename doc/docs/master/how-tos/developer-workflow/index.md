@@ -18,7 +18,7 @@ Adding data to Pachyderm is the first step towards building data-driven pipeline
 * By using one of the Pachyderm's [language clients](../../reference/clients/)
 * By using a compatible S3 client
 
-For more information, see [Load Your Data Into Pachyderm](../load-data-into-pachyderm/).
+For more information, see [Load Your Data Into Pachyderm](../basic-data-operations/load-data-into-pachyderm/).
 
 ## Pipeline Workflow - Processing Data in Pachyderm
 

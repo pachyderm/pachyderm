@@ -30,22 +30,24 @@ func TracingObjClient(provider string, c Client) Client {
 	return &tracingObjClient{c, prettyProvider(provider)}
 }
 
+var _ Client = &tracingObjClient{}
+
 type tracingObjClient struct {
 	Client
 	provider string
 }
 
 // Writer implements the corresponding method in the Client interface
-func (o *tracingObjClient) Writer(ctx context.Context, name string) (_ io.WriteCloser, retErr error) {
+func (o *tracingObjClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/"+o.provider+".Writer/Connect", "name", name)
 	defer func() {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
-	return o.Client.Writer(ctx, name)
+	return o.Client.Put(ctx, name, r)
 }
 
 // Reader implements the corresponding method in the Client interface
-func (o *tracingObjClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (_ io.ReadCloser, retErr error) {
+func (o *tracingObjClient) Reader(ctx context.Context, name string, offset uint64, size uint64, w io.Writer) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/"+o.provider+".Reader/Connect",
 		"name", name,
 		"offset", fmt.Sprintf("%d", offset),
@@ -53,7 +55,7 @@ func (o *tracingObjClient) Reader(ctx context.Context, name string, offset uint6
 	defer func() {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
-	return o.Client.Reader(ctx, name, offset, size)
+	return o.Client.Get(ctx, name, w)
 }
 
 // Delete implements the corresponding method in the Client interface
@@ -77,7 +79,7 @@ func (o *tracingObjClient) Walk(ctx context.Context, prefix string, fn func(name
 }
 
 // Exists implements the corresponding method in the Client interface
-func (o *tracingObjClient) Exists(ctx context.Context, name string) (retVal bool) {
+func (o *tracingObjClient) Exists(ctx context.Context, name string) (retVal bool, retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/"+o.provider+"/Exists",
 		"name", name)
 	defer func() {

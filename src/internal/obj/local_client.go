@@ -8,13 +8,12 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 )
 
 // NewLocalClient returns a Client that stores data on the local file system
 func NewLocalClient(root string) (c Client, err error) {
-	defer func() { c = newCheckedClient(c) }()
-
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -22,7 +21,7 @@ func NewLocalClient(root string) (c Client, err error) {
 	if monkeyTest {
 		return &monkeyClient{client}, nil
 	}
-	return client, nil
+	return newUniformClient(client), nil
 }
 
 type localClient struct {
@@ -37,51 +36,57 @@ func (c *localClient) normPath(path string) string {
 	return path
 }
 
-func (c *localClient) Writer(_ context.Context, path string) (io.WriteCloser, error) {
+func (c *localClient) Put(ctx context.Context, path string, r io.Reader) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, path) }()
 	fullPath := c.normPath(path)
 
 	// Create the directory since it may not exist
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		return nil, errors.EnsureStack(err)
+		return err
 	}
-
 	file, err := os.Create(fullPath)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return err
 	}
-
-	return file, nil
+	defer func() {
+		if err := file.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := file.SetWriteDeadline(deadline); err != nil {
+			return err
+		}
+	}
+	if _, err := io.Copy(file, r); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (c *localClient) Reader(_ context.Context, path string, offset uint64, size uint64) (io.ReadCloser, error) {
+func (c *localClient) Get(ctx context.Context, path string, w io.Writer) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, path) }()
 	file, err := os.Open(c.normPath(path))
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return err
 	}
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		file.Close()
-		return nil, err
-	}
-
-	if offset > uint64(fileInfo.Size()) {
-		file.Close()
-		return nil, errors.Errorf("cannot read from offset past the end of the object, size: %d, offset: %d", fileInfo.Size(), offset)
-	}
-
-	if size == 0 {
-		if _, err := file.Seek(int64(offset), 0); err != nil {
-			file.Close()
-			return nil, errors.EnsureStack(err)
+	defer func() {
+		if err := file.Close(); retErr == nil {
+			retErr = err
 		}
-		return file, nil
+	}()
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := file.SetReadDeadline(deadline); err != nil {
+			return err
+		}
 	}
-	return newSectionReadCloser(file, offset, size), nil
+	_, err = io.Copy(w, file)
+	return err
 }
 
-func (c *localClient) Delete(_ context.Context, path string) error {
-	return errors.EnsureStack(os.Remove(c.normPath(path)))
+func (c *localClient) Delete(_ context.Context, path string) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, path) }()
+	return os.Remove(c.normPath(path))
 }
 
 func (c *localClient) Walk(_ context.Context, dir string, walkFn func(name string) error) error {
@@ -93,10 +98,10 @@ func (c *localClient) Walk(_ context.Context, dir string, walkFn func(name strin
 	}
 	err := filepath.Walk(dir, func(path string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
-			if c.IsNotExist(err) {
+			if os.IsNotExist(err) {
 				return nil
 			}
-			return errors.EnsureStack(err)
+			return err
 		}
 		if fileInfo.IsDir() {
 			return nil
@@ -107,41 +112,27 @@ func (c *localClient) Walk(_ context.Context, dir string, walkFn func(name strin
 		}
 		return walkFn(relPath)
 	})
-	return errors.EnsureStack(err)
+	return err
 }
 
-func (c *localClient) Exists(ctx context.Context, path string) bool {
+func (c *localClient) Exists(ctx context.Context, path string) (bool, error) {
 	_, err := os.Stat(c.normPath(path))
-	tracing.TagAnySpan(ctx, "err", err)
-	return err == nil
-}
-
-func (c *localClient) IsRetryable(err error) bool {
-	return false
-}
-
-func (c *localClient) IsNotExist(err error) bool {
-	return strings.Contains(err.Error(), "no such file or directory") ||
-		strings.Contains(err.Error(), "cannot find the file specified") ||
-		strings.Contains(err.Error(), "cannot find the path specified")
-}
-
-func (c *localClient) IsIgnorable(err error) bool {
-	return false
-}
-
-type sectionReadCloser struct {
-	*io.SectionReader
-	f *os.File
-}
-
-func newSectionReadCloser(f *os.File, offset uint64, size uint64) *sectionReadCloser {
-	return &sectionReadCloser{
-		SectionReader: io.NewSectionReader(f, int64(offset), int64(size)),
-		f:             f,
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = nil
+		}
+		return false, err
 	}
+	tracing.TagAnySpan(ctx, "err", err)
+	return true, nil
 }
 
-func (s *sectionReadCloser) Close() error {
-	return errors.EnsureStack(s.f.Close())
+func (c *localClient) transformError(err error, name string) error {
+	if err == nil {
+		return nil
+	}
+	if os.IsNotExist(err) || strings.HasSuffix(err.Error(), ": no such file or directory") {
+		return pacherr.NewNotExist(c.root, name)
+	}
+	return err
 }
