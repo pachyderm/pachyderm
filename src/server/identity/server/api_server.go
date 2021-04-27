@@ -49,7 +49,7 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 func NewIdentityServer(env serviceenv.ServiceEnv, storage dex_storage.Storage, public bool) identity.APIServer {
 	server := &apiServer{
 		env:        env,
-		pachLogger: log.NewLogger("identity.API"),
+		pachLogger: log.NewLogger("identity.API", env.Logger()),
 		api:        newDexAPI(storage),
 	}
 

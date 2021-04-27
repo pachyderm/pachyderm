@@ -158,7 +158,7 @@ func NewAuthServer(
 	s := &apiServer{
 		env:        env,
 		txnEnv:     txnEnv,
-		pachLogger: log.NewLogger("auth.API"),
+		pachLogger: log.NewLogger("auth.API", env.Logger()),
 		members: col.NewCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),

@@ -38,6 +38,7 @@ type ServiceEnv interface {
 	GetDBClient() *sqlx.DB
 	ClusterID() string
 	Context() context.Context
+	Logger() *log.Logger
 	Close() error
 }
 
@@ -318,6 +319,10 @@ func (env *NonblockingServiceEnv) ClusterID() string {
 
 func (env *NonblockingServiceEnv) Context() context.Context {
 	return env.ctx
+}
+
+func (env *NonblockingServiceEnv) Logger() *log.Logger {
+	return log.StandardLogger()
 }
 
 func (env *NonblockingServiceEnv) Close() error {
