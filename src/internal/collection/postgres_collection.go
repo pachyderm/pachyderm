@@ -98,10 +98,9 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 			return errors.EnsureStack(err)
 		}
 
-		defer tx.Rollback()
-
 		err = apply(tx)
 		if err != nil {
+			tx.Rollback()
 			return err
 		}
 
@@ -561,16 +560,18 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		}
 	}
 
-	params, err := c.getWriteParams(key, val)
+	paramMap, err := c.getWriteParams(key, val)
 	if err != nil {
 		return err
 	}
 
 	columns := []string{}
 	paramNames := []string{}
-	for k := range params {
+	params := []interface{}{}
+	for k, v := range paramMap {
 		columns = append(columns, k)
-		paramNames = append(paramNames, ":"+k)
+		paramNames = append(paramNames, fmt.Sprintf("$%d", len(paramNames)+1))
+		params = append(params, v)
 	}
 	columnList := strings.Join(columns, ", ")
 	paramList := strings.Join(paramNames, ", ")
@@ -584,7 +585,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		query += " on conflict do nothing"
 	}
 
-	result, err := c.tx.NamedExec(query, params)
+	result, err := c.tx.Exec(query, params...)
 	if err != nil {
 		return c.mapSQLError(err, key)
 	}
