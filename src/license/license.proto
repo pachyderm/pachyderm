@@ -95,7 +95,7 @@ message HeartbeatResponse {
 message UserClusterInfo {
   string id = 1 [(gogoproto.moretags) = "db:\"id\""];
   string cluster_deployment_id = 2 [(gogoproto.moretags) = "db:\"cluster_deployment_id\""];
-  string address = 3 [(gogoproto.moretags) = "db:\"user_access_address\""];
+  string address = 3 [(gogoproto.moretags) = "db:\"user_address\""];
 }
 
 message ListUserClustersRequest {}

@@ -126,7 +126,19 @@ func RegisterCmd() *cobra.Command {
 			defer ec.Close()
 
 			if pachdEntAddr == "" {
-				pachdEntAddr = pachdAddr
+				pachdEntAddr = ec.GetAddress()
+			}
+
+			if pachdAddr == "" {
+				pachdAddr = c.GetAddress()
+			}
+
+			if clusterId == "" {
+				clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
+				if inspectErr != nil {
+					return inspectErr
+				}
+				clusterId = clusterInfo.DeploymentID
 			}
 
 			// Register the pachd with the license server
@@ -211,12 +223,13 @@ func SyncContextsCmd() *cobra.Command {
 				return err
 			}
 
-			c, err := client.NewOnUserMachine("user")
+			ec, err := client.NewEnterpriseClientOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
-			resp, err := c.License.ListUserClusters(c.Ctx(), &license.ListUserClustersRequest{})
+			defer ec.Close()
+
+			resp, err := ec.License.ListUserClusters(ec.Ctx(), &license.ListUserClustersRequest{})
 			if err != nil {
 				return err
 			}
@@ -230,7 +243,7 @@ func SyncContextsCmd() *cobra.Command {
 					cfg.V2.Contexts[cluster.Id] = &config.Context{
 						ClusterDeploymentID: cluster.ClusterDeploymentId,
 						PachdAddress:        cluster.Address,
-						Source:              3, // what's the source? should we populate it here?
+						Source:              config.ContextSource_IMPORTED,
 					}
 				}
 			}
