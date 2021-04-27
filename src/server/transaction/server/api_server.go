@@ -35,7 +35,7 @@ func newAPIServer(
 		driver: d,
 		env:    env,
 	}
-	//go func() { s.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
+	go func() { s.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
 	return s, nil
 }
 

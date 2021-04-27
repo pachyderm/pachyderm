@@ -146,7 +146,6 @@ func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 	require.NoError(t, cmdutil.Populate(fullConfig))
 	config := serviceenv.NewConfiguration(fullConfig)
 
-	config.PostgresServiceSSL = "disable"
 	config.StorageRoot = path.Join(dataDir, "pach_root")
 	config.StorageHostPath = path.Join(dataDir, "pach_root")
 	config.CacheRoot = path.Join(dataDir, "cache_root")
@@ -154,8 +153,6 @@ func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 	config.PostgresDBName = testId
 	config.PipelineLabel = testId
 	config.Namespace = "default"
-	config.WorkerImage = "pachyderm/worker:local"
-	config.WorkerSidecarImage = "pachyderm/pachd:local"
 
 	cfg := &rest.Config{
 		Host:            os.Getenv("KUBERNETES_PORT_443_TCP_ADDR") + ":8443",

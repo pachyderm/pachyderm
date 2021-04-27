@@ -25,7 +25,7 @@ fi
 
 find "./src" \
   \( -path "*.pb.go" -o -path "*internal/tar*" "${skip_paths[@]}" \) -prune -o -name '*.go' -print0 \
-| xargs -0 -P32 -n 1 golint -set_exit_status 
+| xargs -P32 -n 1 golint -set_exit_status 
 
 files=$(gofmt -l "${GIT_REPO_DIR}/src" || true)
 if [[ -n "${files}" ]]; then
@@ -43,4 +43,4 @@ staticcheck "${GIT_REPO_DIR}/..."
 # shellcheck disable=SC2046
 find . \
   \( -path ./etc/plugin "${skip_paths[@]}" \) -prune -o -name "*.sh" -print0 \
-| xargs -0 -P 16 shellcheck -e SC1091 -e SC2010 -e SC2181 -e SC2004 -e SC2219
+| xargs -P 16 shellcheck -e SC1091 -e SC2010 -e SC2181 -e SC2004 -e SC2219

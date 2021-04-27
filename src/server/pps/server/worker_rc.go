@@ -132,9 +132,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  "POSTGRES_DATABASE_NAME",
 			Value: a.env.Config().PostgresDBName,
-		}, {
-			Name:  "ETCD_PREFIX",
-			Value: a.env.Config().EtcdPrefix,
 		},
 	}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
@@ -146,10 +143,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  "PACH_ROOT",
 			Value: a.storageRoot,
-		},
-		{
-			Name:  "ETCD_PREFIX",
-			Value: a.env.Config().EtcdPrefix,
 		},
 		{
 			Name:  "PACH_CACHE_ROOT",

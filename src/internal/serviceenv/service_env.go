@@ -198,7 +198,6 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 			MaxCallSendMsgSize: math.MaxInt32,
 			MaxCallRecvMsgSize: math.MaxInt32,
 		})
-		fmt.Printf("etcdClient: %v, err: %v\n", env.etcdClient, err)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize etcd client")
 		}

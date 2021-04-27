@@ -35,8 +35,16 @@ export KUBERNETES_PORT=8443
 export KUBERNETES_BEARER_TOKEN_FILE=/tmp/pach/kubernetes-default-token
 kubectl get -n kube-system -o json secret $(kubectl -n kube-system get secrets  | grep 'default-token' | awk '{print $1}') | jq -r '.data.token' | base64 -d > $KUBERNETES_BEARER_TOKEN_FILE
 
+# point the serviceenv to the services
+export ETCD_SERVICE_HOST="127.0.0.1"
+export ETCD_SERVICE_PORT=32379
+export POSTGRES_SERVICE_HOST="127.0.0.1"
+export POSTGRES_SERVICE_PORT=32228
+export POSTGRES_SERVICE_SSL=disable
+export WORKER_IMAGE=pachyderm/worker:local
+export WORKER_SIDECAR_IMAGE=pachyderm/pachd:local
+
 export PACH_INMEMORY=true
 export STORAGE_BACKEND=LOCAL
-export STORAGE_UPLOAD_CONCURRENCY_LIMIT=100
 
 $@

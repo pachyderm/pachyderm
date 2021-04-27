@@ -7,7 +7,6 @@
 include etc/govars.mk
 
 SHELL=/bin/bash -o pipefail
-
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Don't set the version to the git hash in CI, as it breaks the go build cache.
 ifdef CIRCLE_BRANCH
@@ -265,7 +264,7 @@ test-pfs-storage: test-postgres
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	etc/testing/local.sh go test -v -count=1 ./src/server -parallel 5 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+  	  go test -v -count=1 ./src/server -parallel 5 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-cmds:
 	go install -v ./src/testing/match
