@@ -2767,9 +2767,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// pollPipelines.
 	var eg errgroup.Group
 	jobPtr := &pps.EtcdJobInfo{}
-	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobPtr, col.DefaultOptions(), func(string) error {
+	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobPtr, col.DefaultOptions(), func(jobID string) error {
 		eg.Go(func() error {
-			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: jobPtr.Job})
+			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: client.NewJob(jobID)})
 			if isNotFoundErr(err) || auth.IsErrNoRoleBinding(err) {
 				return nil
 			}
