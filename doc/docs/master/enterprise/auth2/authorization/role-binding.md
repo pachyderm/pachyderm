@@ -200,7 +200,10 @@ Let's keep using our Auth0 example as an illustration, and:
     - Go to **Auth0 Dashboard > Extensions**.
     - Select **Auth0 Authorization** and answer the prompt to install.
     - Choose where you would like to store your data: **Webtask Storage** for this example and click **Install**
-    - Additionally, 
+    - Additionally, because Auth0 does not include the groups in the ID token when you use the Authorization Extension above, you will have to manually edit the following rule: 
+        - In the **Auth Pipeline** menu on the left, in **Rules**, click on `auth0-authorization-extension`. This will take you to the **Edit Rule** page of the extension. 
+        - Copy the following `context.idToken['http://pachyderm.com/groups'] = user.groups;` line 35 and Save your changes.
+        ![Authorization Extension Rule Edition](../../images/auth0-edit-rule.png)
 
 
 - 1- Group creation
@@ -211,7 +214,7 @@ Let's keep using our Auth0 example as an illustration, and:
 
 - 2- Add your user to your group
 
-    In **Authorization/Users**, select your user one-pachyderm-user@gmail.com and add her/him to your `testgroup` as follow.
+    In **Authorization/Users**, select your user one-pachyderm-user@gmail.com and add them to your `testgroup` as follow.
     ![Add User to Group](../images/auth0-add-user-to-group.png)
 
     In **User Mangement/Users**, you user should now show the following addition to their app_metadata:
@@ -228,16 +231,22 @@ Let's keep using our Auth0 example as an illustration, and:
 
     === "oidc-dex-connector.json"
 
-        ``` json
+        ```json
         {
+            "type": "oidc",
+            "id": "auth0",
+            "name": "Auth0",
+            "version": 1,
+            "config":{
             "issuer": "https://dev-k34x5yjn.us.auth0.com/",
             "clientID": "hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5",
             "clientSecret": "7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL",
             "redirectURI": "http://<ip>:30658/callback",
-            "scopes": ["groups"],
-            "claimMapping":
-            {
-            "groups": "authorization:groups"
+            "scopes": ["groups", "email", "profile"],
+            "claimMapping":{
+                "groups": "http://pachyderm.com/groups"
+            },
+            "insecureEnableGroups": true
             }
         }
         ```
@@ -245,28 +254,30 @@ Let's keep using our Auth0 example as an illustration, and:
     === "oidc-dex-connector.yaml"
 
         ``` yaml
-            connectors:
-            - type: oidc
-            id: auth0
-            name: Auth0
-            version: 1
-            config:
-                # Canonical URL of the provider, also used for configuration discovery.
-                # This value MUST match the value returned in the provider config discovery.
-                #
-                # See: https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig
-                issuer: https://dev-k34x5yjn.us.auth0.com/
+        type: oidc
+        id: auth0
+        name: Auth0
+        version: 1
+        config:
+            # Canonical URL of the provider, also used for configuration discovery.
+            # This value MUST match the value returned in the provider config discovery.
+            #
+            # See: https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig
+            issuer: https://dev-k34x5yjn.us.auth0.com/
 
-                # Connector config values starting with a "$" will read from the environment.
-                clientID: hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5
-                clientSecret: 7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL
+            # Connector config values starting with a "$" will read from the environment.
+            clientID: hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5
+            clientSecret: 7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL
 
-                # Dex's issuer URL + "/callback"
-                redirectURI: http://<id>:30658/callback
-                scopes:
-                - groups
-                claimMapping:
-                    groups: "authorization:groups"
+            # Dex's issuer URL + "/callback"
+            redirectURI: http://<id>:30658/callback
+            scopes: 
+            - groups
+            - email
+            - profile
+            claimMapping:
+                groups: http://pachyderm.com/groups
+            insecureEnableGroups: true
         ```
 
     Note the addition of the `scopes` and `claimMapping` fields to your original connector configuration file.
@@ -274,7 +285,7 @@ Let's keep using our Auth0 example as an illustration, and:
     ```shell
     $ pachctl idp update-connector auth0 --version 2
     ```
-    You are all set to grant this new group access to Pachyderm's ressources.
+    Your group is all set to receive permissions to Pachyderm's ressources.
 
 - 4- Grant the group an admin access to a specific repo in Pachyderm.
 
@@ -285,8 +296,13 @@ Let's keep using our Auth0 example as an illustration, and:
     ```shell
     $ pachctl auth get repo testinput
     ```
-    //TODO test out once group support implemented all the way in alpha.12
-
+    **System Response**
+    ```
+    group:testgroup: [repoOwner]
+    ```
+    !!! Info "Useful note"
+        The following command `pachctl auth get-groups` lists the groups that have been defined on your cluster.
+        
 ## Example
 
 ![Role binding example](../images/role-binding-example.svg)
