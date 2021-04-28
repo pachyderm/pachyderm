@@ -6605,9 +6605,7 @@ func TestHTTPAuth(t *testing.T) {
 	}
 	c := tu.GetPachClient(t)
 
-	clientAddr := c.GetAddress()
-	host, _, err := net.SplitHostPort(clientAddr)
-	require.NoError(t, err)
+	host := c.GetAddress().Host
 	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
 	if !ok {
 		port = "30652" // default NodePort port for Pachd's HTTP API
@@ -6668,9 +6666,7 @@ func TestHTTPGetFile(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "giphy.gif", f, client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	clientAddr := c.GetAddress()
-	host, _, err := net.SplitHostPort(clientAddr)
-	require.NoError(t, err)
+	host := c.GetAddress().Host
 	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
 	if !ok {
 		port = "30652" // default NodePort port for Pachd's HTTP API
@@ -6748,9 +6744,7 @@ func TestService(t *testing.T) {
 		// Hack: detect if running inside the cluster by looking for this env var
 		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
 			// Outside cluster: Re-use external IP and external port defined above
-			clientAddr := c.GetAddress()
-			host, _, err := net.SplitHostPort(clientAddr)
-			require.NoError(t, err)
+			host := c.GetAddress().Host
 			return net.JoinHostPort(host, "31800")
 		}
 		// Get k8s service corresponding to pachyderm service above--must access
@@ -6813,9 +6807,7 @@ func TestService(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	clientAddr := c.GetAddress()
-	host, _, err := net.SplitHostPort(clientAddr)
-	require.NoError(t, err)
+	host := c.GetAddress().Host
 	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
 	if !ok {
 		port = "30652" // default NodePort port for Pachd's HTTP API
@@ -6910,9 +6902,7 @@ func TestServiceEnvVars(t *testing.T) {
 		// Hack: detect if running inside the cluster by looking for this env var
 		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
 			// Outside cluster: Re-use external IP and external port defined above
-			clientAddr := c.GetAddress()
-			host, _, err := net.SplitHostPort(clientAddr)
-			require.NoError(t, err)
+			host := c.GetAddress().Host
 			return net.JoinHostPort(host, "31800")
 		}
 		// Get k8s service corresponding to pachyderm service above--must access
