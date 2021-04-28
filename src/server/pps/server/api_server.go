@@ -928,6 +928,9 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
+	if request.Job == nil {
+		return nil, errors.New("Job cannot be nil")
+	}
 	if err := a.stopJob(ctx, pachClient, request.Job, nil, "job deleted"); err != nil {
 		return nil, err
 	}
@@ -951,6 +954,9 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 }
 
 func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
+	if job == nil && outputCommit == nil {
+		return errors.New("Job or OutputCommit must be specified")
+	}
 	if job != nil {
 		jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{Job: job})
 		if err != nil {
