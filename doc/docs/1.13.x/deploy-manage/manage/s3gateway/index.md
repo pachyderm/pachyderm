@@ -31,7 +31,7 @@ that will let you put data into a repo or retrieve data from it via the S3 gatew
 For reference, we have also mentionned the equivalent command using the `pachctl` client
 as well as the equivalent actions on a real s3 Bucket.
 
-![Main S3 Gateway](../../images/main_ s3_gateway.png)
+![Main S3 Gateway](../../images/main_s3_gateway.png)
 
 Find the exhaustive list of:
 
@@ -40,7 +40,7 @@ Find the exhaustive list of:
 
 ## If Your Authentication Is On
 If [auth is enabled](//TODO) on the Pachyderm cluster, credentials must be passed with
-each S3 gateway endpoint as mentionned in the [**Configure Your S3 Client**](configure-s3client/#set-your-credentials) page.
+each S3 gateway endpoint as mentionned in the [**Configure Your S3 Client**](../configure-s3client/#set-your-credentials) page.
 
 !!! Warning "Important"
     In any case, wether those values are empty (no authentication) or set, the Access Key must equal the 

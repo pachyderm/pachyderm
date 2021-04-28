@@ -46,7 +46,7 @@ the following command:
 !!! Info
       Find **MinIO** full documentation [here](https://docs.min.io/docs/minio-client-complete-guide).
 
-## Configure the AWS CLI
+## Configure The AWS CLI
 1. Install the AWS CLI as described
 in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html).
 
@@ -79,7 +79,7 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
       Find **AWS S3 CLI** full documentation [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html).
  
 ## Configure boto3
-Before using Boto3, you need to [set up authentication credentials for your AWS account](#configure-the-AWS-CLI) using the AWS CLI as mentionned previously.
+Before using Boto3, you need to [set up authentication credentials for your AWS account](#configure-the-aws-cli) using the AWS CLI as mentionned previously.
 
 Then follow the [Using boto](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#using-boto3) documentation starting with importing boto3 in your python file and creating your S3 ressource.
    

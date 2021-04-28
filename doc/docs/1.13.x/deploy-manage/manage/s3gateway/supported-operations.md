@@ -6,9 +6,9 @@ The Pachyderm S3 gateway supports the following operations:
 * [Delete bucket](#delete-bucket): Deletes a branch or a repo with all branches.
 * [List buckets](#list-buckets): Lists all branches on all repos as S3 buckets.
 * [List objects](#list-objects): Lists the files in the HEAD of a branch.
-* [Write objects](#write-objects) (Upload): Atomically writes a file on a branch of a repo.
-* [Get objects](#get-objects) (Download): Gets file contents on a branch of a repo.
-* [Remove objects](#remove-objects): Atomically removes a file on a branch.
+* [Write object](#write-object) (Upload): Atomically writes a file on a branch of a repo.
+* [Get object](#get-object) (Download): Gets file contents on a branch of a repo.
+* [Remove object](#remove-object): Atomically removes a file on a branch.
 
 !!! Info
 
@@ -135,7 +135,7 @@ For example, list the contents of the repository raw_data.
      2021-04-26  11:22:23    2685061 github_issues_medium.csv
      ```
 
-## Write Objects
+## Write Object
 For example, add the `test.csv` file to the `master` branch in
 the `raw_data` repository. `raw_data` being an input repository.
 
@@ -185,7 +185,7 @@ the `raw_data` repository. `raw_data` being an input repository.
       2021-04-26 12:11:37       62 test.csv
       ```
 
-## Get Objects
+## Get Object
 For example, download the file `github_issues_medium.csv` from the `master` branch of the repo `raw_data`.
 
 1. In MinIO,
