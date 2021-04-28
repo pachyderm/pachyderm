@@ -31,23 +31,45 @@ func (mf *MemFile) Reader() io.Reader {
 	return bytes.NewReader(mf.content)
 }
 
+// FileSourceSpec configures a FileSource. FileSourceSpecs are included in the
+// CommitsSpec passed to NewEnv during fuzzer initialization; they're used to
+// set up the env's FileSources, which are in turn used throughout the fuzz test
+// by PutFile operations.
 type FileSourceSpec struct {
 	Name                 string                `yaml:"name,omitempty"`
 	RandomFileSourceSpec *RandomFileSourceSpec `yaml:"random,omitempty"`
 }
 
+// FileSource is an interface for file-generators. FileSources are part of the
+// load-testing environment and are used to provide Files to fuzzer-generated
+// PutFile operations.
 type FileSource interface {
+	// Next generates and returns a new file.
 	Next() *MemFile
 }
 
+// NewFileSource initializes a FileSource from a FileSourceSpec (called during
+// intialization, this sets up the load-testing environment's FileSources).
 func NewFileSource(spec *FileSourceSpec) FileSource {
 	return newRandomFileSource(spec.RandomFileSourceSpec)
 }
 
+// RandomFileSourceSpec specifies a RandomFile-type FileSource
 type RandomFileSourceSpec struct {
-	IncrementPath       bool                 `yaml:"incrementPath,omitempty"`
+	// IncrementPath, if true, places each generated file underneath a directory
+	// whose name increments on each call to Next();
+	IncrementPath bool `yaml:"incrementPath,omitempty"`
+
+	// RandomDirectorySpec, if set, places each generated file (and each
+	// incrementally-named directory, if IncrementPath is set) underneath a
+	// directory named with a UUID.
 	RandomDirectorySpec *RandomDirectorySpec `yaml:"directory,omitempty"`
-	FuzzSizeSpecs       []*FuzzSizeSpec      `yaml:"fuzzSize,omitempty"`
+
+	// FuzzSizeSpecs specify the possible sizes of any file generated using this
+	// RandomFileSourceSpec. When generating a file, a FuzzSizeSpec is selected
+	// from this list with probably equal to its 'Prob' field; the 'Prob' fields
+	// of all FuzzSizeSpecs here must sum to 1.
+	FuzzSizeSpecs []*FuzzSizeSpec `yaml:"fuzzSize,omitempty"`
 }
 
 type randomFileSource struct {
@@ -141,10 +163,13 @@ type FileSpec struct {
 	Source string `yaml:"source,omitempty"`
 }
 
+// File generates and returns a file
 func File(env *Env, spec *FileSpec) (*MemFile, error) {
 	return env.FileSource(spec.Source).Next(), nil
 }
 
+// SizeSpec specifies the possible size range of a PutFileRequest's Value field
+// (in bytes)
 type SizeSpec struct {
 	Min int `yaml:"min,omitempty"`
 	Max int `yaml:"max,omitempty"`
