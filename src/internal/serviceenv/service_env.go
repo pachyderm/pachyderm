@@ -15,7 +15,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
-	dex_sql "github.com/dexidp/dex/storage/sql"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
@@ -142,27 +141,6 @@ func InitWithKube(config *Configuration) *NonblockingServiceEnv {
 	env := InitServiceEnv(config)
 	env.kubeEg.Go(env.initKubeClient)
 	return env // env is not ready yet
-}
-
-// InitDexDB initiates the connection to postgres to populate the Dex DB.
-// This is only required in pods where the identity service is running,
-// otherwise it creates an extra unnecessary postgres connection.
-func (env *NonblockingServiceEnv) InitDexDB() {
-	env.dexDBEg.Go(func() (err error) {
-		env.dexDB, err = (&dex_sql.Postgres{
-			NetworkDB: dex_sql.NetworkDB{
-				Database: env.Config().IdentityServerDatabase,
-				User:     env.Config().IdentityServerUser,
-				Password: env.Config().IdentityServerPassword,
-				Host:     env.Config().PostgresServiceHost,
-				Port:     uint16(env.Config().PostgresServicePort),
-			},
-			SSL: dex_sql.SSL{
-				Mode: env.Config().PostgresServiceSSL,
-			},
-		}).Open(env.Logger().WithField("source", "identity-db"))
-		return
-	})
 }
 
 func (env *NonblockingServiceEnv) Config() *Configuration {
