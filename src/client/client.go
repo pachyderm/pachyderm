@@ -155,22 +155,26 @@ type clientSettings struct {
 	streamInterceptors   []grpc.StreamClientInterceptor
 }
 
-// NewFromSocket constructs a new APIClient on a unix socket
-func NewFromSocket(addr string) (*APIClient, error) {
-	// Apply creation options
-	settings := clientSettings{
-		maxConcurrentStreams: DefaultMaxConcurrentStreams,
-		dialTimeout:          DefaultDialTimeout,
+// NewFromURI creates a new client given a GRPC URI ex. grpc://test.example.com
+func NewFromURI(uri string, options ...Option) (*APIClient, error) {
+	pachdAddress, err := grpcutil.ParsePachdAddress(address)
+	if err != nil {
+		return errors.Wrap(err, "could not parse the pachd address")
 	}
-	c := &APIClient{
-		addr:         addr,
-		limiter:      limit.New(settings.maxConcurrentStreams),
-		gzipCompress: settings.gzipCompress,
+
+	var options []client.Option
+	if pachdAddress.Secured {
+		options = append(options, client.WithSystemCAs)
 	}
-	if err := c.connect(settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
-		return nil, err
+
+	// Attempt to connect to the pachd
+	var pachClient *client.APIClient
+	if pachdAddress.UnixSocket != "" {
+		pachClient, err = client.NewFromSocket(pachdAddress.UnixSocket)
+	} else {
+		pachClient, err = client.NewFromAddress(pachdAddress.Hostname(), options...)
 	}
-	return c, nil
+
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.

@@ -41,7 +41,7 @@ type PachdAddress struct {
 	Host string
 	// Port specifies the pachd port
 	Port uint16
-
+	// UnixSocket is set if the pachd address refers to a unix socket
 	UnixSocket string
 }
 
@@ -72,6 +72,8 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 	}
 
 	switch {
+	case u.Path != "":
+		return nil, errors.New("pachd address should not include a path")
 	case u.User != nil:
 		return nil, errors.New("pachd address should not include login credentials")
 	case u.RawQuery != "":
