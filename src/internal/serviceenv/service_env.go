@@ -79,8 +79,8 @@ type ServiceEnv interface {
 	GetDBClient() *sqlx.DB
 
 	// ClusterID returns the Cluster ID associated with this ServiceEnv's
-  // cluster. Like pachd's peer service clients, this is initialized on startup
-  // (from etcd) and does not change over the lifetime of the ServiceEnv.
+	// cluster. Like pachd's peer service clients, this is initialized on startup
+	// (from etcd) and does not change over the lifetime of the ServiceEnv.
 	ClusterID() string
 
 	// Context returns the context associated with this ServiceEnv, which
@@ -144,9 +144,9 @@ type NonblockingServiceEnv struct {
 	// there's no errgroup associated with it.
 	lokiClient *loki.Client
 
-	// clusterId is the unique ID for this pach cluster
-	clusterId   string
-	clusterIdEg errgroup.Group
+	// clusterID is the unique ID for this pach cluster
+	clusterID   string
+	clusterIDEg errgroup.Group
 
 	// dbClient is a database client.
 	dbClient *sqlx.DB
@@ -184,7 +184,7 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env := InitPachOnlyEnv(config)
 	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.config.EtcdHost, env.config.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
-	env.clusterIdEg.Go(env.initClusterID)
+	env.clusterIDEg.Go(env.initClusterID)
 	env.dbEg.Go(env.initDBClient)
 	if env.config.LokiHost != "" && env.config.LokiPort != "" {
 		env.lokiClient = &loki.Client{
@@ -222,7 +222,7 @@ func (env *NonblockingServiceEnv) initClusterID() error {
 			return err
 		} else {
 			// We expect there to only be one value for this key
-			env.clusterId = string(resp.Kvs[0].Value)
+			env.clusterID = string(resp.Kvs[0].Value)
 			return nil
 		}
 	}
@@ -379,11 +379,11 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 // ClusterID implements the corresponding ServiceEnv method for
 // NonblockingServiceEnv
 func (env *NonblockingServiceEnv) ClusterID() string {
-	if err := env.clusterIdEg.Wait(); err != nil {
+	if err := env.clusterIDEg.Wait(); err != nil {
 		panic(err)
 	}
 
-	return env.clusterId
+	return env.clusterID
 }
 
 // Context implements the corresponding ServiceEnv method for
