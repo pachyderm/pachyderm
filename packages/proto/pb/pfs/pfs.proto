@@ -47,9 +47,14 @@ message RepoInfo {
 // Pachyderm dashboard to render repo access appropriately. To set a user's auth
 // scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto)
 message RepoAuthInfo {
-  // The callers access level to the relevant repo (e.g. may be OWNER even if
-  // the user isn't an OWNER of the repo, if they're an admin for the cluster)
+  // The callers access level to the relevant repo. These are very granular
+  // permissions - for the end user it makes sense to show them the roles
+  // they have instead.
   repeated auth.Permission permissions = 1;
+
+  // The caller's roles on the relevant repo. This includes inherited
+  // roles from the cluster, group membership, etc.
+  repeated string roles = 2;
 }
 
 message BranchInfo {
@@ -292,8 +297,8 @@ enum Delimiter {
   CSV = 4;
 }
 
-message AppendFile {
-  bool overwrite = 1;
+message PutFile {
+  bool append = 1;
   string tag = 2;
   oneof source {
     RawFileSource raw_file_source = 3;
@@ -356,19 +361,20 @@ message DeleteFile {
   string tag = 2;
 }
 
+message CopyFile {
+  bool append = 1;
+  string tag = 2;
+  string dst = 3;
+  File src = 4;
+}
+
 message ModifyFileRequest {
   Commit commit = 1;
   oneof modification {
-    AppendFile append_file = 2;
+    PutFile put_file = 2;
     DeleteFile delete_file = 3;
+    CopyFile copy_file = 4;
   }
-}
-
-message CopyFileRequest {
-  File src = 1;
-  File dst = 2;
-  bool overwrite = 3;
-  string tag = 4;
 }
 
 message GetFileRequest {
@@ -440,9 +446,8 @@ message CreateFilesetResponse {
   string fileset_id = 1;
 }
 
-message RenewFilesetRequest {
-  string fileset_id = 1;
-  int64 ttl_seconds = 2;
+message GetFilesetRequest {
+  Commit commit = 1;
 }
 
 message AddFilesetRequest {
@@ -450,8 +455,9 @@ message AddFilesetRequest {
   string fileset_id = 2;
 }
 
-message GetFilesetRequest {
-  Commit commit = 1;
+message RenewFilesetRequest {
+  string fileset_id = 1;
+  int64 ttl_seconds = 2;
 }
 
 message ActivateAuthRequest {}
@@ -497,9 +503,6 @@ service API {
 
   // ModifyFile performs modifications on a set of files.
   rpc ModifyFile(stream ModifyFileRequest) returns (google.protobuf.Empty) {}
-  // CopyFile copies the contents of one file to another.
-  // TODO: Make this a part of ModifyFile.
-  rpc CopyFile(CopyFileRequest) returns (google.protobuf.Empty) {}
   // GetFile returns a byte stream of the contents of the file.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // InspectFile returns info about a file.
@@ -522,12 +525,12 @@ service API {
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 
   // Fileset API
-  // AddFileset associates a fileset with a commit
-  rpc AddFileset(AddFilesetRequest) returns (google.protobuf.Empty) {}
-  // GetFileset returns a fileset with the data from a commit
-  rpc GetFileset(GetFilesetRequest) returns (CreateFilesetResponse) {}
   // CreateFileset creates a new fileset.
   rpc CreateFileset(stream ModifyFileRequest) returns (CreateFilesetResponse) {}
+  // GetFileset returns a fileset with the data from a commit
+  rpc GetFileset(GetFilesetRequest) returns (CreateFilesetResponse) {}
+  // AddFileset associates a fileset with a commit
+  rpc AddFileset(AddFilesetRequest) returns (google.protobuf.Empty) {}
   // RenewFileset prevents a fileset from being deleted for a set amount of time.
   rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
 }

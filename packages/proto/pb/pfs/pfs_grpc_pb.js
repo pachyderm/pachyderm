@@ -119,17 +119,6 @@ function deserialize_pfs_CommitInfo(buffer_arg) {
   return pfs_pfs_pb.CommitInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_CopyFileRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.CopyFileRequest)) {
-    throw new Error('Expected argument of type pfs.CopyFileRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pfs_CopyFileRequest(buffer_arg) {
-  return pfs_pfs_pb.CopyFileRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_pfs_CreateBranchRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.CreateBranchRequest)) {
     throw new Error('Expected argument of type pfs.CreateBranchRequest');
@@ -677,19 +666,6 @@ modifyFile: {
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
-  // CopyFile copies the contents of one file to another.
-// TODO: Make this a part of ModifyFile.
-copyFile: {
-    path: '/pfs.API/CopyFile',
-    requestStream: false,
-    responseStream: false,
-    requestType: pfs_pfs_pb.CopyFileRequest,
-    responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pfs_CopyFileRequest,
-    requestDeserialize: deserialize_pfs_CopyFileRequest,
-    responseSerialize: serialize_google_protobuf_Empty,
-    responseDeserialize: deserialize_google_protobuf_Empty,
-  },
   // GetFile returns a byte stream of the contents of the file.
 getFile: {
     path: '/pfs.API/GetFile',
@@ -799,17 +775,17 @@ fsck: {
     responseDeserialize: deserialize_pfs_FsckResponse,
   },
   // Fileset API
-// AddFileset associates a fileset with a commit
-addFileset: {
-    path: '/pfs.API/AddFileset',
-    requestStream: false,
+// CreateFileset creates a new fileset.
+createFileset: {
+    path: '/pfs.API/CreateFileset',
+    requestStream: true,
     responseStream: false,
-    requestType: pfs_pfs_pb.AddFilesetRequest,
-    responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pfs_AddFilesetRequest,
-    requestDeserialize: deserialize_pfs_AddFilesetRequest,
-    responseSerialize: serialize_google_protobuf_Empty,
-    responseDeserialize: deserialize_google_protobuf_Empty,
+    requestType: pfs_pfs_pb.ModifyFileRequest,
+    responseType: pfs_pfs_pb.CreateFilesetResponse,
+    requestSerialize: serialize_pfs_ModifyFileRequest,
+    requestDeserialize: deserialize_pfs_ModifyFileRequest,
+    responseSerialize: serialize_pfs_CreateFilesetResponse,
+    responseDeserialize: deserialize_pfs_CreateFilesetResponse,
   },
   // GetFileset returns a fileset with the data from a commit
 getFileset: {
@@ -823,17 +799,17 @@ getFileset: {
     responseSerialize: serialize_pfs_CreateFilesetResponse,
     responseDeserialize: deserialize_pfs_CreateFilesetResponse,
   },
-  // CreateFileset creates a new fileset.
-createFileset: {
-    path: '/pfs.API/CreateFileset',
-    requestStream: true,
+  // AddFileset associates a fileset with a commit
+addFileset: {
+    path: '/pfs.API/AddFileset',
+    requestStream: false,
     responseStream: false,
-    requestType: pfs_pfs_pb.ModifyFileRequest,
-    responseType: pfs_pfs_pb.CreateFilesetResponse,
-    requestSerialize: serialize_pfs_ModifyFileRequest,
-    requestDeserialize: deserialize_pfs_ModifyFileRequest,
-    responseSerialize: serialize_pfs_CreateFilesetResponse,
-    responseDeserialize: deserialize_pfs_CreateFilesetResponse,
+    requestType: pfs_pfs_pb.AddFilesetRequest,
+    responseType: google_protobuf_empty_pb.Empty,
+    requestSerialize: serialize_pfs_AddFilesetRequest,
+    requestDeserialize: deserialize_pfs_AddFilesetRequest,
+    responseSerialize: serialize_google_protobuf_Empty,
+    responseDeserialize: deserialize_google_protobuf_Empty,
   },
   // RenewFileset prevents a fileset from being deleted for a set amount of time.
 renewFileset: {

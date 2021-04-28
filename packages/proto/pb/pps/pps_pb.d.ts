@@ -1384,9 +1384,6 @@ export namespace EtcdPipelineInfo {
 }
 
 export class PipelineInfo extends jspb.Message { 
-    getId(): string;
-    setId(value: string): PipelineInfo;
-
 
     hasPipeline(): boolean;
     clearPipeline(): void;
@@ -1559,8 +1556,8 @@ export class PipelineInfo extends jspb.Message {
     getMetadata(): Metadata | undefined;
     setMetadata(value?: Metadata): PipelineInfo;
 
-    getNoSkip(): boolean;
-    setNoSkip(value: boolean): PipelineInfo;
+    getReprocessSpec(): string;
+    setReprocessSpec(value: string): PipelineInfo;
 
 
     serializeBinary(): Uint8Array;
@@ -1575,7 +1572,6 @@ export class PipelineInfo extends jspb.Message {
 
 export namespace PipelineInfo {
     export type AsObject = {
-        id: string,
         pipeline?: Pipeline.AsObject,
         version: number,
         transform?: Transform.AsObject,
@@ -1616,7 +1612,7 @@ export namespace PipelineInfo {
         podPatch: string,
         s3Out: boolean,
         metadata?: Metadata.AsObject,
-        noSkip: boolean,
+        reprocessSpec: string,
     }
 }
 
@@ -2366,8 +2362,8 @@ export class CreatePipelineRequest extends jspb.Message {
     getMetadata(): Metadata | undefined;
     setMetadata(value?: Metadata): CreatePipelineRequest;
 
-    getNoSkip(): boolean;
-    setNoSkip(value: boolean): CreatePipelineRequest;
+    getReprocessSpec(): string;
+    setReprocessSpec(value: string): CreatePipelineRequest;
 
 
     serializeBinary(): Uint8Array;
@@ -2412,7 +2408,7 @@ export namespace CreatePipelineRequest {
         podPatch: string,
         specCommit?: pfs_pfs_pb.Commit.AsObject,
         metadata?: Metadata.AsObject,
-        noSkip: boolean,
+        reprocessSpec: string,
     }
 }
 

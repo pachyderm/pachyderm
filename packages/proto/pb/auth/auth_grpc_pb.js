@@ -94,26 +94,26 @@ function deserialize_auth_DeactivateResponse(buffer_arg) {
   return auth_auth_pb.DeactivateResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_auth_ExtendAuthTokenRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.ExtendAuthTokenRequest)) {
-    throw new Error('Expected argument of type auth.ExtendAuthTokenRequest');
+function serialize_auth_DeleteExpiredAuthTokensRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.DeleteExpiredAuthTokensRequest)) {
+    throw new Error('Expected argument of type auth.DeleteExpiredAuthTokensRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_auth_ExtendAuthTokenRequest(buffer_arg) {
-  return auth_auth_pb.ExtendAuthTokenRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_auth_DeleteExpiredAuthTokensRequest(buffer_arg) {
+  return auth_auth_pb.DeleteExpiredAuthTokensRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_auth_ExtendAuthTokenResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.ExtendAuthTokenResponse)) {
-    throw new Error('Expected argument of type auth.ExtendAuthTokenResponse');
+function serialize_auth_DeleteExpiredAuthTokensResponse(arg) {
+  if (!(arg instanceof auth_auth_pb.DeleteExpiredAuthTokensResponse)) {
+    throw new Error('Expected argument of type auth.DeleteExpiredAuthTokensResponse');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_auth_ExtendAuthTokenResponse(buffer_arg) {
-  return auth_auth_pb.ExtendAuthTokenResponse.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_auth_DeleteExpiredAuthTokensResponse(buffer_arg) {
+  return auth_auth_pb.DeleteExpiredAuthTokensResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_auth_ExtractAuthTokensRequest(arg) {
@@ -138,28 +138,6 @@ function deserialize_auth_ExtractAuthTokensResponse(buffer_arg) {
   return auth_auth_pb.ExtractAuthTokensResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_auth_GetAuthTokenRequest(arg) {
-  if (!(arg instanceof auth_auth_pb.GetAuthTokenRequest)) {
-    throw new Error('Expected argument of type auth.GetAuthTokenRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_GetAuthTokenRequest(buffer_arg) {
-  return auth_auth_pb.GetAuthTokenRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_auth_GetAuthTokenResponse(arg) {
-  if (!(arg instanceof auth_auth_pb.GetAuthTokenResponse)) {
-    throw new Error('Expected argument of type auth.GetAuthTokenResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_auth_GetAuthTokenResponse(buffer_arg) {
-  return auth_auth_pb.GetAuthTokenResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_auth_GetConfigurationRequest(arg) {
   if (!(arg instanceof auth_auth_pb.GetConfigurationRequest)) {
     throw new Error('Expected argument of type auth.GetConfigurationRequest');
@@ -180,6 +158,17 @@ function serialize_auth_GetConfigurationResponse(arg) {
 
 function deserialize_auth_GetConfigurationResponse(buffer_arg) {
   return auth_auth_pb.GetConfigurationResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_GetGroupsForPrincipalRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.GetGroupsForPrincipalRequest)) {
+    throw new Error('Expected argument of type auth.GetGroupsForPrincipalRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_GetGroupsForPrincipalRequest(buffer_arg) {
+  return auth_auth_pb.GetGroupsForPrincipalRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_auth_GetGroupsRequest(arg) {
@@ -224,6 +213,39 @@ function serialize_auth_GetOIDCLoginResponse(arg) {
 
 function deserialize_auth_GetOIDCLoginResponse(buffer_arg) {
   return auth_auth_pb.GetOIDCLoginResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_GetPermissionsForPrincipalRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.GetPermissionsForPrincipalRequest)) {
+    throw new Error('Expected argument of type auth.GetPermissionsForPrincipalRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_GetPermissionsForPrincipalRequest(buffer_arg) {
+  return auth_auth_pb.GetPermissionsForPrincipalRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_GetPermissionsRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.GetPermissionsRequest)) {
+    throw new Error('Expected argument of type auth.GetPermissionsRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_GetPermissionsRequest(buffer_arg) {
+  return auth_auth_pb.GetPermissionsRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_GetPermissionsResponse(arg) {
+  if (!(arg instanceof auth_auth_pb.GetPermissionsResponse)) {
+    throw new Error('Expected argument of type auth.GetPermissionsResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_GetPermissionsResponse(buffer_arg) {
+  return auth_auth_pb.GetPermissionsResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_auth_GetRobotTokenRequest(arg) {
@@ -380,6 +402,28 @@ function deserialize_auth_RevokeAuthTokenResponse(buffer_arg) {
   return auth_auth_pb.RevokeAuthTokenResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_auth_RevokeAuthTokensForUserRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.RevokeAuthTokensForUserRequest)) {
+    throw new Error('Expected argument of type auth.RevokeAuthTokensForUserRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_RevokeAuthTokensForUserRequest(buffer_arg) {
+  return auth_auth_pb.RevokeAuthTokensForUserRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_RevokeAuthTokensForUserResponse(arg) {
+  if (!(arg instanceof auth_auth_pb.RevokeAuthTokensForUserResponse)) {
+    throw new Error('Expected argument of type auth.RevokeAuthTokensForUserResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_RevokeAuthTokensForUserResponse(buffer_arg) {
+  return auth_auth_pb.RevokeAuthTokensForUserResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_auth_SetConfigurationRequest(arg) {
   if (!(arg instanceof auth_auth_pb.SetConfigurationRequest)) {
     throw new Error('Expected argument of type auth.SetConfigurationRequest');
@@ -517,6 +561,28 @@ activate: {
     responseSerialize: serialize_auth_AuthorizeResponse,
     responseDeserialize: deserialize_auth_AuthorizeResponse,
   },
+  getPermissions: {
+    path: '/auth.API/GetPermissions',
+    requestStream: false,
+    responseStream: false,
+    requestType: auth_auth_pb.GetPermissionsRequest,
+    responseType: auth_auth_pb.GetPermissionsResponse,
+    requestSerialize: serialize_auth_GetPermissionsRequest,
+    requestDeserialize: deserialize_auth_GetPermissionsRequest,
+    responseSerialize: serialize_auth_GetPermissionsResponse,
+    responseDeserialize: deserialize_auth_GetPermissionsResponse,
+  },
+  getPermissionsForPrincipal: {
+    path: '/auth.API/GetPermissionsForPrincipal',
+    requestStream: false,
+    responseStream: false,
+    requestType: auth_auth_pb.GetPermissionsForPrincipalRequest,
+    responseType: auth_auth_pb.GetPermissionsResponse,
+    requestSerialize: serialize_auth_GetPermissionsForPrincipalRequest,
+    requestDeserialize: deserialize_auth_GetPermissionsForPrincipalRequest,
+    responseSerialize: serialize_auth_GetPermissionsResponse,
+    responseDeserialize: deserialize_auth_GetPermissionsResponse,
+  },
   whoAmI: {
     path: '/auth.API/WhoAmI',
     requestStream: false,
@@ -561,17 +627,6 @@ activate: {
     responseSerialize: serialize_auth_GetOIDCLoginResponse,
     responseDeserialize: deserialize_auth_GetOIDCLoginResponse,
   },
-  getAuthToken: {
-    path: '/auth.API/GetAuthToken',
-    requestStream: false,
-    responseStream: false,
-    requestType: auth_auth_pb.GetAuthTokenRequest,
-    responseType: auth_auth_pb.GetAuthTokenResponse,
-    requestSerialize: serialize_auth_GetAuthTokenRequest,
-    requestDeserialize: deserialize_auth_GetAuthTokenRequest,
-    responseSerialize: serialize_auth_GetAuthTokenResponse,
-    responseDeserialize: deserialize_auth_GetAuthTokenResponse,
-  },
   getRobotToken: {
     path: '/auth.API/GetRobotToken',
     requestStream: false,
@@ -583,17 +638,6 @@ activate: {
     responseSerialize: serialize_auth_GetRobotTokenResponse,
     responseDeserialize: deserialize_auth_GetRobotTokenResponse,
   },
-  extendAuthToken: {
-    path: '/auth.API/ExtendAuthToken',
-    requestStream: false,
-    responseStream: false,
-    requestType: auth_auth_pb.ExtendAuthTokenRequest,
-    responseType: auth_auth_pb.ExtendAuthTokenResponse,
-    requestSerialize: serialize_auth_ExtendAuthTokenRequest,
-    requestDeserialize: deserialize_auth_ExtendAuthTokenRequest,
-    responseSerialize: serialize_auth_ExtendAuthTokenResponse,
-    responseDeserialize: deserialize_auth_ExtendAuthTokenResponse,
-  },
   revokeAuthToken: {
     path: '/auth.API/RevokeAuthToken',
     requestStream: false,
@@ -604,6 +648,17 @@ activate: {
     requestDeserialize: deserialize_auth_RevokeAuthTokenRequest,
     responseSerialize: serialize_auth_RevokeAuthTokenResponse,
     responseDeserialize: deserialize_auth_RevokeAuthTokenResponse,
+  },
+  revokeAuthTokensForUser: {
+    path: '/auth.API/RevokeAuthTokensForUser',
+    requestStream: false,
+    responseStream: false,
+    requestType: auth_auth_pb.RevokeAuthTokensForUserRequest,
+    responseType: auth_auth_pb.RevokeAuthTokensForUserResponse,
+    requestSerialize: serialize_auth_RevokeAuthTokensForUserRequest,
+    requestDeserialize: deserialize_auth_RevokeAuthTokensForUserRequest,
+    responseSerialize: serialize_auth_RevokeAuthTokensForUserResponse,
+    responseDeserialize: deserialize_auth_RevokeAuthTokensForUserResponse,
   },
   setGroupsForUser: {
     path: '/auth.API/SetGroupsForUser',
@@ -635,6 +690,17 @@ activate: {
     responseType: auth_auth_pb.GetGroupsResponse,
     requestSerialize: serialize_auth_GetGroupsRequest,
     requestDeserialize: deserialize_auth_GetGroupsRequest,
+    responseSerialize: serialize_auth_GetGroupsResponse,
+    responseDeserialize: deserialize_auth_GetGroupsResponse,
+  },
+  getGroupsForPrincipal: {
+    path: '/auth.API/GetGroupsForPrincipal',
+    requestStream: false,
+    responseStream: false,
+    requestType: auth_auth_pb.GetGroupsForPrincipalRequest,
+    responseType: auth_auth_pb.GetGroupsResponse,
+    requestSerialize: serialize_auth_GetGroupsForPrincipalRequest,
+    requestDeserialize: deserialize_auth_GetGroupsForPrincipalRequest,
     responseSerialize: serialize_auth_GetGroupsResponse,
     responseDeserialize: deserialize_auth_GetGroupsResponse,
   },
@@ -670,6 +736,17 @@ activate: {
     requestDeserialize: deserialize_auth_RestoreAuthTokenRequest,
     responseSerialize: serialize_auth_RestoreAuthTokenResponse,
     responseDeserialize: deserialize_auth_RestoreAuthTokenResponse,
+  },
+  deleteExpiredAuthTokens: {
+    path: '/auth.API/DeleteExpiredAuthTokens',
+    requestStream: false,
+    responseStream: false,
+    requestType: auth_auth_pb.DeleteExpiredAuthTokensRequest,
+    responseType: auth_auth_pb.DeleteExpiredAuthTokensResponse,
+    requestSerialize: serialize_auth_DeleteExpiredAuthTokensRequest,
+    requestDeserialize: deserialize_auth_DeleteExpiredAuthTokensRequest,
+    responseSerialize: serialize_auth_DeleteExpiredAuthTokensResponse,
+    responseDeserialize: deserialize_auth_DeleteExpiredAuthTokensResponse,
   },
 };
 

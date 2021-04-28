@@ -10942,7 +10942,6 @@ proto.pps.PipelineInfo.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pps.PipelineInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
-    id: jspb.Message.getFieldWithDefault(msg, 17, ""),
     pipeline: (f = msg.getPipeline()) && proto.pps.Pipeline.toObject(includeInstance, f),
     version: jspb.Message.getFieldWithDefault(msg, 11, 0),
     transform: (f = msg.getTransform()) && proto.pps.Transform.toObject(includeInstance, f),
@@ -10982,7 +10981,7 @@ proto.pps.PipelineInfo.toObject = function(includeInstance, msg) {
     podPatch: jspb.Message.getFieldWithDefault(msg, 44, ""),
     s3Out: jspb.Message.getBooleanFieldWithDefault(msg, 47, false),
     metadata: (f = msg.getMetadata()) && proto.pps.Metadata.toObject(includeInstance, f),
-    noSkip: jspb.Message.getBooleanFieldWithDefault(msg, 52, false)
+    reprocessSpec: jspb.Message.getFieldWithDefault(msg, 53, "")
   };
 
   if (includeInstance) {
@@ -11019,10 +11018,6 @@ proto.pps.PipelineInfo.deserializeBinaryFromReader = function(msg, reader) {
     }
     var field = reader.getFieldNumber();
     switch (field) {
-    case 17:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setId(value);
-      break;
     case 1:
       var value = new proto.pps.Pipeline;
       reader.readMessage(value,proto.pps.Pipeline.deserializeBinaryFromReader);
@@ -11199,9 +11194,9 @@ proto.pps.PipelineInfo.deserializeBinaryFromReader = function(msg, reader) {
       reader.readMessage(value,proto.pps.Metadata.deserializeBinaryFromReader);
       msg.setMetadata(value);
       break;
-    case 52:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setNoSkip(value);
+    case 53:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setReprocessSpec(value);
       break;
     default:
       reader.skipField();
@@ -11232,13 +11227,6 @@ proto.pps.PipelineInfo.prototype.serializeBinary = function() {
  */
 proto.pps.PipelineInfo.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getId();
-  if (f.length > 0) {
-    writer.writeString(
-      17,
-      f
-    );
-  }
   f = message.getPipeline();
   if (f != null) {
     writer.writeMessage(
@@ -11527,31 +11515,13 @@ proto.pps.PipelineInfo.serializeBinaryToWriter = function(message, writer) {
       proto.pps.Metadata.serializeBinaryToWriter
     );
   }
-  f = message.getNoSkip();
-  if (f) {
-    writer.writeBool(
-      52,
+  f = message.getReprocessSpec();
+  if (f.length > 0) {
+    writer.writeString(
+      53,
       f
     );
   }
-};
-
-
-/**
- * optional string id = 17;
- * @return {string}
- */
-proto.pps.PipelineInfo.prototype.getId = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 17, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pps.PipelineInfo} returns this
- */
-proto.pps.PipelineInfo.prototype.setId = function(value) {
-  return jspb.Message.setProto3StringField(this, 17, value);
 };
 
 
@@ -12604,20 +12574,20 @@ proto.pps.PipelineInfo.prototype.hasMetadata = function() {
 
 
 /**
- * optional bool no_skip = 52;
- * @return {boolean}
+ * optional string reprocess_spec = 53;
+ * @return {string}
  */
-proto.pps.PipelineInfo.prototype.getNoSkip = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 52, false));
+proto.pps.PipelineInfo.prototype.getReprocessSpec = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 53, ""));
 };
 
 
 /**
- * @param {boolean} value
+ * @param {string} value
  * @return {!proto.pps.PipelineInfo} returns this
  */
-proto.pps.PipelineInfo.prototype.setNoSkip = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 52, value);
+proto.pps.PipelineInfo.prototype.setReprocessSpec = function(value) {
+  return jspb.Message.setProto3StringField(this, 53, value);
 };
 
 
@@ -16844,7 +16814,7 @@ proto.pps.CreatePipelineRequest.toObject = function(includeInstance, msg) {
     podPatch: jspb.Message.getFieldWithDefault(msg, 32, ""),
     specCommit: (f = msg.getSpecCommit()) && pfs_pfs_pb.Commit.toObject(includeInstance, f),
     metadata: (f = msg.getMetadata()) && proto.pps.Metadata.toObject(includeInstance, f),
-    noSkip: jspb.Message.getBooleanFieldWithDefault(msg, 48, false)
+    reprocessSpec: jspb.Message.getFieldWithDefault(msg, 49, "")
   };
 
   if (includeInstance) {
@@ -17018,9 +16988,9 @@ proto.pps.CreatePipelineRequest.deserializeBinaryFromReader = function(msg, read
       reader.readMessage(value,proto.pps.Metadata.deserializeBinaryFromReader);
       msg.setMetadata(value);
       break;
-    case 48:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setNoSkip(value);
+    case 49:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setReprocessSpec(value);
       break;
     default:
       reader.skipField();
@@ -17278,10 +17248,10 @@ proto.pps.CreatePipelineRequest.serializeBinaryToWriter = function(message, writ
       proto.pps.Metadata.serializeBinaryToWriter
     );
   }
-  f = message.getNoSkip();
-  if (f) {
-    writer.writeBool(
-      48,
+  f = message.getReprocessSpec();
+  if (f.length > 0) {
+    writer.writeString(
+      49,
       f
     );
   }
@@ -18152,20 +18122,20 @@ proto.pps.CreatePipelineRequest.prototype.hasMetadata = function() {
 
 
 /**
- * optional bool no_skip = 48;
- * @return {boolean}
+ * optional string reprocess_spec = 49;
+ * @return {string}
  */
-proto.pps.CreatePipelineRequest.prototype.getNoSkip = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 48, false));
+proto.pps.CreatePipelineRequest.prototype.getReprocessSpec = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 49, ""));
 };
 
 
 /**
- * @param {boolean} value
+ * @param {string} value
  * @return {!proto.pps.CreatePipelineRequest} returns this
  */
-proto.pps.CreatePipelineRequest.prototype.setNoSkip = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 48, value);
+proto.pps.CreatePipelineRequest.prototype.setReprocessSpec = function(value) {
+  return jspb.Message.setProto3StringField(this, 49, value);
 };
 
 

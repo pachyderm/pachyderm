@@ -97,13 +97,13 @@ export class OIDCConfig extends jspb.Message {
     getRedirectUri(): string;
     setRedirectUri(value: string): OIDCConfig;
 
-    clearAdditionalScopesList(): void;
-    getAdditionalScopesList(): Array<string>;
-    setAdditionalScopesList(value: Array<string>): OIDCConfig;
-    addAdditionalScopes(value: string, index?: number): string;
+    clearScopesList(): void;
+    getScopesList(): Array<string>;
+    setScopesList(value: Array<string>): OIDCConfig;
+    addScopes(value: string, index?: number): string;
 
-    getIgnoreEmailVerified(): boolean;
-    setIgnoreEmailVerified(value: boolean): OIDCConfig;
+    getRequireEmailVerified(): boolean;
+    setRequireEmailVerified(value: boolean): OIDCConfig;
 
     getLocalhostIssuer(): boolean;
     setLocalhostIssuer(value: boolean): OIDCConfig;
@@ -125,8 +125,8 @@ export namespace OIDCConfig {
         clientId: string,
         clientSecret: string,
         redirectUri: string,
-        additionalScopesList: Array<string>,
-        ignoreEmailVerified: boolean,
+        scopesList: Array<string>,
+        requireEmailVerified: boolean,
         localhostIssuer: boolean,
     }
 }
@@ -217,8 +217,14 @@ export class TokenInfo extends jspb.Message {
     getSubject(): string;
     setSubject(value: string): TokenInfo;
 
-    getSource(): TokenInfo.TokenSource;
-    setSource(value: TokenInfo.TokenSource): TokenInfo;
+
+    hasExpiration(): boolean;
+    clearExpiration(): void;
+    getExpiration(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setExpiration(value?: google_protobuf_timestamp_pb.Timestamp): TokenInfo;
+
+    getHashedToken(): string;
+    setHashedToken(value: string): TokenInfo;
 
 
     serializeBinary(): Uint8Array;
@@ -234,15 +240,9 @@ export class TokenInfo extends jspb.Message {
 export namespace TokenInfo {
     export type AsObject = {
         subject: string,
-        source: TokenInfo.TokenSource,
+        expiration?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+        hashedToken: string,
     }
-
-    export enum TokenSource {
-    INVALID = 0,
-    AUTHENTICATE = 1,
-    GET_TOKEN = 2,
-    }
-
 }
 
 export class AuthenticateRequest extends jspb.Message { 
@@ -312,8 +312,11 @@ export class WhoAmIResponse extends jspb.Message {
     getUsername(): string;
     setUsername(value: string): WhoAmIResponse;
 
-    getTtl(): number;
-    setTtl(value: number): WhoAmIResponse;
+
+    hasExpiration(): boolean;
+    clearExpiration(): void;
+    getExpiration(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setExpiration(value?: google_protobuf_timestamp_pb.Timestamp): WhoAmIResponse;
 
 
     serializeBinary(): Uint8Array;
@@ -329,7 +332,7 @@ export class WhoAmIResponse extends jspb.Message {
 export namespace WhoAmIResponse {
     export type AsObject = {
         username: string,
-        ttl: number,
+        expiration?: google_protobuf_timestamp_pb.Timestamp.AsObject,
     }
 }
 
@@ -517,6 +520,87 @@ export namespace AuthorizeResponse {
     }
 }
 
+export class GetPermissionsRequest extends jspb.Message { 
+
+    hasResource(): boolean;
+    clearResource(): void;
+    getResource(): Resource | undefined;
+    setResource(value?: Resource): GetPermissionsRequest;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetPermissionsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetPermissionsRequest): GetPermissionsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetPermissionsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetPermissionsRequest;
+    static deserializeBinaryFromReader(message: GetPermissionsRequest, reader: jspb.BinaryReader): GetPermissionsRequest;
+}
+
+export namespace GetPermissionsRequest {
+    export type AsObject = {
+        resource?: Resource.AsObject,
+    }
+}
+
+export class GetPermissionsForPrincipalRequest extends jspb.Message { 
+
+    hasResource(): boolean;
+    clearResource(): void;
+    getResource(): Resource | undefined;
+    setResource(value?: Resource): GetPermissionsForPrincipalRequest;
+
+    getPrincipal(): string;
+    setPrincipal(value: string): GetPermissionsForPrincipalRequest;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetPermissionsForPrincipalRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetPermissionsForPrincipalRequest): GetPermissionsForPrincipalRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetPermissionsForPrincipalRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetPermissionsForPrincipalRequest;
+    static deserializeBinaryFromReader(message: GetPermissionsForPrincipalRequest, reader: jspb.BinaryReader): GetPermissionsForPrincipalRequest;
+}
+
+export namespace GetPermissionsForPrincipalRequest {
+    export type AsObject = {
+        resource?: Resource.AsObject,
+        principal: string,
+    }
+}
+
+export class GetPermissionsResponse extends jspb.Message { 
+    clearPermissionsList(): void;
+    getPermissionsList(): Array<Permission>;
+    setPermissionsList(value: Array<Permission>): GetPermissionsResponse;
+    addPermissions(value: Permission, index?: number): Permission;
+
+    clearRolesList(): void;
+    getRolesList(): Array<string>;
+    setRolesList(value: Array<string>): GetPermissionsResponse;
+    addRoles(value: string, index?: number): string;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetPermissionsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetPermissionsResponse): GetPermissionsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetPermissionsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetPermissionsResponse;
+    static deserializeBinaryFromReader(message: GetPermissionsResponse, reader: jspb.BinaryReader): GetPermissionsResponse;
+}
+
+export namespace GetPermissionsResponse {
+    export type AsObject = {
+        permissionsList: Array<Permission>,
+        rolesList: Array<string>,
+    }
+}
+
 export class ModifyRoleBindingRequest extends jspb.Message { 
 
     hasResource(): boolean;
@@ -687,56 +771,6 @@ export namespace GetOIDCLoginResponse {
     }
 }
 
-export class GetAuthTokenRequest extends jspb.Message { 
-    getSubject(): string;
-    setSubject(value: string): GetAuthTokenRequest;
-
-    getTtl(): number;
-    setTtl(value: number): GetAuthTokenRequest;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetAuthTokenRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: GetAuthTokenRequest): GetAuthTokenRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetAuthTokenRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetAuthTokenRequest;
-    static deserializeBinaryFromReader(message: GetAuthTokenRequest, reader: jspb.BinaryReader): GetAuthTokenRequest;
-}
-
-export namespace GetAuthTokenRequest {
-    export type AsObject = {
-        subject: string,
-        ttl: number,
-    }
-}
-
-export class GetAuthTokenResponse extends jspb.Message { 
-    getSubject(): string;
-    setSubject(value: string): GetAuthTokenResponse;
-
-    getToken(): string;
-    setToken(value: string): GetAuthTokenResponse;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetAuthTokenResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: GetAuthTokenResponse): GetAuthTokenResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetAuthTokenResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetAuthTokenResponse;
-    static deserializeBinaryFromReader(message: GetAuthTokenResponse, reader: jspb.BinaryReader): GetAuthTokenResponse;
-}
-
-export namespace GetAuthTokenResponse {
-    export type AsObject = {
-        subject: string,
-        token: string,
-    }
-}
-
 export class GetRobotTokenRequest extends jspb.Message { 
     getRobot(): string;
     setRobot(value: string): GetRobotTokenRequest;
@@ -780,48 +814,6 @@ export class GetRobotTokenResponse extends jspb.Message {
 export namespace GetRobotTokenResponse {
     export type AsObject = {
         token: string,
-    }
-}
-
-export class ExtendAuthTokenRequest extends jspb.Message { 
-    getToken(): string;
-    setToken(value: string): ExtendAuthTokenRequest;
-
-    getTtl(): number;
-    setTtl(value: number): ExtendAuthTokenRequest;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ExtendAuthTokenRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: ExtendAuthTokenRequest): ExtendAuthTokenRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ExtendAuthTokenRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ExtendAuthTokenRequest;
-    static deserializeBinaryFromReader(message: ExtendAuthTokenRequest, reader: jspb.BinaryReader): ExtendAuthTokenRequest;
-}
-
-export namespace ExtendAuthTokenRequest {
-    export type AsObject = {
-        token: string,
-        ttl: number,
-    }
-}
-
-export class ExtendAuthTokenResponse extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ExtendAuthTokenResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: ExtendAuthTokenResponse): ExtendAuthTokenResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ExtendAuthTokenResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ExtendAuthTokenResponse;
-    static deserializeBinaryFromReader(message: ExtendAuthTokenResponse, reader: jspb.BinaryReader): ExtendAuthTokenResponse;
-}
-
-export namespace ExtendAuthTokenResponse {
-    export type AsObject = {
     }
 }
 
@@ -958,9 +950,6 @@ export namespace ModifyMembersResponse {
 }
 
 export class GetGroupsRequest extends jspb.Message { 
-    getUsername(): string;
-    setUsername(value: string): GetGroupsRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetGroupsRequest.AsObject;
@@ -974,7 +963,27 @@ export class GetGroupsRequest extends jspb.Message {
 
 export namespace GetGroupsRequest {
     export type AsObject = {
-        username: string,
+    }
+}
+
+export class GetGroupsForPrincipalRequest extends jspb.Message { 
+    getPrincipal(): string;
+    setPrincipal(value: string): GetGroupsForPrincipalRequest;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetGroupsForPrincipalRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetGroupsForPrincipalRequest): GetGroupsForPrincipalRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetGroupsForPrincipalRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetGroupsForPrincipalRequest;
+    static deserializeBinaryFromReader(message: GetGroupsForPrincipalRequest, reader: jspb.BinaryReader): GetGroupsForPrincipalRequest;
+}
+
+export namespace GetGroupsForPrincipalRequest {
+    export type AsObject = {
+        principal: string,
     }
 }
 
@@ -1045,41 +1054,6 @@ export namespace GetUsersResponse {
     }
 }
 
-export class HashedAuthToken extends jspb.Message { 
-    getHashedToken(): string;
-    setHashedToken(value: string): HashedAuthToken;
-
-
-    hasTokenInfo(): boolean;
-    clearTokenInfo(): void;
-    getTokenInfo(): TokenInfo | undefined;
-    setTokenInfo(value?: TokenInfo): HashedAuthToken;
-
-
-    hasExpiration(): boolean;
-    clearExpiration(): void;
-    getExpiration(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setExpiration(value?: google_protobuf_timestamp_pb.Timestamp): HashedAuthToken;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): HashedAuthToken.AsObject;
-    static toObject(includeInstance: boolean, msg: HashedAuthToken): HashedAuthToken.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: HashedAuthToken, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): HashedAuthToken;
-    static deserializeBinaryFromReader(message: HashedAuthToken, reader: jspb.BinaryReader): HashedAuthToken;
-}
-
-export namespace HashedAuthToken {
-    export type AsObject = {
-        hashedToken: string,
-        tokenInfo?: TokenInfo.AsObject,
-        expiration?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-    }
-}
-
 export class ExtractAuthTokensRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;
@@ -1099,9 +1073,9 @@ export namespace ExtractAuthTokensRequest {
 
 export class ExtractAuthTokensResponse extends jspb.Message { 
     clearTokensList(): void;
-    getTokensList(): Array<HashedAuthToken>;
-    setTokensList(value: Array<HashedAuthToken>): ExtractAuthTokensResponse;
-    addTokens(value?: HashedAuthToken, index?: number): HashedAuthToken;
+    getTokensList(): Array<TokenInfo>;
+    setTokensList(value: Array<TokenInfo>): ExtractAuthTokensResponse;
+    addTokens(value?: TokenInfo, index?: number): TokenInfo;
 
 
     serializeBinary(): Uint8Array;
@@ -1116,7 +1090,7 @@ export class ExtractAuthTokensResponse extends jspb.Message {
 
 export namespace ExtractAuthTokensResponse {
     export type AsObject = {
-        tokensList: Array<HashedAuthToken.AsObject>,
+        tokensList: Array<TokenInfo.AsObject>,
     }
 }
 
@@ -1124,8 +1098,8 @@ export class RestoreAuthTokenRequest extends jspb.Message {
 
     hasToken(): boolean;
     clearToken(): void;
-    getToken(): HashedAuthToken | undefined;
-    setToken(value?: HashedAuthToken): RestoreAuthTokenRequest;
+    getToken(): TokenInfo | undefined;
+    setToken(value?: TokenInfo): RestoreAuthTokenRequest;
 
 
     serializeBinary(): Uint8Array;
@@ -1140,7 +1114,7 @@ export class RestoreAuthTokenRequest extends jspb.Message {
 
 export namespace RestoreAuthTokenRequest {
     export type AsObject = {
-        token?: HashedAuthToken.AsObject,
+        token?: TokenInfo.AsObject,
     }
 }
 
@@ -1161,6 +1135,78 @@ export namespace RestoreAuthTokenResponse {
     }
 }
 
+export class RevokeAuthTokensForUserRequest extends jspb.Message { 
+    getUsername(): string;
+    setUsername(value: string): RevokeAuthTokensForUserRequest;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RevokeAuthTokensForUserRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RevokeAuthTokensForUserRequest): RevokeAuthTokensForUserRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RevokeAuthTokensForUserRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RevokeAuthTokensForUserRequest;
+    static deserializeBinaryFromReader(message: RevokeAuthTokensForUserRequest, reader: jspb.BinaryReader): RevokeAuthTokensForUserRequest;
+}
+
+export namespace RevokeAuthTokensForUserRequest {
+    export type AsObject = {
+        username: string,
+    }
+}
+
+export class RevokeAuthTokensForUserResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RevokeAuthTokensForUserResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: RevokeAuthTokensForUserResponse): RevokeAuthTokensForUserResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RevokeAuthTokensForUserResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RevokeAuthTokensForUserResponse;
+    static deserializeBinaryFromReader(message: RevokeAuthTokensForUserResponse, reader: jspb.BinaryReader): RevokeAuthTokensForUserResponse;
+}
+
+export namespace RevokeAuthTokensForUserResponse {
+    export type AsObject = {
+    }
+}
+
+export class DeleteExpiredAuthTokensRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteExpiredAuthTokensRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteExpiredAuthTokensRequest): DeleteExpiredAuthTokensRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteExpiredAuthTokensRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteExpiredAuthTokensRequest;
+    static deserializeBinaryFromReader(message: DeleteExpiredAuthTokensRequest, reader: jspb.BinaryReader): DeleteExpiredAuthTokensRequest;
+}
+
+export namespace DeleteExpiredAuthTokensRequest {
+    export type AsObject = {
+    }
+}
+
+export class DeleteExpiredAuthTokensResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteExpiredAuthTokensResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteExpiredAuthTokensResponse): DeleteExpiredAuthTokensResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteExpiredAuthTokensResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteExpiredAuthTokensResponse;
+    static deserializeBinaryFromReader(message: DeleteExpiredAuthTokensResponse, reader: jspb.BinaryReader): DeleteExpiredAuthTokensResponse;
+}
+
+export namespace DeleteExpiredAuthTokensResponse {
+    export type AsObject = {
+    }
+}
+
 export enum Permission {
     UNKNOWN = 0,
     CLUSTER_MODIFY_BINDINGS = 100,
@@ -1169,14 +1215,14 @@ export enum Permission {
     CLUSTER_AUTH_DEACTIVATE = 103,
     CLUSTER_AUTH_GET_CONFIG = 104,
     CLUSTER_AUTH_SET_CONFIG = 105,
-    CLUSTER_AUTH_GET_TOKEN = 106,
     CLUSTER_AUTH_GET_ROBOT_TOKEN = 139,
-    CLUSTER_AUTH_EXTEND_TOKEN = 107,
     CLUSTER_AUTH_MODIFY_GROUP_MEMBERS = 109,
     CLUSTER_AUTH_GET_GROUPS = 110,
     CLUSTER_AUTH_GET_GROUP_USERS = 111,
     CLUSTER_AUTH_EXTRACT_TOKENS = 112,
     CLUSTER_AUTH_RESTORE_TOKEN = 113,
+    CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL = 141,
+    CLUSTER_AUTH_DELETE_EXPIRED_TOKENS = 140,
     CLUSTER_ENTERPRISE_ACTIVATE = 114,
     CLUSTER_ENTERPRISE_HEARTBEAT = 115,
     CLUSTER_ENTERPRISE_GET_CODE = 116,
