@@ -40,12 +40,12 @@ type dexWeb struct {
 	apiServer       identity.APIServer
 }
 
-func newDexWeb(env serviceenv.ServiceEnv, apiServer identity.APIServer) *dexWeb {
+func newDexWeb(env serviceenv.ServiceEnv, sp dex_storage.Storage, apiServer identity.APIServer) *dexWeb {
 	logger := logrus.WithField("source", "dex-web")
 	return &dexWeb{
 		env:             env,
 		logger:          logger,
-		storageProvider: env.GetDexDB(),
+		storageProvider: sp,
 		apiServer:       apiServer,
 	}
 }
