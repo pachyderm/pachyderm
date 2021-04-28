@@ -99,8 +99,6 @@ In the case of our integration with Auth0, we will use an oidc connector with th
 !!! Note
     Pachyderm supports the JSON and YAML formats for its connector files. 
 
-//TODO update new config fields (id, name, type added to config) when new alpha.12 is out
-
 See our oidc connector example in JSON and YAML formats below.
 === "oidc-dex-connector.json"
 
