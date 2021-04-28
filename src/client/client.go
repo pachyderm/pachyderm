@@ -94,8 +94,8 @@ type APIClient struct {
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 	License    license.APIClient
 
-	// addr is a "host:port" string pointing at a pachd endpoint
-	addr string
+	// addr is the parsed address used to connect to this server
+	addr *grpcutil.PachdAddress
 
 	// The trusted CAs, for authenticating a pachd server over TLS
 	caCerts *x509.CertPool
@@ -135,7 +135,7 @@ type APIClient struct {
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
 // 'c' was created using NewInCluster or NewOnUserMachine then this is how the
 // address may be retrieved from the environment.
-func (c *APIClient) GetAddress() string {
+func (c *APIClient) GetAddress() *grpcutil.PachdAddress {
 	return c.addr
 }
 
@@ -155,34 +155,24 @@ type clientSettings struct {
 	streamInterceptors   []grpc.StreamClientInterceptor
 }
 
-// NewFromURI creates a new client given a GRPC URI ex. grpc://test.example.com
+// NewFromURI creates a new client given a GRPC URI ex. grpc://test.example.com.
+// If no scheme is specified `grpc://` is assumed. A scheme of `grpcs://` enables TLS.
 func NewFromURI(uri string, options ...Option) (*APIClient, error) {
-	pachdAddress, err := grpcutil.ParsePachdAddress(address)
+	pachdAddress, err := grpcutil.ParsePachdAddress(uri)
 	if err != nil {
-		return errors.Wrap(err, "could not parse the pachd address")
+		return nil, errors.Wrap(err, "could not parse the pachd address")
 	}
-
-	var options []client.Option
-	if pachdAddress.Secured {
-		options = append(options, client.WithSystemCAs)
-	}
-
-	// Attempt to connect to the pachd
-	var pachClient *client.APIClient
-	if pachdAddress.UnixSocket != "" {
-		pachClient, err = client.NewFromSocket(pachdAddress.UnixSocket)
-	} else {
-		pachClient, err = client.NewFromAddress(pachdAddress.Hostname(), options...)
-	}
-
+	return NewFromPachdAddress(pachdAddress, options...)
 }
 
-// NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
-	// Validate address
-	if strings.Contains(addr, "://") {
-		return nil, errors.Errorf("address shouldn't contain protocol (\"://\"), but is: %q", addr)
+// NewFromPachdAddress creates a new client given a parsed GRPC address
+func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
+	// By default, use the system CAs for secure connections
+	// if no others are specified.
+	if pachdAddress.Secured {
+		options = append(options, WithSystemCAs)
 	}
+
 	// Apply creation options
 	settings := clientSettings{
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
@@ -198,7 +188,7 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		settings.streamInterceptors = append(settings.streamInterceptors, tracing.StreamClientInterceptor())
 	}
 	c := &APIClient{
-		addr:         addr,
+		addr:         pachdAddress,
 		caCerts:      settings.caCerts,
 		limiter:      limit.New(settings.maxConcurrentStreams),
 		gzipCompress: settings.gzipCompress,
@@ -258,8 +248,13 @@ func WithAdditionalRootCAs(pemBytes []byte) Option {
 	}
 }
 
-// WithSystemCAs uses the system certs for client creatin.
+// WithSystemCAs uses the system certs for client creation, if no others are provided.
+// This is the default behaviour when the scheme is `https` or `grpcs`.
 func WithSystemCAs(settings *clientSettings) error {
+	if settings.caCerts != nil {
+		return nil
+	}
+
 	certs, err := x509.SystemCertPool()
 	if err != nil {
 		return errors.Wrap(err, "could not retrieve system cert pool")
@@ -474,7 +469,7 @@ func NewForTest() (*APIClient, error) {
 		pachdAddress = &grpcutil.DefaultPachdAddress
 	}
 
-	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
+	client, err := NewFromPachdAddress(pachdAddress, cfgOptions...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
 	}
@@ -503,7 +498,7 @@ func NewEnterpriseClientForTest() (*APIClient, error) {
 		return nil, errors.New("no enterprise server configured")
 	}
 
-	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
+	client, err := NewFromPachdAddress(pachdAddress, cfgOptions...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
 	}
@@ -575,7 +570,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string
 		}
 	}
 
-	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
+	client, err := NewFromPachdAddress(pachdAddress, append(options, cfgOptions...)...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %q", pachdAddress.Qualified())
 	}
@@ -621,7 +616,7 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 	internalHost := os.Getenv("PACHD_PEER_SERVICE_HOST")
 	internalPort := os.Getenv("PACHD_PEER_SERVICE_PORT")
 	if internalHost != "" && internalPort != "" {
-		return NewFromAddress(fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
+		return NewFromURI(fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
 	}
 
 	host, ok := os.LookupEnv("PACHD_SERVICE_HOST")
@@ -633,7 +628,7 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 		return nil, errors.Errorf("PACHD_SERVICE_PORT not set")
 	}
 	// create new pachctl client
-	return NewFromAddress(fmt.Sprintf("%s:%s", host, port), options...)
+	return NewFromURI(fmt.Sprintf("%s:%s", host, port), options...)
 }
 
 // NewInWorker constructs a new APIClient intended to be used from a worker
@@ -649,7 +644,7 @@ func NewInWorker(options ...Option) (*APIClient, error) {
 	}
 
 	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
-		client, err := NewFromAddress(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+		client, err := NewFromURI(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create client")
 		}
@@ -787,17 +782,14 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	addr := c.addr
-	if !strings.HasPrefix(addr, "dns:///") && !strings.HasPrefix(addr, "unix://") {
-		addr = "dns:///" + c.addr
-	}
 
-	// TODO: the 'dns:///' prefix above causes connecting to hang on windows
-	// unless we also prevent the resolver from fetching a service config (which
-	// we don't use anyway).  Don't ask me why.
+	// By default GRPC will attempt to get service config from a TXT record when
+	// the `dns:///` scheme is used. Some DNS servers return the wrong type of error
+	// when the TXT record doesn't exist, and it causes GRPC to back off and retry
+	// service discovery forever.
 	dialOptions = append(dialOptions, grpc.WithDisableServiceConfig())
 
-	clientConn, err := grpc.DialContext(ctx, addr, dialOptions...)
+	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...)
 	if err != nil {
 		return err
 	}

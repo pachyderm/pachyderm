@@ -169,7 +169,7 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	// Initialize pach client
 	return backoff.Retry(func() error {
 		var err error
-		env.pachClient, err = client.NewFromAddress(env.pachAddress)
+		env.pachClient, err = client.NewFromURI(env.pachAddress)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
 		}

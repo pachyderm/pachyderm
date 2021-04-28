@@ -103,11 +103,17 @@ func (p *PachdAddress) Qualified() string {
 	if p.Secured {
 		return fmt.Sprintf("grpcs://%s:%d", p.Host, p.Port)
 	}
+	if p.UnixSocket != "" {
+		return p.UnixSocket
+	}
 	return fmt.Sprintf("grpc://%s:%d", p.Host, p.Port)
 }
 
-// Hostname returns the host:port combination of the pachd address, without
-// the scheme
-func (p *PachdAddress) Hostname() string {
-	return fmt.Sprintf("%s:%d", p.Host, p.Port)
+// Target returns a string suitable for calling grpc.Dial.
+// This may be a host:port pair for TCP connections, or a unix socket address.
+func (p *PachdAddress) Target() string {
+	if p.UnixSocket != "" {
+		return p.UnixSocket
+	}
+	return fmt.Sprintf("dns:///%s:%d", p.Host, p.Port)
 }

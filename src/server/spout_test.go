@@ -476,8 +476,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, err)
 		time.Sleep(20 * time.Second)
 
-		host, _, err := net.SplitHostPort(c.GetAddress())
-		require.NoError(t, err)
+		host := c.GetAddress().Host
 		serviceAddr := net.JoinHostPort(host, "31800")
 
 		// Write a tar stream with a single file to

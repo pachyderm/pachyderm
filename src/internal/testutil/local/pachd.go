@@ -437,7 +437,7 @@ func RunLocal() (retErr error) {
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
-			return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
+			return client.NewFromURI(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
 		})
 		if err != nil {
 			return err

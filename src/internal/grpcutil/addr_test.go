@@ -97,6 +97,13 @@ func TestParsePachdAddress(t *testing.T) {
 		Host:    "::1",
 		Port:    80,
 	}, p)
+
+	p, err = ParsePachdAddress("unix:///tmp/socket")
+	require.NoError(t, err)
+	require.Equal(t, &PachdAddress{
+		Secured:    false,
+		UnixSocket: "unix:///tmp/socket",
+	}, p)
 }
 
 func TestPachdAddressQualified(t *testing.T) {
@@ -113,6 +120,12 @@ func TestPachdAddressQualified(t *testing.T) {
 		Port:    DefaultPachdNodePort,
 	}
 	require.Equal(t, "grpcs://pachyderm.com:30650", p.Qualified())
+
+	p = &PachdAddress{
+		Secured:    false,
+		UnixSocket: "unix:///tmp/socket",
+	}
+	require.Equal(t, "unix:///tmp/socket", p.Qualified())
 }
 
 func TestPachdAddressHostname(t *testing.T) {
@@ -121,22 +134,19 @@ func TestPachdAddressHostname(t *testing.T) {
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdNodePort,
 	}
-	require.Equal(t, "pachyderm.com:30650", p.Hostname())
+	require.Equal(t, "dns:///pachyderm.com:30650", p.Target())
 
 	p = &PachdAddress{
 		Secured: true,
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdNodePort,
 	}
-	require.Equal(t, "pachyderm.com:30650", p.Hostname())
-}
+	require.Equal(t, "dns:///pachyderm.com:30650", p.Target())
 
-func TestPachdAddressSocket(t *testing.T) {
-	p, err := ParsePachdAddress("unix:///tmp/socket")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
+	p = &PachdAddress{
 		Secured:    false,
 		UnixSocket: "unix:///tmp/socket",
-	}, p)
+	}
+	require.Equal(t, "unix:///tmp/socket", p.Target())
 
 }
