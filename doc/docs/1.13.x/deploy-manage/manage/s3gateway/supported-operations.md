@@ -12,7 +12,7 @@ The Pachyderm S3 gateway supports the following operations:
 
 !!! Info
 
-      When using the AWS S3 CLI, simply append `--profile <name-your-profile>` at the end of your command to reference a given profile. If none, the authentication token will be retrieved from the default profile. More info in the [**Configure your S3 client**](./configure-s3client/#configure-your-s3-client) page. 
+      When using the AWS S3 CLI, simply append `--profile <name-your-profile>` at the end of your command to reference a given profile. If none, the authentication token will be retrieved from the default profile. More info in the [**Configure your S3 client**](../configure-s3client/#configure-your-s3-client) page. 
 
       For example, in the **Create Bucket** section below, the command would become:
       ```shell
