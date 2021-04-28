@@ -40,7 +40,7 @@ Find the exhaustive list of:
 
 ## If Your Authentication Is On
 If [auth is enabled](//TODO) on the Pachyderm cluster, credentials must be passed with
-each S3 gateway endpoint as mentionned in the [**Configure Your S3 Client**](../configure-s3client/#set-your-credentials) page.
+each S3 gateway endpoint as mentionned in the [**Configure Your S3 Client**](./configure-s3client/#set-your-credentials) page.
 
 !!! Warning "Important"
     In any case, wether those values are empty (no authentication) or set, the Access Key must equal the 
