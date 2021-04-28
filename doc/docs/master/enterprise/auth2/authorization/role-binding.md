@@ -298,11 +298,13 @@ Let's keep using our Auth0 example as an illustration, and:
     ```
     **System Response**
     ```
+    pach:root: [repoOwner]
+    user:another-pachyderm-user@gmail.com: [repoReader]
     group:testgroup: [repoOwner]
     ```
     !!! Info "Useful note"
         The following command `pachctl auth get-groups` lists the groups that have been defined on your cluster.
-        
+
 ## Example
 
 ![Role binding example](../images/role-binding-example.svg)
