@@ -38,6 +38,7 @@ by login in as the [user created in Auth0](./idp-dex/#1-register-a-pachyderm-app
       ```
 
 Your Authentication is all set. 
+
 Next - (Optional)[Configure the User Access to Pachyderm Ressources](../authorization/role-binding.md).
 
 ## Login from JupiterHub (IDE)
