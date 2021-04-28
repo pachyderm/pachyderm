@@ -76,10 +76,12 @@ func (s *TestServiceEnv) ClusterID() string {
 	return "testing"
 }
 
+// Logger implements the corresponding ServiceEnv method for TestServiceEnv
 func (s *TestServiceEnv) Logger() *log.Logger {
 	return s.Log
 }
 
+// Close implements the corresponding ServiceEnv method for TestServiceEnv
 func (s *TestServiceEnv) Close() error {
 	eg := &errgroup.Group{}
 	eg.Go(s.GetPachClient(context.Background()).Close)
