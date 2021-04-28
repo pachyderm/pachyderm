@@ -6,15 +6,15 @@
 
 Pachyderm delegates its authentication to third party Identity Providers.
 
-We embed an OpenID Connect identity service based on [**Dex**](https://dexidp.io/docs/) allowing for a vendor-neutral authentication (i.e., a pluggable authentication against many different identity providers).
+We embed an **Open ID Connect** identity service based on [**Dex**](https://dexidp.io/docs/) allowing for a vendor-neutral authentication (i.e., a pluggable authentication against many different identity providers).
 
-As a result, users can authenticate **using their existing credentials from various back-ends**, including LDAP, SAML, and other OIDC providers. 
+As a result, users can authenticate **using their existing credentials from various back-ends**, including LDAP, other OIDC providers, or SAML. 
 
 Setting up Pachyderm's User Access Management (also referred to as "Authentication and Authorization" or "Auth" in this documentation) requires to follow those 3 simple steps:
 
 1. [Activate the feature](#activate-user-access-management).
 1. Create a connector and [connect the IdP of your choice to Pachyderm (Dex)](./authentication/idp-dex.md). 
-1. Optional: Manage your Authorization. i.e.,[assign IdP users to specific Roles](./authorization/role-binding.md) on given Pachyderm Ressources. 
+1. Optional: Manage your Authorization. i.e.,[assign specific Roles to IdP users](./authorization/role-binding.md) on given Pachyderm Ressources. 
 
 Any registered IdP user will then be able to log into their IdP and access Pachyderm ressources according to the privileges they were granted.
 
@@ -37,7 +37,7 @@ $ pachctl auth activate
 The enablement of the User Access Management **creates
 an initial `Root user` and returns a `Root token`**.
 This `Root user` (or initial admin) has irrevokable `clusterAdmin` privileges on
-Pachyderm's cluster. More on the types of Users, Roles, and Ressources [here](./authorization/role-binding.md/#users-types).
+Pachyderm's cluster. More on the various types of Users, Roles, and Ressources [here](./authorization/role-binding/#users-types).
 
 **System Response**
 ```

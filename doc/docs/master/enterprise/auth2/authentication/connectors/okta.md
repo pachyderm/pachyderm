@@ -7,6 +7,7 @@ identity provider using the following steps.
 
 !!! Note
     Before you can configure Pachyderm to work with Okta:
+    
     - Check the [Pachyderm Integration with Identity Providers](../idp-dex.md) general page.
     - Log in/Create an account at https://www.okta.com/login/. 
 
