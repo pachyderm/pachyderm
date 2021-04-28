@@ -23,7 +23,6 @@ import (
 func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
 	env := &serviceenv.TestServiceEnv{
 		DBClient: testutil.NewTestDB(t),
-		DexDB:    dex_memory.New(logrus.New()),
 		Log:      logrus.New(),
 	}
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState))
@@ -35,15 +34,17 @@ func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
 // and redirects to a real connector when one is configured
 func TestLazyStartWebServer(t *testing.T) {
 	webDir = "../../../../dex-assets"
+	logger := logrus.NewEntry(logrus.New())
+	sp := dex_memory.New(logger)
 	env := getTestEnv(t)
-	api := NewIdentityServer(env, false)
+	api := NewIdentityServer(env, sp, false)
 
 	// server is instantiated but hasn't started
-	server := newDexWeb(env, api)
+	server := newDexWeb(env, sp, api)
 	defer server.stopWebServer()
 
 	// attempt to start the server, no connectors are available so we should get a redirect to a static page
-	require.NoError(t, env.GetDexDB().CreateClient(dex_storage.Client{
+	require.NoError(t, sp.CreateClient(dex_storage.Client{
 		ID:           "test",
 		RedirectURIs: []string{"http://example.com/callback"},
 	}))
@@ -56,7 +57,7 @@ func TestLazyStartWebServer(t *testing.T) {
 	require.Matches(t, "/placeholder", recorder.Result().Header.Get("Location"))
 
 	// configure a connector so the server should redirect to github automatically - the placeholder provider shouldn't be enabled anymore
-	err := env.GetDexDB().CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
+	err := sp.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
 	require.NoError(t, err)
 	recorder = httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
@@ -73,13 +74,15 @@ func TestLazyStartWebServer(t *testing.T) {
 // TestConfigureIssuer tests that the web server is restarted when the issuer is changed.
 func TestConfigureIssuer(t *testing.T) {
 	webDir = "../../../../dex-assets"
+	logger := logrus.NewEntry(logrus.New())
+	sp := dex_memory.New(logger)
 	env := getTestEnv(t)
-	api := NewIdentityServer(env, false)
+	api := NewIdentityServer(env, sp, false)
 
-	server := newDexWeb(env, api)
+	server := newDexWeb(env, sp, api)
 	defer server.stopWebServer()
 
-	err := env.GetDexDB().CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
+	err := sp.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
 	require.NoError(t, err)
 
 	// request the OIDC configuration endpoint - the issuer is an empty string
@@ -109,18 +112,20 @@ func TestConfigureIssuer(t *testing.T) {
 // TestUpdateIDP tests that the web server is restarted when an IDP is reconfigured
 func TestUpdateIDP(t *testing.T) {
 	webDir = "../../../../dex-assets"
+	logger := logrus.NewEntry(logrus.New())
+	sp := dex_memory.New(logger)
 	env := getTestEnv(t)
-	api := NewIdentityServer(env, false)
+	api := NewIdentityServer(env, sp, false)
 
-	server := newDexWeb(env, api)
+	server := newDexWeb(env, sp, api)
 	defer server.stopWebServer()
 
 	// Configure a connector with a given ID
-	err := env.GetDexDB().CreateConnector(dex_storage.Connector{ID: "conn", Type: "github", Config: []byte(`{"clientID": "test1", "redirectURI": "/callback"}`)})
+	err := sp.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github", Config: []byte(`{"clientID": "test1", "redirectURI": "/callback"}`)})
 	require.NoError(t, err)
 
 	// Create an auth request that hasn't done the flow
-	require.NoError(t, env.GetDexDB().CreateAuthRequest(dex_storage.AuthRequest{
+	require.NoError(t, sp.CreateAuthRequest(dex_storage.AuthRequest{
 		ID:       "testreq",
 		ClientID: "testclient",
 	}))
@@ -149,17 +154,19 @@ func TestUpdateIDP(t *testing.T) {
 // in the database.
 func TestLogApprovedUsers(t *testing.T) {
 	webDir = "../../../../dex-assets"
+	logger := logrus.NewEntry(logrus.New())
+	sp := dex_memory.New(logger)
 	env := getTestEnv(t)
-	api := NewIdentityServer(env, false)
+	api := NewIdentityServer(env, sp, false)
 
-	server := newDexWeb(env, api)
+	server := newDexWeb(env, sp, api)
 	defer server.stopWebServer()
 
-	err := env.GetDexDB().CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
+	err := sp.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
 	require.NoError(t, err)
 
 	// Create an auth request that has already done the Github flow
-	require.NoError(t, env.GetDexDB().CreateAuthRequest(dex_storage.AuthRequest{
+	require.NoError(t, sp.CreateAuthRequest(dex_storage.AuthRequest{
 		ID:       "testreq",
 		ClientID: "testclient",
 		Expiry:   time.Now().Add(time.Hour),
@@ -179,7 +186,7 @@ func TestLogApprovedUsers(t *testing.T) {
 	require.Equal(t, "test@example.com", users[0].Email)
 
 	// Create a second request and confirm the last-authenticated date is updated
-	require.NoError(t, env.GetDexDB().CreateAuthRequest(dex_storage.AuthRequest{
+	require.NoError(t, sp.CreateAuthRequest(dex_storage.AuthRequest{
 		ID:       "testreq2",
 		ClientID: "testclient",
 		Expiry:   time.Now().Add(time.Hour),

@@ -14,8 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	dex_storage "github.com/dexidp/dex/storage"
-	dex_sql "github.com/dexidp/dex/storage/sql"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
@@ -38,7 +36,6 @@ type ServiceEnv interface {
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
-	GetDexDB() dex_storage.Storage
 	ClusterID() string
 	Context() context.Context
 	Logger() *log.Logger
@@ -85,10 +82,6 @@ type NonblockingServiceEnv struct {
 	// clusterId is the unique ID for this pach cluster
 	clusterId   string
 	clusterIdEg errgroup.Group
-
-	// dexDB is a dex_storage connected to postgres
-	dexDB   dex_storage.Storage
-	dexDBEg errgroup.Group
 
 	// dbClient is a database client.
 	dbClient *sqlx.DB
@@ -142,27 +135,6 @@ func InitWithKube(config *Configuration) *NonblockingServiceEnv {
 	env := InitServiceEnv(config)
 	env.kubeEg.Go(env.initKubeClient)
 	return env // env is not ready yet
-}
-
-// InitDexDB initiates the connection to postgres to populate the Dex DB.
-// This is only required in pods where the identity service is running,
-// otherwise it creates an extra unnecessary postgres connection.
-func (env *NonblockingServiceEnv) InitDexDB() {
-	env.dexDBEg.Go(func() (err error) {
-		env.dexDB, err = (&dex_sql.Postgres{
-			NetworkDB: dex_sql.NetworkDB{
-				Database: env.Config().IdentityServerDatabase,
-				User:     env.Config().IdentityServerUser,
-				Password: env.Config().IdentityServerPassword,
-				Host:     env.Config().PostgresServiceHost,
-				Port:     uint16(env.Config().PostgresServicePort),
-			},
-			SSL: dex_sql.SSL{
-				Mode: env.Config().PostgresServiceSSL,
-			},
-		}).Open(env.Logger().WithField("source", "identity-db"))
-		return
-	})
 }
 
 func (env *NonblockingServiceEnv) Config() *Configuration {
@@ -335,16 +307,6 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 		panic("service env never connected to the database")
 	}
 	return env.dbClient
-}
-
-func (env *NonblockingServiceEnv) GetDexDB() dex_storage.Storage {
-	if err := env.dexDBEg.Wait(); err != nil {
-		panic(err) // If env can't connect, there's no sensible way to recover
-	}
-	if env.dexDB == nil {
-		panic("service env never connected to the Dex database")
-	}
-	return env.dexDB
 }
 
 func (env *NonblockingServiceEnv) ClusterID() string {
