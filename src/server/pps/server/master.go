@@ -89,7 +89,7 @@ func (a *apiServer) master() {
 		eventCh:                make(chan *pipelineEvent, 1), // avoid thrashing
 	}
 
-	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
+	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath), a.env.PPSMasterLockTimeoutSeconds)
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
