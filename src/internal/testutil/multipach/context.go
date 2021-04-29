@@ -75,25 +75,33 @@ func withDB(cb func(*sqlx.DB) error, opts ...dbutil.Option) (retErr error) {
 	return cb(db)
 }
 
+// TestContext is provides an interface for integration tests to interact with the pach API
 type TestContext interface {
 	GetUnauthenticatedPachClient(tb testing.TB) *client.APIClient
 	GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient
 }
 
+// InMemoryTestContext is a TestContext that points to an isolated in-memory pachd
 type InMemoryTestContext struct {
 	env *serviceenv.TestServiceEnv
 }
 
+// GetUnauthenticatedPachClient returns a pach client with no auth info
 func (*RemoteTestContext) GetUnauthenticatedPachClient(tb testing.TB) *client.APIClient {
 	return testutil.GetUnauthenticatedPachClient(tb)
 }
 
+// GetAuthenticatedPachClient returns a pach client which is authenticated as `subject`
 func (*RemoteTestContext) GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
 	return testutil.GetAuthenticatedPachClient(tb, subject)
 }
 
+// RemoteTestContext is a TestContext that points to a real pachd running in a k8s cluster
 type RemoteTestContext struct{}
 
+// GetTestContext should be called at the beginning of an integration test to get a
+// TestContext. It will either spawn a dedicated in-memory pachd or return a reference
+// to an external pachd depending on the environement.
 func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 	t.Helper()
 
@@ -220,6 +228,7 @@ func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 	return testCtx
 }
 
+// GetUnauthenticatedPachClient returns a copy of the testing pach client authenticated as `subject`
 func (c *InMemoryTestContext) GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
 	tb.Helper()
 	rootClient := c.GetUnauthenticatedPachClient(tb)
