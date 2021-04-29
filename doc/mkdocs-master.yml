@@ -398,13 +398,16 @@ nav:
         - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
         - Authentication & Authorization:
-            - Activation: enterprise/auth2/index.md
+            - Activation: enterprise/auth/index.md
             - Authentication:
-                - Connect your IdP: enterprise/auth2/authentication/idp-dex.md
-                - Login Flow: enterprise/auth2/authentication/login.md
-            - Authorization: enterprise/auth2/authorization/role-binding.md
+                - Connect your IdP: enterprise/auth/authentication/idp-dex.md
+                - Login Flow: enterprise/auth/authentication/login.md
+            - Authorization: 
+                - Model overview: enterprise/auth/authorization/index.md
+                - Role Binding: enterprise/auth/authorization/role-binding.md
         - License Server:
-            - Overview: enterprise/auth2/license-server/index.md       
+            - Setup an Enterprise Server: enterprise/auth/license-server/setup.md 
+            - Manage your Enterprise Server: enterprise/auth/license-server/manage.md 
         - Advanced Statistics: enterprise/stats.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
