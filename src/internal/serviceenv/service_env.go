@@ -392,6 +392,8 @@ func (env *NonblockingServiceEnv) Context() context.Context {
 	return env.ctx
 }
 
+// Logger implements the corresponding ServiceEnv method for
+// NonblockingServiceEnv
 func (env *NonblockingServiceEnv) Logger() *log.Logger {
 	return log.StandardLogger()
 }
