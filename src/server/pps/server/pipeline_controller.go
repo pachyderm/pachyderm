@@ -537,7 +537,7 @@ func (op *pipelineOp) deletePipelineResources() error {
 // failing/restarting op's pipeline if it can't update its RC. If this happens,
 // it will return an error to the caller to indicate that the caller shouldn't
 // continue with further operations
-func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error {
+func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController) bool) error {
 	kubeClient := op.m.a.env.Get30sKubeClient()
 	namespace := op.m.a.namespace
 	rc := kubeClient.CoreV1().ReplicationControllers(namespace)
@@ -546,10 +546,17 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 	return backoff.RetryNotify(func() error {
 		newRC := *op.rc
 		// Apply op's update to rc
-		update(&newRC)
-		// write updated RC to k8s
-		_, err := rc.Update(&newRC)
-		return err
+		if update(&newRC) {
+			oldReplicas := int32(0)
+			if op.rc.Spec.Replicas != nil {
+				oldReplicas = *op.rc.Spec.Replicas
+			}
+			log.Infof("PPS master: scaling %q from %d to %d", op.name, oldReplicas, *newRC.Spec.Replicas)
+			// write updated RC to k8s
+			_, err := rc.Update(&newRC)
+			return err
+		}
+		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		errCount++
 		if strings.Contains(err.Error(), "try again") {
@@ -572,7 +579,7 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 // Like other functions in this file, it takes responsibility for
 // failing/restarting op's pipeline if it can't update its RC (via updateRC)
 func (op *pipelineOp) scaleUpPipeline() (retErr error) {
-	log.Infof("PPS master: scaling up workers for %q", op.name)
+	log.Debugf("PPS master: checking scale-up for %q", op.name)
 	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
 		"/pps.Master/ScaleUpPipeline", "pipeline", op.name)
 	defer func() {
@@ -590,9 +597,9 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 	}
 
 	// update pipeline RC
-	return op.updateRC(func(rc *v1.ReplicationController) {
-		if rc.Spec.Replicas != nil && *op.rc.Spec.Replicas > 0 {
-			return // prior attempt succeeded
+	return op.updateRC(func(rc *v1.ReplicationController) bool {
+		if rc.Spec.Replicas != nil && *rc.Spec.Replicas > 0 {
+			return false // prior attempt succeeded
 		}
 		rc.Spec.Replicas = new(int32)
 		if op.pipelineInfo.Autoscaling {
@@ -600,6 +607,7 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 		} else {
 			*rc.Spec.Replicas = int32(parallelism)
 		}
+		return true
 	})
 }
 
@@ -609,7 +617,7 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 // Like other functions in this file, it takes responsibility for
 // failing/restarting op's pipeline if it can't update its RC (via updateRC)
 func (op *pipelineOp) scaleDownPipeline() (retErr error) {
-	log.Infof("PPS master: scaling down workers for %q", op.name)
+	log.Debugf("PPS master: checking scale-down for %q", op.name)
 	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
 		"/pps.Master/ScaleDownPipeline", "pipeline", op.name)
 	defer func() {
@@ -620,11 +628,12 @@ func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 		tracing.FinishAnySpan(span)
 	}()
 
-	return op.updateRC(func(rc *v1.ReplicationController) {
+	return op.updateRC(func(rc *v1.ReplicationController) bool {
 		if rc.Spec.Replicas != nil && *op.rc.Spec.Replicas == 0 {
-			return // prior attempt succeeded
+			return false // prior attempt succeeded
 		}
 		rc.Spec.Replicas = &zero
+		return true
 	})
 }
 
