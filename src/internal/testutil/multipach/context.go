@@ -211,7 +211,7 @@ func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 	}
 	require.NoError(t, setupServer(senv, clientSocketPath))
 
-	senv.PachClient, err = client.NewFromSocket("unix://" + clientSocketPath)
+	senv.PachClient, err = client.NewFromURI("unix://" + clientSocketPath)
 	require.NoError(t, err)
 	close(senv.Ready)
 
@@ -223,8 +223,8 @@ func GetTestContext(t testing.TB, requiresRealDeployment bool) TestContext {
 func (c *InMemoryTestContext) GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
 	tb.Helper()
 	rootClient := c.GetUnauthenticatedPachClient(tb)
-	ActivateAuth(tb, rootClient)
-	rootClient.SetAuthToken(RootToken)
+	testutil.ActivateAuthWithClient(tb, rootClient)
+	rootClient.SetAuthToken(testutil.RootToken)
 	if subject == authclient.RootUser {
 		return rootClient
 	}

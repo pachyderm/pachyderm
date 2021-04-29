@@ -1285,7 +1285,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	ctx := multipach.GetTestContext(t, false)
 
 	anonClient := ctx.GetUnauthenticatedPachClient(t)
-	multipach.ActivateAuth(t, anonClient)
+	tu.ActivateAuthWithClient(t, anonClient)
 
 	// anonClient tries and fails to create a repo
 	repo := tu.UniqueString(t.Name())
