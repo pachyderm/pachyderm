@@ -643,7 +643,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 			Value: "pg-bouncer." + opts.Namespace,
 		},
 		{
-			Name:  "POSTGRES_DATABASE_NAME",
+			Name:  "POSTGRES_DATABASE",
 			Value: PostgresDBName,
 		},
 		{

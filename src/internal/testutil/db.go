@@ -196,7 +196,7 @@ func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.Postgres
 	return db, listener
 }
 
-func newDatabase(t testing.TB) string {
+func createEphemeralDB(t testing.TB) string {
 	dbName := ephemeralDBName(t)
 	require.NoError(t, withDB(func(db *sqlx.DB) error {
 		_, err := db.Exec("CREATE DATABASE " + dbName)
@@ -237,7 +237,7 @@ func dbPort() int {
 // with a unique name then returns a sqlx.DB configured to use the newly created
 // database. After the test or suite finishes, the database is dropped.
 func NewTestDB(t testing.TB) *sqlx.DB {
-	db2, err := dbutil.NewDB(dbutil.WithHostPort(dbHost(), dbPort()), dbutil.WithDBName(newDatabase(t)))
+	db2, err := dbutil.NewDB(dbutil.WithHostPort(dbHost(), dbPort()), dbutil.WithDBName(createEphemeralDB(t)))
 	require.NoError(t, err)
 	db2.SetMaxOpenConns(maxOpenConnsPerPool)
 	t.Cleanup(func() {
@@ -251,10 +251,12 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 // connect to the new database. After test test or suite finishes, the database
 // is dropped.
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
-	dbName := newDatabase(t)
+	dbName := createEphemeralDB(t)
 	return func(config *serviceenv.Configuration) {
-		serviceenv.WithPostgresHostPort(dbHost(), dbPort())(config)
+		config.PostgresUser = dbutil.DefaultTestUser
 		config.PostgresDBName = dbName
+		config.PostgresServiceHost = dbHost()
+		config.PostgresServicePort = dbPort()
 	}
 }
 
