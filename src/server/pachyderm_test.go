@@ -6569,7 +6569,7 @@ func TestMaxQueueSize(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	var pipeline *pps.PipelineJobInfo
+	var pipelineJobInfo *pps.PipelineJobInfo
 	for i := 0; i < 10; i++ {
 		require.NoError(t, backoff.Retry(func() error {
 			jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
