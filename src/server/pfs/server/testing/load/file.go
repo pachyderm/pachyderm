@@ -119,7 +119,7 @@ func (rfs *randomFileSource) nextPath() string {
 	}
 	if rfs.spec.IncrementPath {
 		next := rfs.next
-		rfs.next += 1
+		rfs.next++
 		return path.Join(dir, fmt.Sprintf("%016d", next))
 	}
 	return path.Join(dir, uuid.NewWithoutDashes())
