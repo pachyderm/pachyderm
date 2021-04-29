@@ -1,13 +1,18 @@
 #!/bin/bash
 # deploy.sh deploys a pachyderm 1.7 cluster
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# shellcheck source=./../../../govars.sh
+source "${SCRIPT_DIR}/../../../govars.sh"
+
 set -x
 
+
 # Install old version of pachctl, for migration tests
-if [[ ! -f "${GOPATH}/bin/pachctl_1_7" ]]; then
+if [[ ! -f "${GOBIN}/pachctl_1_7" ]]; then
   curl -Ls https://github.com/pachyderm/pachyderm/releases/download/v1.7.11/pachctl_1.7.11_linux_amd64.tar.gz \
-    | tar -xz pachctl_1.7.11_linux_amd64/pachctl -O >"${GOPATH}/bin/pachctl_1_7"
-  chmod +x "${GOPATH}/bin/pachctl_1_7"
+    | tar -xz pachctl_1.7.11_linux_amd64/pachctl -O >"${GOBIN}/pachctl_1_7"
+  chmod +x "${GOBIN}/pachctl_1_7"
 fi
 
 # (If 1.7 is already deployed, we're done. Otherwise, undeploy + deploy)

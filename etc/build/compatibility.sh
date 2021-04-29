@@ -2,15 +2,17 @@
 
 set -e
 
-GOPATH=$(go env GOPATH)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# shellcheck source=./../govars.sh
+source "${SCRIPT_DIR}/../govars.sh"
 
-if [ ! -f "$GOPATH/bin/pachctl" ]
+if [ ! -f "${PACHCTL}" ]
 then
-    echo "$GOPATH/bin/pachctl not found."
+    echo "${PACHCTL} not found."
     exit 1
 fi
 
-RELVERSION=$("$GOPATH/bin/pachctl" version --client-only)
+RELVERSION=$("${PACHCTL}" version --client-only)
 VERSION=$(echo "$RELVERSION" | cut -f -1 -d "-")
 
 go run etc/build/get_default_version.go defaultDashVersion >> "etc/compatibility/$VERSION"

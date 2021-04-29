@@ -4,6 +4,8 @@
 # DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####
 
+include etc/govars.mk
+
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Don't set the version to the git hash in CI, as it breaks the go build cache.
 ifdef CIRCLE_BRANCH
@@ -31,31 +33,17 @@ GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 
-ifeq ($(OS),Windows_NT)
-	GOPATH = $(shell cygpath -u $(shell go env GOPATH))
-else
-	GOPATH = $(shell go env GOPATH)
-endif
-
-GOBIN = $(GOPATH)/bin
-
-ifdef TRAVIS_BUILD_NUMBER
-	# Upper bound for travis test timeout
-	TIMEOUT = 3600s
-else
-ifndef TIMEOUT
-	# You should be able to specify your own timeout, but by default we'll use the same bound as travis
-	TIMEOUT = 3600s
-endif
-endif
+# Default upper bound for test timeouts
+# You can specify your own, but this is what CI uses
+TIMEOUT ?= 3600s
 
 install:
-	# GOPATH/bin must be on your PATH to access these binaries:
+	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
 	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
-	@rm -f $(GOBIN)/pachctl
+	@rm -f $(PACHCTL)
 	@make install
 
 install-doc:
@@ -106,7 +94,7 @@ docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
 docker-build-pipeline-build: install
-	VERSION=$$(pachctl version --client-only) DOCKER_BUILDKIT=1 \
+	VERSION=$$($(PACHCTL) version --client-only) DOCKER_BUILDKIT=1 \
 	  goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 docker-build-proto:
@@ -152,10 +140,10 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 
 docker-push-pipeline-build: install
-	$(SKIP) ls etc/pipeline-build | xargs -I {} docker push pachyderm/{}-build:$$(pachctl version --client-only)
+	$(SKIP) ls etc/pipeline-build | xargs -I {} docker push pachyderm/{}-build:$$($(PACHCTL) version --client-only)
 
 docker-push-pipeline-build-to-minikube: install
-	$(SKIP) ls etc/pipeline-build | xargs -I {} etc/kube/push-to-minikube.sh pachyderm/{}-build:$$(pachctl version --client-only)
+	$(SKIP) ls etc/pipeline-build | xargs -I {} etc/kube/push-to-minikube.sh pachyderm/{}-build:$$($(PACHCTL) version --client-only)
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -193,7 +181,7 @@ launch-release-vm:
 	  echo "minikube is still up. Run 'make clean-launch-kube'"; \
 	  exit 1; \
 	fi
-	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM) --tag=v$$(pachctl version --client-only)
+	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM) --tag=v$$($(PACHCTL) version --client-only)
 
 clean-launch-kube:
 	@# clean up both of the following cases:
@@ -205,23 +193,23 @@ clean-launch-kube:
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	$(GOBIN)/pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
+	$(PACHCTL) deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	$(GOBIN)/pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	$(PACHCTL) deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl install
-	yes | $(GOBIN)/pachctl undeploy
+	yes | $(PACHCTL) undeploy
 
 clean-launch-dev: check-kubectl install
-	yes | $(GOBIN)/pachctl undeploy
+	yes | $(PACHCTL) undeploy
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -328,7 +316,7 @@ test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
-	yes | pachctl delete all
+	yes | $(PACHCTL) delete all
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
@@ -412,7 +400,7 @@ follow-logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs -f pod'
 
 google-cluster-manifest:
-	@$(GOBIN)/pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@$(PACHCTL) deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
@@ -430,7 +418,7 @@ clean-google-cluster:
 	gcloud compute disks delete $(STORAGE_NAME)
 
 amazon-cluster-manifest: install
-	@$(GOBIN)/pachctl deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@$(PACHCTL) deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
@@ -454,7 +442,7 @@ amazon-clean:
         fi;done;
 
 microsoft-cluster-manifest:
-	@$(GOBIN)/pachctl deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
+	@$(PACHCTL) deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
 
 microsoft-cluster:
 	azure group create --name $(AZURE_RESOURCE_GROUP) --location $(AZURE_LOCATION)

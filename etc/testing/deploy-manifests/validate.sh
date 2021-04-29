@@ -2,6 +2,10 @@
 
 set -e
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# shellcheck source=./../../govars.sh
+source "${SCRIPT_DIR}/../../govars.sh"
+
 here="$(dirname "${0}")"
 dest_dir="test"
 rm -rf "${here:?}/${dest_dir:?}" || true
@@ -76,7 +80,7 @@ for platform in custom google amazon microsoft; do
     #   version all work
     # - Use an empty pach config so that e.g. metrics don't change the output
     # shellcheck disable=SC2154
-    "${GOPATH}/bin/pachctl" deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
+    "${PACHCTL}" deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
       | sed 's/\([0-9]\{1,4\}\.[0-9]\{1,4\}\.[0-9]\{1,4\}\)-[0-9a-f]\{40\}/\1/g' >"${output}"
     rm -f "${pach_config}" # remove cfg from next run (or diff dir, or golden/)
     if [[ ! "${is_regenerate}" ]]; then
