@@ -274,7 +274,7 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 		tracing.FinishAnySpan(span)
 	}(span)
 
-	kubeClient := op.m.a.env.GetKubeClient()
+	kubeClient := op.m.a.env.Get30sKubeClient()
 	namespace := op.m.a.namespace
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.name)
 
@@ -285,7 +285,10 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 	return backoff.RetryNotify(func() error {
 		// List all RCs, so stale RCs from old pipelines are noticed and deleted
 		rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(
-			metav1.ListOptions{LabelSelector: selector})
+			metav1.ListOptions{
+				TimeoutSeconds: &listTimeoutSeconds,
+				LabelSelector:  selector,
+			})
 		if err != nil && !isNotFoundErr(err) {
 			return err
 		}
@@ -535,7 +538,7 @@ func (op *pipelineOp) deletePipelineResources() error {
 // it will return an error to the caller to indicate that the caller shouldn't
 // continue with further operations
 func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error {
-	kubeClient := op.m.a.env.GetKubeClient()
+	kubeClient := op.m.a.env.Get30sKubeClient()
 	namespace := op.m.a.namespace
 	rc := kubeClient.CoreV1().ReplicationControllers(namespace)
 

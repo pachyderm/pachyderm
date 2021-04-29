@@ -356,10 +356,12 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							return err
 						}
 						if unclaimedTasks > 0 {
+							log.Debugf("Beginning scale-up check for %q, which has %d unclaimed tasks",
+								pipeline, unclaimedTasks)
 							// TODO route this through the controller rather
 							// than modifying the RC directly. This will
 							// prevent a potential race condition.
-							kubeClient := m.a.env.GetKubeClient()
+							kubeClient := m.a.env.Get30sKubeClient()
 							namespace := m.a.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
 							scale, err := rc.GetScale(pipelineInfo.WorkerRc, metav1.GetOptions{})
@@ -371,6 +373,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 								return err
 							}
 							if int64(scale.Spec.Replicas) < n {
+								log.Debugf("Scaling up %q from %d to %d workers", pipeline, scale.Spec.Replicas, n)
 								scale.Spec.Replicas = int32(n)
 								if _, err := rc.UpdateScale(pipelineInfo.WorkerRc, scale); err != nil {
 									return err
@@ -384,7 +387,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						}
 					}
 				}, backoff.NewInfiniteBackOff(),
-					backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
+					backoff.NotifyCtx(pachClient.Ctx(), "autoscaling for "+pipeline))
 			})
 		}
 	}

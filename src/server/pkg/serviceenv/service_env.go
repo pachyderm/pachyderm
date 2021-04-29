@@ -52,6 +52,12 @@ type ServiceEnv struct {
 	// kubeClient is a kubernetes client that, if initialized, is shared by all
 	// users of this environment
 	kubeClient *kube.Clientset
+	// thirtySecondsKubeClient is a kubernetes client that, if initialized, is
+	// shared by all users of this environment. Unlike kubeClient, it imposes a
+	// 30s timeout on all RPCs it sends
+	// TODO(msteffen): upgrade to latest vesion of k8s.io/client-go, which uses
+	// context passing to enforce timeouts, rather than startup options
+	thirtySecondsKubeClient *kube.Clientset
 	// kubeEg coordinates the initialization of kubeClient (see pachdEg)
 	kubeEg errgroup.Group
 
@@ -174,6 +180,8 @@ func (env *ServiceEnv) initKubeClient() error {
 			}
 		}
 		env.kubeClient, err = kube.NewForConfig(cfg)
+		cfg.Timeout = 30 * time.Second
+		env.thirtySecondsKubeClient, err = kube.NewForConfig(cfg)
 		if err != nil {
 			return errors.Wrapf(err, "could not initialize kube client")
 		}
@@ -209,7 +217,7 @@ func (env *ServiceEnv) GetEtcdClient() *etcd.Client {
 	return env.etcdClient
 }
 
-// GetKubeClient returns the already connected Kubernetes API client without
+// GetKubeClient returns the already-connected Kubernetes API client without
 // modification.
 func (env *ServiceEnv) GetKubeClient() *kube.Clientset {
 	if err := env.kubeEg.Wait(); err != nil {
@@ -219,6 +227,20 @@ func (env *ServiceEnv) GetKubeClient() *kube.Clientset {
 		panic("service env never connected to kubernetes")
 	}
 	return env.kubeClient
+}
+
+// Get30sKubeClient returns the already-connected thirtySecondsKubeClient
+// Kubernetes API client without modification (i.e. this is similar to
+// GetKubeClient(), but the client returned by this function times out all RPCs
+// after 30s).
+func (env *ServiceEnv) Get30sKubeClient() *kube.Clientset {
+	if err := env.kubeEg.Wait(); err != nil {
+		panic(err) // If env can't connect, there's no sensible way to recover
+	}
+	if env.thirtySecondsKubeClient == nil {
+		panic("service env never connected to kubernetes")
+	}
+	return env.thirtySecondsKubeClient
 }
 
 // GetLokiClient returns the loki client, it doesn't require blocking on a
