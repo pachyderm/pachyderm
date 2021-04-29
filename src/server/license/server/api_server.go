@@ -334,14 +334,12 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	// should we only validate the pachd Address accessible to the enterprise server?
 	if req.Address != "" {
 		if err := a.validateClusterConfig(ctx, req.Address); err != nil {
 			return nil, err
 		}
 	}
 
-	// is there semantic value to updating a cluster's address or user_address to empty string?
 	fieldValues := make(map[string]string)
 	fieldValues["address"] = req.Address
 	fieldValues["user_address"] = req.UserAddress

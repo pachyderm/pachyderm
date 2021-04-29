@@ -51,11 +51,19 @@ func ActivateCmd() *cobra.Command {
 				return err
 			}
 
+			// inspect the activated cluster for its Deployment Id
+			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
+			if inspectErr != nil {
+				return errors.Wrapf(inspectErr, "could not inspect cluster")
+			}
+
 			// Register the localhost as a cluster
 			resp, err := c.License.AddCluster(c.Ctx(),
 				&license.AddClusterRequest{
-					Id:      "localhost",
-					Address: "grpc://localhost:653",
+					Id:                  "localhost",
+					Address:             "grpc://localhost:653",
+					UserAddress:         "grpc://localhost:653",
+					ClusterDeploymentId: clusterInfo.DeploymentID,
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not register pachd with the license service")
