@@ -179,6 +179,7 @@ func (env *ServiceEnv) initKubeClient() error {
 				},
 			}
 		}
+		cfg.WrapTransport = wrapWithLoggingTransport
 		env.kubeClient, err = kube.NewForConfig(cfg)
 		cfg.Timeout = 30 * time.Second
 		env.thirtySecondsKubeClient, err = kube.NewForConfig(cfg)
