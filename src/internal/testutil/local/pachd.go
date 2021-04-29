@@ -95,6 +95,7 @@ func RunLocal() (retErr error) {
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(env.Config().GCPercent)
+	env.InitDexDB()
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -138,11 +139,6 @@ func RunLocal() (retErr error) {
 		return err
 	}
 
-	identityStorageProvider, err := identity_server.NewStorageProvider(env)
-	if err != nil {
-		return err
-	}
-
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		var pfsAPIServer pfs_server.APIServer
@@ -175,7 +171,6 @@ func RunLocal() (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				true,
 			)
 			if err != nil {
@@ -315,7 +310,6 @@ func RunLocal() (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
