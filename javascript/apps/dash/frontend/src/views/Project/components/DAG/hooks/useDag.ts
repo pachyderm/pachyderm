@@ -14,73 +14,68 @@ type useDagProps = {
   nodeWidth: number;
   nodeHeight: number;
   isInteractive?: boolean;
-  setLargestDagWidth: React.Dispatch<React.SetStateAction<number | null>>;
-  largestDagWidth: number | null;
+  setLargestDagScale: React.Dispatch<React.SetStateAction<number | null>>;
+  largestDagScale: number | null;
 };
 
 const useDag = ({
   id,
   nodeHeight,
   nodeWidth,
-  count,
-  largestDagWidth,
-  setLargestDagWidth,
+  largestDagScale,
+  setLargestDagScale,
   data,
   isInteractive,
 }: useDagProps) => {
-  const [svgParentSize, setSVGParentSize] = useState({
+  const {navigateToDag} = useRouteController();
+  const [svgSize, setSVGSize] = useState({
     width: 0,
     height: 0,
   });
-  const {navigateToDag} = useRouteController();
 
-  const parent = select<HTMLTableRowElement, null>(`#${id}Base`);
-  const svgElement = select<SVGSVGElement, null>(`#${id}`).node();
-
-  const dagWidth = svgElement ? svgElement.getBBox().width + nodeWidth * 2 : 0;
-  const dagHeight = svgElement
-    ? svgElement.getBBox().height + nodeHeight * 2
-    : 0;
-
-  const parentWidth = parent.node()?.clientWidth || 0;
-  const height =
-    count > 1 ? dagHeight : Math.max(300, window.innerHeight - 160);
-
+  // adjust dag size on data and view changes
   useEffect(() => {
+    const parent = select<HTMLTableRowElement, null>(`#${id}Base`);
+    const parentWidth = parent.node()?.clientWidth || 0;
+
     const svgElement = select<SVGSVGElement, null>(`#${id}`).node();
-    const parentElement = select<HTMLTableRowElement, null>(
-      `#${id}Base`,
-    ).node();
+    const dagWidth = svgElement
+      ? svgElement.getBBox().width + nodeWidth * 2
+      : 0;
 
-    if (svgElement && parentElement) {
-      const svgWidth = svgElement.getBBox().width + nodeWidth * 2;
-      const parentWidth = parentElement.clientWidth;
+    if (isInteractive) {
+      setSVGSize({
+        height: Math.max(300, window.innerHeight - 140),
+        width: parentWidth,
+      });
+    } else {
+      const dagHeight = svgElement
+        ? svgElement.getBBox().height + nodeHeight * 2
+        : 0;
 
-      // send up DAG width for scaling across DAGs
-      if (svgWidth > (largestDagWidth || parentWidth)) {
-        setLargestDagWidth(svgWidth);
+      setSVGSize({
+        height: dagHeight,
+        width: parentWidth,
+      });
+
+      const scale = Math.min(1, parentWidth / dagWidth);
+
+      if (!largestDagScale) setLargestDagScale(scale);
+      else if (scale < largestDagScale) {
+        setLargestDagScale(scale);
       }
-      // send up DAG size to wrapper
-      if (
-        svgParentSize.width !== svgElement.getBBox().width ||
-        svgParentSize.height !== svgElement.getBBox().height + nodeHeight
-      )
-        setSVGParentSize({
-          width: svgElement.getBBox().width,
-          height: svgElement.getBBox().height + nodeHeight,
-        });
     }
   }, [
+    isInteractive,
     id,
-    setSVGParentSize,
-    svgParentSize,
     nodeHeight,
-    nodeWidth,
-    largestDagWidth,
-    setLargestDagWidth,
     data,
+    largestDagScale,
+    setLargestDagScale,
+    nodeWidth,
   ]);
 
+  // left align dag, vertically center, scale based on the largest dag, and enable zooming for live dags
   useEffect(() => {
     const svg = select<SVGSVGElement, unknown>(`#${id}`);
     const graph = select<SVGGElement, unknown>(`#${id}Graph`);
@@ -95,31 +90,31 @@ const useDag = ({
 
     svg.call(zoom);
 
-    // initialize zoom based on node positions and center dag
-    const xExtent = extent(data.nodes, (d) => d.x);
     const yExtent = extent(data.nodes, (d) => d.y);
-    const xMin = xExtent[0] || 0;
-    const xMax = xExtent[1] || svgParentSize.width;
     const yMin = yExtent[0] || 0;
-    const yMax = yExtent[1] || svgParentSize.height;
+    const yMax = yExtent[1] || svgSize.height;
+    const scale = (!isInteractive && largestDagScale) || 1;
 
     const transform = zoomIdentity
-      .translate(
-        svgParentSize.width / 2,
-        svgParentSize.height / 2 - nodeHeight / 2,
-      )
-      .translate(-(xMin + xMax) / 2, -(yMin + yMax) / 2);
+      .translate((nodeWidth / 2) * scale, svgSize.height / 2 - 32) // 32 is the top padding of ${id}Base
+      .translate(0, -(yMin + yMax) / 2)
+      .scale(scale);
     svg.call(zoom.transform, transform);
 
     !isInteractive && zoom.on('zoom', null);
-  }, [data.nodes, id, isInteractive, svgParentSize, nodeHeight]);
+  }, [
+    data.nodes,
+    id,
+    isInteractive,
+    nodeHeight,
+    svgSize,
+    nodeWidth,
+    largestDagScale,
+  ]);
 
   return {
-    dagHeight,
-    dagWidth,
-    height,
+    svgSize,
     navigateToDag,
-    parentWidth,
   };
 };
 

@@ -13,7 +13,7 @@ import {dagRoute} from './utils/routes';
 const Project: React.FC = () => {
   const {dags, error, loading} = useProjectView(NODE_WIDTH, NODE_HEIGHT);
   const {dagId, projectId} = useUrlState();
-  const [largestDagWidth, setLargestDagWidth] = useState<number | null>(null);
+  const [largestDagScale, setLargestDagScale] = useState<number | null>(null);
 
   if (error) return <h1 className={styles.base}>{JSON.stringify(error)}</h1>;
   if (loading || !dags) return <h1 className={styles.base}>Loading...</h1>;
@@ -37,8 +37,8 @@ const Project: React.FC = () => {
             nodeHeight={NODE_HEIGHT}
             count={dagsToShow.length}
             isInteractive={dagsToShow.length === 1}
-            largestDagWidth={largestDagWidth}
-            setLargestDagWidth={setLargestDagWidth}
+            largestDagScale={largestDagScale}
+            setLargestDagScale={setLargestDagScale}
           />
         );
       })}

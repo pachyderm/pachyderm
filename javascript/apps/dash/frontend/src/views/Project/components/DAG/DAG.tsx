@@ -21,8 +21,8 @@ type DagProps = {
   nodeWidth: number;
   nodeHeight: number;
   isInteractive?: boolean;
-  setLargestDagWidth: React.Dispatch<React.SetStateAction<number | null>>;
-  largestDagWidth: number | null;
+  setLargestDagScale: React.Dispatch<React.SetStateAction<number | null>>;
+  largestDagScale: number | null;
 };
 
 const MARKERS = [
@@ -38,18 +38,18 @@ const DAG: React.FC<DagProps> = ({
   nodeWidth,
   nodeHeight,
   isInteractive = true,
-  setLargestDagWidth,
-  largestDagWidth,
+  setLargestDagScale,
+  largestDagScale,
 }) => {
-  const {dagHeight, dagWidth, height, navigateToDag, parentWidth} = useDag({
+  const {navigateToDag, svgSize} = useDag({
     count,
     data,
     id,
     isInteractive,
-    largestDagWidth,
+    largestDagScale,
     nodeHeight,
     nodeWidth,
-    setLargestDagWidth,
+    setLargestDagScale,
   });
 
   return (
@@ -74,16 +74,8 @@ const DAG: React.FC<DagProps> = ({
         <svg
           id={id}
           preserveAspectRatio="xMinYMid meet"
-          viewBox={`0 0 ${dagWidth} ${dagHeight}`}
+          viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
           className={styles.parent}
-          width={parentWidth}
-          height={height}
-          style={{
-            zoom:
-              count !== 1 && largestDagWidth && dagWidth !== largestDagWidth
-                ? parentWidth / largestDagWidth
-                : undefined,
-          }}
         >
           <defs>
             {MARKERS.map((marker) => (
