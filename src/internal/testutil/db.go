@@ -221,7 +221,7 @@ func dbHost() string {
 	if host, ok := os.LookupEnv("POSTGRES_SERVICE_HOST"); ok {
 		return host
 	}
-	return dbutil.DefaultHost
+	return dbutil.DefaultTestHost
 }
 
 func dbPort() int {
@@ -230,7 +230,7 @@ func dbPort() int {
 			return portInt
 		}
 	}
-	return dbutil.DefaultPort
+	return dbutil.DefaultTestPort
 }
 
 // NewTestDB connects to postgres using the default settings, creates a database
