@@ -3,4 +3,5 @@ export interface ProjectRouteParams {
   repoId?: string;
   pipelineId?: string;
   dagId?: string;
+  branchId?: string;
 }

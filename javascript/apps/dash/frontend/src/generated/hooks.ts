@@ -764,6 +764,21 @@ export type ProjectsQueryResult = Apollo.QueryResult<
 export const RepoDocument = gql`
   query repo($args: RepoQueryArgs!) {
     repo(args: $args) {
+      branches {
+        id
+        name
+      }
+      commits {
+        branch {
+          id
+          name
+        }
+        description
+        id
+        started
+        finished
+        sizeDisplay
+      }
       createdAt
       description
       id

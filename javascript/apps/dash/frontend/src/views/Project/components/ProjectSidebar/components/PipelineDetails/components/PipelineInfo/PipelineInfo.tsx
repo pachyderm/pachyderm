@@ -27,7 +27,14 @@ const PipelineInfo = () => {
       </Description>
 
       <Description term="Output Repo" loading={loading}>
-        <Link to={repoRoute({projectId, dagId: dagId, repoId: pipelineId})}>
+        <Link
+          to={repoRoute({
+            branchId: 'master',
+            projectId,
+            dagId: dagId,
+            repoId: pipelineId,
+          })}
+        >
           {pipeline?.name}
         </Link>
       </Description>

@@ -50,7 +50,7 @@ describe('PipelineInfo', () => {
     expect(outputRepo).toHaveTextContent(pipelineId);
     expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
       'href',
-      `/project/${projectId}/dag/${dagId}/repo/${pipelineId}`,
+      `/project/${projectId}/dag/${dagId}/repo/${pipelineId}/branch/master`,
     );
 
     expect(getByText('Cache Size').nextElementSibling).toHaveTextContent('64M');

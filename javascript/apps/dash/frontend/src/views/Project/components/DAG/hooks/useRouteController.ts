@@ -27,7 +27,12 @@ const useRouteController = () => {
     (n: Node) => {
       if (n.type === NodeType.REPO) {
         browserHistory.push(
-          repoRoute({projectId, dagId, repoId: deriveRouteParamFromNode(n)}),
+          repoRoute({
+            branchId: 'master',
+            projectId,
+            dagId,
+            repoId: deriveRouteParamFromNode(n),
+          }),
         );
       } else {
         browserHistory.push(

@@ -7,6 +7,7 @@ import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
 
+import CommitBrowser from '../CommitBrowser';
 import Title from '../Title';
 
 import styles from './RepoDetails.module.css';
@@ -34,6 +35,7 @@ const RepoDetails = () => {
                 projectId,
                 dagId,
                 pipelineId: repo?.linkedPipeline?.id,
+                tabId: 'info',
               })}
             >
               {repo.linkedPipeline?.name}
@@ -49,6 +51,8 @@ const RepoDetails = () => {
           {!loading ? repo?.sizeDisplay : <SkeletonDisplayText />}
         </Description>
       </dl>
+      <div className={styles.divider} />
+      <CommitBrowser repo={repo} />
     </div>
   );
 };

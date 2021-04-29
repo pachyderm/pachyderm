@@ -8,7 +8,6 @@ const useUrlState = () => {
     path: PROJECT_PATHS,
     exact: true,
   });
-
   const projectId = match?.params.projectId
     ? decodeURIComponent(match.params.projectId)
     : '';
@@ -18,11 +17,14 @@ const useUrlState = () => {
   const pipelineId = match?.params.pipelineId
     ? decodeURIComponent(match.params.pipelineId)
     : '';
+  const branchId = match?.params.branchId
+    ? decodeURIComponent(match.params.branchId)
+    : '';
   const dagId = match?.params.dagId
     ? decodeURIComponent(match.params.dagId)
     : '';
 
-  return {projectId, dagId, repoId, pipelineId};
+  return {branchId, dagId, projectId, repoId, pipelineId};
 };
 
 export default useUrlState;

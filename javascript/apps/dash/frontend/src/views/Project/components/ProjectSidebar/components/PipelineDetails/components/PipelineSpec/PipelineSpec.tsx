@@ -17,6 +17,7 @@ const PipelineSpec = () => {
       <Description term="Inputs" loading={loading} lines={9}>
         {pipeline && (
           <PipelineInput
+            branchId="master"
             inputString={pipeline.inputString}
             projectId={projectId}
             dagId={dagId}

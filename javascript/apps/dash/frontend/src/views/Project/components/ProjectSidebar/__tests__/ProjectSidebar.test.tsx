@@ -53,14 +53,19 @@ describe('ProjectSidebar', () => {
 
   describe('repos', () => {
     it('should display repo details', async () => {
-      // TODO: update this with _actual_ repo details
-      window.history.replaceState('', '', '/project/1/dag/images/repo/montage');
+      window.history.replaceState(
+        '',
+        '',
+        '/project/1/dag/images/repo/montage/branch/master',
+      );
 
-      const {findByTestId} = render(<Project />);
+      const {findByTestId, getByText} = render(<Project />);
 
       const repoName = await findByTestId('Title__name');
+      const size = getByText('1000 B');
 
       expect(repoName).toHaveTextContent('montage');
+      expect(size).toBeInTheDocument();
     });
   });
 });

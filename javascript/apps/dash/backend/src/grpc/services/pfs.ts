@@ -77,11 +77,20 @@ const pfs = ({
         });
       });
     },
-    listCommit: (params: RepoObject) => {
+    listCommit: (
+      repoName: RepoObject['name'],
+      limit?: number,
+      reverse = true,
+    ) => {
       const listCommitRequest = new ListCommitRequest();
-      const repo = repoFromObject(params);
+      const repo = repoFromObject({name: repoName});
 
       listCommitRequest.setRepo(repo);
+      listCommitRequest.setReverse(reverse);
+
+      if (limit) {
+        listCommitRequest.setNumber(limit);
+      }
 
       const stream = client.listCommit(listCommitRequest, credentialMetadata);
 

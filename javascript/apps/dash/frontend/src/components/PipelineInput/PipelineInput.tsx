@@ -13,6 +13,7 @@ const generateInputObject = (
   jsonString: string,
   projectId: string,
   dagId: string,
+  branchId: string,
 ) => {
   const json = JSON.parse(jsonString, (key, value) => {
     if (key === 'repo') {
@@ -21,6 +22,7 @@ const generateInputObject = (
           projectId,
           dagId,
           repoId: value,
+          branchId,
         })} id=${`__repo${value}`} class=repoLink>${value}</a>
       `.trim();
     }
@@ -35,9 +37,11 @@ interface PipelineInputProps extends JSONBlockProps {
   inputString: string;
   projectId: string;
   dagId: string;
+  branchId?: string;
 }
 
 const PipelineInput: React.FC<PipelineInputProps> = ({
+  branchId = 'master',
   inputString,
   projectId,
   dagId,
@@ -48,11 +52,11 @@ const PipelineInput: React.FC<PipelineInputProps> = ({
 
   const html = useMemo(() => {
     return JSON.stringify(
-      generateInputObject(inputString, projectId, dagId),
+      generateInputObject(inputString, projectId, dagId, branchId),
       null,
       2,
     );
-  }, [inputString, projectId, dagId]);
+  }, [inputString, projectId, dagId, branchId]);
 
   useEffect(() => {
     const links = Array.from(

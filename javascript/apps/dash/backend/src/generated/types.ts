@@ -190,10 +190,29 @@ export type InputPipeline = {
   id: Scalars['ID'];
 };
 
+export type Branch = {
+  __typename?: 'Branch';
+  id: Scalars['ID'];
+  name: Scalars['ID'];
+};
+
+export type Commit = {
+  __typename?: 'Commit';
+  branch?: Maybe<Branch>;
+  description?: Maybe<Scalars['String']>;
+  id: Scalars['ID'];
+  started: Scalars['Int'];
+  finished: Scalars['Int'];
+  sizeBytes: Scalars['Int'];
+  sizeDisplay: Scalars['String'];
+};
+
 export type Repo = {
   __typename?: 'Repo';
-  description: Scalars['String'];
+  branches: Array<Branch>;
+  commits: Array<Commit>;
   createdAt: Scalars['Int'];
+  description: Scalars['String'];
   id: Scalars['ID'];
   name: Scalars['ID'];
   sizeBytes: Scalars['Int'];
@@ -513,6 +532,8 @@ export type ResolversTypes = ResolversObject<{
   Pipeline: ResolverTypeWrapper<Pipeline>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
+  Branch: ResolverTypeWrapper<Branch>;
+  Commit: ResolverTypeWrapper<Commit>;
   Repo: ResolverTypeWrapper<Repo>;
   Pach: ResolverTypeWrapper<Pach>;
   Job: ResolverTypeWrapper<Job>;
@@ -557,6 +578,8 @@ export type ResolversParentTypes = ResolversObject<{
   Pipeline: Pipeline;
   Int: Scalars['Int'];
   InputPipeline: InputPipeline;
+  Branch: Branch;
+  Commit: Commit;
   Repo: Repo;
   Pach: Pach;
   Job: Job;
@@ -825,12 +848,41 @@ export type InputPipelineResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type BranchResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Branch'] = ResolversParentTypes['Branch']
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type CommitResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Commit'] = ResolversParentTypes['Commit']
+> = ResolversObject<{
+  branch?: Resolver<Maybe<ResolversTypes['Branch']>, ParentType, ContextType>;
+  description?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  finished?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type RepoResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Repo'] = ResolversParentTypes['Repo']
 > = ResolversObject<{
-  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  branches?: Resolver<Array<ResolversTypes['Branch']>, ParentType, ContextType>;
+  commits?: Resolver<Array<ResolversTypes['Commit']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -1069,6 +1121,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   SchedulingSpec?: SchedulingSpecResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
+  Branch?: BranchResolvers<ContextType>;
+  Commit?: CommitResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;
   Pach?: PachResolvers<ContextType>;
   Job?: JobResolvers<ContextType>;
@@ -1313,6 +1367,17 @@ export type RepoQuery = {__typename?: 'Query'} & {
     Repo,
     'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
   > & {
+      branches: Array<{__typename?: 'Branch'} & Pick<Branch, 'id' | 'name'>>;
+      commits: Array<
+        {__typename?: 'Commit'} & Pick<
+          Commit,
+          'description' | 'id' | 'started' | 'finished' | 'sizeDisplay'
+        > & {
+            branch?: Maybe<
+              {__typename?: 'Branch'} & Pick<Branch, 'id' | 'name'>
+            >;
+          }
+      >;
       linkedPipeline?: Maybe<
         {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>
       >;

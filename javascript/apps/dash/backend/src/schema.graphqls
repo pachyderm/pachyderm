@@ -114,9 +114,26 @@ type InputPipeline {
   id: ID!
 }
 
+type Branch {
+  id: ID!
+  name: ID!
+}
+
+type Commit {
+  branch: Branch
+  description: String
+  id: ID!
+  started: Int!
+  finished: Int!
+  sizeBytes: Int!
+  sizeDisplay: String!
+}
+
 type Repo {
-  description: String!
+  branches: [Branch!]!
+  commits: [Commit!]!
   createdAt: Int!
+  description: String!
   id: ID!
   name: ID!
   sizeBytes: Int!

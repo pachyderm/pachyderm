@@ -1,7 +1,8 @@
 export const PROJECT_PATH = '/project/:projectId';
 export const DAG_PATH = '/project/:projectId/dag/:dagId/';
 export const JOBS_PATH = '/project/:projectId/jobs';
-export const REPO_PATH = '/project/:projectId/dag/:dagId/repo/:repoId';
+export const REPO_PATH =
+  '/project/:projectId/dag/:dagId/repo/:repoId/branch/:branchId';
 export const PIPELINE_PATH =
   '/project/:projectId/dag/:dagId/pipeline/:pipelineId/:tabId?';
 
