@@ -27,11 +27,11 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	pipelineInfo := driver.PipelineInfo()
 	return forEachCommit(pachClient, pipelineInfo, logger, func(ctx context.Context, commitInfo *pfs.CommitInfo) (retErr error) {
 		driver := driver.WithContext(ctx)
-		jobInfo, err := ensureJob(pachClient, pipelineInfo.Pipeline.Name, commitInfo.Commit, logger)
+		pipelineJobInfo, err := ensureJob(pachClient, pipelineInfo.Pipeline.Name, commitInfo.Commit, logger)
 		if err != nil {
 			return err
 		}
-		if err := driver.UpdateJobState(jobInfo.Job.ID, pps.JobState_JOB_RUNNING, ""); err != nil {
+		if err := driver.UpdateJobState(pipelineJobInfo.Job.ID, pps.JobState_JOB_RUNNING, ""); err != nil {
 			return err
 		}
 		jobInput := ppsutil.JobInput(pipelineInfo, commitInfo)
@@ -54,7 +54,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 		defer func() {
 			if common.IsDone(ctx) {
-				retErr = finishJob(pachClient, jobInfo)
+				retErr = finishJob(pachClient, pipelineJobInfo)
 			}
 		}()
 		storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -108,40 +108,40 @@ func forEachCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo,
 	)
 }
 
-func ensureJob(pachClient *client.APIClient, pipeline string, commit *pfs.Commit, logger logs.TaggedLogger) (*pps.JobInfo, error) {
+func ensureJob(pachClient *client.APIClient, pipeline string, commit *pfs.Commit, logger logs.TaggedLogger) (*pps.PipelineJobInfo, error) {
 	// Check if a job was previously created for this commit. If not, make one
-	jobInfos, err := pachClient.ListJob("", nil, commit, -1, true)
+	pipelineJobInfos, err := pachClient.ListJob("", nil, commit, -1, true)
 	if err != nil {
 		return nil, err
 	}
-	if len(jobInfos) > 1 {
+	if len(pipelineJobInfos) > 1 {
 		return nil, errors.Errorf("multiple jobs found for commit: %s/%s", commit.Repo.Name, commit.ID)
-	} else if len(jobInfos) < 1 {
+	} else if len(pipelineJobInfos) < 1 {
 		job, err := pachClient.CreateJob(pipeline, commit, nil)
 		if err != nil {
 			return nil, err
 		}
 		logger.Logf("created new job %q for output commit %q", job.ID, commit.ID)
-		// get jobInfo to look up spec commit, pipeline version, etc (if this
+		// get PipelineJobInfo to look up spec commit, pipeline version, etc (if this
 		// worker is stale and about to be killed, the new job may have a newer
 		// pipeline version than the master. Or if the commit is stale, it may
 		// have an older pipeline version than the master)
 		return pachClient.InspectJob(job.ID, false)
 	}
 	// Get latest job state.
-	logger.Logf("found existing job %q for output commit %q", jobInfos[0].Job.ID, commit.ID)
-	return pachClient.InspectJob(jobInfos[0].Job.ID, false)
+	logger.Logf("found existing job %q for output commit %q", pipelineJobInfos[0].Job.ID, commit.ID)
+	return pachClient.InspectJob(pipelineJobInfos[0].Job.ID, false)
 }
 
-func finishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
+func finishJob(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo) error {
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
+			Commit: pipelineJobInfo.OutputCommit,
 		}); err != nil {
 			return err
 		}
 		_, err := builder.PpsAPIClient.UpdateJobState(pachClient.Ctx(), &pps.UpdateJobStateRequest{
-			Job:   jobInfo.Job,
+			Job:   pipelineJobInfo.Job,
 			State: pps.JobState_JOB_SUCCESS,
 		})
 		return err

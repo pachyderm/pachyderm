@@ -629,17 +629,17 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		require.NoError(t, c.FinishCommit(dataRepo, commitM.ID))
 //
 //		// we should have two jobs
-//		ji, err := c.ListJob(pipeline, nil, nil, -1, true)
+//		pji, err := c.ListJob(pipeline, nil, nil, -1, true)
 //		require.NoError(t, err)
-//		require.Equal(t, 2, len(ji))
+//		require.Equal(t, 2, len(pji))
 //		// now run the pipeline
 //		require.NoError(t, c.RunPipeline(pipeline, nil, ""))
 //		// running the pipeline should create a new job
 //		require.NoError(t, backoff.Retry(func() error {
-//			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+//			pipelineJobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 //			require.NoError(t, err)
-//			if len(jobInfos) != 3 {
-//				return errors.Errorf("expected 3 jobs, got %d", len(jobInfos))
+//			if len(pipelineJobInfos) != 3 {
+//				return errors.Errorf("expected 3 jobs, got %d", len(pipelineJobInfos))
 //			}
 //			return nil
 //		}, backoff.NewTestingBackOff()))
@@ -653,10 +653,10 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //
 //		// running the pipeline should create a new job
 //		require.NoError(t, backoff.Retry(func() error {
-//			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+//			pipelineJobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 //			require.NoError(t, err)
-//			if len(jobInfos) != 4 {
-//				return errors.Errorf("expected 4 jobs, got %d", len(jobInfos))
+//			if len(pipelineJobInfos) != 4 {
+//				return errors.Errorf("expected 4 jobs, got %d", len(pipelineJobInfos))
 //			}
 //			return nil
 //		}, backoff.NewTestingBackOff()))
@@ -718,9 +718,9 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		))
 //
 //		// we should have two jobs
-//		ji, err := c.ListJob(pipeline, nil, nil, -1, true)
+//		pji, err := c.ListJob(pipeline, nil, nil, -1, true)
 //		require.NoError(t, err)
-//		require.Equal(t, 0, len(ji))
+//		require.Equal(t, 0, len(pji))
 //		// now run the pipeline
 //		require.YesError(t, c.RunPipeline(pipeline, nil, ""))
 //	})
@@ -838,9 +838,9 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		require.NoError(t, err)
 //
 //		// there should be one job on the old commit for downstreamPipeline
-//		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+//		pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 //		require.NoError(t, err)
-//		require.Equal(t, 1, len(jobInfos))
+//		require.Equal(t, 1, len(pipelineJobInfos))
 //
 //		// now run the pipeline
 //		require.NoError(t, backoff.Retry(func() error {
@@ -850,19 +850,19 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		}, backoff.NewTestingBackOff()))
 //
 //		// the downstream pipeline shouldn't have any new jobs, since runpipeline jobs don't propagate
-//		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+//		pipelineJobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 //		require.NoError(t, err)
-//		require.Equal(t, 1, len(jobInfos))
+//		require.Equal(t, 1, len(pipelineJobInfos))
 //
 //		// now rerun the one job that we saw
 //		require.NoError(t, backoff.Retry(func() error {
-//			return c.RunPipeline(downstreamPipeline, nil, jobInfos[0].Job.ID)
+//			return c.RunPipeline(downstreamPipeline, nil, pipelineJobInfos[0].Job.ID)
 //		}, backoff.NewTestingBackOff()))
 //
 //		// we should now have two jobs
-//		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+//		pipelineJobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 //		require.NoError(t, err)
-//		require.Equal(t, 2, len(jobInfos))
+//		require.Equal(t, 2, len(pipelineJobInfos))
 //	})
 //
 //	// Test with a downstream pipeline who's upstream has no datum, but where the downstream still needs to succeed
@@ -932,9 +932,9 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		require.NoError(t, err)
 //
 //		// there should be one job on the old commit for downstreamPipeline
-//		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+//		pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 //		require.NoError(t, err)
-//		require.Equal(t, 1, len(jobInfos))
+//		require.Equal(t, 1, len(pipelineJobInfos))
 //
 //		// now run the pipeline
 //		require.NoError(t, backoff.Retry(func() error {
@@ -944,7 +944,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		}, backoff.NewTestingBackOff()))
 //
 //		buffer2 := bytes.Buffer{}
-//		require.NoError(t, c.GetFile(jobInfos[0].OutputCommit.Repo.Name, jobInfos[0].OutputCommit.ID, "file", &buffer2))
+//		require.NoError(t, c.GetFile(pipelineJobInfos[0].OutputCommit.Repo.Name, pipelineJobInfos[0].OutputCommit.ID, "file", &buffer2))
 //		// the union of an empty output and datA should only return a file with "data A" in it.
 //		require.Equal(t, "data A\n", buffer2.String())
 //
@@ -957,12 +957,12 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		_, err = c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
 //		require.NoError(t, err)
 //
-//		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitB}, []string{downstreamPipeline})
+//		pipelineJobInfos, err = c.FlushJobAll([]*pfs.Commit{commitB}, []string{downstreamPipeline})
 //		require.NoError(t, err)
-//		require.Equal(t, 1, len(jobInfos))
+//		require.Equal(t, 1, len(pipelineJobInfos))
 //
 //		buffer3 := bytes.Buffer{}
-//		require.NoError(t, c.GetFile(jobInfos[0].OutputCommit.Repo.Name, jobInfos[0].OutputCommit.ID, "file", &buffer3))
+//		require.NoError(t, c.GetFile(pipelineJobInfos[0].OutputCommit.Repo.Name, pipelineJobInfos[0].OutputCommit.ID, "file", &buffer3))
 //		// now that we've added data to the other branch of the cross, we should see the union of data A along with the the crossed data.
 //		require.Equal(t, "data A\ndata A\ndata B\n", buffer3.String())
 //	})
@@ -1043,14 +1043,14 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //
 //		// running the pipeline should create a new job
 //		require.NoError(t, backoff.Retry(func() error {
-//			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+//			pipelineJobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 //			require.NoError(t, err)
-//			if len(jobInfos) != 2 {
-//				return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
+//			if len(pipelineJobInfos) != 2 {
+//				return errors.Errorf("expected 2 jobs, got %d", len(pipelineJobInfos))
 //			}
 //
 //			// but both of these jobs should fail
-//			for i, job := range jobInfos {
+//			for i, job := range pipelineJobInfos {
 //				if job.State.String() != "JOB_FAILURE" {
 //					return errors.Errorf("expected job %v to fail, but got %v", i, job.State.String())
 //				}
@@ -1144,22 +1144,22 @@ func TestPipelineFailure(t *testing.T) {
 		"",
 		false,
 	))
-	var jobInfos []*pps.JobInfo
+	var pipelineJobInfos []*pps.PipelineJobInfo
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+		pipelineJobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
 		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		if len(pipelineJobInfos) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(pipelineJobInfos))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
+	pipelineJobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+		Job:        pipelineJobInfos[0].Job,
 		BlockState: true,
 	})
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
+	require.Equal(t, pps.JobState_JOB_FAILURE, pipelineJobInfo.State)
+	require.True(t, strings.Contains(pipelineJobInfo.Reason, "datum"))
 }
 
 func TestPipelineErrorHandling(t *testing.T) {
@@ -1195,16 +1195,16 @@ func TestPipelineErrorHandling(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jis))
-		jobInfo := jis[0]
+		require.Equal(t, 1, len(pjis))
+		pipelineJobInfo := pjis[0]
 
 		// We expect the job to fail, and have 1 datum processed, recovered, and failed each
-		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-		require.Equal(t, int64(1), jobInfo.DataProcessed)
-		require.Equal(t, int64(1), jobInfo.DataRecovered)
-		require.Equal(t, int64(1), jobInfo.DataFailed)
+		require.Equal(t, pps.JobState_JOB_FAILURE, pipelineJobInfo.State)
+		require.Equal(t, int64(1), pipelineJobInfo.DataProcessed)
+		require.Equal(t, int64(1), pipelineJobInfo.DataRecovered)
+		require.Equal(t, int64(1), pipelineJobInfo.DataFailed)
 
 		// Now update this pipeline, we have the same command as before, but this time the error handling passes for all
 		_, err = c.PpsAPIClient.CreatePipeline(
@@ -1221,16 +1221,16 @@ func TestPipelineErrorHandling(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		jis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		pjis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jis))
-		jobInfo = jis[0]
+		require.Equal(t, 1, len(pjis))
+		pipelineJobInfo = pjis[0]
 
 		// so we expect the job to succeed, and to have recovered 2 datums
-		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-		require.Equal(t, int64(1), jobInfo.DataSkipped)
-		require.Equal(t, int64(2), jobInfo.DataRecovered)
-		require.Equal(t, int64(0), jobInfo.DataFailed)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
+		require.Equal(t, int64(1), pipelineJobInfo.DataSkipped)
+		require.Equal(t, int64(2), pipelineJobInfo.DataRecovered)
+		require.Equal(t, int64(0), pipelineJobInfo.DataFailed)
 	})
 	t.Run("RecoveredDatums", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestPipelineRecoveredDatums_data")
@@ -1254,16 +1254,16 @@ func TestPipelineErrorHandling(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jis))
-		jobInfo := jis[0]
+		require.Equal(t, 1, len(pjis))
+		pipelineJobInfo := pjis[0]
 
 		// We expect there to be one recovered datum
-		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-		require.Equal(t, int64(0), jobInfo.DataProcessed)
-		require.Equal(t, int64(1), jobInfo.DataRecovered)
-		require.Equal(t, int64(0), jobInfo.DataFailed)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
+		require.Equal(t, int64(0), pipelineJobInfo.DataProcessed)
+		require.Equal(t, int64(1), pipelineJobInfo.DataRecovered)
+		require.Equal(t, int64(0), pipelineJobInfo.DataFailed)
 
 		// Update the pipeline so that datums will now successfully be processed
 		_, err = c.PpsAPIClient.CreatePipeline(
@@ -1279,16 +1279,16 @@ func TestPipelineErrorHandling(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		jis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		pjis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jis))
-		jobInfo = jis[0]
+		require.Equal(t, 1, len(pjis))
+		pipelineJobInfo = pjis[0]
 
 		// Now the recovered datum should have been processed
-		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-		require.Equal(t, int64(1), jobInfo.DataProcessed)
-		require.Equal(t, int64(0), jobInfo.DataRecovered)
-		require.Equal(t, int64(0), jobInfo.DataFailed)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
+		require.Equal(t, int64(1), pipelineJobInfo.DataProcessed)
+		require.Equal(t, int64(0), pipelineJobInfo.DataRecovered)
+		require.Equal(t, int64(0), pipelineJobInfo.DataFailed)
 	})
 }
 
@@ -1324,22 +1324,22 @@ func TestEgressFailure(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	var jobInfos []*pps.JobInfo
+	var pipelineJobInfos []*pps.PipelineJobInfo
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+		pipelineJobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
 		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		if len(pipelineJobInfos) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(pipelineJobInfos))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
+	pipelineJobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+		Job:        pipelineJobInfos[0].Job,
 		BlockState: true,
 	})
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-	require.True(t, strings.Contains(jobInfo.Reason, "egress"))
+	require.Equal(t, pps.JobState_JOB_FAILURE, pipelineJobInfo.State)
+	require.True(t, strings.Contains(pipelineJobInfo.Reason, "egress"))
 }
 
 func TestLazyPipelinePropagation(t *testing.T) {
@@ -1387,16 +1387,16 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
 
-	jobInfos, err := c.ListJob(pipelineA, nil, nil, -1, true)
+	pipelineJobInfos, err := c.ListJob(pipelineA, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	require.NotNil(t, jobInfos[0].Input.Pfs)
-	require.Equal(t, true, jobInfos[0].Input.Pfs.Lazy)
-	jobInfos, err = c.ListJob(pipelineB, nil, nil, -1, true)
+	require.Equal(t, 1, len(pipelineJobInfos))
+	require.NotNil(t, pipelineJobInfos[0].Input.Pfs)
+	require.Equal(t, true, pipelineJobInfos[0].Input.Pfs.Lazy)
+	pipelineJobInfos, err = c.ListJob(pipelineB, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	require.NotNil(t, jobInfos[0].Input.Pfs)
-	require.Equal(t, true, jobInfos[0].Input.Pfs.Lazy)
+	require.Equal(t, 1, len(pipelineJobInfos))
+	require.NotNil(t, pipelineJobInfos[0].Input.Pfs)
+	require.Equal(t, true, pipelineJobInfos[0].Input.Pfs.Lazy)
 }
 
 func TestLazyPipeline(t *testing.T) {
@@ -1549,22 +1549,22 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 	time.Sleep(15 * time.Second)
 	var jobID string
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+		pipelineJobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 1 {
-			return errors.Errorf("len(jobInfos) should be 1")
+		if len(pipelineJobInfos) != 1 {
+			return errors.Errorf("len(pipelineJobInfos) should be 1")
 		}
-		jobID = jobInfos[0].Job.ID
-		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+		jobID = pipelineJobInfos[0].Job.ID
+		pipelineJobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
 			Job:        client.NewJob(jobID),
 			BlockState: true,
 		})
 		if err != nil {
 			return err
 		}
-		if jobInfo.State != pps.JobState_JOB_FAILURE {
+		if pipelineJobInfo.State != pps.JobState_JOB_FAILURE {
 			return errors.Errorf("job did not fail, even though it tried to copy " +
 				"pipes, which should be disallowed by Pachyderm")
 		}
@@ -1862,9 +1862,9 @@ func TestFlushCommit(t *testing.T) {
 		commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, numStages*2, len(commitInfos))
-		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
+		pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
 		require.NoError(t, err)
-		require.Equal(t, numStages, len(jobInfos))
+		require.Equal(t, numStages, len(pipelineJobInfos))
 	}
 }
 
@@ -1925,17 +1925,17 @@ func TestFlushCommitFailures(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo\n"), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(jobInfos))
+		require.Equal(t, 3, len(pipelineJobInfos))
 		if i == 0 {
-			for _, ji := range jobInfos {
-				require.Equal(t, pps.JobState_JOB_SUCCESS.String(), ji.State.String())
+			for _, pji := range pipelineJobInfos {
+				require.Equal(t, pps.JobState_JOB_SUCCESS.String(), pji.State.String())
 			}
 		} else {
-			for _, ji := range jobInfos {
-				if ji.Pipeline.Name != pipelineName(0) {
-					require.Equal(t, pps.JobState_JOB_FAILURE.String(), ji.State.String())
+			for _, pji := range pipelineJobInfos {
+				if pji.Pipeline.Name != pipelineName(0) {
+					require.Equal(t, pps.JobState_JOB_FAILURE.String(), pji.State.String())
 				}
 			}
 		}
@@ -2217,11 +2217,11 @@ func TestPipelineJobCounts(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+	pipelineJobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, 1, len(pipelineJobInfos))
 	inspectJobRequest := &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
+		Job:        pipelineJobInfos[0].Job,
 		BlockState: true,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -2265,23 +2265,23 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	))
 
 	// Wait for job to spawn
-	var jobInfos []*pps.JobInfo
+	var pipelineJobInfos []*pps.PipelineJobInfo
 	time.Sleep(10 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
 		var err error
-		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+		pipelineJobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) < 1 {
+		if len(pipelineJobInfos) < 1 {
 			return errors.Errorf("job not spawned")
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	pipelineJobInfo, err := c.InspectJob(pipelineJobInfos[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_FAILURE, pipelineJobInfo.State)
 
 	// Now we update the pipeline
 	require.NoError(t, c.CreatePipeline(
@@ -2331,13 +2331,13 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+	pipelineJobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, 1, len(pipelineJobInfos))
 
-	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	pipelineJobInfo, err := c.InspectJob(pipelineJobInfos[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
 }
 
 func TestPrettyPrinting(t *testing.T) {
@@ -2385,10 +2385,10 @@ func TestPrettyPrinting(t *testing.T) {
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
-	jobInfos, err := c.ListJob("", nil, nil, -1, true)
+	pipelineJobInfos, err := c.ListJob("", nil, nil, -1, true)
 	require.NoError(t, err)
-	require.True(t, len(jobInfos) > 0)
-	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
+	require.True(t, len(pipelineJobInfos) > 0)
+	require.NoError(t, ppspretty.PrintDetailedPipelineJobInfo(os.Stdout, ppspretty.NewPrintablePipelineJobInfo(pipelineJobInfos[0])))
 }
 
 func TestDeleteAll(t *testing.T) {
@@ -2429,9 +2429,9 @@ func TestDeleteAll(t *testing.T) {
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(pipelineInfos))
-	jobInfos, err := c.ListJob("", nil, nil, -1, true)
+	pipelineJobInfos, err := c.ListJob("", nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(jobInfos))
+	require.Equal(t, 0, len(pipelineJobInfos))
 }
 
 func TestRecursiveCp(t *testing.T) {
@@ -2615,12 +2615,12 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 
 	// Inspect the first job to make sure it hasn't changed
-	jis, err := c.ListJob(pipelineName, nil, nil, -1, true)
+	pjis, err := c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jis))
-	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Transform.Stdin[0])
-	require.Equal(t, "echo bar >/pfs/out/file", jis[1].Transform.Stdin[0])
-	require.Equal(t, "echo foo >/pfs/out/file", jis[2].Transform.Stdin[0])
+	require.Equal(t, 3, len(pjis))
+	require.Equal(t, "echo bar >/pfs/out/file", pjis[0].Transform.Stdin[0])
+	require.Equal(t, "echo bar >/pfs/out/file", pjis[1].Transform.Stdin[0])
+	require.Equal(t, "echo foo >/pfs/out/file", pjis[2].Transform.Stdin[0])
 
 	// Update the pipeline again, this time with Reprocess: true set. Now we
 	// should see a different output file
@@ -2955,22 +2955,22 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	b := backoff.NewTestingBackOff()
 	b.MaxElapsedTime = 30 * time.Second
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		pipelineJobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 2 {
+		if len(pipelineJobInfos) != 2 {
 			return errors.Errorf("wrong number of jobs")
 		}
 
-		state := jobInfos[1].State
+		state := pipelineJobInfos[1].State
 		if state != pps.JobState_JOB_RUNNING {
-			return fmt.Errorf("wrong state: %v for %s", state, jobInfos[1].Job.ID)
+			return fmt.Errorf("wrong state: %v for %s", state, pipelineJobInfos[1].Job.ID)
 		}
 
-		state = jobInfos[0].State
+		state = pipelineJobInfos[0].State
 		if state != pps.JobState_JOB_RUNNING {
-			return errors.Errorf("wrong state: %v for %s", state, jobInfos[0].Job.ID)
+			return errors.Errorf("wrong state: %v for %s", state, pipelineJobInfos[0].Job.ID)
 		}
 		return nil
 	}, b))
@@ -2992,12 +2992,12 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+	pipelineJobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[0].State.String())
-	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[1].State.String())
-	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[2].State.String())
+	require.Equal(t, 3, len(pipelineJobInfos))
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), pipelineJobInfos[0].State.String())
+	require.Equal(t, pps.JobState_JOB_KILLED.String(), pipelineJobInfos[1].State.String())
+	require.Equal(t, pps.JobState_JOB_KILLED.String(), pipelineJobInfos[2].State.String())
 }
 
 func TestManyFilesSingleCommit(t *testing.T) {
@@ -3057,9 +3057,9 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 	)
 	require.NoError(t, err)
 	// Check results.
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, branch)}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, branch)}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
+	require.Equal(t, 1, len(pjis))
 	fileInfos, err := c.ListFileAll(pipelineName, branch, "")
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(fileInfos))
@@ -3395,30 +3395,30 @@ func TestPipelineEnv(t *testing.T) {
 	require.NoError(t, err)
 	// Do first commit to repo
 	require.NoError(t, c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
+	require.Equal(t, 1, len(pjis))
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "foo", &buffer))
+	require.NoError(t, c.GetFile(pipelineName, pjis[0].OutputCommit.ID, "foo", &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "foo_env", &buffer))
+	require.NoError(t, c.GetFile(pipelineName, pjis[0].OutputCommit.ID, "foo_env", &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "bar", &buffer))
+	require.NoError(t, c.GetFile(pipelineName, pjis[0].OutputCommit.ID, "bar", &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "job_id", &buffer))
-	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Job.ID), buffer.String())
+	require.NoError(t, c.GetFile(pipelineName, pjis[0].OutputCommit.ID, "job_id", &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", pjis[0].Job.ID), buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "output_commit_id", &buffer))
-	require.Equal(t, fmt.Sprintf("%s\n", jis[0].OutputCommit.ID), buffer.String())
+	require.NoError(t, c.GetFile(pipelineName, pjis[0].OutputCommit.ID, "output_commit_id", &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", pjis[0].OutputCommit.ID), buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "input", &buffer))
+	require.NoError(t, c.GetFile(pipelineName, pjis[0].OutputCommit.ID, "input", &buffer))
 	require.Equal(t, fmt.Sprintf("/pfs/%s/file\n", dataRepo), buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "input_commit", &buffer))
-	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Input.Pfs.Commit), buffer.String())
+	require.NoError(t, c.GetFile(pipelineName, pjis[0].OutputCommit.ID, "input_commit", &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", pjis[0].Input.Pfs.Commit), buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {
@@ -3736,9 +3736,9 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	// Get number of jobs triggered in pipeline D
-	jobInfos, err := c.ListJob(dPipeline, nil, nil, -1, true)
+	pipelineJobInfos, err := c.ListJob(dPipeline, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 2, len(pipelineJobInfos))
 }
 
 func TestPipelineJobDeletion(t *testing.T) {
@@ -3775,10 +3775,10 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now delete the corresponding job
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+	pipelineJobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	err = c.DeleteJob(jobInfos[0].Job.ID)
+	require.Equal(t, 1, len(pipelineJobInfos))
+	err = c.DeleteJob(pipelineJobInfos[0].Job.ID)
 	require.NoError(t, err)
 }
 
@@ -3823,16 +3823,16 @@ func TestStopJob(t *testing.T) {
 	var jobID string
 	b := backoff.NewTestingBackOff()
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		pipelineJobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return errors.Errorf("len(jobInfos) should be 1")
+		if len(pipelineJobInfos) != 1 {
+			return errors.Errorf("len(pipelineJobInfos) should be 1")
 		}
-		jobID = jobInfos[0].Job.ID
-		state := jobInfos[0].State
+		jobID = pipelineJobInfos[0].Job.ID
+		state := pipelineJobInfos[0].State
 
 		if state != pps.JobState_JOB_RUNNING {
-			return errors.Errorf("jobInfos[0] has the wrong state")
+			return errors.Errorf("pipelineJobInfos[0] has the wrong state")
 		}
 		return nil
 	}, b))
@@ -3840,24 +3840,24 @@ func TestStopJob(t *testing.T) {
 	// Now stop the first job
 	err = c.StopJob(jobID)
 	require.NoError(t, err)
-	jobInfo, err := c.InspectJob(jobID, true)
+	pipelineJobInfo, err := c.InspectJob(jobID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_KILLED, pipelineJobInfo.State)
 
 	b.Reset()
 	// Check that the second job completes
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		pipelineJobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
-		if len(jobInfos) != 2 {
-			return errors.Errorf("len(jobInfos) should be 2")
+		if len(pipelineJobInfos) != 2 {
+			return errors.Errorf("len(pipelineJobInfos) should be 2")
 		}
-		jobID = jobInfos[0].Job.ID
+		jobID = pipelineJobInfos[0].Job.ID
 		return nil
 	}, b))
-	jobInfo, err = c.InspectJob(jobID, true)
+	pipelineJobInfo, err = c.InspectJob(jobID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
 }
 
 func TestGetLogs(t *testing.T) {
@@ -3952,15 +3952,15 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		// Get logs from pipeline, using job
 		// (1) Get job ID, from pipeline that just ran
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		pipelineJobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		if err != nil {
 			return err
 		}
-		require.True(t, len(jobInfos) == 1)
+		require.True(t, len(pipelineJobInfos) == 1)
 		// (2) Get logs using extracted job ID
 		// wait for logs to be collected
 		time.Sleep(10 * time.Second)
-		iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
+		iter = c.GetLogs("", pipelineJobInfos[0].Job.ID, nil, "", false, false, 0)
 		numLogs = 0
 		for iter.Next() {
 			numLogs++
@@ -3977,7 +3977,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		require.False(t, iter.Next())
 		require.YesError(t, iter.Err())
 
-		dis, err := c.ListDatumAll(jobInfos[0].Job.ID)
+		dis, err := c.ListDatumAll(pipelineJobInfos[0].Job.ID)
 		if err != nil {
 			return err
 		}
@@ -3993,11 +3993,11 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			return err
 		}
 
-		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
+		pathLog := c.GetLogs("", pipelineJobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		base64Hash := "TBw9TLCKorQTGs4WY/H00vZYxGXd/15dXzXIDlbsoNw="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
+		base64Log := c.GetLogs("", pipelineJobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
 		for {
@@ -4027,7 +4027,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		// Filter logs based on input (using file that doesn't exist). There should
 		// be no logs
-		iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
+		iter = c.GetLogs("", pipelineJobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
 		require.False(t, iter.Next())
 		if err = iter.Err(); err != nil {
 			return err
@@ -4108,11 +4108,11 @@ func TestManyLogs(t *testing.T) {
 			Input: client.NewPFSInput(dataRepo, "/*"),
 		})
 	require.NoError(t, err)
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
+	require.Equal(t, 1, len(pjis))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		iter := c.GetLogs("", jis[0].Job.ID, nil, "", false, false, 0)
+		iter := c.GetLogs("", pjis[0].Job.ID, nil, "", false, false, 0)
 		logsReceived := 0
 		for iter.Next() {
 			if iter.Message().User {
@@ -4154,12 +4154,12 @@ func TestLokiLogs(t *testing.T) {
 			Input: client.NewPFSInput(dataRepo, "/*"),
 		})
 	require.NoError(t, err)
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
+	require.Equal(t, 1, len(pjis))
 	// Follow the logs the make sure we get enough foos
 	require.NoErrorWithinT(t, time.Minute, func() error {
-		iter := c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, true, 0)
+		iter := c.GetLogsLoki("", pjis[0].Job.ID, nil, "", false, true, 0)
 		foundFoos := 0
 		for iter.Next() {
 			if strings.Contains(iter.Message().Message, "foo") {
@@ -4175,7 +4175,7 @@ func TestLokiLogs(t *testing.T) {
 		return nil
 	})
 
-	iter := c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, false, 0)
+	iter := c.GetLogsLoki("", pjis[0].Job.ID, nil, "", false, false, 0)
 	foundFoos := 0
 	for iter.Next() {
 		if strings.Contains(iter.Message().Message, "foo") {
@@ -4285,15 +4285,15 @@ func TestDatumStatusRestart(t *testing.T) {
 			}
 
 			jobID = jobs[0].Job.ID
-			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false, true)
+			pipelineJobInfo, err := c.InspectJob(jobs[0].Job.ID, false, true)
 			require.NoError(t, err)
-			if len(jobInfo.WorkerStatus) == 0 {
+			if len(pipelineJobInfo.WorkerStatus) == 0 {
 				return errors.Errorf("no worker statuses")
 			}
-			if jobInfo.WorkerStatus[0].JobID == jobInfo.Job.ID {
+			if pipelineJobInfo.WorkerStatus[0].JobID == pipelineJobInfo.Job.ID {
 				// The first time this function is called, datumStarted is zero
 				// so `Before` is true for any non-zero time.
-				_datumStarted, err := types.TimestampFromProto(jobInfo.WorkerStatus[0].Started)
+				_datumStarted, err := types.TimestampFromProto(pipelineJobInfo.WorkerStatus[0].Started)
 				require.NoError(t, err)
 				require.True(t, datumStarted.Before(_datumStarted))
 				datumStarted = _datumStarted
@@ -5602,7 +5602,7 @@ func TestUnionInput(t *testing.T) {
 //	require.NoError(t, err)
 //	require.Equal(t, 2, len(commitInfos))
 //
-//	var jobs []*pps.JobInfo
+//	var jobs []*pps.PipelineJobInfo
 //	require.NoError(t, backoff.Retry(func() error {
 //		jobs, err = c.ListJob(pipeline, nil, nil, -1, true)
 //		require.NoError(t, err)
@@ -5875,11 +5875,11 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+	pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
-	for _, ji := range jobInfos {
-		require.Equal(t, ji.State.String(), pps.JobState_JOB_SUCCESS.String())
+	require.Equal(t, 2, len(pipelineJobInfos))
+	for _, pji := range pipelineJobInfos {
+		require.Equal(t, pji.State.String(), pps.JobState_JOB_SUCCESS.String())
 	}
 }
 
@@ -5917,24 +5917,24 @@ func TestSkippedDatums(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	ji := jis[0]
-	require.Equal(t, ji.State, pps.JobState_JOB_SUCCESS)
+	require.Equal(t, 1, len(pjis))
+	pji := pjis[0]
+	require.Equal(t, pji.State, pps.JobState_JOB_SUCCESS)
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(ji.OutputCommit.Repo.Name, ji.OutputCommit.ID, "file", &buffer))
+	require.NoError(t, c.GetFile(pji.OutputCommit.Repo.Name, pji.OutputCommit.ID, "file", &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	// Do second commit to repo
 	commit2, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(dataRepo, commit2.ID, "file2", strings.NewReader("bar\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
-	jis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	pjis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	ji = jis[0]
-	require.Equal(t, ji.State, pps.JobState_JOB_SUCCESS)
+	require.Equal(t, 1, len(pjis))
+	pji = pjis[0]
+	require.Equal(t, pji.State, pps.JobState_JOB_SUCCESS)
 	/*
 		jobs, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
@@ -6328,14 +6328,14 @@ func TestFixPipeline(t *testing.T) {
 	))
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		pipelineJobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		if len(pipelineJobInfos) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(pipelineJobInfos))
 		}
-		jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+		pipelineJobInfo, err := c.InspectJob(pipelineJobInfos[0].Job.ID, true)
 		require.NoError(t, err)
-		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+		require.Equal(t, pps.JobState_JOB_FAILURE, pipelineJobInfo.State)
 		return nil
 	}, backoff.NewTestingBackOff()))
 
@@ -6355,14 +6355,14 @@ func TestFixPipeline(t *testing.T) {
 	))
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		pipelineJobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
-		if len(jobInfos) != 2 {
-			return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
+		if len(pipelineJobInfos) != 2 {
+			return errors.Errorf("expected 2 jobs, got %d", len(pipelineJobInfos))
 		}
-		jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+		pipelineJobInfo, err := c.InspectJob(pipelineJobInfos[0].Job.ID, true)
 		require.NoError(t, err)
-		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
@@ -6402,18 +6402,18 @@ func TestListJobOutput(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob("", nil, commitInfos[0].Commit, -1, true)
+		pipelineJobInfos, err := c.ListJob("", nil, commitInfos[0].Commit, -1, true)
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 1 {
+		if len(pipelineJobInfos) != 1 {
 			return errors.Errorf("expected 1 job")
 		}
-		jobInfos, err = c.ListJob("", nil, client.NewCommit(pipeline, "master"), -1, true)
+		pipelineJobInfos, err = c.ListJob("", nil, client.NewCommit(pipeline, "master"), -1, true)
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 1 {
+		if len(pipelineJobInfos) != 1 {
 			return errors.Errorf("expected 1 job")
 		}
 		return nil
@@ -6453,7 +6453,7 @@ func TestListJobTruncated(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 
 	require.NoError(t, backoff.Retry(func() error {
-		var liteJobInfos, fullJobInfos []*pps.JobInfo
+		var liteJobInfos, fullJobInfos []*pps.PipelineJobInfo
 		liteJobInfos, err := c.ListJob("", nil, commitInfos[0].Commit, 0, false)
 		if err != nil {
 			return err
@@ -6569,7 +6569,7 @@ func TestMaxQueueSize(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	var jobInfo *pps.JobInfo
+	var pipeline *pps.PipelineJobInfo
 	for i := 0; i < 10; i++ {
 		require.NoError(t, backoff.Retry(func() error {
 			jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
@@ -6579,17 +6579,17 @@ func TestMaxQueueSize(t *testing.T) {
 			if len(jobs) == 0 {
 				return errors.Errorf("failed to find job")
 			}
-			jobInfo, err = c.InspectJob(jobs[0].Job.ID, false, true)
+			pipelineJobInfo, err = c.InspectJob(jobs[0].Job.ID, false, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not inspect job")
 			}
-			if len(jobInfo.WorkerStatus) != 2 {
-				return errors.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
+			if len(pipelineJobInfo.WorkerStatus) != 2 {
+				return errors.Errorf("incorrect number of statuses: %v", len(pipelineJobInfo.WorkerStatus))
 			}
 			return nil
 		}, backoff.RetryEvery(500*time.Millisecond).For(60*time.Second)))
 
-		for _, status := range jobInfo.WorkerStatus {
+		for _, status := range pipelineJobInfo.WorkerStatus {
 			if status.QueueSize > 1 {
 				t.Fatalf("queue size too big: %d", status.QueueSize)
 			}
@@ -7806,9 +7806,9 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	pipelineJobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_FAILURE, pipelineJobInfo.State)
 
 	// Now validate the datum timed out properly
 	dis, err := c.ListDatumAll(jobs[0].Job.ID)
@@ -7865,22 +7865,22 @@ func TestListDatumDuringJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var jobInfo *pps.JobInfo
+	var pipelineJobInfo *pps.PipelineJobInfo
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			pipelineJobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 			if err != nil {
 				return err
 			}
-			if len(jobInfos) != 1 {
-				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+			if len(pipelineJobInfos) != 1 {
+				return errors.Errorf("Expected one job, but got %d: %v", len(pipelineJobInfos), pipelineJobInfos)
 			}
-			jobInfo = jobInfos[0]
+			pipelineJobInfo = pipelineJobInfos[0]
 			return nil
 		}, backoff.NewTestingBackOff())
 	})
 
-	dis, err := c.ListDatumAll(jobInfo.Job.ID)
+	dis, err := c.ListDatumAll(pipelineJobInfo.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(dis))
 }
@@ -7928,9 +7928,9 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	pipelineJobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
 }
 
 func TestPipelineWithJobTimeout(t *testing.T) {
@@ -7981,12 +7981,12 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.Equal(t, 1, len(jobs))
 
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	pipelineJobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfo.State.String())
-	started, err := types.TimestampFromProto(jobInfo.Started)
+	require.Equal(t, pps.JobState_JOB_KILLED.String(), pipelineJobInfo.State.String())
+	started, err := types.TimestampFromProto(pipelineJobInfo.Started)
 	require.NoError(t, err)
-	finished, err := types.TimestampFromProto(jobInfo.Finished)
+	finished, err := types.TimestampFromProto(pipelineJobInfo.Finished)
 	require.NoError(t, err)
 	require.True(t, math.Abs((finished.Sub(started)-(time.Second*20)).Seconds()) <= 1.0)
 }
@@ -8174,37 +8174,37 @@ func TestListJobInputCommits(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	jobInfos, err := c.ListJob("", []*pfs.Commit{commita1}, nil, -1, true)
+	pipelineJobInfos, err := c.ListJob("", []*pfs.Commit{commita1}, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos)) // a1 + nil and a1 + b1
+	require.Equal(t, 2, len(pipelineJobInfos)) // a1 + nil and a1 + b1
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb1}, nil, -1, true)
+	pipelineJobInfos, err = c.ListJob("", []*pfs.Commit{commitb1}, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos)) // a1 + b1 and a2 + b1
+	require.Equal(t, 2, len(pipelineJobInfos)) // a1 + b1 and a2 + b1
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2}, nil, -1, true)
+	pipelineJobInfos, err = c.ListJob("", []*pfs.Commit{commita2}, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos)) // a2 + b1 and a2 + b2
+	require.Equal(t, 2, len(pipelineJobInfos)) // a2 + b1 and a2 + b2
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb2}, nil, -1, true)
+	pipelineJobInfos, err = c.ListJob("", []*pfs.Commit{commitb2}, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos)) // a2 + b2
+	require.Equal(t, 1, len(pipelineJobInfos)) // a2 + b2
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita1, commitb1}, nil, -1, true)
+	pipelineJobInfos, err = c.ListJob("", []*pfs.Commit{commita1, commitb1}, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, 1, len(pipelineJobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb1}, nil, -1, true)
+	pipelineJobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb1}, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, 1, len(pipelineJobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb2}, nil, -1, true)
+	pipelineJobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb2}, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, 1, len(pipelineJobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master"), client.NewCommit(bRepo, "master")}, nil, -1, true)
+	pipelineJobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master"), client.NewCommit(bRepo, "master")}, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, 1, len(pipelineJobInfos))
 }
 
 // TestCancelJob creates a long-running job and then kills it, testing that the
@@ -8247,33 +8247,33 @@ func TestCancelJob(t *testing.T) {
 	))
 
 	// Wait until PPS has started processing commit
-	var jobInfo *pps.JobInfo
+	var pipelineJobInfo *pps.PipelineJobInfo
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, nil, -1, true)
+			pipelineJobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, nil, -1, true)
 			if err != nil {
 				return err
 			}
-			if len(jobInfos) != 1 {
-				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+			if len(pipelineJobInfos) != 1 {
+				return errors.Errorf("Expected one job, but got %d: %v", len(pipelineJobInfos), pipelineJobInfos)
 			}
-			jobInfo = jobInfos[0]
+			pipelineJobInfo = pipelineJobInfos[0]
 			return nil
 		}, backoff.NewTestingBackOff())
 	})
 
 	// stop the job
-	require.NoError(t, c.StopJob(jobInfo.Job.ID))
+	require.NoError(t, c.StopJob(pipelineJobInfo.Job.ID))
 
 	// Wait until the job is cancelled
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			updatedJobInfo, err := c.InspectJob(jobInfo.Job.ID, false)
+			updatedJobInfo, err := c.InspectJob(pipelineJobInfo.Job.ID, false)
 			if err != nil {
 				return err
 			}
 			if updatedJobInfo.State != pps.JobState_JOB_KILLED {
-				return errors.Errorf("job %s is still running, but should be KILLED", jobInfo.Job.ID)
+				return errors.Errorf("job %s is still running, but should be KILLED", pipelineJobInfo.Job.ID)
 			}
 			return nil
 		}, backoff.NewTestingBackOff())
@@ -8346,23 +8346,23 @@ func TestCancelManyJobs(t *testing.T) {
 	// sure that it's the only job running, then cancel it
 	for _, commit := range commits {
 		// Wait until PPS has started processing commit
-		var jobInfo *pps.JobInfo
+		var pipelineJobInfo *pps.PipelineJobInfo
 		require.NoErrorWithinT(t, 30*time.Second, func() error {
 			return backoff.Retry(func() error {
-				jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, nil, -1, true)
+				pipelineJobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, nil, -1, true)
 				if err != nil {
 					return err
 				}
-				if len(jobInfos) != 1 {
-					return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+				if len(pipelineJobInfos) != 1 {
+					return errors.Errorf("Expected one job, but got %d: %v", len(pipelineJobInfos), pipelineJobInfos)
 				}
-				jobInfo = jobInfos[0]
+				pipelineJobInfo = pipelineJobInfos[0]
 				return nil
 			}, backoff.NewTestingBackOff())
 		})
 
 		// Stop the job
-		require.NoError(t, c.StopJob(jobInfo.Job.ID))
+		require.NoError(t, c.StopJob(pipelineJobInfo.Job.ID))
 
 		// Check that the job is now killed
 		require.NoErrorWithinT(t, 30*time.Second, func() error {
@@ -8370,12 +8370,12 @@ func TestCancelManyJobs(t *testing.T) {
 				// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
 				// submitted, change ListJob here to filter on commit1 as the input commit,
 				// rather than inspecting the input in the test
-				updatedJobInfo, err := c.InspectJob(jobInfo.Job.ID, false)
+				updatedJobInfo, err := c.InspectJob(pipelineJobInfo.Job.ID, false)
 				if err != nil {
 					return err
 				}
 				if updatedJobInfo.State != pps.JobState_JOB_KILLED {
-					return errors.Errorf("job %s is still running, but should be KILLED", jobInfo.Job.ID)
+					return errors.Errorf("job %s is still running, but should be KILLED", pipelineJobInfo.Job.ID)
 				}
 				return nil
 			}, backoff.NewTestingBackOff())
@@ -8422,12 +8422,12 @@ func TestCancelManyJobs(t *testing.T) {
 // 	// wait for job to run & check that all rows were processed
 // 	var jobCount int
 // 	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-// 		func(jobInfo *pps.JobInfo) error {
+// 		func(pipelineJobInfo *pps.PipelineJobInfo) error {
 // 			jobCount++
 // 			require.Equal(t, 1, jobCount)
-// 			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-// 			require.Equal(t, int64(5), jobInfo.DataProcessed)
-// 			require.Equal(t, int64(0), jobInfo.DataSkipped)
+// 			require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
+// 			require.Equal(t, int64(5), pipelineJobInfo.DataProcessed)
+// 			require.Equal(t, int64(0), pipelineJobInfo.DataSkipped)
 // 			return nil
 // 		})
 
@@ -8440,12 +8440,12 @@ func TestCancelManyJobs(t *testing.T) {
 // 	// themselves weren't altered)
 // 	jobCount = 0
 // 	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-// 		func(jobInfo *pps.JobInfo) error {
+// 		func(pipelineJobInfo *pps.PipelineJobInfo) error {
 // 			jobCount++
 // 			require.Equal(t, 1, jobCount)
-// 			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-// 			require.Equal(t, int64(5), jobInfo.DataProcessed) // added 3 new rows
-// 			require.Equal(t, int64(0), jobInfo.DataSkipped)
+// 			require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
+// 			require.Equal(t, int64(5), pipelineJobInfo.DataProcessed) // added 3 new rows
+// 			require.Equal(t, int64(0), pipelineJobInfo.DataSkipped)
 // 			return nil
 // 		})
 // }
@@ -8510,20 +8510,20 @@ func TestSquashCommitRunsJob(t *testing.T) {
 			// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
 			// submitted, change ListJob here to filter on commit1 as the input commit,
 			// rather than inspecting the input in the test
-			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			pipelineJobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 			if err != nil {
 				return err
 			}
-			if len(jobInfos) != 1 {
-				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+			if len(pipelineJobInfos) != 1 {
+				return errors.Errorf("Expected one job, but got %d: %v", len(pipelineJobInfos), pipelineJobInfos)
 			}
-			pps.VisitInput(jobInfos[0].Input, func(input *pps.Input) {
+			pps.VisitInput(pipelineJobInfos[0].Input, func(input *pps.Input) {
 				if input.Pfs == nil {
-					err = errors.Errorf("expected a single PFS input, but got: %v", jobInfos[0].Input)
+					err = errors.Errorf("expected a single PFS input, but got: %v", pipelineJobInfos[0].Input)
 					return
 				}
 				if input.Pfs.Commit != commit2.ID {
-					err = errors.Errorf("expected job to process %s, but instead processed: %s", commit2.ID, jobInfos[0].Input)
+					err = errors.Errorf("expected job to process %s, but instead processed: %s", commit2.ID, pipelineJobInfos[0].Input)
 					return
 				}
 			})
@@ -8539,20 +8539,20 @@ func TestSquashCommitRunsJob(t *testing.T) {
 		return backoff.Retry(func() error {
 			// TODO(msteffen): as above, change ListJob here to filter on commit2 as
 			// the input, rather than inspecting the input in the test
-			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			pipelineJobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 			if err != nil {
 				return err
 			}
-			if len(jobInfos) != 1 {
-				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+			if len(pipelineJobInfos) != 1 {
+				return errors.Errorf("Expected one job, but got %d: %v", len(pipelineJobInfos), pipelineJobInfos)
 			}
-			pps.VisitInput(jobInfos[0].Input, func(input *pps.Input) {
+			pps.VisitInput(pipelineJobInfos[0].Input, func(input *pps.Input) {
 				if input.Pfs == nil {
-					err = errors.Errorf("expected a single PFS input, but got: %v", jobInfos[0].Input)
+					err = errors.Errorf("expected a single PFS input, but got: %v", pipelineJobInfos[0].Input)
 					return
 				}
 				if input.Pfs.Commit != commit1.ID {
-					err = errors.Errorf("expected job to process %s, but instead processed: %s", commit1.ID, jobInfos[0].Input)
+					err = errors.Errorf("expected job to process %s, but instead processed: %s", commit1.ID, pipelineJobInfos[0].Input)
 					return
 				}
 			})
@@ -8737,10 +8737,10 @@ func TestDontReadStdin(t *testing.T) {
 		commit, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
-		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+		pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jobInfos))
-		require.Equal(t, jobInfos[0].State.String(), pps.JobState_JOB_SUCCESS.String())
+		require.Equal(t, 1, len(pipelineJobInfos))
+		require.Equal(t, pipelineJobInfos[0].State.String(), pps.JobState_JOB_SUCCESS.String())
 	}
 }
 
@@ -8772,10 +8772,10 @@ func TestStatsDeleteAll(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	jis, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
+	require.Equal(t, 1, len(pjis))
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), pjis[0].State.String())
 	require.NoError(t, c.DeleteAll())
 
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8795,10 +8795,10 @@ func TestStatsDeleteAll(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	jis, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
+	pjis, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
+	require.Equal(t, 1, len(pjis))
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), pjis[0].State.String())
 	require.NoError(t, c.DeleteAll())
 }
 
@@ -8842,15 +8842,15 @@ func TestRapidUpdatePipelines(t *testing.T) {
 	}
 	// TODO ideally this test would not take 5 minutes (or even 3 minutes)
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
-		jis, err := c.ListJob(pipeline, nil, nil, -1, true)
+		pjis, err := c.ListJob(pipeline, nil, nil, -1, true)
 		if err != nil {
 			return err
 		}
-		if len(jis) < 6 {
+		if len(pjis) < 6 {
 			return errors.Errorf("should have more than 6 jobs in 5 minutes")
 		}
-		for i := 0; i+1 < len(jis); i++ {
-			difference := jis[i].Started.Seconds - jis[i+1].Started.Seconds
+		for i := 0; i+1 < len(pjis); i++ {
+			difference := pjis[i].Started.Seconds - pjis[i+1].Started.Seconds
 			if difference < 15 {
 				return errors.Errorf("jobs too close together")
 			} else if difference > 45 {
@@ -8889,11 +8889,11 @@ func TestRapidUpdatePipelines(t *testing.T) {
 //			DatumTries: tries,
 //		})
 //	require.NoError(t, err)
-//	jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+//	pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 //	require.NoError(t, err)
-//	require.Equal(t, 1, len(jobInfos))
+//	require.Equal(t, 1, len(pipelineJobInfos))
 //
-//	iter := c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
+//	iter := c.GetLogs("", pipelineJobInfos[0].Job.ID, nil, "", false, false, 0)
 //	var observedTries int64
 //	for iter.Next() {
 //		if strings.Contains(iter.Message().Message, "errored running user code after") {
@@ -9004,12 +9004,12 @@ func TestPipelineVersions(t *testing.T) {
 //	// wait for job to run & check that all rows were processed
 //	var jobCount int
 //	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-//		func(jobInfo *pps.JobInfo) error {
+//		func(pipelineJobInfo *pps.PipelineJobInfo) error {
 //			jobCount++
 //			require.Equal(t, 1, jobCount)
-//			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-//			require.Equal(t, int64(5), jobInfo.DataProcessed)
-//			require.Equal(t, int64(0), jobInfo.DataSkipped)
+//			require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
+//			require.Equal(t, int64(5), pipelineJobInfo.DataProcessed)
+//			require.Equal(t, int64(0), pipelineJobInfo.DataSkipped)
 //			return nil
 //		})
 //
@@ -9020,12 +9020,12 @@ func TestPipelineVersions(t *testing.T) {
 //	// header shouldn't append or change the hash or anything)
 //	jobCount = 0
 //	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-//		func(jobInfo *pps.JobInfo) error {
+//		func(pipelineJobInfo *pps.PipelineJobInfo) error {
 //			jobCount++
 //			require.Equal(t, 1, jobCount)
-//			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-//			require.Equal(t, int64(3), jobInfo.DataProcessed) // added 3 new rows
-//			require.Equal(t, int64(5), jobInfo.DataSkipped)
+//			require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
+//			require.Equal(t, int64(3), pipelineJobInfo.DataProcessed) // added 3 new rows
+//			require.Equal(t, int64(5), pipelineJobInfo.DataSkipped)
 //			return nil
 //		})
 //}
@@ -9065,12 +9065,12 @@ func TestPipelineVersions(t *testing.T) {
 //	// wait for job to run & check that all rows were processed
 //	var jobCount int
 //	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-//		func(jobInfo *pps.JobInfo) error {
+//		func(pipelineJobInfo *pps.PipelineJobInfo) error {
 //			jobCount++
 //			require.Equal(t, 1, jobCount)
-//			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-//			require.Equal(t, int64(5), jobInfo.DataProcessed)
-//			require.Equal(t, int64(0), jobInfo.DataSkipped)
+//			require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
+//			require.Equal(t, int64(5), pipelineJobInfo.DataProcessed)
+//			require.Equal(t, int64(0), pipelineJobInfo.DataSkipped)
 //			return nil
 //		})
 //
@@ -9081,12 +9081,12 @@ func TestPipelineVersions(t *testing.T) {
 //	// themselves weren't altered)
 //	jobCount = 0
 //	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-//		func(jobInfo *pps.JobInfo) error {
+//		func(pipelineJobInfo *pps.PipelineJobInfo) error {
 //			jobCount++
 //			require.Equal(t, 1, jobCount)
-//			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-//			require.Equal(t, int64(5), jobInfo.DataProcessed) // added 3 new rows
-//			require.Equal(t, int64(0), jobInfo.DataSkipped)
+//			require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineJobInfo.State)
+//			require.Equal(t, int64(5), pipelineJobInfo.DataProcessed) // added 3 new rows
+//			require.Equal(t, int64(0), pipelineJobInfo.DataSkipped)
 //			return nil
 //		})
 //}
@@ -9162,13 +9162,13 @@ func TestDeferredCross(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 1)
 
-	jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+	pipelineJobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 	require.NoError(t, err)
 
 	headCommit, err := c.InspectCommit(dataSet, "master")
 	require.NoError(t, err)
 
-	pps.VisitInput(jobInfo.Input, func(i *pps.Input) {
+	pps.VisitInput(pipelineJobInfo.Input, func(i *pps.Input) {
 		if i.Pfs != nil && i.Pfs.Repo == dataSet {
 			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
 		}
@@ -9264,9 +9264,9 @@ func TestPipelineHistory(t *testing.T) {
 	_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
-	jis, err := c.ListJob(pipelineName, nil, nil, 0, true)
+	pjis, err := c.ListJob(pipelineName, nil, nil, 0, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
+	require.Equal(t, 1, len(pjis))
 
 	// Update the pipeline
 	require.NoError(t, c.CreatePipeline(
@@ -9290,15 +9290,15 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(cis))
 
-	jis, err = c.ListJob(pipelineName, nil, nil, 0, true)
+	pjis, err = c.ListJob(pipelineName, nil, nil, 0, true)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 1, true)
+	require.Equal(t, 2, len(pjis))
+	pjis, err = c.ListJob(pipelineName, nil, nil, 1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, -1, true)
+	require.Equal(t, 3, len(pjis))
+	pjis, err = c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jis))
+	require.Equal(t, 3, len(pjis))
 
 	// Update the pipeline again
 	require.NoError(t, c.CreatePipeline(
@@ -9316,18 +9316,18 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
-	jis, err = c.ListJob(pipelineName, nil, nil, 0, true)
+	pjis, err = c.ListJob(pipelineName, nil, nil, 0, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 1, true)
+	require.Equal(t, 1, len(pjis))
+	pjis, err = c.ListJob(pipelineName, nil, nil, 1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 2, true)
+	require.Equal(t, 3, len(pjis))
+	pjis, err = c.ListJob(pipelineName, nil, nil, 2, true)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, -1, true)
+	require.Equal(t, 4, len(pjis))
+	pjis, err = c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(jis))
+	require.Equal(t, 4, len(pjis))
 
 	// Add another pipeline, this shouldn't change the results of the above
 	// commands.
@@ -9347,18 +9347,18 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
-	jis, err = c.ListJob(pipelineName, nil, nil, 0, true)
+	pjis, err = c.ListJob(pipelineName, nil, nil, 0, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 1, true)
+	require.Equal(t, 1, len(pjis))
+	pjis, err = c.ListJob(pipelineName, nil, nil, 1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 2, true)
+	require.Equal(t, 3, len(pjis))
+	pjis, err = c.ListJob(pipelineName, nil, nil, 2, true)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, -1, true)
+	require.Equal(t, 4, len(pjis))
+	pjis, err = c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(jis))
+	require.Equal(t, 4, len(pjis))
 
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
@@ -10674,9 +10674,9 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commits))
 
-	jobInfos, err := c.ListJob(pipelineB, nil, nil, -1, false)
+	pipelineJobInfos, err := c.ListJob(pipelineB, nil, nil, -1, false)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 2, len(pipelineJobInfos))
 }
 
 func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {

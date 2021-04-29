@@ -33,7 +33,7 @@ func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		etcdClient,
 		path.Join(etcdPrefix, pipelinesPrefix),
 		nil,
-		&pps.EtcdPipelineInfo{},
+		&pps.StoredPipelineInfo{},
 		nil,
 		nil,
 	)
@@ -45,7 +45,7 @@ func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		etcdClient,
 		path.Join(etcdPrefix, jobsPrefix),
 		[]*col.Index{JobsPipelineIndex, JobsOutputIndex},
-		&pps.EtcdJobInfo{},
+		&pps.StoredPipelineJobInfo{},
 		nil,
 		nil,
 	)
