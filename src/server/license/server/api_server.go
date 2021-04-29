@@ -334,11 +334,34 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.validateClusterConfig(ctx, req.Address); err != nil {
-		return nil, err
+	// should we only validate the pachd Address accessible to the enterprise server?
+	if req.Address != "" {
+		if err := a.validateClusterConfig(ctx, req.Address); err != nil {
+			return nil, err
+		}
 	}
 
-	_, err := a.env.GetDBClient().ExecContext(ctx, "UPDATE license.clusters SET address=$1 WHERE id=$2", req.Address, req.Id)
+	// is there semantic value to updating a cluster's address or user_address to empty string?
+	fieldValues := make(map[string]string)
+	fieldValues["address"] = req.Address
+	fieldValues["user_address"] = req.UserAddress
+	fieldValues["cluster_deployment_id"] = req.ClusterDeploymentId
+
+	var setFields string
+	for k, v := range fieldValues {
+		if v != "" {
+			setFields += fmt.Sprintf(" %s = '%s',", k, v)
+		}
+	}
+
+	if setFields == "" {
+		return nil, errors.New("No cluster fields were provided to the UpdateCluster RPC")
+	}
+
+	// trim trailing comma
+	setFields = setFields[:len(setFields)-1]
+
+	_, err := a.env.GetDBClient().ExecContext(ctx, "UPDATE license.clusters SET "+setFields+"  WHERE id=$1", req.Id)
 	if err != nil {
 		return nil, err
 	}

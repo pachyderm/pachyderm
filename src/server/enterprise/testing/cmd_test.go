@@ -267,14 +267,44 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl enterprise sync-contexts
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | grep "\"pachd_address\": \"grpc://pachd.default:655\""
-		pachctl config get context {{.id}} | grep "\"cluster_deployment_id\": \"{{.clusterId}}\""
-		pachctl config get context {{.id}} | grep "\"source\": \"IMPORTED\","
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:655\"" 
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
 		"id", id,
 		"clusterId", clusterId,
 	).Run())
 
+	// re-register cluster with the same cluster ID and new user address
+	// the user-address should be updated on sync
+	require.NoError(t, tu.BashCmd(`
+		pachctl license update-cluster --id {{.id}} --user-address {{.userAddress}}
+		pachctl enterprise sync-contexts
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\"" 
+		`,
+		"id", id,
+		"token", tu.RootToken,
+		"license", tu.GetTestEnterpriseCode(t),
+		"clusterId", clusterId,
+		"userAddress", "grpc://pachd.default:700",
+	).Run())
+
+	// re-register cluster with a new cluster ID
+	// the cluster id should be updated and the session token should be set to empty
+	// TODO(acohen4): set session_token so that it can be unset
+	newClusterId := tu.UniqueString("clusterDeploymentId")
+	require.NoError(t, tu.BashCmd(`
+		pachctl license update-cluster --id {{.id}} --cluster-deployment-id {{.clusterId}}
+		pachctl enterprise sync-contexts
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\"" 
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\"" 
+		`,
+		"id", id,
+		"token", tu.RootToken,
+		"license", tu.GetTestEnterpriseCode(t),
+		"clusterId", newClusterId,
+		"userAddress", "grpc://pachd.default:700",
+	).Run())
 }
 
 // Tests RegisterCluster command's derived argument values if not provided
@@ -304,9 +334,9 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		pachctl enterprise sync-contexts
 
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | grep "\"pachd_address\": \"grpc://{{.pachdAddress}}\""
-		pachctl config get context {{.id}} | grep "\"cluster_deployment_id\": \"{{.clusterId}}\""
-		pachctl config get context {{.id}} | grep "\"source\": \"IMPORTED\","
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://{{.pachdAddress}}\""
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
 		"id", id,
 		"token", tu.RootToken,

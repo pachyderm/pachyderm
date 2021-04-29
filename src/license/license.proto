@@ -70,6 +70,8 @@ message ClusterStatus {
 message UpdateClusterRequest {
   string id = 1;
   string address = 2;
+  string user_address = 3;
+  string cluster_deployment_id = 4;
 }
 message UpdateClusterResponse{}
 

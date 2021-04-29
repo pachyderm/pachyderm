@@ -126,17 +126,19 @@ func RegisterCmd() *cobra.Command {
 			defer ec.Close()
 
 			if pachdUsrAddr == "" {
+				// TODO: get address with protocol from client
 				pachdUsrAddr = c.GetAddress()
 			}
 
 			if pachdAddr == "" {
+				// TODO: get address with protocol from client
 				pachdAddr = ec.GetAddress()
 			}
 
 			if clusterId == "" {
 				clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
 				if inspectErr != nil {
-					return inspectErr
+					return errors.Wrapf(inspectErr, "could not inspect cluster")
 				}
 				clusterId = clusterInfo.DeploymentID
 			}
@@ -237,7 +239,11 @@ func SyncContextsCmd() *cobra.Command {
 			// update the pach_address of all existing contexts, and add the rest as well.
 			for _, cluster := range resp.Clusters {
 				if context, ok := cfg.V2.Contexts[cluster.Id]; ok {
-					context.ClusterDeploymentID = cluster.ClusterDeploymentId
+					// reset the session token if the context is pointing to a new cluster deployment
+					if cluster.ClusterDeploymentId != context.ClusterDeploymentID {
+						context.ClusterDeploymentID = cluster.ClusterDeploymentId
+						context.SessionToken = ""
+					}
 					context.PachdAddress = cluster.Address
 				} else {
 					cfg.V2.Contexts[cluster.Id] = &config.Context{

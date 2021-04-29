@@ -215,12 +215,14 @@ func TestClusterCRUD(t *testing.T) {
 
 	// Update the cluster
 	_, err = client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
-		Id:      "new",
-		Address: "localhost:653",
+		Id:          "new",
+		Address:     "localhost:653",
+		UserAddress: "localhost:1000",
 	})
 	require.NoError(t, err)
 
 	expectedStatuses["new"].Address = "localhost:653"
+	expectedUserClusters["new"].Address = "localhost:1000"
 
 	clusters, err = client.License.ListClusters(client.Ctx(), &license.ListClustersRequest{})
 	require.NoError(t, err)
