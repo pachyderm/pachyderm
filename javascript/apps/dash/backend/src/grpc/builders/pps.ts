@@ -159,7 +159,6 @@ export type SchedulingSpecObject = {
 };
 
 export type PipelineInfoObject = {
-  id?: PipelineInfo.AsObject['id'];
   pipeline?: PipelineObject;
   version?: PipelineInfo.AsObject['version'];
   transform?: TransformObject;
@@ -512,7 +511,6 @@ export const schedulingSpecFromObject = ({
 };
 
 export const pipelineInfoFromObject = ({
-  id = '',
   pipeline,
   version = 1,
   transform,
@@ -552,7 +550,6 @@ export const pipelineInfoFromObject = ({
 }: PipelineInfoObject) => {
   const pipelineInfo = new PipelineInfo();
 
-  pipelineInfo.setId(id);
   if (pipeline) {
     pipelineInfo.setPipeline(pipelineFromObject(pipeline));
   }

@@ -421,7 +421,6 @@ describe('grpc/builders/pps', () => {
       },
     });
 
-    expect(pipelineInfo.getId()).toBe('');
     expect(pipelineInfo.getPipeline()?.getName()).toBe('testPipeline');
     expect(pipelineInfo.getVersion()).toBe(1);
     expect(pipelineInfo.getTransform()).toBe(undefined);
@@ -462,7 +461,6 @@ describe('grpc/builders/pps', () => {
 
   it('should create PipelineInfo from an object with defaults', () => {
     const pipelineInfo = pipelineInfoFromObject({
-      id: '23498',
       pipeline: {
         name: 'testPipeline',
       },
@@ -558,7 +556,6 @@ describe('grpc/builders/pps', () => {
       s3Out: true,
     });
 
-    expect(pipelineInfo.getId()).toBe('23498');
     expect(pipelineInfo.getPipeline()?.getName()).toBe('testPipeline');
     expect(pipelineInfo.getVersion()).toBe(4);
     expect(pipelineInfo.getTransform()?.getImage()).toBe('pachyderm/opencv');
