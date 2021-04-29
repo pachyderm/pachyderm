@@ -362,6 +362,51 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	return &auth.ActivateResponse{PachToken: pachToken}, nil
 }
 
+// RotateToken implements the protobuf auth.RotateToken RPC
+func (a *apiServer) RotateAuthToken(ctx context.Context, req *auth.RotateAuthTokenRequest) (resp *auth.RotateAuthTokenResponse, retErr error) {
+	pachClient := a.env.GetPachClient(ctx)
+	ctx = pachClient.Ctx() // copy auth information
+	// We don't want to actually log the request/response since they contain credentials.
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+
+	// Determine the subject of the request
+	var subject string
+	if req.Subject != "" {
+		subject = req.Subject
+	} else {
+		tokenInfo, err := a.getAuthenticatedUser(ctx)
+		if err != nil {
+			return nil, err
+		}
+		subject = tokenInfo.Subject
+	}
+
+	// TODO(acohen4): Transactionify so that token deletion and insertion are atomic
+	// First revoke this subject's existing auth_tokens
+	if err := a.deleteAuthTokensForSubject(ctx, subject); err != nil {
+		return nil, err
+	}
+
+	// If the token hash was in the request, use it and return an empty response.
+	// Otherwise generate a new random token.
+	pachToken := req.PachToken
+	if pachToken == "" {
+		pachToken = uuid.NewWithoutDashes()
+	}
+
+	var err error
+	if req.TTL > 0 {
+		err = a.insertAuthToken(ctx, auth.HashToken(pachToken), subject, req.TTL)
+	} else {
+		err = a.insertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), subject)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &auth.RotateAuthTokenResponse{PachToken: pachToken}, nil
+}
+
 // Deactivate implements the protobuf auth.Deactivate RPC
 func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (resp *auth.DeactivateResponse, retErr error) {
 	a.LogReq(req)
@@ -1412,9 +1457,8 @@ func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.Revok
 	if strings.HasPrefix(req.Username, auth.PachPrefix) {
 		return nil, errors.New("cannot revoke tokens for pach: users")
 	}
-
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, req.Username); err != nil {
-		return nil, errors.Wrapf(err, "error deleting all auth tokens")
+	if err := a.deleteAuthTokensForSubject(ctx, req.Username); err != nil {
+		return nil, err
 	}
 	return &auth.RevokeAuthTokensForUserResponse{}, nil
 }
@@ -1512,6 +1556,13 @@ func (a *apiServer) deleteAllAuthTokens(ctx context.Context) error {
 func (a *apiServer) deleteAuthToken(ctx context.Context, tokenHash string) error {
 	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
 		return errors.Wrapf(err, "error deleting token")
+	}
+	return nil
+}
+
+func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) error {
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, subject); err != nil {
+		return errors.Wrapf(err, "error deleting all auth tokens")
 	}
 	return nil
 }

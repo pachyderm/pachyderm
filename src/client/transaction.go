@@ -604,3 +604,6 @@ func (c *debugBuilderClient) Dump(ctx context.Context, req *debug.DumpRequest, o
 func (c *authBuilderClient) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest, opts ...grpc.CallOption) (*auth.DeleteExpiredAuthTokensResponse, error) {
 	return nil, unsupportedError("DeleteExpiredAuthTokens")
 }
+func (c *authBuilderClient) RotateAuthToken(ctx context.Context, req *auth.RotateAuthTokenRequest, opts ...grpc.CallOption) (*auth.RotateAuthTokenResponse, error) {
+	return nil, unsupportedError("RotateToken")
+}

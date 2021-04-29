@@ -681,6 +681,42 @@ func GetEnterpriseRoleBindingCmd() *cobra.Command {
 	return cmdutil.CreateAlias(get, "auth get enterprise")
 }
 
+// RotateAuthToken returns a cobra command that rotates an auth token for a User
+func RotateAuthToken() *cobra.Command {
+	var pachToken string
+	var subject string
+	var ttl int64
+	rotateToken := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Rotate the auth token for a user",
+		Long:  "Rotate the auth token for a user",
+		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
+			c, err := newClient(false)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			req := &auth.RotateAuthTokenRequest{
+				PachToken: pachToken,
+				Subject:   subject,
+				TTL:       ttl,
+			}
+			resp, err := c.RotateAuthToken(c.Ctx(), req)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Pachyderm auth token:\n%s\n", resp.PachToken)
+			return nil
+		}),
+	}
+	rotateToken.PersistentFlags().StringVar(&pachToken, "supply-token", "", "An auth token to rotate to. If left blank, one will be auto-generated.")
+	rotateToken.PersistentFlags().StringVar(&subject, "subject", "", "The subject to apply the token rotation to. If left blank will default to the calling user.")
+	rotateToken.PersistentFlags().Int64Var(&ttl, "ttl", 0, "The TTL of the Token rotated to.")
+
+	return cmdutil.CreateAlias(rotateToken, "auth rotate-token")
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -727,5 +763,6 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, SetClusterRoleBindingCmd())
 	commands = append(commands, GetEnterpriseRoleBindingCmd())
 	commands = append(commands, SetEnterpriseRoleBindingCmd())
+	commands = append(commands, RotateAuthToken())
 	return commands
 }

@@ -47,6 +47,15 @@ message ActivateResponse {
 message DeactivateRequest {}
 message DeactivateResponse {}
 
+message RotateAuthTokenRequest {
+  string pach_token = 1;
+  string subject = 2;
+  int64 ttl = 3 [(gogoproto.customname) = "TTL"];
+}
+
+message RotateAuthTokenResponse {
+  string pach_token = 1;
+}
 
 // Configure Pachyderm's auth system with an OIDC provider 
 message OIDCConfig{
@@ -145,6 +154,7 @@ enum Permission {
   CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL       = 141;
   CLUSTER_AUTH_DELETE_EXPIRED_TOKENS               = 140;
   CLUSTER_AUTH_REVOKE_USER_TOKENS                  = 142;
+  CLUSTER_AUTH_ROTATE_TOKEN                        = 147;
 
   CLUSTER_ENTERPRISE_ACTIVATE            = 114;
   CLUSTER_ENTERPRISE_HEARTBEAT           = 115;
@@ -454,4 +464,5 @@ service API {
   rpc RestoreAuthToken(RestoreAuthTokenRequest) returns (RestoreAuthTokenResponse) {}
 
   rpc DeleteExpiredAuthTokens(DeleteExpiredAuthTokensRequest) returns (DeleteExpiredAuthTokensResponse) {}
+  rpc RotateAuthToken(RotateAuthTokenRequest) returns (RotateAuthTokenResponse) {}
 }

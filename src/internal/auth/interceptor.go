@@ -58,6 +58,7 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/Deactivate":                 clusterPermissions(auth.Permission_CLUSTER_AUTH_DEACTIVATE),
 	"/auth.API/DeleteExpiredAuthTokens":    clusterPermissions(auth.Permission_CLUSTER_AUTH_DELETE_EXPIRED_TOKENS),
 	"/auth.API/RevokeAuthTokensForUser":    clusterPermissions(auth.Permission_CLUSTER_AUTH_REVOKE_USER_TOKENS),
+	"/auth.API/RotateAuthToken":            clusterPermissions(auth.Permission_CLUSTER_AUTH_ROTATE_TOKEN),
 
 	//
 	// Debug API
