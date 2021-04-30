@@ -1,0 +1,8 @@
+FROM scratch
+
+COPY LICENSE /licenses
+
+COPY pachd /pachd
+COPY dex-assets /dex-assets
+COPY certs/ca-certificates.crt /etc/ssl/certs/
+ENTRYPOINT ["/pachd"]

@@ -1,0 +1,4 @@
+FROM debian:buster-slim
+COPY certs /etc/ssl/certs
+COPY ca-certificates /usr/share/ca-certificates
+COPY pachctl /usr/local/bin/pachctl
