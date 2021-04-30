@@ -675,7 +675,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.Etcd
 	s.SetLabels(labels)
 
 	// send RPC to k8s to create the secret there
-	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(ctx, &s, metav1.CreateOptions{}); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
 		}
@@ -738,7 +738,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 			},
 		},
 	}
-	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
 		}
@@ -772,7 +772,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 			},
 		},
 	}
-	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
 		}
@@ -806,7 +806,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 				Ports:    servicePort,
 			},
 		}
-		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
+		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 			if !isAlreadyExistsErr(err) {
 				return err
 			}
@@ -829,12 +829,13 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 }
 
 func (a *apiServer) checkOrDeployGithookService() error {
+	ctx := context.TODO()
 	kubeClient := a.env.GetKubeClient()
 	_, err := getGithookService(kubeClient, a.namespace)
 	if err != nil {
 		if errors.As(err, &errGithookServiceNotFound{}) {
 			svc := assets.GithookService(a.namespace)
-			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
+			_, err = kubeClient.CoreV1().Services(a.namespace).Create(ctx, svc, metav1.CreateOptions{})
 			return err
 		}
 		return err
@@ -844,11 +845,12 @@ func (a *apiServer) checkOrDeployGithookService() error {
 }
 
 func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Service, error) {
+	ctx := context.TODO()
 	labels := map[string]string{
 		"app":   "githook",
 		"suite": suite,
 	}
-	serviceList, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{
+	serviceList, err := kubeClient.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",

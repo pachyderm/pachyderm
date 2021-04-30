@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -54,7 +55,8 @@ func TestGetExpectedNumWorkers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, workers)
 
-	nodes, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
+	ctx := context.TODO()
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 	numNodes := len(nodes.Items)
 
