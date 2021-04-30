@@ -27,16 +27,18 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 			"duration": time.Since(start),
 			"method":   req.Method,
 			"url":      req.URL.String(),
-			"status":   res.Status,
 			"err":      retErr,
 		}
-		if res.StatusCode >= 400 {
-			// error response -- log the error message
-			bodytext, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				fields["body"] = string(bodytext)
-			} else {
-				fields["body"] = "error reading body: " + err.Error()
+		if res != nil {
+			fields["status"] = res.Status
+			if res.StatusCode >= 400 {
+				// error response -- log the error message
+				bodytext, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					fields["body"] = string(bodytext)
+				} else {
+					fields["body"] = "error reading body: " + err.Error()
+				}
 			}
 		}
 		logEntry := log.WithFields(fields)
