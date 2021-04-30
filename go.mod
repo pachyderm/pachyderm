@@ -5,6 +5,8 @@ go 1.15
 require (
 	cloud.google.com/go/storage v1.3.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
+	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
+	github.com/HdrHistogram/hdrhistogram-go v1.1.0 // indirect
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/c-bata/go-prompt v0.2.3
@@ -29,12 +31,13 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 	github.com/golang/protobuf v1.3.3
-	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
-	github.com/grafana/loki v1.5.0
+	//github.com/grafana/loki v1.5.0
 	github.com/hanwen/go-fuse/v2 v2.0.3
 	github.com/hashicorp/go-retryablehttp v0.5.4 // indirect
+	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
+	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/vault v1.1.3
 	github.com/itchyny/gojq v0.11.2
@@ -49,6 +52,7 @@ require (
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/mattn/go-tty v0.0.3 // indirect
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/minio/minio-go/v6 v6.0.55
 	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
@@ -68,8 +72,9 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v0.0.6-0.20191202130430-b04b5bfc50cb
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
+	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
@@ -94,7 +99,7 @@ require (
 	honnef.co/go/tools v0.1.3 // indirect
 	k8s.io/api v0.17.17
 	k8s.io/apimachinery v0.17.17
-	k8s.io/cli-runtime v0.17.4
+	k8s.io/cli-runtime v0.17.4 // indirect
 	k8s.io/client-go v12.0.0+incompatible
 	modernc.org/mathutil v1.0.0
 	rsc.io/letsencrypt v0.0.3 // indirect

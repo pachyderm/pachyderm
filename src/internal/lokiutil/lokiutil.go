@@ -1,23 +1,12 @@
 package lokiutil
 
-import (
-	"context"
-	"sort"
-	"time"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-
-	loki "github.com/grafana/loki/pkg/logcli/client"
-	"github.com/grafana/loki/pkg/loghttp"
-	"github.com/grafana/loki/pkg/logproto"
-)
-
+/*
 const (
 	// maxLogMessages is the maximum number of log messages the loki server
 	// will send us, it will error if this is made higher.
 	maxLogMessages = 5000
 )
+
 
 func forEachLine(resp *loghttp.QueryResponse, f func(t time.Time, line string) error) error {
 	// sort and display entries
@@ -83,3 +72,4 @@ type streamEntryPair struct {
 	entry  loghttp.Entry
 	labels loghttp.LabelSet
 }
+*/

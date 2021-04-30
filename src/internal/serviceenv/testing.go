@@ -6,7 +6,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/client-go/kubernetes"
@@ -19,9 +18,9 @@ type TestServiceEnv struct {
 	PachClient    *client.APIClient
 	EtcdClient    *etcd.Client
 	KubeClient    *kube.Clientset
-	LokiClient    *loki.Client
-	DBClient      *sqlx.DB
-	Ctx           context.Context
+	//LokiClient    *loki.Client
+	DBClient *sqlx.DB
+	Ctx      context.Context
 }
 
 func (s *TestServiceEnv) Config() *Configuration {
@@ -37,9 +36,10 @@ func (s *TestServiceEnv) GetEtcdClient() *etcd.Client {
 func (s *TestServiceEnv) GetKubeClient() *kube.Clientset {
 	return s.KubeClient
 }
-func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
+
+/*func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
 	return s.LokiClient, nil
-}
+}*/
 func (s *TestServiceEnv) GetDBClient() *sqlx.DB {
 	return s.DBClient
 }

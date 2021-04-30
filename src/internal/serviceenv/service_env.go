@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -34,7 +33,7 @@ type ServiceEnv interface {
 	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
 	GetKubeClient() *kube.Clientset
-	GetLokiClient() (*loki.Client, error)
+	//GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
 	ClusterID() string
 	Context() context.Context
@@ -76,7 +75,7 @@ type NonblockingServiceEnv struct {
 	// lokiClient is a loki (log aggregator) client that is shared by all users
 	// of this environment, it doesn't require an initialization funcion, so
 	// there's no errgroup associated with it.
-	lokiClient *loki.Client
+	//lokiClient *loki.Client
 
 	// clusterId is the unique ID for this pach cluster
 	clusterId   string
@@ -120,11 +119,11 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env.etcdEg.Go(env.initEtcdClient)
 	env.clusterIdEg.Go(env.initClusterID)
 	env.dbEg.Go(env.initDBClient)
-	if env.config.LokiHost != "" && env.config.LokiPort != "" {
+	/*if env.config.LokiHost != "" && env.config.LokiPort != "" {
 		env.lokiClient = &loki.Client{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.config.LokiHost, env.config.LokiPort)),
 		}
-	}
+	}*/
 	return env // env is not ready yet
 }
 
@@ -288,6 +287,7 @@ func (env *NonblockingServiceEnv) GetKubeClient() *kube.Clientset {
 	return env.kubeClient
 }
 
+/*
 // GetLokiClient returns the loki client, it doesn't require blocking on a
 // connection because the client is just a dumb struct with no init function.
 func (env *NonblockingServiceEnv) GetLokiClient() (*loki.Client, error) {
@@ -295,7 +295,7 @@ func (env *NonblockingServiceEnv) GetLokiClient() (*loki.Client, error) {
 		return nil, errors.Errorf("loki not configured, is it running in the same namespace as pachd?")
 	}
 	return env.lokiClient, nil
-}
+}*/
 
 // GetDBClient returns the already connected database client without modification.
 func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {

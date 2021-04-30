@@ -17,14 +17,12 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
@@ -1104,7 +1102,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
-	if a.env.Config().LokiLogging || request.UseLokiBackend {
+	/*if a.env.Config().LokiLogging || request.UseLokiBackend {
 		resp, err := pachClient.Enterprise.GetState(context.Background(),
 			&enterpriseclient.GetStateRequest{})
 		if err != nil {
@@ -1114,7 +1112,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return a.getLogsLoki(request, apiGetLogsServer)
 		}
 		return errors.Errorf("enterprise must be enabled to use loki logging")
-	}
+	}*/
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	ctx := pachClient.Ctx() // pachClient will propagate auth info
@@ -1275,6 +1273,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	return egErr
 }
 
+/*
 func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -1371,7 +1370,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		msg.Message = strings.TrimSuffix(msg.Message, "\n")
 		return apiGetLogsServer.Send(msg)
 	})
-}
+}*/
 
 func contains(s string) string {
 	return fmt.Sprintf(" |= %q", s)
