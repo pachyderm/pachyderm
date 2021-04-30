@@ -2,6 +2,8 @@
 
 set -ex
 
+mkdir -p cached-deps
+
 # Install deps
 sudo snap install --classic goreleaser
 sudo snap install jq
@@ -33,7 +35,7 @@ if [ ! -f ~/cached-deps/kubectl ] ; then
     KUBECTL_VERSION=v1.19.2
     curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
         chmod +x ./kubectl
-#        mv ./kubectl ~/cached-deps/kubectl
+        mv ./kubectl cached-deps/kubectl
 fi
 
 # Install minikube
@@ -43,7 +45,7 @@ if [ ! -f ~/cached-deps/minikube ] ; then
     MINIKUBE_VERSION=v1.13.1 # If changed, also do etc/kube/start-minikube.sh
     curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
         chmod +x ./minikube
-        #mv ./minikube ~/cached-deps/minikube
+        mv ./minikube cached-deps/minikube
 fi
 
 # Install etcdctl
@@ -53,7 +55,7 @@ if [ ! -f ~/cached-deps/etcdctl ] ; then
     ETCD_VERSION=v3.3.12
     curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz \
         | tar xzf - --strip-components=1
-        #mv ./etcdctl ~/cached-deps/etcdctl
+        mv ./etcdctl cached-deps/etcdctl
 fi
 
 # Install kubeval
@@ -61,8 +63,13 @@ if [ ! -f ~/cached-deps/kubeval ]; then
   KUBEVAL_VERSION=0.15.0
   curl -L https://github.com/instrumenta/kubeval/releases/download/${KUBEVAL_VERSION}/kubeval-linux-amd64.tar.gz \
       | tar xzf - kubeval
-      #mv ./kubeval ~/cached-deps/kubeval
+      mv ./kubeval cached-deps/kubeval
 fi
 
 # Install helm
-curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+if [ ! -f ~/cached-deps/helm ]; then
+  HELM_VERSION=3.5.4
+  curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
+      | tar xzf - linux-amd64/helm
+      mv ./linux-amd64/helm cached-deps/helm
+fi

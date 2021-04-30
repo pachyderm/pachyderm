@@ -2,6 +2,8 @@
 
 set -Eex
 
+export PATH=$(pwd)/cached-deps:$PATH
+
 # Parse flags
 VERSION=v1.18.3
 minikube_args=(
