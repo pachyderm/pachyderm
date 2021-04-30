@@ -2,15 +2,29 @@
 
 set -ex
 
-export GOPATH=/home/circleci/.go_workspace
-export PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
+GOPATH=/home/circleci/.go_workspace
+export GOPATH
 
-export VM_IP="$(minikube ip)"
-export PACH_PORT="30650"
-export ENTERPRISE_PORT="31650"
+PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
+export PATH
 
-export POSTGRES_SERVICE_HOST=$(minikube ip)
-export POSTGRES_SERVICE_PORT=5432
+VM_IP="$(minikube ip)"
+export VM_IP
+
+PACH_PORT="30650"
+export PACH_PORT
+
+ENTERPRISE_PORT="31650"
+export ENTEPRRISE_PORT
+
+POSTGRES_SERVICE_HOST="$(minikube ip)"
+export POSTGRES_SERVICE_HOST
+
+POSTGRES_SERVICE_PORT=5432
+export POSTGRES_SERVICE_PORT
+
+TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
+export TESTFLAGS
 
 # make launch-kube connects with kubernetes, so it should just be available
 minikube status
@@ -65,9 +79,6 @@ case "${BUCKET}" in
         # disable them
         make test-tls
     fi
-    ;;
-  ADMIN)
-    make test-admin
     ;;
   EXAMPLES)
     echo "Running the example test suite"

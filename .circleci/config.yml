@@ -37,6 +37,7 @@ jobs:
       - run: etc/testing/circle/build.sh 
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
+      - run: etc/testing/circle/upload_stats.sh 
 
 workflows:
   all-tests:
