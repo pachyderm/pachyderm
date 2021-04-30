@@ -342,6 +342,6 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		"token", tu.RootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 		"clusterId", clusterId,
-		"pachdAddress", c.GetAddress(),
+		"pachdAddress", c.GetAddress().UnixSocket,
 	).Run())
 }

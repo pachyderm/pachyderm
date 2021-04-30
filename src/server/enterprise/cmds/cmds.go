@@ -21,6 +21,18 @@ func newClient(enterprise bool) (*client.APIClient, error) {
 	return client.NewOnUserMachine("user")
 }
 
+func getIsActiveContextEnterpriseServer() (bool, error) {
+	cfg, err := config.Read(false, true)
+	if err != nil {
+		return false, errors.Wrapf(err, "could not read config")
+	}
+	_, ctx, err := cfg.ActiveEnterpriseContext(true)
+	if err != nil {
+		return false, errors.Wrapf(err, "could not retrieve the enterprise context from the config")
+	}
+	return ctx.EnterpriseServer, nil
+}
+
 // ActivateCmd returns a cobra.Command to activate the license service,
 // register the current pachd and activate enterprise features.
 // This always runs against the current enterprise context, and can
@@ -57,6 +69,12 @@ func ActivateCmd() *cobra.Command {
 				return errors.Wrapf(inspectErr, "could not inspect cluster")
 			}
 
+			// inspect the active context to determine whether its pointing at an enterprise server
+			enterpriseServer, err := getIsActiveContextEnterpriseServer()
+			if err != nil {
+				return err
+			}
+
 			// Register the localhost as a cluster
 			resp, err := c.License.AddCluster(c.Ctx(),
 				&license.AddClusterRequest{
@@ -64,6 +82,7 @@ func ActivateCmd() *cobra.Command {
 					Address:             "grpc://localhost:653",
 					UserAddress:         "grpc://localhost:653",
 					ClusterDeploymentId: clusterInfo.DeploymentID,
+					EnterpriseServer:    enterpriseServer,
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not register pachd with the license service")
@@ -134,13 +153,11 @@ func RegisterCmd() *cobra.Command {
 			defer ec.Close()
 
 			if pachdUsrAddr == "" {
-				// TODO: get address with protocol from client
-				pachdUsrAddr = c.GetAddress()
+				pachdUsrAddr = c.GetAddress().UnixSocket
 			}
 
 			if pachdAddr == "" {
-				// TODO: get address with protocol from client
-				pachdAddr = ec.GetAddress()
+				pachdAddr = ec.GetAddress().UnixSocket
 			}
 
 			if clusterId == "" {
@@ -151,6 +168,11 @@ func RegisterCmd() *cobra.Command {
 				clusterId = clusterInfo.DeploymentID
 			}
 
+			enterpriseServer, err := getIsActiveContextEnterpriseServer()
+			if err != nil {
+				return err
+			}
+
 			// Register the pachd with the license server
 			resp, err := ec.License.AddCluster(ec.Ctx(),
 				&license.AddClusterRequest{
@@ -158,6 +180,7 @@ func RegisterCmd() *cobra.Command {
 					Address:             pachdAddr,
 					UserAddress:         pachdUsrAddr,
 					ClusterDeploymentId: clusterId,
+					EnterpriseServer:    enterpriseServer,
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not register pachd with the license service")
@@ -253,11 +276,13 @@ func SyncContextsCmd() *cobra.Command {
 						context.SessionToken = ""
 					}
 					context.PachdAddress = cluster.Address
+					context.EnterpriseServer = cluster.EnterpriseServer
 				} else {
 					cfg.V2.Contexts[cluster.Id] = &config.Context{
 						ClusterDeploymentID: cluster.ClusterDeploymentId,
 						PachdAddress:        cluster.Address,
 						Source:              config.ContextSource_IMPORTED,
+						EnterpriseServer:    cluster.EnterpriseServer,
 					}
 				}
 			}
