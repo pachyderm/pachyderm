@@ -312,9 +312,6 @@ func TestRegisterDefaultArgs(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 
-	resetClusterState(t)
-	defer resetClusterState(t)
-
 	c, err := client.NewForTest()
 	require.NoError(t, err)
 
@@ -334,7 +331,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		pachctl enterprise sync-contexts
 
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://{{.pachdAddress}}\""
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.pachdAddressPrefix}}"
 		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
@@ -342,6 +339,6 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		"token", tu.RootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 		"clusterId", clusterId,
-		"pachdAddress", c.GetAddress().UnixSocket,
+		"pachdAddressPrefix", "grpc://localhost:", // assert that a localhost address is registered
 	).Run())
 }

@@ -153,11 +153,11 @@ func RegisterCmd() *cobra.Command {
 			defer ec.Close()
 
 			if pachdUsrAddr == "" {
-				pachdUsrAddr = c.GetAddress().UnixSocket
+				pachdUsrAddr = c.GetAddress().Qualified()
 			}
 
 			if pachdAddr == "" {
-				pachdAddr = ec.GetAddress().UnixSocket
+				pachdAddr = ec.GetAddress().Qualified()
 			}
 
 			if clusterId == "" {
