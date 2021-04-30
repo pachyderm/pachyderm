@@ -1191,6 +1191,7 @@ k8s.io/cli-runtime v0.17.2/go.mod h1:aa8t9ziyQdbkuizkNLAw3qe3srSyWh9zlSB7zTqRNPI
 k8s.io/cli-runtime v0.17.4 h1:ZIJdxpBEszZqUhydrCoiI5rLXS2J/1AF5xFok2QJ9bc=
 k8s.io/cli-runtime v0.17.4/go.mod h1:IVW4zrKKx/8gBgNNkhiUIc7nZbVVNhc1+HcQh+PiNHc=
 k8s.io/client-go v0.17.2/go.mod h1:QAzRgsa0C2xl4/eVpeVAZMvikCn8Nm81yqVx3Kk9XYI=
+k8s.io/client-go v0.17.4 h1:VVdVbpTY70jiNHS1eiFkUt7ZIJX3txd29nDxxXH4en8=
 k8s.io/client-go v0.17.4/go.mod h1:ouF6o5pz3is8qU0/qYL2RnoxOPqgfuidYLowytyLJmc=
 k8s.io/client-go v12.0.0+incompatible h1:YlJxncpeVUC98/WMZKC3JZGk/OXQWCZjAB4Xr3B17RY=
 k8s.io/client-go v12.0.0+incompatible/go.mod h1:E95RaSlHr79aHaX0aGSwcPNfygDiPKOVXdmivCIZT0k=

@@ -100,7 +100,7 @@ require (
 	k8s.io/api v0.17.17
 	k8s.io/apimachinery v0.17.17
 	k8s.io/cli-runtime v0.17.4 // indirect
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.17.4
 	modernc.org/mathutil v1.0.0
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/yaml v1.1.0
