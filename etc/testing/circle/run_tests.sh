@@ -3,7 +3,7 @@
 set -ex
 
 export GOPATH=/home/circleci/.go_workspace
-export PATH=$(pwd):$GOPATH/bin:$PATH
+export PATH=$(pwd):$(pwd/cached-deps):$GOPATH/bin:$PATH
 
 export PACH_PORT="30650"
 export ENTERPRISE_PORT="31650"
