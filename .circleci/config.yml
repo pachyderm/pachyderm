@@ -28,12 +28,13 @@ jobs:
          keys:
          - pach-build-dependencies-{{ checksum etc/testing/travis_install.sh }}
          - pach-build-dependencies-
-      - run: etc/testing/travis_install.sh 
+      - run: etc/testing/circle/install.sh 
       - save_cache:
          key: pach-build-dependencies-{{ checksum etc/testing/travis_install.sh }}
          paths:
          - cached-deps/
-      - run: etc/testing/travis.sh 
+      - run: etc/kube/start-minikube.sh 
+      - run: etc/testing/circle/run_tests.sh 
 
 workflows:
   all-tests:
