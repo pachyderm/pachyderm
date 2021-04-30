@@ -7,6 +7,7 @@ mkdir -p cached-deps
 # Install deps
 sudo snap install --classic goreleaser
 sudo snap install jq
+sudo apt update -y
 sudo apt-get install -y -qq \
   silversearcher-ag \
   python3 \
