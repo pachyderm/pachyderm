@@ -86,7 +86,6 @@ func (a *apiServer) master() {
 		a:                      a,
 		monitorCancels:         make(map[string]func()),
 		crashingMonitorCancels: make(map[string]func()),
-		eventCh:                make(chan *pipelineEvent, 1), // avoid thrashing
 	}
 
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
@@ -121,6 +120,7 @@ func (a *apiServer) setPipelineCrashing(ctx context.Context, pipelineName string
 func (m *ppsMaster) run() {
 	// close m.eventCh after all cancels have returned and therefore all pollers
 	// (which are what write to m.eventCh) have exited
+	m.eventCh = make(chan *pipelineEvent, 1)
 	defer close(m.eventCh)
 	defer m.cancelAllMonitorsAndCrashingMonitors()
 	// start pollers in the background--cancel functions ensure poll/monitor
