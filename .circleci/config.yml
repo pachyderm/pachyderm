@@ -48,7 +48,7 @@ workflows:
               - MISC
               # If you want to update the number of PPS buckets, you'll neet to
               # update the value of PPS_BUCKETS above
-              - ADMIN
+              # - ADMIN
               - AUTH
               - ENTERPRISE
               - PFS
