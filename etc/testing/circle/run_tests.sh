@@ -42,6 +42,8 @@ function test_bucket {
     set -x
 }
 
+kubectl port-forward service/postgres 32228 &
+
 # Clean cached test results
 go clean -testcache
 
