@@ -10,3 +10,15 @@ Object.defineProperty(window, 'crypto', {
   configurable: true,
   writable: true,
 });
+
+Object.defineProperty(window.document, 'queryCommandSupported', {
+  value: jest.fn(() => true),
+  configurable: true,
+  writable: true,
+});
+
+Object.defineProperty(window.document, 'execCommand', {
+  value: jest.fn(),
+  configurable: true,
+  writable: true,
+});

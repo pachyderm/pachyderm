@@ -3,6 +3,7 @@ import './index.module.css';
 
 export {default as useLoginWindow} from './hooks/useLoginWindow';
 export {default as useOutsideClick} from './hooks/useOutsideClick';
+export {default as useClipboardCopy} from './hooks/useClipboardCopy';
 export * from './hooks/useSort';
 
 export * from './Button';
@@ -27,6 +28,7 @@ export * from './Search';
 export * from './Select';
 export * from './SkeletonBodyText';
 export * from './SkeletonDisplayText';
+export * from './SuccessCheckmark';
 export * from './Svg';
 export * from './TableView';
 export * from './Tabs';
