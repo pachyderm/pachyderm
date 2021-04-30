@@ -190,9 +190,9 @@ func NewCronInputOpts(name string, repo string, spec string, overwrite bool) *pp
 }
 
 // NewJobInput creates a pps.JobInput.
-func NewJobInput(repoName string, commitID string, glob string) *pps.JobInput {
+func NewJobInput(repoName string, branchName string, commitID string, glob string) *pps.JobInput {
 	return &pps.JobInput{
-		Commit: NewCommit(repoName, commitID),
+		Commit: NewCommit(repoName, branchName, commitID),
 		Glob:   glob,
 	}
 }
@@ -234,11 +234,11 @@ func (c APIClient) InspectJob(jobID string, blockState bool, full ...bool) (*pps
 
 // InspectJobOutputCommit returns info about a job that created a commit.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
-func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState bool) (*pps.PipelineJobInfo, error) {
+func (c APIClient) InspectJobOutputCommit(repoName, branchName, commitID string, blockState bool) (*pps.PipelineJobInfo, error) {
 	pipelineJobInfo, err := c.PpsAPIClient.InspectJob(
 		c.Ctx(),
 		&pps.InspectJobRequest{
-			OutputCommit: NewCommit(repoName, commitID),
+			OutputCommit: NewCommit(repoName, branchName, commitID),
 			BlockState:   blockState,
 		})
 	return pipelineJobInfo, grpcutil.ScrubGRPC(err)
@@ -394,14 +394,14 @@ func (c APIClient) StopJob(jobID string) error {
 }
 
 // StopJobOutputCommit stops a job associated with an output commit.
-func (c APIClient) StopJobOutputCommit(repo, commit string) (retErr error) {
+func (c APIClient) StopJobOutputCommit(repoName, branchName, commitID string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	_, err := c.PpsAPIClient.StopJob(
 		c.Ctx(),
 		&pps.StopJobRequest{
-			OutputCommit: NewCommit(repo, commit),
+			OutputCommit: NewCommit(repoName, branchName, commitID),
 		},
 	)
 	return err

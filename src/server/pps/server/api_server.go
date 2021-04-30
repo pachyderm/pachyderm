@@ -587,7 +587,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		if request.Job != nil {
 			return nil, errors.Errorf("can't set both Job and OutputCommit")
 		}
-		ci, err := pachClient.InspectCommit(request.OutputCommit.Repo.Name, request.OutputCommit.ID)
+		ci, err := pachClient.InspectCommit(request.OutputCommit.Branch.Repo.Name, request.OutputCommit.Branch.Name, request.OutputCommit.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -801,7 +801,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(pachClient *client.APIClient, jobPtr 
 		Started:       jobPtr.Started,
 		Finished:      jobPtr.Finished,
 	}
-	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
+	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Branch.Repo.Name, jobPtr.OutputCommit.Branch.Name, jobPtr.OutputCommit.ID)
 	if err != nil {
 		if isNotFoundErr(err) {
 			if _, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
@@ -815,7 +815,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(pachClient *client.APIClient, jobPtr 
 	}
 	var specCommit *pfs.Commit
 	for _, prov := range commitInfo.Provenance {
-		if prov.Commit.Repo.Name == ppsconsts.SpecRepo && prov.Branch.Name == jobPtr.Pipeline.Name {
+		if prov.Commit.Branch.Repo.Name == ppsconsts.SpecRepo && prov.Commit.Branch.Name == jobPtr.Pipeline.Name {
 			specCommit = prov.Commit
 			break
 		}
@@ -909,7 +909,7 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 			return nil
 		}
 		if len(pjis) > 1 {
-			return errors.Errorf("found too many jobs (%d) for output commit: %s/%s", len(pjis), ci.Commit.Repo.Name, ci.Commit.ID)
+			return errors.Errorf("found too many jobs (%d) for output commit: %s@%s", len(pjis), ci.Commit.Branch.Repo.Name, ci.Commit.ID)
 		}
 		// Even though the commit has been finished the job isn't necessarily
 		// finished yet, so we block on its state as well.
@@ -957,7 +957,7 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 		}
 		outputCommit = pipelineJobInfo.OutputCommit
 	}
-	commitInfo, err := pachClient.InspectCommit(outputCommit.Repo.Name, outputCommit.ID)
+	commitInfo, err := pachClient.InspectCommit(outputCommit.Branch.Repo.Name, outputCommit.Branch.Name, outputCommit.ID)
 	if err != nil {
 		if pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
 			return nil
@@ -1087,7 +1087,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 		return errors.Errorf("job not finished")
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	fsi := datum.NewCommitIterator(pachClient, pipelineJobInfo.StatsCommit.Repo.Name, pipelineJobInfo.StatsCommit.ID)
+	fsi := datum.NewCommitIterator(pachClient, pipelineJobInfo.StatsCommit.Branch.Repo.Name, pipelineJobInfo.StatsCommit.Branch.Name, pipelineJobInfo.StatsCommit.ID)
 	return fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{
@@ -1622,7 +1622,7 @@ func (a *apiServer) makePipelineInfoCommitOnBranch(pachClient *client.APIClient,
 		if err != nil {
 			return errors.Wrapf(err, "could not marshal PipelineInfo")
 		}
-		if err := superUserClient.PutFile(ppsconsts.SpecRepo, branchName, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
+		if err := superUserClient.PutFile(ppsconsts.SpecRepo, branchName, "", ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
 			return err
 		}
 		branchInfo, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, branchName)
@@ -1818,7 +1818,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// attempt to clean up any commit we created
 		if specCommit != nil {
 			a.sudo(a.env.GetPachClient(ctx), func(superClient *client.APIClient) error {
-				return superClient.SquashCommit(ppsconsts.SpecRepo, specCommit.ID)
+				return superClient.SquashCommit(ppsconsts.SpecRepo, specCommit.Branch.Name, specCommit.ID)
 			})
 		}
 		return nil, err
@@ -1947,7 +1947,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			// make sure the pipeline branch hasn't changed outside of the transaction
 			// since the spec commit was created
 			if err := a.sudo(txnCtx.Client, func(superClient *client.APIClient) error {
-				commitInfo, err := superClient.InspectCommit(ppsconsts.SpecRepo, pipelineName)
+				commitInfo, err := superClient.InspectCommit(ppsconsts.SpecRepo, pipelineName, "")
 				if err != nil {
 					return err
 				}
@@ -1985,7 +1985,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				// don't bother failing on error here, we won't be able to clean it up later, either
 				_ = superClient.DeleteBranch(ppsconsts.SpecRepo, tempBranch, false)
 
-				err = superClient.FinishCommit(ppsconsts.SpecRepo, specCommit.ID)
+				err = superClient.FinishCommit(ppsconsts.SpecRepo, specCommit.Branch.Name, specCommit.ID)
 				if err != nil {
 					specCommit = nil // don't use the open commit
 					return err
@@ -1994,20 +1994,20 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			}); err != nil {
 				return nil, err
 			}
-			// we just created a new commit outside of the transaction, so our transaction reads won't see it
-			// to prevent errors, start and finish a commit in the transaction with the same ID
-			// this *will* cause an STM conflict, but will succeed on retry since specCommit already exists
+			// We just created a new commit outside of the transaction, so our transaction reads won't see it.
+			// To prevent errors, start and finish a commit in the transaction on the same branch.
+			// This *will* cause an STM conflict, but will succeed on retry since specCommit already exists.
 			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
 				if _, err := superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
-					Parent: client.NewCommit(ppsconsts.SpecRepo, ""),
+					Branch: client.NewBranch(ppsconsts.SpecRepo, tempBranch),
 				}, specCommit); col.IsErrExists(err) {
-					// if a miracle occurs and we see the existing specCommit, that's fine, just continue
+					// If a miracle occurs and we see the existing specCommit, that's fine, just continue
 					return nil
 				} else if err != nil {
 					return err
 				}
 				return superCtx.Pfs().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
-					Commit: client.NewCommit(ppsconsts.SpecRepo, specCommit.ID),
+					Commit: client.NewCommit(ppsconsts.SpecRepo, specCommit.Branch.Name, specCommit.ID),
 				})
 			}); err != nil {
 				return specCommit, err
@@ -2023,7 +2023,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
-		if ci, err := txnCtx.Client.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {
+		if ci, err := txnCtx.Client.InspectCommit(ppsconsts.SpecRepo, pipelineName, ""); err != nil {
 			return err
 		} else if ci.Finished == nil {
 			return errors.Errorf("the HEAD commit of this pipeline's spec branch " +
@@ -2138,14 +2138,14 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			if err != nil && !isNotFoundErr(err) {
 				return err
 			} else if err == nil {
-				outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
+				outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch, "")
 			}
 
 			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: statsBranch})
 			if err != nil && !isNotFoundErr(err) {
 				return err
 			} else if err == nil {
-				statsBranchHead = client.NewCommit(pipelineName, "stats")
+				statsBranchHead = client.NewCommit(pipelineName, "stats", "")
 			}
 		}
 
@@ -2177,8 +2177,8 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			// It does, so we use that as the spec commit, rather than making a new one
 			commit = commitInfo.Commit
 			// We also use the existing head for the branches, rather than making a new one.
-			outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
-			statsBranchHead = client.NewCommit(pipelineName, "stats")
+			outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch, "")
+			statsBranchHead = client.NewCommit(pipelineName, "stats", "")
 		} else {
 			if commit, err = createOrValidateSpecCommit(); err != nil {
 				return err
@@ -2227,7 +2227,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				*prevSpecCommit = nil
 			}
 			if err := a.sudo(txnCtx.Client, func(superUserClient *client.APIClient) error {
-				return superUserClient.SquashCommit(ppsconsts.SpecRepo, commit.ID)
+				return superUserClient.SquashCommit(ppsconsts.SpecRepo, commit.Branch.Name, commit.ID)
 			}); err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "couldn't clean up orphaned spec commit")
 			}
@@ -2273,7 +2273,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			} else {
 				var prevHead *pfs.Commit
 				if err == nil {
-					prevHead = client.NewCommit(input.Pfs.Repo, input.Pfs.Branch)
+					prevHead = client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, "")
 				}
 				visitErr = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 					Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
@@ -2610,7 +2610,7 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 				return nil
 			}
 			// Get parent commit
-			ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, p.SpecCommit.ID)
+			ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, p.SpecCommit.Branch.Name, p.SpecCommit.ID)
 			switch {
 			case err != nil:
 				return err
@@ -2911,13 +2911,13 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		return nil, err
 	}
 	// make sure the user isn't trying to run pipeline on an empty branch
-	branch, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
+	branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
 		Branch: client.NewBranch(request.Pipeline.Name, pipelineInfo.OutputBranch),
 	})
 	if err != nil {
 		return nil, err
 	}
-	if branch.Head == nil {
+	if branchInfo.Head == nil {
 		return nil, errors.Errorf("run pipeline needs a pipeline with existing data to run\nnew commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or to rerun an job")
 	}
 
@@ -2925,19 +2925,19 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	branchProvMap := make(map[string]bool)
 
 	// include the branch and its provenance in the branch provenance map
-	branchProvMap[key(branch.Branch.Repo.Name, branch.Name)] = true
-	for _, b := range branch.Provenance {
+	branchProvMap[key(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)] = true
+	for _, b := range branchInfo.Provenance {
 		branchProvMap[key(b.Repo.Name, b.Name)] = true
 	}
-	if branch.Head != nil {
+	if branchInfo.Head != nil {
 		headCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: client.NewCommit(branch.Branch.Repo.Name, branch.Head.ID),
+			Commit: client.NewCommit(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, branchInfo.Head.ID),
 		})
 		if err != nil {
 			return nil, err
 		}
 		for _, prov := range headCommitInfo.Provenance {
-			branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
+			branchProvMap[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)] = true
 		}
 	}
 
@@ -2971,29 +2971,17 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		if prov == nil {
 			return nil, errors.Errorf("request should not contain nil provenance")
 		}
-		branch := prov.Branch
-		if branch == nil || branch.Name == "" {
-			if prov.Commit == nil {
-				return nil, errors.Errorf("request provenance cannot have both a nil commit and nil branch")
-			}
-			provCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-				Commit: prov.Commit,
-			})
-			if err != nil {
-				return nil, err
-			}
-			branch = provCommit.Branch
-			prov.Commit = provCommit.Commit
-		}
-		if branch.Repo == nil {
-			return nil, errors.Errorf("request provenance branch must have a non nil repo")
-		}
-		_, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: branch.Repo})
+		// Resolve the provenance commit and populate any missing fields
+		provCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: prov.Commit,
+		})
 		if err != nil {
 			return nil, err
 		}
+		prov.Commit = provCommitInfo.Commit
 
 		// ensure the commit provenance is consistent with the branch provenance
+		branch := prov.Commit.Branch
 		if len(branchProvMap) != 0 {
 			if branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(branch.Repo.Name, branch.Name)] {
 				return nil, errors.Errorf("the commit provenance contains a branch which the pipeline's branch is not provenant on")
@@ -3003,7 +2991,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}
 
 	// fill in the provenance from branches in the provenance that weren't explicitly set in the request
-	for _, branchProv := range append(branch.Provenance, branch.Branch) {
+	for _, branchProv := range append(branchInfo.Provenance, branchInfo.Branch) {
 		if _, ok := provenanceMap[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
 			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
 				Branch: client.NewBranch(branchProv.Repo.Name, branchProv.Name),
@@ -3014,14 +3002,12 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			if branchInfo.Head == nil {
 				continue
 			}
-			headCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-				Commit: client.NewCommit(branchProv.Repo.Name, branchInfo.Head.ID),
-			})
+			headCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: branchInfo.Head})
 			if err != nil {
 				return nil, err
 			}
 			for _, headProv := range headCommit.Provenance {
-				if _, ok := provenanceMap[key(headProv.Branch.Repo.Name, headProv.Branch.Name)]; !ok {
+				if _, ok := provenanceMap[key(headProv.Commit.Branch.Repo.Name, headProv.Commit.Branch.Name)]; !ok {
 					provenance = append(provenance, headProv)
 				}
 			}
@@ -3029,16 +3015,12 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
-	if _, ok := provenanceMap[key(specProvenance.Branch.Repo.Name, specProvenance.Branch.Name)]; !ok {
+	if _, ok := provenanceMap[key(specProvenance.Commit.Branch.Repo.Name, specProvenance.Commit.Branch.Name)]; !ok {
 		provenance = append(provenance, specProvenance)
 	}
 	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
-			Parent: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: request.Pipeline.Name,
-				},
-			},
+			Branch:     branchInfo.Branch,
 			Provenance: provenance,
 		})
 		if err != nil {
@@ -3048,14 +3030,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		// if stats are enabled, then create a stats commit for the job as well
 		if pipelineInfo.EnableStats {
 			// it needs to additionally be provenant on the commit we just created
-			newCommitProv := client.NewCommitProvenance(newCommit.Repo.Name, "", newCommit.ID)
+			newCommitProv := client.NewCommitProvenance(newCommit.Branch.Repo.Name, "", newCommit.ID)
 			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
-				Parent: &pfs.Commit{
-					Repo: &pfs.Repo{
-						Name: request.Pipeline.Name,
-					},
-				},
-				Branch:     "stats",
+				Branch:     client.NewBranch(request.Pipeline.Name, "stats"),
 				Provenance: append(provenance, newCommitProv),
 			})
 			if err != nil {
@@ -3108,7 +3085,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	// make a tick on each cron input
 	for _, cron := range crons {
 		// TODO: This isn't transactional, we could support a transactional modify file through the fileset API though.
-		if err := txnClient.WithModifyFileClient(cron.Repo, "master", func(mf client.ModifyFile) error {
+		if err := txnClient.WithModifyFileClient(cron.Repo, "master", "", func(mf client.ModifyFile) error {
 			if cron.Overwrite {
 				// get rid of any files, so the new file "overwrites" previous runs
 				err = mf.DeleteFile("/")
@@ -3375,7 +3352,7 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 }
 
 func (a *apiServer) resolveCommit(pachClient *client.APIClient, commit *pfs.Commit) (*pfs.Commit, error) {
-	ci, err := pachClient.InspectCommit(commit.Repo.Name, commit.ID)
+	ci, err := pachClient.InspectCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 	if err != nil {
 		return nil, err
 	}

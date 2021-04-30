@@ -151,7 +151,7 @@ func (a *apiServer) StartCommitInTransaction(txnCtx *txnenv.TransactionContext, 
 	if commit != nil {
 		id = commit.ID
 	}
-	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
+	return a.driver.startCommit(txnCtx, id, request.ParentID, request.Branch, request.Provenance, request.Description)
 }
 
 // StartCommit implements the protobuf pfs.StartCommit RPC

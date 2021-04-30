@@ -46,9 +46,10 @@ func (pi *pfsIterator) Iterate(cb func(*Meta) error) error {
 		return nil
 	}
 	repo := pi.input.Repo
+	branch := pi.input.Branch
 	commit := pi.input.Commit
 	pattern := pi.input.Glob
-	return pi.pachClient.GlobFile(repo, commit, pattern, func(fi *pfs.FileInfo) error {
+	return pi.pachClient.GlobFile(repo, branch, commit, pattern, func(fi *pfs.FileInfo) error {
 		g := glob.MustCompile(pi.input.Glob, '/')
 		joinOn := g.Replace(fi.File.Path, pi.input.JoinOn)
 		groupBy := g.Replace(fi.File.Path, pi.input.GroupBy)
@@ -168,15 +169,16 @@ func (ji *jobIterator) Iterate(cb func(*Meta) error) error {
 }
 
 type fileSetIterator struct {
-	pachClient   *client.APIClient
-	repo, commit string
+	pachClient           *client.APIClient
+	repo, branch, commit string
 }
 
 // NewCommitIterator creates an iterator for the specified commit and repo.
-func NewCommitIterator(pachClient *client.APIClient, repo, commit string) Iterator {
+func NewCommitIterator(pachClient *client.APIClient, repo, branch, commit string) Iterator {
 	return &fileSetIterator{
 		pachClient: pachClient,
 		repo:       repo,
+		branch:     branch,
 		commit:     commit,
 	}
 }
@@ -186,12 +188,13 @@ func NewFileSetIterator(pachClient *client.APIClient, fsID string) Iterator {
 	return &fileSetIterator{
 		pachClient: pachClient,
 		repo:       client.FileSetsRepoName,
+		branch:     "",
 		commit:     fsID,
 	}
 }
 
 func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
-	r, err := fsi.pachClient.GetFileTar(fsi.repo, fsi.commit, path.Join("/", MetaPrefix, "*", MetaFileName))
+	r, err := fsi.pachClient.GetFileTar(fsi.repo, "", fsi.commit, path.Join("/", MetaPrefix, "*", MetaFileName))
 	if err != nil {
 		return err
 	}

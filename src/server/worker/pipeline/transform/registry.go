@@ -597,7 +597,7 @@ func failedInputs(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 			})
 		if err != nil {
 			if vistErr == nil {
-				vistErr = errors.Wrapf(err, "error blocking on commit %s/%s",
+				vistErr = errors.Wrapf(err, "error blocking on commit %s@%s",
 					commit.Repo.Name, commit.ID)
 			}
 			return

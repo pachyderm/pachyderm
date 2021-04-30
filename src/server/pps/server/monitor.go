@@ -282,10 +282,10 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						for {
 							// Wait for the commit to be finished before blocking on the
 							// job because the job may not exist yet.
-							if _, err := pachClient.BlockCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
+							if _, err := pachClient.BlockCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID); err != nil {
 								return err
 							}
-							if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true); err != nil {
+							if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID, true); err != nil {
 								return err
 							}
 
@@ -377,12 +377,12 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}
 	// make sure there isn't an unfinished commit on the branch
-	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master")
+	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master", "")
 	if err != nil && !pfsserver.IsNoHeadErr(err) {
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
-		if err = pachClient.SquashCommit(in.Cron.Repo, commitInfo.Commit.ID); err != nil {
+		if err = pachClient.SquashCommit(in.Cron.Repo, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID); err != nil {
 			return err
 		}
 	}
@@ -412,18 +412,18 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		}
 		if in.Cron.Overwrite {
 			// get rid of any files, so the new file "overwrites" previous runs
-			err = pachClient.DeleteFile(in.Cron.Repo, "master", "")
+			err = pachClient.DeleteFile(in.Cron.Repo, "master", "", "")
 			if err != nil && !isNotFoundErr(err) && !pfsserver.IsNoHeadErr(err) {
 				return errors.Wrapf(err, "delete error")
 			}
 		}
 
 		// Put in an empty file named by the timestamp
-		if err := pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader("")); err != nil {
+		if err := pachClient.PutFile(in.Cron.Repo, "master", "", next.Format(time.RFC3339), strings.NewReader("")); err != nil {
 			return errors.Wrapf(err, "put error")
 		}
 
-		err = pachClient.FinishCommit(in.Cron.Repo, "master")
+		err = pachClient.FinishCommit(in.Cron.Repo, "master", "")
 		if err != nil {
 			return err
 		}
@@ -439,7 +439,7 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 // (typically set by 'pachctl extract')
 func getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
-	files, err := pachClient.ListFileAll(in.Cron.Repo, "master", "")
+	files, err := pachClient.ListFileAll(in.Cron.Repo, "master", "", "")
 	if err != nil && !pfsserver.IsNoHeadErr(err) {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {

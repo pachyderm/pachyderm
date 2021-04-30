@@ -136,12 +136,8 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Name)
-	if commitInfo.Branch != nil {
-		fmt.Fprintf(w, "%s\t", commitInfo.Branch.Name)
-	} else {
-		fmt.Fprintf(w, "<none>\t")
-	}
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Name)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.Finished == nil {
 		fmt.Fprintf(w, "-\t")
@@ -187,7 +183,7 @@ func NewPrintableCommitInfo(ci *pfs.CommitInfo) *PrintableCommitInfo {
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
 func PrintDetailedCommitInfo(w io.Writer, commitInfo *PrintableCommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
-		`Commit: {{.Commit.Repo.Name}}@{{.Commit.ID}}{{if .Branch}}
+		`Commit: {{.Commit.Branch.Repo.Name}}@{{.Commit.ID}}{{if .Branch}}
 Original Branch: {{.Branch.Name}}{{end}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .ParentCommit}}
 Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamps}}
@@ -196,7 +192,7 @@ Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Commit.Repo.Name}}@{{.Commit.ID}} ({{.Branch.Name}}) {{end}} {{end}}
+Provenance: {{range .Provenance}} {{.Commit.Branch.Repo.Name}}@{{.Commit.ID}} ({{.Branch.Name}}) {{end}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -276,7 +272,7 @@ func CompactPrintBranch(b *pfs.Branch) string {
 // CompactPrintCommit renders 'c' as a compact string, e.g.
 // "myrepo@123abc:/my/file"
 func CompactPrintCommit(c *pfs.Commit) string {
-	return fmt.Sprintf("%s@%s", c.Repo.Name, c.ID)
+	return fmt.Sprintf("%s@%s", c.Branch.Repo.Name, c.ID)
 }
 
 // CompactPrintCommitSafe is similar to CompactPrintCommit but accepts 'nil'
@@ -291,5 +287,5 @@ func CompactPrintCommitSafe(c *pfs.Commit) string {
 // CompactPrintFile renders 'f' as a compact string, e.g.
 // "myrepo@master:/my/file"
 func CompactPrintFile(f *pfs.File) string {
-	return fmt.Sprintf("%s@%s:%s", f.Commit.Repo.Name, f.Commit.ID, f.Path)
+	return fmt.Sprintf("%s@%s:%s", f.Commit.Branch.Repo.Name, f.Commit.ID, f.Path)
 }

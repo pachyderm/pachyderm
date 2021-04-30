@@ -159,7 +159,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}

@@ -17,8 +17,8 @@ import (
 type Bucket struct {
 	// Repo is the PFS repo that this bucket points to
 	Repo string
-	// Commit is the PFS commit that this repo points to
-	Commit string
+	// Branch is the PFS branch that this repo points to
+	Branch string
 	// Name is the name of the bucket
 	Name string
 }
@@ -82,13 +82,13 @@ func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string
 
 	return &Bucket{
 		Repo:   repo,
-		Commit: branch,
+		Branch: branch,
 		Name:   name,
 	}, nil
 }
 
 func (d *MasterDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
-	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Commit)
+	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Branch)
 	if err != nil {
 		return bucketCapabilities{}, maybeNotFoundError(r, err)
 	}
@@ -173,7 +173,7 @@ func (d *WorkerDriver) bucket(pc *client.APIClient, r *http.Request, name string
 }
 
 func (d *WorkerDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
-	if bucket.Repo == "" || bucket.Commit == "" {
+	if bucket.Repo == "" || bucket.Branch == "" {
 		return bucketCapabilities{}, s2.NoSuchBucketError(r)
 	} else if bucket == d.outputBucket {
 		return bucketCapabilities{
