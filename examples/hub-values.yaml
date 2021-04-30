@@ -53,4 +53,3 @@ pachd:
 
 tls:
   certName: "dash-tls"
-  create: null
