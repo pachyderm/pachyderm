@@ -26,11 +26,11 @@ jobs:
       - go/save-cache
       - restore_cache:
          keys:
-         - pach-build-dependencies-{{ checksum etc/testing/travis_install.sh }}
+         - pach-build-dependencies-{{ checksum "etc/testing/circle/install.sh" }}
          - pach-build-dependencies-
       - run: etc/testing/circle/install.sh 
       - save_cache:
-         key: pach-build-dependencies-{{ checksum etc/testing/travis_install.sh }}
+         key: pach-build-dependencies-{{ checksum "etc/testing/circle/install.sh" }}
          paths:
          - cached-deps/
       - run: etc/kube/start-minikube.sh 
