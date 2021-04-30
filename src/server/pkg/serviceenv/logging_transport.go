@@ -1,6 +1,7 @@
 package serviceenv
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -18,12 +19,14 @@ type loggingRoundTripper struct {
 // RoundTrip implements the http.RoundTripper interface for loggingRoundTripper
 func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, retErr error) {
 	logEntry := log.WithFields(map[string]interface{}{
+		"type":   "kube/APIServer request",
 		"method": req.Method,
 		"url":    req.URL.String(),
 	})
-	logEntry.Debug("kube/APIServer request")
+	logEntry.Debug()
 	defer func(start time.Time) {
 		fields := map[string]interface{}{
+			"type":     "kube/APIServer response",
 			"duration": time.Since(start),
 			"method":   req.Method,
 			"url":      req.URL.String(),
@@ -37,7 +40,7 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 				if err != nil {
 					fields["body"] = string(bodytext)
 				} else {
-					fields["body"] = "error reading body: " + err.Error()
+					fields["body"] = fmt.Sprintf("error reading body: %v", err)
 				}
 			}
 		}
