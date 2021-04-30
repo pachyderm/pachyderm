@@ -122,7 +122,20 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "POSTGRES_DATABASE_NAME",
 		Value: a.env.Config().PostgresDBName,
-	}}
+	}, {
+		Name:  "POSTGRES_USER",
+		Value: a.env.Config().PostgresUser,
+	}, {
+		Name:  "POSTGRES_SERVICE_HOST",
+		Value: a.env.Config().PostgresServiceHost,
+	}, {
+		Name:  "POSTGRES_SERVICE_PORT",
+		Value: strconv.Itoa(a.env.Config().PostgresServicePort),
+	}, {
+		Name:  "POSTGRES_SERVICE_SSL",
+		Value: a.env.Config().PostgresServiceSSL,
+	},
+	}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
 
