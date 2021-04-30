@@ -5,6 +5,7 @@ set -ex
 export GOPATH=/home/circleci/.go_workspace
 export PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
 
+export VM_IP="$(minikube ip)"
 export PACH_PORT="30650"
 export ENTERPRISE_PORT="31650"
 
@@ -12,25 +13,7 @@ export ENTERPRISE_PORT="31650"
 minikube status
 kubectl version
 
-export VM_IP="$(minikube ip)"
-
 echo "Running test suite based on BUCKET=$BUCKET"
-
-make install
-make docker-build
-minikube cache add pachyderm/pachd:local
-minikube cache add pachyderm/worker:local
-
-make launch-loki
-
-for i in $(seq 3); do
-    make clean-launch-dev || true # may be nothing to delete
-    make launch-dev && break
-    (( i < 3 )) # false if this is the last loop (causes exit)
-    sleep 10
-done
-
-pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
 
 function test_bucket {
     set +x
