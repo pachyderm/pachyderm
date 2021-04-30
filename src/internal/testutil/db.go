@@ -3,7 +3,9 @@ package testutil
 import (
 	"crypto/rand"
 	"fmt"
+	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -208,11 +210,27 @@ func newDatabase(t testing.TB) string {
 	return dbName
 }
 
+func dbHost() string {
+	if host, ok := os.LookupEnv("POSTGRES_SERVICE_HOST"); ok {
+		return host
+	}
+	return dbutil.DefaultHost
+}
+
+func dbPort() int {
+	if port, ok := os.LookupEnv("POSTGRES_SERVICE_PORT"); ok {
+		if portInt, err := strconv.Atoi(port); err == nil {
+			return portInt
+		}
+	}
+	return dbutil.DefaultPort
+}
+
 // NewTestDB connects to postgres using the default settings, creates a database
 // with a unique name then returns a sqlx.DB configured to use the newly created
 // database. After the test or suite finishes, the database is dropped.
 func NewTestDB(t testing.TB) *sqlx.DB {
-	db2, err := dbutil.NewDB(dbutil.WithDBName(newDatabase(t)))
+	db2, err := dbutil.NewDB(dbutil.WithHostPort(dbHost(), dbPort()), dbutil.WithDBName(newDatabase(t)))
 	require.NoError(t, err)
 	db2.SetMaxOpenConns(maxOpenConnsPerPool)
 	t.Cleanup(func() {
@@ -228,7 +246,7 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	dbName := newDatabase(t)
 	return func(config *serviceenv.Configuration) {
-		serviceenv.WithPostgresHostPort(dbutil.DefaultHost, dbutil.DefaultPort)(config)
+		serviceenv.WithPostgresHostPort(dbHost(), dbPort())(config)
 		config.PostgresDBName = dbName
 	}
 }

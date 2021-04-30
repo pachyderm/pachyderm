@@ -9,6 +9,9 @@ export VM_IP="$(minikube ip)"
 export PACH_PORT="30650"
 export ENTERPRISE_PORT="31650"
 
+export POSTGRES_SERVICE_HOST=$(minikube ip)
+export POSTGRES_SERVICE_PORT=5432
+
 # make launch-kube connects with kubernetes, so it should just be available
 minikube status
 kubectl version
@@ -41,8 +44,6 @@ function test_bucket {
     make RUN="-run=\"${test_regex}\"" "${target}"
     set -x
 }
-
-kubectl port-forward service/postgres 32228 &
 
 # Clean cached test results
 go clean -testcache
