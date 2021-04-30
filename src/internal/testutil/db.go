@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"runtime"
@@ -76,15 +77,16 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	service.Spec.Ports[0].NodePort = 0
 	require.NoError(t, encoder.Encode(service))
 
+	ctx := context.TODO()
 	// Connect to kubernetes and create the postgres items in their namespace
 	kubeClient := GetKubeClient(t)
 	namespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
-	_, err = kubeClient.CoreV1().Namespaces().Create(namespace)
+	_, err = kubeClient.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	if cleanup {
 		t.Cleanup(func() {
-			err := kubeClient.CoreV1().Namespaces().Delete(namespaceName, nil)
+			err := kubeClient.CoreV1().Namespaces().Delete(ctx, namespaceName, metav1.DeleteOptions{})
 			require.NoError(t, err)
 		})
 	}
