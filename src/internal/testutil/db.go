@@ -197,14 +197,14 @@ func newDatabase(t testing.TB) string {
 		db.MustExec("CREATE DATABASE " + dbName)
 		t.Log("database", dbName, "successfully created")
 		return nil
-	}))
+	}, dbutil.WithHostPort(dbHost(), dbPort())))
 	if cleanup {
 		t.Cleanup(func() {
 			require.NoError(t, withDB(func(db *sqlx.DB) error {
 				db.MustExec("DROP DATABASE " + dbName)
 				t.Log("database", dbName, "successfully deleted")
 				return nil
-			}))
+			}, dbutil.WithHostPort(dbHost(), dbPort())))
 		})
 	}
 	return dbName
