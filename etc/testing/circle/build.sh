@@ -8,3 +8,4 @@ export PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
 eval $(minikube docker-env)
 make install
 make docker-build
+make docker-build-pipeline-build
