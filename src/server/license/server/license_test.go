@@ -422,6 +422,7 @@ func TestListUserClusters(t *testing.T) {
 
 	// Activate enterprise, which will register the localhost cluster
 	tu.ActivateEnterprise(t, client)
+	tu.ActivateAuth(t)
 
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)
