@@ -118,7 +118,7 @@ replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.2.0+inc
 
 //For helm
 replace github.com/deislabs/oras => github.com/deislabs/oras v0.11.1
-
+//For Helm
 replace github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
 
 replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver v1.0.1-0.20200204133151-f60278fd3dac

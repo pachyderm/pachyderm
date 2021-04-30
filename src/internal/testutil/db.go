@@ -101,13 +101,13 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	if cleanup {
 		t.Cleanup(func() {
 			selector := fmt.Sprintf("namespace=%s", namespaceName)
-			err := kubeClient.CoreV1().PersistentVolumes().DeleteCollection(nil, metav1.ListOptions{LabelSelector: selector})
+			err := kubeClient.CoreV1().PersistentVolumes().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector})
 			require.NoError(t, err)
 		})
 	}
 
 	// Read out the service details from kubernetes
-	postgres, err := kubeClient.CoreV1().Services(namespaceName).Get("postgres", metav1.GetOptions{})
+	postgres, err := kubeClient.CoreV1().Services(namespaceName).Get(ctx, "postgres", metav1.GetOptions{})
 	require.NoError(t, err)
 
 	var port int
@@ -119,7 +119,7 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	require.NotEqual(t, 0, port)
 
 	// Get the IP address of the nodes (any _should_ work for the service port)
-	nodes, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 
 	// Minikube 'Hostname' address type didn't work when testing, use InternalIP

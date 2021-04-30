@@ -100,7 +100,7 @@ func (s *debugServer) handleRedirect(
 						return collectDebugStream(tw, r)
 
 					}
-					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(f.Worker.Pod, metav1.GetOptions{})
+					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(pachClient.Ctx(), f.Worker.Pod, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -165,7 +165,8 @@ func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineIn
 }
 
 func (s *debugServer) getWorkerPods(pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
-	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
+	ctx := context.Background()
+	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(ctx,
 		metav1.ListOptions{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ListOptions",
@@ -395,8 +396,9 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 }
 
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
+	ctx := context.TODO()
 	if err := collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
 			return err
 		}
@@ -411,7 +413,8 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 		return err
 	}
 	return collectDebugFile(tw, "logs-previous", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
+		ctx := context.TODO()
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
 			return err
 		}
