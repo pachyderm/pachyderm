@@ -135,6 +135,10 @@ func (env *ServiceEnv) initPachClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
+func (env *ServiceEnv) RestartKubeClient() {
+	env.kubeEg.Go(env.initKubeClient)
+}
+
 func (env *ServiceEnv) initEtcdClient() error {
 	// validate argument
 	if env.etcdAddress == "" {
@@ -179,7 +183,7 @@ func (env *ServiceEnv) initKubeClient() error {
 				},
 			}
 		}
-		cfg.WrapTransport = wrapWithLoggingTransport
+		cfg.WrapTransport = wrapWithLoggingTransport(env.RestartKubeClient)
 		env.kubeClient, err = kube.NewForConfig(cfg)
 		cfg.Timeout = 30 * time.Second
 		env.thirtySecondsKubeClient, err = kube.NewForConfig(cfg)
