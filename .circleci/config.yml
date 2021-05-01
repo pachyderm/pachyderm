@@ -21,9 +21,6 @@ jobs:
       TEST_RESULTS_BUCKET: pach-test-data
     steps:
       - checkout
-      - go/load-cache
-      - go/mod-download
-      - go/save-cache
       - restore_cache:
          keys:
          - pach-build-dependencies-{{ checksum "etc/testing/circle/install.sh" }}
@@ -34,7 +31,16 @@ jobs:
          paths:
          - cached-deps/
       - run: etc/kube/start-minikube.sh 
+      - restore_cache:
+         keys:
+         - pach-go-cache-{{ .Branch }}
+         - pach-go-cache-
       - run: etc/testing/circle/build.sh 
+      - save_cache:
+         key: pach-go-cache-{{ .Branch }}
+         paths:
+         - /home/circleci/.go_workspace/pkg/mod
+         - /home/circleci/.gocache
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
       - run: etc/testing/circle/upload_stats.sh 

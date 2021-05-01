@@ -5,6 +5,9 @@ set -ex
 GOPATH=/home/circleci/.go_workspace
 export GOPATH
 
+GOCACHE=/home/circleci/.gocache
+export GOCACHE
+
 PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
 export PATH
 
