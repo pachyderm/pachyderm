@@ -166,10 +166,10 @@ For example, `pfs`.
       The command runs in your terminal until you terminate it
       by pressing `CTRL+C`.
 
-!!! Info "Useful Tip"
+      **Useful Tip:**
+      
       Mount multiple repos at once by appending each mount instruction to the same command.
       For example, the following will mount both repos to the `/pfs` directory.
-      
       ```shell
       pachctl mount ./pfs -r first_repo@master -r second_repo@master
       ```
