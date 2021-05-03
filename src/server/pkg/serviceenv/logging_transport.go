@@ -30,25 +30,23 @@ type bufReadCloser struct {
 	closefunc func() error
 }
 
-// Close implements the correspond method of io.Closer (and io.ReadCloser) for
-// bufReadCloser. It just passes the method call through to the wrapped
+// Close implements the corresponding method of io.Closer (and io.ReadCloser)
+// for bufReadCloser. It just passes the method call through to the wrapped
 // io.ReadCloser.
 func (b bufReadCloser) Close() error {
-	if b.closefunc != nil {
-		return b.closefunc()
-	}
+	return b.closefunc()
 }
 
 // newBufReadCloser wraps 'r' in a 'bufReadCloser', so that it can be peeked,
 // etc.
-func newBufReadCloser(r io.ReadCloser) bufReadCloser {
-	rc := bufReadCloser{
-		Reader: bufio.NewReaderSize(r, bodyPrefixLength),
+func newBufReadCloser(r io.ReadCloser) io.ReadCloser {
+	if r == nil {
+		return nil
 	}
-	if r != nil {
-		rc.closefunc = r.Close
+	return bufReadCloser{
+		Reader:    bufio.NewReaderSize(r, bodyPrefixLength),
+		closefunc: r.Close,
 	}
-	return rc
 }
 
 func bodyMsg(bodyPrefix []byte, err error) string {
