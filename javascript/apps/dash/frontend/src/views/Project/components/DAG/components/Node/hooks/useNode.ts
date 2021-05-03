@@ -1,3 +1,4 @@
+import {select} from 'd3-selection';
 import {useCallback} from 'react';
 
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
@@ -15,7 +16,10 @@ const useNode = (node: Node, isInteractive: boolean) => {
   }, [node, isInteractive, navigateToNode]);
 
   const onMouseOver = useCallback(() => {
-    if (isInteractive) setHoveredNode(node.name);
+    if (isInteractive) {
+      select(`#${node.name}GROUP`).raise();
+      setHoveredNode(node.name);
+    }
   }, [isInteractive, setHoveredNode, node]);
 
   const onMouseOut = useCallback(() => {
