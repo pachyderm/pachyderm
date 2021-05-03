@@ -1,7 +1,8 @@
 # Configure Your S3 Client
 
-Before you can work with the S3 gateway, you need to configure your S3 client
-to access Pachyderm repo. Complete the steps in one of the sections below that
+Before you can access a repo via the S3 gateway,
+you need to configure your S3 client. 
+Complete the steps in one of the sections below that
 correspond to your S3 client.
 
 ## Configure MinIO

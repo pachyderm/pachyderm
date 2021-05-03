@@ -1,6 +1,6 @@
-# Main S3 Gateway 
+# Global S3 Gateway 
 
-Pachyderm deployment comes with an embedded **S3 gateway**, deployed in the `pachd` pod, that allows you to
+Pachyderm comes with an embedded **S3 gateway**, deployed in the `pachd` pod, that allows you to
 **access Pachyderm's repo through the S3 protocol**.  
 The S3 Gateway is designed to work with any S3 Client, among which: 
 
@@ -24,18 +24,18 @@ Buckets are represented via `branch.repo`.
 
 !!! Example
     The `master.data` bucket corresponds
-    to the `master` branch of the `data` repo.
+    to the `master` branch of the repo `data`.
 
-The following diagram gives you a quick overview of the two main aws commands
+The following diagram gives a quick overview of the two main aws commands
 that will let you put data into a repo or retrieve data from it via the S3 gateway. 
-For reference, we have also mentionned the equivalent command using the `pachctl` client
-as well as the equivalent actions on a real s3 Bucket.
+For reference, we have also mentionned the corresponding `pachctl` commands
+as well as the equivalent call to a real s3 Bucket.
 
-![Main S3 Gateway](../../images/main_s3_gateway.png)
+![Global S3 Gateway](../../images/main_s3_gateway.png)
 
 Find the exhaustive list of:
 
-- [all suported `aws s3` commands](supported-operations.md).
+- [all of Pachyderm's suported `aws s3` commands](supported-operations.md).
 - and the [unsupported ones](unsupported-operations.md).
 
 ## If Your Authentication Is On
@@ -48,7 +48,7 @@ each S3 gateway endpoint as mentionned in the [**Configure Your S3 Client**](./c
 
 ## Port Forwarding
 If you do not have direct access to the Kubernetes cluster, you can use port
-forwarding instead. Simply run `pachctl port-forward`, which will allow you
+forwarding instead. Run `pachctl port-forward`, which will allow you
 to access the s3 gateway through the `localhost:30600` endpoint.
 
 However, the Kubernetes port forwarder incurs substantial overhead and
