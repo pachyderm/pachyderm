@@ -359,7 +359,7 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 	// trim trailing comma
 	setFields = setFields[:len(setFields)-1]
 
-	_, err := a.env.GetDBClient().ExecContext(ctx, "UPDATE license.clusters SET is_enterprise_server=$1, "+setFields+"  WHERE id=$2", req.EnterpriseServer, req.Id)
+	_, err := a.env.GetDBClient().ExecContext(ctx, "UPDATE license.clusters SET "+setFields+"  WHERE id=$1", req.Id)
 	if err != nil {
 		return nil, err
 	}

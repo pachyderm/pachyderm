@@ -223,7 +223,6 @@ func TestClusterCRUD(t *testing.T) {
 		Address:             "localhost:653",
 		UserAddress:         "localhost:1000",
 		ClusterDeploymentId: "another-deployment-id",
-		EnterpriseServer:    true,
 	})
 	require.NoError(t, err)
 
