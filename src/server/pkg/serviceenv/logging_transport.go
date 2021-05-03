@@ -49,7 +49,13 @@ func newBufReadCloser(r io.ReadCloser) io.ReadCloser {
 	}
 }
 
-func bodyMsg(bodyPrefix []byte, err error) string {
+func bodyMsg(rc io.ReadCloser) string {
+	if rc == nil {
+		return "(empty)"
+	}
+	// bodyMsg is only called on {req,resp}.Body after it's been set with
+	// newBufReadCloser, so this cast is safe
+	bodyPrefix, err := rc.(bufReadCloser).Peek(bodyPrefixLength)
 	bodyMsg := bytes.NewBuffer(bodyPrefix)
 	if err != nil && !errors.Is(err, io.EOF) {
 		bodyMsg.WriteString(fmt.Sprintf(" (error reading body: %v)", err))
@@ -74,7 +80,7 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 		"from":   "k8s.io/client-go",
 		"method": req.Method,
 		"url":    req.URL.String(),
-		"body":   bodyMsg(req.Body.(bufReadCloser).Peek(bodyPrefixLength)),
+		"body":   bodyMsg(req.Body),
 	}).Debug()
 
 	// Log response
@@ -91,7 +97,7 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 			res.Body = newBufReadCloser(res.Body)
 			le = le.WithFields(log.Fields{
 				"status": res.Status,
-				"body":   bodyMsg(res.Body.(bufReadCloser).Peek(bodyPrefixLength)),
+				"body":   bodyMsg(res.Body),
 			})
 		}
 		le.Debug()
@@ -118,7 +124,7 @@ func (t *loggingRoundTripper) CancelRequest(req *http.Request) {
 		"from":   "k8s.io/client-go",
 		"method": req.Method,
 		"url":    req.URL.String(),
-		"body":   bodyMsg(req.Body.(bufReadCloser).Peek(bodyPrefixLength)),
+		"body":   bodyMsg(req.Body),
 	}).Debug()
 
 	// Print a stack trace, so we know where to look in the k8s client
