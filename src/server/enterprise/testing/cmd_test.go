@@ -322,6 +322,11 @@ func TestRegisterDefaultArgs(t *testing.T) {
 	require.NoError(t, inspectErr)
 	clusterId := clusterInfo.DeploymentID
 
+	host := c.GetAddress().Host
+	if host == "0.0.0.0" {
+		host = "localhost"
+	}
+
 	// register a new cluster
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
@@ -331,7 +336,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		pachctl enterprise sync-contexts
 
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.pachdAddressPrefix}}"
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.pachdAddress}}"
 		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
@@ -339,6 +344,6 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		"token", tu.RootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 		"clusterId", clusterId,
-		"pachdAddressPrefix", "grpc://localhost:", // assert that a localhost address is registered
+		"pachdAddress", "grpc://"+host+":30650", // assert that a localhost address is registered
 	).Run())
 }
