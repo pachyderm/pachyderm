@@ -118,10 +118,15 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	} else {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
+
+	log.Printf("Init with kube")
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	log.Printf("Init Dex DB")
 	env.InitDexDB()
 
+	log.Printf("Apply migrations")
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
 		return err
@@ -133,6 +138,8 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
+
+	log.Printf("Conifgure interceptor")
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := auth.NewInterceptor(env)
