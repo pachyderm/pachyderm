@@ -9,12 +9,11 @@ const AuthenticatedRoute = <T extends unknown>(
   const WrappedComponent: React.FC<T> = (props) => {
     const {error, loggedIn, redirectSearchString} = useAuthenticatedRoute();
 
-    // TODO: Think about what to show the user here
     if (error) {
       return (
         <Redirect
           to={{
-            pathname: '/error',
+            pathname: '/unauthenticated',
             search: redirectSearchString,
           }}
         />

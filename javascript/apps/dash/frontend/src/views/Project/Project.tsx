@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {Redirect} from 'react-router';
 
+import View from '@dash-frontend/components/View';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import DAG from './components/DAG';
@@ -8,7 +9,6 @@ import ProjectHeader from './components/ProjectHeader';
 import ProjectSidebar from './components/ProjectSidebar';
 import {NODE_HEIGHT, NODE_WIDTH} from './constants/nodeSizes';
 import {useProjectView} from './hooks/useProjectView';
-import styles from './Project.module.css';
 import {dagRoute} from './utils/routes';
 
 const Project: React.FC = () => {
@@ -16,8 +16,18 @@ const Project: React.FC = () => {
   const {dagId, projectId} = useUrlState();
   const [largestDagScale, setLargestDagScale] = useState<number | null>(null);
 
-  if (error) return <h1 className={styles.base}>{JSON.stringify(error)}</h1>;
-  if (loading || !dags) return <h1 className={styles.base}>Loading...</h1>;
+  if (error)
+    return (
+      <View>
+        <h1>{JSON.stringify(error)}</h1>
+      </View>
+    );
+  if (loading || !dags)
+    return (
+      <View>
+        <h1>Loading...</h1>
+      </View>
+    );
 
   const dagFromRoute = dags.find((dag) => dag.id === dagId);
   const dagsToShow = dagFromRoute ? [dagFromRoute] : dags;
@@ -29,7 +39,7 @@ const Project: React.FC = () => {
   return (
     <>
       <ProjectHeader totalDags={dags.length} />
-      <div className={styles.wrapper}>
+      <View>
         {dagsToShow.map((dag) => {
           return (
             <DAG
@@ -47,7 +57,7 @@ const Project: React.FC = () => {
         })}
 
         <ProjectSidebar />
-      </div>
+      </View>
     </>
   );
 };

@@ -9,10 +9,3 @@
   border-collapse: separate; 
   border-spacing: 0 1rem;
 }
-
-.tableWrapper {
-  background-color: var(--background-grey);
-  padding-left: 2rem;
-  padding-right: 1rem;
-  width: 100%;
-}

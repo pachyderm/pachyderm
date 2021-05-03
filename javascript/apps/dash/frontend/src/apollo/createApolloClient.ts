@@ -49,7 +49,11 @@ const createApolloClient = (
   });
   const {webSocketClient, split} = splitLink();
 
-  const link = ApolloLink.from([contextLink(), errorLink(), split]);
+  const link = ApolloLink.from([
+    contextLink(),
+    errorLink(browserHistory),
+    split,
+  ]);
   const resolvers = {};
 
   const client = new ApolloClient({cache, link, resolvers});

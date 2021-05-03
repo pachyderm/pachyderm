@@ -2,6 +2,7 @@ import {Group, TableView, Dropdown} from '@pachyderm/components';
 import React from 'react';
 
 import Sidebar from '@dash-frontend/components/Sidebar';
+import View from '@dash-frontend/components/View';
 
 import LandingHeader from './components/LandingHeader';
 import ProjectPreview from './components/ProjectPreview';
@@ -31,7 +32,7 @@ const Landing: React.FC = () => {
     <>
       <LandingHeader />
       <div className={styles.base}>
-        <div className={styles.tableWrapper}>
+        <View>
           <TableView title="Projects" errorMessage="Error loading projects">
             <TableView.Header heading="Projects" headerButtonHidden />
             <TableView.Body
@@ -116,7 +117,7 @@ const Landing: React.FC = () => {
               <TableView.Body.Content id="Playground" />
             </TableView.Body>
           </TableView>
-        </div>
+        </View>
         <Sidebar>
           {selectedProject && <ProjectPreview project={selectedProject} />}
         </Sidebar>

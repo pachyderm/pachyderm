@@ -45,7 +45,9 @@ describe('AuthenticatedRoute', () => {
 
     render(<TestBed />);
 
-    await waitFor(() => expect(window.location.pathname).toBe('/error'));
+    await waitFor(() =>
+      expect(window.location.pathname).toBe('/unauthenticated'),
+    );
   });
 
   it('should redirect the user to the error page if there is an issue with redeeming the auth code', async () => {
@@ -55,7 +57,9 @@ describe('AuthenticatedRoute', () => {
 
     render(<TestBed />);
 
-    await waitFor(() => expect(window.location.pathname).toBe('/error'));
+    await waitFor(() =>
+      expect(window.location.pathname).toBe('/unauthenticated'),
+    );
   });
 
   it('should exchange the oauth code for users returning from the oauth flow', async () => {

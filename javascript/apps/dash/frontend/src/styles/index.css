@@ -1,5 +1,6 @@
 :root {
   --header-height: 4.25rem;
+  --padding-view-y: 1.25rem;
 }
 
 .tooltip.show {

@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "target": "ES6",
     "baseUrl": "./src",
     "paths": {
       "@graphqlTypes": [ "../../backend/src/generated/types.ts" ],

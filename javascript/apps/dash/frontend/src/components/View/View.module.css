@@ -1,0 +1,11 @@
+.base {
+  position: relative;
+  background-color: var(--background-grey);
+  flex: 1;
+  width: 100%;
+  padding: var(--padding-view-y) var(--padding-view-x);
+}
+
+.base.sidenav {
+  padding-left: 2rem;
+}
