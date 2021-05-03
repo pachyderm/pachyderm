@@ -12,6 +12,8 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 const bodyPrefixLength = 200
@@ -75,6 +77,7 @@ type loggingRoundTripper struct {
 
 // RoundTrip implements the http.RoundTripper interface for loggingRoundTripper
 func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, retErr error) {
+	requestID := uuid.New()
 	start := time.Now()
 
 	// Peek into req. body and log a prefix
@@ -86,6 +89,7 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 				"method":           "Timeout",
 				"start":            start.Format(time.StampMicro),
 				"context-duration": time.Since(start).Seconds(),
+				"requestID":        requestID,
 			}).Debug()
 		}()
 	}
@@ -97,6 +101,7 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 		"delay":       time.Since(start).Seconds(),
 		"http-method": req.Method,
 		"url":         req.URL.String(),
+		"requestID":   requestID,
 		"body":        bodyMsg(req.Body),
 	}).Debug()
 
@@ -110,6 +115,7 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 			"duration":    time.Since(start),
 			"http-method": req.Method,
 			"url":         req.URL.String(),
+			"requestID":   requestID,
 			"err":         retErr,
 		})
 		if res != nil {
