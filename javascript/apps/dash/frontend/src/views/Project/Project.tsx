@@ -4,6 +4,7 @@ import {Redirect} from 'react-router';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import DAG from './components/DAG';
+import ProjectHeader from './components/ProjectHeader';
 import ProjectSidebar from './components/ProjectSidebar';
 import {NODE_HEIGHT, NODE_WIDTH} from './constants/nodeSizes';
 import {useProjectView} from './hooks/useProjectView';
@@ -26,25 +27,28 @@ const Project: React.FC = () => {
   }
 
   return (
-    <div className={styles.wrapper}>
-      {dagsToShow.map((dag) => {
-        return (
-          <DAG
-            data={dag}
-            key={dag.id}
-            id={dag.id}
-            nodeWidth={NODE_WIDTH}
-            nodeHeight={NODE_HEIGHT}
-            count={dagsToShow.length}
-            isInteractive={dagsToShow.length === 1}
-            largestDagScale={largestDagScale}
-            setLargestDagScale={setLargestDagScale}
-          />
-        );
-      })}
+    <>
+      <ProjectHeader totalDags={dags.length} />
+      <div className={styles.wrapper}>
+        {dagsToShow.map((dag) => {
+          return (
+            <DAG
+              data={dag}
+              key={dag.id}
+              id={dag.id}
+              nodeWidth={NODE_WIDTH}
+              nodeHeight={NODE_HEIGHT}
+              count={dagsToShow.length}
+              isInteractive={dagsToShow.length === 1}
+              largestDagScale={largestDagScale}
+              setLargestDagScale={setLargestDagScale}
+            />
+          );
+        })}
 
-      <ProjectSidebar />
-    </div>
+        <ProjectSidebar />
+      </div>
+    </>
   );
 };
 
