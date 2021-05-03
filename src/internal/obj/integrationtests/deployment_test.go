@@ -245,6 +245,9 @@ func withManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 	err = cmd.Run()
 	require.NoError(t, err)
 
+	// block until pachd deployment is ready - sometimes postgres isn't ready in time and the pachd pod restarts
+	require.NoError(t, tu.Cmd("kubectl", "wait", "--namespace", namespaceName, "--for=condition=available", "deployment/pachd", "--timeout", "2m").Run())
+
 	pachClient := getPachClient(t, kubeClient, namespaceName)
 	defer pachClient.Close()
 
