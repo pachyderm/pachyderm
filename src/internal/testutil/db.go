@@ -170,7 +170,7 @@ func (pd *postgresDeployment) NewDatabaseConfig(t testing.TB) serviceenv.ConfigO
 	dbName := pd.newDatabase(t)
 	return func(config *serviceenv.Configuration) {
 		serviceenv.WithPostgresHostPort(pd.address, pd.port)(config)
-		config.PostgresDBName = dbName
+		config.PostgresDB = dbName
 	}
 }
 
@@ -254,7 +254,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	dbName := createEphemeralDB(t)
 	return func(config *serviceenv.Configuration) {
 		config.PostgresUser = dbutil.DefaultTestUser
-		config.PostgresDBName = dbName
+		config.PostgresDB = dbName
 		config.PostgresServiceHost = dbHost()
 		config.PostgresServicePort = dbPort()
 	}

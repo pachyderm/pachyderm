@@ -268,7 +268,7 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 		db, err := dbutil.NewDB(
 			dbutil.WithUserPassword(env.config.PostgresUser, "elephantastic"),
 			dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
-			dbutil.WithDBName(env.config.PostgresDBName),
+			dbutil.WithDBName(env.config.PostgresDB),
 		)
 		if err != nil {
 			return err

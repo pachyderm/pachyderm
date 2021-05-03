@@ -27,7 +27,7 @@ type GlobalConfiguration struct {
 	OidcPort            uint16 `env:"OIDC_PORT,default=657"`
 	PostgresServiceHost string `env:"POSTGRES_SERVICE_HOST"`
 	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
-	PostgresDBName      string `env:"POSTGRES_DATABASE"`
+	PostgresDB          string `env:"POSTGRES_DATABASE"`
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
