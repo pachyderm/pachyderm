@@ -105,6 +105,7 @@ require (
 	k8s.io/client-go v0.20.4
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
 	modernc.org/mathutil v1.0.0
+	sigs.k8s.io/controller-runtime v0.8.3 // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 
@@ -118,6 +119,7 @@ replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.2.0+inc
 
 //For helm
 replace github.com/deislabs/oras => github.com/deislabs/oras v0.11.1
+
 //For Helm
 replace github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
 
