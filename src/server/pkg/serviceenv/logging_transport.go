@@ -3,6 +3,7 @@ package serviceenv
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -77,6 +78,17 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 	start := time.Now()
 
 	// Peek into req. body and log a prefix
+	if req.Context() != nil && req.Context() != context.Background() {
+		go func() {
+			<-req.Context().Done()
+			log.WithFields(log.Fields{
+				"service":          "k8s.io/client-go",
+				"method":           "Timeout",
+				"start":            start.Format(time.StampMicro),
+				"context-duration": time.Since(start).Seconds(),
+			}).Debug()
+		}()
+	}
 	req.Body = newBufReadCloser(req.Body)
 	log.WithFields(log.Fields{
 		"service":     "k8s.io/client-go",
