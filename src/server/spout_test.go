@@ -257,9 +257,9 @@ func testSpout(t *testing.T, usePachctl bool) {
 		))
 
 		// we should have one job between pipeline and downstreamPipeline
-		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master")}, []string{downstreamPipeline})
+		pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master")}, []string{downstreamPipeline})
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jobInfos))
+		require.Equal(t, 1, len(pipelineJobInfos))
 
 		// check that the spec commit for the pipeline has the correct subvenance -
 		// there should be one entry for the output commit in the spout pipeline,

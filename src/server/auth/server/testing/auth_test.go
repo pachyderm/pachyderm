@@ -1052,12 +1052,12 @@ func TestStopJob(t *testing.T) {
 
 	require.NoError(t, aliceClient.StopJob(jobID))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		ji, err := aliceClient.InspectJob(jobID, false)
+		pji, err := aliceClient.InspectJob(jobID, false)
 		if err != nil {
 			return errors.Wrapf(err, "could not inspect job %q", jobID)
 		}
-		if ji.State != pps.JobState_JOB_KILLED {
-			return errors.Errorf("expected job %q to be in JOB_KILLED but was in %s", jobID, ji.State.String())
+		if pji.State != pps.JobState_JOB_KILLED {
+			return errors.Errorf("expected job %q to be in JOB_KILLED but was in %s", jobID, pji.State.String())
 		}
 		return nil
 	})
