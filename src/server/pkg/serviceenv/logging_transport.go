@@ -74,23 +74,31 @@ type loggingRoundTripper struct {
 
 // RoundTrip implements the http.RoundTripper interface for loggingRoundTripper
 func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, retErr error) {
+	start := time.Now()
+
 	// Peek into req. body and log a prefix
 	req.Body = newBufReadCloser(req.Body)
 	log.WithFields(log.Fields{
-		"from":   "k8s.io/client-go",
-		"method": req.Method,
-		"url":    req.URL.String(),
-		"body":   bodyMsg(req.Body),
+		"service":     "k8s.io/client-go",
+		"method":      "Request",
+		"start":       start.Format(time.StampMicro),
+		"delay":       time.Since(start).Seconds(),
+		"http-method": req.Method,
+		"url":         req.URL.String(),
+		"body":        bodyMsg(req.Body),
 	}).Debug()
 
 	// Log response
-	defer func(start time.Time) {
+	defer func() {
 		le := log.WithFields(log.Fields{
-			"from":     "k8s.io/client-go",
-			"duration": time.Since(start),
-			"method":   req.Method,
-			"url":      req.URL.String(),
-			"err":      retErr,
+			"service":     "k8s.io/client-go",
+			"method":      "Response",
+			"start":       start.Format(time.StampMicro),
+			"now":         time.Now().Format(time.StampMicro),
+			"duration":    time.Since(start),
+			"http-method": req.Method,
+			"url":         req.URL.String(),
+			"err":         retErr,
 		})
 		if res != nil {
 			// Peek into res. body and log a prefix
@@ -101,13 +109,12 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 			})
 		}
 		le.Debug()
-	}(time.Now())
+	}()
 	return t.underlying.RoundTrip(req)
 }
 
 func (t *loggingRoundTripper) CancelRequest(req *http.Request) {
 	t.cancellations++
-	log.Debugf("%d/%d cancelletions before kubeClient is reset", t.cancellations, cancellationsBeforeReset)
 	if t.cancellations >= cancellationsBeforeReset {
 		t.resetKubeClient()
 		t.cancellations = 0
@@ -120,12 +127,18 @@ func (t *loggingRoundTripper) CancelRequest(req *http.Request) {
 
 	// Peek into req. body and log a prefix
 	req.Body = newBufReadCloser(req.Body)
-	log.WithFields(log.Fields{
-		"from":   "k8s.io/client-go",
-		"method": req.Method,
-		"url":    req.URL.String(),
-		"body":   bodyMsg(req.Body),
-	}).Debug()
+	defer func(start time.Time) {
+		log.WithFields(log.Fields{
+			"service":                    "k8s.io/client-go",
+			"method":                     "Cancel",
+			"start":                      start.Format(time.StampMicro),
+			"duration":                   time.Since(start),
+			"cancellations-before-reset": fmt.Sprintf("%d/%d", t.cancellations, cancellationsBeforeReset),
+			"http-method":                req.Method,
+			"url":                        req.URL.String(),
+			"body":                       bodyMsg(req.Body),
+		}).Debug()
+	}(time.Now())
 
 	// Print a stack trace, so we know where to look in the k8s client
 	debug.PrintStack()
