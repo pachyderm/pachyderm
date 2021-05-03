@@ -42,7 +42,8 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 		opt(dbc)
 	}
 	fields := map[string]string{
-		"sslmode": "disable",
+		"sslmode":         "disable",
+		"connect_timeout": "30",
 	}
 	if dbc.host != "" {
 		fields["host"] = dbc.host
