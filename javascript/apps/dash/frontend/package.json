@@ -19,7 +19,6 @@
     "start": "NODE_ENV=development PORT=4000 dotenv-flow -p ../ -- node ./node_modules/@pachyderm/scripts/startDev.js",
     "test": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none dotenv-flow -p ../ -- jest --max-workers=6",
     "tslint": "npx tslint 'src/**/*.{ts,tsx}'",
-    "generate-operations": "node ./node_modules/@pachyderm/scripts/generateOperations.js ../generated/operations.gql",
     "generate-hooks": "graphql-codegen"
   },
   "dependencies": {

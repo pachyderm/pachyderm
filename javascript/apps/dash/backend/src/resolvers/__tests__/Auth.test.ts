@@ -3,20 +3,23 @@ import {status} from '@grpc/grpc-js';
 import accounts from '@dash-backend/mock/fixtures/accounts';
 import {
   mockServer,
-  executeOperation,
   createServiceError,
+  executeMutation,
+  executeQuery,
 } from '@dash-backend/testHelpers';
+import {EXCHANGE_CODE_MUTATION} from '@dash-frontend/mutations/ExchangeCode';
+import {GET_ACCOUNT_QUERY} from '@dash-frontend/queries/GetAccountQuery';
+import {GET_AUTH_CONFIG_QUERY} from '@dash-frontend/queries/GetAuthConfigQuery';
 import {Account, AuthConfig, Tokens} from '@graphqlTypes';
 
 describe('Auth resolver', () => {
   describe('exchangeCode', () => {
-    const operationName = 'exchangeCode';
     const variables = {code: 'xyz'};
 
     it('should exchange an auth code for a pach token', async () => {
-      const {data} = await executeOperation<{
+      const {data} = await executeMutation<{
         exchangeCode: Tokens;
-      }>(operationName, variables);
+      }>(EXCHANGE_CODE_MUTATION, variables);
 
       expect(data?.exchangeCode.pachToken).toBeTruthy();
     });
@@ -26,9 +29,9 @@ describe('Auth resolver', () => {
 
       mockServer.setAuthError(error);
 
-      const {data, errors = []} = await executeOperation<{
+      const {data, errors = []} = await executeMutation<{
         exchangeCode: Tokens;
-      }>(operationName, variables);
+      }>(EXCHANGE_CODE_MUTATION, variables);
 
       expect(data).toBeNull();
       expect(errors.length).toBe(1);
@@ -38,9 +41,9 @@ describe('Auth resolver', () => {
     it('should return an error if there is an issue with the IDP', async () => {
       mockServer.setTokenError(true);
 
-      const {data, errors = []} = await executeOperation<{
+      const {data, errors = []} = await executeMutation<{
         exchangeCode: Tokens;
-      }>(operationName, variables);
+      }>(EXCHANGE_CODE_MUTATION, variables);
 
       expect(data).toBeNull();
       expect(errors.length).toBe(1);
@@ -49,14 +52,14 @@ describe('Auth resolver', () => {
   });
   describe('account', () => {
     it("should return the user's account info", async () => {
-      const {data} = await executeOperation<{account: Account}>('getAccount');
+      const {data} = await executeQuery<{account: Account}>(GET_ACCOUNT_QUERY);
 
-      expect(data?.account).toStrictEqual(accounts['1']);
+      expect(data?.account.id).toStrictEqual(accounts['1'].id);
     });
 
     it('should return an error if the user is not authenticated', async () => {
-      const {data, errors = []} = await executeOperation<{account: Account}>(
-        'getAccount',
+      const {data, errors = []} = await executeQuery<{account: Account}>(
+        GET_ACCOUNT_QUERY,
         {},
         {'id-token': ''},
       );
@@ -68,9 +71,9 @@ describe('Auth resolver', () => {
   });
   describe('authConfig', () => {
     it('should return the OIDC providers auth url', async () => {
-      const {data, errors = []} = await executeOperation<{
+      const {data, errors = []} = await executeQuery<{
         authConfig: AuthConfig;
-      }>('authConfig', {}, {'id-token': ''});
+      }>(GET_AUTH_CONFIG_QUERY, {}, {'id-token': ''});
 
       expect(data?.authConfig.authUrl).toBe(
         `http://localhost:${mockServer.state.authPort}/auth`,
@@ -85,8 +88,8 @@ describe('Auth resolver', () => {
     it('should return an error if the OIDC provider is misconfigured', async () => {
       mockServer.setAuthConfigurationError(true);
 
-      const {data, errors = []} = await executeOperation<{authUrl: string}>(
-        'authConfig',
+      const {data, errors = []} = await executeQuery<{authUrl: string}>(
+        GET_AUTH_CONFIG_QUERY,
         {},
         {'id-token': ''},
       );

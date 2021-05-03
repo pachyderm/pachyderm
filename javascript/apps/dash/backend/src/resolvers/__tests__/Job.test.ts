@@ -1,11 +1,11 @@
 import jobs from '@dash-backend/mock/fixtures/jobs';
-import {executeOperation} from '@dash-backend/testHelpers';
+import {executeQuery} from '@dash-backend/testHelpers';
+import {GET_JOBS_QUERY} from '@dash-frontend/queries/GetJobsQuery';
 import {GetJobsQuery} from '@graphqlTypes';
-
 describe('Jobs resolver', () => {
   it('should find jobs for a given project', async () => {
-    const {data, errors = []} = await executeOperation<GetJobsQuery>(
-      'getJobs',
+    const {data, errors = []} = await executeQuery<GetJobsQuery>(
+      GET_JOBS_QUERY,
       {
         args: {
           projectId: '1',
@@ -18,8 +18,8 @@ describe('Jobs resolver', () => {
   });
 
   it('should find jobs for a given pipelineId', async () => {
-    const {data, errors = []} = await executeOperation<GetJobsQuery>(
-      'getJobs',
+    const {data, errors = []} = await executeQuery<GetJobsQuery>(
+      GET_JOBS_QUERY,
       {
         args: {
           projectId: '1',
@@ -38,8 +38,8 @@ describe('Jobs resolver', () => {
   });
 
   it('should return an empty set if no records exist', async () => {
-    const {data, errors = []} = await executeOperation<GetJobsQuery>(
-      'getJobs',
+    const {data, errors = []} = await executeQuery<GetJobsQuery>(
+      GET_JOBS_QUERY,
       {
         args: {
           projectId: '1',

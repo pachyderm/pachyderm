@@ -1,4 +1,6 @@
-import {executeOperation} from '@dash-backend/testHelpers';
+/* eslint-disable @typescript-eslint/naming-convention */
+import {executeQuery} from '@dash-backend/testHelpers';
+import {GET_PIPELINE_QUERY} from '@dash-frontend/queries/GetPipelineQuery';
 import {PipelineQuery} from '@graphqlTypes';
 
 describe('Pipeline resolver', () => {
@@ -7,8 +9,8 @@ describe('Pipeline resolver', () => {
     const projectId = '1';
 
     it('should return a pipeline for a given id and projectId', async () => {
-      const {data, errors = []} = await executeOperation<PipelineQuery>(
-        'pipeline',
+      const {data, errors = []} = await executeQuery<PipelineQuery>(
+        GET_PIPELINE_QUERY,
         {
           args: {id, projectId},
         },
@@ -24,14 +26,17 @@ describe('Pipeline resolver', () => {
       expect(data?.pipeline.egress).toBe(true);
       expect(data?.pipeline.s3OutputRepo).toBe(`s3//${id}`);
       expect(data?.pipeline.schedulingSpec).toStrictEqual({
-        nodeSelectorMap: [{key: 'disktype', value: 'ssd'}],
+        __typename: 'SchedulingSpec',
+        nodeSelectorMap: [
+          {__typename: 'NodeSelector', key: 'disktype', value: 'ssd'},
+        ],
         priorityClassName: 'high-priority',
       });
     });
 
     it('should return a NOT_FOUND error if a pipeline could not be found', async () => {
-      const {data, errors = []} = await executeOperation<PipelineQuery>(
-        'pipeline',
+      const {data, errors = []} = await executeQuery<PipelineQuery>(
+        GET_PIPELINE_QUERY,
         {
           args: {id: 'bogus', projectId},
         },

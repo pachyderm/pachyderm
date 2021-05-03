@@ -1,7 +1,8 @@
 import {
   createSubscriptionClients,
-  executeOperation,
+  executeQuery,
 } from '@dash-backend/testHelpers';
+import {GET_DAG_QUERY} from '@dash-frontend/queries/GetDagQuery';
 import {GET_DAGS_QUERY} from '@dash-frontend/queries/GetDagsQuery';
 import {Dag} from '@graphqlTypes';
 
@@ -22,7 +23,7 @@ const doesLinkExistInDag = (
 
 describe('Dag resolver', () => {
   it('should resolve dag data', async () => {
-    const {data} = await executeOperation<{dag: Dag}>('getDag', {
+    const {data} = await executeQuery<{dag: Dag}>(GET_DAG_QUERY, {
       args: {projectId: '1', nodeWidth: 120, nodeHeight: 60},
     });
 
@@ -47,7 +48,7 @@ describe('Dag resolver', () => {
   });
 
   it('should correctly render cron inputs', async () => {
-    const {data} = await executeOperation<{dag: Dag}>('getDag', {
+    const {data} = await executeQuery<{dag: Dag}>(GET_DAG_QUERY, {
       args: {projectId: '3', nodeWidth: 120, nodeHeight: 60},
     });
 

@@ -3,20 +3,21 @@ import {status} from '@grpc/grpc-js';
 import projects from '@dash-backend/mock/fixtures/projects';
 import {
   mockServer,
-  executeOperation,
   createServiceError,
+  executeQuery,
 } from '@dash-backend/testHelpers';
+import {GET_PROJECT_DETAILS_QUERY} from '@dash-frontend/queries/GetProjectDetailsQuery';
+import {GET_PROJECT_QUERY} from '@dash-frontend/queries/GetProjectQuery';
+import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
 import {Project, ProjectDetails} from '@graphqlTypes';
 
 import {DEFAULT_PROJECT_ID} from '../Projects';
 
 describe('Projects Resolver', () => {
   describe('project', () => {
-    const operationName = 'project';
-
     it('should return a project for a given id', async () => {
-      const {data, errors = []} = await executeOperation<{project: Project}>(
-        operationName,
+      const {data, errors = []} = await executeQuery<{project: Project}>(
+        GET_PROJECT_QUERY,
         {id: '1'},
       );
 
@@ -25,8 +26,8 @@ describe('Projects Resolver', () => {
     });
 
     it('should return a NOT_FOUND error if a project cannot be found', async () => {
-      const {data, errors = []} = await executeOperation<{project: Project}>(
-        operationName,
+      const {data, errors = []} = await executeQuery<{project: Project}>(
+        GET_PROJECT_QUERY,
         {id: 'bologna'},
       );
 
@@ -36,8 +37,8 @@ describe('Projects Resolver', () => {
     });
 
     it('should return the default project', async () => {
-      const {data, errors = []} = await executeOperation<{project: Project}>(
-        operationName,
+      const {data, errors = []} = await executeQuery<{project: Project}>(
+        GET_PROJECT_QUERY,
         {id: DEFAULT_PROJECT_ID},
       );
 
@@ -46,15 +47,13 @@ describe('Projects Resolver', () => {
     });
   });
   describe('projects', () => {
-    const operationName = 'projects';
-
     it('should return the default project when the project service is unimplemented', async () => {
       const error = createServiceError({code: status.UNIMPLEMENTED});
       mockServer.setProjectsError(error);
 
-      const {data} = await executeOperation<{
+      const {data} = await executeQuery<{
         projects: Project[];
-      }>(operationName);
+      }>(GET_PROJECTS_QUERY);
 
       const projects = data?.projects;
 
@@ -65,9 +64,9 @@ describe('Projects Resolver', () => {
     });
 
     it('should return projects when the project service is implemented', async () => {
-      const {data} = await executeOperation<{
+      const {data} = await executeQuery<{
         projects: Project[];
-      }>(operationName);
+      }>(GET_PROJECTS_QUERY);
 
       const projects = data?.projects;
 
@@ -83,11 +82,10 @@ describe('Projects Resolver', () => {
   });
 
   describe('projectDetails', () => {
-    const operationName = 'projectDetails';
     it('should return project details', async () => {
-      const {data} = await executeOperation<{
+      const {data} = await executeQuery<{
         projectDetails: ProjectDetails;
-      }>(operationName, {args: {projectId: '1'}});
+      }>(GET_PROJECT_DETAILS_QUERY, {args: {projectId: '1'}});
 
       const projectDetails = data?.projectDetails;
 
