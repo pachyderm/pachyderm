@@ -29,6 +29,7 @@ type GlobalConfiguration struct {
 	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
 	PostgresDB          string `env:"POSTGRES_DATABASE"`
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
+	PostgresUser        string `env:"POSTGRES_USER"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
 	// Because both pachd and worker need to know the spec commit (the worker so
@@ -71,7 +72,6 @@ type PachdSpecificConfiguration struct {
 	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName string `env:"PACHD_POD_NAME,required"`
-	PostgresUser string `env:"POSTGRES_USER"`
 
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
 	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=pachyderm"`
