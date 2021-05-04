@@ -201,9 +201,9 @@ enum CommitState {
 
 message StartCommitRequest {
   reserved 1, 2;
-  // parentID may be empty in which case the commit that Branch points to will be used as the parent.
+  // parent may be empty in which case the commit that Branch points to will be used as the parent.
   // If the branch does not exist, the commit will have no parent.
-  string parentID = 6;
+  Commit parent = 6;
   // description is a user-provided string describing this commit
   string description = 4;
   Branch branch = 3;

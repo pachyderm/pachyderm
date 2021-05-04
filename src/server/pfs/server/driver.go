@@ -432,7 +432,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
-func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent string, branch *pfs.Branch, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
+func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch *pfs.Branch, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
 	return d.makeCommit(txnCtx, ID, parent, branch, nil, provenance, description, time.Time{}, time.Time{}, 0)
 }
 
@@ -447,7 +447,7 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, paren
 func (d *driver) makeCommit(
 	txnCtx *txnenv.TransactionContext,
 	ID string,
-	parent string,
+	parent *pfs.Commit,
 	branch *pfs.Branch,
 	origin *pfs.CommitOrigin,
 	provenance []*pfs.CommitProvenance,
@@ -527,7 +527,6 @@ func (d *driver) makeCommit(
 	}
 
 	// create the actual commit in etcd and update the branch + parent/child
-	parent := client.NewCommit(branch.Repo.Name, branch.Name, parent)
 	repos := d.repos.ReadWrite(txnCtx.Stm)
 	commits := d.commits(branch.Repo.Name).ReadWrite(txnCtx.Stm)
 	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm)
@@ -538,14 +537,14 @@ func (d *driver) makeCommit(
 		return nil, err
 	}
 
-	// create/update 'branch' (if it was set) and set parent.ID (if, in
-	// addition, 'parent.ID' was not set)
+	// create/update 'branch' (if it was set) and set parentCommit.ID (if, in
+	// addition, 'parent' was not set)
 	branchProvMap := make(map[string]bool)
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Upsert(branch.Name, branchInfo, func() error {
 		// validate branch
-		if parent.ID == "" && branchInfo.Head != nil {
-			parent.ID = branchInfo.Head.ID
+		if parent == nil && branchInfo.Head != nil {
+			parent = branchInfo.Head
 		}
 		// include the branch and its provenance in the branch provenance map
 		branchProvMap[branchKey(branch)] = true
@@ -599,26 +598,26 @@ func (d *driver) makeCommit(
 	}
 
 	// Update repoInfo (potentially with new branch and new size)
-	if err := repos.Put(parent.Branch.Repo.Name, repoInfo); err != nil {
+	if err := repos.Put(branch.Repo.Name, repoInfo); err != nil {
 		return nil, err
 	}
 
-	// Set newCommit.ParentCommit (if 'parent' was set) and add newCommit to
-	// parent's ChildCommits
-	if parent.ID != "" {
-		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
+	// Set newCommit.ParentCommit (if 'parent' has been determined) and add
+	// newCommit to parent's ChildCommits
+	if parent != nil {
+		// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 		// happen if 'branch' is new and diverges from the existing branch in
-		// 'parent.ID')
+		// 'parent')
 		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parent commit not found")
 		}
 		// fail if the parent commit has not been finished
 		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Branch.Repo.Name, parent.ID)
+			return nil, errors.Errorf("parent commit %s@%s has not been finished", branch.Repo.Name, parent.ID)
 		}
-		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
-			newCommitInfo.ParentCommit = parent
+		if err := commits.Update(parentCommitInfo.Commit.ID, parentCommitInfo, func() error {
+			newCommitInfo.ParentCommit = parentCommitInfo.Commit
 			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
 			return nil
 		}); err != nil {

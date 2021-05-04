@@ -273,6 +273,13 @@ $ {{alias}} test -p XXX`,
 			}
 			defer c.Close()
 
+			// We don't know if the parent is a commit ID, branch, or ancestry, so
+			// construct a string to parse.
+			parentCommit, err := cmdutil.ParseCommit(branch.Repo.Name + "@" + parent)
+			if err != nil {
+				return err
+			}
+
 			var commit *pfsclient.Commit
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				var err error
@@ -280,7 +287,7 @@ $ {{alias}} test -p XXX`,
 					c.Ctx(),
 					&pfsclient.StartCommitRequest{
 						Branch:      branch,
-						ParentID:    parent,
+						Parent:      parentCommit,
 						Description: description,
 					},
 				)

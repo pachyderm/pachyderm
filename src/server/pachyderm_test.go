@@ -1960,7 +1960,7 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 		require.NoError(t, c.PutFile(repo, commit.Branch.Name, commit.ID, "file", strings.NewReader(fmt.Sprintf("foo%d\n", i)), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	}
-	require.NoError(t, c.SetBranch(repo, "master", commit.ID))
+	require.NoError(t, c.CreateBranch(repo, "master", commit.ID, nil))
 
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(

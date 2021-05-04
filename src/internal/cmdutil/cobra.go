@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -104,6 +105,11 @@ func ErrorAndExit(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
+func isValidBranch(name string) bool {
+	err := ancestry.ValidateName(name)
+	return err == nil
+}
+
 // ParseCommit takes an argument of the form "repo[@branch-or-commit]" and
 // returns the corresponding *pfs.Commit.
 func ParseCommit(arg string) (*pfs.Commit, error) {
@@ -118,14 +124,14 @@ func ParseCommit(arg string) (*pfs.Commit, error) {
 				Name: parts[0],
 			},
 		},
-		ID: "",
 	}
 
-	id := parts[1]
-	if uuid.IsUUIDWithoutDashes(id) {
-		commit.ID = id
-	} else {
-		commit.Branch.Name = id
+	if len(parts) == 2 {
+		if uuid.IsUUIDWithoutDashes(parts[1]) || !isValidBranch(parts[1]) {
+			commit.ID = parts[1]
+		} else {
+			commit.Branch.Name = parts[1]
+		}
 	}
 
 	return commit, nil
@@ -191,7 +197,8 @@ func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
 	if len(branchAndCommit) < 1 {
 		return nil, errors.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
 	} else if len(branchAndCommit) == 1 {
-		if uuid.IsUUIDWithoutDashes(branchAndCommit[0]) {
+		// If the value is not a valid branch name, assume it is in ancestry syntax and use as the commit ID
+		if uuid.IsUUIDWithoutDashes(branchAndCommit[0]) || !isValidBranch(branchAndCommit[0]) {
 			prov.Commit.ID = branchAndCommit[0]
 		} else {
 			// default to using the head commit once this commit is resolved

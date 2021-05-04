@@ -1971,7 +1971,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				superClient = superClient.WithoutTransaction()
 				var err error
 				if update {
-					_, err = superClient.StartCommitParent(ppsconsts.SpecRepo, tempBranch, pipelineName)
+					_, err = superClient.StartCommitParent(ppsconsts.SpecRepo, tempBranch, pipelineName, "")
 				} else {
 					_, err = superClient.StartCommit(ppsconsts.SpecRepo, tempBranch)
 				}
