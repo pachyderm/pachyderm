@@ -439,7 +439,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Branch.Repo.Name, commitInfos[0].Commit.Branch.Name, commitInfos[0].Commit.ID, "file2", &buf))
 	require.Equal(t, "foo", buf.String())
 
-	commitInfos, err = c.ListCommit(pipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(pipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 }
@@ -514,7 +514,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Branch.Repo.Name, commitInfos[0].Commit.Branch.Name, commitInfos[0].Commit.ID, "file", &buf))
 	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String())
 
-	commitInfos, err = c.ListCommit(pipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(pipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 }
@@ -1641,17 +1641,17 @@ func TestProvenance(t *testing.T) {
 	require.Equal(t, uint64(0), cCommitInfo.SizeBytes)
 
 	// We should only see two commits in aRepo
-	commitInfos, err = c.ListCommit(aRepo, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(aRepo, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
 	// There are three commits in the pipeline repos (two from input commits, and
 	// one from the CreatePipeline call that created each repo)
-	commitInfos, err = c.ListCommit(bPipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(bPipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(cPipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(cPipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 }
@@ -1733,15 +1733,15 @@ func TestProvenance2(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 
 	// We should only see two commits in each repo.
-	commitInfos, err = c.ListCommit(bPipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(bPipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(cPipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(cPipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(dPipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(dPipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
@@ -1802,20 +1802,20 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	// We should only see one commit in aRepo, bPipeline, and cPipeline
-	commitInfos, err = c.ListCommit(aRepo, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(aRepo, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(bPipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(bPipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(cPipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(cPipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	require.NoError(t, c.StopPipeline(bPipeline))
-	commitInfos, err = c.ListCommit(cPipeline, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(cPipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 }
@@ -2823,14 +2823,14 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		false,
 	))
 
-	commits, err := c.ListCommit(pipelineName, "master", "", "", 0)
+	commits, err := c.ListCommit(pipelineName, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
 	// Add input data
 	require.NoError(t, c.PutFile(dataRepo, "master", "", "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
-	commits, err = c.ListCommit(pipelineName, "master", "", "", 0)
+	commits, err = c.ListCommit(pipelineName, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commits))
 
@@ -2857,7 +2857,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	commits, err = c.ListCommit(pipelineName, "master", "", "", 0)
+	commits, err = c.ListCommit(pipelineName, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commits))
 
@@ -2891,7 +2891,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	commits, err = c.ListCommit(pipelineName, "master", "", "", 0)
+	commits, err = c.ListCommit(pipelineName, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commits))
 
@@ -2905,7 +2905,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		[]*pfs.Commit{client.NewCommit(dataRepo, "master", "")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	commits, err = c.ListCommit(pipelineName, "master", "", "", 0)
+	commits, err = c.ListCommit(pipelineName, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
@@ -3102,7 +3102,7 @@ func TestStopPipeline(t *testing.T) {
 
 	// wait for 10 seconds and check that no commit has been outputted
 	time.Sleep(10 * time.Second)
-	commits, err := c.ListCommit(pipelineName, "master", "", "", 0)
+	commits, err := c.ListCommit(pipelineName, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, len(commits), 0)
 
@@ -3222,7 +3222,7 @@ func TestStandby(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		pod := ""
-		cis, err := c.ListCommit(pipeline, "master", "", "", 0)
+		cis, err := c.ListCommit(pipeline, "master", "", "", "", 0)
 		require.NoError(t, err)
 		for _, ci := range cis {
 			var buffer bytes.Buffer
@@ -3331,7 +3331,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	})
 
 	// Finally, check that there's only two output commits
-	cis, err := c.ListCommit(pipeline, "master", "", "", 0)
+	cis, err := c.ListCommit(pipeline, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(cis))
 }
@@ -3513,7 +3513,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 	require.Equal(t, "foo\nbar\n", buffer.String())
 
 	// Check that one output commit is created (processing the inputs' head commits)
-	commitInfos, err = c.ListCommit(pipelineName, "master", "", "", 0)
+	commitInfos, err = c.ListCommit(pipelineName, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 }
@@ -7227,7 +7227,7 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //	time.Sleep(2 * time.Second)
 //
 //	// Now there should NOT be a new commit on the pachyderm repo
-//	commits, err := c.ListCommit(repoName, "master", "", 0)
+//	commits, err := c.ListCommit(repoName, "master", "", "", "", 0)
 //	require.NoError(t, err)
 //	require.Equal(t, 0, len(commits))
 //
@@ -7364,7 +7364,7 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //	_, err := c.InspectRepo("test-artifacts")
 //	require.NoError(t, err)
 //
-//	commits, err := c.ListCommit("test-artifacts", "master", "", 0)
+//	commits, err := c.ListCommit("test-artifacts", "master", "", "", "", 0)
 //	require.NoError(t, err)
 //	require.Equal(t, 0, len(commits))
 //
@@ -7426,7 +7426,7 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //	_, err := c.InspectRepo("test-artifacts")
 //	require.NoError(t, err)
 //
-//	commits, err := c.ListCommit("test-artifacts", "master", "", 0)
+//	commits, err := c.ListCommit("test-artifacts", "master", "", "", "", 0)
 //	require.NoError(t, err)
 //	require.Equal(t, 0, len(commits))
 //
@@ -7512,7 +7512,7 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //	_, err := c.InspectRepo(repoName)
 //	require.NoError(t, err)
 //
-//	commits, err := c.ListCommit(repoName, "", "", 0)
+//	commits, err := c.ListCommit(repoName, "", "", "", "", 0)
 //	require.NoError(t, err)
 //	require.Equal(t, 0, len(commits))
 //
@@ -7587,7 +7587,7 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //		}
 //		require.Equal(t, true, found)
 //
-//		commits, err := c.ListCommit(repoName, "", "", 0)
+//		commits, err := c.ListCommit(repoName, "", "", "", "", 0)
 //		require.NoError(t, err)
 //		require.Equal(t, 0, len(commits))
 //	}
@@ -7664,7 +7664,7 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //		}
 //		require.Equal(t, true, found)
 //
-//		commits, err := c.ListCommit(repoName, "", "", 0)
+//		commits, err := c.ListCommit(repoName, "", "", "", "", 0)
 //		require.NoError(t, err)
 //		require.Equal(t, 0, len(commits))
 //	}
@@ -9285,7 +9285,7 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master", "")}, nil)
 	require.NoError(t, err)
 
-	cis, err := c.ListCommit(pipelineName, "master", "", "", 0)
+	cis, err := c.ListCommit(pipelineName, "master", "", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(cis))
 
@@ -10430,7 +10430,7 @@ func TestMalformedPipeline(t *testing.T) {
 //		require.NoError(t, c.GetFile(pipeline1, "master", fmt.Sprintf("file%d", i), &buf))
 //		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
 //	}
-//	cis, err = c.ListCommit(pipeline1, "master", "", 0)
+//	cis, err = c.ListCommit(pipeline1, "master", "", "", "", 0)
 //	require.NoError(t, err)
 //	// Another 10 100 byte files = 2K, so the last file should trigger both pipelines.
 //	for i := numFiles; i < 2*numFiles; i++ {
@@ -10448,10 +10448,10 @@ func TestMalformedPipeline(t *testing.T) {
 //		require.NoError(t, c.GetFile(pipeline2, "master", fmt.Sprintf("file%d", i), &buf))
 //		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
 //	}
-//	cis, err = c.ListCommit(pipeline1, "master", "", 0)
+//	cis, err = c.ListCommit(pipeline1, "master", "", "", "", 0)
 //	require.NoError(t, err)
 //	require.Equal(t, 2, len(cis))
-//	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+//	cis, err = c.ListCommit(pipeline2, "master", "", "", "", 0)
 //	require.NoError(t, err)
 //	require.Equal(t, 1, len(cis))
 //
@@ -10478,7 +10478,7 @@ func TestMalformedPipeline(t *testing.T) {
 //	require.NoError(t, err)
 //	require.Equal(t, 3, len(bis))
 //
-//	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+//	cis, err = c.ListCommit(pipeline2, "master", "", "", "", 0)
 //	require.NoError(t, err)
 //	require.Equal(t, 2, len(cis))
 //
@@ -10491,7 +10491,7 @@ func TestMalformedPipeline(t *testing.T) {
 //	require.NoError(t, err)
 //	require.Equal(t, 4, len(cis))
 //
-//	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+//	cis, err = c.ListCommit(pipeline2, "master", "", "", "", 0)
 //	require.NoError(t, err)
 //	require.Equal(t, 3, len(cis))
 //}

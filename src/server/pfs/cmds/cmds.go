@@ -407,12 +407,12 @@ $ {{alias}} foo@master --from XXX`,
 			}
 
 			if raw {
-				return c.ListCommitF(branch.Repo.Name, branch.Name, "", from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
+				return c.ListCommitF(branch.Repo.Name, branch.Name, "", "", from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(branch.Repo.Name, branch.Name, "", from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
+			if err := c.ListCommitF(branch.Repo.Name, branch.Name, "", "", from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
