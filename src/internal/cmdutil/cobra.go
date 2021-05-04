@@ -111,6 +111,7 @@ func ParseCommit(arg string) (*pfs.Commit, error) {
 	if parts[0] == "" {
 		return nil, errors.Errorf("invalid format \"%s\": repo cannot be empty", arg)
 	}
+
 	commit := &pfs.Commit{
 		Branch: &pfs.Branch{
 			Repo: &pfs.Repo{
@@ -119,9 +120,14 @@ func ParseCommit(arg string) (*pfs.Commit, error) {
 		},
 		ID: "",
 	}
-	if len(parts) == 2 {
-		commit.ID = parts[1]
+
+	id := parts[1]
+	if uuid.IsUUIDWithoutDashes(id) {
+		commit.ID = id
+	} else {
+		commit.Branch.Name = id
 	}
+
 	return commit, nil
 }
 
@@ -139,9 +145,10 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	return results, nil
 }
 
-// ParseBranch takes an argument of the form "repo[@branch]" and
-// returns the corresponding *pfs.Branch.  This uses ParseCommit under the hood
-// because a branch name is usually interchangeable with a commit-id.
+// ParseBranch takes an argument of the form "repo[@branch]" and returns the
+// corresponding *pfs.Branch. This uses ParseCommit under the hood because a
+// branch name is semantically interchangeable with a commit-id on the
+// command-line.
 func ParseBranch(arg string) (*pfs.Branch, error) {
 	commit, err := ParseCommit(arg)
 	if err != nil {
@@ -151,7 +158,7 @@ func ParseBranch(arg string) (*pfs.Branch, error) {
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the
-// semantics of ParseBranch
+// semantics of ParseBranch.
 func ParseBranches(args []string) ([]*pfs.Branch, error) {
 	var results []*pfs.Branch
 	for _, arg := range args {
@@ -172,36 +179,29 @@ func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
 		return nil, err
 	}
 
-	branchAndCommit := strings.SplitN(commit.ID, "=", 2)
-	if len(branchAndCommit) < 1 {
-		return nil, errors.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
-	}
-	branchOrCommit := branchAndCommit[0]
-	commitID := branchOrCommit // default to using the head commit once this commit is resolved
-	if branchOrCommit == "" {
-		return nil, errors.Errorf("invalid format \"%s\": branch cannot be empty", arg)
-	}
-
-	if len(branchAndCommit) == 2 {
-		commitID = branchAndCommit[1]
-	} else if uuid.IsUUIDWithoutDashes(branchOrCommit) {
-		commitID = branchOrCommit
-		branchOrCommit = ""
-	}
-
-	if commitID == "" {
-		return nil, errors.Errorf("invalid format \"%s\": commit cannot be empty", arg)
-	}
-
 	prov := &pfs.CommitProvenance{
 		Commit: &pfs.Commit{
 			Branch: &pfs.Branch{
 				Repo: commit.Branch.Repo,
-				Name: branchOrCommit,
 			},
-			ID: commitID,
 		},
 	}
+
+	branchAndCommit := strings.SplitN(commit.ID, "=", 2)
+	if len(branchAndCommit) < 1 {
+		return nil, errors.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
+	} else if len(branchAndCommit) == 1 {
+		if uuid.IsUUIDWithoutDashes(branchAndCommit[0]) {
+			prov.Commit.ID = branchAndCommit[0]
+		} else {
+			// default to using the head commit once this commit is resolved
+			prov.Commit.Branch.Name = branchAndCommit[0]
+		}
+	} else {
+		prov.Commit.Branch.Name = branchAndCommit[0]
+		prov.Commit.ID = branchAndCommit[1]
+	}
+
 	return prov, nil
 }
 

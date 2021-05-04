@@ -439,8 +439,8 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, paren
 // make commit makes a new commit in 'branch', with the parent 'parent' and the
 // direct provenance 'provenance'. Note that
 // - 'parentID' may be omitted, in which case the parent commit is inferred
-//   from 'parent.Repo' and 'branch'.
-// - If both 'parentID' is set, it determines the parent commit, but 'branch' is
+//   from 'branch'.
+// - If 'parentID' is set, it determines the parent commit, but 'branch' is
 //   still moved to point at the new commit
 // TODO: Remove the v1 storage data structures from this function, they are not
 // used for now.
@@ -1218,12 +1218,11 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		return nil, err
 	}
 
-	// Check if commit.ID is already a commit ID (i.e. a UUID).
-	if !uuid.IsUUIDWithoutDashes(commit.ID) {
+	// If commit.ID is unspecified, get it from the branch head
+	if commit.ID == "" {
 		branches := d.branches(commit.Branch.Repo.Name).ReadWrite(stm)
 		branchInfo := &pfs.BranchInfo{}
-		// See if we are given a branch
-		if err := branches.Get(commit.ID, branchInfo); err != nil {
+		if err := branches.Get(commit.Branch.Name, branchInfo); err != nil {
 			return nil, err
 		}
 		if branchInfo.Head == nil {
