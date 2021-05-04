@@ -67,7 +67,7 @@ func TestSpoutPachctl(t *testing.T) {
 		var prevLength uint64
 		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				files, err := c.ListFileAll(pipeline, ci.Commit.ID, "")
+				files, err := c.ListFileAll(pipeline, ci.Commit.Branch.Name, ci.Commit.ID, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
@@ -81,7 +81,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 
 		// make sure we can delete commits
-		err = c.SquashCommit(pipeline, "master")
+		err = c.SquashCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
@@ -123,7 +123,7 @@ func TestSpoutPachctl(t *testing.T) {
 		countBreakFunc := newCountBreakFunc(5)
 		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				files, err := c.ListFileAll(pipeline, ci.Commit.ID, "")
+				files, err := c.ListFileAll(pipeline, ci.Commit.Branch.Name, ci.Commit.ID, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 				return nil
@@ -135,7 +135,7 @@ func TestSpoutPachctl(t *testing.T) {
 		defer tu.DeleteAll(t)
 
 		// make sure we can delete commits
-		err = c.SquashCommit(pipeline, "master")
+		err = c.SquashCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
 		// now let's update the pipeline and make sure it works again
@@ -163,7 +163,7 @@ func TestSpoutPachctl(t *testing.T) {
 		countBreakFunc = newCountBreakFunc(5)
 		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				files, err := c.ListFileAll(pipeline, ci.Commit.ID, "")
+				files, err := c.ListFileAll(pipeline, ci.Commit.Branch.Name, ci.Commit.ID, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 				return nil
@@ -227,7 +227,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		var prevLength uint64
 		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				files, err := c.ListFileAll(pipeline, ci.Commit.ID, "")
+				files, err := c.ListFileAll(pipeline, ci.Commit.Branch.Name, ci.Commit.ID, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
@@ -240,7 +240,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			})
 		}))
 		// make sure we can delete commits
-		err = c.SquashCommit(pipeline, "master")
+		err = c.SquashCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
 		// and make sure we can attach a downstream pipeline
@@ -257,14 +257,14 @@ func testSpout(t *testing.T, usePachctl bool) {
 		))
 
 		// we should have one job between pipeline and downstreamPipeline
-		pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master")}, []string{downstreamPipeline})
+		pipelineJobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master", "")}, []string{downstreamPipeline})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(pipelineJobInfos))
 
 		// check that the spec commit for the pipeline has the correct subvenance -
 		// there should be one entry for the output commit in the spout pipeline,
 		// and one for the propagated commit in the downstream pipeline
-		commitInfo, err := c.InspectCommit("__spec__", pipeline)
+		commitInfo, err := c.InspectCommit("__spec__", pipeline, "")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfo.Subvenance))
 
@@ -311,7 +311,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		var prevLength uint64
 		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				files, err := c.ListFileAll(pipeline, ci.Commit.ID, "")
+				files, err := c.ListFileAll(pipeline, ci.Commit.Branch.Name, ci.Commit.ID, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
@@ -512,13 +512,13 @@ func testSpout(t *testing.T, usePachctl bool) {
 			return nil
 		}, backoff.NewTestingBackOff())
 		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
-			files, err := c.ListFileAll(pipeline, ci.Commit.ID, "")
+			files, err := c.ListFileAll(pipeline, ci.Commit.Branch.Name, ci.Commit.ID, "")
 			require.NoError(t, err)
 			require.Equal(t, 1, len(files))
 			// Confirm that a commit is made with the file
 			// written to the external port of the pipeline's service.
 			var buf bytes.Buffer
-			err = c.GetFile(pipeline, ci.Commit.ID, files[0].File.Path, &buf)
+			err = c.GetFile(pipeline, ci.Commit.Branch.Name, ci.Commit.ID, files[0].File.Path, &buf)
 			require.NoError(t, err)
 			require.Equal(t, buf.String(), "foo")
 			return errutil.ErrBreak
