@@ -278,7 +278,7 @@ test-cmds:
 	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 
-test-transaction:
+test-transaction: test-postgres
 	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-client:
