@@ -2,7 +2,6 @@ import React from 'react';
 import {UseFormMethods} from 'react-hook-form';
 
 import {Dropdown} from 'Dropdown';
-import {Form} from 'Form';
 
 import {DropdownButtonProps} from '../../../../../Dropdown/components/DropdownButton/DropdownButton';
 
@@ -21,16 +20,14 @@ const BodyHeaderDropdown: React.FC<BodyHeaderDropdownProps> = ({
   children,
 }) => {
   return (
-    <Form formContext={formCtx}>
-      <Dropdown>
-        <Dropdown.Button className={styles.dropdownButton} color={color}>
-          {buttonText}
-        </Dropdown.Button>
-        <Dropdown.Menu pin="right" className={styles.dropdownMenu}>
-          {children}
-        </Dropdown.Menu>
-      </Dropdown>
-    </Form>
+    <Dropdown formCtx={formCtx}>
+      <Dropdown.Button className={styles.dropdownButton} color={color}>
+        {buttonText}
+      </Dropdown.Button>
+      <Dropdown.Menu pin="right" className={styles.dropdownMenu}>
+        {children}
+      </Dropdown.Menu>
+    </Dropdown>
   );
 };
 

@@ -1,7 +1,7 @@
 import classNames from 'classnames';
 import noop from 'lodash/noop';
 import React, {useState, useMemo, useCallback, useRef} from 'react';
-import {FormProvider, useForm} from 'react-hook-form';
+import {FormProvider, useForm, UseFormMethods} from 'react-hook-form';
 
 import useOutsideClick from 'hooks/useOutsideClick';
 
@@ -30,6 +30,7 @@ export interface DropdownProps {
   initialSelectId?: string;
   storeSelected?: boolean;
   filter?: (items: ItemObject, searchValue: string) => boolean;
+  formCtx?: UseFormMethods;
 }
 
 const defaultFilter = (item: ItemObject, searchValue: string) => {
@@ -46,8 +47,9 @@ export const Dropdown: React.FC<DropdownProps> = ({
   initialSelectId = '',
   storeSelected = false,
   filter = defaultFilter,
+  formCtx,
 }) => {
-  const formCtx = useForm();
+  const defaultFormContext = useForm();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedId, selectId] = useState(initialSelectId);
@@ -98,7 +100,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
     <DropdownContext.Provider value={dropdownContext}>
       <SelectedIdContext.Provider value={selectedIdContext}>
         <FilteredResultsContext.Provider value={filteredResultsContext}>
-          <FormProvider {...formCtx}>
+          <FormProvider {...defaultFormContext} {...formCtx}>
             <div
               className={classNames(styles.base, className)}
               ref={containerRef}
