@@ -595,7 +595,7 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 
 	// Compute maximum parallelism
 	maxParallelism := int32(1)
-	if op.pipelineInfo.ParallelismSpec != nil {
+	if op.pipelineInfo.ParallelismSpec != nil && op.pipelineInfo.ParallelismSpec.Constant > 0 {
 		maxParallelism = int32(op.pipelineInfo.ParallelismSpec.Constant)
 	}
 
@@ -621,6 +621,11 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 			log.Debugf("Beginning scale-up check for %q, which has %d unclaimed tasks",
 				op.name, unclaimedTasks)
 			if minParallelism := curReplicas + int32(unclaimedTasks); minParallelism < maxParallelism {
+				if minParallelism < 1 {
+					// initialially curReplicas will be 0, and unclaimedTasks are created
+					// by the worker master, and so also initially 0. Need to bootstrap.
+					return 1
+				}
 				return minParallelism
 			}
 			return maxParallelism
