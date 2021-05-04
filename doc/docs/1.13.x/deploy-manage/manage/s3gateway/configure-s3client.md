@@ -72,24 +72,24 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
       Default output format [None]:
       ```
 !!! Note
-      Note that the `--profile` flag ([named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)) is optional. If not used, your access information will simply be stored in the default profile. 
+      Note that the `--profile` flag ([named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)) is optional. If not used, your access information will be stored in the default profile. 
       
-      To reference a given profile when using the S3 client, simply append `--profile <name-your-profile>` at the end of your command.
+      To reference a given profile when using the S3 client, append `--profile <name-your-profile>` at the end of your command.
 
 !!! Info
       Find **AWS S3 CLI** full documentation [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html).
  
 ## Configure boto3
-Before using Boto3, you need to [set up authentication credentials for your AWS account](#configure-the-aws-cli) using the AWS CLI as mentionned previously.
+Before using Boto3, you need to [set up authentication credentials for your AWS account](#configure-the-aws-cli) using the AWS CLI as mentioned previously.
 
-Then follow the [Using boto](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#using-boto3) documentation starting with importing boto3 in your python file and creating your S3 ressource.
+Then follow the [Using boto](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#using-boto3) documentation starting with importing boto3 in your python file and creating your S3 resources.
    
 !!! Info   
       Find **boto3** full documentation [here](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html).
 
 
 ## Set Your Credentials
-- If [authentication is on](//TODO), 
+- If [authentication is enabled](../../../enterprise/auth/enable-auth.md), 
 retrieve your session token in your active context:
 
       ```shell
@@ -100,4 +100,4 @@ retrieve your session token in your active context:
 
       Depending on your use case, it might make sense to pass the credentials of a robot-user or another type of user altogether. Refer to the [authentication section of the documentation](../../../../enterprise/auth/#user-account-types) for more RBAC information.
 
-- If the authentication feature is not activated, make sure that whether you fill in those fields or not, their content always match. (i.e, both empty or both set to the same value)
+- If the authentication feature is not activated, make sure that whether you fill in those fields or not, their content always matches. (i.e., both empty or both set to the same value)
