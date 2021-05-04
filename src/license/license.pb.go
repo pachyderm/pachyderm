@@ -635,6 +635,7 @@ func (m *ClusterStatus) GetCreatedAt() *time.Time {
 	return nil
 }
 
+// Note: Updates of the enterprise-server field are not allowed. In the worst case, a user can recreate their cluster if they need the field updated.
 type UpdateClusterRequest struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Address              string   `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
