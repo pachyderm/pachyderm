@@ -72,6 +72,7 @@ base:
         rm kubeval-linux-amd64.tar.gz
     RUN cd /usr/local/ && \
         wget -nv -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
+  
   docker_bake_script: |-
     #!/bin/bash
     set -xeuo pipefail
