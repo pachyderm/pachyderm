@@ -55,7 +55,7 @@ type file struct {
 	hash []byte
 }
 
-func (v *Validator) Validate(client Client, repo, commit string) (retErr error) {
+func (v *Validator) Validate(client Client, repo, branch, commit string) (retErr error) {
 	var files []*file
 	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
 		buf := &bytes.Buffer{}
@@ -77,7 +77,7 @@ func (v *Validator) Validate(client Client, repo, commit string) (retErr error) 
 			}
 		}
 	}()
-	r, err := client.GetFileTar(context.Background(), repo, commit, "**")
+	r, err := client.GetFileTar(context.Background(), repo, branch, commit, "**")
 	if err != nil {
 		return err
 	}
@@ -109,8 +109,8 @@ type validatorClient struct {
 	validator *Validator
 }
 
-func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, commit string, cb func(client.ModifyFile) error) error {
-	return vc.Client.WithModifyFileClient(ctx, repo, commit, func(mf client.ModifyFile) (retErr error) {
+func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, branch, commit string, cb func(client.ModifyFile) error) error {
+	return vc.Client.WithModifyFileClient(ctx, repo, branch, commit, func(mf client.ModifyFile) (retErr error) {
 		vmfc := &validatorModifyFileClient{
 			ModifyFile: mf,
 			buffer:     fileset.NewBuffer(),
