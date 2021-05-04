@@ -275,7 +275,7 @@ func (tb *TransactionBuilder) Close() error {
 // GetAddress should not exist on a TransactionBuilder because it doesn't represent
 // ownership of a connection to the API server, but it also doesn't return an error,
 // so we just passthrough to the parent client's implementation.
-func (tb *TransactionBuilder) GetAddress() string {
+func (tb *TransactionBuilder) GetAddress() *grpcutil.PachdAddress {
 	return tb.parent.GetAddress()
 }
 

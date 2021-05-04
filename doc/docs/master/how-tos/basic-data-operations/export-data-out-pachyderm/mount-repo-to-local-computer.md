@@ -102,7 +102,7 @@ Yosemite or later.
   * On macOS, run:
 
     ```shell
-    brew cask install osxfuse
+    brew install osxfuse
     ```
 
   * On Ubuntu, run:
@@ -166,6 +166,13 @@ For example, `pfs`.
       The command runs in your terminal until you terminate it
       by pressing `CTRL+C`.
 
+      **Useful Tip:**
+      
+      Mount multiple repos at once by appending each mount instruction to the same command.
+      For example, the following will mount both repos to the `/pfs` directory.
+      ```shell
+      pachctl mount ./pfs -r first_repo@master -r second_repo@master
+      ```  
 1. You can check that the repo was mounted by running the mount command
 in your terminal:
 

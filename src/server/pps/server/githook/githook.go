@@ -61,7 +61,7 @@ func URLFromDomain(domain string) string {
 
 // RunGitHookServer starts the webhook server
 func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) error {
-	c, err := client.NewFromAddress(address)
+	c, err := client.NewFromURI(address)
 	if err != nil {
 		return err
 	}

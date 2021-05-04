@@ -13,7 +13,7 @@ func ExampleAPIClient_CreateRepo() {
 
 	// Create a repo called "test" and print the list of
 	// repositories.
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +41,7 @@ func ExampleAPIClient_CreateRepo() {
 func ExampleAPIClient_DeleteRepo() {
 
 	// Delete a repository called "test".
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func ExampleAPIClient_DeleteRepo() {
 func ExampleAPIClient_ListRepo() {
 
 	// View the list of existing repositories.
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -93,7 +93,7 @@ func ExampleAPIClient_NewModifyFileClient() {
 	// This method enables you to group multiple "put file" operations into one
 	// request.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -134,7 +134,7 @@ func ExampleAPIClient_PutFile_string() {
 	// string in the scripts and adds it to a file named "file" in the "test"
 	// repository.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -170,7 +170,7 @@ func ExampleAPIClient_PutFile_file() {
 	// opens the file named "text.md" and then uses the PutFile method to add it
 	// to the repo "test@master".
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -207,7 +207,7 @@ func ExampleAPIClient_CreateBranch() {
 	// branch that will be used as head, and provenance. Provenance
 	// is an optional paramater and get be set to "nil" for nothing,
 	// to a commit ID or to a branch name.
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -246,7 +246,7 @@ func ExampleAPIClient_ListCommit() {
 	// In the example below, the "to" parameter is left blank, and the "from"
 	// parameter is set to "0", which means all commits.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -297,7 +297,7 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 	// index [1] that adds "file2" in the repository "test" and will create
 	// a branch "new-branch" in which we will add "file4". "newbranch" will
 	// have "file1", "file2", and "file4", but will not have "file3".
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -350,7 +350,7 @@ func ExampleAPIClient_ListCommitF() {
 	// instead of returning all commits at once. Most of Pachyderm's
 	// "List" methods have a similar function.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -401,7 +401,7 @@ func ExampleAPIClient_CreatePipeline() {
 	// to "/pfs/out" directory. Because no image is specified,
 	// Pachyderm will use the basic image. The input is defined as
 	// the repo "test" with the "/*" glob pattern.
-	c, err := NewFromAddress("192.168.64.2:30650")
+	c, err := NewFromURI("192.168.64.2:30650")
 	if err != nil {
 		panic(err)
 	}

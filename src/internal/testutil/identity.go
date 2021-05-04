@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"golang.org/x/oauth2"
@@ -199,23 +198,21 @@ func RewriteURL(t testing.TB, urlStr, host string) string {
 
 // DexHost returns the address to access the identity server during tests
 func DexHost(c *client.APIClient) string {
-	parts := strings.Split(c.GetAddress(), ":")
-	if parts[1] == "650" {
-		return parts[0] + ":658"
+	if c.GetAddress().Port == 650 {
+		return c.GetAddress().Host + ":658"
 	}
-	if parts[1] == "31650" {
-		return parts[0] + ":31658"
+	if c.GetAddress().Port == 31650 {
+		return c.GetAddress().Host + ":31658"
 	}
-	return parts[0] + ":30658"
+	return c.GetAddress().Host + ":30658"
 }
 
 func pachHost(c *client.APIClient) string {
-	parts := strings.Split(c.GetAddress(), ":")
-	if parts[1] == "650" {
-		return parts[0] + ":657"
+	if c.GetAddress().Port == 650 {
+		return c.GetAddress().Host + ":657"
 	}
-	if parts[1] == "31650" {
-		return parts[0] + ":31657"
+	if c.GetAddress().Port == 31650 {
+		return c.GetAddress().Host + ":31657"
 	}
-	return parts[0] + ":30657"
+	return c.GetAddress().Host + ":30657"
 }
