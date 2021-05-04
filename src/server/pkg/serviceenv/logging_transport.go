@@ -89,41 +89,43 @@ func (t *loggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, 
 				"method":           "Timeout",
 				"start":            start.Format(time.StampMicro),
 				"context-duration": time.Since(start).Seconds(),
-				"requestID":        requestID,
+				"pach-request-id":  requestID,
 			}).Debug()
 		}()
 	}
 	req.Body = newBufReadCloser(req.Body)
 	log.WithFields(log.Fields{
-		"service":     "k8s.io/client-go",
-		"method":      "Request",
-		"start":       start.Format(time.StampMicro),
-		"delay":       time.Since(start).Seconds(),
-		"http-method": req.Method,
-		"url":         req.URL.String(),
-		"requestID":   requestID,
-		"body":        bodyMsg(req.Body),
+		"service":         "k8s.io/client-go",
+		"method":          "Request",
+		"start":           start.Format(time.StampMicro),
+		"delay":           time.Since(start).Seconds(),
+		"http-method":     req.Method,
+		"headers":         req.Header,
+		"url":             req.URL.String(),
+		"pach-request-id": requestID,
+		"body":            bodyMsg(req.Body),
 	}).Debug()
 
 	// Log response
 	defer func() {
 		le := log.WithFields(log.Fields{
-			"service":     "k8s.io/client-go",
-			"method":      "Response",
-			"start":       start.Format(time.StampMicro),
-			"now":         time.Now().Format(time.StampMicro),
-			"duration":    time.Since(start),
-			"http-method": req.Method,
-			"url":         req.URL.String(),
-			"requestID":   requestID,
-			"err":         retErr,
+			"service":         "k8s.io/client-go",
+			"method":          "Response",
+			"start":           start.Format(time.StampMicro),
+			"now":             time.Now().Format(time.StampMicro),
+			"duration":        time.Since(start),
+			"http-method":     req.Method,
+			"url":             req.URL.String(),
+			"pach-request-id": requestID,
+			"err":             retErr,
 		})
 		if res != nil {
 			// Peek into res. body and log a prefix
 			res.Body = newBufReadCloser(res.Body)
 			le = le.WithFields(log.Fields{
-				"status": res.Status,
-				"body":   bodyMsg(res.Body),
+				"status":  res.Status,
+				"headers": res.Header,
+				"body":    bodyMsg(res.Body),
 			})
 		}
 		le.Debug()
