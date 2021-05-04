@@ -1,51 +1,60 @@
-# Overview
+# Global S3 Gateway 
 
-Pachyderm includes an S3 gateway that enables you to interact with PFS storage
-through an HTTP application programming interface (API) that imitates the
-Amazon S3 Storage API. Therefore, with Pachyderm S3 gateway, you can interact
-with Pachyderm through tools and libraries designed to work with object stores.
-For example, you can use these tools:
+Pachyderm comes with an embedded **S3 gateway**, deployed in the `pachd` pod, that allows you to
+**access Pachyderm's repo through the S3 protocol**.  
 
-* [MinIO](https://docs.min.io/docs/minio-client-complete-guide)
-* [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
+The S3 Gateway is designed to work with any S3 Client, among which: 
 
-When you deploy `pachd`, the S3 gateway starts automatically.
+- MinIO
+- AWS S3 cli
+- boto3
 
-The S3 gateway has some limitations that are outlined below. If you need richer
-access, use the PFS gRPC interface instead, or one of the
-[client drivers](https://github.com/pachyderm/python-pachyderm).
+The operations on the HTTP API exposed by the S3 Gateway largely mirror those documented in [S3’s official docs](https://docs.aws.amazon.com/cli/latest/reference/s3/). It is typically used when you wish to retrieve data from or expose data to object storage tooling (such as MinIO, boto3, and aws s3 cli). 
 
-## Authentication
+!!! Info
+    `pachd` service exposes the S3 gateway (`s3gateway-port`) on port **30600**.
 
-If auth is enabled on the Pachyderm cluster, credentials must be passed with
-each S3 gateway endpoint using AWS' signature v2 or v4 methods. Object store
-tools and libraries provide built-in support for these methods, but they do
-not work in the browser. When you use authentication, set the access and
-secret key to the same value. They are both the Pachyderm auth token used
-to issue the relevant PFS calls.
+!!! Note "Before using the S3 Gateway"
+    Make sure to install and configure the S3 client of your choice as documented [here](configure-s3client.md).
 
-If auth is disabled, you can still pass arbitrary credentials, but the
-secret key must match the access key.
+## Quick Start
+The S3 gateway presents **each branch from every Pachyderm repository as an S3 bucket**.
+Buckets are represented via `branch.repo`. 
 
-## Buckets
+!!! Example
+    The `master.data` bucket corresponds
+    to the `master` branch of the repo `data`.
 
-The S3 gateway presents each branch from every Pachyderm repository as
-an S3 bucket.
-For example, if you have a `master` branch in the `images` repository,
-an S3 tool sees `images@master` as the `master.images` S3 bucket.
+The following diagram gives a quick overview of the two main aws commands
+that will let you put data into a repo or retrieve data from it via the S3 gateway. 
+For reference, we have also mentioned the corresponding `pachctl` commands
+and the equivalent call to a real s3 Bucket.
+
+![Global S3 Gateway](../../images/main_s3_gateway.png)
+
+Find the exhaustive list of:
+
+- [all of Pachyderm's supported `aws s3` commands](supported-operations.md).
+- and the [unsupported ones](unsupported-operations.md).
+
+## If Authentication Is Enabled
+If [auth is enabled](../../../enterprise/auth/enable-auth.md) on the Pachyderm cluster, credentials must be passed with
+each S3 gateway endpoint as mentionned in the [**Configure Your S3 Client**](./configure-s3client/#set-your-credentials) page.
+
+!!! Warning "Important"
+    In any case, whether those values are empty (no authentication) or set, the Access Key must equal the 
+    Secret Key (both set to the same value). 
+
+## Port Forwarding
+If you do not have direct access to the Kubernetes cluster, you can use port
+forwarding instead. Run `pachctl port-forward`, which will allow you
+to access the s3 gateway through the `localhost:30600` endpoint.
+
+However, the Kubernetes port forwarder incurs substantial overhead and
+does not recover well from broken connections. Connecting to the
+cluster directly is faster and more reliable.
 
 ## Versioning
-
 Most operations act on the `HEAD` of the given branch. However, if your object
 store library or tool supports versioning, you can get objects in non-`HEAD`
 commits by using the commit ID as the S3 object version ID.
-
-## Port Forwarding
-
-If you do not have direct access to the Kubernetes cluster, you can use port
-forwarding instead. Simply run `pachctl port-forward`, which will allow you
-to access the s3 gateway through `localhost:30600`.
-
-However, the Kubernetes port forwarder incurs substantial overhead and
-does not recover well from broken connections. Therefore, connecting to the
-cluster directly is faster and more reliable.
