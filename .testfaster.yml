@@ -42,7 +42,7 @@ base:
   # TODO: make this optional
   kernel_image: "quay.io/testfaster/ignite-kernel"
 
- os_dockerfile: |-
+  os_dockerfile: |-
     FROM quay.io/testfaster/kube-ubuntu
     ENV cache-bust 19
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck rsync jq pv silversearcher-ag
