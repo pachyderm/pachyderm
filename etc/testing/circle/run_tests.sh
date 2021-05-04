@@ -2,11 +2,7 @@
 
 set -ex
 
-GOPATH=/home/circleci/.go_workspace
-export GOPATH
-
-PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
-export PATH
+source "$(dirname "$0")/env.sh"
 
 VM_IP="$(minikube ip)"
 export VM_IP

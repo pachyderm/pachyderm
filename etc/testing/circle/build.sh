@@ -2,8 +2,7 @@
 
 set -ex
 
-export GOPATH=/home/circleci/.go_workspace
-export PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
+source "$(dirname "$0")/env.sh"
 
 eval $(minikube docker-env)
 make install
