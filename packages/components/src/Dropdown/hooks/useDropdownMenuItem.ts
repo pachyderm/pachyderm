@@ -1,14 +1,17 @@
-import {RefObject, useCallback} from 'react';
+import {RefObject, useCallback, useEffect, useMemo} from 'react';
+import {useFormContext} from 'react-hook-form';
 
 import {Keys} from 'lib/types';
 
 import useDropdown from './useDropdown';
+import useSelectedId from './useSelectedId';
 
 interface UseDropdownMenuItemOpts {
   id: string;
   onClick: () => void;
   closeOnClick: boolean;
   ref: RefObject<HTMLButtonElement>;
+  value: string;
 }
 
 const findNextActiveSibling = (
@@ -40,13 +43,48 @@ const useDropdownMenuItem = ({
   onClick,
   closeOnClick,
   ref,
+  value,
 }: UseDropdownMenuItemOpts) => {
-  const {setSelectedId, onSelect, selectedId, closeDropdown} = useDropdown();
+  const {closeDropdown, filter, setFilteredResults} = useDropdown();
+  const {selectedId, setSelectedId} = useSelectedId();
+  const {watch} = useFormContext();
+
+  const searchValue = watch('search');
+
+  const shown = useMemo(() => filter({id, value}, searchValue), [
+    searchValue,
+    filter,
+    id,
+    value,
+  ]);
+
+  useEffect(() => {
+    if (shown) {
+      setFilteredResults((results) => {
+        return [...results, {id, value}];
+      });
+    } else {
+      setFilteredResults((results) => {
+        return results.filter((result) => result.id !== id);
+      });
+    }
+  }, [shown, id, setFilteredResults, value]);
+
+  useEffect(() => {
+    // We want to remove the unmounted item from the
+    // filtered results. This is important in case the
+    // Dropdown itself has dynamic items.
+
+    return () => {
+      setFilteredResults((results) => {
+        return results.filter((result) => result.id !== id);
+      });
+    };
+  }, [id, setFilteredResults]);
 
   const selectItem = useCallback(() => {
     setSelectedId(id);
-    onSelect(id);
-  }, [id, onSelect, setSelectedId]);
+  }, [id, setSelectedId]);
 
   const isSelected = selectedId === id;
 
@@ -126,7 +164,14 @@ const useDropdownMenuItem = ({
     [closeDropdown, ref],
   );
 
-  return {selectItem, isSelected, closeDropdown, handleClick, handleKeyDown};
+  return {
+    selectItem,
+    isSelected,
+    closeDropdown,
+    handleClick,
+    handleKeyDown,
+    shown,
+  };
 };
 
 export default useDropdownMenuItem;

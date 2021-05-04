@@ -11,6 +11,7 @@ export interface DropdownMenuItemProps
   id: string;
   important?: boolean;
   closeOnClick?: boolean;
+  value?: string;
 }
 
 export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
@@ -20,19 +21,25 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   className,
   onClick = noop,
   closeOnClick = false,
+  value = '',
   ...rest
 }) => {
   const ref = useRef<HTMLButtonElement>(null);
-  const {isSelected, handleClick, handleKeyDown} = useDropdownMenuItem({
+  const {isSelected, handleClick, handleKeyDown, shown} = useDropdownMenuItem({
     id,
     onClick,
     closeOnClick,
     ref,
+    value,
   });
   const classes = classnames(styles.base, className, {
     [styles.important]: important,
     [styles.selected]: isSelected,
   });
+
+  if (!shown) {
+    return null;
+  }
 
   return (
     <button

@@ -30,6 +30,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
 
   return (
     <button
+      data-testid="DropdownButton__button"
       ref={dropdownButtonRef}
       aria-haspopup
       aria-expanded={isOpen}

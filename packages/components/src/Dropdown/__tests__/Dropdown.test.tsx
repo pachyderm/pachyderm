@@ -1,8 +1,14 @@
 import {render, waitFor, act, fireEvent} from '@testing-library/react';
 import React from 'react';
 
-import {Dropdown} from 'Dropdown';
 import {click, type} from 'testHelpers';
+
+import {
+  DefaultDropdown,
+  DropdownItem,
+  SearchableDropdown,
+  DropdownProps,
+} from '../';
 
 describe('Dropdown', () => {
   const renderTestbed = ({
@@ -10,27 +16,19 @@ describe('Dropdown', () => {
   }: {closeOnClick?: boolean} = {}) => {
     const onSelect = jest.fn();
 
+    const items: DropdownItem[] = [
+      {id: 'disabled1', content: 'Disabled 1', disabled: true},
+      {id: 'link1', content: 'Link 1', closeOnClick},
+      {id: 'link2', content: 'Link 2', closeOnClick},
+    ];
+
     const renderResults = render(
       <>
         <div>Outside</div>
 
-        <Dropdown onSelect={onSelect}>
-          <Dropdown.Button data-testid={'Dropdown__button'}>
-            Button
-          </Dropdown.Button>
-
-          <Dropdown.Menu>
-            <Dropdown.MenuItem id="disabled1" disabled>
-              Disabled 1
-            </Dropdown.MenuItem>
-            <Dropdown.MenuItem id="link1" closeOnClick={closeOnClick}>
-              Link 1
-            </Dropdown.MenuItem>
-            <Dropdown.MenuItem id="link2" closeOnClick={closeOnClick}>
-              Link 2
-            </Dropdown.MenuItem>
-          </Dropdown.Menu>
-        </Dropdown>
+        <DefaultDropdown onSelect={onSelect} items={items}>
+          Button
+        </DefaultDropdown>
       </>,
     );
 
@@ -94,7 +92,7 @@ describe('Dropdown', () => {
     click(link1);
 
     await waitFor(() => expect(queryByRole('menu')).toBeNull());
-    expect(getByTestId('Dropdown__button')).toHaveFocus();
+    expect(getByTestId('DropdownButton__button')).toHaveFocus();
   });
 
   describe('keyboard interactions', () => {
@@ -201,7 +199,87 @@ describe('Dropdown', () => {
       await type(document.activeElement as HTMLElement, '{esc}');
 
       expect(queryByRole('menu')).toBeNull();
-      expect(getByTestId('Dropdown__button')).toHaveFocus();
+      expect(getByTestId('DropdownButton__button')).toHaveFocus();
+    });
+  });
+
+  describe('search', () => {
+    const TestBed = (props: DropdownProps) => {
+      const items: DropdownItem[] = [
+        {id: '0', value: 'master', content: 'master'},
+        {id: '1', value: 'staging', content: 'staging'},
+        {id: '2', value: 'development', content: 'development'},
+      ];
+
+      return (
+        <SearchableDropdown
+          items={items}
+          emptyResultsContent={'No results found.'}
+          {...props}
+        >
+          Select branch
+        </SearchableDropdown>
+      );
+    };
+
+    it('should filter results when search bar is present', async () => {
+      const {getByText, getByLabelText, queryByText} = render(<TestBed />);
+
+      click(getByText('Select branch'));
+
+      const searchBar = getByLabelText('Search');
+
+      await type(searchBar, 'mas');
+
+      expect(queryByText('master')).toBeInTheDocument();
+      expect(queryByText('staging')).toBeNull();
+      expect(queryByText('development')).toBeNull();
+    });
+
+    it('should allow users to pass a custom filter', async () => {
+      const {getByText, getByLabelText, queryByText} = render(
+        <TestBed filter={({id}, value) => id === value} />,
+      );
+
+      click(getByText('Select branch'));
+
+      const searchBar = getByLabelText('Search');
+
+      await type(searchBar, '2');
+
+      expect(queryByText('development')).toBeInTheDocument();
+      expect(queryByText('master')).toBeNull();
+      expect(queryByText('staging')).toBeNull();
+    });
+
+    it('should allow user to clear search input with clear button', async () => {
+      const {getByText, getByLabelText} = render(<TestBed />);
+
+      click(getByText('Select branch'));
+
+      const searchBar = getByLabelText('Search');
+      const clearButton = getByLabelText('Clear');
+
+      await type(searchBar, 'stuff');
+      expect(searchBar).toHaveValue('stuff');
+
+      await act(async () => {
+        await click(clearButton);
+      });
+
+      expect(searchBar).toHaveValue('');
+    });
+
+    it('should display empty result component when all results are filtered', async () => {
+      const {getByText, getByLabelText, queryByText} = render(<TestBed />);
+
+      click(getByText('Select branch'));
+
+      const searchBar = getByLabelText('Search');
+
+      await type(searchBar, 'what');
+
+      expect(queryByText('No results found.')).toBeInTheDocument();
     });
   });
 });
