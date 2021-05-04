@@ -38,13 +38,12 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/GetOIDCLogin": unauthenticated,
 
 	// TODO: restrict GetClusterRoleBinding to cluster admins?
-	"/auth.API/CreateRoleBinding":       authenticated,
-	"/auth.API/GetRoleBinding":          authenticated,
-	"/auth.API/ModifyRoleBinding":       authenticated,
-	"/auth.API/RevokeAuthToken":         authenticated,
-	"/auth.API/RevokeAuthTokensForUser": authenticated,
-	"/auth.API/GetGroups":               authenticated,
-	"/auth.API/GetPermissions":          authenticated,
+	"/auth.API/CreateRoleBinding": authenticated,
+	"/auth.API/GetRoleBinding":    authenticated,
+	"/auth.API/ModifyRoleBinding": authenticated,
+	"/auth.API/RevokeAuthToken":   authenticated,
+	"/auth.API/GetGroups":         authenticated,
+	"/auth.API/GetPermissions":    authenticated,
 
 	"/auth.API/GetGroupsForPrincipal":      clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_GROUPS),
 	"/auth.API/GetPermissionsForPrincipal": clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL),
@@ -58,6 +57,7 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/RestoreAuthToken":           clusterPermissions(auth.Permission_CLUSTER_AUTH_RESTORE_TOKEN),
 	"/auth.API/Deactivate":                 clusterPermissions(auth.Permission_CLUSTER_AUTH_DEACTIVATE),
 	"/auth.API/DeleteExpiredAuthTokens":    clusterPermissions(auth.Permission_CLUSTER_AUTH_DELETE_EXPIRED_TOKENS),
+	"/auth.API/RevokeAuthTokensForUser":    clusterPermissions(auth.Permission_CLUSTER_AUTH_REVOKE_USER_TOKENS),
 
 	//
 	// Debug API
