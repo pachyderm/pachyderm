@@ -51,8 +51,7 @@ deployed in a sidecar and the Kubeflow pod.
       - read and write in the S3 Buckets exposed to the pipeline.
 
 
-* To access the sidecar instance and a bucket, you should use the [S3_ENDPOINT]() 
-  Environment variable. No authentication is needed, 
+* To access the sidecar instance and a bucket, you should use the [S3_ENDPOINT](../../../deploy/environment-variables/#pipeline-worker-environment-variables) Environment variable. No authentication is needed, 
   you can only read the input bucket and write in the output bucket.
   ```shell
   aws --endpoint-url $S3_ENDPOINT s3 cp /tmp/result/ s3://out --recursive

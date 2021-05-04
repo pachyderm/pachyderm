@@ -39,7 +39,7 @@ Find the exhaustive list of:
 - and the [unsupported ones](unsupported-operations.md).
 
 ## If Your Authentication Is On
-If [auth is enabled](//TODO) on the Pachyderm cluster, credentials must be passed with
+If [auth is enabled](../../../enterprise/auth/enable-auth.md) on the Pachyderm cluster, credentials must be passed with
 each S3 gateway endpoint as mentionned in the [**Configure Your S3 Client**](./configure-s3client/#set-your-credentials) page.
 
 !!! Warning "Important"
@@ -56,7 +56,6 @@ does not recover well from broken connections. Connecting to the
 cluster directly is faster and more reliable.
 
 ## Versioning
-//TODO Include example
 Most operations act on the `HEAD` of the given branch. However, if your object
 store library or tool supports versioning, you can get objects in non-`HEAD`
 commits by using the commit ID as the S3 object version ID.
