@@ -16,6 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
@@ -24,6 +26,7 @@ import (
 )
 
 const maxErrCount = 3 // gives all retried operations ~4.5s total to finish
+const scaleUpInterval = time.Second * 30
 
 type rcExpectation byte
 
@@ -590,23 +593,55 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 		tracing.FinishAnySpan(span)
 	}()
 
-	// compute target pipeline parallelism
-	parallelism := uint64(1)
+	// Compute maximum parallelism
+	maxParallelism := int32(1)
 	if op.pipelineInfo.ParallelismSpec != nil {
-		parallelism = op.pipelineInfo.ParallelismSpec.Constant
+		maxParallelism = int32(op.pipelineInfo.ParallelismSpec.Constant)
 	}
 
 	// update pipeline RC
 	return op.updateRC(func(rc *v1.ReplicationController) bool {
+		var curReplicas int32
 		if rc.Spec.Replicas != nil && *rc.Spec.Replicas > 0 {
-			return false // prior attempt succeeded
+			curReplicas = int32(*rc.Spec.Replicas)
 		}
-		rc.Spec.Replicas = new(int32)
-		if op.pipelineInfo.Autoscaling {
-			*rc.Spec.Replicas = 1
-		} else {
-			*rc.Spec.Replicas = int32(parallelism)
+		target := func() int32 {
+			if !op.pipelineInfo.Autoscaling {
+				return maxParallelism // don't bother if Autoscaling is off
+			}
+			unclaimedTasks, err := work.NewWorker(
+				op.m.a.env.GetEtcdClient(),
+				op.m.a.etcdPrefix,
+				driver.WorkNamespace(op.pipelineInfo),
+			).UnclaimedTasks(op.opClient.Ctx())
+			if err != nil {
+				log.Errorf("couldn't compute unclaimed tasks for %q: %v", op.name, err)
+				return maxParallelism // default behavior if 'unclaimedTasks' is unavailable
+			}
+			log.Debugf("Beginning scale-up check for %q, which has %d unclaimed tasks",
+				op.name, unclaimedTasks)
+			if minParallelism := curReplicas + int32(unclaimedTasks); minParallelism < maxParallelism {
+				return minParallelism
+			}
+			return maxParallelism
+		}()
+		if curReplicas == target {
+			return false // no changes necessary
 		}
+
+		// Scaling is being updated; do another check in scaleUpInterval
+		go func() {
+			time.Sleep(scaleUpInterval)
+			select {
+			case op.m.eventCh <- &pipelineEvent{eventType: writeEv, pipeline: op.name}:
+				break
+			case <-op.m.masterClient.Ctx().Done():
+				break
+			}
+		}()
+
+		// Update the # of replicas
+		rc.Spec.Replicas = &target
 		return true
 	})
 }
