@@ -1,32 +1,24 @@
-# S3 Protocol Enabled Pipelines
-//TODO
-Also named **Sidecar S3 Gateway** as it is exposed through a sidecar instance in a pipeline worker pod.
+# Sidecar S3 Gateway 
+
+Pachyderm offers the option to use **S3-Protocol-Enabled Pipelines** (i.e., Pipelines enabled to access input and output repos via the S3 Gateway).
+
+This is useful when your pipeline code wants to interact with input and/or 
+output data throught the S3 protocol. For example running Kubeflow or Apache™ Spark worload with Pachyderm. 
+
 !!! Note
-    Note that this use case of the S3 Gateway differs from its [main and more general use case](index.md) as the latter exists independently and outside of any pipeline lifecycle.
+    Note that this use case of the S3 Gateway differs from the [Global use case](index.md). The latter runs directly on the `pachd` pod and exists independently and outside of any pipeline lifecycle. 
+    The *"Sidecar S3 Gateway"* (also referred to as *"S3 Enabled Pipelines"*) on the other hand, is a separate S3 gateway instance **running in a `sidecar` container in the `pipeline worker` pod**.
 
+!!! Warning "Maintaining data provenance"
+    For example, if a Kubeflow pipeline were to read and write data from a Pachyderm repo
+    directly through the global S3 gateway, Pachyderm
+    would not be able to maintain data provenance
+    (the alteration of the data in the output repo could not be traced back to any given job/input commit). 
 
-Let's say you wish to run a platform (namely Kubeflow or
-Apache™ Spark) inside of a Pachyderm cluster. Such products
-have the ability to interact with object stores 
-but do not work with local file systems.
-They will need to to access Pachyderm repo via the S3 Gateway.
+    Using an S3-enabled pipeline, Pachyderm will control the flow and
+    the same Kubeflow code will now be part of Pachydermn's job execution, thus maintaining proper data provenance.
 
-If you want to use Pachyderm with such platforms, you need to create an S3-enabled Pachyderm pipeline.
-Such a pipeline ensures that data provenance of the pipelines that
-run in those external systems is properly preserved and is tied to
-corresponding Pachyderm jobs.
-
-You can deploy a separate S3 gateway instance as a sidecar container
-in your pipeline worker pod. 
-
-The main S3 gateway exists independently and outside of the
-pipeline lifecycle. Therefore, if a
-Kubeflow pod connects through the master S3 gateway, the Pachyderm pipelines
-created in Kubeflow do not properly maintain data provenance. When the
-S3 functionality is exposed through a sidecar instance in the
-pipeline worker pod, Kubeflow can access the files stored in S3 buckets
-in the pipeline pod, which ensures the provenance is maintained
-correctly. The S3 gateway sidecar instance is created together with the
+The S3 gateway sidecar instance is created together with the
 pipeline and shut down when the pipeline is destroyed.
 
 The following diagram shows communication between the S3 gateway
@@ -34,58 +26,39 @@ deployed in a sidecar and the Kubeflow pod.
 
 ![Kubeflow S3 gateway](../../../assets/images/d_kubeflow_sidecar.png)
 
-## Limitations
+## S3 Enable your Pipeline 
 
-Pipelines exposed through a sidecar S3 gateway have the following limitations:
+* Input repos:
 
-* As with a standard Pachyderm pipeline, in which the input repo is read-only
-and output is write-only, the same applies to using the S3 gateway within
-pipelines. The input bucket(s) are read-only and the output bucket that
-you define using the `s3_out` parameter is write-only. This limitation
-guarantees that pipeline provenance is preserved just as it is with normal
-Pachyderm pipelines.
+    Set the `s3` parameter in the `input`
+    section of your pipeline specification to `true`.
+    When enabled, input repositories are exposed as S3 Buckets via the S3 gateway sidecar instance
+    instead of local `/pfs/` files. You can set this property for each PFS input in
+    a pipeline. The address of the input repository will be `s3://<input_repo_name>`.
 
-* The `glob` field in the pipeline must be set to `"glob": "/"`. All files
-are processed as a single datum. In this configuration, already processed
-datums are not skipped which
-could be an important performance consideration for some processing steps.
+* Output repo:
 
-* Join and union inputs are not supported, but you can create a cross or
-a single input.
+    You can also expose the output repository through the same S3 gateway
+    instance by setting the `s3_out` property to `true` in the root of
+    the pipeline spec.  If set to `true`, the output repository
+    is exposed as an S3 Bucket via the same S3 gateway instance instead of
+    writing in `/pfs/out`.
+    The address of the output repository will be `s3://out`
 
-* You can create a cross of an S3-enabled input with a non-S3 input.
-For a non-S3 input in such a cross you can still specify a glob pattern.
+!!! Note
+    The user code is responsible to:
+      - provide its own S3 client package as part of the image (boto3).
+      - read and write in the S3 Buckets exposed to the pipeline.
 
-* Statistics collection for S3-enabled pipelines is not supported. If you
-set `"s3_out": true`, you need to disable the `enable_stats`
-parameter in your pipeline. 
 
-## Expose a Pipeline through an S3 Gateway in a Sidecar
+* To access the sidecar instance and a bucket, you should use the [S3_ENDPOINT]() 
+  Environment variable. No authentication is needed, 
+  you can only read the input bucket and write in the output bucket.
+  ```shell
+  aws --endpoint-url $S3_ENDPOINT s3 cp /tmp/result/ s3://out --recursive
+  ```
 
-When you work with platforms like Kubeflow or Apache Spark, you need
-to spin up an S3 gateway instance that runs alongside the pipeline worker
-pod as a sidecar container. To do so, set the `s3` parameter in the `input`
-part of your pipeline specification to `true`. When enabled, this parameter
-mounts S3 buckets for input repositories in the S3 gateway sidecar instance
-instead of in `/pfs/`. You can set this property for each PFS input in
-a pipeline. The address of the input repository will be `s3://<input_repo>`.
-
-You can also expose the output repository through the same S3 gateway
-instance by setting the `s3_out` property to `true` in the root of
-the pipeline spec.  If set to `true`, Pachyderm creates another S3 bucket
-on the sidecar, and the output files will be written there instead of
-`/pfs/out`. By default, `s3_out` is set to `false`. The address of the
-output repository will be `s3://<output_repo>`, which is always the name
-of the pipeline.
-
-You can connect to the S3 gateway sidecar instance through its Kubernetes
-service. To access the sidecar instance and the buckets on it, you need
-to know the address of the buckets. Because PPS handles all permissions,
-no special authentication configuration is needed.
-
-The following text is an example of a pipeline exposed through a sidecar
-S3 gateway instance:
-
+The following json is an example of a S3 enabled pipeline spec (input and output over S3):
 ```json
 {
   "pipeline": {
@@ -107,10 +80,29 @@ S3 gateway instance:
   "s3_out": true
 }
 ```
+## Constraints and specificities
 
+S3 enabled Pipelines have the following constraints and specificities:
 
+* The `glob` field in the pipeline must be set to `"glob": "/"`. All files
+are processed as a single datum. In this configuration, already processed
+datums are not skipped which
+could be an important performance consideration for some processing steps.
+
+* Join, group, union inputs are not supported, but you can create a cross.
+
+* You can create a cross of an S3-enabled input with a non-S3 input.
+For a non-S3 input in such a cross you can still specify a glob pattern.
+
+* Statistics collection for S3-enabled pipelines is not supported. If you
+set `"s3_out": true`, you need to disable the `enable_stats`
+parameter in your pipeline. 
+
+* As in standard Pachyderm pipelines in which input repo are read-only
+and output repo writable, 
+input bucket(s) are read-only and the output bucket is initially empty and writable. 
 
 !!! note "See Also:"
+    - [Configure Environment Variables](../../../deploy/environment-variables/)
     - [Complete S3 Gateway API reference](../../../../reference/s3gateway_api/)
     - [Pipeline Specification](../../../../reference/pipeline_spec/#input)
-    - [Configure Environment Variables](../../../deploy/environment-variables/)

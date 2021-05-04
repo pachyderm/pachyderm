@@ -239,7 +239,7 @@ nav:
             - Using the S3 Gateway:
                 - Global S3 Gateway: deploy-manage/manage/s3gateway/index.md
                 - Configure your S3 Client: deploy-manage/manage/s3gateway/configure-s3client.md
-                - Access the S3 Gateway from a Pipeline: deploy-manage/manage/s3gateway/deploy-s3gateway-sidecar.md
+                - Sidecar S3 Gateway: deploy-manage/manage/s3gateway/deploy-s3gateway-sidecar.md
                 - Supported Operations: deploy-manage/manage/s3gateway/supported-operations.md
                 - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
     - Reference:
