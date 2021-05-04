@@ -39,7 +39,7 @@
 
 .goBack:hover .goBackSvg path,
 .goBack:active .goBackSvg path,
-.goBack:focus .goBackSvg path {
+.goBack:focus[class$='focus-visible'] .goBackSvg path {  
   fill: var(--pachyderm-orange);
 }
 
