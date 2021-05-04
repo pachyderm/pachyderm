@@ -1407,6 +1407,12 @@ func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.Delet
 func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.RevokeAuthTokensForUserRequest) (resp *auth.RevokeAuthTokensForUserResponse, retErr error) {
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
+	// Allow revoking auth tokens for pipelines, robots and IDP users,
+	// but not the root token or PPS user
+	if strings.HasPrefix(req.Username, auth.PachPrefix) {
+		return nil, errors.New("cannot revoke tokens for pach: users")
+	}
+
 	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, req.Username); err != nil {
 		return nil, errors.Wrapf(err, "error deleting all auth tokens")
 	}
