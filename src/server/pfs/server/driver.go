@@ -432,22 +432,22 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
-func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parentID string, branch *pfs.Branch, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(txnCtx, ID, parentID, branch, nil, provenance, description, time.Time{}, time.Time{}, 0)
+func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent string, branch *pfs.Branch, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
+	return d.makeCommit(txnCtx, ID, parent, branch, nil, provenance, description, time.Time{}, time.Time{}, 0)
 }
 
 // make commit makes a new commit in 'branch', with the parent 'parent' and the
 // direct provenance 'provenance'. Note that
-// - 'parentID' may be omitted, in which case the parent commit is inferred
+// - 'parent' may be omitted, in which case the parent commit is inferred
 //   from 'branch'.
-// - If 'parentID' is set, it determines the parent commit, but 'branch' is
+// - If 'parent' is set, it determines the parent commit, but 'branch' is
 //   still moved to point at the new commit
 // TODO: Remove the v1 storage data structures from this function, they are not
 // used for now.
 func (d *driver) makeCommit(
 	txnCtx *txnenv.TransactionContext,
 	ID string,
-	parentID string,
+	parent string,
 	branch *pfs.Branch,
 	origin *pfs.CommitOrigin,
 	provenance []*pfs.CommitProvenance,
@@ -457,7 +457,7 @@ func (d *driver) makeCommit(
 	sizeBytes uint64,
 ) (*pfs.Commit, error) {
 	// Validate arguments:
-	if branch == nil {
+	if branch == nil || branch.Name == "" {
 		return nil, errors.Errorf("branch must be specified")
 	}
 	// Check that caller is authorized
@@ -527,7 +527,7 @@ func (d *driver) makeCommit(
 	}
 
 	// create the actual commit in etcd and update the branch + parent/child
-	parent := client.NewCommit(branch.Repo.Name, branch.Name, parentID)
+	parent := client.NewCommit(branch.Repo.Name, branch.Name, parent)
 	repos := d.repos.ReadWrite(txnCtx.Stm)
 	commits := d.commits(branch.Repo.Name).ReadWrite(txnCtx.Stm)
 	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm)

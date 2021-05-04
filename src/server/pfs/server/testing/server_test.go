@@ -338,7 +338,7 @@ func TestPFS(suite *testing.T) {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foo", strings.NewReader("foo")))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
@@ -620,7 +620,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		started := time.Now()
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		fileContent := "foo\n"
@@ -664,7 +664,7 @@ func TestPFS(suite *testing.T) {
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		var eg errgroup.Group
@@ -789,7 +789,7 @@ func TestPFS(suite *testing.T) {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		file := "file"
@@ -1200,7 +1200,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(branchInfos))
 		require.Equal(t, "master", branchInfos[0].Branch.Name)
 
-		require.NoError(t, env.PachClient.SetBranch(repo, commit.ID, "master2"))
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master2", commit.ID, nil))
 
 		branchInfos, err = env.PachClient.ListBranch(repo)
 		require.NoError(t, err)
@@ -1221,7 +1221,7 @@ func TestPFS(suite *testing.T) {
 		expectedOutputA := random.String(fileSize)
 		r := strings.NewReader(string(expectedOutputA))
 
-		commit1, err := env.PachClient.StartCommit(repo, "")
+		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "foo", r))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
@@ -1244,49 +1244,49 @@ func TestPFS(suite *testing.T) {
 	//	require.NoError(t, env.PachClient.CreateRepo(repo))
 	//
 	//	// Detect file conflict
-	//	commit1, err := env.PachClient.StartCommit(repo, "")
+	//	commit1, err := env.PachClient.StartCommit(repo, "master")
 	//	require.NoError(t, err)
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo/bar", strings.NewReader("foo\n")))
-	//	require.YesError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "foo", strings.NewReader("foo\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "foo/bar", strings.NewReader("foo\n")))
+	//	require.YesError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
 	//
-	//	commit1, err = env.PachClient.StartCommit(repo, "")
+	//	commit1, err = env.PachClient.StartCommit(repo, "master")
 	//	require.NoError(t, err)
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n")))
-	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "foo", strings.NewReader("foo\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "foo", strings.NewReader("foo\n")))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
 	//
 	//	var buffer bytes.Buffer
-	//	require.NoError(t, env.PachClient.GetFile(repo, commit1.ID, "foo", &buffer))
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit1.Branch.Name, commit1.ID, "foo", &buffer))
 	//	require.Equal(t, "foo\nfoo\n", buffer.String())
 	//
-	//	commit2, err := env.PachClient.StartCommitParent(repo, "", commit1.ID)
+	//	commit2, err := env.PachClient.StartCommitParent(repo, "master", commit1.ID)
 	//	require.NoError(t, err)
 	//	// file conflicts with the previous commit
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "foo/bar", strings.NewReader("foo\n")))
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n")))
-	//	require.YesError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.Branch.Name, commit2.ID, "foo/bar", strings.NewReader("foo\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.Branch.Name, commit2.ID, "/bar", strings.NewReader("bar\n")))
+	//	require.YesError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
 	//
-	//	commit2, err = env.PachClient.StartCommitParent(repo, "", commit1.ID)
+	//	commit2, err = env.PachClient.StartCommitParent(repo, "master", commit1.ID)
 	//	require.NoError(t, err)
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n")))
-	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit2.Branch.Name, commit2.ID, "/bar", strings.NewReader("bar\n")))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
 	//
-	//	commit3, err := env.PachClient.StartCommitParent(repo, "", commit2.ID)
+	//	commit3, err := env.PachClient.StartCommitParent(repo, "master", commit2.ID)
 	//	require.NoError(t, err)
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit3.ID, "dir1/foo", strings.NewReader("foo\n"))) // because the directory dir does not exist
-	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit3.Branch.Name, commit3.ID, "dir1/foo", strings.NewReader("foo\n"))) // because the directory dir does not exist
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit3.Branch.Name, commit3.ID))
 	//
-	//	commit4, err := env.PachClient.StartCommitParent(repo, "", commit3.ID)
+	//	commit4, err := env.PachClient.StartCommitParent(repo, "master", commit3.ID)
 	//	require.NoError(t, err)
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit4.ID, "dir2/bar", strings.NewReader("bar\n")))
-	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit4.ID))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit4.Branch.Name, commit4.ID, "dir2/bar", strings.NewReader("bar\n")))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit4.Branch.Name, commit4.ID))
 	//
 	//	buffer = bytes.Buffer{}
-	//	require.NoError(t, env.PachClient.GetFile(repo, commit4.ID, "dir2/bar", &buffer))
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit4.Branch.Name, commit4.ID, "dir2/bar", &buffer))
 	//	require.Equal(t, "bar\n", buffer.String())
 	//	buffer = bytes.Buffer{}
-	//	require.NoError(t, env.PachClient.GetFile(repo, commit4.ID, "dir2", &buffer))
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit4.Branch.Name, commit4.ID, "dir2", &buffer))
 	//})
 
 	suite.Run("PutFile2", func(t *testing.T) {
@@ -1327,7 +1327,7 @@ func TestPFS(suite *testing.T) {
 
 		commit3, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.SetBranch(repo, commit3.ID, "foo"))
+		require.NoError(t, env.PachClient.CreateBranch(repo, "foo", commit3.ID, nil))
 		require.NoError(t, env.PachClient.PutFile(repo, "foo", "", "file", strings.NewReader("foo\nbar\nbuzz\n"), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "foo", ""))
 
@@ -1365,7 +1365,7 @@ func TestPFS(suite *testing.T) {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		var eg errgroup.Group
 		for i := 0; i < 3; i++ {
@@ -1539,7 +1539,7 @@ func TestPFS(suite *testing.T) {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit1, err := env.PachClient.StartCommit(repo, "")
+		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		fileContent := "foo\n"
@@ -1654,7 +1654,7 @@ func TestPFS(suite *testing.T) {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		fileContent1 := "foo\n"
@@ -1830,7 +1830,7 @@ func TestPFS(suite *testing.T) {
 
 		fileContent := "foo\n"
 
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foo", strings.NewReader(fileContent)))
 
@@ -2141,20 +2141,20 @@ func TestPFS(suite *testing.T) {
 	//
 	//	repo := "test"
 	//	require.NoError(t, env.PachClient.CreateRepo(repo))
-	//	commit, err := env.PachClient.StartCommit(repo, "")
+	//	commit, err := env.PachClient.StartCommit(repo, "master")
 	//	require.NoError(t, err)
 	//	fileData := "foo\n"
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader(fileData)))
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader(fileData)))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foo", strings.NewReader(fileData)))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foo", strings.NewReader(fileData)))
 	//
 	//	var buffer bytes.Buffer
-	//	require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "foo", int64(len(fileData)*2)+1, 0, &buffer))
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit.Branch.Name, commit.ID, "foo", int64(len(fileData)*2)+1, 0, &buffer))
 	//	require.Equal(t, "", buffer.String())
 	//
-	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	//
 	//	buffer.Reset()
-	//	require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "foo", int64(len(fileData)*2)+1, 0, &buffer))
+	//	require.NoError(t, env.PachClient.GetFile(repo, commit.Branch.Name, commit.ID, "foo", int64(len(fileData)*2)+1, 0, &buffer))
 	//	require.Equal(t, "", buffer.String())
 	//})
 
@@ -2165,13 +2165,13 @@ func TestPFS(suite *testing.T) {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "branch1")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
 		expectedBranches := []string{"branch1", "branch2", "branch3"}
 		for _, branch := range expectedBranches {
-			require.NoError(t, env.PachClient.SetBranch(repo, commit.ID, branch))
+			require.NoError(t, env.PachClient.CreateBranch(repo, branch, commit.ID, nil))
 		}
 
 		branchInfos, err := env.PachClient.ListBranch(repo)
@@ -2265,7 +2265,7 @@ func TestPFS(suite *testing.T) {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		file1Content := "foo\n"
@@ -2330,13 +2330,13 @@ func TestPFS(suite *testing.T) {
 	//
 	//	repo := "test"
 	//	require.NoError(t, env.PachClient.CreateRepo(repo))
-	//	commit, err := env.PachClient.StartCommit(repo, "")
+	//	commit, err := env.PachClient.StartCommit(repo, "master")
 	//	require.NoError(t, err)
-	//	w, err := env.PachClient.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, 0, false)
+	//	w, err := env.PachClient.PutFileSplitWriter(repo, commit.Branch.Name, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, 0, false)
 	//	require.NoError(t, err)
 	//	require.NoError(t, w.Close())
-	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-	//	_, err = env.PachClient.InspectFile(repo, commit.ID, "foo")
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	//	_, err = env.PachClient.InspectFile(repo, commit.Branch.Name, commit.ID, "foo")
 	//	require.NoError(t, err)
 	//})
 
@@ -2346,7 +2346,7 @@ func TestPFS(suite *testing.T) {
 
 		repo := tu.UniqueString("test")
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "dir/file", strings.NewReader("foo\n")))
 		checks := func() {
@@ -2379,7 +2379,7 @@ func TestPFS(suite *testing.T) {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit1, err := env.PachClient.StartCommit(repo, "")
+		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		rawMessage := `{
@@ -2423,24 +2423,24 @@ func TestPFS(suite *testing.T) {
 	//	repo := "test"
 	//	require.NoError(t, env.PachClient.CreateRepo(repo))
 	//
-	//	commit, err := env.PachClient.StartCommit(repo, "")
+	//	commit, err := env.PachClient.StartCommit(repo, "master")
 	//	require.NoError(t, err)
 	//
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x00bar", strings.NewReader("foobar\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foo\x00bar", strings.NewReader("foobar\n")))
 	//	// null characters error because when you `ls` files with null characters
 	//	// they truncate things after the null character leading to strange results
 	//	require.YesError(t, err)
 	//
 	//	// Boundary tests for valid character range
-	//	require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "\x1ffoobar", strings.NewReader("foobar\n")))
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x20bar", strings.NewReader("foobar\n")))
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foobar\x7e", strings.NewReader("foobar\n")))
-	//	require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x7fbar", strings.NewReader("foobar\n")))
+	//	require.YesError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "\x1ffoobar", strings.NewReader("foobar\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foo\x20bar", strings.NewReader("foobar\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foobar\x7e", strings.NewReader("foobar\n")))
+	//	require.YesError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foo\x7fbar", strings.NewReader("foobar\n")))
 	//
 	//	// Random character tests outside and inside valid character range
-	//	require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "foobar\x0b", strings.NewReader("foobar\n")))
-	//	require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "\x41foobar", strings.NewReader("foobar\n")))
-	//	require.YesError(t, env.PachClient.PutFile(repo, commit.ID, "foo\x90bar", strings.NewReader("foobar\n")))
+	//	require.YesError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foobar\x0b", strings.NewReader("foobar\n")))
+	//	require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "\x41foobar", strings.NewReader("foobar\n")))
+	//	require.YesError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foo\x90bar", strings.NewReader("foobar\n")))
 	//})
 
 	// TODO: Make work with V2?
@@ -2450,7 +2450,7 @@ func TestPFS(suite *testing.T) {
 	//
 	//	repo := "test"
 	//	require.NoError(t, env.PachClient.CreateRepo(repo))
-	//	commit, err := env.PachClient.StartCommit(repo, "")
+	//	commit, err := env.PachClient.StartCommit(repo, "master")
 	//	require.NoError(t, err)
 	//	var eg errgroup.Group
 	//	for i := 0; i < 25; i++ {
@@ -2458,14 +2458,14 @@ func TestPFS(suite *testing.T) {
 	//			i := i
 	//			j := j
 	//			eg.Go(func() error {
-	//				return env.PachClient.PutFile(repo, commit.ID, fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
+	//				return env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
 	//			})
 	//		}
 	//	}
 	//	require.NoError(t, eg.Wait())
-	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+	//	require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	//	for i := 0; i < 25; i++ {
-	//		files, err := env.PachClient.ListFileAll(repo, commit.ID, fmt.Sprintf("dir%d", i))
+	//		files, err := env.PachClient.ListFileAll(repo, commit.Branch.Name, commit.ID, fmt.Sprintf("dir%d", i))
 	//		require.NoError(t, err)
 	//		require.Equal(t, 25, len(files))
 	//	}
@@ -2496,29 +2496,30 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit3.ID, commitInfo.Commit.ID)
 	})
 
-	suite.Run("SetBranchTwice", func(t *testing.T) {
+	suite.Run("CreateBranchTwice", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit1, err := env.PachClient.StartCommit(repo, "")
+		commit1, err := env.PachClient.StartCommit(repo, "foo")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.SetBranch(repo, commit1.ID, "master"))
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", commit1.ID, nil))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
 
-		commit2, err := env.PachClient.StartCommit(repo, "")
+		commit2, err := env.PachClient.StartCommit(repo, "foo")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.SetBranch(repo, commit2.ID, "master"))
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", commit2.ID, nil))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
 
 		branchInfos, err := env.PachClient.ListBranch(repo)
 		require.NoError(t, err)
 
-		require.Equal(t, 1, len(branchInfos))
-		require.Equal(t, "master", branchInfos[0].Branch.Name)
+		require.Equal(t, 2, len(branchInfos))
+		require.ElementsEqual(t, []string{"master", "foo"}, []string{branchInfos[0].Branch.Name, branchInfos[1].Branch.Name})
 		require.Equal(t, commit2.ID, branchInfos[0].Head.ID)
+		require.Equal(t, commit2.ID, branchInfos[1].Head.ID)
 	})
 
 	// TODO: Make work with V2?
@@ -5266,17 +5267,17 @@ func TestPFS(suite *testing.T) {
 	//		data := dataPrefix + strconv.Itoa(i)
 	//		// Retry start commit until it eventually succeeds.
 	//		monkeyRetry(t, func() error {
-	//			commit, err = env.PachClient.StartCommit(repo, "")
+	//			commit, err = env.PachClient.StartCommit(repo, "master")
 	//			return err
 	//		}, seedStr(seed))
 	//		// Retry put file until it eventually succeeds.
 	//		monkeyRetry(t, func() error {
-	//			if err := env.PachClient.PutFile(repo, commit.ID, file, strings.NewReader(data)); err != nil {
+	//			if err := env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, file, strings.NewReader(data)); err != nil {
 	//				// Verify that the file does not exist if an error occurred.
 	//				obj.DisableMonkeyTest()
 	//				defer obj.EnableMonkeyTest()
 	//				buf.Reset()
-	//				err := env.PachClient.GetFile(repo, commit.ID, file, buf)
+	//				err := env.PachClient.GetFile(repo, commit.Branch.Name, commit.ID, file, buf)
 	//				require.Matches(t, "not found", err.Error(), seedStr(seed))
 	//			}
 	//			return err
@@ -5284,7 +5285,7 @@ func TestPFS(suite *testing.T) {
 	//		// Retry get file until it eventually succeeds (before commit is finished).
 	//		monkeyRetry(t, func() error {
 	//			buf.Reset()
-	//			if err = env.PachClient.GetFile(repo, commit.ID, file, buf); err != nil {
+	//			if err = env.PachClient.GetFile(repo, commit.Branch.Name, commit.ID, file, buf); err != nil {
 	//				return err
 	//			}
 	//			require.Equal(t, data, buf.String(), seedStr(seed))
@@ -5292,12 +5293,12 @@ func TestPFS(suite *testing.T) {
 	//		}, seedStr(seed))
 	//		// Retry finish commit until it eventually succeeds.
 	//		monkeyRetry(t, func() error {
-	//			return env.PachClient.FinishCommit(repo, commit.ID)
+	//			return env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID)
 	//		}, seedStr(seed))
 	//		// Retry get file until it eventually succeeds (after commit is finished).
 	//		monkeyRetry(t, func() error {
 	//			buf.Reset()
-	//			if err = env.PachClient.GetFile(repo, commit.ID, file, buf); err != nil {
+	//			if err = env.PachClient.GetFile(repo, commit.Branch.Name, commit.ID, file, buf); err != nil {
 	//				return err
 	//			}
 	//			require.Equal(t, data, buf.String(), seedStr(seed))

@@ -340,12 +340,6 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	return branchInfos.BranchInfo, nil
 }
 
-// SetBranch sets a commit and its ancestors as a branch.
-// SetBranch is deprecated in favor of CreateBranch.
-func (c APIClient) SetBranch(repoName string, branchName string, commit string) error {
-	return c.CreateBranch(repoName, branchName, commit, nil)
-}
-
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
 // In other words, those commits can still be accessed via commit IDs and
 // other branches they happen to be on.
