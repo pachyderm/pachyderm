@@ -24,6 +24,7 @@ func (d *driver) modifyFile(pachClient *client.APIClient, commit *pfs.Commit, cb
 	ctx := pachClient.Ctx()
 	repo := commit.Branch.Repo.Name
 	branch := commit.Branch.Name
+	commitID := commit.ID
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
@@ -32,7 +33,9 @@ func (d *driver) modifyFile(pachClient *client.APIClient, commit *pfs.Commit, cb
 		return d.oneOffModifyFile(ctx, repo, branch, cb)
 	}
 	if commitInfo.Finished != nil {
-		if branch == "" {
+		// The commit is already finished - if the commit was explicitly specified,
+		// error out, otherwise we can make a child commit since this is the branch head.
+		if commitID != "" {
 			return pfsserver.ErrCommitFinished{commitInfo.Commit}
 		}
 		var opts []fileset.UnorderedWriterOption

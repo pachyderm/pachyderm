@@ -237,7 +237,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(cis))
 		// make sure output commit still has the right provenance
-		ci, err = env.PachClient.InspectCommit("in", "master~1", "") // old input commit
+		ci, err = env.PachClient.InspectCommit("in", "", "master~1") // old input commit
 		require.NoError(t, err)
 		expectedProv = map[string]bool{
 			path.Join("in", ci.Commit.Branch.Name, ci.Commit.ID): true,

@@ -1139,7 +1139,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 		return nil, err
 	}
 
-	// Check if the commitID is a branch name
+	// Resolve the commit in case it specifies a branch head or commit ancestry
 	var commitInfo *pfs.CommitInfo
 	if err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		var err error
@@ -1215,6 +1215,12 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	commit.ID, ancestryLength, err = ancestry.Parse(commit.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Now that ancestry has been parsed out, check if the ID is a branch name
+	if commit.ID != "" && !uuid.IsUUIDWithoutDashes(commit.ID) {
+		commit.Branch.Name = commit.ID
+		commit.ID = ""
 	}
 
 	// If commit.ID is unspecified, get it from the branch head
