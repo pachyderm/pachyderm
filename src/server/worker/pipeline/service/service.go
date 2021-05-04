@@ -115,7 +115,7 @@ func ensureJob(pachClient *client.APIClient, pipeline string, commit *pfs.Commit
 		return nil, err
 	}
 	if len(pipelineJobInfos) > 1 {
-		return nil, errors.Errorf("multiple jobs found for commit: %s@%s", commit.Repo.Name, commit.ID)
+		return nil, errors.Errorf("multiple jobs found for commit: %s@%s", commit.Branch.Repo.Name, commit.ID)
 	} else if len(pipelineJobInfos) < 1 {
 		job, err := pachClient.CreateJob(pipeline, commit, nil)
 		if err != nil {

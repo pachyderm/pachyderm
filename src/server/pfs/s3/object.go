@@ -36,16 +36,12 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		return nil, s2.NoSuchKeyError(r)
 	}
 
-	commitID := "" // default to the latest commit in the branch
-	if bucketCaps.historicVersions && version != "" {
-		commitInfo, err := pc.InspectCommit(bucket.Repo, bucket.Branch, version)
-		if err != nil {
-			return nil, maybeNotFoundError(r, err)
+	commitID := bucket.Commit
+	if version != "" {
+		if !bucketCaps.historicVersions {
+			return nil, s2.NotImplementedError(r)
 		}
-		if commitInfo.Commit.Branch.Name != bucket.Branch {
-			return nil, s2.NoSuchVersionError(r)
-		}
-		commitID = commitInfo.Commit.ID
+		commitID = version
 	}
 
 	fileInfo, err := pc.InspectFile(bucket.Repo, bucket.Branch, commitID, file)
@@ -105,7 +101,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 		return "", s2.NotImplementedError(r)
 	}
 
-	if err = pc.CopyFile(destBucket.Repo, destBucket.Branch, "", destFile, srcBucket.Repo, srcBucket.Branch, "", srcFile); err != nil {
+	if err = pc.CopyFile(destBucket.Repo, destBucket.Branch, destBucket.Commit, destFile, srcBucket.Repo, srcBucket.Branch, srcBucket.Commit, srcFile); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return "", writeToOutputBranchError(r)
 		} else if errutil.IsNotADirectoryError(err) {
@@ -116,7 +112,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 		return "", err
 	}
 
-	fileInfo, err := pc.InspectFile(destBucket.Repo, destBucket.Branch, "", destFile)
+	fileInfo, err := pc.InspectFile(destBucket.Repo, destBucket.Branch, destBucket.Commit, destFile)
 	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return "", err
 	}
@@ -152,7 +148,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 		return nil, s2.NotImplementedError(r)
 	}
 
-	if err := pc.PutFile(bucket.Repo, bucket.Branch, "", file, reader); err != nil {
+	if err := pc.PutFile(bucket.Repo, bucket.Branch, bucket.Commit, file, reader); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
 		} else if errutil.IsNotADirectoryError(err) {
@@ -163,7 +159,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 		return nil, err
 	}
 
-	fileInfo, err := pc.InspectFile(bucket.Repo, bucket.Branch, "", file)
+	fileInfo, err := pc.InspectFile(bucket.Repo, bucket.Branch, bucket.Commit, file)
 	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
@@ -204,7 +200,7 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 		return nil, s2.NotImplementedError(r)
 	}
 
-	if err = pc.DeleteFile(bucket.Repo, bucket.Branch, "", file); err != nil {
+	if err = pc.DeleteFile(bucket.Repo, bucket.Branch, bucket.Commit, file); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
 		}
