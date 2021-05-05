@@ -13,7 +13,7 @@ output data through the S3 protocol. For example, running Kubeflow or Apache™ 
     For example, if a Kubeflow pipeline were to read and write data from a Pachyderm repo
     directly through the global S3 gateway, Pachyderm
     would not be able to maintain data provenance
-    (the alteration of the data in the output repo could not be traced back to any given job/input commit). 
+    (the alteration of the data in the updated repo could not be traced back to any given job/input commit). 
 
     Using an S3-enabled pipeline, Pachyderm will control the flow and
     the same Kubeflow code will now be part of Pachyderm's job execution, thus maintaining proper data provenance.
@@ -53,7 +53,7 @@ Enable your pipeline to use the Sidecar S3 Gateway by following those simple ste
       - read and write in the S3 Buckets exposed to the pipeline.
 
 
-* To access the sidecar instance and a bucket, you should use the [S3_ENDPOINT](../../../deploy/environment-variables/#pipeline-worker-environment-variables) Environment variable (see example below). No authentication is needed; 
+* To access the sidecar instance and a bucket, you should use the [S3_ENDPOINT](../../../deploy/environment-variables/#pipeline-worker-environment-variables) environment variable (see example below). No authentication is needed; 
   you can only read the input bucket and write in the output bucket.
   ```shell
   aws --endpoint-url $S3_ENDPOINT s3 cp /tmp/result/ s3://out --recursive
