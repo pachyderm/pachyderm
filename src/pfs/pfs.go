@@ -8,11 +8,17 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 )
 
-var (
+const (
 	// ChunkSize is the size of file chunks when resumable upload is used
 	ChunkSize = int64(512 * 1024 * 1024) // 512 MB
 	// EmptyStr is included in the description of output commits from failed jobs.
 	EmptyStr = "(empty)"
+
+	// default system repo types
+	UserType  = "user"
+	MetaType  = "meta"
+	BuildType = "build"
+	SpecType  = "spec"
 )
 
 // FullID prints repoName/CommitID

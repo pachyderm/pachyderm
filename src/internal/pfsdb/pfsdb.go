@@ -2,6 +2,8 @@
 package pfsdb
 
 import (
+	"strings"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 
@@ -23,11 +25,29 @@ const (
 // querying.
 func AllCollections() []col.PostgresCollection {
 	return []col.PostgresCollection{
-		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, nil, nil),
+		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, []*col.Index{ReposNameIndex, ReposTypeIndex}, nil),
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, []*col.Index{CommitsRepoIndex}, nil),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, []*col.Index{BranchesRepoIndex}, nil),
 		col.NewPostgresCollection(openCommitsCollectionName, nil, nil, nil, nil, nil),
 	}
+}
+
+var ReposTypeIndex = &col.Index{
+	Name: "type",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.RepoInfo).Repo.Type
+	},
+}
+
+var ReposNameIndex = &col.Index{
+	Name: "name",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.RepoInfo).Repo.Name
+	},
+}
+
+func RepoKey(repo *pfs.Repo) string {
+	return repo.Name + "." + repo.Type
 }
 
 // Repos returns a collection of repos
@@ -37,20 +57,26 @@ func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 		db,
 		listener,
 		&pfs.RepoInfo{},
-		nil,
-		nil,
+		[]*col.Index{ReposTypeIndex},
+		func(key string) error {
+			parts := strings.Split(key, ".")
+			if len(parts) < 2 || len(parts[1]) == 0 {
+				return errors.Errorf("repo must have a specified type")
+			}
+			return nil
+		},
 	)
 }
 
 var CommitsRepoIndex = &col.Index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.CommitInfo).Commit.Repo.Name
+		return RepoKey(val.(*pfs.CommitInfo).Commit.Repo)
 	},
 }
 
 func CommitKey(commit *pfs.Commit) string {
-	return commit.Repo.Name + "@" + commit.ID
+	return RepoKey(commit.Repo) + "@" + commit.ID
 }
 
 // Commits returns a collection of commits
@@ -68,12 +94,12 @@ func Commits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection
 var BranchesRepoIndex = &col.Index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.BranchInfo).Branch.Repo.Name
+		return RepoKey(val.(*pfs.BranchInfo).Branch.Repo)
 	},
 }
 
 func BranchKey(branch *pfs.Branch) string {
-	return branch.Repo.Name + "@" + branch.Name
+	return RepoKey(branch.Repo) + "@" + branch.Name
 }
 
 // Branches returns a collection of branches

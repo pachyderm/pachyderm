@@ -155,16 +155,21 @@ or type (e.g. csv, binary, images, etc).`,
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
 
+	var all bool
+	var repoType string
 	listRepo := &cobra.Command{
-		Short: "Return all repos.",
-		Long:  "Return all repos.",
+		Short: "Return a list of repos.",
+		Long:  "Return a list of repos.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if all && repoType != "" {
+				return errors.Errorf("cannot set a repo type with --all")
+			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			repoInfos, err := c.ListRepo()
+			repoInfos, err := c.ListRepoByType(repoType, all)
 			if err != nil {
 				return err
 			}
@@ -190,10 +195,11 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	listRepo.Flags().AddFlagSet(rawFlags)
 	listRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
+	listRepo.Flags().StringVar(&repoType, "type", "", "only include repos of the given type")
 	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
 
 	var force bool
-	var all bool
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
