@@ -455,10 +455,11 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	var setSpec *datum.SetSpec
 	if pj.driver.PipelineInfo().ChunkSpec != nil {
 		setSpec = &datum.SetSpec{
-			Number: pj.driver.PipelineInfo().ChunkSpec.Number,
+			Number:    pj.driver.PipelineInfo().ChunkSpec.Number,
+			SizeBytes: pj.driver.PipelineInfo().ChunkSpec.SizeBytes,
 		}
 	}
-	if setSpec == nil || setSpec.Number == 0 {
+	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
 		setSpec = &datum.SetSpec{Number: numDatums / int64(reg.concurrency)}
 		if setSpec.Number == 0 {
 			setSpec.Number = 1

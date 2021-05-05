@@ -108,7 +108,6 @@ type apiServer struct {
 	storageRoot           string
 	storageBackend        string
 	storageHostPath       string
-	cacheRoot             string
 	iamRole               string
 	imagePullSecret       string
 	noExposeDockerSocket  bool
@@ -1040,8 +1039,44 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	// TODO: Auth?
+	if request.Input != nil {
+		return listDatumInput(a.env.GetPachClient(server.Context()), request.Input, func(meta *datum.Meta) error {
+			return server.Send(convertDatumMetaToInfo(meta))
+		})
+	}
 	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
 		return server.Send(convertDatumMetaToInfo(meta))
+	})
+}
+
+func listDatumInput(pachClient *client.APIClient, input *pps.Input, cb func(*datum.Meta) error) error {
+	setInputDefaults("", input)
+	var visitErr error
+	pps.VisitInput(input, func(input *pps.Input) {
+		if visitErr != nil {
+			return
+		}
+		if input.Pfs != nil {
+			ci, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Branch)
+			if err != nil {
+				visitErr = err
+				return
+			}
+			input.Pfs.Commit = ci.Commit.ID
+		}
+		if input.Cron != nil {
+			visitErr = errors.Errorf("can't list datums with a cron input, there will be no datums until the pipeline is created")
+		}
+	})
+	if visitErr != nil {
+		return visitErr
+	}
+	di, err := datum.NewIterator(pachClient, input)
+	if err != nil {
+		return err
+	}
+	return di.Iterate(func(meta *datum.Meta) error {
+		return cb(meta)
 	})
 }
 
@@ -1082,9 +1117,6 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	})
 	if err != nil {
 		return err
-	}
-	if jobInfo.StatsCommit == nil {
-		return errors.Errorf("job not finished")
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	fsi := datum.NewCommitIterator(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)

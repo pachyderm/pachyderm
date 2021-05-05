@@ -2275,9 +2275,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
 }
 
-// TODO: Make work with V2.
 func TestS3GatewayAuthRequests(t *testing.T) {
-	t.Skip("S3 gateway not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

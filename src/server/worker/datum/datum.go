@@ -38,23 +38,19 @@ const (
 	defaultNumRetries = 3
 )
 
-const defaultDatumsPerSet = int64(10)
-
 // SetSpec specifies criteria for creating datum sets.
 type SetSpec struct {
-	Number int64
+	Number    int64
+	SizeBytes int64
 }
 
 // CreateSets creates datum sets from the passed in datum iterator.
 func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(func(client.ModifyFile) error) error) error {
 	var metas []*Meta
-	datumsPerSet := defaultDatumsPerSet
-	if setSpec != nil {
-		datumsPerSet = setSpec.Number
-	}
+	shouldCreateSet := shouldCreateSetFunc(setSpec)
 	if err := dit.Iterate(func(meta *Meta) error {
 		metas = append(metas, meta)
-		if int64(len(metas)) >= datumsPerSet {
+		if shouldCreateSet(meta) {
 			if err := createSet(metas, storageRoot, upload); err != nil {
 				return err
 			}
@@ -64,7 +60,39 @@ func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(
 	}); err != nil {
 		return err
 	}
-	return createSet(metas, storageRoot, upload)
+	if len(metas) > 0 {
+		return createSet(metas, storageRoot, upload)
+	}
+	return nil
+}
+
+func shouldCreateSetFunc(setSpec *SetSpec) func(*Meta) bool {
+	switch {
+	case setSpec.Number > 0:
+		var num int64
+		return func(meta *Meta) bool {
+			num++
+			if num >= setSpec.Number {
+				num = 0
+				return true
+			}
+			return false
+		}
+	case setSpec.SizeBytes > 0:
+		var size int64
+		return func(meta *Meta) bool {
+			for _, input := range meta.Inputs {
+				size += int64(input.FileInfo.SizeBytes)
+			}
+			if size >= setSpec.SizeBytes {
+				size = 0
+				return true
+			}
+			return false
+		}
+	default:
+		panic("must set a set spec field")
+	}
 }
 
 func createSet(metas []*Meta, storageRoot string, upload func(func(client.ModifyFile) error) error) error {

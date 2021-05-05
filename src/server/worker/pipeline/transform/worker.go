@@ -102,6 +102,9 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 						}
 						opts = append(opts, datum.WithTimeout(timeout))
 					}
+					if driver.PipelineInfo().DatumTries > 0 {
+						opts = append(opts, datum.WithRetry(int(driver.PipelineInfo().DatumTries)-1))
+					}
 					if driver.PipelineInfo().Transform.ErrCmd != nil {
 						opts = append(opts, datum.WithRecoveryCallback(func(runCtx context.Context) error {
 							return driver.RunUserErrorHandlingCode(runCtx, logger, env)

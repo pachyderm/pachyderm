@@ -582,8 +582,8 @@ func TestYAMLTimestamp(t *testing.T) {
 	).Run())
 }
 
-// TODO: Make work with V2?
 func TestEditPipeline(t *testing.T) {
+	// TODO: Edit pipeline needs to be implemented in V2.
 	t.Skip("Edit pipeline not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
