@@ -31,7 +31,7 @@ func newAPIServer(
 		return nil, err
 	}
 	s := &apiServer{
-		Logger: log.NewLogger("transaction.API"),
+		Logger: log.NewLogger("transaction.API", env.Logger()),
 		driver: d,
 		env:    env,
 	}

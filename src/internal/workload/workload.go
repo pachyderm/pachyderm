@@ -24,11 +24,11 @@ func RunWorkload(
 		}
 	}
 	for _, job := range worker.startedJobs {
-		jobInfo, err := client.InspectJob(job.ID, true)
+		pipelineJobInfo, err := client.InspectJob(job.ID, true)
 		if err != nil {
 			return err
 		}
-		if jobInfo.State != pps.JobState_JOB_SUCCESS {
+		if pipelineJobInfo.State != pps.JobState_JOB_SUCCESS {
 			return errors.Errorf("job %s failed", job.ID)
 		}
 	}

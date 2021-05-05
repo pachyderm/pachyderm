@@ -25,7 +25,7 @@ func NewAPIServer(
 ) (APIServer, error) {
 	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix)
 	apiServer := &apiServer{
-		Logger:                log.NewLogger("pps.API"),
+		Logger:                log.NewLogger("pps.API", env.Logger()),
 		env:                   env,
 		txnEnv:                txnEnv,
 		etcdPrefix:            etcdPrefix,
@@ -69,7 +69,7 @@ func NewSidecarAPIServer(
 	peerPort uint16,
 ) (APIServer, error) {
 	apiServer := &apiServer{
-		Logger:         log.NewLogger("pps.API"),
+		Logger:         log.NewLogger("pps.API", env.Logger()),
 		env:            env,
 		txnEnv:         txnEnv,
 		etcdPrefix:     etcdPrefix,

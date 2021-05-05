@@ -169,11 +169,11 @@ func TestS3Input(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jobInfo := jis[0]
-	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+	require.Equal(t, 1, len(pjis))
+	pipelineJobInfo := pjis[0]
+	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// Make sure ListFile works
 	files, err := c.ListFileAll(pipeline, "master", "/")
@@ -208,7 +208,7 @@ func TestS3Input(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -250,11 +250,11 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jobInfo := jis[0]
-	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+	require.Equal(t, 1, len(pjis))
+	pipelineJobInfo := pjis[0]
+	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// check S3_ENDPOINT variable
 	var buf bytes.Buffer
@@ -302,11 +302,11 @@ func TestS3Output(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jobInfo := jis[0]
-	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+	require.Equal(t, 1, len(pjis))
+	pipelineJobInfo := pjis[0]
+	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// Make sure ListFile works
 	files, err := c.ListFileAll(pipeline, "master", "/")
@@ -336,7 +336,7 @@ func TestS3Output(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -385,11 +385,11 @@ func TestFullS3(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jobInfo := jis[0]
-	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+	require.Equal(t, 1, len(pjis))
+	pipelineJobInfo := pjis[0]
+	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// Make sure ListFile works
 	files, err := c.ListFileAll(pipeline, "master", "/")
@@ -419,7 +419,7 @@ func TestFullS3(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -490,9 +490,9 @@ func TestS3SkippedDatums(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(s3in, "master")}, nil)
+		pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(s3in, "master")}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jis))
+		require.Equal(t, 1, len(pjis))
 
 		// Part 1: add files in pfs input w/o changing s3 input. Old files in
 		// 'pfsin' should be skipped datums
@@ -511,11 +511,11 @@ func TestS3SkippedDatums(t *testing.T) {
 
 			_, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(s3in, "master")}, nil)
 			require.NoError(t, err)
-			jis, err = c.ListJob(pipeline, nil, nil, 0, false)
+			pjis, err = c.ListJob(pipeline, nil, nil, 0, false)
 			require.NoError(t, err)
-			require.Equal(t, i+2, len(jis)) // one empty job w/ initial s3in commit
-			for j := 0; j < len(jis); j++ {
-				require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
+			require.Equal(t, i+2, len(pjis)) // one empty job w/ initial s3in commit
+			for j := 0; j < len(pjis); j++ {
+				require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
 			}
 
 			// check output
@@ -551,11 +551,11 @@ func TestS3SkippedDatums(t *testing.T) {
 
 		_, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(s3in, "master")}, nil)
 		require.NoError(t, err)
-		jis, err = c.ListJob(pipeline, nil, nil, 0, false)
+		pjis, err = c.ListJob(pipeline, nil, nil, 0, false)
 		require.NoError(t, err)
-		require.Equal(t, 12, len(jis))
-		for j := 0; j < len(jis); j++ {
-			require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
+		require.Equal(t, 12, len(pjis))
+		for j := 0; j < len(pjis); j++ {
+			require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
 
 			// Check that no service is left over
 			k := tu.GetKubeClient(t)
@@ -563,7 +563,7 @@ func TestS3SkippedDatums(t *testing.T) {
 				svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
-					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.ID) {
+					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pjis[j].Job.ID) {
 						return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 					}
 				}
@@ -666,11 +666,11 @@ func TestS3SkippedDatums(t *testing.T) {
 
 			_, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 			require.NoError(t, err)
-			jis, err := c.ListJob(pipeline, nil, nil, 0, false)
+			pjis, err := c.ListJob(pipeline, nil, nil, 0, false)
 			require.NoError(t, err)
-			require.Equal(t, i+1, len(jis))
-			for j := 0; j < len(jis); j++ {
-				require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
+			require.Equal(t, i+1, len(pjis))
+			for j := 0; j < len(pjis); j++ {
+				require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
 			}
 
 			// check output

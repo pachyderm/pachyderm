@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -64,9 +63,9 @@ func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APISe
 	)
 
 	s := &apiServer{
-		pachLogger:           log.NewLogger("enterprise.API"),
+		pachLogger:           log.NewLogger("enterprise.API", env.Logger()),
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(enterpriseTokenCol, enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseTokenCache: keycache.NewCache(env.Context(), enterpriseTokenCol, enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
 		configCol:            col.NewCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
 	}
@@ -146,17 +145,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		return nil, err
 	}
 
-	pachdAddress, err := grpcutil.ParsePachdAddress(licenseServer)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not parse the active context's pachd address")
-	}
-
-	var options []client.Option
-	if pachdAddress.Secured {
-		options = append(options, client.WithSystemCAs)
-	}
-
-	pachClient, err := client.NewFromAddress(pachdAddress.Hostname(), options...)
+	pachClient, err := client.NewFromURI(licenseServer)
 	if err != nil {
 		return nil, err
 	}

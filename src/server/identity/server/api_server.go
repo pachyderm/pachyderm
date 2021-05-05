@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	dex_storage "github.com/dexidp/dex/storage"
 	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -46,15 +45,15 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env serviceenv.ServiceEnv, storage dex_storage.Storage, public bool) identity.APIServer {
+func NewIdentityServer(env serviceenv.ServiceEnv, public bool) identity.APIServer {
 	server := &apiServer{
 		env:        env,
-		pachLogger: log.NewLogger("identity.API"),
-		api:        newDexAPI(storage),
+		pachLogger: log.NewLogger("identity.API", env.Logger()),
+		api:        newDexAPI(env.GetDexDB()),
 	}
 
 	if public {
-		web := newDexWeb(env, storage, server)
+		web := newDexWeb(env, server)
 		go func() {
 			if err := http.ListenAndServe(dexHTTPPort, web); err != nil {
 				logrus.WithError(err).Fatalf("error setting up and/or running the identity server")

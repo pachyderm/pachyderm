@@ -6,6 +6,7 @@
 
 include etc/govars.mk
 
+SHELL=/bin/bash -o pipefail
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Don't set the version to the git hash in CI, as it breaks the go build cache.
 ifdef CIRCLE_BRANCH
@@ -254,7 +255,7 @@ test-postgres:
 	./etc/testing/start_postgres.sh
 
 test-pfs-server: test-postgres
-	./etc/testing/pfs_server.sh $(TIMEOUT)
+	./etc/testing/pfs_server.sh $(TIMEOUT) $(TESTFLAGS)
 
 test-pfs-storage: test-postgres
 	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -319,7 +320,6 @@ test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-auth:
-	yes | $(PACHCTL) delete all
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-identity:
