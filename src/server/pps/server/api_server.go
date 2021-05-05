@@ -2856,7 +2856,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	if err := pachClient.CreateBranch(
 		request.Pipeline.Name,
 		pipelineInfo.OutputBranch,
-		pipelineInfo.OutputBranch,
+		"",
 		"",
 		provenance,
 	); err != nil {
