@@ -141,7 +141,7 @@ func newDriver(
 		return nil, err
 	}
 	if env.StorageDiskCacheSize > 0 {
-		diskCache, err := obj.NewLocalClient(filepath.Join(os.TempDir(), "pfs-cache", uuid.NewWithoutDashes()))
+		diskCache, err := obj.NewLocalClient(filepath.Join(env.CacheRoot, "pfs-cache", uuid.NewWithoutDashes()))
 		if err != nil {
 			return nil, err
 		}
