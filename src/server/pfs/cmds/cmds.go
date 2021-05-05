@@ -273,11 +273,14 @@ $ {{alias}} test -p XXX`,
 			}
 			defer c.Close()
 
-			// We don't know if the parent is a commit ID, branch, or ancestry, so
-			// construct a string to parse.
-			parentCommit, err := cmdutil.ParseCommit(branch.Repo.Name + "@" + parent)
-			if err != nil {
-				return err
+			var parentCommit *pfsclient.Commit
+			if parent != "" {
+				// We don't know if the parent is a commit ID, branch, or ancestry, so
+				// construct a string to parse.
+				parentCommit, err = cmdutil.ParseCommit(branch.Repo.Name + "@" + parent)
+				if err != nil {
+					return err
+				}
 			}
 
 			var commit *pfsclient.Commit

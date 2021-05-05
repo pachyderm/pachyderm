@@ -1070,7 +1070,7 @@ func TestPFS(suite *testing.T) {
 		newCommit, err := env.PachClient.PfsAPIClient.StartCommit(env.Context, &pfs.StartCommitRequest{
 			Branch: pclient.NewBranch("C", "foo"),
 			Provenance: []*pfs.CommitProvenance{
-				pclient.NewCommitProvenance("A", "master", "master"),
+				pclient.NewCommitProvenance("A", "master", ""),
 				pclient.NewCommitProvenance("A", "master", masterCommitInfo.Commit.ID),
 				pclient.NewCommitProvenance("B", "master", bCommitInfo.Commit.ID),
 			},

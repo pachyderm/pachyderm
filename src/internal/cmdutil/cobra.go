@@ -160,7 +160,7 @@ func ParseBranch(arg string) (*pfs.Branch, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.Branch{Repo: commit.Branch.Repo, Name: commit.ID}, nil
+	return commit.Branch, nil
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the

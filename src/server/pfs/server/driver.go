@@ -532,16 +532,30 @@ func (d *driver) makeCommit(
 	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm)
 
 	// Check if repo exists
-	repoInfo := new(pfs.RepoInfo)
-	if err := repos.Get(branch.Repo.Name, repoInfo); err != nil {
+	if err := repos.Get(branch.Repo.Name, &pfs.RepoInfo{}); err != nil {
 		return nil, err
 	}
 
-	// create/update 'branch' (if it was set) and set parentCommit.ID (if, in
-	// addition, 'parent' was not set)
+	// create/update 'branch' (which must always be set) and set parentCommit.ID (if
+	// 'parent' was not set)
 	branchProvMap := make(map[string]bool)
 	branchInfo := &pfs.BranchInfo{}
-	if err := branches.Upsert(branch.Name, branchInfo, func() error {
+	if err := branches.Get(branch.Name, branchInfo); err != nil {
+		if col.IsErrNotFound(err) {
+			// This is a new branch, instantiate it based off of the given provenance
+			provenanceBranches := []*pfs.Branch{}
+			for _, prov := range provenance {
+				provenanceBranches = append(provenanceBranches, prov.Commit.Branch)
+			}
+			if err := d.createBranch(txnCtx, branch, nil, provenanceBranches, nil); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	if err := branches.Update(branch.Name, branchInfo, func() error {
 		// validate branch
 		if parent == nil && branchInfo.Head != nil {
 			parent = branchInfo.Head
@@ -573,32 +587,35 @@ func (d *driver) makeCommit(
 		// if 'provenance' includes a spec commit, (note the difference from the
 		// prev condition) then it was created by pps and is allowed to be in an
 		// output branch
-		hasSpec := false
-		for _, prov := range provenance {
-			if prov.Commit.Branch.Repo.Name == ppsconsts.SpecRepo {
-				hasSpec = true
+		/*
+			hasSpec := false
+			for _, prov := range provenance {
+				if prov.Commit.Branch.Repo.Name == ppsconsts.SpecRepo {
+					hasSpec = true
+				}
 			}
-		}
 
-		if provenanceCount > 0 && !hasSpec {
-			return errors.Errorf("cannot start a commit on an output branch")
-		}
+			if provenanceCount > 0 && !hasSpec {
+				return errors.Errorf("cannot start a commit on an output branch")
+			}
+		*/
 		// Point 'branch' at the new commit
 		branchInfo.Head = newCommit
-		branchInfo.Branch = client.NewBranch(branch.Repo.Name, branch.Name)
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	// Add branch to repo (see "Update repoInfo" below)
-	add(&repoInfo.Branches, branchInfo.Branch)
 
 	if err := d.openCommits.ReadWrite(txnCtx.Stm).Put(newCommit.ID, newCommit); err != nil {
 		return nil, err
 	}
 
 	// Update repoInfo (potentially with new branch and new size)
-	if err := repos.Put(branch.Repo.Name, repoInfo); err != nil {
+	repoInfo := &pfs.RepoInfo{}
+	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
+		add(&repoInfo.Branches, branchInfo.Branch)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
@@ -680,7 +697,7 @@ func (d *driver) makeCommit(
 		if len(branchProvMap) != 0 {
 			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
 			if prov.Commit.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Commit.Branch.Name != "" && !branchProvMap[branchKey(prov.Commit.Branch)] {
-				return nil, errors.Errorf("the commit provenance contains a branch which the branch is not provenant on")
+				return nil, errors.Errorf("the commit provenance contains a branch which the branch is not provenant on: %s@%s", prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)
 			}
 		}
 
