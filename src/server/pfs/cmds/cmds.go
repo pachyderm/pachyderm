@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -169,7 +170,11 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			defer c.Close()
-			repoInfos, err := c.ListRepoByType(repoType, all)
+
+			if repoType == "" && !all {
+				repoType = pfs.UserRepoType // default to user
+			}
+			repoInfos, err := c.ListRepoByType(repoType)
 			if err != nil {
 				return err
 			}

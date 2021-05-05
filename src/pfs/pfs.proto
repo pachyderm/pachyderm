@@ -182,8 +182,9 @@ message InspectRepoRequest {
 
 message ListRepoRequest {
   reserved 1;
+  // type is the type of (system) repos that should be returned
+  // an empty string requests all repos
   string type = 2;
-  bool all = 3;
 }
 
 message ListRepoResponse {

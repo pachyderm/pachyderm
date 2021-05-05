@@ -112,7 +112,7 @@ func repoFromString(name string) *pfs.Repo {
 		repo.Type = repoParts[1]
 	} else {
 		repo.Name = name
-		repo.Type = pfs.UserType
+		repo.Type = pfs.UserRepoType
 	}
 	return &repo
 }

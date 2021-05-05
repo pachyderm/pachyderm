@@ -15,10 +15,10 @@ const (
 	EmptyStr = "(empty)"
 
 	// default system repo types
-	UserType  = "user"
-	MetaType  = "meta"
-	BuildType = "build"
-	SpecType  = "spec"
+	UserRepoType  = "user"
+	MetaRepoType  = "meta"
+	BuildRepoType = "build"
+	SpecRepoType  = "spec"
 )
 
 // FullID prints repoName/CommitID

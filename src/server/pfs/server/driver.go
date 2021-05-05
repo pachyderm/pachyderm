@@ -185,7 +185,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 
 	if repo.Type == "" {
 		// default to user type
-		repo.Type = pfs.UserType
+		repo.Type = pfs.UserRepoType
 	}
 
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
@@ -223,13 +223,13 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 		return repos.Put(repo.Name, &existingRepoInfo)
 	} else {
 		// if this is a system repo, make sure the corresponding user repo already exists
-		if repo.Type != pfs.UserType {
+		if repo.Type != pfs.UserRepoType {
 			baseRepo := client.NewRepo(repo.Name)
 			err = repos.Get(pfsdb.RepoKey(baseRepo), &existingRepoInfo)
 			if err != nil && col.IsErrNotFound(err) {
-				return errors.Wrapf(err, "error checking whether user repo for %q exists", repo.Name)
-			} else if err != nil {
 				return errors.Errorf("cannot create a system repo without a corresponding 'user' repo")
+			} else if err != nil {
+				return errors.Wrapf(err, "error checking whether user repo for %q exists", repo.Name)
 			}
 		}
 
@@ -285,7 +285,7 @@ func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool, repoType string, all bool) (*pfs.ListRepoResponse, error) {
+func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool, repoType string) (*pfs.ListRepoResponse, error) {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
 	result := &pfs.ListRepoResponse{}
@@ -311,7 +311,8 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool, repoTy
 	}
 
 	var err error
-	if all {
+	if repoType == "" {
+		// blank type means return all
 		err = repos.List(repoInfo, col.DefaultOptions(), processFunc)
 	} else {
 		err = repos.GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc)
@@ -349,7 +350,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	}
 
 	// if this is a user repo, delete any dependent repos
-	if repo.Type == pfs.UserType {
+	if repo.Type == pfs.UserRepoType {
 		// TODO: should be in the transaction
 		var dependentRepos []pfs.Repo
 		var otherRepo pfs.RepoInfo
@@ -2309,7 +2310,7 @@ func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pf
 func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth, "", true)
+	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth, "")
 	if err != nil {
 		return err
 	}

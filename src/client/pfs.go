@@ -13,7 +13,7 @@ import (
 
 // NewRepo creates a pfs.Repo.
 func NewRepo(repoName string) *pfs.Repo {
-	return &pfs.Repo{Name: repoName, Type: pfs.UserType}
+	return &pfs.Repo{Name: repoName, Type: pfs.UserRepoType}
 }
 
 // NewSystemRepo creates a pfs.Repo of the given type
@@ -93,17 +93,15 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 	return resp, nil
 }
 
-// ListRepo returns info about standard Repos
+// ListRepo returns info about user Repos
 func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
-	return c.ListRepoByType("", false)
+	return c.ListRepoByType(pfs.UserRepoType)
 }
 
-// ListRepoByType returns info about Repos, allowing control over what type is returned
-func (c APIClient) ListRepoByType(repoType string, all bool) ([]*pfs.RepoInfo, error) {
-	request := &pfs.ListRepoRequest{
-		Type: repoType,
-		All:  all,
-	}
+// ListRepoByType returns info about Repos of the given type
+// The if repoType is empty, all Repos will be included
+func (c APIClient) ListRepoByType(repoType string) ([]*pfs.RepoInfo, error) {
+	request := &pfs.ListRepoRequest{Type: repoType}
 	repoInfos, err := c.PfsAPIClient.ListRepo(
 		c.Ctx(),
 		request,
