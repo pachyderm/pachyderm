@@ -241,9 +241,6 @@ func TestAmazonClient(t *testing.T) {
 
 	// Test the Amazon client against ECS
 	t.Run("ECSObjectStorage", func(t *testing.T) {
-		if os.Getenv("RUN_BAD_TESTS") == "" {
-			t.Skip("Skipping because RUN_BAD_TESTS was empty")
-		}
 		t.Parallel()
 		id, secret, bucket, region, endpoint := LoadECSParameters(t)
 		amazonTests(t, ECSBackend, id, secret, bucket, region, endpoint)
@@ -289,9 +286,6 @@ func TestMinioClient(t *testing.T) {
 
 	// Test the Minio client against ECS using the S3v2 and S3v4 APIs
 	t.Run("ECSObjectStorage", func(t *testing.T) {
-		if os.Getenv("RUN_BAD_TESTS") == "" {
-			t.Skip("Skipping because RUN_BAD_TESTS was empty")
-		}
 		t.Parallel()
 		id, secret, bucket, _, endpoint := LoadECSParameters(t)
 		minioTests(t, ECSBackend, endpoint, bucket, id, secret)
