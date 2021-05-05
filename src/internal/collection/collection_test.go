@@ -369,7 +369,7 @@ func TestMultiIndex(t *testing.T) {
 	cis := col.NewCollection(etcdClient, uuidPrefix, []*col.Index{commitMultiIndex}, &pfs.CommitInfo{}, nil, nil)
 
 	c1 := &pfs.CommitInfo{
-		Commit: client.NewCommit("repo", "c1"),
+		Commit: client.NewCommit("repo", "", "c1"),
 		Provenance: []*pfs.CommitProvenance{
 			client.NewCommitProvenance("in", "master", "c1"),
 			client.NewCommitProvenance("in", "master", "c2"),
@@ -377,7 +377,7 @@ func TestMultiIndex(t *testing.T) {
 		},
 	}
 	c2 := &pfs.CommitInfo{
-		Commit: client.NewCommit("repo", "c2"),
+		Commit: client.NewCommit("repo", "", "c2"),
 		Provenance: []*pfs.CommitProvenance{
 			client.NewCommitProvenance("in", "master", "c1"),
 			client.NewCommitProvenance("in", "master", "c2"),
@@ -397,7 +397,7 @@ func TestMultiIndex(t *testing.T) {
 	// Test that the first key retrieves both r1 and r2
 	ci := &pfs.CommitInfo{}
 	i := 1
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"), ci, col.DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c1"), ci, col.DefaultOptions, func(ID string) error {
 		if i == 1 {
 			require.Equal(t, c1.Commit.ID, ID)
 			require.Equal(t, c1, ci)
@@ -411,7 +411,7 @@ func TestMultiIndex(t *testing.T) {
 
 	// Test that the second key retrieves both r1 and r2
 	i = 1
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c2"), ci, col.DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c2"), ci, col.DefaultOptions, func(ID string) error {
 		if i == 1 {
 			require.Equal(t, c1.Commit.ID, ID)
 			require.Equal(t, c1, ci)
@@ -431,14 +431,14 @@ func TestMultiIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now "c3" only retrieves c2 (indexes are updated)
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c3"), ci, col.DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c3"), ci, col.DefaultOptions, func(ID string) error {
 		require.Equal(t, c2.Commit.ID, ID)
 		require.Equal(t, c2, ci)
 		return nil
 	}))
 
 	// And "C4" only retrieves r1 (indexes are updated)
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c4"), ci, col.DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c4"), ci, col.DefaultOptions, func(ID string) error {
 		require.Equal(t, c1.Commit.ID, ID)
 		require.Equal(t, c1, ci)
 		return nil
@@ -451,7 +451,7 @@ func TestMultiIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now "c1" only retrieves c2
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"), ci, col.DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c1"), ci, col.DefaultOptions, func(ID string) error {
 		require.Equal(t, c2.Commit.ID, ID)
 		require.Equal(t, c2, ci)
 		return nil
