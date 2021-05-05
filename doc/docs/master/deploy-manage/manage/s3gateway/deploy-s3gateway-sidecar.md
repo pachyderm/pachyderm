@@ -105,7 +105,7 @@ parameter in your pipeline.
 and output repo writable, 
 input bucket(s) are read-only, and the output bucket is initially empty and writable. 
 
-!!! note "See Also:"
+!!! note "See Also"
     - [Configure Environment Variables](../../../deploy/environment-variables/)
     - [Pachyderm S3 Gateway Supported Operations](./supported-operations.md)
     - [Complete S3 Gateway API reference](../../../../reference/s3gateway_api/)
