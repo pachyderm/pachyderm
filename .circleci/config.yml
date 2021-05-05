@@ -62,11 +62,11 @@ jobs:
           command: |
             etc/testing/circle_tests.sh 2>&1 |ts
 
-      - run:
-          name: Upload test stats 
-          when: always
-          command: |
-            etc/testing/upload_stats.sh
+      #- run:
+      #    name: Upload test stats
+      #    when: always
+      #    command: |
+      #      etc/testing/upload_stats.sh
 
       - run:
           name: Dump debugging info in case of failure
