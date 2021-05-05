@@ -4,7 +4,6 @@ import {
   PipelineInfo,
   PipelineState,
 } from '@pachyderm/proto/pb/pps/pps_pb';
-import {PubSub} from 'apollo-server-express';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatten from 'lodash/flatten';
 import flattenDeep from 'lodash/flattenDeep';
@@ -18,7 +17,7 @@ import {
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
 import {LinkInputData, NodeInputData, Vertex} from '@dash-backend/lib/types';
-import {withCancel} from '@dash-backend/lib/withCancel';
+import withSubscription from '@dash-backend/lib/withSubscription';
 import {
   Dag,
   Link,
@@ -38,14 +37,7 @@ interface DagResolver {
   };
 }
 
-type IntervalRecord = {
-  interval: NodeJS.Timeout;
-  count: number;
-};
-
-const intervalMap: Record<string, IntervalRecord> = {};
 const elk = new ELK();
-const pubsub = new PubSub();
 
 const flattenPipelineInput = (input: Input.AsObject): string[] => {
   const result = [];
@@ -260,9 +252,8 @@ const dagResolver: DagResolver = {
       ) => {
         let prevReposHash = '';
         let prevPipelinesHash = '';
-        let dags: Dag[] = [];
 
-        const getDags = async (triggerString: string) => {
+        const getDags = async () => {
           // TODO: Error handling
           const [repos, pipelines] = await Promise.all([
             pachClient.pfs().listRepo(),
@@ -296,7 +287,7 @@ const dagResolver: DagResolver = {
           });
           const components = disconnectedComponents(allVertices);
 
-          dags = await Promise.all(
+          return Promise.all(
             components.map((component) => {
               const componentRepos = repos.filter((repo) =>
                 component.find(
@@ -328,45 +319,16 @@ const dagResolver: DagResolver = {
               );
             }),
           );
-
-          pubsub.publish(triggerString, {
-            dags,
-          });
         };
 
-        // initial polling, 3000 is arbitrary
-        if (!intervalMap[projectId]) {
-          intervalMap[projectId] = {
-            interval: setInterval(async () => {
-              await getDags('DAGS_UPDATED');
-            }, 3000),
-            count: 0,
-          };
-        }
-
-        // get initial DAG so first request does not have to wait
-        process.nextTick(async () => {
-          intervalMap[projectId].count += 1;
-          await getDags(`${account.id}_DAGS_UPDATED`);
+        return withSubscription<Dag[]>({
+          triggerNames: [`${account.id}_DAGS_UPDATED`, 'DAGS_UPDATED'],
+          resolver: getDags,
+          intervalKey: projectId,
         });
-
-        const asyncIterator = pubsub.asyncIterator([
-          `${account.id}_DAGS_UPDATED`,
-          'DAGS_UPDATED',
-        ]);
-
-        const onCancel = () => {
-          intervalMap[projectId].count -= 1;
-          if (intervalMap[projectId].count === 0) {
-            clearInterval(intervalMap[projectId].interval);
-            delete intervalMap[projectId];
-          }
-        };
-
-        return withCancel(asyncIterator, onCancel);
       },
-      resolve: (result: {dags: Dag[]}) => {
-        return result.dags;
+      resolve: (result: Dag[]) => {
+        return result;
       },
     },
   },
