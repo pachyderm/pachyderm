@@ -127,13 +127,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "GC_PERCENT",
 		Value: strconv.FormatInt(int64(a.gcPercent), 10),
+	}, {
+		Name:  "POSTGRES_DATABASE_NAME",
+		Value: a.env.Config().PostgresDBName,
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
-	storageEnvVars, err := getStorageEnvVars(pipelineInfo)
-	if err != nil {
-		return v1.PodSpec{}, err
-	}
-	sidecarEnv = append(sidecarEnv, storageEnvVars...)
+	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
@@ -436,20 +435,14 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	return podSpec, nil
 }
 
-func getStorageEnvVars(pipelineInfo *pps.PipelineInfo) ([]v1.EnvVar, error) {
-	uploadConcurrencyLimit, ok := os.LookupEnv(assets.UploadConcurrencyLimitEnvVar)
-	if !ok {
-		return nil, errors.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
+func (a *apiServer) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
+	vars := []v1.EnvVar{
+		{Name: assets.UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(a.env.Config().StorageUploadConcurrencyLimit)},
 	}
 	if pipelineInfo.Spout != nil {
-		return []v1.EnvVar{
-			{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
-			{Name: "SPOUT_PIPELINE_NAME", Value: pipelineInfo.Pipeline.Name},
-		}, nil
+		vars = append(vars, v1.EnvVar{Name: "SPOUT_PIPELINE_NAME", Value: pipelineInfo.Pipeline.Name})
 	}
-	return []v1.EnvVar{
-		{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
-	}, nil
+	return vars
 }
 
 // We don't want to expose pipeline auth tokens, so we hash it. This will be
@@ -463,7 +456,7 @@ func hashAuthToken(token string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
@@ -650,7 +643,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	}, nil
 }
 
-func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) error {
 	var cfg config.Config
 	err := cfg.InitV2()
 	if err != nil {
@@ -701,7 +694,7 @@ type noValidOptionsErr struct {
 	error
 }
 
-func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
+func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
 		"pipeline", pipelineInfo.Pipeline.Name)

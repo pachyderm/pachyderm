@@ -699,7 +699,7 @@ func (api *pfsServerAPI) RenewFileset(ctx context.Context, req *pfs.RenewFileset
 /* PPS Server Mocks */
 
 type createJobFunc func(context.Context, *pps.CreateJobRequest) (*pps.Job, error)
-type inspectJobFunc func(context.Context, *pps.InspectJobRequest) (*pps.JobInfo, error)
+type inspectJobFunc func(context.Context, *pps.InspectJobRequest) (*pps.PipelineJobInfo, error)
 type listJobFunc func(*pps.ListJobRequest, pps.API_ListJobServer) error
 type flushJobFunc func(*pps.FlushJobRequest, pps.API_FlushJobServer) error
 type deleteJobFunc func(context.Context, *pps.DeleteJobRequest) (*types.Empty, error)
@@ -815,7 +815,7 @@ func (api *ppsServerAPI) CreateJob(ctx context.Context, req *pps.CreateJobReques
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.CreateJob")
 }
-func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
+func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.PipelineJobInfo, error) {
 	if api.mock.InspectJob.handler != nil {
 		return api.mock.InspectJob.handler(ctx, req)
 	}

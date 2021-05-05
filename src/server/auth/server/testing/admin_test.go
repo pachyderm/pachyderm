@@ -994,6 +994,26 @@ func TestRevokeTokensForUser(t *testing.T) {
 	require.True(t, contains(postRevokeTokens, auth.HashToken(bobToken.Token)), "Bob's Token should be extracted")
 }
 
+// TestRevokePachUserToken tests that the pps superuser and root tokens can't
+// be revoked.
+func TestRevokePachUserToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	_, err := rootClient.RevokeAuthTokensForUser(rootClient.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: auth.RootUser})
+	require.YesError(t, err)
+	require.Matches(t, "cannot revoke tokens for pach: users", err.Error())
+
+	_, err = rootClient.RevokeAuthTokensForUser(rootClient.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: auth.PpsUser})
+	require.YesError(t, err)
+	require.Matches(t, "cannot revoke tokens for pach: users", err.Error())
+}
+
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)
 // pipelines works if auth was deactivated after they were created. Pipelines
 // store a unique auth token after auth is activated, and if that auth token

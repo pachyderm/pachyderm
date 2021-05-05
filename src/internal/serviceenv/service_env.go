@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	dex_storage "github.com/dexidp/dex/storage"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
@@ -36,8 +37,10 @@ type ServiceEnv interface {
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
+	GetDexDB() dex_storage.Storage
 	ClusterID() string
 	Context() context.Context
+	Logger() *log.Logger
 	Close() error
 }
 
@@ -81,6 +84,10 @@ type NonblockingServiceEnv struct {
 	// clusterId is the unique ID for this pach cluster
 	clusterId   string
 	clusterIdEg errgroup.Group
+
+	// dexDB is a dex_storage connected to postgres
+	dexDB   dex_storage.Storage
+	dexDBEg errgroup.Group
 
 	// dbClient is a database client.
 	dbClient *sqlx.DB
@@ -168,7 +175,7 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	// Initialize pach client
 	return backoff.Retry(func() error {
 		var err error
-		env.pachClient, err = client.NewFromAddress(env.pachAddress)
+		env.pachClient, err = client.NewFromURI(env.pachAddress)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
 		}
@@ -308,6 +315,16 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 	return env.dbClient
 }
 
+func (env *NonblockingServiceEnv) GetDexDB() dex_storage.Storage {
+	if err := env.dexDBEg.Wait(); err != nil {
+		panic(err) // If env can't connect, there's no sensible way to recover
+	}
+	if env.dexDB == nil {
+		panic("service env never connected to the Dex database")
+	}
+	return env.dexDB
+}
+
 func (env *NonblockingServiceEnv) ClusterID() string {
 	if err := env.clusterIdEg.Wait(); err != nil {
 		panic(err)
@@ -318,6 +335,10 @@ func (env *NonblockingServiceEnv) ClusterID() string {
 
 func (env *NonblockingServiceEnv) Context() context.Context {
 	return env.ctx
+}
+
+func (env *NonblockingServiceEnv) Logger() *log.Logger {
+	return log.StandardLogger()
 }
 
 func (env *NonblockingServiceEnv) Close() error {

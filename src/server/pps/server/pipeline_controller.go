@@ -50,7 +50,7 @@ type pipelineOp struct {
 	// a pachyderm client wrapping this operation's context (child of the PPS
 	// master's context, and cancelled at the end of step())
 	opClient     *client.APIClient
-	ptr          *pps.EtcdPipelineInfo
+	ptr          *pps.StoredPipelineInfo
 	name         string // also in pipelineInfo, but that may not be set initially
 	pipelineInfo *pps.PipelineInfo
 	rc           *v1.ReplicationController
@@ -113,10 +113,10 @@ func (m *ppsMaster) newPipelineOp(opClient *client.APIClient, pipeline string) (
 	op := &pipelineOp{
 		m:        m,
 		opClient: opClient,
-		ptr:      &pps.EtcdPipelineInfo{},
+		ptr:      &pps.StoredPipelineInfo{},
 		name:     pipeline,
 	}
-	// get latest EtcdPipelineInfo (events can pile up, so that the current state
+	// get latest StoredPipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
 	if err := m.a.pipelines.ReadOnly(opClient.Ctx()).Get(pipeline, op.ptr); err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve etcd pipeline info for %q", pipeline)

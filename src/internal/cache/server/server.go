@@ -9,6 +9,7 @@ import (
 	pb "github.com/golang/groupcache/groupcachepb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cache/groupcachepb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/shard"
 
 	"github.com/golang/groupcache"
@@ -23,9 +24,9 @@ type CacheServer interface {
 }
 
 // NewCacheServer creates a new CacheServer.
-func NewCacheServer(router shard.Router, shards uint64) CacheServer {
+func NewCacheServer(env serviceenv.ServiceEnv, router shard.Router, shards uint64) CacheServer {
 	server := &groupCacheServer{
-		Logger:      log.NewLogger("CacheServer"),
+		Logger:      log.NewLogger("CacheServer", env.Logger()),
 		router:      router,
 		localShards: make(map[uint64]bool),
 		shards:      shards,

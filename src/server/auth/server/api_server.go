@@ -158,7 +158,7 @@ func NewAuthServer(
 	s := &apiServer{
 		env:        env,
 		txnEnv:     txnEnv,
-		pachLogger: log.NewLogger("auth.API"),
+		pachLogger: log.NewLogger("auth.API", env.Logger()),
 		members: col.NewCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),
@@ -196,8 +196,8 @@ func NewAuthServer(
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(authConfig, configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(roleBindings, clusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(env.Context(), authConfig, configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(env.Context(), roleBindings, clusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch()
@@ -1406,6 +1406,12 @@ func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.Delet
 
 func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.RevokeAuthTokensForUserRequest) (resp *auth.RevokeAuthTokensForUserResponse, retErr error) {
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	// Allow revoking auth tokens for pipelines, robots and IDP users,
+	// but not the root token or PPS user
+	if strings.HasPrefix(req.Username, auth.PachPrefix) {
+		return nil, errors.New("cannot revoke tokens for pach: users")
+	}
 
 	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, req.Username); err != nil {
 		return nil, errors.Wrapf(err, "error deleting all auth tokens")

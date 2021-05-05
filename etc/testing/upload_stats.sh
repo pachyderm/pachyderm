@@ -13,3 +13,7 @@ for VAR in "${ENV_VARS[@]}"; do
 done
 
 etc/testing/testctl-ssh.sh "${TESTCTL_OPTIONS[@]}" -- ./project/pachyderm/etc/testing/upload_stats_inner.sh
+
+mkdir -p /tmp/test-results
+
+etc/testing/testctl-ssh.sh "${TESTCTL_OPTIONS[@]}" -- ./project/pachyderm/etc/testing/report_junit.sh > /tmp/test-results/results.xml

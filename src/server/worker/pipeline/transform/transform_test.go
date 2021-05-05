@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"testing"
 	"time"
@@ -89,7 +88,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 
 	// Put the pipeline info into etcd (which is read by the master)
 	_, err = env.driver.NewSTM(func(stm col.STM) error {
-		etcdPipelineInfo := &pps.EtcdPipelineInfo{
+		etcdPipelineInfo := &pps.StoredPipelineInfo{
 			State:       pps.PipelineState_PIPELINE_STARTING,
 			SpecCommit:  pipelineInfo.SpecCommit,
 			Parallelism: 1,
@@ -143,12 +142,12 @@ func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 	return ctx
 }
 
-func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Context, *pps.EtcdJobInfo) {
+func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Context, *pps.StoredPipelineJobInfo) {
 	// Create a context that the caller can wait on
 	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
 
 	// Mock out the initial ListJob, CreateJob, and InspectJob calls
-	etcdJobInfo := &pps.EtcdJobInfo{Job: client.NewJob(uuid.NewWithoutDashes())}
+	etcdJobInfo := &pps.StoredPipelineJobInfo{Job: client.NewJob(uuid.NewWithoutDashes())}
 
 	// TODO: use a 'real' pps if we can make one that doesn't need a real kube client
 	env.MockPachd.PPS.ListJob.Use(func(*pps.ListJobRequest, pps.API_ListJobServer) error {
@@ -171,14 +170,14 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		return etcdJobInfo.Job, nil
 	})
 
-	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
+	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.PipelineJobInfo, error) {
 		if etcdJobInfo.OutputCommit == nil {
 			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
 		outputCommitInfo, err := env.PachClient.InspectCommit(etcdJobInfo.OutputCommit.Repo.Name, etcdJobInfo.OutputCommit.ID)
 		require.NoError(t, err)
 
-		return &pps.JobInfo{
+		return &pps.PipelineJobInfo{
 			Job:              etcdJobInfo.Job,
 			Pipeline:         etcdJobInfo.Pipeline,
 			OutputRepo:       &pfs.Repo{Name: etcdJobInfo.Pipeline.Name},
@@ -315,16 +314,14 @@ func TestTransformPipeline(suite *testing.T) {
 		for _, file := range files {
 			hdr, err := file.Header()
 			require.NoError(t, err)
-			r, err := objC.Reader(context.Background(), hdr.Name, 0, 0)
-			require.NoError(t, err)
-			defer func() {
-				require.NoError(t, r.Close())
-			}()
+
 			buf1 := &bytes.Buffer{}
 			require.NoError(t, file.Content(buf1))
+
 			buf2 := &bytes.Buffer{}
-			_, err = io.Copy(buf2, r)
+			err = objC.Get(context.Background(), hdr.Name, buf2)
 			require.NoError(t, err)
+
 			require.True(t, bytes.Equal(buf1.Bytes(), buf2.Bytes()))
 		}
 	})

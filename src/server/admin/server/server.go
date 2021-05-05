@@ -14,7 +14,7 @@ type APIServer interface {
 // NewAPIServer returns a new admin.APIServer
 func NewAPIServer(env serviceenv.ServiceEnv) APIServer {
 	return &apiServer{
-		Logger: log.NewLogger("admin.API"),
+		Logger: log.NewLogger("admin.API", env.Logger()),
 		clusterInfo: &admin.ClusterInfo{
 			ID:           env.ClusterID(),
 			DeploymentID: env.Config().DeploymentID,
