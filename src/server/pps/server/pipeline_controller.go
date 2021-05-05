@@ -669,7 +669,7 @@ func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 	}()
 
 	return op.updateRC(func(rc *v1.ReplicationController) bool {
-		if rc.Spec.Replicas != nil && *op.rc.Spec.Replicas == 0 {
+		if rc.Spec.Replicas == nil || *rc.Spec.Replicas == 0 {
 			return false // prior attempt succeeded
 		}
 		rc.Spec.Replicas = &zero
