@@ -2,8 +2,7 @@
 
 echo "=== TEST FAILED OR TIMED OUT, DUMPING DEBUG INFO ==="
 
-export GOPATH=/root/go
-export PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
+source "$(dirname "$0")/env.sh"
 
 # TODO: Extend this to show kubectl describe output for failed pods, this will
 # probably show why things are hanging.
