@@ -761,7 +761,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		err = c.FinishCommit(dataRepo, commitM.ID)
 //		require.NoError(t, err)
 //
-//		require.NoError(t, c.CreateBranch(dataRepo, "unrelated", "", nil))
+//		require.NoError(t, c.CreateBranch(dataRepo, "unrelated", "", "", nil))
 //		commitU, err := c.StartCommit(dataRepo, "unrelated")
 //		require.NoError(t, err)
 //		err = c.FinishCommit(dataRepo, commitU.ID)
@@ -1960,7 +1960,7 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 		require.NoError(t, c.PutFile(repo, commit.Branch.Name, commit.ID, "file", strings.NewReader(fmt.Sprintf("foo%d\n", i)), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	}
-	require.NoError(t, c.CreateBranch(repo, "master", commit.ID, nil))
+	require.NoError(t, c.CreateBranch(repo, "master", commit.Branch.Name, commit.ID, nil))
 
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -9117,7 +9117,7 @@ func TestDeferredCross(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataSet, "master", "")}, nil)
 	require.NoError(t, err)
 
-	err = c.CreateBranch(downstreamPipeline, "other", "master^", nil)
+	err = c.CreateBranch(downstreamPipeline, "other", "", "master^", nil)
 	require.NoError(t, err)
 
 	// next, create an imputation pipeline which is a cross of the dataset with the union of two different freeze branches
@@ -9212,13 +9212,13 @@ func TestDeferredProcessing(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commitInfos))
 
-	c.CreateBranch(dataRepo, "master", "staging", nil)
+	c.CreateBranch(dataRepo, "master", "staging", "", nil)
 
 	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	c.CreateBranch(pipeline1, "master", "staging", nil)
+	c.CreateBranch(pipeline1, "master", "staging", "", nil)
 
 	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)

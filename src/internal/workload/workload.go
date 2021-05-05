@@ -123,10 +123,10 @@ func (w *worker) advanceCommit(c *client.APIClient) error {
 
 		// Before we finish a commit, we add a file. This assures that there
 		// won't be any empty commits which will later crash jobs
-		if err := c.PutFile(commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
+		if err := c.PutFile(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID, w.randString(10), w.reader()); err != nil {
 			return err
 		}
-		if err := c.FinishCommit(commit.Repo.Name, commit.ID); err != nil {
+		if err := c.FinishCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID); err != nil {
 			return err
 		}
 		// remove commit[i] from 'started' and add it to 'finished'
@@ -135,7 +135,7 @@ func (w *worker) advanceCommit(c *client.APIClient) error {
 	} else {
 		// Start a new commmit (parented off of a commit that we've finished)
 		commit := w.finished[w.rand.Intn(len(w.finished))]
-		commit, err := c.StartCommitParent(commit.Repo.Name, "", commit.ID)
+		commit, err := c.StartCommitParent(commit.Branch.Repo.Name, "", commit.Branch.Name, commit.ID)
 		if err != nil {
 			return err
 		}
@@ -151,7 +151,7 @@ func (w *worker) putFile(c *client.APIClient) error {
 		return nil
 	}
 	commit := w.started[w.rand.Intn(len(w.started))]
-	if err := c.PutFile(commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
+	if err := c.PutFile(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID, w.randString(10), w.reader()); err != nil {
 		return err
 	}
 	return nil

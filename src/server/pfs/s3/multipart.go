@@ -82,7 +82,7 @@ func (c *controller) ensureRepo(pc *client.APIClient) error {
 			return err
 		}
 
-		err = pc.CreateBranch(c.repo, "master", "", nil)
+		err = pc.CreateBranch(c.repo, "master", "", "", nil)
 		if err != nil {
 			return err
 		}

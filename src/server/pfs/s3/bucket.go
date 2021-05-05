@@ -182,7 +182,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 		}
 	}
 
-	err = pc.CreateBranch(bucket.Repo, bucket.Branch, "", nil)
+	err = pc.CreateBranch(bucket.Repo, bucket.Branch, "", "", nil)
 	if err != nil {
 		if ancestry.IsInvalidNameError(err) {
 			return s2.InvalidBucketNameError(r)

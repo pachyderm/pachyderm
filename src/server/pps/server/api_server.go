@@ -2735,6 +2735,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 				request.Pipeline.Name,
 				pipelineInfo.OutputBranch,
 				pipelineInfo.OutputBranch,
+				"",
 				nil,
 			); err != nil {
 				return nil, err
@@ -2856,6 +2857,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		request.Pipeline.Name,
 		pipelineInfo.OutputBranch,
 		pipelineInfo.OutputBranch,
+		"",
 		provenance,
 	); err != nil {
 		return nil, err
@@ -2886,6 +2888,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		request.Pipeline.Name,
 		pipelineInfo.OutputBranch,
 		pipelineInfo.OutputBranch,
+		"",
 		nil,
 	); err != nil {
 		return nil, err

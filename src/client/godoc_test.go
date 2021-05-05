@@ -223,7 +223,7 @@ func ExampleAPIClient_CreateBranch() {
 		panic(err)
 	}
 
-	if err := c.CreateBranch("test", "newbranch", "master", nil); err != nil {
+	if err := c.CreateBranch("test", "newbranch", "master", "", nil); err != nil {
 		panic(err)
 	}
 
@@ -328,7 +328,7 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 		panic(err)
 	}
 
-	if err := c.CreateBranch("test", "new-branch", cis[1].Commit.ID, nil); err != nil {
+	if err := c.CreateBranch("test", "new-branch", "", cis[1].Commit.ID, nil); err != nil {
 		panic(err)
 	}
 	if err := c.PutFile("test", "new-branch", "", "file4", strings.NewReader("fizz\n")); err != nil {

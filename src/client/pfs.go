@@ -280,10 +280,10 @@ func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) 
 }
 
 // CreateBranch creates a new branch
-func (c APIClient) CreateBranch(repoName string, branchName string, commit string, provenance []*pfs.Branch) error {
+func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch string, commitID string, provenance []*pfs.Branch) error {
 	var head *pfs.Commit
-	if commit != "" {
-		head = NewCommit(repoName, branchName, commit)
+	if commitBranch != "" || commitID != "" {
+		head = NewCommit(repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
@@ -299,10 +299,10 @@ func (c APIClient) CreateBranch(repoName string, branchName string, commit strin
 // CreateBranchTrigger Creates a branch with a trigger. Note: triggers and
 // provenance are mutually exclusive. See the docs on triggers to learn more
 // about why this is.
-func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commit string, trigger *pfs.Trigger) error {
+func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commitBranch string, commitID string, trigger *pfs.Trigger) error {
 	var head *pfs.Commit
-	if commit != "" {
-		head = NewCommit(repoName, branchName, commit)
+	if commitBranch != "" || commitID != "" {
+		head = NewCommit(repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),

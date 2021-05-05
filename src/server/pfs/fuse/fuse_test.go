@@ -130,7 +130,7 @@ func TestSeek(t *testing.T) {
 func TestHeadlessBranch(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", nil))
+	require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", "", nil))
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		fis, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
@@ -337,7 +337,7 @@ func TestOpenCommit(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("in"))
 	require.NoError(t, env.PachClient.CreateRepo("out"))
-	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{client.NewBranch("in", "master")}))
+	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewBranch("in", "master")}))
 	_, err := env.PachClient.StartCommit("in", "master")
 	require.NoError(t, err)
 

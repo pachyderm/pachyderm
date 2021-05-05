@@ -584,21 +584,6 @@ func (d *driver) makeCommit(
 			}
 		}
 
-		// if 'provenance' includes a spec commit, (note the difference from the
-		// prev condition) then it was created by pps and is allowed to be in an
-		// output branch
-		/*
-			hasSpec := false
-			for _, prov := range provenance {
-				if prov.Commit.Branch.Repo.Name == ppsconsts.SpecRepo {
-					hasSpec = true
-				}
-			}
-
-			if provenanceCount > 0 && !hasSpec {
-				return errors.Errorf("cannot start a commit on an output branch")
-			}
-		*/
 		// Point 'branch' at the new commit
 		branchInfo.Head = newCommit
 		return nil
@@ -631,7 +616,7 @@ func (d *driver) makeCommit(
 		}
 		// fail if the parent commit has not been finished
 		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s@%s has not been finished", branch.Repo.Name, parent.ID)
+			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Branch.Repo.Name, parent.ID)
 		}
 		if err := commits.Update(parentCommitInfo.Commit.ID, parentCommitInfo, func() error {
 			newCommitInfo.ParentCommit = parentCommitInfo.Commit
@@ -1235,6 +1220,9 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 
 	// Now that ancestry has been parsed out, check if the ID is a branch name
 	if commit.ID != "" && !uuid.IsUUIDWithoutDashes(commit.ID) {
+		if commit.Branch.Name != "" {
+			return nil, errors.Errorf("invalid commit ID given with a branch (%s@%s): %s\n", commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+		}
 		commit.Branch.Name = commit.ID
 		commit.ID = ""
 	}

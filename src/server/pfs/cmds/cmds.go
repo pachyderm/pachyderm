@@ -615,9 +615,9 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				if trigger.Branch != "" {
-					return c.CreateBranchTrigger(branch.Repo.Name, branch.Name, head, trigger)
+					return c.CreateBranchTrigger(branch.Repo.Name, branch.Name, "", head, trigger)
 				}
-				return c.CreateBranch(branch.Repo.Name, branch.Name, head, provenance)
+				return c.CreateBranch(branch.Repo.Name, branch.Name, "", head, provenance)
 			})
 		}),
 	}
