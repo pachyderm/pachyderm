@@ -43,7 +43,7 @@
     "subscriptions-transport-ws": "0.9.18"
   },
   "devDependencies": {
-    "@cypress/code-coverage": "3.9.2",
+    "@cypress/code-coverage": "3.9.5",
     "@graphql-codegen/add": "2.0.2",
     "@graphql-codegen/cli": "1.17.3",
     "@graphql-codegen/import-types-preset": "1.18.1",
@@ -53,7 +53,7 @@
     "@pachyderm/config": "0.5.0",
     "@pachyderm/scripts": "0.5.4",
     "@sentry/cli": "1.55.0",
-    "@testing-library/cypress": "7.0.4",
+    "@testing-library/cypress": "7.0.6",
     "@testing-library/dom": "7.29.4",
     "@testing-library/jest-dom": "5.11.8",
     "@testing-library/react": "11.2.3",
@@ -72,7 +72,7 @@
     "@types/react-router-dom": "5.1.5",
     "canvas": "2.6.1",
     "cross-fetch": "3.0.6",
-    "cypress": "6.6.0",
+    "cypress": "7.2.0",
     "cypress-wait-until": "1.7.1",
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",
