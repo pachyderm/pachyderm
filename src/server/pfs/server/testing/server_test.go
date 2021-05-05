@@ -4734,17 +4734,6 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, fmt.Sprintf("%d", numFiles-1), b.String())
 	})
 
-	suite.Run("StartCommitOutputBranch", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		require.NoError(t, env.PachClient.CreateRepo("in"))
-		require.NoError(t, env.PachClient.CreateRepo("out"))
-		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
-		_, err := env.PachClient.StartCommit("out", "master")
-		require.YesError(t, err)
-	})
-
 	suite.Run("WalkFile", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))

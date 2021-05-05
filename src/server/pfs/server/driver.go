@@ -983,9 +983,8 @@ nextSubvBI:
 			//     its head commit has commit provenance.
 			// - We need to key on both the commit id and the branch name, so that
 			//   branches with a shared commit are both represented in the provenance
-			newCommitProvMap[commitKey(provOfSubvBI.Head)] = &pfs.CommitProvenance{
-				Commit: provOfSubvBI.Head,
-			}
+			provCommit := client.NewCommit(provOfSubvB.Repo.Name, provOfSubvB.Name, provOfSubvBI.Head.ID)
+			newCommitProvMap[commitKey(provCommit)] = &pfs.CommitProvenance{Commit: provCommit}
 			provOfSubvBHeadInfo := &pfs.CommitInfo{}
 			if err := d.commits(provOfSubvB.Repo.Name).ReadWrite(stm).Get(provOfSubvBI.Head.ID, provOfSubvBHeadInfo); err != nil {
 				return err
@@ -994,7 +993,7 @@ nextSubvBI:
 				newProvProv, err := d.resolveCommitProvenance(stm, provProv)
 				if err != nil {
 					return errors.Wrapf(err, "could not resolve provenant commit %s@%s (%s)",
-						provProv.Commit.Branch.Repo.Name, provProv.Commit.ID, provProv.Commit.Branch.Name)
+						provProv.Commit.Branch.Repo.Name, provProv.Commit.Branch.Name, provProv.Commit.ID)
 				}
 				provProv = newProvProv
 				newCommitProvMap[commitKey(provProv.Commit)] = provProv
