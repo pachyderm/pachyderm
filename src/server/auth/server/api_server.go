@@ -57,6 +57,10 @@ const (
 
 	// the length of interval between expired auth token cleanups
 	cleanupIntervalHours = 24
+
+	inactiveClusterLicenseMsg = "Pachyderm Enterprise is not active in this " +
+		"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
+		"auth is deactivated, only cluster admins can perform any operations)"
 )
 
 // DefaultOIDCConfig is the default config for the auth API server
@@ -301,6 +305,58 @@ func (a *apiServer) getEnterpriseTokenState(ctx context.Context) (enterpriseclie
 	return resp.State, nil
 }
 
+// expiredEnterpriseCheck enforces that if the cluster's enterprise token is
+// expired, users cannot log in. The root token can be used to access the cluster.
+func (a *apiServer) expiredEnterpriseCheck(ctx context.Context) error {
+	state, err := a.getEnterpriseTokenState(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
+	}
+
+	if state == enterpriseclient.State_ACTIVE {
+		return nil
+	}
+
+	// this call internally checks for an Active License
+	// and Authorized Users in case of a deactivated license
+	if _, err = a.getAuthenticatedUser(ctx); err != nil {
+		return errors.New(inactiveClusterLicenseMsg)
+	}
+	return nil
+}
+
+func (a *apiServer) userHasExpiredClusterAccessCheck(ctx context.Context, username string) error {
+	// Root User, PPS Master, and any Pipeline keep cluster access
+	if username == auth.RootUser || username == auth.PpsUser || strings.HasPrefix(username, auth.PipelinePrefix) {
+		return nil
+	}
+
+	// Any User with the Cluster Admin Role keeps cluster access
+	isAdmin, err := a.hasClusterRole(ctx, username, auth.ClusterAdminRole)
+	if err != nil {
+		return errors.Wrapf(err, inactiveClusterLicenseMsg)
+	}
+	if !isAdmin {
+		return errors.New(inactiveClusterLicenseMsg)
+	}
+	return nil
+}
+
+func (a *apiServer) hasClusterRole(ctx context.Context, username string, role string) (bool, error) {
+	bindings, err := a.getClusterRoleBinding(ctx)
+	if err != nil {
+		return false, err
+	}
+	if roles, ok := bindings.Entries[username]; ok {
+		for r := range roles.Roles {
+			if r == role {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
@@ -422,32 +478,6 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 		return nil, err
 	}
 	return &auth.DeactivateResponse{}, nil
-}
-
-// expiredEnterpriseCheck enforces that if the cluster's enterprise token is
-// expired, users cannot log in. The root token can be used to access the cluster.
-func (a *apiServer) expiredEnterpriseCheck(ctx context.Context) error {
-	state, err := a.getEnterpriseTokenState(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
-	}
-
-	if state == enterpriseclient.State_ACTIVE {
-		return nil
-	}
-
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return err
-	}
-
-	if callerInfo.Subject == auth.RootUser || callerInfo.Subject == auth.PpsUser {
-		return nil
-	}
-
-	return errors.New("Pachyderm Enterprise is not active in this " +
-		"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
-		"auth is deactivated, users cannot log in)")
 }
 
 // Authenticate implements the protobuf auth.Authenticate RPC
@@ -1278,6 +1308,19 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		}
 		return nil, lookupErr
 	}
+
+	state, err := a.getEnterpriseTokenState(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
+	}
+
+	if state != enterpriseclient.State_ACTIVE {
+		// license is expired. Check to see whether the user can still access it.
+		if err = a.userHasExpiredClusterAccessCheck(ctx, tokenInfo.Subject); err != nil {
+			return nil, err
+		}
+	}
+
 	// verify token hasn't expired
 	if tokenInfo.Expiration != nil {
 		if time.Now().After(*tokenInfo.Expiration) {
