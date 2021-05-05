@@ -681,15 +681,13 @@ func GetEnterpriseRoleBindingCmd() *cobra.Command {
 	return cmdutil.CreateAlias(get, "auth get enterprise")
 }
 
-// RotateAuthToken returns a cobra command that rotates an auth token for a User
-func RotateAuthToken() *cobra.Command {
-	var pachToken string
-	var subject string
-	var ttl int64
-	rotateToken := &cobra.Command{
+// RotateRootToken returns a cobra command that rotates the auth token for the Root User
+func RotateRootToken() *cobra.Command {
+	var rootToken string
+	rotateRootToken := &cobra.Command{
 		Use:   "{{alias}}",
-		Short: "Rotate the auth token for a user",
-		Long:  "Rotate the auth token for a user",
+		Short: "Rotate the root user's auth token",
+		Long:  "Rotate the root user's auth token",
 		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
 			c, err := newClient(false)
 			if err != nil {
@@ -697,24 +695,23 @@ func RotateAuthToken() *cobra.Command {
 			}
 			defer c.Close()
 
-			req := &auth.RotateAuthTokenRequest{
-				PachToken: pachToken,
-				Subject:   subject,
-				TTL:       ttl,
+			req := &auth.RotateRootTokenRequest{
+				RootToken: rootToken,
 			}
-			resp, err := c.RotateAuthToken(c.Ctx(), req)
+			resp, err := c.RotateRootToken(c.Ctx(), req)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Pachyderm auth token:\n%s\n", resp.PachToken)
+
+			fmt.Println("WARNING: DO NOT LOSE THE AUTH TOKEN BELOW. STORE IT SECURELY FOR THE LIFE OF THE CLUSTER." +
+				"THIS TOKEN WILL ALWAYS HAVE ADMIN ACCESS TO FIX THE CLUSTER CONFIGURATION.")
+			fmt.Printf("Pachyderm auth token:\n%s\n", resp.RootToken)
 			return nil
 		}),
 	}
-	rotateToken.PersistentFlags().StringVar(&pachToken, "supply-token", "", "An auth token to rotate to. If left blank, one will be auto-generated.")
-	rotateToken.PersistentFlags().StringVar(&subject, "subject", "", "The subject to apply the token rotation to. If left blank will default to the calling user.")
-	rotateToken.PersistentFlags().Int64Var(&ttl, "ttl", 0, "The TTL of the Token rotated to.")
+	rotateRootToken.PersistentFlags().StringVar(&rootToken, "supply-token", "", "An auth token to rotate to. If left blank, one will be auto-generated.")
 
-	return cmdutil.CreateAlias(rotateToken, "auth rotate-token")
+	return cmdutil.CreateAlias(rotateRootToken, "auth rotate-root-token")
 }
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
@@ -763,6 +760,6 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, SetClusterRoleBindingCmd())
 	commands = append(commands, GetEnterpriseRoleBindingCmd())
 	commands = append(commands, SetEnterpriseRoleBindingCmd())
-	commands = append(commands, RotateAuthToken())
+	commands = append(commands, RotateRootToken())
 	return commands
 }

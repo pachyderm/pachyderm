@@ -345,8 +345,8 @@ func TestGetGroups(t *testing.T) {
 		"group", group, "alice", alice).Run())
 }
 
-// TestRotateToken tests that calling 'pachctl auth rotate-token' rotates the admin's token
-func TestRotateToken(t *testing.T) {
+// TestRotateRootToken tests that calling 'pachctl auth rotate-root-token' rotates the root user's token
+func TestRotateRootToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -361,7 +361,7 @@ func TestRotateToken(t *testing.T) {
 	`).Run())
 
 	// rotate current user's token
-	token := executeCmdAndGetLastWord(t, exec.Command("pachctl", "auth", "rotate-token"))
+	token := executeCmdAndGetLastWord(t, exec.Command("pachctl", "auth", "rotate-root-token"))
 
 	// current user (root) can't authenticate
 	require.YesError(t, tu.BashCmd(`
@@ -375,7 +375,7 @@ func TestRotateToken(t *testing.T) {
 	`).Run())
 
 	// rotate to new token and get (the same) output token
-	token = executeCmdAndGetLastWord(t, exec.Command("pachctl", "auth", "rotate-token", "--supply-token", sessionToken))
+	token = executeCmdAndGetLastWord(t, exec.Command("pachctl", "auth", "rotate-root-token", "--supply-token", sessionToken))
 
 	require.Equal(t, sessionToken, token)
 
@@ -388,55 +388,6 @@ func TestRotateToken(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth whoami | match "pach:root"
 	`).Run())
-}
-
-// TestRotateTokenForUser tests that calling 'pachctl auth rotate-token --subject <SUBJECT>' rotates the subject's token
-func TestRotateTokenForUser(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
-
-	// login as Alice
-	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
-	require.NoError(t, tu.BashCmd(`
-		pachctl auth whoami | match {{.alice}}`,
-		"alice", alice,
-	).Run())
-
-	// get Alice's current token
-	cfg, err := config.Read(true, true)
-	require.NoError(t, err)
-	aliceOriginalToken := cfg.V2.Contexts[cfg.V2.GetActiveContext()].SessionToken
-
-	// login as root
-	loginAsUser(t, auth.RootUser)
-	require.NoError(t, tu.BashCmd(`
-		pachctl auth whoami | match {{.root}}`,
-		"root", auth.RootUser,
-	).Run())
-
-	// rotate Alice's Token
-	aliceNewToken := executeCmdAndGetLastWord(t, exec.Command("pachctl", "auth", "rotate-token", "--subject", alice))
-
-	// login as Alice
-	require.NoError(t, config.WritePachTokenToConfig(aliceOriginalToken, false))
-
-	// Alice can't authenticate
-	require.YesError(t, tu.BashCmd(`
-		pachctl auth whoami
-	`).Run())
-
-	// update Alice's token
-	require.NoError(t, config.WritePachTokenToConfig(aliceNewToken, false))
-
-	// Alice can authenticate
-	require.NoError(t, tu.BashCmd(`
-		pachctl auth whoami | match {{.alice}}`,
-		"alice", alice,
-	).Run())
 }
 
 func TestMain(m *testing.M) {

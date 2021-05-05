@@ -179,7 +179,7 @@ func (a *InactiveAPIServer) DeleteExpiredAuthTokens(context.Context, *auth.Delet
 	return nil, auth.ErrNotActivated
 }
 
-// RotateToken implements the RotateToken RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) RotateAuthToken(context.Context, *auth.RotateAuthTokenRequest) (*auth.RotateAuthTokenResponse, error) {
+// RotateRootToken implements the RotateRootToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) RotateRootToken(context.Context, *auth.RotateRootTokenRequest) (*auth.RotateRootTokenResponse, error) {
 	return nil, auth.ErrNotActivated
 }
