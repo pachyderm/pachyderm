@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -17,8 +18,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/transport"
 )
 
 // ServiceEnv is a struct containing connections to other services in the
@@ -163,6 +166,27 @@ func (env *ServiceEnv) initEtcdClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
+func transportForConfig(config *transport.Config) (http.RoundTripper, error) {
+	tlsConfig, err := transport.TLSConfigFor(config)
+	if err != nil {
+		return nil, err
+	}
+
+	dial := (&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext
+
+	return utilnet.SetTransportDefaults(&http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     tlsConfig,
+		MaxIdleConnsPerHost: 25,
+		DialContext:         dial,
+		DisableCompression:  false,
+	}), nil
+}
+
 func (env *ServiceEnv) initKubeClient() error {
 	return backoff.Retry(func() error {
 		// Get secure in-cluster config
@@ -183,11 +207,24 @@ func (env *ServiceEnv) initKubeClient() error {
 				},
 			}
 		}
+		tCfg, err := cfg.TransportConfig()
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			return errors.Wrapf(err, "erorr getting transport config")
+		}
+		cfg.Transport, err = transportForConfig(tCfg)
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			return errors.Wrapf(err, "erorr getting transport")
+		}
+		cfg.TLSClientConfig = rest.TLSClientConfig{}
+
 		cfg.WrapTransport = wrapWithLoggingTransport(env.RestartKubeClient)
 		env.kubeClient, err = kube.NewForConfig(cfg)
 		cfg.Timeout = 30 * time.Second
 		env.thirtySecondsKubeClient, err = kube.NewForConfig(cfg)
 		if err != nil {
+			fmt.Printf("%s\n", err)
 			return errors.Wrapf(err, "could not initialize kube client")
 		}
 		return nil
