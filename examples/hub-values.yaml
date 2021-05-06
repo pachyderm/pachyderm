@@ -1,7 +1,6 @@
 dash:
   image:
     tag: "0.5.58"
-  resources: null
   # url is configured per workspace.
   url: "https://dash.test/"
 
@@ -10,7 +9,6 @@ etcd:
     requests:
       cpu: "1"
       memory: 2G
-    limits: null
   service:
     annotations:
       prometheus.io/port: "2379"
@@ -26,6 +24,7 @@ loadBalancer:
 pachd:
   blockCacheBytes: "0G"
   exposeDockerSocket: true
+  goMaxProcs: 3
   image:
     # tag is configured per workspace.
     tag: "1.13.0"

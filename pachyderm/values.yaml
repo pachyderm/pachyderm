@@ -24,14 +24,14 @@ dash:
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "0.5.57"
-  # resources specifies the resource request
-  resources: #Can't zero out resources with {}
-    limits:
-      cpu: "1"
-      memory: "2G"
-    requests:
-      cpu: "1"
-      memory: "2G"
+  # resources specifies the resource request and limits.
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
   service:
     # type specifies the Kubernetes type of the dash service.
     type: ClusterIP
@@ -48,14 +48,14 @@ etcd:
     repository: "pachyderm/etcd"
     tag: "v3.3.5"
     pullPolicy: "IfNotPresent"
-  # resources specifies the resource request
-  resources:
-    limits:
-      cpu: "1"
-      memory: "2G"
-    requests:
-      cpu: "1"
-      memory: "2G"
+  # resources specifies the resource request and limits
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
   # storageClass indicates the etcd should use an existing
   # StorageClass for its storage.  It is analogous to the
   # --etcd-storage-class argument to pachctl deploy.
@@ -87,6 +87,8 @@ pachd:
   # exposeObjectAPI controls whether the object API is exposed.  It is
   # analogous to --expose-object-api passed to pachctl deploy.
   exposeObjectAPI: false
+  # goMaxProcs is passed as GOMAXPROCS to the pachd container.
+  goMaxProcs: 0
   image:
     repository: "pachyderm/pachd"
     pullPolicy: "IfNotPresent"
@@ -104,14 +106,14 @@ pachd:
   # performance.  It is analogous to the --shards argument to pachctl
   # deploy.
   numShards: 16
-  # resources specifies the resource request.
-  resources:
-    limits:
-      cpu: "1"
-      memory: "2G"
-    requests:
-      cpu: "1"
-      memory: "2G"
+  # resources specifies the resource requests and limits
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
@@ -202,19 +204,21 @@ pachd:
       # the command line is with the set-file flag, e.g.:
       #
       #  helm install pachd -f my-values.yaml --set-file storage.google.cred=creds.json pachyderm/pachyderm
-      cred: |
-        {
-          "type": "service_account",
-          "project_id": "…",
-          "private_key_id": "…",
-          "private_key": "-----BEGIN PRIVATE KEY-----\n…\n-----END PRIVATE KEY-----\n",
-          "client_email": "…@….iam.gserviceaccount.com",
-          "client_id": "…",
-          "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-          "token_uri": "https://oauth2.googleapis.com/token",
-          "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-          "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/…%40….iam.gserviceaccount.com"
-        }
+      cred: "" 
+      # Example:
+      # cred: |
+      #  {
+      #    "type": "service_account",
+      #    "project_id": "…",
+      #    "private_key_id": "…",
+      #    "private_key": "-----BEGIN PRIVATE KEY-----\n…\n-----END PRIVATE KEY-----\n",
+      #    "client_email": "…@….iam.gserviceaccount.com",
+      #    "client_id": "…",
+      #    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      #    "token_uri": "https://oauth2.googleapis.com/token",
+      #    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      #    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/…%40….iam.gserviceaccount.com"
+      #  }
       serviceAccountName: "" # For Workload Identity access to the bucket
     local:
       # hostPath indicates the path on the host where the PFS metadata

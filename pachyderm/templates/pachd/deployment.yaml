@@ -61,6 +61,10 @@ spec:
           value: "{{ .Values.pachd.image.tag }}"
         - name: METRICS
           value: {{ .Values.pachd.metrics.enabled | quote }}
+        {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
+        - name: GOMAXPROCS
+          value: {{ .Values.pachd.goMaxProcs | quote }}
+        {{- end }}
         {{- if .Values.pachd.metricsEndpoint}}
         - name: METRICS_ENDPOINT
           value: "{{ .Values.pachd.metricsEndpoint }}"
@@ -304,6 +308,9 @@ spec:
         {{- end }}
         name: pachd
         ports:
+        - containerPort: 600
+          name: s3gateway-port
+          protocol: TCP
         - containerPort: 650
           name: api-grpc-port
           protocol: TCP
