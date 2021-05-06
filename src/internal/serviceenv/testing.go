@@ -77,10 +77,20 @@ func (s *TestServiceEnv) GetDexDB() dex_storage.Storage {
 
 func (s *TestServiceEnv) Close() error {
 	eg := &errgroup.Group{}
-	eg.Go(s.GetPachClient(context.Background()).Close)
-	eg.Go(s.GetEtcdClient().Close)
-	eg.Go(s.GetDBClient().Close)
-	eg.Go(s.GetDexDB().Close)
-	eg.Go(s.GetPostgresListener().Close)
+	if client := s.GetPachClient(context.Background()); client != nil {
+		eg.Go(client.Close)
+	}
+	if client := s.GetEtcdClient(); client != nil {
+		eg.Go(client.Close)
+	}
+	if client := s.GetDBClient(); client != nil {
+		eg.Go(client.Close)
+	}
+	if client := s.GetDexDB(); client != nil {
+		eg.Go(client.Close)
+	}
+	if listener := s.GetPostgresListener(); listener != nil {
+		eg.Go(listener.Close)
+	}
 	return eg.Wait()
 }

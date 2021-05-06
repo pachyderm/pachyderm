@@ -387,6 +387,5 @@ func (env *NonblockingServiceEnv) Close() error {
 	eg.Go(env.GetEtcdClient().Close)
 	eg.Go(env.GetDBClient().Close)
 	eg.Go(env.GetPostgresListener().Close)
-	eg.Go(env.GetDexDB().Close)
 	return eg.Wait()
 }
