@@ -109,8 +109,8 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserErrorHandlingCode(ctx, logger, env)
 }
-func (td *testDriver) DeleteJob(stm col.STM, ji *pps.EtcdJobInfo) error {
-	return td.inner.DeleteJob(stm, ji)
+func (td *testDriver) DeleteJob(stm col.STM, pji *pps.StoredPipelineJobInfo) error {
+	return td.inner.DeleteJob(stm, pji)
 }
 func (td *testDriver) UpdateJobState(job string, state pps.JobState, reason string) error {
 	return td.inner.UpdateJobState(job, state, reason)

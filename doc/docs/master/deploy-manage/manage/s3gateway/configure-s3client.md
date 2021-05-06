@@ -1,91 +1,103 @@
-# Configure the S3 client
+# Configure Your S3 Client
 
-Before you can work with the S3 gateway, you need to configure your S3 client
-to access Pachyderm. Complete the steps in one of the sections below that
+Before you can access a repo via the S3 gateway,
+you need to configure your S3 client. 
+Complete the steps in one of the sections below that
 correspond to your S3 client.
 
 ## Configure MinIO
-
-If you are not using the MinIO client, skip this section.
-
-To install and configure MinIO, complete the following steps:
-
-1. Install the MinIO client on your platform as
+1. Install the MinIO client as
 described on the [MinIO download page](https://min.io/download#/macos).
 
 1. Verify that MinIO components are successfully installed by running
 the following command:
 
-   ```shell
-   minio version
-   mc version
-   ```
+      ```shell
+      $ minio version
+      $ mc version
+      ```
+      **System Response:**
+      ```
+      Version: 2019-07-11T19:31:28Z
+      Release-tag: RELEASE.2019-07-11T19-31-28Z
+      Commit-id: 31e5ac02bdbdbaf20a87683925041f406307cfb9
+      ```
 
-   **System Response:**
+1. Set up the MinIO configuration file to use the S3 Gateway port `30600` for your host:
 
-   ```
-   Version: 2019-07-11T19:31:28Z
-   Release-tag: RELEASE.2019-07-11T19-31-28Z
-   Commit-id: 31e5ac02bdbdbaf20a87683925041f406307cfb9
-   ```
+      ```shell
+      $ vi ~/.mc/config.json
+      ```
+      You should see a configuration similar to the following.
+      For a minikube deployment, verify the
+      `local` configuration:
+      ```
+      "local": {
+                  "url": "http://localhost:30600",
+                  "accessKey": "YOUR-PACHYDERM-AUTH-TOKEN",
+                  "secretKey": "YOUR-PACHYDERM-AUTH-TOKEN",
+                  "api": "S3v4",
+                  "lookup": "auto"
+               },
+      ```
 
-1. Set up the MinIO configuration file to use the `30600` port for your host:
+      Both the access key and secret key 
+      should be set as mentioned in the [# Set Your Credentails](#set-your-credentials) section of this page. 
 
-   ```shell
-   vi ~/.mc/config.json
-   ```
+!!! Info
+      Find **MinIO** full documentation [here](https://docs.min.io/docs/minio-client-complete-guide).
 
-   You should see a configuration similar to the following:
-
-   * For a minikube deployment, verify the
-   `local` configuration:
-
-     ```
-     "local": {
-               "url": "http://localhost:30600",
-               "accessKey": "YOUR-PACHYDERM-AUTH-TOKEN",
-               "secretKey": "YOUR-PACHYDERM-AUTH-TOKEN",
-               "api": "S3v4",
-               "lookup": "auto"
-            },
-     ```
-
-     Set the access key and secret key to your
-     Pachyderm authentication token. If authentication is not enabled
-     on the cluster, you can put any values.
-
-## Configure the AWS CLI
-
-If you are not using the AWS CLI, skip this section.
-
-If you have not done so already, you need to install and
-configure the AWS CLI client on your machine. To configure the AWS CLI,
-complete the following steps:
-
-1. Install the AWS CLI for your operating system as described
+## Configure The AWS CLI
+1. Install the AWS CLI as described
 in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html).
 
 1. Verify that the AWS CLI is installed:
 
-   ```shell
-   aws --version
-   ```
+      ```shell
+      $ aws --version
+      ```
 
-1. Configure AWS CLI:
+1. Configure AWS CLI. Use the `aws configure` command to configure your credentials file:
+      ```shell
+      $ aws configure --profile <name-your-profile>
+      ```
+      Both the access key and secret key 
+      should be set as mentioned in the [# Set Your Credentails](#set-your-credentials) section of this page.
 
-   ```shell
-   aws configure
-   ```
+      **System Response:**
+      ```
+      AWS Access Key ID: YOUR-PACHYDERM-AUTH-TOKEN
+      AWS Secret Access Key: YOUR-PACHYDERM-AUTH-TOKEN
+      Default region name:
+      Default output format [None]:
+      ```
+!!! Note
+      Note that the `--profile` flag ([named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)) is optional. If not used, your access information will be stored in the default profile. 
+      
+      To reference a given profile when using the S3 client, append `--profile <name-your-profile>` at the end of your command.
 
-   **System Response:**
+!!! Info
+      Find **AWS S3 CLI** full documentation [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html).
+ 
+## Configure boto3
+Before using Boto3, you need to [set up authentication credentials for your AWS account](#configure-the-aws-cli) using the AWS CLI as mentioned previously.
 
-   ```
-   AWS Access Key ID: YOUR-PACHYDERM-AUTH-TOKEN
-   AWS Secret Access Key: YOUR-PACHYDERM-AUTH-TOKEN
-   Default region name:
-   Default output format [None]:
-   ```
+Then follow the [Using boto](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#using-boto3) documentation starting with importing boto3 in your python file and creating your S3 resources.
+   
+!!! Info   
+      Find **boto3** full documentation [here](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html).
 
-   Both the access key and secret key should be set to your
-   Pachyderm authentication token. If authentication is not enabled
-   on the cluster, you can pass any value.
+
+## Set Your Credentials
+- If [authentication is enabled](../../../enterprise/auth/enable-auth.md), 
+retrieve your session token in your active context:
+
+      ```shell
+      $ more ~/.pachyderm/config.json
+      ```
+      Search for your session token: `"session_token": "your-session-token-value"`.
+      **Make sure to fill both fields `Access Key ID` and `Secret Access Key` with that same value.**
+
+      Depending on your use case, it might make sense to pass the credentials of a robot-user or another type of user altogether. Refer to the [authentication section of the documentation](../../../../enterprise/auth/#user-account-types) for more RBAC information.
+
+- If the authentication feature is not activated, make sure that whether you fill in those fields or not, their content always matches. (i.e., both empty or both set to the same value)

@@ -41,6 +41,8 @@ type PachdAddress struct {
 	Host string
 	// Port specifies the pachd port
 	Port uint16
+	// UnixSocket is set if the pachd address refers to a unix socket
+	UnixSocket string
 }
 
 // ParsePachdAddress parses a string into a pachd address, or returns an error
@@ -63,19 +65,21 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 
 	switch u.Scheme {
 	case "grpc", "grpcs", "http", "https":
+	case "unix":
+		return &PachdAddress{UnixSocket: value}, nil
 	default:
 		return nil, errors.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
 	}
 
 	switch {
+	case u.Path != "":
+		return nil, errors.New("pachd address should not include a path")
 	case u.User != nil:
 		return nil, errors.New("pachd address should not include login credentials")
 	case u.RawQuery != "":
 		return nil, errors.New("pachd address should not include a query string")
 	case u.Fragment != "":
 		return nil, errors.New("pachd address should not include a fragment")
-	case u.Path != "":
-		return nil, errors.New("pachd address should not include a path")
 	}
 
 	port := uint16(DefaultPachdNodePort)
@@ -99,11 +103,17 @@ func (p *PachdAddress) Qualified() string {
 	if p.Secured {
 		return fmt.Sprintf("grpcs://%s:%d", p.Host, p.Port)
 	}
+	if p.UnixSocket != "" {
+		return p.UnixSocket
+	}
 	return fmt.Sprintf("grpc://%s:%d", p.Host, p.Port)
 }
 
-// Hostname returns the host:port combination of the pachd address, without
-// the scheme
-func (p *PachdAddress) Hostname() string {
-	return fmt.Sprintf("%s:%d", p.Host, p.Port)
+// Target returns a string suitable for calling grpc.Dial.
+// This may be a host:port pair for TCP connections, or a unix socket address.
+func (p *PachdAddress) Target() string {
+	if p.UnixSocket != "" {
+		return p.UnixSocket
+	}
+	return fmt.Sprintf("dns:///%s:%d", p.Host, p.Port)
 }

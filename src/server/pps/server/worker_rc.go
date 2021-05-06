@@ -456,7 +456,7 @@ func hashAuthToken(token string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
@@ -643,7 +643,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	}, nil
 }
 
-func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) error {
 	var cfg config.Config
 	err := cfg.InitV2()
 	if err != nil {
@@ -694,7 +694,7 @@ type noValidOptionsErr struct {
 	error
 }
 
-func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
+func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
 		"pipeline", pipelineInfo.Pipeline.Name)

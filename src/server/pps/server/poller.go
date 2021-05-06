@@ -103,7 +103,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 			// 2. Replenish 'etcdPipelines' with the set of pipelines currently in
 			// etcd. Note that there may be zero, and etcdPipelines may be empty
 			if err := m.a.listPipelinePtr(pollClient, nil, 0,
-				func(ptr *pps.EtcdPipelineInfo) error {
+				func(ptr *pps.StoredPipelineInfo) error {
 					etcdPipelines[ptr.Pipeline.Name] = true
 					return nil
 				}); err != nil {

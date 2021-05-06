@@ -22,7 +22,7 @@ var (
 	JobsPipelineIndex = &col.Index{
 		Name: "Pipeline",
 		Extract: func(val proto.Message) string {
-			return val.(*pps.EtcdJobInfo).Pipeline.Name
+			return val.(*pps.StoredPipelineJobInfo).Pipeline.Name
 		},
 	}
 
@@ -30,7 +30,7 @@ var (
 	JobsOutputIndex = &col.Index{
 		Name: "OutputCommit",
 		Extract: func(val proto.Message) string {
-			return pfsdb.CommitKey(val.(*pps.EtcdJobInfo).OutputCommit)
+			return pfsdb.CommitKey(val.(*pps.StoredPipelineJobInfo).OutputCommit)
 		},
 	}
 )
@@ -41,7 +41,7 @@ func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
 		etcdClient,
 		path.Join(etcdPrefix, pipelinesPrefix),
 		nil,
-		&pps.EtcdPipelineInfo{},
+		&pps.StoredPipelineInfo{},
 		nil,
 		nil,
 	)
@@ -53,7 +53,7 @@ func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
 		etcdClient,
 		path.Join(etcdPrefix, jobsPrefix),
 		[]*col.Index{JobsPipelineIndex, JobsOutputIndex},
-		&pps.EtcdJobInfo{},
+		&pps.StoredPipelineJobInfo{},
 		nil,
 		nil,
 	)

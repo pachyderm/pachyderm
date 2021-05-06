@@ -45,7 +45,8 @@ func newConfig(opts ...Option) *dbConfig {
 
 func getDSN(dbc *dbConfig) string {
 	fields := map[string]string{
-		"sslmode": "disable",
+		"sslmode":         "disable",
+		"connect_timeout": "30",
 	}
 	if dbc.host != "" {
 		fields["host"] = dbc.host

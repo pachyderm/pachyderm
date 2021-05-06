@@ -19,7 +19,7 @@ func main() {
 	// Replace the IP address with your `pachd` address.
 	// If running in minikube, this will be your minikube
 	// IP.
-	c, err := client.NewFromAddress("localhost:30650")
+	c, err := client.NewFromURI("grpc://localhost:30650")
 	if err != nil {
 		panic(err)
 	}

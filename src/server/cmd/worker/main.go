@@ -60,7 +60,7 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	if len(resp.Kvs) != 1 {
 		return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.Config().PPSPipelineName, len(resp.Kvs), resp)
 	}
-	var pipelinePtr pps.EtcdPipelineInfo
+	var pipelinePtr pps.StoredPipelineInfo
 	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
 		return nil, err
 	}

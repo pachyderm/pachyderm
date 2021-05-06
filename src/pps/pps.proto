@@ -257,10 +257,10 @@ message GPUSpec {
   int64 number = 2;
 }
 
-// EtcdJobInfo is the portion of the JobInfo that gets stored in etcd during
-// job execution. It contains fields which change over the lifetime of the job
-// but aren't used in the execution of the job.
-message EtcdJobInfo {
+// StoredPipelineJobInfo is the portion of the PipelineJobInfo that gets stored
+// in the database during job execution. It contains fields which change over
+// the lifetime of the job but aren't used in the execution of the job.
+message StoredPipelineJobInfo {
   Job job = 1;
   Pipeline pipeline = 2;
   pfs.Commit output_commit = 3;
@@ -284,7 +284,7 @@ message EtcdJobInfo {
   google.protobuf.Timestamp finished = 14;
 }
 
-message JobInfo {
+message PipelineJobInfo {
   reserved 4, 5, 28, 34;
   Job job = 1;
   Transform transform = 2;                     // requires ListJobRequest.Full
@@ -344,14 +344,14 @@ message Pipeline {
 }
 
 enum PipelineState {
-  // There is an EtcdPipelineInfo + spec commit, but no RC
+  // There is a StoredPipelineInfo + spec commit, but no RC
   // This happens when a pipeline has been created but not yet picked up by a
   // PPS server.
   PIPELINE_STARTING = 0;
   // A pipeline has a spec commit and a service + RC
   // This is the normal state of a pipeline.
   PIPELINE_RUNNING = 1;
-  // Equivalent to STARTING (there is an EtcdPipelineInfo + commit, but no RC)
+  // Equivalent to STARTING (there is a StoredPipelineInfo + commit, but no RC)
   // After some error caused runPipeline to exit, but before the pipeline is
   // re-run. This is when the exponential backoff is in effect.
   PIPELINE_RESTARTING = 2;
@@ -369,10 +369,11 @@ enum PipelineState {
   PIPELINE_CRASHING = 6;
 }
 
-// EtcdPipelineInfo is proto that Pachd stores in etcd for each pipeline. It
-// tracks the state of the pipeline, and points to its metadata in PFS (and,
-// by pointing to a PFS commit, de facto tracks the pipeline's version)
-message EtcdPipelineInfo {
+// StoredPipelineInfo is proto for each pipeline that Pachd stores in the
+// database. It tracks the state of the pipeline, and points to its metadata in
+// PFS (and, by pointing to a PFS commit, de facto tracks the pipeline's
+// version)
+message StoredPipelineInfo {
   PipelineState state = 1;
   string reason = 4;
   pfs.Commit spec_commit = 2;
@@ -418,7 +419,7 @@ message PipelineInfo {
   // job_counts and last_job_state indicates the number of jobs within this
   // pipeline in a given state and the state of the most recently created job,
   // respectively. This is not stored in PFS along with the rest of this data
-  // structure--PPS.InspectPipeline fills it in from the EtcdPipelineInfo.
+  // structure--PPS.InspectPipeline fills it in from the StoredPipelineInfo.
   map<int32, int32> job_counts = 9;
   JobState last_job_state = 43;
 
@@ -503,7 +504,7 @@ message ListJobRequest {
   int64 history = 4;
 
   // Full indicates whether the result should include all pipeline details in
-  // each JobInfo, or limited information including name and status, but
+  // each PipelineJobInfo, or limited information including name and status, but
   // excluding information in the pipeline spec. Leaving this "false" can make
   // the call significantly faster in clusters with a large number of pipelines
   // and jobs.
@@ -704,7 +705,7 @@ message ListPipelineRequest {
 
   // Return PipelineInfos with incomplete data if the pipeline spec cannot be
   // retrieved. Incomplete PipelineInfos will have a nil Transform field, but
-  // will have the fields present in EtcdPipelineInfo.
+  // will have the fields present in StoredPipelineInfo.
   bool allow_incomplete = 3;
 
   // A jq program string for additional result filtering
@@ -777,10 +778,10 @@ message ActivateAuthResponse {}
 
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
-  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
+  rpc InspectJob(InspectJobRequest) returns (PipelineJobInfo) {}
   // ListJob returns information about current and past Pachyderm jobs.
-  rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
-  rpc FlushJob(FlushJobRequest) returns (stream JobInfo) {}
+  rpc ListJob(ListJobRequest) returns (stream PipelineJobInfo) {}
+  rpc FlushJob(FlushJobRequest) returns (stream PipelineJobInfo) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}

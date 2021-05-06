@@ -46,7 +46,7 @@ func TestInterceptors(t *testing.T) {
 	pfs.RegisterAPIServer(server.Server, new(pfs.UnimplementedAPIServer))
 
 	interceptor := new(countingInterceptor)
-	c, err := NewFromAddress(listener.Addr().String(), WithAdditionalUnaryClientInterceptors(interceptor.unary()), WithAdditionalStreamClientInterceptors(interceptor.stream()))
+	c, err := NewFromURI(listener.Addr().String(), WithAdditionalUnaryClientInterceptors(interceptor.unary()), WithAdditionalStreamClientInterceptors(interceptor.stream()))
 	if err != nil {
 		t.Fatalf("create client: %v", err)
 	}

@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -174,18 +173,7 @@ func (a *apiServer) validateClusterConfig(ctx context.Context, address string) e
 		return errors.New("no address provided for cluster")
 	}
 
-	pachdAddress, err := grpcutil.ParsePachdAddress(address)
-	if err != nil {
-		return errors.Wrap(err, "could not parse the pachd address")
-	}
-
-	var options []client.Option
-	if pachdAddress.Secured {
-		options = append(options, client.WithSystemCAs)
-	}
-
-	// Attempt to connect to the pachd
-	pachClient, err := client.NewFromAddress(pachdAddress.Hostname(), options...)
+	pachClient, err := client.NewFromURI(address)
 	if err != nil {
 		return errors.Wrapf(err, "unable to create client for %q", address)
 	}
@@ -226,7 +214,9 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 	}
 
 	// Register the pachd in the database
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO license.clusters (id, address, secret, version, auth_enabled) VALUES ($1, $2, $3, $4, $5)`, req.Id, req.Address, secret, "unknown", false); err != nil {
+	if _, err := a.env.GetDBClient().ExecContext(ctx,
+		`INSERT INTO license.clusters (id, address, secret, cluster_deployment_id, user_address, is_enterprise_server, version, auth_enabled) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, req.Id, req.Address, secret, req.ClusterDeploymentId, req.UserAddress, req.EnterpriseServer, "unknown", false); err != nil {
 		// throw a unique error if the error is a primary key uniqueness violation
 		if pgErr, ok := err.(*pq.Error); ok {
 			if pgErr.Code == pgerrcode.UniqueViolation {
@@ -344,13 +334,46 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.validateClusterConfig(ctx, req.Address); err != nil {
-		return nil, err
+	if req.Address != "" {
+		if err := a.validateClusterConfig(ctx, req.Address); err != nil {
+			return nil, err
+		}
 	}
 
-	_, err := a.env.GetDBClient().ExecContext(ctx, "UPDATE license.clusters SET address=$1 WHERE id=$2", req.Address, req.Id)
+	fieldValues := make(map[string]string)
+	fieldValues["address"] = req.Address
+	fieldValues["user_address"] = req.UserAddress
+	fieldValues["cluster_deployment_id"] = req.ClusterDeploymentId
+
+	var setFields string
+	for k, v := range fieldValues {
+		if v != "" {
+			setFields += fmt.Sprintf(" %s = '%s',", k, v)
+		}
+	}
+
+	if setFields == "" {
+		return nil, errors.New("No cluster fields were provided to the UpdateCluster RPC")
+	}
+
+	// trim trailing comma
+	setFields = setFields[:len(setFields)-1]
+
+	_, err := a.env.GetDBClient().ExecContext(ctx, "UPDATE license.clusters SET "+setFields+"  WHERE id=$1", req.Id)
 	if err != nil {
 		return nil, err
 	}
 	return &lc.UpdateClusterResponse{}, nil
+}
+
+func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserClustersRequest) (resp *lc.ListUserClustersResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	clusters := make([]*lc.UserClusterInfo, 0)
+	if err := a.env.GetDBClient().SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters`); err != nil {
+		return nil, err
+	}
+	return &lc.ListUserClustersResponse{
+		Clusters: clusters,
+	}, nil
 }

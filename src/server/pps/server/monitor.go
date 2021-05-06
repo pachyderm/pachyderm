@@ -61,7 +61,7 @@ const crashingBackoff = time.Second * 15
 // corresponding goroutine running monitorPipeline() that puts the pipeline in
 // and out of standby in response to new output commits appearing in that
 // pipeline's output repo.
-func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo, ptr *pps.EtcdPipelineInfo) {
+func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo, ptr *pps.StoredPipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	m.monitorCancelsMu.Lock()
 	defer m.monitorCancelsMu.Unlock()
