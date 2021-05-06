@@ -26,6 +26,7 @@ import {
   QueryResolvers,
   SubscriptionResolvers,
   PipelineState as GQLPipelineState,
+  DagDirection,
 } from '@graphqlTypes';
 
 interface DagResolver {
@@ -94,6 +95,7 @@ const normalizeDAGData = async (
   nodeHeight: number,
   id: string,
   priorityPipelineState?: GQLPipelineState,
+  direction: DagDirection = DagDirection.RIGHT,
 ) => {
   // Calculate the indicies of the nodes in the DAG, as
   // the "link" object requires the source & target attributes
@@ -151,7 +153,7 @@ const normalizeDAGData = async (
       layoutOptions: {
         'org.eclipse.elk.algorithm': 'layered',
         'org.eclipse.elk.mergeEdges': 'false',
-        'org.eclipse.elk.direction': 'RIGHT',
+        'org.eclipse.elk.direction': direction,
         'org.eclipse.elk.layered.layering.strategy': 'INTERACTIVE',
         'org.eclipse.elk.edgeRouting': 'ORTHOGONAL',
         'org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers': '20',
@@ -215,7 +217,7 @@ const dagResolver: DagResolver = {
   Query: {
     dag: async (
       _field,
-      {args: {projectId, nodeHeight, nodeWidth}},
+      {args: {projectId, nodeHeight, nodeWidth, direction}},
       {pachClient, log},
     ) => {
       // TODO: Error handling
@@ -240,6 +242,7 @@ const dagResolver: DagResolver = {
         nodeHeight,
         id,
         priorityPipelineState,
+        direction,
       );
     },
   },
@@ -247,7 +250,7 @@ const dagResolver: DagResolver = {
     dags: {
       subscribe: (
         _field,
-        {args: {projectId, nodeHeight, nodeWidth}},
+        {args: {projectId, nodeHeight, nodeWidth, direction}},
         {pachClient, log, account},
       ) => {
         let prevReposHash = '';
@@ -316,6 +319,7 @@ const dagResolver: DagResolver = {
                 nodeHeight,
                 id,
                 priorityPipelineState,
+                direction,
               );
             }),
           );

@@ -198,6 +198,14 @@ input DagQueryArgs {
   projectId: ID!
   nodeWidth: Int!
   nodeHeight: Int!
+  direction: DagDirection!
+}
+
+enum DagDirection {
+  UP
+  DOWN
+  LEFT
+  RIGHT
 }
 
 input JobQueryArgs {

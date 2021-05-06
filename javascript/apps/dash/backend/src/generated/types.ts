@@ -279,7 +279,15 @@ export type DagQueryArgs = {
   projectId: Scalars['ID'];
   nodeWidth: Scalars['Int'];
   nodeHeight: Scalars['Int'];
+  direction: DagDirection;
 };
+
+export enum DagDirection {
+  UP = 'UP',
+  DOWN = 'DOWN',
+  LEFT = 'LEFT',
+  RIGHT = 'RIGHT',
+}
 
 export type JobQueryArgs = {
   projectId: Scalars['ID'];
@@ -544,6 +552,7 @@ export type ResolversTypes = ResolversObject<{
   Link: ResolverTypeWrapper<Link>;
   Dag: ResolverTypeWrapper<Dag>;
   DagQueryArgs: DagQueryArgs;
+  DagDirection: DagDirection;
   JobQueryArgs: JobQueryArgs;
   Project: ResolverTypeWrapper<Project>;
   ProjectDetails: ResolverTypeWrapper<ProjectDetails>;

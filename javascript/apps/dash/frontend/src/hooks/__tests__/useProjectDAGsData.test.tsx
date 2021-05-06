@@ -2,6 +2,7 @@ import {render} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
+import {DagDirection} from '@graphqlTypes';
 
 import {useProjectDagsData} from '../useProjectDAGsData';
 
@@ -10,6 +11,7 @@ const ProjectsComponent = withContextProviders(() => {
     projectId: '1',
     nodeHeight: 60,
     nodeWidth: 120,
+    direction: DagDirection.RIGHT,
   });
 
   if (loading) return <span>Loading</span>;

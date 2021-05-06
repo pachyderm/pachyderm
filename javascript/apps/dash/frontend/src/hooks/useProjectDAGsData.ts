@@ -5,9 +5,10 @@ export const useProjectDagsData = ({
   projectId,
   nodeWidth,
   nodeHeight,
+  direction,
 }: DagQueryArgs) => {
   const {data, error, loading} = useGetDagsSubscription({
-    variables: {args: {projectId, nodeHeight, nodeWidth}},
+    variables: {args: {projectId, nodeHeight, nodeWidth, direction}},
   });
 
   return {

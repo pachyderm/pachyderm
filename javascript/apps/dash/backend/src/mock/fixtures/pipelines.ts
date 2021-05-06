@@ -77,7 +77,7 @@ const customerTeam = [
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('split'))
     .setInput(new Input().setPfs(new PFSInput().setRepo('raw_data')))
-    .setState(PipelineState.PIPELINE_STANDBY)
+    .setState(PipelineState.PIPELINE_RUNNING)
     .setOutputBranch('master')
     .setCacheSize('64M'),
 
@@ -89,7 +89,7 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('parameters')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_STANDBY)
+    .setState(PipelineState.PIPELINE_PAUSED)
     .setOutputBranch('master')
     .setCacheSize('64M'),
 
@@ -101,7 +101,7 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('model')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_STANDBY)
+    .setState(PipelineState.PIPELINE_RUNNING)
     .setOutputBranch('master')
     .setCacheSize('64M'),
 
@@ -113,7 +113,7 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('model')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_STANDBY)
+    .setState(PipelineState.PIPELINE_RUNNING)
     .setOutputBranch('master')
     .setCacheSize('64M'),
 
@@ -125,7 +125,7 @@ const customerTeam = [
         new Input().setPfs(new PFSInput().setRepo('images')),
       ]),
     )
-    .setState(PipelineState.PIPELINE_STANDBY)
+    .setState(PipelineState.PIPELINE_RUNNING)
     .setOutputBranch('master')
     .setCacheSize('64M'),
 ];

@@ -4,7 +4,7 @@ import {
 } from '@dash-backend/testHelpers';
 import {GET_DAG_QUERY} from '@dash-frontend/queries/GetDagQuery';
 import {GET_DAGS_QUERY} from '@dash-frontend/queries/GetDagsQuery';
-import {Dag} from '@graphqlTypes';
+import {Dag, DagDirection} from '@graphqlTypes';
 
 const doesLinkExistInDag = (
   expectedLink: {source: string; target: string},
@@ -24,7 +24,12 @@ const doesLinkExistInDag = (
 describe('Dag resolver', () => {
   it('should resolve dag data', async () => {
     const {data} = await executeQuery<{dag: Dag}>(GET_DAG_QUERY, {
-      args: {projectId: '1', nodeWidth: 120, nodeHeight: 60},
+      args: {
+        projectId: '1',
+        nodeWidth: 120,
+        nodeHeight: 60,
+        direction: DagDirection.RIGHT,
+      },
     });
 
     const dag = data?.dag;
@@ -49,7 +54,12 @@ describe('Dag resolver', () => {
 
   it('should correctly render cron inputs', async () => {
     const {data} = await executeQuery<{dag: Dag}>(GET_DAG_QUERY, {
-      args: {projectId: '3', nodeWidth: 120, nodeHeight: 60},
+      args: {
+        projectId: '3',
+        nodeWidth: 120,
+        nodeHeight: 60,
+        direction: DagDirection.RIGHT,
+      },
     });
 
     const dag = data?.dag;
@@ -66,7 +76,14 @@ describe('Dag resolver', () => {
   it('should resolve disconnected components of a dag', async () => {
     const {observable, close} = createSubscriptionClients<Dag[]>(
       GET_DAGS_QUERY,
-      {args: {projectId: '1', nodeHeight: 60, nodeWidth: 120}},
+      {
+        args: {
+          projectId: '1',
+          nodeHeight: 60,
+          nodeWidth: 120,
+          direction: DagDirection.RIGHT,
+        },
+      },
     );
 
     observable.subscribe((data) => {
@@ -191,7 +208,14 @@ describe('Dag resolver', () => {
   it('should send dag id as name of oldest repo', async () => {
     const {observable, close} = createSubscriptionClients<Dag[]>(
       GET_DAGS_QUERY,
-      {args: {projectId: '2', nodeHeight: 60, nodeWidth: 120}},
+      {
+        args: {
+          projectId: '2',
+          nodeHeight: 60,
+          nodeWidth: 120,
+          direction: DagDirection.RIGHT,
+        },
+      },
     );
 
     observable.subscribe((data) => {
@@ -207,7 +231,14 @@ describe('Dag resolver', () => {
   it('should surface a pipeline error to dag', async () => {
     const {observable, close} = createSubscriptionClients<Dag[]>(
       GET_DAGS_QUERY,
-      {args: {projectId: '2', nodeHeight: 60, nodeWidth: 120}},
+      {
+        args: {
+          projectId: '2',
+          nodeHeight: 60,
+          nodeWidth: 120,
+          direction: DagDirection.RIGHT,
+        },
+      },
     );
 
     observable.subscribe((data) => {

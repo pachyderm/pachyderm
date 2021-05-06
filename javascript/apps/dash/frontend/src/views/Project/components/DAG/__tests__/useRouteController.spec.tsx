@@ -8,6 +8,7 @@ import {
   NODE_HEIGHT,
   NODE_WIDTH,
 } from '@dash-frontend/views/Project/constants/nodeSizes';
+import {DagDirection} from '@graphqlTypes';
 
 describe('useRouteController', () => {
   const projectId = '2';
@@ -17,6 +18,7 @@ describe('useRouteController', () => {
       projectId,
       nodeHeight: NODE_HEIGHT,
       nodeWidth: NODE_WIDTH,
+      direction: DagDirection.RIGHT,
     });
 
     if (loading) {

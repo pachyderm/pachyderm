@@ -1,5 +1,7 @@
 import {generatePath} from 'react-router';
 
+import {ProjectRouteParams} from '@dash-frontend/lib/types';
+
 import {
   JOBS_PATH,
   PIPELINE_PATH,
@@ -8,9 +10,19 @@ import {
   DAG_PATH,
 } from '../constants/projectPaths';
 
-export const projectRoute = ({projectId}: {projectId: string}) =>
-  generatePath(PROJECT_PATH, {projectId: encodeURIComponent(projectId)});
+const generatePathWithSearch = (
+  pathTemplate: string,
+  params: ProjectRouteParams,
+) => {
+  const path = generatePath(pathTemplate, {...params});
+  const urlParams = new URLSearchParams(window.location.search);
+  return path + '?' + urlParams.toString();
+};
 
+export const projectRoute = ({projectId}: {projectId: string}) =>
+  generatePathWithSearch(PROJECT_PATH, {
+    projectId: encodeURIComponent(projectId),
+  });
 export const dagRoute = ({
   projectId,
   dagId,
@@ -18,13 +30,13 @@ export const dagRoute = ({
   projectId: string;
   dagId: string;
 }) =>
-  generatePath(DAG_PATH, {
+  generatePathWithSearch(DAG_PATH, {
     projectId: encodeURIComponent(projectId),
     dagId: encodeURIComponent(dagId),
   });
 
 export const jobsRoute = ({projectId}: {projectId: string}) =>
-  generatePath(JOBS_PATH, {
+  generatePathWithSearch(JOBS_PATH, {
     projectId: encodeURIComponent(projectId),
   });
 
@@ -39,7 +51,7 @@ export const repoRoute = ({
   dagId: string;
   branchId: string;
 }) =>
-  generatePath(REPO_PATH, {
+  generatePathWithSearch(REPO_PATH, {
     projectId: encodeURIComponent(projectId),
     repoId: encodeURIComponent(repoId),
     dagId: encodeURIComponent(dagId),
@@ -57,7 +69,7 @@ export const pipelineRoute = ({
   tabId?: string;
   dagId: string;
 }) =>
-  generatePath(PIPELINE_PATH, {
+  generatePathWithSearch(PIPELINE_PATH, {
     projectId: encodeURIComponent(projectId),
     dagId: encodeURIComponent(dagId),
     pipelineId: encodeURIComponent(pipelineId),

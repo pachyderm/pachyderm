@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="margin:auto;background:0 0" width="16" height="16" viewBox="0 0 20 20" preserveAspectRatio="xMidYMid" display="block">
+  <g transform="translate(-26 -26) scale(0.75)" fill="#5ABFDE">
+    <circle cx="60" cy="50" r="2">
+      <animate attributeName="r" values="1.2;1.2;2;1.2;1.2" dur="1s" repeatCount="indefinite" begin="-0.875s"/>
+      <animate attributeName="fill" values="#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE" repeatCount="indefinite" dur="1s" begin="-0.875s"/>
+    </circle>
+    <circle cx="57.071" cy="57.071" r="2">
+      <animate attributeName="r" values="1.2;1.2;2;1.2;1.2" dur="1s" repeatCount="indefinite" begin="-0.75s"/>
+      <animate attributeName="fill" values="#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE" repeatCount="indefinite" dur="1s" begin="-0.75s"/>
+    </circle>
+    <circle cx="50" cy="60" r="2">
+      <animate attributeName="r" values="1.2;1.2;2;1.2;1.2" dur="1s" repeatCount="indefinite" begin="-0.625s"/>
+      <animate attributeName="fill" values="#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE" repeatCount="indefinite" dur="1s" begin="-0.625s"/>
+    </circle>
+    <circle cx="42.929" cy="57.071" r="2">
+      <animate attributeName="r" values="1.2;1.2;2;1.2;1.2" dur="1s" repeatCount="indefinite" begin="-0.5s"/>
+      <animate attributeName="fill" values="#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE" repeatCount="indefinite" dur="1s" begin="-0.5s"/>
+    </circle>
+    <circle cx="40" cy="50" r="2">
+      <animate attributeName="r" values="1.2;1.2;2;1.2;1.2" dur="1s" repeatCount="indefinite" begin="-0.375s"/>
+      <animate attributeName="fill" values="#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE" repeatCount="indefinite" dur="1s" begin="-0.375s"/>
+    </circle>
+    <circle cx="42.929" cy="42.929" r="2">
+      <animate attributeName="r" values="1.2;1.2;2;1.2;1.2" dur="1s" repeatCount="indefinite" begin="-0.25s"/>
+      <animate attributeName="fill" values="#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE" repeatCount="indefinite" dur="1s" begin="-0.25s"/>
+    </circle>
+    <circle cx="50" cy="40" r="2">
+      <animate attributeName="r" values="1.2;1.2;2;1.2;1.2" dur="1s" repeatCount="indefinite" begin="-0.125s"/>
+      <animate attributeName="fill" values="#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE" repeatCount="indefinite" dur="1s" begin="-0.125s"/>
+    </circle>
+    <circle cx="57.071" cy="42.929" r="2">
+      <animate attributeName="r" values="1.2;1.2;2;1.2;1.2" dur="1s" repeatCount="indefinite" begin="0s"/>
+      <animate attributeName="fill" values="#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE" repeatCount="indefinite" dur="1s" begin="0s"/>
+    </circle>
+  </g>
+</svg>

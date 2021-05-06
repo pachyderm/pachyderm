@@ -1,21 +1,23 @@
-import {Group, Circle, Tooltip} from '@pachyderm/components';
+import {Group, Tooltip} from '@pachyderm/components';
 import classnames from 'classnames';
 import noop from 'lodash/noop';
-import React from 'react';
+import React, {useState} from 'react';
 
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
-import {Dag} from '@graphqlTypes';
+import {Dag, DagDirection} from '@graphqlTypes';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
 
 import Link from './components/Link';
 import Node from './components/Node';
+import RangeSlider from './components/RangeSlider';
+import {ReactComponent as RotateSvg} from './components/Rotate.svg';
 import styles from './DAG.module.css';
 import useDag from './hooks/useDag';
 
 type DagProps = {
-  count: number;
+  dagsToShow: number;
   data: Dag;
   id: string;
   nodeWidth: number;
@@ -23,6 +25,8 @@ type DagProps = {
   isInteractive?: boolean;
   setLargestDagScale: React.Dispatch<React.SetStateAction<number | null>>;
   largestDagScale: number | null;
+  rotateDag: () => void;
+  dagDirection: DagDirection;
 };
 
 const MARKERS = [
@@ -32,7 +36,7 @@ const MARKERS = [
 ];
 
 const DAG: React.FC<DagProps> = ({
-  count,
+  dagsToShow,
   data,
   id,
   nodeWidth,
@@ -40,9 +44,11 @@ const DAG: React.FC<DagProps> = ({
   isInteractive = true,
   setLargestDagScale,
   largestDagScale,
+  rotateDag,
+  dagDirection,
 }) => {
-  const {navigateToDag, svgSize} = useDag({
-    count,
+  const [sliderZoomValue, setSliderZoomValue] = useState(1);
+  const {navigateToDag, svgSize, applySliderZoom} = useDag({
     data,
     id,
     isInteractive,
@@ -50,7 +56,10 @@ const DAG: React.FC<DagProps> = ({
     nodeHeight,
     nodeWidth,
     setLargestDagScale,
+    setSliderZoomValue,
+    dagDirection,
   });
+  const isMultiDag = dagsToShow > 1;
 
   return (
     <HoveredNodeProvider>
@@ -58,24 +67,49 @@ const DAG: React.FC<DagProps> = ({
         id={`${id}Base`}
         className={classnames(styles.base, {
           [styles.draggable]: isInteractive,
+          [styles.multiDag]: isMultiDag,
         })}
         onClick={!isInteractive ? () => navigateToDag(data.id) : noop}
       >
-        {data.priorityPipelineState && (
+        {isMultiDag && data.priorityPipelineState && (
           <Tooltip tooltipText={data.priorityPipelineState} tooltipKey="status">
             <span className={styles.pipelineStatus}>
               <Group spacing={8} align="center">
-                <Circle color="red" />
+                <img
+                  src="/dag_pipeline_error.svg"
+                  className={styles.pipelineStatusIcon}
+                  alt="Pipeline Error"
+                />
                 {readablePipelineState(data.priorityPipelineState)}
               </Group>
             </span>
           </Tooltip>
         )}
+        {!isMultiDag && (
+          <div className={styles.canvasControls}>
+            <RangeSlider
+              min="60"
+              max="100"
+              handleChange={(d: React.ChangeEvent<HTMLInputElement>) =>
+                applySliderZoom(d)
+              }
+              value={sliderZoomValue * 100}
+            />
+            <button
+              className={classnames(styles.rotate, [styles[dagDirection]])}
+              onClick={rotateDag}
+            >
+              <RotateSvg
+                aria-label={'Rotate Dag'}
+                className={styles.rotateSvg}
+              />
+            </button>
+          </div>
+        )}
         <svg
           id={id}
           preserveAspectRatio="xMinYMid meet"
           viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
-          className={styles.parent}
         >
           <defs>
             {MARKERS.map((marker) => (
@@ -92,7 +126,11 @@ const DAG: React.FC<DagProps> = ({
               </marker>
             ))}
           </defs>
-          <g id={`${id}Graph`}>
+          <g id={`${id}Graph`} className={styles.graph}>
+            {/* Ordering of links and nodes in DOM is important so nodes are on top layer */}
+            {data.links.map((link) => (
+              <Link key={link.id} link={link} isInteractive={isInteractive} />
+            ))}
             {data.nodes.map((node) => (
               <Node
                 key={node.name}
@@ -101,9 +139,6 @@ const DAG: React.FC<DagProps> = ({
                 nodeWidth={NODE_WIDTH}
                 isInteractive={isInteractive}
               />
-            ))}
-            {data.links.map((link) => (
-              <Link key={link.id} link={link} isInteractive={isInteractive} />
             ))}
           </g>
         </svg>

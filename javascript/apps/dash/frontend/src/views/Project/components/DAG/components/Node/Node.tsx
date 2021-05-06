@@ -7,11 +7,6 @@ import {Node as GraphQLNode, NodeType} from '@graphqlTypes';
 import deriveRepoNameFromNode from '../../utils/deriveRepoNameFromNode';
 
 import useNode from './hooks/useNode';
-import {ReactComponent as Busy} from './images/busy.svg';
-import {ReactComponent as Error} from './images/error.svg';
-import {ReactComponent as NoAccess} from './images/noAccess.svg';
-import {ReactComponent as Pipeline} from './images/pipeline.svg';
-import {ReactComponent as Repo} from './images/repo.svg';
 import styles from './Node.module.css';
 
 type NodeProps = {
@@ -21,15 +16,14 @@ type NodeProps = {
   nodeHeight: number;
 };
 
-const NODE_ICON_X_OFFSET = 20;
-const NODE_ICON_Y_OFFSET = -15;
-const NODE_IMAGE_Y_OFFSET = -20;
-const NODE_IMAGE_PREVIEW_Y_OFFSET = -20;
-const ORIGINAL_NODE_IMAGE_WIDTH = 145;
+const NODE_ICON_X_OFFSET = 12;
+const NODE_ICON_Y_OFFSET = -8;
+const NODE_IMAGE_Y_OFFSET = -40;
+const NODE_IMAGE_X_OFFSET = 76;
 const ORIGINAL_NODE_IMAGE_HEIGHT = 102;
 const NODE_TOOLTIP_WIDTH = 250;
 const NODE_TOOLTIP_HEIGHT = 80;
-const NODE_TOOLTIP_OFFSET = -88;
+const NODE_TOOLTIP_OFFSET = -92;
 
 const Node: React.FC<NodeProps> = ({
   node,
@@ -51,6 +45,29 @@ const Node: React.FC<NodeProps> = ({
     [styles.selected]: [selectedNode, hoveredNode].includes(node.name),
   });
 
+  const getNodeIconHref = (state: string) => {
+    switch (state) {
+      case 'busy':
+        return '/dag_busy.svg';
+      case 'error':
+        return '/dag_pipeline_error.svg';
+      case 'paused':
+        return '/dag_paused.svg';
+    }
+  };
+
+  const getNodeImageHref = (node: GraphQLNode) => {
+    if (!node.access) {
+      return '/dag_no_access.svg';
+    }
+    switch (node.type) {
+      case NodeType.REPO:
+        return '/dag_repo.svg';
+      case NodeType.PIPELINE:
+        return '/dag_pipeline.svg';
+    }
+  };
+
   return (
     <g
       className={classes}
@@ -67,7 +84,7 @@ const Node: React.FC<NodeProps> = ({
       >
         <span>
           <p className={styles.label} style={{height: `${nodeHeight}px`}}>
-            {node.access ? node.name : 'No Access'}
+            {node.access ? deriveRepoNameFromNode(node) : 'No Access'}
           </p>
         </span>
       </foreignObject>
@@ -95,53 +112,21 @@ const Node: React.FC<NodeProps> = ({
           </p>
         </span>
       </foreignObject>
-      <g
-        transform={`scale(${nodeHeight / ORIGINAL_NODE_IMAGE_HEIGHT})`}
-        pointerEvents="none"
-      >
-        {node.access ? (
-          node.type === NodeType.REPO ? (
-            <Repo
-              y={
-                isInteractive
-                  ? NODE_IMAGE_Y_OFFSET
-                  : NODE_IMAGE_PREVIEW_Y_OFFSET
-              }
-              x={ORIGINAL_NODE_IMAGE_WIDTH - nodeWidth}
-            />
-          ) : (
-            <Pipeline
-              y={
-                isInteractive
-                  ? NODE_IMAGE_Y_OFFSET
-                  : NODE_IMAGE_PREVIEW_Y_OFFSET
-              }
-              x={ORIGINAL_NODE_IMAGE_WIDTH - nodeWidth}
-            />
-          )
-        ) : (
-          <NoAccess
-            y={
-              isInteractive ? NODE_IMAGE_Y_OFFSET : NODE_IMAGE_PREVIEW_Y_OFFSET
-            }
-            x={ORIGINAL_NODE_IMAGE_WIDTH - nodeWidth}
-          />
-        )}
-      </g>
 
-      {state === 'busy' ? (
-        <Busy
-          x={nodeWidth - NODE_ICON_X_OFFSET}
-          y={NODE_ICON_Y_OFFSET}
-          pointerEvents="none"
-        />
-      ) : state === 'error' ? (
-        <Error
-          x={nodeWidth - NODE_ICON_X_OFFSET}
-          y={NODE_ICON_Y_OFFSET}
-          pointerEvents="none"
-        />
-      ) : null}
+      <image
+        x={NODE_IMAGE_X_OFFSET}
+        y={NODE_IMAGE_Y_OFFSET}
+        pointerEvents="none"
+        transform={`scale(${nodeHeight / ORIGINAL_NODE_IMAGE_HEIGHT})`}
+        href={getNodeImageHref(node)}
+      />
+
+      <image
+        x={nodeWidth - NODE_ICON_X_OFFSET}
+        y={NODE_ICON_Y_OFFSET}
+        pointerEvents="none"
+        href={getNodeIconHref(state)}
+      />
     </g>
   );
 };

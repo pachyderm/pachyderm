@@ -1,6 +1,6 @@
 .link {
   stroke: var(--pachyderm-black);
-  stroke-width: 1.5px;
+  stroke-width: 1px;
   marker-end: url(#end-arrow);
   stroke-linejoin: bevel;
 }
@@ -29,5 +29,5 @@
 }
 
 .circle {
-  fill: var(--success-green)
+  fill: var(--pachyderm-green);
 }

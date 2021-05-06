@@ -1,3 +1,4 @@
+import classnames from 'classnames';
 import React, {useState} from 'react';
 import {Redirect} from 'react-router';
 
@@ -12,7 +13,10 @@ import {useProjectView} from './hooks/useProjectView';
 import {dagRoute} from './utils/routes';
 
 const Project: React.FC = () => {
-  const {dags, error, loading} = useProjectView(NODE_WIDTH, NODE_HEIGHT);
+  const {dags, error, loading, rotateDag, dagDirection} = useProjectView(
+    NODE_WIDTH,
+    NODE_HEIGHT,
+  );
   const {dagId, projectId} = useUrlState();
   const [largestDagScale, setLargestDagScale] = useState<number | null>(null);
 
@@ -48,10 +52,12 @@ const Project: React.FC = () => {
               id={dag.id}
               nodeWidth={NODE_WIDTH}
               nodeHeight={NODE_HEIGHT}
-              count={dagsToShow.length}
+              dagsToShow={dagsToShow.length}
               isInteractive={dagsToShow.length === 1}
               largestDagScale={largestDagScale}
               setLargestDagScale={setLargestDagScale}
+              dagDirection={dagDirection}
+              rotateDag={rotateDag}
             />
           );
         })}

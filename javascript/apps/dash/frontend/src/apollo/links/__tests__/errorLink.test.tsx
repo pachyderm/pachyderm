@@ -6,13 +6,19 @@ import {createServiceError} from '@dash-backend/testHelpers';
 import {useDAGData} from '@dash-frontend/hooks/useDAGData';
 import useProject from '@dash-frontend/hooks/useProject';
 import {mockServer, withContextProviders} from '@dash-frontend/testHelpers';
+import {DagDirection} from '@graphqlTypes';
 
 const windowLocation = window.location;
 
 describe('errorLink', () => {
   describe('unauthenticated', () => {
     const TestBed = withContextProviders(() => {
-      useDAGData({projectId: '1', nodeHeight: 60, nodeWidth: 120});
+      useDAGData({
+        projectId: '1',
+        nodeHeight: 60,
+        nodeWidth: 120,
+        direction: DagDirection.RIGHT,
+      });
 
       return <>test</>;
     });

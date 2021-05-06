@@ -1,0 +1,43 @@
+.base {
+  margin: 0.25rem;
+  -webkit-appearance: none;
+}
+
+.base:focus {
+  outline: none;
+}
+
+.base::-webkit-slider-runnable-track {
+  background: var(--dropshadow-grey);
+  border-radius: 1rem;
+  height: 0.25rem;
+  cursor: pointer;
+}
+
+.base::-webkit-slider-thumb {
+  margin-top: -0.25rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--pachyderm-black);
+  border-radius: 1rem;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+
+.base::-moz-range-track {
+  background: var(--dropshadow-grey);
+  border-radius: 1rem;
+  height: 0.25rem;
+  cursor: pointer;
+}
+
+.base::-moz-range-thumb {
+  margin-top: -0.25rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--pachyderm-black);
+  border-radius: 1rem;
+  cursor: pointer;
+  border: none;
+  -webkit-appearance: none;
+}
