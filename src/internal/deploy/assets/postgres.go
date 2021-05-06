@@ -501,6 +501,7 @@ func PGBouncerDeployment(opts *AssetOpts) *apps.Deployment {
 								{Name: "DB_PASSWORD", Value: "elephantastic"},
 								{Name: "DB_HOST", Value: "postgres." + opts.Namespace},
 								{Name: "AUTH_TYPE", Value: "trust"},
+								{Name: "MAX_CLIENT_CONN", Value: "1000"},
 							},
 							Ports: []v1.ContainerPort{
 								{
