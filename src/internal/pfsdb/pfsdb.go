@@ -57,7 +57,7 @@ func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 		db,
 		listener,
 		&pfs.RepoInfo{},
-		[]*col.Index{ReposTypeIndex},
+		[]*col.Index{ReposNameIndex, ReposTypeIndex},
 		func(key string) error {
 			parts := strings.Split(key, ".")
 			if len(parts) < 2 || len(parts[1]) == 0 {

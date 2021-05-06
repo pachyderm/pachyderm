@@ -141,7 +141,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	}
 	if err := col.NewSQLTx(env.Context(), env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		repos := d.repos.ReadWrite(sqlTx)
-		return repos.Create(repo.Name, repoInfo)
+		return repos.Create(pfsdb.RepoKey(repo), repoInfo)
 	}); err != nil && !col.IsErrExists(err) {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 			return errors.Wrapf(err, "could not update description of %q", repo)
 		}
 		existingRepoInfo.Description = description
-		return repos.Put(repo.Name, &existingRepoInfo)
+		return repos.Put(pfsdb.RepoKey(repo), &existingRepoInfo)
 	} else {
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
@@ -241,7 +241,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo \"%s\"", repo.Name)
 			}
 		}
-		return repos.Create(repo.Name, &pfs.RepoInfo{
+		return repos.Create(pfsdb.RepoKey(repo), &pfs.RepoInfo{
 			Repo:        repo,
 			Created:     types.TimestampNow(),
 			Description: description,
@@ -256,7 +256,7 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 	}
 
 	result := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(repo.Name, result); err != nil {
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(repo), result); err != nil {
 		return nil, err
 	}
 	if includeAuth {
@@ -393,7 +393,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 			}
 			// or if the repo has already been deleted
 			ri := new(pfs.RepoInfo)
-			if err := repos.Get(prov.Commit.Repo.Name, ri); err != nil {
+			if err := repos.Get(pfsdb.RepoKey(prov.Commit.Repo), ri); err != nil {
 				if !col.IsErrNotFound(err) {
 					return errors.Wrapf(err, "repo %v was not found", prov.Commit.Repo.Name)
 				}
@@ -453,7 +453,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo)); err != nil {
 		return err
 	}
-	if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
+	if err := repos.Delete(pfsdb.RepoKey(repo)); err != nil && !col.IsErrNotFound(err) {
 		return errors.Wrapf(err, "repos.Delete")
 	}
 
@@ -574,7 +574,7 @@ func (d *driver) makeCommit(
 
 	// Check if repo exists
 	repoInfo := new(pfs.RepoInfo)
-	if err := repos.Get(parent.Repo.Name, repoInfo); err != nil {
+	if err := repos.Get(pfsdb.RepoKey(parent.Repo), repoInfo); err != nil {
 		return nil, err
 	}
 
@@ -645,7 +645,7 @@ func (d *driver) makeCommit(
 	}
 
 	// Update repoInfo (potentially with new branch and new size)
-	if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
+	if err := repos.Put(pfsdb.RepoKey(parent.Repo), repoInfo); err != nil {
 		return nil, err
 	}
 
@@ -922,7 +922,7 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 	// update the repo size if this is the head of master
 	repos := d.repos.ReadWrite(sqlTx)
 	repoInfo := new(pfs.RepoInfo)
-	if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+	if err := repos.Get(pfsdb.RepoKey(commit.Repo), repoInfo); err != nil {
 		return err
 	}
 	for _, branch := range repoInfo.Branches {
@@ -935,7 +935,7 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 			// had shared its head commit with master, and then we created a new commit on that branch
 			if branchInfo.Head != nil && branchInfo.Head.ID == commit.ID {
 				repoInfo.SizeBytes = commitInfo.SizeBytes
-				if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
+				if err := repos.Put(pfsdb.RepoKey(commit.Repo), repoInfo); err != nil {
 					return err
 				}
 			}
@@ -2013,7 +2013,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
+	if err := repos.Update(pfsdb.RepoKey(branch.Repo), repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
 		if branch.Name == "master" && commit != nil {
 			ci, err := d.resolveCommit(txnCtx.SqlTx, commit)
@@ -2240,7 +2240,7 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		}
 	}
 	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(branch.Repo.Name, repoInfo, func() error {
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(pfsdb.RepoKey(branch.Repo), repoInfo, func() error {
 		del(&repoInfo.Branches, branch)
 		return nil
 	}); err != nil {
@@ -2283,7 +2283,7 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 		return err
 	}
 	repoInfo := &pfs.RepoInfo{}
-	return d.repos.ReadWrite(sqlTx).Update(provBranch.Repo.Name, repoInfo, func() error {
+	return d.repos.ReadWrite(sqlTx).Update(pfsdb.RepoKey(provBranch.Repo), repoInfo, func() error {
 		add(&repoInfo.Branches, provBranch)
 		return nil
 	})
