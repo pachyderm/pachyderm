@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -271,7 +272,7 @@ func ParsePartialFile(arg string) *pfs.File {
 		partialFile.Commit = commit
 		return partialFile
 	}
-	partialFile.Commit = &pfs.Commit{Repo: &pfs.Repo{Name: arg}}
+	partialFile.Commit = &pfs.Commit{Repo: client.NewRepo(arg)}
 	return partialFile
 }
 

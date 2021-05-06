@@ -227,7 +227,7 @@ func (a *apiServer) validateInputInTransaction(txnCtx *txnenv.TransactionContext
 						"Pachyderm's S3 gateway rather than the file system")
 				}
 				if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-					Repo: client.NewRepo(input.Pfs.Repo)}); err != nil {
+					Repo: client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType)}); err != nil {
 					return err
 				}
 			}
@@ -467,7 +467,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 		switch operation {
 		case pipelineOpCreate:
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-				Repo: &pfs.Repo{Name: output},
+				Repo: client.NewRepo(output),
 			}); err == nil {
 				// the repo already exists, so we need the same permissions as update
 				required = auth.Permission_REPO_WRITE
@@ -482,7 +482,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-				Repo: &pfs.Repo{Name: output},
+				Repo: client.NewRepo(output),
 			}); isNotFoundErr(err) {
 				// special case: the pipeline output repo has been deleted (so the
 				// pipeline is now invalid). It should be possible to delete the pipeline.
@@ -788,7 +788,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(pachClient *client.APIClient, jobPtr 
 	result := &pps.PipelineJobInfo{
 		Job:           jobPtr.Job,
 		Pipeline:      jobPtr.Pipeline,
-		OutputRepo:    &pfs.Repo{Name: jobPtr.Pipeline.Name},
+		OutputRepo:    client.NewRepo(jobPtr.Pipeline.Name),
 		OutputCommit:  jobPtr.OutputCommit,
 		Restart:       jobPtr.Restart,
 		DataProcessed: jobPtr.DataProcessed,
@@ -2361,6 +2361,9 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 			if input.Pfs.Name == "" {
 				input.Pfs.Name = input.Pfs.Repo
 			}
+			if input.Pfs.RepoType == "" {
+				input.Pfs.RepoType = pfs.UserRepoType
+			}
 		}
 		if input.Cron != nil {
 			if input.Cron.Start == nil {
@@ -3035,9 +3038,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
 			Parent: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: request.Pipeline.Name,
-				},
+				Repo: client.NewRepo(request.Pipeline.Name),
 			},
 			Provenance: provenance,
 		})
@@ -3051,9 +3052,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			newCommitProv := client.NewCommitProvenance(newCommit.Repo.Name, "", newCommit.ID)
 			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
 				Parent: &pfs.Commit{
-					Repo: &pfs.Repo{
-						Name: request.Pipeline.Name,
-					},
+					Repo: client.NewRepo(request.Pipeline.Name),
 				},
 				Branch:     "stats",
 				Provenance: append(provenance, newCommitProv),

@@ -17,7 +17,7 @@ func NewRepo(repoName string) *pfs.Repo {
 }
 
 // NewSystemRepo creates a pfs.Repo of the given type
-func NewSytemRepo(repoName string, repoType string) *pfs.Repo {
+func NewSystemRepo(repoName string, repoType string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName, Type: repoType}
 }
 
@@ -145,9 +145,7 @@ func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, err
 		c.Ctx(),
 		&pfs.StartCommitRequest{
 			Parent: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: repoName,
-				},
+				Repo: NewRepo(repoName),
 			},
 			Branch: branch,
 		},
@@ -177,10 +175,8 @@ func (c APIClient) StartCommitParent(repoName string, branch string, parentCommi
 		c.Ctx(),
 		&pfs.StartCommitRequest{
 			Parent: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: repoName,
-				},
-				ID: parentCommit,
+				Repo: NewRepo(repoName),
+				ID:   parentCommit,
 			},
 			Branch: branch,
 		},
