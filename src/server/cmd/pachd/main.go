@@ -120,6 +120,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(env.Config().GCPercent)
+	env.InitDexDB()
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
@@ -147,11 +148,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			authInterceptor.InterceptStream,
 		),
 	)
-	if err != nil {
-		return err
-	}
-
-	identityStorageProvider, err := identity_server.NewStorageProvider(env)
 	if err != nil {
 		return err
 	}
@@ -225,7 +221,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				true,
 			)
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
@@ -318,7 +313,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
@@ -519,6 +513,7 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(env.Config().GCPercent)
+	env.InitDexDB()
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -528,11 +523,6 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-
-	identityStorageProvider, err := identity_server.NewStorageProvider(env)
-	if err != nil {
 		return err
 	}
 
@@ -598,7 +588,6 @@ func doFullMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				true,
 			)
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
@@ -733,7 +722,6 @@ func doFullMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)

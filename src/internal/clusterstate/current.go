@@ -66,6 +66,9 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 	Apply("create auth tokens table v0", func(ctx context.Context, env migrations.Env) error {
 		return auth.CreateAuthTokensTable(ctx, env.Tx)
 	}).
+	Apply("license clusters v1", func(ctx context.Context, env migrations.Env) error {
+		return license.AddUserContextsToClustersTable(ctx, env.Tx)
+	}).
 	Apply("create collections schema", func(ctx context.Context, env migrations.Env) error {
 		return col.CreatePostgresSchema(ctx, env.Tx)
 	}).

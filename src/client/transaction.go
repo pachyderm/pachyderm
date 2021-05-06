@@ -275,7 +275,7 @@ func (tb *TransactionBuilder) Close() error {
 // GetAddress should not exist on a TransactionBuilder because it doesn't represent
 // ownership of a connection to the API server, but it also doesn't return an error,
 // so we just passthrough to the parent client's implementation.
-func (tb *TransactionBuilder) GetAddress() string {
+func (tb *TransactionBuilder) GetAddress() *grpcutil.PachdAddress {
 	return tb.parent.GetAddress()
 }
 
@@ -405,7 +405,7 @@ func (c *pfsBuilderClient) GetFileset(ctx context.Context, req *pfs.GetFilesetRe
 func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequest, opts ...grpc.CallOption) (*pps.Job, error) {
 	return nil, unsupportedError("CreateJob")
 }
-func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.JobInfo, error) {
+func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.PipelineJobInfo, error) {
 	return nil, unsupportedError("InspectJob")
 }
 func (c *ppsBuilderClient) ListJob(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (pps.API_ListJobClient, error) {

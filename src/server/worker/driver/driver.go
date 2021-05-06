@@ -90,7 +90,7 @@ type Driver interface {
 
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
-	DeleteJob(*sqlx.Tx, *pps.EtcdJobInfo) error
+	DeleteJob(*sqlx.Tx, *pps.StoredPipelineJobInfo) error
 	UpdateJobState(string, pps.JobState, string) error
 
 	// TODO: figure out how to not expose this - currently only used for a few
@@ -271,7 +271,7 @@ func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
+	pipelinePtr := &pps.StoredPipelineInfo{}
 	if err := d.Pipelines().ReadOnly(d.ctx).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
 		return 0, errors.EnsureStack(err)
 	}
@@ -443,7 +443,7 @@ func (d *driver) RunUserErrorHandlingCode(
 
 func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string) error {
 	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
-		jobPtr := &pps.EtcdJobInfo{}
+		jobPtr := &pps.StoredPipelineJobInfo{}
 		if err := d.Jobs().ReadWrite(sqlTx).Get(jobID, jobPtr); err != nil {
 			return err
 		}
@@ -454,8 +454,8 @@ func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string)
 // DeleteJob is identical to updateJobState, except that jobPtr points to a job
 // that should be deleted rather than marked failed. Jobs may be deleted if
 // their output commit is deleted.
-func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobPtr *pps.EtcdJobInfo) error {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
+func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobPtr *pps.StoredPipelineJobInfo) error {
+	pipelinePtr := &pps.StoredPipelineInfo{}
 	if err := d.Pipelines().ReadWrite(sqlTx).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
 		if pipelinePtr.JobCounts == nil {
 			pipelinePtr.JobCounts = make(map[int32]int32)

@@ -175,29 +175,108 @@ func collectionTests(
 
 			subsuite.Run("ErrNotFound", func(t *testing.T) {
 				t.Parallel()
-				itemProto := &col.TestItem{}
-				err := defaultRead.Get("baz", itemProto)
+				testProto := &col.TestItem{}
+				err := defaultRead.Get("baz", testProto)
 				require.True(t, errors.Is(err, col.ErrNotFound{}), "Incorrect error: %v", err)
 				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
 			})
 
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
-				itemProto := &col.TestItem{}
-				require.NoError(t, defaultRead.Get("5", itemProto))
-				require.Equal(t, "5", itemProto.ID)
+				testProto := &col.TestItem{}
+				require.NoError(t, defaultRead.Get("5", testProto))
+				require.Equal(t, "5", testProto.ID)
 			})
 		})
 
 		suite.Run("GetByIndex", func(subsuite *testing.T) {
 			subsuite.Parallel()
 
-			subsuite.Run("ErrNotFound", func(t *testing.T) {
+			subsuite.Run("Empty", func(t *testing.T) {
 				t.Parallel()
+				testProto := &col.TestItem{}
+				err := emptyRead.GetByIndex(TestSecondaryIndex, "foo", testProto, col.DefaultOptions(), func(key string) error {
+					return errors.New("GetByIndex callback should not have been called for an empty collection")
+				})
+				require.NoError(t, err)
 			})
 
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
+				testProto := &col.TestItem{}
+				keys := []string{}
+				err := defaultRead.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
+					require.Equal(t, testProto.ID, key)
+					require.Equal(t, testProto.Value, originalValue)
+					keys = append(keys, key)
+					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
+					testProto.ID = ""
+					testProto.Value = ""
+					return nil
+				})
+				require.NoError(t, err)
+				require.ElementsEqual(t, keys, idRange(0, defaultCollectionSize))
+			})
+
+			subsuite.Run("NoResults", func(t *testing.T) {
+				t.Parallel()
+				testProto := &col.TestItem{}
+				err := defaultRead.GetByIndex(TestSecondaryIndex, changedValue, testProto, col.DefaultOptions(), func(string) error {
+					return errors.New("GetByIndex callback should not have been called for an index value with no rows")
+				})
+				require.NoError(t, err)
+			})
+
+			subsuite.Run("InvalidIndex", func(t *testing.T) {
+				t.Parallel()
+				t.Skip("etcd collections do not validate their indexes")
+				err := defaultRead.GetByIndex(&col.Index{}, "", &col.TestItem{}, col.DefaultOptions(), func(key string) error {
+					return errors.New("GetByIndex callback should not have been called when using an invalid index")
+				})
+				require.YesError(t, err)
+				require.Matches(t, "Unknown collection index", err.Error())
+			})
+
+			subsuite.Run("Partitioned", func(t *testing.T) {
+				t.Parallel()
+				partitionedReader, partitionedWriter := newCollection(context.Background(), suite)
+				partitionedRead := partitionedReader(context.Background())
+				require.NoError(t, partitionedWriter(context.Background(), populateCollection))
+
+				expected := map[string][]string{
+					"a": idRange(0, 3),
+					"b": idRange(3, 6),
+					"c": idRange(6, 9),
+					"d": idRange(9, 12),
+				}
+
+				require.NoError(t, partitionedWriter(context.Background(), func(rw col.ReadWriteCollection) error {
+					for idxVal, ids := range expected {
+						for _, id := range ids {
+							testProto := &col.TestItem{ID: id, Value: idxVal}
+							if err := rw.Put(id, testProto); err != nil {
+								return err
+							}
+						}
+					}
+					return nil
+				}))
+
+				for idxVal, ids := range expected {
+					testProto := &col.TestItem{}
+					keys := []string{}
+					err := partitionedRead.GetByIndex(TestSecondaryIndex, idxVal, testProto, col.DefaultOptions(), func(key string) error {
+						require.Equal(t, testProto.ID, key)
+						require.Equal(t, testProto.Value, idxVal)
+						keys = append(keys, key)
+						// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
+						testProto.ID = ""
+						testProto.Value = ""
+						return nil
+					})
+					require.NoError(t, err)
+					require.ElementsEqual(t, keys, ids)
+				}
 			})
 		})
 
@@ -208,7 +287,7 @@ func collectionTests(
 				t.Parallel()
 				testProto := &col.TestItem{}
 				err := emptyRead.List(testProto, col.DefaultOptions(), func(string) error {
-					return errors.Errorf("List callback should not have been called for an empty collection")
+					return errors.New("List callback should not have been called for an empty collection")
 				})
 				require.NoError(t, err)
 			})
@@ -217,7 +296,8 @@ func collectionTests(
 				t.Parallel()
 				items := map[string]string{}
 				testProto := &col.TestItem{}
-				err := defaultRead.List(testProto, col.DefaultOptions(), func(string) error {
+				err := defaultRead.List(testProto, col.DefaultOptions(), func(key string) error {
+					require.Equal(t, testProto.ID, key)
 					items[testProto.ID] = testProto.Value
 					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
 					testProto.ID = ""
@@ -388,12 +468,12 @@ func collectionTests(
 				readOnly, writer := initCollection(t)
 
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
-					itemProto := &col.TestItem{}
-					if err := rw.Get(makeID(8), itemProto); err != nil {
+					testProto := &col.TestItem{}
+					if err := rw.Get(makeID(8), testProto); err != nil {
 						return err
 					}
-					if itemProto.Value != originalValue {
-						return errors.Errorf("Incorrect value when fetching via ReadWriteCollection.Get, expected: %s, actual: %s", originalValue, itemProto.Value)
+					if testProto.Value != originalValue {
+						return errors.Errorf("Incorrect value when fetching via ReadWriteCollection.Get, expected: %s, actual: %s", originalValue, testProto.Value)
 					}
 					return nil
 				})

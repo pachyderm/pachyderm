@@ -22,3 +22,13 @@ CREATE TABLE IF NOT EXISTS license.clusters (
 `)
 	return errors.EnsureStack(err)
 }
+
+func AddUserContextsToClustersTable(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+	ALTER TABLE license.clusters
+	ADD COLUMN cluster_deployment_id VARCHAR(4096),
+	ADD COLUMN user_address VARCHAR(4096),
+	ADD COLUMN is_enterprise_server BOOLEAN
+	;`)
+	return err
+}

@@ -149,7 +149,7 @@ func getPachClient(t *testing.T, kubeClient *kube.Clientset, namespace string) *
 
 	// Connect to pachd
 	tu.WaitForPachdReady(t, namespace)
-	client, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, port), client.WithDialTimeout(100*time.Second))
+	client, err := client.NewFromURI(fmt.Sprintf("%s:%d", address, port), client.WithDialTimeout(100*time.Second))
 
 	// Some debugging info in case connecting fails - this will dump the pachd
 	// logs in case something went wrong there. In my experience, this has been
@@ -244,6 +244,9 @@ func withManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 	cmd.Stdin = strings.NewReader(manifest)
 	err = cmd.Run()
 	require.NoError(t, err)
+
+	// block until pachd deployment is ready - sometimes postgres isn't ready in time and the pachd pod restarts
+	require.NoError(t, tu.Cmd("kubectl", "wait", "--namespace", namespaceName, "--for=condition=available", "deployment/pachd", "--timeout", "2m").Run())
 
 	pachClient := getPachClient(t, kubeClient, namespaceName)
 	defer pachClient.Close()

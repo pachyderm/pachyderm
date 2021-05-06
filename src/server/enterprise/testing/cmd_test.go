@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -232,5 +233,117 @@ func TestLoginPachd(t *testing.T) {
 		pachctl auth whoami | match user:{{.user}}
 		pachctl auth whoami --enterprise | match 'pach:root'`,
 		"user", tu.DexMockConnectorEmail,
+	).Run())
+}
+
+// Tests synching contexts from the enterprise server
+func TestSyncContexts(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	id := tu.UniqueString("cluster")
+	clusterId := tu.UniqueString("clusterDeploymentId")
+
+	// register a new cluster
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl enterprise activate
+		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650 --pachd-user-address grpc://pachd.default:655 --cluster-deployment-id {{.clusterId}} 
+		`,
+		"id", id,
+		"token", tu.RootToken,
+		"license", tu.GetTestEnterpriseCode(t),
+		"clusterId", clusterId,
+	).Run())
+
+	// assert the registered cluster isn't reflected in the user's config
+	require.YesError(t, tu.BashCmd(`
+		pachctl config list context | match {{.id}}
+		`,
+		"id", id,
+	).Run())
+
+	// sync contexts and assert that the newly registered cluster is accessible
+	require.NoError(t, tu.BashCmd(`
+		pachctl enterprise sync-contexts
+		pachctl config list context | match {{.id}}
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:655\"" 
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
+		`,
+		"id", id,
+		"clusterId", clusterId,
+	).Run())
+
+	// re-register cluster with the same cluster ID and new user address
+	// the user-address should be updated on sync
+	require.NoError(t, tu.BashCmd(`
+		pachctl license update-cluster --id {{.id}} --user-address {{.userAddress}}
+		pachctl enterprise sync-contexts
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\"" 
+		`,
+		"id", id,
+		"token", tu.RootToken,
+		"license", tu.GetTestEnterpriseCode(t),
+		"clusterId", clusterId,
+		"userAddress", "grpc://pachd.default:700",
+	).Run())
+
+	// re-register cluster with a new cluster ID
+	// the cluster id should be updated and the session token should be set to empty
+	// TODO(acohen4): set session_token so that it can be unset
+	newClusterId := tu.UniqueString("clusterDeploymentId")
+	require.NoError(t, tu.BashCmd(`
+		pachctl license update-cluster --id {{.id}} --cluster-deployment-id {{.clusterId}}
+		pachctl enterprise sync-contexts
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\"" 
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\"" 
+		`,
+		"id", id,
+		"token", tu.RootToken,
+		"license", tu.GetTestEnterpriseCode(t),
+		"clusterId", newClusterId,
+		"userAddress", "grpc://pachd.default:700",
+	).Run())
+}
+
+// Tests RegisterCluster command's derived argument values if not provided
+func TestRegisterDefaultArgs(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	c, err := client.NewForTest()
+	require.NoError(t, err)
+
+	id := tu.UniqueString("cluster")
+
+	// get cluster ID from connection
+	clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
+	require.NoError(t, inspectErr)
+	clusterId := clusterInfo.DeploymentID
+
+	host := c.GetAddress().Host
+	if host == "0.0.0.0" {
+		host = "localhost"
+	}
+
+	// register a new cluster
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl enterprise activate
+		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
+
+		pachctl enterprise sync-contexts
+
+		pachctl config list context | match {{.id}}
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.pachdAddress}}"
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
+		`,
+		"id", id,
+		"token", tu.RootToken,
+		"license", tu.GetTestEnterpriseCode(t),
+		"clusterId", clusterId,
+		"pachdAddress", "grpc://"+host+":30650", // assert that a localhost address is registered
 	).Run())
 }

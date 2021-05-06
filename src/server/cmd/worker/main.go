@@ -55,7 +55,7 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
-	pipelinePtr := &pps.EtcdPipelineInfo{}
+	pipelinePtr := &pps.StoredPipelineInfo{}
 	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelinePtr); err != nil {
 		return nil, err
 	}

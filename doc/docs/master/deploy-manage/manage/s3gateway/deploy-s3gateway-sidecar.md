@@ -1,28 +1,24 @@
-# Create an S3-enabled Pipeline
+# Sidecar S3 Gateway 
 
-If you want to use Pachyderm with such platforms like Kubeflow or
-Apache™ Spark, you need to create an S3-enabled Pachyderm pipeline.
-Such a pipeline ensures that data provenance of the pipelines that
-run in those external systems is properly preserved and is tied to
-corresponding Pachyderm jobs.
+Pachyderm offers the option to use **S3-Protocol-Enabled Pipelines** (i.e., Pipelines enabled to access input and output repos via the S3 Gateway).
 
-Pachyderm can deploys the S3 gateway in the `pachd` pod. Also,
-you can deploy a separate S3 gateway instance as a sidecar container
-in your pipeline worker pod. The former is
-typically used when you need to configure an ingress or egress with
-object storage tooling, such as MinIO, boto3, and others. The latter
-is needed when you use Pachyderm with external data processing
-platforms, such as Kubeflow or Apache Spark, that interact with
-object stores but do not work with local file systems.
+This is useful when your pipeline code wants to interact with input and/or 
+output data through the S3 protocol. For example, running Kubeflow or Apache™ Spark with Pachyderm. 
 
-The master S3 gateway exists independently and outside of the
-pipeline lifecycle. Therefore, if a
-Kubeflow pod connects through the master S3 gateway, the Pachyderm pipelines
-created in Kubeflow do not properly maintain data provenance. When the
-S3 functionality is exposed through a sidecar instance in the
-pipeline worker pod, Kubeflow can access the files stored in S3 buckets
-in the pipeline pod, which ensures the provenance is maintained
-correctly. The S3 gateway sidecar instance is created together with the
+!!! Note
+    Note that this use case of the S3 Gateway differs from the [Global use case](index.md). The latter runs directly on the `pachd` pod and exists independently and outside of any pipeline lifecycle. 
+    The *"Sidecar S3 Gateway"* (also referred to as *"S3 Enabled Pipelines"*), on the other hand, is a separate S3 gateway instance **running in a `sidecar` container in the `pipeline worker` pod**.
+
+!!! Warning "Maintaining data provenance"
+    For example, if a Kubeflow pipeline were to read and write data from a Pachyderm repo
+    directly through the global S3 gateway, Pachyderm
+    would not be able to maintain data provenance
+    (the alteration of the data in the updated repo could not be traced back to any given job/input commit). 
+
+    Using an S3-enabled pipeline, Pachyderm will control the flow and
+    the same Kubeflow code will now be part of Pachyderm's job execution, thus maintaining proper data provenance.
+
+The S3 gateway sidecar instance is created together with the
 pipeline and shut down when the pipeline is destroyed.
 
 The following diagram shows communication between the S3 gateway
@@ -30,78 +26,87 @@ deployed in a sidecar and the Kubeflow pod.
 
 ![Kubeflow S3 gateway](../../../assets/images/d_kubeflow_sidecar.png)
 
-## Limitations
+## S3 Enable your Pipeline 
+Enable your pipeline to use the Sidecar S3 Gateway by following those simple steps:
 
-Pipelines exposed through a sidecar S3 gateway have the following limitations:
+* Input repos:
 
-* As with a standard Pachyderm pipeline, in which the input repo is read-only
-and output is write-only, the same applies to using the S3 gateway within
-pipelines. The input bucket(s) are read-only and the output bucket that
-you define using the `s3_out` parameter is write-only. This limitation
-guarantees that pipeline provenance is preserved just as it is with normal
-Pachyderm pipelines.
+    Set the `s3` parameter in the `input`
+    section of your pipeline specification to `true`.
+    When enabled, input repositories are exposed as S3 Buckets via the S3 gateway sidecar instance
+    instead of local `/pfs/` files. You can set this property for each PFS input in
+    a pipeline. The address of the input repository will be `s3://<input_repo_name>` (i.e., the `input.pfs.name` field in your pipeline spec).
+
+* Output repo:
+
+    You can also expose the output repository through the same S3 gateway
+    instance by setting the `s3_out` property to `true` in the root of
+    the pipeline spec.  If set to `true`, the output repository
+    is exposed as an S3 Bucket via the same S3 gateway instance instead of
+    writing in `/pfs/out`.
+    The address of the output repository will be `s3://out`
+
+!!! Note
+    The user code is responsible to:
+
+      - provide its own S3 client package as part of the image (boto3).
+      - read and write in the S3 Buckets exposed to the pipeline.
+
+
+* To access the sidecar instance and a bucket, you should use the [S3_ENDPOINT](../../../deploy/environment-variables/#pipeline-worker-environment-variables) environment variable (see example below). No authentication is needed; 
+  you can only read the input bucket and write in the output bucket.
+  ```shell
+  aws --endpoint-url $S3_ENDPOINT s3 cp /tmp/result/ s3://out --recursive
+  ```
+
+The following JSON is an example of an S3 enabled pipeline spec (input and output over S3). 
+To keep it simple, it reads files in the input bucket `labresults` and copies them in the pipeline's output bucket:
+```json
+{
+  "pipeline": {
+    "name": "s3_protocol_enabled_pipeline"
+  },
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "labresults",
+      "name": "labresults",
+      "s3": true
+    }
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "stdin": [ "set -x && mkdir -p /tmp/result && aws --endpoint-url $S3_ENDPOINT s3 ls && aws --endpoint-url $S3_ENDPOINT s3 cp s3://labresults/ /tmp/result/ --recursive && aws --endpoint-url $S3_ENDPOINT s3 cp /tmp/result/ s3://out --recursive" ],
+    "image": "pachyderm/ubuntu-with-s3-clients:v0.0.1"
+  },
+  "s3_out": true
+}
+```
+## Constraints
+
+S3 enabled Pipelines have the following constraints and specificities:
 
 * The `glob` field in the pipeline must be set to `"glob": "/"`. All files
-are processed as a single datum. In this configuration, already processed
+are processed as a single datum. 
+In this configuration, already processed
 datums are not skipped which
 could be an important performance consideration for some processing steps.
 
-* Join and union inputs are not supported, but you can create a cross or
-a single input.
+* Join, group, and union inputs are not supported, but you can create a cross.
 
 * You can create a cross of an S3-enabled input with a non-S3 input.
-For a non-S3 input in such a cross you can still specify a glob pattern.
+For a non-S3 input in such a cross, you can still specify a glob pattern.
 
 * Statistics collection for S3-enabled pipelines is not supported. If you
 set `"s3_out": true`, you need to disable the `enable_stats`
 parameter in your pipeline. 
 
-## Expose a Pipeline through an S3 Gateway in a Sidecar
+* As in standard Pachyderm pipelines in which input repo are read-only
+and output repo writable, 
+input bucket(s) are read-only, and the output bucket is initially empty and writable. 
 
-When you work with platforms like Kubeflow or Apache Spark, you need
-to spin up an S3 gateway instance that runs alongside the pipeline worker
-pod as a sidecar container. To do so, set the `s3` parameter in the `input`
-part of your pipeline specification to `true`. When enabled, this parameter
-mounts S3 buckets for input repositories in the S3 gateway sidecar instance
-instead of in `/pfs/`. You can set this property for each PFS input in
-a pipeline. The address of the input repository will be `s3://<input_repo>`.
-
-You can also expose the output repository through the same S3 gateway
-instance by setting the `s3_out` property to `true` in the root of
-the pipeline spec.  If set to `true`, Pachyderm creates another S3 bucket
-on the sidecar, and the output files will be written there instead of
-`/pfs/out`. By default, `s3_out` is set to `false`. The address of the
-output repository will be `s3://<output_repo>`, which is always the name
-of the pipeline.
-
-You can connect to the S3 gateway sidecar instance through its Kubernetes
-service. To access the sidecar instance and the buckets on it, you need
-to know the address of the buckets. Because PPS handles all permissions,
-no special authentication configuration is needed.
-
-The following text is an example of a pipeline exposed through a sidecar
-S3 gateway instance:
-
-```json
-{
-  "pipeline": {
-    "name": "test"
-  },
-  "input": {
-    "pfs": {
-      "glob": "/",
-      "repo": "s3://images",
-      "s3": "true"
-    }
-  },
-  "transform": {
-    "cmd": [ "python3", "/edges.py" ],
-    "image": "pachyderm/opencv"
-  },
-  "s3_out": true
-}
-```
-
-!!! note "See Also:"
-    - [Pipeline Specification](../../../../reference/pipeline_spec/#input)
+!!! note "See Also"
     - [Configure Environment Variables](../../../deploy/environment-variables/)
+    - [Pachyderm S3 Gateway Supported Operations](./supported-operations.md)
+    - [Complete S3 Gateway API reference](../../../../reference/s3gateway_api/)
+    - [Pipeline Specification](../../../../reference/pipeline_spec/#input)

@@ -25,13 +25,13 @@ func AllCollections() []col.PostgresCollection {
 	}
 }
 
-// Pipelines returns an EtcdCollection of pipelines
+// Pipelines returns a PostgresCollection of pipelines
 func Pipelines(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		pipelinesCollectionName,
 		db,
 		listener,
-		&pps.EtcdPipelineInfo{},
+		&pps.StoredPipelineInfo{},
 		nil,
 		nil,
 	)
@@ -42,7 +42,7 @@ var (
 	JobsPipelineIndex = &col.Index{
 		Name: "Pipeline",
 		Extract: func(val proto.Message) string {
-			return val.(*pps.EtcdJobInfo).Pipeline.Name
+			return val.(*pps.StoredPipelineJobInfo).Pipeline.Name
 		},
 	}
 
@@ -50,18 +50,18 @@ var (
 	JobsOutputIndex = &col.Index{
 		Name: "OutputCommit",
 		Extract: func(val proto.Message) string {
-			return pfsdb.CommitKey(val.(*pps.EtcdJobInfo).OutputCommit)
+			return pfsdb.CommitKey(val.(*pps.StoredPipelineJobInfo).OutputCommit)
 		},
 	}
 )
 
-// Jobs returns an EtcdCollection of jobs
+// Jobs returns a PostgresCollection of jobs
 func Jobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		jobsCollectionName,
 		db,
 		listener,
-		&pps.EtcdJobInfo{},
+		&pps.StoredPipelineJobInfo{},
 		[]*col.Index{JobsPipelineIndex, JobsOutputIndex},
 		nil,
 	)

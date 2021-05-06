@@ -2,7 +2,7 @@
 // shared by both the PPS API and the worker binary. These utilities include:
 // - Getting the RC name and querying k8s reguarding pipelines
 // - Reading and writing pipeline resource requests and limits
-// - Reading and writing EtcdPipelineInfos and PipelineInfos[1]
+// - Reading and writing StoredPipelineInfos and PipelineInfos[1]
 //
 // [1] Note that PipelineInfo in particular is complicated because it contains
 // fields that are not always set or are stored in multiple places
@@ -112,7 +112,7 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 // or a sparsely-populated PipelineInfo if the spec data cannot be found in PPS
 // (e.g. due to corruption or a missing block). It does the PFS
 // read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, &buf); err != nil {
@@ -136,7 +136,7 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.EtcdP
 
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
 	result, err := GetPipelineInfoAllowIncomplete(pachClient, ptr)
 	if err == nil && result.Transform == nil {
 		return nil, errors.Errorf("could not retrieve pipeline spec file from PFS for pipeline '%s', there may be a problem reaching object storage, or the pipeline may need to be deleted and recreated", result.Pipeline.Name)
@@ -214,7 +214,7 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 	logSetPipelineState(pipeline, from, to, reason)
 	err := col.NewSQLTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
-		pipelinePtr := &pps.EtcdPipelineInfo{}
+		pipelinePtr := &pps.StoredPipelineInfo{}
 		if err := pipelines.Get(pipeline, pipelinePtr); err != nil {
 			return err
 		}
@@ -264,7 +264,7 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 	return err
 }
 
-// JobInput fills in the commits for a JobInfo
+// JobInput fills in the commits for an Input
 func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
 	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
 	branchToCommit := make(map[string]*pfs.Commit)
@@ -343,13 +343,13 @@ func IsTerminal(state pps.JobState) bool {
 }
 
 // UpdateJobState performs the operations involved with a job state transition.
-func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
+func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.StoredPipelineJobInfo, state pps.JobState, reason string) error {
 	if IsTerminal(jobPtr.State) {
 		return errors.Errorf("cannot put %q in state %s as it's already in a terminal state (%s)", jobPtr.Job.ID, state.String(), jobPtr.State.String())
 	}
 
 	// Update pipeline
-	pipelinePtr := &pps.EtcdPipelineInfo{}
+	pipelinePtr := &pps.StoredPipelineInfo{}
 	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return err
 	}
@@ -380,43 +380,43 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }
 
-func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
-	jobInfo.State = state
-	jobInfo.Reason = reason
+func FinishJob(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo, state pps.JobState, reason string) error {
+	pipelineJobInfo.State = state
+	pipelineJobInfo.Reason = reason
 	var empty bool
 	if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
 		empty = true
 	}
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
+			Commit: pipelineJobInfo.OutputCommit,
 			Empty:  empty,
 		}); err != nil {
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: jobInfo.StatsCommit,
+			Commit: pipelineJobInfo.StatsCommit,
 			Empty:  empty,
 		}); err != nil {
 			return err
 		}
-		return WriteJobInfo(&builder.APIClient, jobInfo)
+		return WriteJobInfo(&builder.APIClient, pipelineJobInfo)
 	})
 	return err
 }
 
-func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
+func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo) error {
 	_, err := pachClient.PpsAPIClient.UpdateJobState(pachClient.Ctx(), &pps.UpdateJobStateRequest{
-		Job:           jobInfo.Job,
-		State:         jobInfo.State,
-		Reason:        jobInfo.Reason,
-		Restart:       jobInfo.Restart,
-		DataProcessed: jobInfo.DataProcessed,
-		DataSkipped:   jobInfo.DataSkipped,
-		DataTotal:     jobInfo.DataTotal,
-		DataFailed:    jobInfo.DataFailed,
-		DataRecovered: jobInfo.DataRecovered,
-		Stats:         jobInfo.Stats,
+		Job:           pipelineJobInfo.Job,
+		State:         pipelineJobInfo.State,
+		Reason:        pipelineJobInfo.Reason,
+		Restart:       pipelineJobInfo.Restart,
+		DataProcessed: pipelineJobInfo.DataProcessed,
+		DataSkipped:   pipelineJobInfo.DataSkipped,
+		DataTotal:     pipelineJobInfo.DataTotal,
+		DataFailed:    pipelineJobInfo.DataFailed,
+		DataRecovered: pipelineJobInfo.DataRecovered,
+		Stats:         pipelineJobInfo.Stats,
 	})
 	return err
 }

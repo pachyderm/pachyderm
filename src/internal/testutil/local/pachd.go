@@ -93,6 +93,7 @@ func RunLocal() (retErr error) {
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(env.Config().GCPercent)
+	env.InitDexDB()
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -130,11 +131,6 @@ func RunLocal() (retErr error) {
 		return err
 	}
 
-	identityStorageProvider, err := identity_server.NewStorageProvider(env)
-	if err != nil {
-		return err
-	}
-
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		var pfsAPIServer pfs_server.APIServer
@@ -167,7 +163,6 @@ func RunLocal() (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				true,
 			)
 			if err != nil {
@@ -306,7 +301,6 @@ func RunLocal() (retErr error) {
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				env,
-				identityStorageProvider,
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
@@ -426,7 +420,7 @@ func RunLocal() (retErr error) {
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
-			return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
+			return client.NewFromURI(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
 		})
 		if err != nil {
 			return err
