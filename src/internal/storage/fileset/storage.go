@@ -3,6 +3,7 @@ package fileset
 import (
 	"context"
 	"math"
+	"reflect"
 	"strings"
 	"time"
 
@@ -253,6 +254,34 @@ func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(co
 		return err
 	}
 	return renew.WithStringSet(ctx, ttl, rf, cb)
+}
+
+// ShallowEqual determines if the Filesets are equal using only Fileset metadata not the contents
+// of the Filesets.
+// The pairs of filesets that are ShallowEqual is a superset of the pairs of filesets that are DeepEqual
+func (s *Storage) ShallowEqual(ctx context.Context, aID, bID ID) (bool, error) {
+	a, err := s.store.Get(ctx, aID)
+	if err != nil {
+		return false, err
+	}
+	b, err := s.store.Get(ctx, bID)
+	if err != nil {
+		return false, err
+	}
+	switch {
+	case a.GetPrimitive() != nil && b.GetPrimitive() != nil:
+		ap := a.GetPrimitive()
+		bp := b.GetPrimitive()
+		return reflect.DeepEqual(ap, bp), nil
+
+	case a.GetComposite() != nil && b.GetComposite() != nil:
+		ac := *a.GetComposite()
+		bc := *b.GetComposite()
+		return reflect.DeepEqual(ac, bc), nil
+
+	default:
+		return false, nil
+	}
 }
 
 // GC creates a track.GarbageCollector with a Deleter that can handle deleting filesets and chunks
