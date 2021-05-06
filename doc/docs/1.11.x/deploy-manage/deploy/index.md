@@ -15,8 +15,8 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../../hub/hub_getting_started/" class="md-typeset md-link">
-          Getting Started with Hub
+          <li><a href="../../pachhub/pachhub_getting_started/" class="md-typeset md-link">
+          Getting Started with Pachyderm Hub
           </a>
           </li>
           <li><a href="../../getting_started/local_installation/" class="md-typeset md-link">
@@ -60,10 +60,6 @@ deployment options and related topics:
           </li>
           <li><a href="openshift/" class="md-typeset md-link">
           Deploy on OpenShift
-          </a>
-          </li>
-          <li><a href="helm_install/" class="md-typeset md-link">
-          Helm install / uninstall
           </a>
           </li>
         </ul>

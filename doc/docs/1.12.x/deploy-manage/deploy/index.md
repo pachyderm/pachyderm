@@ -62,10 +62,6 @@ deployment options and related topics:
           Deploy on OpenShift
           </a>
           </li>
-          <li><a href="helm_install/" class="md-typeset md-link">
-          Helm install / uninstall
-          </a>
-          </li>
         </ul>
        </div>
      </div>
