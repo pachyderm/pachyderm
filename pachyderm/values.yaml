@@ -24,14 +24,14 @@ dash:
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "0.5.57"
-  # resources specifies the resource request
-  resources: #Can't zero out resources with {}
-    limits:
-      cpu: "1"
-      memory: "2G"
-    requests:
-      cpu: "1"
-      memory: "2G"
+  # resources specifies the resource request and limits.
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
   service:
     # type specifies the Kubernetes type of the dash service.
     type: ClusterIP
@@ -48,14 +48,14 @@ etcd:
     repository: "pachyderm/etcd"
     tag: "v3.3.5"
     pullPolicy: "IfNotPresent"
-  # resources specifies the resource request
-  resources:
-    limits:
-      cpu: "1"
-      memory: "2G"
-    requests:
-      cpu: "1"
-      memory: "2G"
+  # resources specifies the resource request and limits
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
   # storageClass indicates the etcd should use an existing
   # StorageClass for its storage.  It is analogous to the
   # --etcd-storage-class argument to pachctl deploy.
@@ -104,14 +104,14 @@ pachd:
   # performance.  It is analogous to the --shards argument to pachctl
   # deploy.
   numShards: 16
-  # resources specifies the resource request.
-  resources:
-    limits:
-      cpu: "1"
-      memory: "2G"
-    requests:
-      cpu: "1"
-      memory: "2G"
+  # resources specifies the resource requests and limits
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.

@@ -24,7 +24,6 @@ pachd:
 
 
 dash:
-  resources: null
   service:
     type: NodePort
 
