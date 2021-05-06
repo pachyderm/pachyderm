@@ -8744,10 +8744,6 @@ func TestInspectJob(t *testing.T) {
 }
 
 func TestPipelineVersions(t *testing.T) {
-	// TODO: Exposes existing race in V1.
-	// Pipeline spec commit is made within an etcd stm.
-	// Re-running the stm creates a new spec commit without deleting the old one.
-	t.Skip("Exposes existing race in V1")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
