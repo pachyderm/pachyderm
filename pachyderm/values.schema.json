@@ -112,6 +112,9 @@
                 "exposeObjectAPI": {
                     "type": "boolean"
                 },
+                "goMaxProcs": {
+                    "type": "integer"
+                },
                 "image": {
                     "type": "object",
                     "properties": {

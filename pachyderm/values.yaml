@@ -87,6 +87,8 @@ pachd:
   # exposeObjectAPI controls whether the object API is exposed.  It is
   # analogous to --expose-object-api passed to pachctl deploy.
   exposeObjectAPI: false
+  # goMaxProcs is passed as GOMAXPROCS to the pachd container.
+  goMaxProcs: 0
   image:
     repository: "pachyderm/pachd"
     pullPolicy: "IfNotPresent"

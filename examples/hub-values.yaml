@@ -24,6 +24,7 @@ loadBalancer:
 pachd:
   blockCacheBytes: "0G"
   exposeDockerSocket: true
+  goMaxProcs: 3
   image:
     # tag is configured per workspace.
     tag: "1.13.0"
