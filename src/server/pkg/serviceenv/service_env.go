@@ -1,11 +1,9 @@
 package serviceenv
 
 import (
-	"crypto/tls"
 	"fmt"
 	"math"
 	"net"
-	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -19,7 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
-	utilnet "k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
@@ -157,28 +154,6 @@ func (env *ServiceEnv) initEtcdClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func transportForConfig(config *transport.Config) (http.RoundTripper, error) {
-	tlsConfig, err := transport.TLSConfigFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	dial := (&net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}).DialContext
-
-	return utilnet.SetTransportDefaults(&http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     tlsConfig,
-		MaxIdleConnsPerHost: 25,
-		DialContext:         dial,
-		DisableCompression:  false,
-		TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
-	}), nil
-}
-
 func (env *ServiceEnv) initKubeClient() error {
 	return backoff.Retry(func() error {
 		// Get secure in-cluster config
@@ -199,18 +174,27 @@ func (env *ServiceEnv) initKubeClient() error {
 				},
 			}
 		}
+
 		cfg.Timeout = 15 * time.Second
-		tCfg, err := cfg.TransportConfig()
+
+		// Modify the kube client config to have a reconnectTransport
+		transportConfig, err := cfg.TransportConfig()
 		if err != nil {
 			log.Errorf("failed to get transport config for k8s client: %s\n", err)
 			return errors.Wrapf(err, "erorr getting transport config")
 		}
-		cfg.Transport, err = transportForConfig(tCfg)
+
+		tlsConfig, err := transport.TLSConfigFor(transportConfig)
 		if err != nil {
-			fmt.Printf("failed to get transport for k8s client: %s\n", err)
-			return errors.Wrapf(err, "erorr getting transport")
+			log.Errorf("failed to get TLS config for k8s client: %s\n", err)
+			return errors.Wrapf(err, "erorr getting TLS config")
 		}
+
+		cfg.Transport = newReconnectTransport(tlsConfig)
+
+		// Since we're supplying the transport we can't have TLSClientConfig set
 		cfg.TLSClientConfig = rest.TLSClientConfig{}
+
 		env.kubeClient, err = kube.NewForConfig(cfg)
 		if err != nil {
 			fmt.Printf("failed to initialize k8s client: %s\n", err)
