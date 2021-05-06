@@ -189,6 +189,7 @@ func transportForConfig(config *transport.Config) (http.RoundTripper, error) {
 
 func (env *ServiceEnv) initKubeClient() error {
 	return backoff.Retry(func() error {
+		log.Infof("Attempting to connect kube client")
 		// Get secure in-cluster config
 		var kubeAddr string
 		var ok bool
@@ -221,7 +222,7 @@ func (env *ServiceEnv) initKubeClient() error {
 
 		cfg.WrapTransport = wrapWithLoggingTransport(env.RestartKubeClient)
 		env.kubeClient, err = kube.NewForConfig(cfg)
-		cfg.Timeout = 30 * time.Second
+		cfg.Timeout = 15 * time.Second
 		env.thirtySecondsKubeClient, err = kube.NewForConfig(cfg)
 		if err != nil {
 			fmt.Printf("%s\n", err)

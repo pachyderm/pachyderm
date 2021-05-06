@@ -17,7 +17,7 @@ import (
 )
 
 const bodyPrefixLength = 200
-const cancellationsBeforeReset = 30
+const cancellationsBeforeReset = 4
 
 // This is a copy of an internal interface used by k8s.io/client-go when using
 // a passed-in http.RoundTripper. We only need it in order to wrap client-go's
