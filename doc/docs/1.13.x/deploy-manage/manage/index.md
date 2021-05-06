@@ -19,6 +19,14 @@ throughout the lifetime of your cluster.
             Manage Cluster Access
           </a>
           </li>
+          <li><a href="./s3gateway/" class="md-typeset md-link">
+            Use the S3 Gateway
+          </a>
+          </li>
+          <li><a href="disable-metrics/" class="md-typeset md-link">
+            Disable Usage Metrics
+          </a>
+          </li>
         </ul>
       </div>
     </div>
@@ -68,7 +76,7 @@ throughout the lifetime of your cluster.
           </a>
           </li>
           <li><a href="sharing_gpu_resources/" class="md-typeset md-link">
-            Sharing GPU resources
+            Share GPU resources
           </a>
           </li>
         </ul>
