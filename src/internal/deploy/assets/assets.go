@@ -260,7 +260,7 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend Backend)
 		// For local deployments, we set the resource requirements and cache sizes
 		// low so that pachyderm clusters will fit inside e.g. minikube or travis
 		if opts.PachdNonCacheMemRequest == "" {
-			opts.PachdNonCacheMemRequest = "256M"
+			opts.PachdNonCacheMemRequest = "512M"
 		}
 		if opts.PachdCPURequest == "" {
 			opts.PachdCPURequest = "0.25"

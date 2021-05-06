@@ -23,10 +23,8 @@ import (
 // Worker handles a transform pipeline work subtask, then returns.
 // TODO:
 // datum queuing (probably should be handled by datum package).
-// spouts.
 // capture datum logs.
 // git inputs.
-// handle custom user set for execution.
 func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, status *Status) (retErr error) {
 	datumSet, err := deserializeDatumSet(subtask.Data)
 	if err != nil {

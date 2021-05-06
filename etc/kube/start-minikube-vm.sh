@@ -91,6 +91,7 @@ etc/kube/push-to-minikube.sh "pachyderm/pachd:${PACH_VERSION}"
 etc/kube/push-to-minikube.sh "pachyderm/worker:${PACH_VERSION}"
 etc/kube/push-to-minikube.sh ${etcd_image}
 etc/kube/push-to-minikube.sh ${postgres_image}
+etc/kube/push-to-minikube.sh "pachyderm_entrypoint"
 
 # Deploy Pachyderm
 if [[ -n ${DEPLOY_FLAGS} ]]; then

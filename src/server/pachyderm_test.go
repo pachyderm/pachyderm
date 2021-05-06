@@ -3013,7 +3013,7 @@ func TestStandby(t *testing.T) {
 				&pps.CreatePipelineRequest{
 					Pipeline: client.NewPipeline(pipelines[i]),
 					Transform: &pps.Transform{
-						Cmd: []string{"true"},
+						Cmd: []string{"cp", path.Join("/pfs", input, "file"), "/pfs/out/file"},
 					},
 					Input:   client.NewPFSInput(input, "/*"),
 					Standby: true,
@@ -3037,9 +3037,7 @@ func TestStandby(t *testing.T) {
 			return nil
 		})
 
-		_, err := c.StartCommit(dataRepo, "master")
-		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		require.NoError(t, c.PutFile(dataRepo, "master", "file", strings.NewReader("foo")))
 
 		var eg errgroup.Group
 		var finished bool
@@ -3087,9 +3085,7 @@ func TestStandby(t *testing.T) {
 		require.NoError(t, err)
 		numCommits := 100
 		for i := 0; i < numCommits; i++ {
-			_, err := c.StartCommit(dataRepo, "master")
-			require.NoError(t, err)
-			require.NoError(t, c.FinishCommit(dataRepo, "master"))
+			require.NoError(t, c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader("foo")))
 		}
 		commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)

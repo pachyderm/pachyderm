@@ -13,15 +13,16 @@ import (
 )
 
 // NewLocalClient returns a Client that stores data on the local file system
-func NewLocalClient(root string) (c Client, err error) {
+func NewLocalClient(root string) (Client, error) {
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	client := &localClient{filepath.Clean(root)}
+	var c Client
+	c = &localClient{filepath.Clean(root)}
 	if monkeyTest {
-		return &monkeyClient{client}, nil
+		c = &monkeyClient{c}
 	}
-	return newUniformClient(client), nil
+	return newUniformClient(c), nil
 }
 
 type localClient struct {
@@ -30,10 +31,7 @@ type localClient struct {
 
 func (c *localClient) normPath(path string) string {
 	path = filepath.Clean(path)
-	if !filepath.IsAbs(path) {
-		return filepath.Join(c.root, path)
-	}
-	return path
+	return filepath.Join(c.root, path)
 }
 
 func (c *localClient) Put(ctx context.Context, path string, r io.Reader) (retErr error) {

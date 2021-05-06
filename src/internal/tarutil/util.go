@@ -176,7 +176,7 @@ func Import(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) erro
 		// TODO: Use the tar header metadata.
 		fullPath := path.Join(storageRoot, hdr.Name)
 		if hdr.Typeflag == tar.TypeDir {
-			if err := os.MkdirAll(fullPath, 0700); err != nil {
+			if err := os.MkdirAll(fullPath, 0777); err != nil {
 				return err
 			}
 			continue
@@ -188,7 +188,7 @@ func Import(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) erro
 }
 
 func writeFile(filePath string, r io.Reader) (retErr error) {
-	if err := os.MkdirAll(path.Dir(filePath), 0700); err != nil {
+	if err := os.MkdirAll(path.Dir(filePath), 0777); err != nil {
 		return err
 	}
 	f, err := os.Create(filePath)
