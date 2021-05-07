@@ -536,7 +536,7 @@ func (d *driver) makeCommit(
 		return nil, err
 	}
 
-	// create/update 'branch' (which must always be set) and set parentCommit.ID (if
+	// create/update 'branch' (which must always be set) and set parent.ID (if
 	// 'parent' was not set)
 	branchProvMap := make(map[string]bool)
 	branchInfo := &pfs.BranchInfo{}
@@ -609,7 +609,9 @@ func (d *driver) makeCommit(
 	if parent != nil {
 		// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 		// happen if 'branch' is new and diverges from the existing branch in
-		// 'parent')
+		// 'parent').
+		// Clone the parent proto because resolveCommit will modify it.
+		parent = proto.Clone(parent).(*pfs.Commit)
 		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parent commit not found")
@@ -1912,18 +1914,28 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	if err := ancestry.ValidateName(branch.Name); err != nil {
 		return err
 	}
+
+	var ci *pfs.CommitInfo
+	// resolve the given commit
+	if commit != nil {
+		ci, err = d.resolveCommit(txnCtx.Stm, commit)
+		if err != nil {
+			// possible that branch exists but has no head commit. This is fine, but
+			// branchInfo.Head must also be nil
+			if !isNoHeadErr(err) {
+				return errors.Wrapf(err, "unable to inspect %s@%s", commit.Branch.Repo.Name, commit.ID)
+			}
+			commit = nil
+		}
+	}
+
 	// The request must do exactly one of:
 	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
 	// 2) re-pointing 'branch' at a new commit
-	var ci *pfs.CommitInfo
 	if commit != nil {
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Branch.Repo.Name && (branch.Name == commit.Branch.Name || branch.Name == commit.ID)
 		if !sameTarget && provenance != nil {
-			ci, err = d.resolveCommit(txnCtx.Stm, commit)
-			if err != nil {
-				return err
-			}
 			for _, provBranch := range provenance {
 				provBranchInfo := &pfs.BranchInfo{}
 				if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
@@ -1939,19 +1951,6 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 					}
 				}
 			}
-		}
-	}
-
-	// if 'commit' is a branch, resolve it
-	if commit != nil {
-		_, err = d.resolveCommit(txnCtx.Stm, commit) // if 'commit' is a branch, resolve it
-		if err != nil {
-			// possible that branch exists but has no head commit. This is fine, but
-			// branchInfo.Head must also be nil
-			if !isNoHeadErr(err) {
-				return errors.Wrapf(err, "unable to inspect %s@%s", commit.Branch.Repo.Name, commit.ID)
-			}
-			commit = nil
 		}
 	}
 
@@ -1979,11 +1978,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
-		if branch.Name == "master" && commit != nil {
-			ci, err := d.resolveCommit(txnCtx.Stm, commit)
-			if err != nil {
-				return err
-			}
+		if branch.Name == "master" && ci != nil {
 			repoInfo.SizeBytes = ci.SizeBytes
 		}
 		return nil
@@ -2059,12 +2054,6 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// current HEAD commit has old provenance
 	var triggeredBranches []*pfs.Branch
 	if commit != nil {
-		if ci == nil {
-			ci, err = d.resolveCommit(txnCtx.Stm, commit)
-			if err != nil {
-				return err
-			}
-		}
 		if ci.Finished != nil {
 			triggeredBranches, err = d.triggerCommit(txnCtx, ci.Commit)
 			if err != nil {
