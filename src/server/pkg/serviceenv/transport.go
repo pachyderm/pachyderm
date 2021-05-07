@@ -29,7 +29,7 @@ func newTimeoutTransport(timeout time.Duration, tlsConfig *tls.Config) *timeoutT
 	return t
 }
 
-// RoundTrip implements the http.RoundTripper interface for loggingRoundTripper
+// RoundTrip adds a timeout to every request, because client-go doens't support contexts
 func (t *timeoutTransport) RoundTrip(req *http.Request) (res *http.Response, retErr error) {
 	// Just add a context with a timeout to see if that works
 	ctx, _ := context.WithTimeout(context.Background(), t.timeout)
