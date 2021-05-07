@@ -67,7 +67,7 @@ func (t *reconnectTransport) CancelRequest(req *http.Request) {
 		// Close all keep-alive connections in the current transport.
 		// TOOD: this doesn't cancel the outstanding requests, we should track them and cancel them all here too.
 		t.underlying.CloseIdleConnections()
-		for inflightReq, _ := range t.inFlight {
+		for inflightReq := range t.inFlight {
 			t.underlying.CancelRequest(inflightReq.req)
 		}
 		t.cancellations = 0
