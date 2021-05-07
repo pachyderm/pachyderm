@@ -175,8 +175,6 @@ func (env *ServiceEnv) initKubeClient() error {
 			}
 		}
 
-		cfg.Timeout = 15 * time.Second
-
 		// Modify the kube client config to have a reconnectTransport
 		transportConfig, err := cfg.TransportConfig()
 		if err != nil {
@@ -190,7 +188,7 @@ func (env *ServiceEnv) initKubeClient() error {
 			return errors.Wrapf(err, "erorr getting TLS config")
 		}
 
-		cfg.Transport = newReconnectTransport(tlsConfig)
+		cfg.Transport = newTimeoutTransport(30*time.Second, tlsConfig)
 
 		// Since we're supplying the transport we can't have TLSClientConfig set
 		cfg.TLSClientConfig = rest.TLSClientConfig{}
