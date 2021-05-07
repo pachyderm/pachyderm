@@ -49,7 +49,6 @@ func newUnderlying(tlsConfig *tls.Config) *http.Transport {
 		MaxIdleConnsPerHost: 25,
 		DialContext:         dial,
 		DisableCompression:  false,
-		TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
 	})
 }
 
