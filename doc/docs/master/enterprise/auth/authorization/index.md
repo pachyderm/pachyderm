@@ -20,7 +20,7 @@ in the next [**Role Binding**](role-binding.md) page.
 
 
 ## Users Types
-Pachyderm defines 4 type of User: 
+Pachyderm defines 5 type of User: 
 
 - A **Root User**: This special user created when Auth is activated. The root user **always has clusterAdmin permissions on the cluster**.
 
@@ -30,15 +30,17 @@ Pachyderm defines 4 type of User:
 
 - A **Pipeline User**: An internal Service Account used for Pipelines when interacting with Pachyderm ressources.
 
-
+- A **All Cluster Users** (`allClusterUsers`) : A general subject that represents **everyone who log into a cluster**.
 ## Resources
-Pachyderm has 3 types of resources: **Repositories**: `repo`, **Projects**: `project`???, **Clusters**: `cluster`. - //TODO Clarify `enterprise`? project?
+Pachyderm has 2 types of resources: **Repositories**: `repo`, **Clusters**: `cluster`. 
 
-Clusters contain one to many projects, and projects contain one to many repositories.
+!!! Coming soon
+    Two additionnal tiers: A `project` tier between the cluster and repo levels, and the `enterprise` tier, above all clusters, at the enterprise server level, are in the works. Clusters contain one to many projects. Projects contain one to many repositories.
 
 ## Roles
-Pachyderm has 4 predefined roles (//TODO more for projects) granting privileges to its Resources.
-Those Roles are listed in such an order that any following Role adds a set of permissions to its predecessor.
+Pachyderm has 4 predefined roles granting permissions to its Resources.
+Those Roles are listed in no specific hierarchical order. 
+Some might inherit a set of permissions from anouther.
 
 - **repoReader**: Can consume data from a repo, but cannot edit them.
 repoReader can execute commands such as `pachctl get file` and
@@ -59,9 +61,29 @@ a RepoOwner can grant permission to users on the Repository.
 - **clusterAdmin**: A clusterAdmin can perform any
 action on the cluster including appointing other clusterAdmins.
 By default, the activation of Auth (`pachctl auth activate`) creates a Root User
-with irrevocable ClusterAdmin rights. Set at the cluster level only.
+with irrevocable ClusterAdmin rights. This Role must be set at the cluster level only.
 
 !!! Note
     When Pachyderm Auth is not enabled,
     all users are clusterAdmins.
 
+The `clusterAdmin` role is broken up in a set of finer grained roles, so users can delegate specific tasks without giving full admin privileges to a cluster.
+Those roles are listed below. The union of them all is equivalent to the ClusterAdmin role.
+
+!!! Note
+    None of those sub-roles have shared privileges.
+
+- **oidcAppAdmin**: An oidcAppAdmin can configure oidc apps. In other terms, they can perform operations such as `pachctl idp create client`. This command is rarely necessary to most users. Usually, a `pachctl deploy` will invoke a 'pachctl idp create client' under the hood and register Pachyderm's apps like Hub, for example. However, there might be cases where this registration of new oidc clients needs do be made explicitely. This could happen in the case were someone decides to reinstall Pachyderm manually, component by component, without the automated `pachctl deploy` for example???????????. 
+
+- **idpAdmin**: An ipdAdmin can configure identity providers. They can perform operations such as `pachctl idp create-connector` or `pachctl idp get-connector`.
+
+- **identityAdmin**: An identityAdmin has the ability to configure the identity service.  In particular, they can set an issuer?????????????? What are the pachctl command available to the identitAdmin role?
+
+- **debugger**: A debugger role has the ability to produce debug dumps.
+
+- **licenseAdmin**: This role grant the ability to register new clusters with the license server, as well as manage and update the enterprise license. For example, this role can perform a `pachctl enterprise register`, `pachctl enterprise register` or `pachctl enterprise register`.
+
+A use case for fine grained admin access would be Hub where we want to give `allClusterUsers` the debugger and `repoOwner` roles but not full cluster admin privileges. 
+
+!!! Note
+    can be set at all levels: cluster, project, and repo. 

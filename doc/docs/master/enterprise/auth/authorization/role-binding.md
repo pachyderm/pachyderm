@@ -87,6 +87,8 @@ In particular, we will:
         - group
         - pipeline (as mentioned above, this prefix will not be used in the context of granting privileges to users. However, it does exist. We are listing it here to give an exhauxtive list of all prefixes.)
 
+        Aditionnally, the "everyone" user `allClusterUsers` has no specific prefix. See the example below to learn how to assign repoReader access to `allClusterUsers` on a repo.
+
 - **Finally, have `one-pachyderm-user@gmail.com` try to add a file to `testinput` without proper writing privileges:**
     ```shell
     # Login as `one-pachyderm-user@gmail.com`
@@ -117,6 +119,11 @@ In particular, we will:
     $ pachctl auth set repo testinput none user:one-pachyderm-user@gmail.com
     ```
     will remove any previous granted rights on the repo `testinput` to the user one-pachyderm-user@gmail.com.
+
+    - To assign `repoReader` access to `allClusterUsers` on a repo:
+    ```shell
+    $ pachctl auth set repo testinput repoReader allClusterUsers
+    ```   
 
 ## Set Roles to Groups
 

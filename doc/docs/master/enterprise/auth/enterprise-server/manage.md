@@ -49,8 +49,13 @@ $ pachctl license activate
 ```
 
 ### Unregister A Cluster
-To unregister a given cluster from your Enterprsie Server, run:
+To unregister a given cluster from your Enterprise Server, run:
 ```shell
 $ pachctl license delete <cluster id>
 ```
 
+### Undeploy
+- Undeploy an enterprise Server: //TODO coming...
+- To undeploy a Cluster registered with an Enterprise Server: 
+    - Unregister the cluster as mentioned above (`pachctl license delete`)
+    - THen, undeploy it: `pachctl undeploy`
