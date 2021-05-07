@@ -125,17 +125,9 @@ See our oidc connector example in JSON and YAML formats below.
         name: Auth0
         version: 1
         config:
-            # Canonical URL of the provider, also used for configuration discovery.
-            # This value MUST match the value returned in the provider config discovery.
-            #
-            # See: https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig
             issuer: https://dev-k34x5yjn.us.auth0.com/
-
-            # Connector config values starting with a "$" will read from the environment.
             clientID: hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5
             clientSecret: 7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL
-
-            # Dex's issuer URL + "/callback"
             redirectURI: http://<id>:30658/callback
             insecureEnableGroups: true
     ```

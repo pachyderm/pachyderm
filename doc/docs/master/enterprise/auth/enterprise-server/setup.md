@@ -22,9 +22,9 @@ The setup of an Enterprise Server requires to:
 Deploying a Pachyderm cluster with the embedded enterprise server does not require any specific action.
 Proceed as usual:
 
-1. [Install your favorite version of `pachctl`](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl).
-1. [Deploy Pachyderm](https://docs.pachyderm.com/latest/getting_started/local_installation/#deploy-pachyderm): `pachctl deploy <local, google.....>`.
-1. [Activate your enterprise Key](https://docs.pachyderm.com/latest/enterprise/deployment/#activate-pachyderm-enterprise-edition): `pachctl enterprise activate`
+1. [Install your favorite version of `pachctl`](../../../getting_started/local_installation/#install-pachctl).
+1. [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm): `pachctl deploy <local, google.....>`.
+1. [Activate your enterprise Key](h../deployment/#activate-pachyderm-enterprise-edition): `pachctl enterprise activate`
 1. [Enable authentication](https://docs.pachyderm.com/latest/enterprise/auth/enable-auth/#activate-access-controls-with-pachctl): `pachctl auth activate` //TODO update this link once auth2.0 is out
 
 
@@ -59,7 +59,10 @@ Deploying a stand-alone enterprise server requires using the `--enterprise-serve
 
 ## 2- Activate enterprise licensing and enable auth
 
-- Use your enterprise key to activate your enterprise server.
+- Use your enterprise key to activate your enterprise server: 
+	```shell
+	$ pachctl license activate
+	```
 - Then enable Authentication at the Enterprise Server level:
 	```shell
 	$ pachctl auth activate --enterprise
@@ -81,7 +84,7 @@ $ pachctl enterprise register --id <my-pachd> --enterprise-server-address pach-e
 ```
 
 * `--enterprise-server-address` is the host and port where pachd can reach the enterprise server. 
-In this example this is inside the kubernetes cluster. In production the enterprise server may be exposed on the internet.
+In this example this is inside the kubernetes cluster. In production, the enterprise server may be exposed on the internet.
 
 * `--pachd-address` is the host and port where the enterprise server can reach pachd. 
 This may be internal to the kubernetes cluster, or over the internet.
@@ -91,17 +94,9 @@ Finally, activate auth in the pachd (cluster).
 This is an optional step as clusters can be registered with the enterprise server without auth being enabled. 
 
 ```shell
-$ pachctl auth activate --client-id my-pachd
+$ pachctl auth activate --client-id <my-pachd>
 ```
  
 To manage you server, its context, or connect your IdP, visit the [**Manage your Enterprise Server**](./manage.md) page.
 Contexts
 
-## Undeploy
-- Undeploy the Enterprise Server
-- Undeploy a Specific cluster
-	- Unregister a cluster
-	```shell
-	$ pachctl license delete <cluster id>
-	```
-//TODO when more info - For now
