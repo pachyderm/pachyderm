@@ -1,4 +1,4 @@
-FROM scratch
+FROM debian:buster
 
 MAINTAINER jdoliner@pachyerm.io
 

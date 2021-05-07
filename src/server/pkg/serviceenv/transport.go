@@ -25,7 +25,7 @@ func newTimeoutTransport(timeout time.Duration, tlsConfig *tls.Config) *timeoutT
 		tlsConfig: tlsConfig,
 		timeout:   timeout,
 	}
-	t.underlying = t.newUnderlying()
+	t.underlying = newUnderlying(tlsConfig)
 	return t
 }
 
@@ -36,7 +36,7 @@ func (t *timeoutTransport) RoundTrip(req *http.Request) (res *http.Response, ret
 	return t.underlying.RoundTrip(req.WithContext(ctx))
 }
 
-func (t *timeoutTransport) newUnderlying() *http.Transport {
+func newUnderlying(tlsConfig *tls.Config) *http.Transport {
 	dial := (&net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -45,7 +45,7 @@ func (t *timeoutTransport) newUnderlying() *http.Transport {
 	return utilnet.SetTransportDefaults(&http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
 		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     t.tlsConfig,
+		TLSClientConfig:     tlsConfig,
 		MaxIdleConnsPerHost: 25,
 		DialContext:         dial,
 		DisableCompression:  false,

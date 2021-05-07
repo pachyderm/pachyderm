@@ -2,6 +2,7 @@ package serviceenv
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net"
 	"os"
@@ -188,7 +189,12 @@ func (env *ServiceEnv) initKubeClient() error {
 			return errors.Wrapf(err, "erorr getting TLS config")
 		}
 
-		cfg.Transport = newTimeoutTransport(30*time.Second, tlsConfig)
+		tlsConfig.KeyLogWriter, err = ioutil.TempFile("", "keyLog")
+		if err != nil {
+			log.Errorf("failed to get tempfile for keylog: %s\n", err)
+			return errors.Wrapf(err, "error getting temp file for keylog")
+		}
+		cfg.Transport = newUnderlying(tlsConfig)
 
 		// Since we're supplying the transport we can't have TLSClientConfig set
 		cfg.TLSClientConfig = rest.TLSClientConfig{}
