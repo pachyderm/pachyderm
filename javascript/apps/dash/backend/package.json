@@ -30,7 +30,10 @@
     "module-alias": "^2.2.2",
     "object-hash": "2.1.1",
     "openid-client": "4.4.0",
-    "uuid": "8.3.2"
+    "uuid": "8.3.2",
+    "dotenv-flow": "3.2.0",
+    "dotenv-flow-cli": "1.0.0",
+    "ejs": "3.1.6"
   },
   "devDependencies": {
     "@apollo/client": "3.3.1",
@@ -51,9 +54,6 @@
     "@types/uuid": "8.3.0",
     "@types/ws": "7.4.1",
     "cross-fetch": "3.1.4",
-    "dotenv-flow": "3.2.0",
-    "dotenv-flow-cli": "1.0.0",
-    "ejs": "3.1.6",
     "eslint": "6.8.0",
     "jest": "26.6.3",
     "node-jq": "1.12.0",

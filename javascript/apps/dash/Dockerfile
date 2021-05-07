@@ -14,6 +14,7 @@ RUN apk add --no-cache \
 
 RUN make ci
 RUN make build
+RUN make prune-deps
 
 CMD ["npm", "start", "--prefix", "./backend"]
 EXPOSE 4000

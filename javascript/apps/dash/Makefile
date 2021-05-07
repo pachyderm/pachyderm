@@ -1,4 +1,4 @@
-.PHONY: launch-dev launch-prod setup-auth test graphql install build ci
+.PHONY: launch-dev launch-prod setup-auth test graphql install build ci prune-deps
 
 launch-dev:
 	npm run start:dev --prefix ./backend & npm run start --prefix ./frontend
@@ -17,6 +17,9 @@ install:
 
 ci:
 	npm ci && npm ci --prefix ./backend && npm ci --prefix ./frontend
+
+prune-deps:
+	rm -rf ./frontend/node_modules && npm ci --prefix ./backend --only=production
 
 build:
 	npm run build --prefix ./frontend && npm run build --prefix ./backend
