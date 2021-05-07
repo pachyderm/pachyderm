@@ -10,7 +10,3 @@ pachd:
       bucket: "fake-bucket"
       cred: |
         INSERT JSON HERE
-
-tls:
-  crt: ""
-  key: ""

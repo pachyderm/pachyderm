@@ -7,9 +7,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"reflect"
+	"testing"
 
-	goyaml "github.com/go-yaml/yaml"
 	"github.com/gruntwork-io/terratest/modules/logger"
+	"gopkg.in/yaml.v3"
+	goyaml "gopkg.in/yaml.v3"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubectl/pkg/scheme"
 )
 
@@ -22,13 +26,14 @@ func splitYAML(manifest string) ([]string, error) {
 	dec := goyaml.NewDecoder(bytes.NewReader([]byte(manifest)))
 	var res []string
 	for {
-		var value interface{}
+		var value yaml.Node
 		if err := dec.Decode(&value); err == io.EOF {
 			break
 		} else if err != nil {
 			return nil, err
 		}
-		b, err := goyaml.Marshal(value)
+		//fmt.Printf("%+v\n", value.Content[0].Content[0].HeadComment)
+		b, err := goyaml.Marshal(&value)
 		if err != nil {
 			return nil, err
 		}
@@ -51,4 +56,82 @@ func manifestToObjects(manifest string) ([]interface{}, error) {
 		objects = append(objects, object)
 	}
 	return objects, nil
+}
+
+func TestEnsureVolumeMountPresent(t *testing.T) {
+	volumeMounts := []v1.VolumeMount{
+		{
+			Name:      "volmount1",
+			MountPath: "/my/mount",
+		},
+		{
+			Name:      "volmount2",
+			MountPath: "/my/other/mount",
+		},
+	}
+	want := v1.VolumeMount{
+		Name:      "volmount1",
+		MountPath: "/my/mount",
+	}
+
+	if !ensureVolumeMountPresent(want, volumeMounts) {
+		t.Error("Volume mount not found")
+	}
+}
+
+func ensureVolumeMountPresent(matchMount v1.VolumeMount, mounts []v1.VolumeMount) bool {
+	present := false
+
+	for _, vm := range mounts {
+		if reflect.DeepEqual(matchMount, vm) {
+			present = true
+			break
+		}
+	}
+	return present
+}
+
+func TestEnsureVolumePresent(t *testing.T) {
+	volumes := []v1.Volume{
+		{
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "A Fine Secret",
+				},
+			},
+			Name: "pachd-tls-cert",
+		},
+		{
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "Another Secret",
+				},
+			},
+			Name: "another-secret",
+		},
+	}
+
+	want := v1.Volume{
+		VolumeSource: v1.VolumeSource{
+			Secret: &v1.SecretVolumeSource{
+				SecretName: "A Fine Secret",
+			},
+		},
+		Name: "pachd-tls-cert",
+	}
+	if !ensureVolumePresent(want, volumes) {
+		t.Error("Volume mount not found")
+	}
+}
+
+func ensureVolumePresent(matchVol v1.Volume, volumes []v1.Volume) bool {
+	present := false
+
+	for _, v := range volumes {
+		if reflect.DeepEqual(matchVol, v) {
+			present = true
+			break
+		}
+	}
+	return present
 }

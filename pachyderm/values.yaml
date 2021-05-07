@@ -35,9 +35,22 @@ dash:
   service:
     # type specifies the Kubernetes type of the dash service.
     type: ClusterIP
+  # There are three options for TLS:
+  # 1. Disabled
+  # 2. Enabled, existingSecret, specify secret name
+  # 3. Enabled, newSecret, must specify cert, key, secretName and set newSecret.create to true
+  tls:
+    enabled: false
+    secretName: ""
+    newSecret:
+      create: false
+      crt: ""
+      key: ""
   # url specifies the URL of the dash ingress, used as the host value
   # of a rule.
   url: ""
+  
+
 
 etcd:
   # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
@@ -249,6 +262,17 @@ pachd:
   # change them.
   authenticationDisabledForTesting: false
   ppsWorkerGRPCPort: 80
+  # There are three options for TLS:
+  # 1. Disabled
+  # 2. Enabled, existingSecret, specify secret name
+  # 3. Enabled, newSecret, must specify cert, key and name
+  tls:
+    enabled: false
+    secretName: ""
+    newSecret:
+      create: false
+      crt: ""
+      key: ""
 
 rbac:
   # create indicates whether RBAC resources should be created.
@@ -259,17 +283,6 @@ rbac:
   # should be used rather than Role and RoleBinding; it is the inverse
   # of --local-roles passed to pachctl deploy.
   clusterRBAC: true
-
-tls:
-  # If certName is empty, TLS will not be used.
-  certName: "pachd-tls-cert"
-  # Set create to nil to not create a certificate (e.g., as when using
-  # one managed by cert-manager).
-  create:
-    # crt is the TLS certificate, e.g. "-----BEGIN CERTIFICATE----- …"
-    crt: ""
-    # key is the TLS key, e.g. "-----BEGIN RSA PRIVATE KEY----- …"
-    key: ""
 
 worker:
   image:

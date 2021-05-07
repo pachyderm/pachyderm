@@ -3,6 +3,9 @@ dash:
     tag: "0.5.58"
   # url is configured per workspace.
   url: "https://dash.test/"
+  tls:
+    enabled: true
+    secretName: "dash-tls"
 
 etcd:
   resources:
@@ -49,6 +52,6 @@ pachd:
     requests:
       cpu: "1"
       memory: 2G
-
-tls:
-  certName: "dash-tls"
+  tls:
+    enabled: true
+    secretName: "dash-tls"

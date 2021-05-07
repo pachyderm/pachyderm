@@ -9,8 +9,10 @@ metadata:
     app: "dash"
     suite: "pachyderm"
 spec:
+  {{- if .Values.dash.tls.enabled }}
   tls:
-  - secretName: "dash-tls"
+    - secretName: {{ required "if dash.tls.enabled you must specify dash.tls.secretName" .Values.dash.tls.secretName }}
+  {{- end }}
   rules:
     - host: {{ .Values.dash.url | quote }}
       http:
