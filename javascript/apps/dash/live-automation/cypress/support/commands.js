@@ -54,7 +54,7 @@ Cypress.Commands.add('visitDash', () => {
     // This guarantees that cypress will retry visiting the url 4 times
     cy.visit(url, { retryOnStatusCodeFailure: true });
   
-    cy.get('input').should('have.attr', 'placeholder', 'Search Pachyderm');
+    cy.get('input', { timeout: 10000 }).should('have.attr', 'placeholder', 'Search Pachyderm');
   });
 });
 
