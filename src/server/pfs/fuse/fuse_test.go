@@ -306,7 +306,7 @@ func TestRepoOpts(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "bar"), []byte("bar\n"), 0644))
 	})
 
-	err = env.PachClient.PutFile("repo1", "staging", "buzz", strings.NewReader("buzz\n"))
+	err = env.PachClient.PutFile("repo1", "staging", "", "buzz", strings.NewReader("buzz\n"))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
 		Fuse: &fs.Options{
@@ -329,7 +329,7 @@ func TestRepoOpts(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "fizz"), []byte("fizz\n"), 0644))
 	})
 	var b bytes.Buffer
-	require.NoError(t, env.PachClient.GetFile("repo1", "staging", "fizz", &b))
+	require.NoError(t, env.PachClient.GetFile("repo1", "staging", "", "fizz", &b))
 	require.Equal(t, "fizz\n", b.String())
 }
 

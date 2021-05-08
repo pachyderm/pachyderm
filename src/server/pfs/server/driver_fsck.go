@@ -358,12 +358,6 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 		directProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
 		transitiveProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
 		for _, prov := range ci.Provenance {
-			// not part of the above invariant, but we want to make sure provenance is self-consistent
-			if prov.Commit.Branch.Repo.Name != prov.Commit.Branch.Repo.Name {
-				if err := onError(ErrInconsistentCommitProvenance{CommitProvenance: prov}); err != nil {
-					return err
-				}
-			}
 			directProvenance = append(directProvenance, prov.Commit)
 			transitiveProvenance = append(transitiveProvenance, prov.Commit)
 			provCommitInfo, ok := commitInfos[commitKey(prov.Commit)]
