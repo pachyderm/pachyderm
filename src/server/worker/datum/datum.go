@@ -38,23 +38,19 @@ const (
 	defaultNumRetries = 3
 )
 
-const defaultDatumsPerSet = int64(10)
-
 // SetSpec specifies criteria for creating datum sets.
 type SetSpec struct {
-	Number int64
+	Number    int64
+	SizeBytes int64
 }
 
 // CreateSets creates datum sets from the passed in datum iterator.
 func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(func(client.ModifyFile) error) error) error {
 	var metas []*Meta
-	datumsPerSet := defaultDatumsPerSet
-	if setSpec != nil {
-		datumsPerSet = setSpec.Number
-	}
+	shouldCreateSet := shouldCreateSetFunc(setSpec)
 	if err := dit.Iterate(func(meta *Meta) error {
 		metas = append(metas, meta)
-		if int64(len(metas)) >= datumsPerSet {
+		if shouldCreateSet(meta) {
 			if err := createSet(metas, storageRoot, upload); err != nil {
 				return err
 			}
@@ -64,7 +60,41 @@ func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(
 	}); err != nil {
 		return err
 	}
-	return createSet(metas, storageRoot, upload)
+	if len(metas) > 0 {
+		return createSet(metas, storageRoot, upload)
+	}
+	return nil
+}
+
+func shouldCreateSetFunc(setSpec *SetSpec) func(*Meta) bool {
+	switch {
+	case setSpec.Number > 0:
+		var num int64
+		return func(meta *Meta) bool {
+			num++
+			if num >= setSpec.Number {
+				num = 0
+				return true
+			}
+			return false
+		}
+	case setSpec.SizeBytes > 0:
+		var size int64
+		return func(meta *Meta) bool {
+			for _, input := range meta.Inputs {
+				size += int64(input.FileInfo.SizeBytes)
+			}
+			if size >= setSpec.SizeBytes {
+				size = 0
+				return true
+			}
+			return false
+		}
+	default:
+		return func(meta *Meta) bool {
+			return true
+		}
+	}
 }
 
 func createSet(metas []*Meta, storageRoot string, upload func(func(client.ModifyFile) error) error) error {
@@ -98,7 +128,7 @@ func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) err
 	for _, opt := range opts {
 		opt(s)
 	}
-	if err := os.MkdirAll(storageRoot, 0700); err != nil {
+	if err := os.MkdirAll(storageRoot, 0777); err != nil {
 		return err
 	}
 	defer func() {
@@ -205,7 +235,7 @@ func (d *Datum) handleFailed(err error) {
 
 func (d *Datum) withData(cb func() error) (retErr error) {
 	// Setup and defer cleanup of pfs directory.
-	if err := os.MkdirAll(path.Join(d.PFSStorageRoot(), OutputPrefix), 0700); err != nil {
+	if err := os.MkdirAll(path.Join(d.PFSStorageRoot(), OutputPrefix), 0777); err != nil {
 		return err
 	}
 	defer func() {
@@ -285,7 +315,7 @@ func (d *Datum) run(ctx context.Context, cb func(ctx context.Context) error) (re
 func (d *Datum) uploadMetaOutput() (retErr error) {
 	if d.set.metaOutputClient != nil {
 		// Setup and defer cleanup of meta directory.
-		if err := os.MkdirAll(d.MetaStorageRoot(), 0700); err != nil {
+		if err := os.MkdirAll(d.MetaStorageRoot(), 0777); err != nil {
 			return err
 		}
 		defer func() {

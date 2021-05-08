@@ -3,10 +3,10 @@ package kv
 import (
 	"bytes"
 	"context"
-	"io"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 )
 
 type objectAdapter struct {
@@ -28,36 +28,15 @@ func NewFromObjectClient(objC obj.Client) Store {
 }
 
 func (s *objectAdapter) Put(ctx context.Context, key, value []byte) (retErr error) {
-	wc, err := s.objC.Writer(ctx, string(key))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := wc.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	if _, err := wc.Write(value); err != nil {
-		return err
-	}
-	return nil
+	return s.objC.Put(ctx, string(key), bytes.NewReader(value))
 }
 
 func (s *objectAdapter) Get(ctx context.Context, key []byte, cb ValueCallback) (retErr error) {
-	rc, err := s.objC.Reader(ctx, string(key), 0, 0)
-	if err != nil {
-		if s.objC.IsNotExist(err) {
-			err = ErrKeyNotFound
-		}
-		return err
-	}
-	defer func() {
-		if err := rc.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
 	return s.withBuffer(func(buf *bytes.Buffer) error {
-		if _, err := io.Copy(buf, rc); err != nil {
+		if err := s.objC.Get(ctx, string(key), buf); err != nil {
+			if pacherr.IsNotExist(err) {
+				err = pacherr.NewNotExist("kv", string(key))
+			}
 			return err
 		}
 		return cb(buf.Bytes())
@@ -69,8 +48,7 @@ func (s *objectAdapter) Delete(ctx context.Context, key []byte) error {
 }
 
 func (s *objectAdapter) Exists(ctx context.Context, key []byte) (bool, error) {
-	exists := s.objC.Exists(ctx, string(key))
-	return exists, nil
+	return s.objC.Exists(ctx, string(key))
 }
 
 func (s *objectAdapter) Walk(ctx context.Context, prefix []byte, cb func(key []byte) error) error {

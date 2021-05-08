@@ -1,6 +1,7 @@
 package server
 
 import (
+	"path"
 	"regexp"
 	"strings"
 
@@ -49,6 +50,10 @@ func pathIsChild(parent, child string) bool {
 // "/abc" -> "/abc"
 // "abc/" -> "/abc"
 // "/" -> "/"
-func cleanPath(x string) string {
-	return "/" + strings.Trim(x, "/")
+func cleanPath(p string) string {
+	p = path.Clean(p)
+	if p == "." {
+		return "/"
+	}
+	return "/" + strings.Trim(p, "/")
 }

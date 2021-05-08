@@ -116,23 +116,23 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.InspectJob(args[0], block, true)
+			pipelineJobInfo, err := client.InspectJob(args[0], block, true)
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
 			}
-			if jobInfo == nil {
+			if pipelineJobInfo == nil {
 				cmdutil.ErrorAndExit("job %s not found.", args[0])
 			}
 			if raw {
-				return encoder(output).EncodeProto(jobInfo)
+				return encoder(output).EncodeProto(pipelineJobInfo)
 			} else if output != "" {
 				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
-			ji := &pretty.PrintableJobInfo{
-				JobInfo:        jobInfo,
-				FullTimestamps: fullTimestamps,
+			ppji := &pretty.PrintablePipelineJobInfo{
+				PipelineJobInfo: pipelineJobInfo,
+				FullTimestamps:  fullTimestamps,
 			}
-			return pretty.PrintDetailedJobInfo(os.Stdout, ji)
+			return pretty.PrintDetailedPipelineJobInfo(os.Stdout, ppji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
@@ -197,15 +197,15 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(ji *ppsclient.JobInfo) error {
-						return e.EncodeProto(ji)
+					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(pji *ppsclient.PipelineJobInfo) error {
+						return e.EncodeProto(pji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(ji *ppsclient.JobInfo) error {
-					pretty.PrintJobInfo(writer, ji, fullTimestamps)
+				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(pji *ppsclient.PipelineJobInfo) error {
+					pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
 					return nil
 				}); err != nil {
 					return err
@@ -265,14 +265,14 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			}
 			e := encoder(output)
-			if err := c.FlushJob(commits, pipelines, func(ji *ppsclient.JobInfo) error {
+			if err := c.FlushJob(commits, pipelines, func(pji *ppsclient.PipelineJobInfo) error {
 				if raw {
-					if err := e.EncodeProto(ji); err != nil {
+					if err := e.EncodeProto(pji); err != nil {
 						return err
 					}
 					return nil
 				}
-				pretty.PrintJobInfo(writer, ji, fullTimestamps)
+				pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
 				return nil
 			}); err != nil {
 				return err
@@ -1355,7 +1355,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 
 // ByCreationTime is an implementation of sort.Interface which
 // sorts pps job info by creation time, ascending.
-type ByCreationTime []*ppsclient.JobInfo
+type ByCreationTime []*ppsclient.PipelineJobInfo
 
 func (arr ByCreationTime) Len() int { return len(arr) }
 

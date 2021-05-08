@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"path"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	log "github.com/sirupsen/logrus"
 
@@ -272,24 +274,25 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	return awsClient, nil
 }
 
-func (c *amazonClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
-	if c.advancedConfig.Reverse {
-		name = reverse(name)
-	}
-	return newBackoffWriteCloser(ctx, c, newWriter(ctx, c, name)), nil
+func (c *amazonClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
+	ctx, cf := context.WithCancel(ctx)
+	defer cf()
+	_, err := c.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
+		ACL:             aws.String(c.advancedConfig.UploadACL),
+		Body:            r,
+		Bucket:          aws.String(c.bucket),
+		Key:             aws.String(name),
+		ContentEncoding: aws.String("application/octet-stream"),
+	})
+	return err
 }
 
-func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string) error) error {
+func (c *amazonClient) Walk(ctx context.Context, name string, fn func(name string) error) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	var fnErr error
-	var prefix *string
-
-	if c.advancedConfig.Reverse {
-		prefix = nil
-	} else {
-		prefix = &name
-	}
-
-	if err := c.s3.ListObjectsPages(
+	var prefix = &name
+	if err := c.s3.ListObjectsPagesWithContext(ctx,
 		&s3.ListObjectsInput{
 			Bucket: aws.String(c.bucket),
 			Prefix: prefix,
@@ -297,9 +300,6 @@ func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string)
 		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, object := range listObjectsOutput.Contents {
 				key := *object.Key
-				if c.advancedConfig.Reverse {
-					key = reverse(key)
-				}
 				if strings.HasPrefix(key, name) {
 					if err := fn(key); err != nil {
 						fnErr = err
@@ -315,14 +315,8 @@ func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string)
 	return fnErr
 }
 
-func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	if c.advancedConfig.Reverse {
-		name = reverse(name)
-	}
-	byteRange := byteRange(offset, size)
-	if byteRange != "" {
-		byteRange = fmt.Sprintf("bytes=%s", byteRange)
-	}
+func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	var reader io.ReadCloser
 	if c.cloudfrontDistribution != "" {
 		var resp *http.Response
@@ -332,15 +326,14 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		if c.cloudfrontURLSigner != nil {
 			signedURL, err := c.cloudfrontURLSigner.Sign(url, time.Now().Add(1*time.Hour))
 			if err != nil {
-				return nil, err
+				return err
 			}
 			url = strings.TrimSpace(signedURL)
 		}
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		req.Header.Add("Range", byteRange)
 
 		backoff.RetryNotify(func() (retErr error) {
 			span, _ := tracing.AddSpanToAnyExisting(ctx, "/Amazon.Cloudfront/Get")
@@ -357,11 +350,11 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 			return nil
 		})
 		if connErr != nil {
-			return nil, connErr
+			return connErr
 		}
 		if resp.StatusCode >= 300 {
 			// Cloudfront returns 200s, and 206s as success codes
-			return nil, errors.Errorf("cloudfront returned HTTP error code %v for url %v", resp.Status, url)
+			return errors.Errorf("cloudfront returned HTTP error code %v for url %v", resp.Status, url)
 		}
 		reader = resp.Body
 	} else {
@@ -369,134 +362,82 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 			Bucket: aws.String(c.bucket),
 			Key:    aws.String(name),
 		}
-		if byteRange != "" {
-			objIn.Range = aws.String(byteRange)
-		}
 		getObjectOutput, err := c.s3.GetObject(objIn)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		reader = getObjectOutput.Body
 	}
-	return newBackoffReadCloser(ctx, c, reader), nil
+	defer func() {
+		if err := reader.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err := io.Copy(w, reader)
+	return err
 }
 
-func (c *amazonClient) Delete(_ context.Context, name string) error {
-	if c.advancedConfig.Reverse {
-		name = reverse(name)
-	}
-	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
+func (c *amazonClient) Delete(ctx context.Context, name string) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
+	_, err := c.s3.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
 	})
 	return err
 }
 
-func (c *amazonClient) Exists(ctx context.Context, name string) bool {
-	if c.advancedConfig.Reverse {
-		name = reverse(name)
-	}
-	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
+func (c *amazonClient) Exists(ctx context.Context, name string) (bool, error) {
+	_, err := c.s3.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
 	})
 	tracing.TagAnySpan(ctx, "err", err)
-	return err == nil
-}
-
-func (c *amazonClient) IsRetryable(err error) (retVal bool) {
-	if strings.Contains(err.Error(), "unexpected EOF") {
-		return true
-	}
-	if strings.Contains(err.Error(), "SlowDown:") {
-		return true
-	}
-
-	var awsErr awserr.Error
-	if !errors.As(err, &awsErr) {
-		return false
-	}
-	for _, c := range []string{
-		storagegateway.ErrorCodeServiceUnavailable,
-		storagegateway.ErrorCodeInternalError,
-		storagegateway.ErrorCodeGatewayInternalError,
-	} {
-		if c == awsErr.Code() {
-			return true
+	if err != nil {
+		err = c.transformError(err, name)
+		if pacherr.IsNotExist(err) {
+			err = nil
 		}
+		return false, err
 	}
-	return false
+	return true, nil
 }
 
-func (c *amazonClient) IsIgnorable(err error) bool {
-	return false
-}
-
-func (c *amazonClient) IsNotExist(err error) bool {
+func (c *amazonClient) transformError(err error, objectPath string) error {
+	const minWait = 250 * time.Millisecond
+	if err == nil {
+		return nil
+	}
 	if c.cloudfrontDistribution != "" {
 		// cloudfront returns forbidden error for nonexisting data
 		if strings.Contains(err.Error(), "error code 403") {
-			return true
+			return pacherr.NewNotExist(c.bucket, objectPath)
 		}
+	}
+	if strings.Contains(err.Error(), "unexpected EOF") {
+		return pacherr.WrapTransient(err, minWait)
+	}
+	if strings.Contains(err.Error(), "Not Found") {
+		return pacherr.NewNotExist(c.bucket, objectPath)
 	}
 	var awsErr awserr.Error
 	if !errors.As(err, &awsErr) {
-		return false
-	}
-	if awsErr.Code() == "NoSuchKey" {
-		return true
-	}
-	return false
-}
-
-type amazonWriter struct {
-	ctx     context.Context
-	errChan chan error
-	pipe    *io.PipeWriter
-}
-
-func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWriter {
-	reader, writer := io.Pipe()
-	w := &amazonWriter{
-		ctx:     ctx,
-		errChan: make(chan error),
-		pipe:    writer,
-	}
-	go func() {
-		_, err := client.uploader.Upload(&s3manager.UploadInput{
-			ACL:             aws.String(client.advancedConfig.UploadACL),
-			Body:            reader,
-			Bucket:          aws.String(client.bucket),
-			Key:             aws.String(name),
-			ContentEncoding: aws.String("application/octet-stream"),
-		})
-		if err != nil {
-			reader.CloseWithError(err)
-		}
-		w.errChan <- err
-	}()
-	return w
-}
-
-func (w *amazonWriter) Write(p []byte) (retN int, retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Amazon.Writer/Write")
-	defer tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
-	return w.pipe.Write(p)
-}
-
-func (w *amazonWriter) Close() (retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Amazon.Writer/Close")
-	defer tracing.FinishAnySpan(span, "err", retErr)
-	if err := w.pipe.Close(); err != nil {
 		return err
 	}
-	return <-w.errChan
+	if strings.Contains(awsErr.Message(), "SlowDown:") {
+		return pacherr.WrapTransient(err, minWait)
+	}
+	switch awsErr.Code() {
+	case s3.ErrCodeNoSuchKey:
+		return pacherr.NewNotExist(c.bucket, objectPath)
+	case storagegateway.ErrorCodeServiceUnavailable,
+		storagegateway.ErrorCodeInternalError,
+		storagegateway.ErrorCodeGatewayInternalError:
+		return pacherr.WrapTransient(err, minWait)
+	}
+	return err
 }
 
-func reverse(s string) string {
-	runes := []rune(s)
-	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
-	}
-	return string(runes)
+func isNetRetryable(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Temporary()
 }

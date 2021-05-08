@@ -81,7 +81,7 @@ func AddClusterCmd() *cobra.Command {
 
 // UpdateClusterCmd returns a cobra.Command to register a cluster with the license server
 func UpdateClusterCmd() *cobra.Command {
-	var id, address string
+	var id, address, userAddress, clusterDeploymentId string
 	updateCluster := &cobra.Command{
 		Short: "Update an existing cluster registered with the license server.",
 		Long:  "Update an existing cluster registered with the license server.",
@@ -92,14 +92,18 @@ func UpdateClusterCmd() *cobra.Command {
 			}
 
 			_, err = c.License.UpdateCluster(c.Ctx(), &license.UpdateClusterRequest{
-				Id:      id,
-				Address: address,
+				Id:                  id,
+				Address:             address,
+				UserAddress:         userAddress,
+				ClusterDeploymentId: clusterDeploymentId,
 			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	updateCluster.PersistentFlags().StringVar(&id, "id", "", `The id for the cluster to update`)
-	updateCluster.PersistentFlags().StringVar(&address, "address", "", `The host and port where the cluster can be reached`)
+	updateCluster.PersistentFlags().StringVar(&address, "address", "", `The host and port where the cluster can be reached by the enterprise server`)
+	updateCluster.PersistentFlags().StringVar(&userAddress, "user-address", "", `The host and port where the cluster can be reached by a user`)
+	updateCluster.PersistentFlags().StringVar(&clusterDeploymentId, "cluster-deployment-id", "", `The deployment id of the updated cluster`)
 	return cmdutil.CreateAlias(updateCluster, "license update-cluster")
 }
 

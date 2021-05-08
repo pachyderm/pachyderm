@@ -4,10 +4,12 @@ import (
 	"archive/tar"
 	"context"
 	"io"
+	"path"
 	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -59,9 +61,23 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	return tar.NewWriter(w).Close()
 }
 
+// Validate validates a file path.
+func Validate(p string) error {
+	for _, elem := range strings.Split(p, "/") {
+		if elem == "." || elem == ".." {
+			return errors.Errorf("invalid file path (%v), relative file paths are not allowed", p)
+		}
+	}
+	return nil
+}
+
 // Clean cleans a file path.
-func Clean(x string, isDir bool) string {
-	y := "/" + strings.Trim(x, "/")
+func Clean(p string, isDir bool) string {
+	p = path.Clean(p)
+	if p == "." {
+		return "/"
+	}
+	y := "/" + strings.Trim(p, "/")
 	if isDir && !IsDir(y) {
 		y += "/"
 	}

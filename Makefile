@@ -6,6 +6,7 @@
 
 include etc/govars.mk
 
+SHELL=/bin/bash -o pipefail
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Don't set the version to the git hash in CI, as it breaks the go build cache.
 ifdef CIRCLE_BRANCH
@@ -254,7 +255,7 @@ test-postgres:
 	./etc/testing/start_postgres.sh
 
 test-pfs-server: test-postgres
-	./etc/testing/pfs_server.sh $(TIMEOUT)
+	./etc/testing/pfs_server.sh $(TIMEOUT) $(TESTFLAGS)
 
 test-pfs-storage: test-postgres
 	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -286,7 +287,8 @@ test-client:
 test-object-clients:
 	# The parallelism is lowered here because these tests run several pachd
 	# deployments in kubernetes which may contest resources.
-	go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2 $(TESTFLAGS)
+	go test -count=1 ./src/internal/obj/integrationtests -timeout $(TIMEOUT) -parallel=2 $(TESTFLAGS)
+	go test -count=1 ./src/internal/obj -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-libs:
 	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -294,21 +296,20 @@ test-libs:
 	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -count=1 ./src/internal/work -timeout $(TIMEOUT) $(TESTFLAGS)
 
-# TODO: Readd when s3 gateway is implemented in V2.
-#test-s3gateway-conformance:
-#	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
-#	  echo "Missing environment variable 'CONFORMANCE_SCRIPT_PATH'"; \
-#	  exit 1; \
-#	fi
-#	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
-#
-#test-s3gateway-integration:
-#	@if [ -z $$INTEGRATION_SCRIPT_PATH ]; then \
-#	  echo "Missing environment variable 'INTEGRATION_SCRIPT_PATH'"; \
-#	  exit 1; \
-#	fi
-#	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
-#
+test-s3gateway-conformance:
+	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
+	  echo "Missing environment variable 'CONFORMANCE_SCRIPT_PATH'"; \
+	  exit 1; \
+	fi
+	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
+
+test-s3gateway-integration:
+	@if [ -z $$INTEGRATION_SCRIPT_PATH ]; then \
+	  echo "Missing environment variable 'INTEGRATION_SCRIPT_PATH'"; \
+	  exit 1; \
+	fi
+	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
+
 test-s3gateway-unit: test-postgres
 	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS)
 
@@ -319,7 +320,6 @@ test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-auth:
-	yes | $(PACHCTL) delete all
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-identity:

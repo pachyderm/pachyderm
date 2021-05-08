@@ -1,6 +1,9 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
 
+orbs:
+  go: circleci/go@1.6.0
+
 parameters:
   run_flaky_tests:
     type: string
@@ -10,7 +13,57 @@ parameters:
     default: "0"
 
 jobs:
-  build:
+  circleci:
+    parameters:
+      bucket:
+        type: string
+    resource_class: large
+    machine:
+      image: ubuntu-2004:202101-01
+    environment:
+      PPS_BUCKETS: "6"
+      GOPROXY: https://proxy.golang.org
+      BUCKET: << parameters.bucket >>
+      BIGQUERY_PROJECT: alysha-dev-006
+      BIGQUERY_DATASET: pach_test
+      BIGQUERY_TABLE: test_runs
+      TEST_RESULTS_BUCKET: pach-test-data
+    steps:
+      - checkout
+      - restore_cache:
+         keys:
+         - pach-build-dependencies-{{ checksum "etc/testing/circle/install.sh" }}
+         - pach-build-dependencies-
+      - run: etc/testing/circle/install.sh 
+      - save_cache:
+         key: pach-build-dependencies-{{ checksum "etc/testing/circle/install.sh" }}
+         paths:
+         - cached-deps/
+      - run: etc/testing/circle/start-minikube.sh 
+      - restore_cache:
+         keys:
+         - pach-go-cache-{{ .Branch }}
+         - pach-go-cache-
+      - run: etc/testing/circle/build.sh 
+      - run: etc/testing/circle/launch.sh 
+      - run: etc/testing/circle/run_tests.sh 
+      - save_cache:
+         key: pach-go-cache-{{ .Branch }}
+         paths:
+         - /home/circleci/.go_workspace/pkg/mod
+         - /home/circleci/.gocache
+      - run: etc/testing/circle/upload_stats.sh 
+      - run:
+          name: Dump debugging info in case of failure
+          when: on_fail
+          command: etc/testing/circle/kube_debug.sh
+      - store_test_results:
+          path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/test-results
+
+
+  testfaster:
     docker:
     - image: cimg/base:2020.01
 
@@ -68,6 +121,9 @@ jobs:
           command: |
             etc/testing/upload_stats.sh
 
+      - store_test_results:
+          path: /tmp/test-results
+
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
@@ -99,9 +155,27 @@ jobs:
             testctl drop
 
 workflows:
-  all-tests:
+  circleci:
     jobs:
-      - build:
+      - circleci:
+          matrix:
+            parameters:
+              bucket:
+              - MISC
+              # If you want to update the number of PPS buckets, you'll neet to
+              # update the value of PPS_BUCKETS above
+              - AUTH
+              - ENTERPRISE
+              - PFS
+              - PPS1
+              - PPS2
+              - PPS3
+              - PPS4
+              - EXAMPLES
+              - OBJECT
+  testfaster:
+    jobs:
+      - testfaster:
           matrix:
             parameters:
               bucket:

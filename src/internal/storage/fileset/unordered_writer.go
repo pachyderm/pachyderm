@@ -42,10 +42,9 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 }
 
 func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, tag ...string) (retErr error) {
-	// TODO: Validate
-	//if err := ppath.ValidatePath(hdr.Name); err != nil {
-	//	return nil, err
-	//}
+	if err := Validate(p); err != nil {
+		return err
+	}
 	if !appendFile {
 		uw.buffer.Delete(p)
 	}
@@ -113,6 +112,9 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 
 // Delete deletes a file from the file set.
 func (uw *UnorderedWriter) Delete(p string) error {
+	if err := Validate(p); err != nil {
+		return err
+	}
 	p = Clean(p, IsDir(p))
 	if IsDir(p) {
 		uw.buffer.Delete(p)

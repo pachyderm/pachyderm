@@ -65,6 +65,26 @@ const (
 	// RepoReaderRole is a role which grants ability to both read from a repo
 	RepoReaderRole = "repoReader"
 
+	// IDPAdminRole is a role which grants the ability to configure OIDC apps.
+	OIDCAppAdminRole = "oidcAppAdmin"
+
+	// IDPAdminRole is a role which grants the ability to configure identity providers.
+	IDPAdminRole = "idpAdmin"
+
+	// IdentityAdmin is a role which grants the ability to configure the identity service.
+	IdentityAdminRole = "identityAdmin"
+
+	// DebuggerRole is a role which grants the ability to produce debug dumps.
+	DebuggerRole = "debugger"
+
+	// RobotUserRole is a role which grants the ability to generate tokens for robot
+	// users.
+	RobotUserRole = "robotUser"
+
+	// LicenseAdminRole is a role which grants the ability to register new
+	// pachds with the license server, manage pachds and update the enterprise license.
+	LicenseAdminRole = "licenseAdmin"
+
 	// AllClusterUsersSubject is a subject which applies a role binding to all authenticated users
 	AllClusterUsersSubject = "allClusterUsers"
 )

@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
@@ -199,7 +200,7 @@ func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
 	for {
 		_, err := tr.Next()
 		if err != nil {
-			if err == io.EOF {
+			if pfsserver.IsFileNotFoundErr(err) || errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err

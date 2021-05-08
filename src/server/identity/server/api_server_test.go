@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -178,7 +176,7 @@ func TestSetConfiguration(t *testing.T) {
 		)
 	}, backoff.NewTestingBackOff()))
 
-	resp, err := http.Get(fmt.Sprintf("http://%v/.well-known/openid-configuration", dexHost(adminClient)))
+	resp, err := http.Get(fmt.Sprintf("http://%v/.well-known/openid-configuration", tu.DexHost(adminClient)))
 	require.NoError(t, err)
 
 	var oidcConfig map[string]interface{}
@@ -275,12 +273,4 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	listResp, err = adminClient.ListIDPConnectors(adminClient.Ctx(), &identity.ListIDPConnectorsRequest{})
 	require.NoError(t, err)
 	require.Equal(t, 0, len(listResp.Connectors))
-}
-
-func dexHost(c *client.APIClient) string {
-	parts := strings.Split(c.GetAddress(), ":")
-	if parts[1] == "650" {
-		return parts[0] + ":658"
-	}
-	return parts[0] + ":30658"
 }

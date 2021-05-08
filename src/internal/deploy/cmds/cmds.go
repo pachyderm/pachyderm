@@ -292,7 +292,6 @@ func standardDeployCmds() []*cobra.Command {
 	var outputFormat string
 	var namespace string
 	var serverCert string
-	var blockCacheSize string
 	var dashImage string
 	var dashOnly bool
 	var etcdCPURequest string
@@ -304,7 +303,6 @@ func standardDeployCmds() []*cobra.Command {
 	var postgresMemRequest string
 	var postgresStorageClassName string
 	var postgresVolume string
-	var exposeObjectAPI bool
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
@@ -314,7 +312,6 @@ func standardDeployCmds() []*cobra.Command {
 	var noRBAC bool
 	var pachdCPURequest string
 	var pachdNonCacheMemRequest string
-	var pachdShards int
 	var registry string
 	var tlsCertKey string
 	var uploadConcurrencyLimit int
@@ -324,7 +321,6 @@ func standardDeployCmds() []*cobra.Command {
 	var workerServiceAccountName string
 	var enterpriseServer bool
 	appendGlobalFlags := func(cmd *cobra.Command) {
-		cmd.Flags().IntVar(&pachdShards, "shards", 16, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
 		cmd.Flags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
 		cmd.Flags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 		cmd.Flags().StringVar(&etcdStorageClassName, "etcd-storage-class", "", "If set, the name of an existing StorageClass to use for etcd storage. Ignored if --static-etcd-volume is set.")
@@ -343,7 +339,6 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 		cmd.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
 		cmd.Flags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
-		cmd.Flags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 		cmd.Flags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
@@ -362,12 +357,8 @@ func standardDeployCmds() []*cobra.Command {
 			"pachd-cpu-request", "", "(rarely set) The size of Pachd's CPU "+
 				"request, which we give to Kubernetes. Size is in cores (with partial "+
 				"cores allowed and encouraged).")
-		cmd.Flags().StringVar(&blockCacheSize, "block-cache-size", "",
-			"Size of pachd's in-memory cache for PFS files. Size is specified in "+
-				"bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 		cmd.Flags().StringVar(&pachdNonCacheMemRequest,
-			"pachd-memory-request", "", "(rarely set) The size of PachD's memory "+
-				"request in addition to its block cache (set via --block-cache-size). "+
+			"pachd-memory-request", "", "(rarely set) The size of Pachd's memory request. "+
 				"Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 		cmd.Flags().StringVar(&etcdCPURequest,
 			"etcd-cpu-request", "", "(rarely set) The size of etcd's CPU request, "+
@@ -390,7 +381,6 @@ func standardDeployCmds() []*cobra.Command {
 	var retries int
 	var timeout string
 	var uploadACL string
-	var reverse bool
 	var partSize int64
 	var maxUploadParts int
 	var disableSSL bool
@@ -400,7 +390,6 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
 		cmd.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
 		cmd.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
-		cmd.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 		cmd.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
 		cmd.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
 		cmd.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
@@ -461,13 +450,11 @@ func standardDeployCmds() []*cobra.Command {
 				UploadConcurrencyLimit:  uploadConcurrencyLimit,
 				PutFileConcurrencyLimit: putFileConcurrencyLimit,
 			},
-			PachdShards:                uint64(pachdShards),
 			Version:                    version.PrettyPrintVersion(version.Version),
 			LogLevel:                   logLevel,
 			Metrics:                    cfg == nil || cfg.V2.Metrics,
 			PachdCPURequest:            pachdCPURequest,
 			PachdNonCacheMemRequest:    pachdNonCacheMemRequest,
-			BlockCacheSize:             blockCacheSize,
 			DashOnly:                   dashOnly,
 			NoDash:                     noDash,
 			DashImage:                  dashImage,
@@ -478,7 +465,6 @@ func standardDeployCmds() []*cobra.Command {
 			LocalRoles:                 localRoles,
 			Namespace:                  namespace,
 			NoExposeDockerSocket:       noExposeDockerSocket,
-			ExposeObjectAPI:            exposeObjectAPI,
 			ClusterDeploymentID:        clusterDeploymentID,
 			RequireCriticalServersOnly: requireCriticalServersOnly,
 			WorkerServiceAccountName:   workerServiceAccountName,
@@ -546,10 +532,6 @@ func standardDeployCmds() []*cobra.Command {
 				// is set by deploy.PersistentPreRun, below.
 				opts.Metrics = false
 
-				// Serve the Pachyderm object/block API locally, as this is needed by
-				// our tests (and authentication is disabled anyway)
-				opts.ExposeObjectAPI = true
-
 				// Set the postgres and etcd nodeports explicitly for developers
 				if !enterpriseServer {
 					opts.PostgresOpts.Port = dbutil.DefaultPort
@@ -611,7 +593,6 @@ func standardDeployCmds() []*cobra.Command {
 				return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			var buf bytes.Buffer
-			opts.BlockCacheSize = "0G" // GCS is fast so we want to disable the block cache. See issue #1650
 			var cred string
 			if len(args) == 3 {
 				credBytes, err := ioutil.ReadFile(args[2])
@@ -669,7 +650,6 @@ If <object store backend> is \"s3\", then the arguments are:
 				Retries:        retries,
 				Timeout:        timeout,
 				UploadACL:      uploadACL,
-				Reverse:        reverse,
 				PartSize:       partSize,
 				MaxUploadParts: maxUploadParts,
 				DisableSSL:     disableSSL,
@@ -809,7 +789,6 @@ If <object store backend> is \"s3\", then the arguments are:
 				Retries:        retries,
 				Timeout:        timeout,
 				UploadACL:      uploadACL,
-				Reverse:        reverse,
 				PartSize:       partSize,
 				MaxUploadParts: maxUploadParts,
 				DisableSSL:     disableSSL,
@@ -952,7 +931,6 @@ If <object store backend> is \"s3\", then the arguments are:
 				Retries:        retries,
 				Timeout:        timeout,
 				UploadACL:      uploadACL,
-				Reverse:        reverse,
 				PartSize:       partSize,
 				MaxUploadParts: maxUploadParts,
 				DisableSSL:     disableSSL,

@@ -23,10 +23,8 @@ import (
 // Worker handles a transform pipeline work subtask, then returns.
 // TODO:
 // datum queuing (probably should be handled by datum package).
-// spouts.
 // capture datum logs.
 // git inputs.
-// handle custom user set for execution.
 func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, status *Status) (retErr error) {
 	datumSet, err := deserializeDatumSet(subtask.Data)
 	if err != nil {
@@ -60,12 +58,12 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 		return nil
 	})
 	// TODO: `master` implementation fails the job here, we may need to do the same
-	// We would need to load the jobInfo first for this:
+	// We would need to load the PipelineJobInfo first for this:
 	// }); err != nil {
 	//   reason := fmt.Sprintf("could not connect to s3 gateway for %q: %v", logger.JobID(), err)
 	//   logger.Logf("failing job with reason: %s", reason)
 	//   // NOTE: this is the only place a worker will reach over and change the job state, this should not generally be done.
-	//   return finishJob(driver.PipelineInfo(), driver.PachClient(), jobInfo, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0)
+	//   return finishJob(driver.PipelineInfo(), driver.PachClient(), pipelineJobInfo, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0)
 	// }
 	// return nil
 }
@@ -101,6 +99,9 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 							return err
 						}
 						opts = append(opts, datum.WithTimeout(timeout))
+					}
+					if driver.PipelineInfo().DatumTries > 0 {
+						opts = append(opts, datum.WithRetry(int(driver.PipelineInfo().DatumTries)-1))
 					}
 					if driver.PipelineInfo().Transform.ErrCmd != nil {
 						opts = append(opts, datum.WithRecoveryCallback(func(runCtx context.Context) error {

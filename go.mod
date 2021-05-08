@@ -27,7 +27,6 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 	github.com/golang/protobuf v1.3.3
 	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/gorilla/mux v1.7.4
@@ -80,7 +79,7 @@ require (
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c
+	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6
 	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.6 // indirect
@@ -91,7 +90,7 @@ require (
 	gopkg.in/src-d/go-git.v4 v4.12.0
 	gopkg.in/yaml.v2 v2.2.8
 	helm.sh/helm/v3 v3.1.2
-	honnef.co/go/tools v0.1.3 // indirect
+	honnef.co/go/tools v0.1.4 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/cli-runtime v0.17.4

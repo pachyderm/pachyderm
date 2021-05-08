@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"strings"
@@ -1052,12 +1053,12 @@ func TestStopJob(t *testing.T) {
 
 	require.NoError(t, aliceClient.StopJob(jobID))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		ji, err := aliceClient.InspectJob(jobID, false)
+		pji, err := aliceClient.InspectJob(jobID, false)
 		if err != nil {
 			return errors.Wrapf(err, "could not inspect job %q", jobID)
 		}
-		if ji.State != pps.JobState_JOB_KILLED {
-			return errors.Errorf("expected job %q to be in JOB_KILLED but was in %s", jobID, ji.State.String())
+		if pji.State != pps.JobState_JOB_KILLED {
+			return errors.Errorf("expected job %q to be in JOB_KILLED but was in %s", jobID, pji.State.String())
 		}
 		return nil
 	})
@@ -1149,6 +1150,7 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 			auth.Permission_REPO_INSPECT_FILE,
 			auth.Permission_PIPELINE_LIST_JOB,
 		},
@@ -2275,9 +2277,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
 }
 
-// TODO: Make work with V2.
 func TestS3GatewayAuthRequests(t *testing.T) {
-	t.Skip("S3 gateway not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2291,26 +2291,32 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	require.NoError(t, err)
 	authToken := authResp.Token
 
+	ip := os.Getenv("VM_IP")
+	if ip == "" {
+		ip = "127.0.0.1"
+	}
+	address := net.JoinHostPort(ip, "30600")
+
 	// anon login via V2 - should fail
-	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	minioClientV2, err := minio.NewV2(address, "", "", false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.YesError(t, err)
 
 	// anon login via V4 - should fail
-	minioClientV4, err := minio.NewV4("127.0.0.1:30600", "", "", false)
+	minioClientV4, err := minio.NewV4(address, "", "", false)
 	require.NoError(t, err)
 	_, err = minioClientV4.ListBuckets()
 	require.YesError(t, err)
 
 	// proper login via V2 - should succeed
-	minioClientV2, err = minio.NewV2("127.0.0.1:30600", authToken, authToken, false)
+	minioClientV2, err = minio.NewV2(address, authToken, authToken, false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.NoError(t, err)
 
 	// proper login via V4 - should succeed
-	minioClientV2, err = minio.NewV4("127.0.0.1:30600", authToken, authToken, false)
+	minioClientV2, err = minio.NewV4(address, authToken, authToken, false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.NoError(t, err)

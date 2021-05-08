@@ -11,8 +11,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	dex_storage "github.com/dexidp/dex/storage"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
@@ -21,6 +23,8 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
+
+const clusterIDKey = "cluster-id"
 
 // ServiceEnv contains connections to other services in the
 // cluster. In pachd, there is only one instance of this struct, but tests may
@@ -33,7 +37,10 @@ type ServiceEnv interface {
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
+	GetDexDB() dex_storage.Storage
+	ClusterID() string
 	Context() context.Context
+	Logger() *log.Logger
 	Close() error
 }
 
@@ -74,6 +81,14 @@ type NonblockingServiceEnv struct {
 	// there's no errgroup associated with it.
 	lokiClient *loki.Client
 
+	// clusterId is the unique ID for this pach cluster
+	clusterId   string
+	clusterIdEg errgroup.Group
+
+	// dexDB is a dex_storage connected to postgres
+	dexDB   dex_storage.Storage
+	dexDBEg errgroup.Group
+
 	// dbClient is a database client.
 	dbClient *sqlx.DB
 	// dbEg coordinates the initialization of dbClient (see pachdEg)
@@ -110,6 +125,7 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env := InitPachOnlyEnv(config)
 	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.config.EtcdHost, env.config.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
+	env.clusterIdEg.Go(env.initClusterID)
 	env.dbEg.Go(env.initDBClient)
 	if env.config.LokiHost != "" && env.config.LokiPort != "" {
 		env.lokiClient = &loki.Client{
@@ -131,6 +147,26 @@ func (env *NonblockingServiceEnv) Config() *Configuration {
 	return env.config
 }
 
+func (env *NonblockingServiceEnv) initClusterID() error {
+	client := env.GetEtcdClient()
+	for {
+		resp, err := client.Get(context.Background(), clusterIDKey)
+
+		// if it's a key not found error then we create the key
+		if resp.Count == 0 {
+			// This might error if it races with another pachd trying to set the
+			// cluster id so we ignore the error.
+			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
+		} else if err != nil {
+			return err
+		} else {
+			// We expect there to only be one value for this key
+			env.clusterId = string(resp.Kvs[0].Value)
+			return nil
+		}
+	}
+}
+
 func (env *NonblockingServiceEnv) initPachClient() error {
 	// validate argument
 	if env.pachAddress == "" {
@@ -139,7 +175,7 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	// Initialize pach client
 	return backoff.Retry(func() error {
 		var err error
-		env.pachClient, err = client.NewFromAddress(env.pachAddress)
+		env.pachClient, err = client.NewFromURI(env.pachAddress)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
 		}
@@ -279,8 +315,30 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 	return env.dbClient
 }
 
+func (env *NonblockingServiceEnv) GetDexDB() dex_storage.Storage {
+	if err := env.dexDBEg.Wait(); err != nil {
+		panic(err) // If env can't connect, there's no sensible way to recover
+	}
+	if env.dexDB == nil {
+		panic("service env never connected to the Dex database")
+	}
+	return env.dexDB
+}
+
+func (env *NonblockingServiceEnv) ClusterID() string {
+	if err := env.clusterIdEg.Wait(); err != nil {
+		panic(err)
+	}
+
+	return env.clusterId
+}
+
 func (env *NonblockingServiceEnv) Context() context.Context {
 	return env.ctx
+}
+
+func (env *NonblockingServiceEnv) Logger() *log.Logger {
+	return log.StandardLogger()
 }
 
 func (env *NonblockingServiceEnv) Close() error {
