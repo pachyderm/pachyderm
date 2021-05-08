@@ -11,30 +11,29 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
-	pachdclient "github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
-	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
+	"github.com/fatih/color"
+	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
+	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
+	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	prompt "github.com/c-bata/go-prompt"
-	units "github.com/docker/go-units"
-	"github.com/fatih/color"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
 	glob "github.com/pachyderm/ohmyglob"
@@ -117,23 +116,23 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.InspectJob(args[0], block, true)
+			pipelineJobInfo, err := client.InspectJob(args[0], block, true)
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
 			}
-			if jobInfo == nil {
+			if pipelineJobInfo == nil {
 				cmdutil.ErrorAndExit("job %s not found.", args[0])
 			}
 			if raw {
-				return encoder(output).EncodeProto(jobInfo)
+				return encoder(output).EncodeProto(pipelineJobInfo)
 			} else if output != "" {
 				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
-			ji := &pretty.PrintableJobInfo{
-				JobInfo:        jobInfo,
-				FullTimestamps: fullTimestamps,
+			ppji := &pretty.PrintablePipelineJobInfo{
+				PipelineJobInfo: pipelineJobInfo,
+				FullTimestamps:  fullTimestamps,
 			}
-			return pretty.PrintDetailedJobInfo(ji)
+			return pretty.PrintDetailedPipelineJobInfo(os.Stdout, ppji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
@@ -198,15 +197,15 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(ji *ppsclient.JobInfo) error {
-						return e.EncodeProto(ji)
+					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(pji *ppsclient.PipelineJobInfo) error {
+						return e.EncodeProto(pji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(ji *ppsclient.JobInfo) error {
-					pretty.PrintJobInfo(writer, ji, fullTimestamps)
+				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(pji *ppsclient.PipelineJobInfo) error {
+					pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
 					return nil
 				}); err != nil {
 					return err
@@ -266,14 +265,14 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			}
 			e := encoder(output)
-			if err := c.FlushJob(commits, pipelines, func(ji *ppsclient.JobInfo) error {
+			if err := c.FlushJob(commits, pipelines, func(pji *ppsclient.PipelineJobInfo) error {
 				if raw {
-					if err := e.EncodeProto(ji); err != nil {
+					if err := e.EncodeProto(pji); err != nil {
 						return err
 					}
 					return nil
 				}
-				pretty.PrintJobInfo(writer, ji, fullTimestamps)
+				pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
 				return nil
 			}); err != nil {
 				return err
@@ -376,9 +375,6 @@ each datum.`,
 	}
 	commands = append(commands, cmdutil.CreateAlias(restartDatum, "restart datum"))
 
-	var pageSize int64
-	var page int64
-	var pipelineInputPath string
 	listDatum := &cobra.Command{
 		Use:   "{{alias}} <job>",
 		Short: "Return the datums in a job.",
@@ -389,12 +385,6 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			if pageSize < 0 {
-				return errors.Errorf("pageSize must be zero or positive")
-			}
-			if page < 0 {
-				return errors.Errorf("page must be zero or positive")
-			}
 			var printF func(*ppsclient.DatumInfo) error
 			if !raw {
 				if output != "" {
@@ -416,28 +406,12 @@ each datum.`,
 					return e.EncodeProto(di)
 				}
 			}
-			if pipelineInputPath != "" && len(args) == 1 {
-				return errors.Errorf("can't specify both a job and a pipeline spec")
-			} else if pipelineInputPath != "" {
-				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineInputPath)
-				if err != nil {
-					return err
-				}
-				request, err := pipelineReader.NextCreatePipelineRequest()
-				if err != nil {
-					return err
-				}
-				return client.ListDatumInputF(request.Input, pageSize, page, printF)
-			} else if len(args) == 1 {
-				return client.ListDatumF(args[0], pageSize, page, printF)
-			} else {
-				return errors.Errorf("must specify either a job or a pipeline spec")
+			if len(args) != 1 {
+				return errors.Errorf("must specify one job")
 			}
+			return client.ListDatum(args[0], printF)
 		}),
 	}
-	listDatum.Flags().Int64Var(&pageSize, "pageSize", 0, "Specify the number of results sent back in a single page")
-	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
-	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist")
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
@@ -476,6 +450,7 @@ each datum.`,
 		worker      bool
 		follow      bool
 		tail        int64
+		since       string
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours
@@ -508,14 +483,14 @@ each datum.`,
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
 		Example: `
-# Return logs emitted by recent jobs in the "filter" pipeline
-$ {{alias}} --pipeline=filter
-
-# Return logs emitted by the job aedfa12aedf
-$ {{alias}} --job=aedfa12aedf
-
-# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
-$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
+	# Return logs emitted by recent jobs in the "filter" pipeline
+	$ {{alias}} --pipeline=filter
+	
+	# Return logs emitted by the job aedfa12aedf
+	$ {{alias}} --job=aedfa12aedf
+	
+	# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+	$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
@@ -535,9 +510,16 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 					i++
 				}
 			}
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "error parsing since(%q)", since)
+			}
+			if tail != 0 {
+				return errors.Errorf("tail has been deprecated and removed from Pachyderm, use --since instead")
+			}
 
 			// Issue RPC
-			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, tail)
+			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			encoder := json.NewEncoder(&buf)
 			for iter.Next() {
@@ -574,6 +556,7 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
+	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
 	shell.RegisterCompletionFunc(getLogs,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "--pipeline" || flag == "-p" {
@@ -638,7 +621,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline> [<repo>@[<branch>|<commit>|<branch>=<commit>]...]",
 		Short: "Run an existing Pachyderm pipeline on the specified commits-branch pairs.",
-		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If you only specify a branch, Pachyderm uses the HEAD commit to complete the pair. Similarly, if you only specify a commit, Pachyderm will try to use the branch the commit originated on. Note: Pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. The datums that were successfully processed in previous runs will not be processed unless you specify the --reprocess flag.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If you only specify a branch, Pachyderm uses the HEAD commit to complete the pair. Similarly, if you only specify a commit, Pachyderm will try to use the branch the commit originated on. Note: Pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data.",
 		Example: `
 		# Rerun the latest job for the "filter" pipeline
 		$ {{alias}} filter
@@ -730,97 +713,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	inspectPipeline.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectPipeline, "inspect pipeline"))
 
-	extractPipeline := &cobra.Command{
-		Use:   "{{alias}} <pipeline>",
-		Short: "Return the manifest used to create a pipeline.",
-		Long:  "Return the manifest used to create a pipeline.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			createPipelineRequest, err := client.ExtractPipeline(args[0])
-			if err != nil {
-				return err
-			}
-			return encoder(output).EncodeProto(createPipelineRequest)
-		}),
-	}
-	extractPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
-	commands = append(commands, cmdutil.CreateAlias(extractPipeline, "extract pipeline"))
-
-	var editor string
-	var editorArgs []string
-	editPipeline := &cobra.Command{
-		Use:   "{{alias}} <pipeline>",
-		Short: "Edit the manifest for a pipeline in your text editor.",
-		Long:  "Edit the manifest for a pipeline in your text editor.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			createPipelineRequest, err := client.ExtractPipeline(args[0])
-			if err != nil {
-				return err
-			}
-			f, err := ioutil.TempFile("", args[0])
-			if err != nil {
-				return err
-			}
-			if err := encoder(output, f).EncodeProto(createPipelineRequest); err != nil {
-				return err
-			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			if editor == "" {
-				editor = os.Getenv("EDITOR")
-			}
-			if editor == "" {
-				editor = "vim"
-			}
-			editorArgs = strings.Split(editor, " ")
-			editorArgs = append(editorArgs, f.Name())
-			if err := cmdutil.RunIO(cmdutil.IO{
-				Stdin:  os.Stdin,
-				Stdout: os.Stdout,
-				Stderr: os.Stderr,
-			}, editorArgs...); err != nil {
-				return err
-			}
-			pipelineReader, err := ppsutil.NewPipelineManifestReader(f.Name())
-			if err != nil {
-				return err
-			}
-			request, err := pipelineReader.NextCreatePipelineRequest()
-			if err != nil {
-				return err
-			}
-			if proto.Equal(createPipelineRequest, request) {
-				fmt.Println("Pipeline unchanged, no update will be performed.")
-				return nil
-			}
-			request.Update = true
-			request.Reprocess = reprocess
-			return txncmds.WithActiveTransaction(client, func(txClient *pachdclient.APIClient) error {
-				_, err := txClient.PpsAPIClient.CreatePipeline(
-					txClient.Ctx(),
-					request,
-				)
-				return grpcutil.ScrubGRPC(err)
-			})
-		}),
-	}
-	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
-	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
-	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
-	commands = append(commands, cmdutil.CreateAlias(editPipeline, "edit pipeline"))
-
 	var spec bool
 	listPipeline := &cobra.Command{
 		Use:   "{{alias}} [<pipeline>]",
@@ -901,10 +793,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
 	var (
-		all              bool
-		force            bool
-		keepRepo         bool
-		splitTransaction bool
+		all      bool
+		force    bool
+		keepRepo bool
 	)
 	deletePipeline := &cobra.Command{
 		Use:   "{{alias}} (<pipeline>|--all)",
@@ -922,19 +813,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) == 0 && !all {
 				return errors.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
-			if splitTransaction {
-				fmt.Println("WARNING: If using the --split-txn flag, this command must run until complete. If a failure or incomplete run occurs, then Pachyderm will be left in an inconsistent state. To resolve an inconsistent state, rerun this command.")
-				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
-					return err
-				} else if !ok {
-					return nil
-				}
-			}
 			req := &ppsclient.DeletePipelineRequest{
-				All:              all,
-				Force:            force,
-				KeepRepo:         keepRepo,
-				SplitTransaction: splitTransaction,
+				All:      all,
+				Force:    force,
+				KeepRepo: keepRepo,
 			}
 			if len(args) > 0 {
 				req.Pipeline = pachdclient.NewPipeline(args[0])
@@ -948,7 +830,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo around (the pipeline can be recreated later and use the same repo)")
-	deletePipeline.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions")
 	commands = append(commands, cmdutil.CreateAlias(deletePipeline, "delete pipeline"))
 
 	startPipeline := &cobra.Command{
@@ -1097,48 +978,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
-
-	var memory string
-	garbageCollect := &cobra.Command{
-		Short: "Garbage collect unused data.",
-		Long: `Garbage collect unused data.
-
-When a file/commit/repo is deleted, the data is not immediately removed from
-the underlying storage system (e.g. S3) for performance and architectural
-reasons.  This is similar to how when you delete a file on your computer, the
-file is not necessarily wiped from disk immediately.
-
-To actually remove the data, you will need to manually invoke garbage
-collection with "pachctl garbage-collect".
-
-Currently "pachctl garbage-collect" can only be started when there are no
-pipelines running.  You also need to ensure that there's no ongoing "put file".
-Garbage collection puts the cluster into a readonly mode where no new jobs can
-be created and no data can be added.
-
-Pachyderm's garbage collection uses bloom filters to index live objects. This
-means that some dead objects may erronously not be deleted during garbage
-collection. The probability of this happening depends on how many objects you
-have; at around 10M objects it starts to become likely with the default values.
-To lower Pachyderm's error rate and make garbage-collection more comprehensive,
-you can increase the amount of memory used for the bloom filters with the
---memory flag. The default value is 10MB.
-`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			memoryBytes, err := units.RAMInBytes(memory)
-			if err != nil {
-				return err
-			}
-			return client.GarbageCollect(memoryBytes)
-		}),
-	}
-	garbageCollect.Flags().StringVarP(&memory, "memory", "m", "0", "The amount of memory to use during garbage collection. Default is 10MB.")
-	commands = append(commands, cmdutil.CreateAlias(garbageCollect, "garbage-collect"))
 
 	return commands
 }
@@ -1387,9 +1226,9 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 	if _, err := os.Stat(buildPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("build path %q does not exist", buildPath)
+			return fmt.Errorf("build path %s does not exist", buildPath)
 		}
-		return errors.Wrapf(err, "could not stat build path %q", buildPath)
+		return errors.Wrapf(err, "could not stat build path %s", buildPath)
 	}
 
 	buildPipelineName := fmt.Sprintf("%s_build", request.Pipeline.Name)
@@ -1441,67 +1280,62 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	if _, err := os.Stat(ignorePath); err == nil {
 		f, err := os.Open(ignorePath)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read build step ignore file %q", ignorePath)
+			return errors.Wrapf(err, "failed to read build step ignore file %s", ignorePath)
 		}
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := scanner.Text()
 			g, err := glob.Compile(line)
 			if err != nil {
-				return errors.Wrapf(err, "build step ignore file %q: failed to compile glob %q", ignorePath, line)
+				return errors.Wrapf(err, "build step ignore file %s: failed to compile glob %s", ignorePath, line)
 			}
 			ignores = append(ignores, g)
 		}
 	}
 
 	// insert the source code
-	pfc, err := pc.NewPutFileClient()
-	if err != nil {
-		return errors.Wrapf(err, "failed to construct put file client for source code in build step-enabled pipeline")
-	}
-	if update {
-		if err = pfc.DeleteFile(buildPipelineName, "source", "/"); err != nil {
-			return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+	if err := pc.WithModifyFileClient(buildPipelineName, "source", func(mf pachdclient.ModifyFile) error {
+		if update {
+			if err := mf.DeleteFile("/"); err != nil {
+				return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+			}
 		}
-	}
-	if err := filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
-		if info == nil {
-			return errors.Errorf("%q doesn't exist", srcFilePath)
-		}
-		if info.IsDir() {
-			return nil
-		}
-
-		destFilePath, err := filepath.Rel(buildPath, srcFilePath)
-		if err != nil {
-			return errors.Wrapf(err, "failed to discover relative path for %s", srcFilePath)
-		}
-		for _, g := range ignores {
-			if g.Match(destFilePath) {
+		return filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
+			if info == nil {
+				return errors.Errorf("%s doesn't exist", srcFilePath)
+			}
+			if info.IsDir() {
 				return nil
 			}
-		}
 
-		f, err := progress.Open(srcFilePath)
-		if err != nil {
-			return errors.Wrapf(err, "failed to open file %q for source code in build step-enabled pipeline", srcFilePath)
-		}
-		defer func() {
-			if err := f.Close(); err != nil && retErr == nil {
-				retErr = err
+			destFilePath, err := filepath.Rel(buildPath, srcFilePath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to discover relative path for %s", srcFilePath)
 			}
-		}()
+			for _, g := range ignores {
+				if g.Match(destFilePath) {
+					return nil
+				}
+			}
 
-		if _, err = pfc.PutFileOverwrite(buildPipelineName, "source", destFilePath, f, 0); err != nil {
-			return errors.Wrapf(err, "failed to put file %q->%q for source code in build step-enabled pipeline", srcFilePath, destFilePath)
-		}
+			f, err := progress.Open(srcFilePath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to open file %s for source code in build step-enabled pipeline", srcFilePath)
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 
-		return nil
+			if err := mf.PutFile(destFilePath, f); err != nil {
+				return errors.Wrapf(err, "failed to put file %s->%s for source code in build step-enabled pipeline", srcFilePath, destFilePath)
+			}
+
+			return nil
+		})
 	}); err != nil {
 		return err
-	}
-	if err := pfc.Close(); err != nil {
-		return errors.Wrapf(err, "failed to close put file client for source code in build step-enabled pipeline")
 	}
 
 	// modify the pipeline to use the build assets
@@ -1521,7 +1355,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 
 // ByCreationTime is an implementation of sort.Interface which
 // sorts pps job info by creation time, ascending.
-type ByCreationTime []*ppsclient.JobInfo
+type ByCreationTime []*ppsclient.PipelineJobInfo
 
 func (arr ByCreationTime) Len() int { return len(arr) }
 

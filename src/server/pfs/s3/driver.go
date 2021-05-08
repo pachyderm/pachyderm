@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/s2"

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/julienschmidt/httprouter"
@@ -153,7 +153,7 @@ func httpError(w http.ResponseWriter, err error) {
 func (s *server) getPachClient() *client.APIClient {
 	s.pachClientOnce.Do(func() {
 		var err error
-		s.pachClient, err = client.NewFromAddress(s.address)
+		s.pachClient, err = client.NewFromURI(s.address)
 		if err != nil {
 			panic(fmt.Sprintf("http server failed to initialize pach client: %v", err))
 		}

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc"
 )
 
@@ -46,7 +46,7 @@ func TestInterceptors(t *testing.T) {
 	pfs.RegisterAPIServer(server.Server, new(pfs.UnimplementedAPIServer))
 
 	interceptor := new(countingInterceptor)
-	c, err := NewFromAddress(listener.Addr().String(), WithAdditionalUnaryClientInterceptors(interceptor.unary()), WithAdditionalStreamClientInterceptors(interceptor.stream()))
+	c, err := NewFromURI(listener.Addr().String(), WithAdditionalUnaryClientInterceptors(interceptor.unary()), WithAdditionalStreamClientInterceptors(interceptor.stream()))
 	if err != nil {
 		t.Fatalf("create client: %v", err)
 	}

@@ -5,11 +5,11 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"golang.org/x/net/context"
 )
 
@@ -21,17 +21,28 @@ type Source interface {
 }
 
 type source struct {
-	commit  *pfs.Commit
-	fileSet fileset.FileSet
-	full    bool
+	commitInfo *pfs.CommitInfo
+	fileSet    fileset.FileSet
+	full       bool
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
-func NewSource(commit *pfs.Commit, fileSet fileset.FileSet, full bool) Source {
+func NewSource(storage *fileset.Storage, commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
+	sc := &sourceConfig{}
+	for _, opt := range opts {
+		opt(sc)
+	}
+	if sc.full {
+		fs = storage.NewIndexResolver(fs)
+	}
+	fs = fileset.NewDirInserter(fs)
+	if sc.filter != nil {
+		fs = sc.filter(fs)
+	}
 	return &source{
-		commit:  commit,
-		fileSet: fileSet,
-		full:    full,
+		commitInfo: commitInfo,
+		fileSet:    fs,
+		full:       sc.full,
 	}
 }
 
@@ -45,8 +56,9 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		fi := &pfs.FileInfo{
-			File:     client.NewFile(s.commit.Repo.Name, s.commit.ID, idx.Path),
-			FileType: pfs.FileType_FILE,
+			File:      client.NewFile(s.commitInfo.Commit.Repo.Name, s.commitInfo.Commit.ID, idx.Path),
+			FileType:  pfs.FileType_FILE,
+			Committed: s.commitInfo.Finished,
 		}
 		if fileset.IsDir(idx.Path) {
 			fi.FileType = pfs.FileType_DIR
@@ -89,7 +101,7 @@ func checkFileInfoCache(cache map[string]*pfs.FileInfo, idx *index.Index) (*pfs.
 func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, target string) (*pfs.FileInfo, error) {
 	f, err := iter.Next()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, errors.Errorf("stream is done, can't compute hash for %s", target)
 		}
 		return nil, err
@@ -106,7 +118,7 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, tar
 	for {
 		f2, err := iter.Peek()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err

@@ -7,8 +7,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 // Status is a struct representing the current status of the transform worker,
@@ -55,23 +55,24 @@ func (s *Status) withJob(jobID string, cb func() error) error {
 	return cb()
 }
 
-func (s *Status) withStats(stats *pps.ProcessStats, queueSize *int64, dataProcessed, dataRecovered *int64, cb func() error) error {
-	s.withLock(func() {
-		s.stats = stats
-		s.queueSize = queueSize
-		s.dataProcessed = dataProcessed
-		s.dataRecovered = dataRecovered
-	})
-
-	defer s.withLock(func() {
-		s.stats = nil
-		s.queueSize = nil
-		s.dataProcessed = nil
-		s.dataRecovered = nil
-	})
-
-	return cb()
-}
+// TODO: Probably should use this in worker.
+//func (s *Status) withStats(stats *pps.ProcessStats, queueSize *int64, dataProcessed, dataRecovered *int64, cb func() error) error {
+//	s.withLock(func() {
+//		s.stats = stats
+//		s.queueSize = queueSize
+//		s.dataProcessed = dataProcessed
+//		s.dataRecovered = dataRecovered
+//	})
+//
+//	defer s.withLock(func() {
+//		s.stats = nil
+//		s.queueSize = nil
+//		s.dataProcessed = nil
+//		s.dataRecovered = nil
+//	})
+//
+//	return cb()
+//}
 
 func (s *Status) withDatum(inputs []*common.Input, cancel func(), cb func() error) error {
 	s.withLock(func() {
@@ -102,6 +103,7 @@ func (s *Status) GetStatus() (*pps.WorkerStatus, error) {
 		JobID:   s.jobID,
 		Data:    s.datum,
 		Started: started,
+		Stats:   s.stats,
 	}
 	if s.queueSize != nil {
 		result.QueueSize = atomic.LoadInt64(s.queueSize)

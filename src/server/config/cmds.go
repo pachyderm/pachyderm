@@ -9,11 +9,11 @@ import (
 	"os"
 	"sort"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/jsonpb"
@@ -110,6 +110,47 @@ func Cmds() []*cobra.Command {
 	}
 	shell.RegisterCompletionFunc(setActiveContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(setActiveContext, "config set active-context"))
+
+	getActiveEnterpriseContext := &cobra.Command{
+		Short: "Gets the currently active enterprise context.",
+		Long:  "Gets the currently active enterprise context.",
+		Run: cmdutil.Run(func(args []string) (retErr error) {
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+			activeContext, _, err := cfg.ActiveEnterpriseContext(false)
+			if err != nil {
+				return err
+			}
+			if activeContext == "" {
+				fmt.Println("NONE")
+			} else {
+				fmt.Printf("%s\n", activeContext)
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(getActiveEnterpriseContext, "config get active-enterprise-context"))
+
+	setActiveEnterpriseContext := &cobra.Command{
+		Use:   "{{alias}} <context>",
+		Short: "Sets the currently active enterprise context.",
+		Long:  "Sets the currently active enterprise context.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+			if _, ok := cfg.V2.Contexts[args[0]]; !ok {
+				return errors.Errorf("context does not exist: %s", args[0])
+			}
+			cfg.V2.ActiveEnterpriseContext = args[0]
+			return cfg.Write()
+		}),
+	}
+	shell.RegisterCompletionFunc(setActiveEnterpriseContext, contextCompletion)
+	commands = append(commands, cmdutil.CreateAlias(setActiveEnterpriseContext, "config set active-enterprise-context"))
 
 	getContext := &cobra.Command{
 		Use:   "{{alias}} <context>",

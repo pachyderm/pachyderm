@@ -10,10 +10,10 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // Mount pfs to target, opts may be left nil.
@@ -54,21 +54,21 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		server.Unmount()
 	}()
 	server.Serve()
-	pfcs := make(map[string]client.PutFileClient)
-	pfc := func(repo string) (client.PutFileClient, error) {
-		if pfc, ok := pfcs[repo]; ok {
-			return pfc, nil
+	mfcs := make(map[string]*client.ModifyFileClient)
+	mfc := func(repo string) (*client.ModifyFileClient, error) {
+		if mfc, ok := mfcs[repo]; ok {
+			return mfc, nil
 		}
-		pfc, err := c.NewPutFileClient()
+		mfc, err := c.NewModifyFileClient(repo, root.branch(repo))
 		if err != nil {
 			return nil, err
 		}
-		pfcs[repo] = pfc
-		return pfc, nil
+		mfcs[repo] = mfc
+		return mfc, nil
 	}
 	defer func() {
-		for _, pfc := range pfcs {
-			if err := pfc.Close(); err != nil && retErr == nil {
+		for _, mfc := range mfcs {
+			if err := mfc.Close(); err != nil && retErr == nil {
 				retErr = err
 			}
 		}
@@ -78,7 +78,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			continue
 		}
 		parts := strings.Split(path, "/")
-		pfc, err := pfc(parts[0])
+		mfc, err := mfc(parts[0])
 		if err != nil {
 			return err
 		}
@@ -86,7 +86,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			f, err := progress.Open(filepath.Join(root.rootPath, path))
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
-					return pfc.DeleteFile(parts[0], root.branch(parts[0]), pathpkg.Join(parts[1:]...))
+					return mfc.DeleteFile(pathpkg.Join(parts[1:]...))
 				}
 				return errors.WithStack(err)
 			}
@@ -95,11 +95,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 					retErr = errors.WithStack(err)
 				}
 			}()
-			if _, err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]),
-				pathpkg.Join(parts[1:]...), f, 0); err != nil {
-				return err
-			}
-			return nil
+			return mfc.PutFile(pathpkg.Join(parts[1:]...), f)
 		}(); err != nil {
 			return err
 		}

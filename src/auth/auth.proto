@@ -1,0 +1,452 @@
+syntax = "proto3";
+
+package auth;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/auth";
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+/* A note on users
+ *
+ * In Pachyderm, usernames are structured strings. This makes both
+ * our API and our data model more flexible (at the loss of some type safety).
+ * Basically, anywhere that Pachyderm refers to a subject (i.e. TokenInfo) or 
+ * principal (ACL, the 'admins' collection), that username will have some 
+ * structured prefix.
+ *
+ * Note that externally-facing principals ({Get,Set}{Scope,ACL}, ModifyAdmins,
+ * ListAdmins) will have their own conventions
+ *
+ * The current user formats are:
+ * 1) Users synced from an identity provider:
+ *      "user:username"
+ * 2) Pachyderm robot users:
+ *      "robot:robot_user_1"
+ * 3) Pachyderm pipelines:
+ *      "pipeline:terasort"
+ */
+
+//// Activation API
+
+// ActivateRequest enables authentication on the cluster. It issues an auth token
+// with no expiration for the irrevocable admin user `pach:root`.
+message ActivateRequest {
+  reserved 1,2;
+  // If set, this token is used as the root user login token. Otherwise the root token
+  // is randomly generated and returned in the response.
+  string root_token = 3;
+}
+
+message ActivateResponse {
+  // pach_token authenticates the caller with Pachyderm (if you want to perform
+  // Pachyderm operations after auth has been activated as themselves, you must
+  // present this token along with your regular request)
+  string pach_token = 1;
+}
+
+message DeactivateRequest {}
+message DeactivateResponse {}
+
+
+// Configure Pachyderm's auth system with an OIDC provider 
+message OIDCConfig{
+  string issuer = 1;
+  string client_id = 2 [(gogoproto.customname) = "ClientID"];
+  string client_secret = 3;
+  string redirect_uri = 4 [(gogoproto.customname) = "RedirectURI"];
+  repeated string scopes = 5;
+  bool require_email_verified = 6;
+
+ // localhost_issuer ignores the contents of the issuer claim and makes all
+ // OIDC requests to the embedded OIDC provider. This is necessary to support
+ // some network configurations like Minikube. 
+ bool localhost_issuer = 7;
+}
+
+message GetConfigurationRequest {}
+message GetConfigurationResponse {
+  OIDCConfig configuration = 1;
+}
+message SetConfigurationRequest {
+  OIDCConfig configuration = 1;
+}
+message SetConfigurationResponse {}
+
+//// Authentication data structures
+
+// TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
+message TokenInfo {
+  // Subject (i.e. Pachyderm account) that a given token authorizes.
+  // See the note at the top of the doc for an explanation of subject structure.
+  string subject = 1;
+  google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true]; ;
+  string hashed_token = 3 [(gogoproto.moretags) = "db:\"token_hash\""];
+}
+
+//// Authentication API
+
+message AuthenticateRequest {
+  reserved 1, 2;
+  // Exactly one of 'id_token', 'oidc_state', or 'one_time_password' must be set:
+
+  // This is the session state that Pachyderm creates in order to keep track of
+  // information related to the current OIDC session.
+  string oidc_state = 3 [(gogoproto.customname) = "OIDCState"];
+
+  // This is an ID Token issued by the OIDC provider.
+  string id_token = 4;
+}
+
+message AuthenticateResponse {
+  // pach_token authenticates the caller with Pachyderm (if you want to perform
+  // Pachyderm operations after auth has been activated as themselves, you must
+  // present this token along with your regular request)
+  string pach_token = 1;
+}
+
+message WhoAmIRequest {}
+
+message WhoAmIResponse {
+  reserved 2,3,4;
+  string username = 1;
+  google.protobuf.Timestamp expiration = 5 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true];
+}
+
+//// Authorization data structures
+
+// Roles represents the set of roles a principal has
+message Roles {
+  map<string, bool> roles = 1;
+}
+
+// RoleBinding represents the set of roles principals have on a given Resource
+message RoleBinding {
+  // principal -> roles. All principal names include the structured prefix indicating their type.
+  map<string, Roles> entries = 1;
+}
+
+// Permission represents the ability to perform a given operation on a Resource 
+enum Permission {
+  UNKNOWN = 0;
+
+  CLUSTER_MODIFY_BINDINGS                          = 100;
+  CLUSTER_GET_BINDINGS                             = 101;
+
+  CLUSTER_AUTH_ACTIVATE                            = 102;
+  CLUSTER_AUTH_DEACTIVATE                          = 103;
+  CLUSTER_AUTH_GET_CONFIG                          = 104;
+  CLUSTER_AUTH_SET_CONFIG                          = 105;
+  CLUSTER_AUTH_GET_ROBOT_TOKEN                     = 139;
+  CLUSTER_AUTH_MODIFY_GROUP_MEMBERS                = 109;
+  CLUSTER_AUTH_GET_GROUPS                          = 110;
+  CLUSTER_AUTH_GET_GROUP_USERS                     = 111;
+  CLUSTER_AUTH_EXTRACT_TOKENS                      = 112;
+  CLUSTER_AUTH_RESTORE_TOKEN                       = 113;
+  CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL       = 141;
+  CLUSTER_AUTH_DELETE_EXPIRED_TOKENS               = 140;
+  CLUSTER_AUTH_REVOKE_USER_TOKENS                  = 142;
+
+
+  CLUSTER_ENTERPRISE_ACTIVATE            = 114;
+  CLUSTER_ENTERPRISE_HEARTBEAT           = 115;
+  CLUSTER_ENTERPRISE_GET_CODE            = 116;
+  CLUSTER_ENTERPRISE_DEACTIVATE          = 117;
+
+  CLUSTER_IDENTITY_SET_CONFIG            = 118;
+  CLUSTER_IDENTITY_GET_CONFIG            = 119;
+  CLUSTER_IDENTITY_CREATE_IDP            = 120;
+  CLUSTER_IDENTITY_UPDATE_IDP            = 121;
+  CLUSTER_IDENTITY_LIST_IDPS             = 122;
+  CLUSTER_IDENTITY_GET_IDP               = 123;
+  CLUSTER_IDENTITY_DELETE_IDP            = 124;
+  CLUSTER_IDENTITY_CREATE_OIDC_CLIENT    = 125;
+  CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT    = 126;
+  CLUSTER_IDENTITY_LIST_OIDC_CLIENTS     = 127;
+  CLUSTER_IDENTITY_GET_OIDC_CLIENT       = 128;
+  CLUSTER_IDENTITY_DELETE_OIDC_CLIENT    = 129;
+
+  CLUSTER_DEBUG_DUMP                     = 131;
+
+  CLUSTER_LICENSE_ACTIVATE               = 132;
+  CLUSTER_LICENSE_GET_CODE               = 133;
+  CLUSTER_LICENSE_ADD_CLUSTER            = 134;
+  CLUSTER_LICENSE_UPDATE_CLUSTER         = 135;
+  CLUSTER_LICENSE_DELETE_CLUSTER         = 136;
+  CLUSTER_LICENSE_LIST_CLUSTERS          = 137;
+
+  CLUSTER_DELETE_ALL             = 138;
+
+  REPO_READ                   = 200;
+  REPO_WRITE                  = 201;
+  REPO_MODIFY_BINDINGS        = 202;
+  REPO_DELETE                 = 203;
+  REPO_INSPECT_COMMIT         = 204;
+  REPO_LIST_COMMIT            = 205;
+  REPO_DELETE_COMMIT          = 206;
+  REPO_CREATE_BRANCH          = 207;
+  REPO_LIST_BRANCH            = 208;
+  REPO_DELETE_BRANCH          = 209;
+  REPO_INSPECT_FILE           = 210;
+  REPO_LIST_FILE              = 211;
+  REPO_ADD_PIPELINE_READER    = 212;
+  REPO_REMOVE_PIPELINE_READER = 213;
+  REPO_ADD_PIPELINE_WRITER    = 214;
+
+  PIPELINE_LIST_JOB     = 301;
+}
+
+// ResourceType represents the type of a Resource
+enum ResourceType {
+  RESOURCE_TYPE_UNKNOWN = 0;
+  CLUSTER = 1;
+  REPO    = 2;
+}
+
+// Resource represents any resource that has role-bindings in the system
+message Resource {
+  ResourceType type = 1; 
+  string name = 2;
+}
+
+message Users {
+  map<string, bool> usernames = 1;
+}
+
+message Groups {
+  map<string, bool> groups = 1;
+}
+
+//// Authorization API
+
+message AuthorizeRequest {
+  reserved 2;
+  Resource resource = 1;
+
+  // permissions are the operations the caller is attempting to perform 
+  repeated Permission permissions = 3;
+}
+
+message AuthorizeResponse {
+  // authorized is true if the caller has the require permissions
+  bool authorized = 1;
+
+  // satisfied is the set of permission that the principal has
+  repeated Permission satisfied = 2;
+
+  // missing is the set of permissions that the principal lacks
+  repeated Permission missing = 3;
+
+  // principal is the principal the request was evaluated for
+  string principal = 4;
+}
+
+// GetPermissions evaluates the current user's permissions on a resource
+message GetPermissionsRequest {
+  Resource resource = 1;
+}
+
+// GetPermissionsForPrincipal evaluates an arbitrary principal's permissions
+// on a resource 
+message GetPermissionsForPrincipalRequest {
+  Resource resource = 1;
+
+  string principal = 2;
+}
+
+message GetPermissionsResponse {
+  // permissions is the set of permissions the principal has
+  repeated Permission permissions = 1;
+
+  // roles is the set of roles the principal has 
+  repeated string roles = 2;
+}
+
+
+message ModifyRoleBindingRequest {
+  // resource is the resource to modify the role bindings on 
+  Resource resource = 1;
+
+  // principal is the principal to modify the roles binding for
+  string principal = 2;
+
+  // roles is the set of roles for principal - an empty list
+  // removes all role bindings
+  repeated string roles = 3;
+}
+
+message ModifyRoleBindingResponse {}
+
+message GetRoleBindingRequest {
+  Resource resource = 1; 
+}
+
+message GetRoleBindingResponse {
+  RoleBinding binding = 1; 
+}
+
+//////////////////////////////
+//// OIDC Data Structures ////
+//////////////////////////////
+
+// SessionInfo stores information associated with one OIDC authentication
+// session (i.e. a single instance of a single user logging in). Sessions are
+// short-lived and stored in the 'oidc-authns' collection, keyed by the OIDC
+// 'state' token (30-character CSPRNG-generated string). 'GetOIDCLogin'
+// generates and inserts entries, then /authorization-code/callback retrieves
+// an access token from the ID provider and uses it to retrive the caller's
+// email and store it in 'email', and finally Authorize() returns a Pachyderm
+// token identified with that email address as a subject in Pachyderm.
+message SessionInfo {
+  // nonce is used by /authorization-code/callback to validate session
+  // continuity with the IdP after a user has arrived there from GetOIDCLogin().
+  // This is a 30-character CSPRNG-generated string.
+  string nonce = 1;
+  // email contains the email adddress associated with a user in their OIDC ID
+  // provider. Currently users are identified with their email address rather
+  // than their OIDC subject identifier to make switching between OIDC ID
+  // providers easier for users, and to make user identities more easily
+  // comprehensible in Pachyderm. The OIDC spec doesn't require that users'
+  // emails be present or unique, but we think this will be preferable in
+  // practice.
+  string email = 2;
+  // conversion_err indicates whether an error was encountered while exchanging
+  // an auth code for an access token, or while obtaining a user's email (in
+  // /authorization-code/callback). Storing the error state here allows any
+  // sibling calls to Authenticate() (i.e. using the same OIDC state token) to
+  // notify their caller that an error has occurred. We avoid passing the caller
+  // any details of the error (which are logged by Pachyderm) to avoid giving
+  // information to a user who has network access to Pachyderm but not an
+  // account in the OIDC provider.
+  bool conversion_err = 3;
+}
+
+//// OIDC API
+
+message GetOIDCLoginRequest {
+}
+
+message GetOIDCLoginResponse {
+  // The login URL generated for the OIDC object
+  string login_url = 1 [(gogoproto.customname) = "LoginURL"];
+  string state = 2;
+}
+
+// Robot token API (TODO: add access controls)
+
+message GetRobotTokenRequest {
+  // The returned token will allow the caller to access resources as this
+  // robot user
+  string robot = 1;
+
+  // ttl indicates the requested (approximate) remaining lifetime of this token,
+  // in seconds
+  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
+}
+
+message GetRobotTokenResponse {
+  // A new auth token for the requested robot
+  string token = 1;
+}
+
+message RevokeAuthTokenRequest {
+  string token = 1;
+}
+
+message RevokeAuthTokenResponse {}
+
+message SetGroupsForUserRequest {
+  string username = 1;
+  repeated string groups = 2;
+}
+
+message SetGroupsForUserResponse {}
+
+message ModifyMembersRequest {
+  string group = 1;
+  repeated string add = 2;
+  repeated string remove = 3;
+}
+
+message ModifyMembersResponse {}
+
+message GetGroupsRequest {}
+
+message GetGroupsForPrincipalRequest {
+  string principal = 1;
+}
+
+message GetGroupsResponse {
+  repeated string groups = 1;
+}
+
+message GetUsersRequest {
+  string group = 1;
+}
+
+message GetUsersResponse {
+  repeated string usernames = 1;
+}
+
+// ExtractAuthTokens returns all the hashed robot tokens that have been issued.
+// User tokens are not extracted as they can be recreated by logging in.
+message ExtractAuthTokensRequest {}
+
+message ExtractAuthTokensResponse {
+  reserved 1;
+  repeated TokenInfo tokens = 2; 
+}
+
+// RestoreAuthToken inserts a hashed token that has previously been extracted.
+message RestoreAuthTokenRequest {
+  reserved 1;
+  TokenInfo token = 2; 
+}
+
+message RestoreAuthTokenResponse {}
+
+message RevokeAuthTokensForUserRequest {
+  string username = 1;
+}
+
+message RevokeAuthTokensForUserResponse {}
+
+message DeleteExpiredAuthTokensRequest {}
+
+message DeleteExpiredAuthTokensResponse {}
+
+service API {
+  // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
+  // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
+  // admins from the Pachyderm cluster, making all data publicly accessable
+  rpc Activate(ActivateRequest) returns (ActivateResponse) {}
+  rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
+
+  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
+  rpc SetConfiguration(SetConfigurationRequest) returns (SetConfigurationResponse) {}
+
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
+  rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse) {}
+  rpc GetPermissionsForPrincipal(GetPermissionsForPrincipalRequest) returns (GetPermissionsResponse) {}
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
+
+  rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
+  rpc GetRoleBinding(GetRoleBindingRequest) returns (GetRoleBindingResponse) {}
+
+  rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
+
+  rpc GetRobotToken(GetRobotTokenRequest) returns (GetRobotTokenResponse) {}
+  rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
+  rpc RevokeAuthTokensForUser(RevokeAuthTokensForUserRequest) returns (RevokeAuthTokensForUserResponse) {}
+
+  rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
+  rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
+  rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
+  rpc GetGroupsForPrincipal(GetGroupsForPrincipalRequest) returns (GetGroupsResponse) {}
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
+
+  rpc ExtractAuthTokens(ExtractAuthTokensRequest) returns (ExtractAuthTokensResponse) {}
+  rpc RestoreAuthToken(RestoreAuthTokenRequest) returns (RestoreAuthTokenResponse) {}
+
+  rpc DeleteExpiredAuthTokens(DeleteExpiredAuthTokensRequest) returns (DeleteExpiredAuthTokensResponse) {}
+}

@@ -7,10 +7,10 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	glob "github.com/pachyderm/ohmyglob"
-	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
 )
 
@@ -53,6 +53,10 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
 	c.logger.Debugf("ListObjects: bucketName=%+v, prefix=%+v, marker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, marker, delimiter, maxKeys)
 
+	// Strip / from prefix to normalize: "/" means "all objects" and "/foo"
+	// means the same as "foo"
+	prefix = strings.TrimPrefix(prefix, "/")
+
 	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
@@ -90,7 +94,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	err = pc.GlobFileF(bucket.Repo, bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(bucket.Repo, bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -129,7 +133,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 			result.Contents = append(result.Contents, &c)
 		} else {
 			result.CommonPrefixes = append(result.CommonPrefixes, &s2.CommonPrefixes{
-				Prefix: fmt.Sprintf("%s/", fileInfo.File.Path),
+				Prefix: fileInfo.File.Path,
 				Owner:  defaultUser,
 			})
 		}
@@ -216,7 +220,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 
 	if branchInfo.Head != nil {
 		hasFiles := false
-		err = pc.Walk(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
+		err = pc.WalkFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
 			if fileInfo.FileType == pfsClient.FileType_FILE {
 				hasFiles = true
 				return errutil.ErrBreak
@@ -257,7 +261,7 @@ func (c *controller) ListObjectVersions(r *http.Request, bucketName, prefix, key
 	// NOTE: because this endpoint isn't implemented, conformance tests will
 	// fail on teardown. It's nevertheless unimplemented because it's too
 	// expensive to pull off with PFS until this is implemented:
-	// https://github.com/pachyderm/pachyderm/issues/3896
+	// https://github.com/pachyderm/pachyderm/v2/issues/3896
 	c.logger.Debugf("ListObjectVersions: bucketName=%+v, prefix=%+v, keyMarker=%+v, versionIDMarker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
 	return nil, s2.NotImplementedError(r)
 }

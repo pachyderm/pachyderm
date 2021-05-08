@@ -15,8 +15,8 @@ import (
 	"time"
 
 	minio "github.com/minio/minio-go/v6"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (string, error) {
@@ -84,13 +84,12 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime *time.
 
 func putListFileTestObject(t *testing.T, pachClient *client.APIClient, repo string, commitID string, dir string, i int) {
 	t.Helper()
-	_, err := pachClient.PutFile(
+	require.NoError(t, pachClient.PutFile(
 		repo,
 		commitID,
 		fmt.Sprintf("%s%d", dir, i),
 		strings.NewReader(fmt.Sprintf("%d\n", i)),
-	)
-	require.NoError(t, err)
+	))
 }
 
 func bucketNotFoundError(t *testing.T, err error) {
@@ -131,8 +130,10 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 	return fi.Size(), hashSum
 }
 
-func testRunner(t *testing.T, group string, driver Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	server, err := Server(0, driver, client.NewForTest)
+func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
+	server, err := Server(0, driver, func() (*client.APIClient, error) {
+		return pachClient.WithCtx(context.Background()), nil
+	})
 	require.NoError(t, err)
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
@@ -142,9 +143,6 @@ func testRunner(t *testing.T, group string, driver Driver, runner func(t *testin
 	}()
 
 	port := listener.Addr().(*net.TCPAddr).Port
-
-	pachClient, err := client.NewForTest()
-	require.NoError(t, err)
 
 	minioClient, err := minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "", "", false)
 	require.NoError(t, err)

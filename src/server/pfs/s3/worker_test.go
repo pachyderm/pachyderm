@@ -9,10 +9,11 @@ import (
 
 	minio "github.com/minio/minio-go/v6"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 type workerTestState struct {
@@ -22,7 +23,7 @@ type workerTestState struct {
 	outputRepo         string
 	inputMasterCommit  *pfs.Commit
 	inputDevelopCommit *pfs.Commit
-	outputCommit       *pfs.Commit
+	outputBranch       string
 }
 
 func workerListBuckets(t *testing.T, s *workerTestState) {
@@ -67,7 +68,7 @@ func workerPutObject(t *testing.T, s *workerTestState) {
 	_, err := s.minioClient.PutObject("out", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
-	// this should act as a PFS PutFileOverwrite
+	// this should act as a PFS PutFile
 	r2 := strings.NewReader("content2")
 	_, err = s.minioClient.PutObject("out", "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
@@ -83,8 +84,7 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 }
 
 func workerRemoveObject(t *testing.T, s *workerTestState) {
-	_, err := s.pachClient.PutFile(s.outputRepo, s.outputCommit.ID, "file", strings.NewReader("content"))
-	require.NoError(t, err)
+	require.NoError(t, s.pachClient.PutFile(s.outputRepo, s.outputBranch, "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
 	require.NoError(t, s.minioClient.RemoveObject("out", "file"))
@@ -167,6 +167,15 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	}
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
 
+	// Request that will list all files in with / as a prefix ("/" should mean
+	// the same as "", e.g. rust-s3 client)
+	ch = s.minioClient.ListObjects("in2", "/", false, make(chan struct{}))
+	expectedFiles = []string{}
+	for i := 0; i <= 1000; i++ {
+		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
+	}
+	checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
+
 	// Request that will list all files starting with 1
 	ch = s.minioClient.ListObjects("in2", "1", false, make(chan struct{}))
 	expectedFiles = []string{}
@@ -218,9 +227,9 @@ func TestWorkerDriver(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	pachClient, err := client.NewForTest()
-	require.NoError(t, err)
+	t.Parallel()
+	env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	pachClient := env.PachClient
 
 	inputRepo := tu.UniqueString("testworkerdriverinput")
 	require.NoError(t, pachClient.CreateRepo(inputRepo))
@@ -247,8 +256,8 @@ func TestWorkerDriver(t *testing.T) {
 	require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.ID))
 
 	// create the output branch
-	outputCommit, err := pachClient.StartCommit(outputRepo, "master")
-	require.NoError(t, err)
+	outputBranch := "master"
+	require.NoError(t, pachClient.CreateBranch(outputRepo, outputBranch, "", nil))
 
 	driver := NewWorkerDriver(
 		[]*Bucket{
@@ -265,12 +274,12 @@ func TestWorkerDriver(t *testing.T) {
 		},
 		&Bucket{
 			Repo:   outputRepo,
-			Commit: outputCommit.ID,
+			Commit: outputBranch,
 			Name:   "out",
 		},
 	)
 
-	testRunner(t, "worker", driver, func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	testRunner(t, pachClient, "worker", driver, func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 		s := &workerTestState{
 			pachClient:         pachClient,
 			minioClient:        minioClient,
@@ -278,7 +287,7 @@ func TestWorkerDriver(t *testing.T) {
 			outputRepo:         outputRepo,
 			inputMasterCommit:  inputMasterCommit,
 			inputDevelopCommit: inputDevelopCommit,
-			outputCommit:       outputCommit,
+			outputBranch:       outputBranch,
 		}
 
 		t.Run("ListBuckets", func(t *testing.T) {

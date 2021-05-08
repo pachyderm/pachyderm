@@ -10,12 +10,12 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
-	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
 	"github.com/pachyderm/s2"
 )
@@ -109,7 +109,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 	}
 
 	globPattern := path.Join(bucket.Repo, bucket.Commit, "*", "*", ".keep")
-	err = pc.GlobFileF(c.repo, "master", globPattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(c.repo, "master", globPattern, func(fileInfo *pfsClient.FileInfo) error {
 		_, _, key, uploadID, err := multipartKeepArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil
@@ -171,8 +171,7 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 
 	uploadID := uuid.NewWithoutDashes()
 
-	_, err = pc.PutFileOverwrite(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID), strings.NewReader(""), 0)
-	if err != nil {
+	if err := pc.PutFile(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID), strings.NewReader("")); err != nil {
 		return "", err
 	}
 
@@ -280,7 +279,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 			return nil, s2.EntityTooSmallError(r)
 		}
 
-		err = pc.CopyFile(c.repo, "master", srcPath, bucket.Repo, bucket.Commit, key, false)
+		err = pc.CopyFile(bucket.Repo, bucket.Commit, key, c.repo, "master", srcPath, client.WithAppendCopyFile())
 		if err != nil {
 			if errutil.IsWriteToOutputBranchError(err) {
 				return nil, writeToOutputBranchError(r)
@@ -333,7 +332,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 	}
 
 	globPattern := path.Join(parentDirPath(bucket.Repo, bucket.Commit, key, uploadID), "*")
-	err = pc.GlobFileF(c.repo, "master", globPattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(c.repo, "master", globPattern, func(fileInfo *pfsClient.FileInfo) error {
 		_, _, _, _, partNumber, err := multipartChunkArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil
@@ -387,8 +386,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 	}
 
 	path := chunkPath(bucket.Repo, bucket.Commit, key, uploadID, partNumber)
-	_, err = pc.PutFileOverwrite(c.repo, "master", path, reader, 0)
-	if err != nil {
+	if err := pc.PutFile(c.repo, "master", path, reader); err != nil {
 		return "", err
 	}
 

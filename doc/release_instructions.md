@@ -95,30 +95,38 @@ Major/Minor/Point releases. In order to test a new version of dash with
 RC/Alpha/Beta/Custom release, modify the deployment manifest to test it
 manually.
 
-### Rebuild docs [apply step only when running point-release target]
-
-After running make doc. Make sure you add any newly created (untracked) doc files, in
-addition to docs that have been updated (`git commit -a` might not get
-everything):
-
-```shell
-make doc
-git add doc
-git commit -m"Run make doc for $(pachctl version --client-only)"
-```
-
 ### Regenerate golden deployment manifests [apply step only when running point-release target]
 
 ```shell
 make VERSION_ADDITIONAL= regenerate-test-deploy-manifests
-git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only)"
+git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only) release"
+```
+
+### Update the testfaster hash [apply step only when running point-release target]
+
+Update the test faster hash to point to the latest git commit.
+
+```shell
+git log --pretty=format:%H | head -n 1
+```
+Copy the commit hash printed from the above command. Search for "git checkout" in
+`.testfaster.yml` file. Replace the hash value with the one from above git log cmd.
+
+```shell
+git commit -am "Update test faster hash for $(pachctl version --client-only) release"
 ```
 
 ### Update the changelog [apply step only when running point-release target]
 
-Update the changelog in the branch and commit it locally.
+Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
+
+```shell
+git commit -am "Update change log for $(pachctl version --client-only) release"
+```
 
 ### Push changes [apply step only when running point-release target]
+
+In a typical point release you will have 5 commits to push to the server.
 
 ```shell
 git push
@@ -126,16 +134,30 @@ git push
 
 ### Release! [apply step only when running point-release or release-candidate target]
 
-* To release a major, minor, or patch version, run `make point-release`
-* To release an alpha version, run e.g.
-  `make VERSION_ADDITIONAL=-alpha1 release-candidate`
-* To release a beta version, run e.g.
-  `make VERSION_ADDITIONAL=-beta1 release-candidate`
-* To release an rc, run e.g. `make VERSION_ADDITIONAL=-rc1 release-candidate`
+* To release a major, minor, or patch version, run
+```shell
+make point-release
+```
+* To release an alpha/beta/RC version, specify the additional text to appear in the release version and run
+```shell
+make VERSION_ADDITIONAL=-alpha1 release-candidate
+OR
+make VERSION_ADDITIONAL=-beta1 release-candidate
+OR
+make VERSION_ADDITIONAL=-rc1 release-candidate
+ ```
 
-Then update the
-[release's notes](https://github.com/pachyderm/pachyderm/releases), and post
-the update on the #users channel.
+### Release notes [apply step only when running point-release target]
+* [Release notes](https://github.com/pachyderm/pachyderm/releases) are automatically
+updated in GitHub. These are pulled from `CHANGELOG.md`. Check to make sure the notes
+are correct. Edit the release on GitHub to manually update any changes.
+
+* Post update in the #users channel with the following template
+```shell
+@here Hi All,
+    We’ve just released Pachyderm <X.Y.Z> — check it out!
+    * RELEASE NOTES with links to PRs
+```
 
 ### New major or minor releases
 

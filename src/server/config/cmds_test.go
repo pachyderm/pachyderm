@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func run(t *testing.T, cmd string) error {
@@ -82,6 +82,22 @@ func TestActiveContext(t *testing.T) {
 		echo '{}' | pachctl config set context foo --overwrite
 		pachctl config set active-context foo
 		pachctl config get active-context | match "foo"
+	`))
+}
+
+func TestActiveEnterpriseContext(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	require.YesError(t, run(t, `
+		pachctl config set active-enterprise-context foo 2>&1 | match "context does not exist: foo"
+	`))
+
+	require.NoError(t, run(t, `
+		echo '{}' | pachctl config set context foo --overwrite
+		pachctl config set active-enterprise-context foo
+		pachctl config get active-enterprise-context | match "foo"
 	`))
 }
 

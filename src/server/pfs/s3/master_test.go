@@ -10,10 +10,11 @@ import (
 	"time"
 
 	minio "github.com/minio/minio-go/v6"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func masterListBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
@@ -68,8 +69,7 @@ func masterListBucketsBranchless(t *testing.T, pachClient *client.APIClient, min
 func masterGetObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	_, err := pachClient.PutFile(repo, "master", "file", strings.NewReader("content"))
-	require.NoError(t, err)
+	require.NoError(t, pachClient.PutFile(repo, "master", "file", strings.NewReader("content")))
 
 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
 	require.NoError(t, err)
@@ -80,8 +80,7 @@ func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioCl
 	repo := tu.UniqueString("testgetobjectinbranch")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
-	_, err := pachClient.PutFile(repo, "branch", "file", strings.NewReader("content"))
-	require.NoError(t, err)
+	require.NoError(t, pachClient.PutFile(repo, "branch", "file", strings.NewReader("content")))
 
 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
 	require.NoError(t, err)
@@ -91,15 +90,13 @@ func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioCl
 func masterStatObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("teststatobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	_, err := pachClient.PutFile(repo, "master", "file", strings.NewReader("content"))
-	require.NoError(t, err)
+	require.NoError(t, pachClient.PutFile(repo, "master", "file", strings.NewReader("content")))
 
 	// `startTime` and `endTime` will be used to ensure that an object's
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-	_, err = pachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("new-content"), 0)
-	require.NoError(t, err)
+	require.NoError(t, pachClient.PutFile(repo, "master", "file", strings.NewReader("new-content")))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 	info, err := minioClient.StatObject(fmt.Sprintf("master.%s", repo), "file", minio.StatObjectOptions{})
@@ -120,7 +117,7 @@ func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *mi
 	_, err := minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
-	// this should act as a PFS PutFileOverwrite
+	// this should act as a PFS PutFile
 	r2 := strings.NewReader("content2")
 	_, err = minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
@@ -133,15 +130,14 @@ func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *mi
 func masterRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testremoveobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	_, err := pachClient.PutFile(repo, "master", "file", strings.NewReader("content"))
-	require.NoError(t, err)
+	require.NoError(t, pachClient.PutFile(repo, "master", "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
 	require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
 	require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
 
 	// make sure the object no longer exists
-	_, err = getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
+	_, err := getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
 	keyNotFoundError(t, err)
 }
 
@@ -416,20 +412,23 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 }
 
-func masterAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-	// The other tests use auth V4, versus this which checks auth V2
-	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.NoError(t, err)
-}
+// TODO: This should be readded as an integration test (probably in src/server/pachyderm_test.go).
+// Commenting out for now to enable the other tests to run against mock pachd.
+//func masterAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+//	// The other tests use auth V4, versus this which checks auth V2
+//	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+//	require.NoError(t, err)
+//	_, err = minioClientV2.ListBuckets()
+//	require.NoError(t, err)
+//}
 
 func TestMasterDriver(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	testRunner(t, "master", NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	t.Parallel()
+	env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	testRunner(t, env.PachClient, "master", NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 		t.Run("ListBuckets", func(t *testing.T) {
 			masterListBuckets(t, pachClient, minioClient)
 		})
@@ -496,8 +495,9 @@ func TestMasterDriver(t *testing.T) {
 		t.Run("ListObjectsRecursive", func(t *testing.T) {
 			masterListObjectsRecursive(t, pachClient, minioClient)
 		})
-		t.Run("AuthV2", func(t *testing.T) {
-			masterAuthV2(t, pachClient, minioClient)
-		})
+		// TODO: Refer to masterAuthV2 function definition.
+		//t.Run("AuthV2", func(t *testing.T) {
+		//	masterAuthV2(t, pachClient, minioClient)
+		//})
 	})
 }

@@ -3,7 +3,7 @@ package s3
 import (
 	"net/http"
 
-	"github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
 )
 

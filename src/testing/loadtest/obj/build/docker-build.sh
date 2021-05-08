@@ -13,7 +13,7 @@ mkdir _out
 # Setup build command. The linker flags, along with CGO_ENABLED=0 (set below)
 # tell the go compiler to build a fully static binary (see comment at top)
 LD_FLAGS="-extldflags -static"
-BUILD_PATH=github.com/pachyderm/pachyderm/src/testing/loadtest/obj
+BUILD_PATH=github.com/pachyderm/pachyderm/v2/src/testing/loadtest/obj
 BUILD_CMD="
 go install -a -ldflags \"${LD_FLAGS}\" ./${BUILD_PATH}/cmd/supervisor && \
 mv ../bin/* /out/"

@@ -2,7 +2,7 @@
 
 This document discusses each of the fields present in a pipeline specification.
 To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
-create pipeline](pachctl/pachctl_create_pipeline.md) section.
+create pipeline](./pachctl/pachctl_create_pipeline.md) section.
 
 ## JSON Manifest Format
 
@@ -77,11 +77,13 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
     <"pfs", "cross", "union", "join", "group", "cron", or "git" see below>
   },
   "s3_out": bool,
+  "reprocess_spec": string,
   "output_branch": string,
   "egress": {
     "URL": "s3://bucket/dir"
   },
   "standby": bool,
+  "autoscaling": bool,
   "cache_size": string,
   "enable_stats": bool,
   "service": {
@@ -89,7 +91,6 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
     "external_port": int
   },
   "spout": {
-  "overwrite": bool
   \\ Optionally, you can combine a spout with a service:
   "service": {
         "internal_port": int,
@@ -454,7 +455,7 @@ The `gpu` field is a number that describes how many GPUs each worker needs.
 Only whole number are supported, Kubernetes does not allow multiplexing of
 GPUs. Unlike the other resource fields, GPUs only have meaning in Limits, by
 requesting a GPU the worker will have sole access to that GPU while it is
-running. It's recommended to enable `standby` if you are using GPUs so other
+running. It's recommended to enable `autoscaling` if you are using GPUs so other
 processes in the cluster will have access to the GPUs while the pipeline has
 nothing to process. For more information about scheduling GPUs see the
 [Kubernetes docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
@@ -843,7 +844,10 @@ you want to join with other data.
 * `input.pfs.lazy` — see the description in [PFS Input](#pfs-input).
 * `input.pfs.empty_files` — see the description in [PFS Input](#pfs-input).
 
-#### Git Input (alpha feature)
+#### Git Input
+
+!!! Warning
+    Git Inputs are an [experimental feature](../../contributing/supported-releases/#experimental).
 
 Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository.
 
@@ -881,15 +885,21 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
-For more information, see [Exporting Data by using egress](../../how-tos/export-data-out-pachyderm/#export-your-data-with-egress)
+For more information, see [Exporting Data by using egress](../how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md)
 
 ### Standby (optional)
 
 `standby` indicates that the pipeline should be put into "standby" when there's
-no data for it to process.  A pipeline in standby will have no pods running and
-thus will consume no resources, it's state will be displayed as "standby".
+no data for it to process. A pipeline in standby will have no pods running and
+thus will consume no resources. The pipeline's state will be displayed as "standby".
 
-Standby replaces `scale_down_threshold` from releases prior to 1.7.1.
+### Autoscaling (optional)
+`autoscaling` indicates that the pipeline should automatically scale the worker
+pool based on the datums it has to process. A pipeline with no outstanding jobs
+will go into `standby` and have no workers.
+
+`autoscaling` is a more sophisticated version of `standby` that was introduced
+in 1.13.0.
 
 ### Cache Size (optional)
 
@@ -904,6 +914,15 @@ workers are reading from and writing to PFS simultaneously). Part of what these
 "sidecar" pachd servers do is cache PFS reads. If a pipeline has a cross input,
 and a worker is downloading the same datum from one branch of the input
 repeatedly, then the cache can speed up processing significantly.
+
+If not explicitly specified, cache_size defaults to 64M.
+
+!!! Note
+    When setting `cache_size`, it is important to keep in mind that any file
+    which is larger than 25% of the total `cache_size` will NOT be cached. 
+    For example, if `cache_size` is set to 1G, 
+    then only files which are 250M or smaller will be cached; 
+    files larger than 250M will not be cached.
 
 ### Enable Stats (optional)
 
@@ -929,7 +948,33 @@ exists, the storage space used by the stats cannot be released.
     snapshots of the `/pfs` directory that are the largest stored assets
     do not require extra space.
 
-### Service (alpha feature, optional)
+### Reprocess Datums (optional)
+
+Per default, Pachyderm avoids repeated processing of unchanged datums (i.e., it processes only the datums that have changed and skip the unchanged datums). This [**incremental behavior**](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#example-1-one-file-in-the-input-datum-one-file-in-the-output-datum) ensures efficient resource utilization. However, you might need to alter this behavior for specific use cases and **force the reprocessing of all of your datums systematically**. This is especially useful when your pipeline makes an external call to other resources, such as a deployment or triggering an external pipeline system.  Set `"reprocess_spec": "every_job"` in order to enable this behavior. 
+
+!!! Note "About the default behavior"
+    `"reprocess_spec": "until_success"` is the default behavior.
+    To mitigate datums failing for transient connection reasons,
+    Pachyderm automatically [retries user code three (3) times before marking a datum as failed](https://docs.pachyderm.com/latest/troubleshooting/pipeline_troubleshooting/#introduction). Additionally, you can [set the  `datum_tries`](https://docs.pachyderm.com/latest/reference/pipeline_spec/#datum-tries-optional) field to determine the number of times a job attempts to run on a datum when a failure occurs.
+
+
+Let's compare `"until_success"` and `"every_job"`:
+
+  Say we have 2 identical pipelines (`reprocess_until_success.json` and `reprocess_at_every_job.json`) but for the `"reprocess_spec"` field set to `"every_job"` in reprocess_at_every_job.json. 
+  Both use the same input repo and have a glob pattern set to `/*`. 
+
+  - When adding 3 text files to the input repo (file1.txt, file2.txt, file3.txt), the 2 pipelines (reprocess_until_success and reprocess_at_every_job) will process the 3 datums (here, the glob pattern `/*` creates one datum per file).
+  - Now, let's add a 4th file file4.txt to our input repo or modify the content of file2.txt for example.
+      - **Case of our default `reprocess_until_success.json pipeline`**: A quick check at the [list datum on the job id](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/#running-list-datum-on-a-past-job) shows 4 datums, of which 3 were skipped. (Only the changed file was processed)
+      - **Case of `reprocess_at_every_job.json`**: A quick check at the list datum on the job id shows that all 4 datums were reprocessed, none were skipped.
+
+!!! Warning
+    `"reprocess_spec": "every_job` will not take advantage of Pachyderm's default de-duplication. In effect, this can lead to slower pipeline performance. Before using this setting, consider other options such as including metadata in your file, naming your files with a timestamp, UUID, or other unique identifiers in order to take advantage of de-duplication. Review how [datum processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/) works to understand more.
+
+### Service (optional)
+
+!!! Warning
+    Service Pipelines are an [experimental feature](../../contributing/supported-releases/#experimental).
 
 `service` specifies that the pipeline should be treated as a long running
 service rather than a data transformation. This means that `transform.cmd` is
@@ -943,16 +988,21 @@ created, you should be able to access it at
 
 ### Spout (optional)
 
-`spout` is a type of pipeline that processes streaming data.
-Unlike a union or cross pipeline, a spout pipeline does not have
-a PFS input. Instead, it opens a Linux *named pipe* into the source of the
-streaming data. Your pipeline
-can be either a spout or a service and not both. Therefore, if you added
-the `service` as a top-level object in your pipeline, you cannot add `spout`.
-However, you can expose a service from inside of a spout pipeline by
-specifying it as a field in the `spout` spec. Then, Kubernetes creates
-a service endpoint that you can expose externally. You can get the information
-about the service by running `kubectl get services`.
+`spout` is a type of pipeline
+that ingests streaming data.
+Unlike a union or cross pipeline,
+a spout pipeline does not have
+a PFS input.
+Instead, it consumes data from an outside source.
+
+!!! Note
+    A service pipeline cannot be configured as a spout,
+    but **a spout can have a service added to it**
+    by adding the `service` attribute to the `spout` field.
+    In that case, Kubernetes creates
+    a service endpoint that you can expose externally. 
+    You can get the information
+    about the service by running `kubectl get services`.
 
 For more information, see [Spouts](../concepts/pipeline-concepts/pipeline/spout.md).
 
@@ -1025,39 +1075,15 @@ formatted patch by diffing the two pod specs.
 
 ## The Input Glob Pattern
 
-Each PFS input needs to specify a [glob pattern](../../concepts/pipeline-concepts/datum/glob-pattern/).
+Each PFS input needs to **specify a [glob pattern](../../concepts/pipeline-concepts/datum/glob-pattern/)**.
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
-consists of.  Datums are the unit of parallelism in Pachyderm.  That is,
-Pachyderm attempts to process datums in parallel whenever possible.
+consists of.  [Datums](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/#datum) are the *unit of parallelism* in Pachyderm.  
+Per default,
+Pachyderm auto-scales its workers to process datums in parallel. 
+You can override this behaviour by setting your own parameter
+(see [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/)).
 
-Intuitively, you may think of the input repo as a file system, and you are
-applying the glob pattern to the root of the file system.  The files and
-directories that match the glob pattern are considered datums.
-
-For instance, let's say your input repo has the following structure:
-
-```
-/foo-1
-/foo-2
-/bar
-  /bar-1
-  /bar-2
-```
-
-Now let's consider what the following glob patterns would match respectively:
-
-* `/`: this pattern matches `/`, the root directory itself, meaning all the data would be a single large datum.
-* `/*`:  this pattern matches everything under the root directory given us 3 datums:
-`/foo-1.`, `/foo-2.`, and everything under the directory `/bar`.
-* `/bar/*`: this pattern matches files only under the `/bar` directory: `/bar-1` and `/bar-2`
-* `/foo*`:  this pattern matches files under the root directory that start with the characters `foo`
-* `/*/*`:  this pattern matches everything that's two levels deep relative
-to the root: `/bar/bar-1` and `/bar/bar-2`
-
-The datums are defined as whichever files or directories match by the glob pattern. For instance, if we used
-`/*`, then the job will process three datums (potentially in parallel):
-`/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker.
 
 ## PPS Mounts and File Access
 

@@ -2,429 +2,238 @@ package chain
 
 import (
 	"context"
-	"reflect"
+	"os"
+	"path/filepath"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
-	"github.com/pachyderm/pachyderm/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
 
-// DatumHasher is an interface to provide datum hashing without any external
-// dependencies (such as on the pipelineInfo).
-type DatumHasher interface {
-	// Hash should essentially wrap the common.HashDatum function, but other
-	// implementations may be useful in tests.
-	Hash([]*common.Input) string
+// TODO: More documentation.
+
+// JobChain manages a chain of jobs.
+type JobChain struct {
+	pachClient *client.APIClient
+	hasher     datum.Hasher
+	base       datum.Iterator
+	noSkip     bool
+	prevJob    *JobDatumIterator
 }
 
-// JobData is an interface which is used as a key to refer to a job within the
-// JobChain. It must provide a constructor for the datum iterator used by the
-// chain to produce the JobDatumIterator.
-type JobData interface {
-	// Iterator constructs the datum.Iterator associated with the job
-	Iterator() (datum.Iterator, error)
-}
-
-// JobDatumIterator is the interface returned by the JobChain corresponding to a
-// JobData. This acts similarly to a datum.Iterator, but has slightly different
-// semantics. This iterator works in batches, although iteration is still
-// performed one datum at a time, the batch sizes let the user know how many
-// datums can be consumed without blocking on upstream jobs. This iterator does
-// not support random access, although it can be reset if the user needs to
-// reiterate over the datums.
-type JobDatumIterator interface {
-	// NextBatch blocks until the next batch of datums are available
-	// (corresponding to an upstream job finishing in some way), and returns the
-	// number of datums that can now be iterated through.
-	NextBatch(context.Context) (int64, error)
-
-	// NextDatum advances the iterator and returns the next available datum. If no
-	// such datum is immediately available, nil will be returned.
-	NextDatum() ([]*common.Input, int64)
-
-	// AdditiveOnly indicates if the job output can be merged with the parent
-	// job's output commit. If this is true, the iterator will not provide all
-	// datums for the output commit, but rather the set of datums that have been
-	// added.
-	AdditiveOnly() bool
-
-	// DatumSet returns the set of datums that have been produced for this job. If
-	// any datums have been recovered (see JobChain.RecoveredDatums), they will be
-	// excluded from this set.
-	DatumSet() DatumSet
-
-	// MaxLen returns the length of the underlying datum.Iterator. This kinda
-	// sucks but is necessary to know how many datums were skipped in the case of
-	// AdditiveOnly=true.
-	MaxLen() int64
-
-	// Reset will reset the underlying data structures so that iteration can be
-	// performed from the start again. There is no guarantee that the datums will
-	// be provided in the same order, as some datums may no longer be blocked on
-	// subsequent iterations.
-	Reset()
-}
-
-// JobChain is an for coordinating concurrency between jobs. It tracks multiple
-// jobs via their JobData interface, and provides a JobDatumIterator for them to
-// safely process datums without worrying about work being duplicated or
-// invalidated. Dependencies between jobs are based on the order in which they
-// are added, so care should be taken to not introduce race conditions when
-// starting jobs.
-type JobChain interface {
-	// Start adds a new job to the chain and returns the corresponding
-	// JobDatumIterator
-	Start(jd JobData) (JobDatumIterator, error)
-
-	// RecoveredDatums indicates the set of recovered datums for the job. This can
-	// be called multiple times.
-	RecoveredDatums(jd JobData, recoveredDatums DatumSet) error
-
-	// Succeed indicates that the job has finished successfully
-	Succeed(jd JobData) error
-
-	// Fail indicates that the job has finished unsuccessfully
-	Fail(jd JobData) error
-}
-
-// DatumSet is a data structure used to track the set of datums in a job.
-// Multiple identical datums may be present in a job (so this is more of a
-// Multiset), but w/e.
-type DatumSet map[string]int64
-
-type jobDatumIterator struct {
-	data JobData
-	jc   *jobChain
-
-	// TODO: lower memory consumption - all these datumsets might result in a
-	// really large memory footprint. See if we can do a streaming interface to
-	// replace these - will likely require the new storage layer, as additive-only
-	// jobs need this stuff the most.
-	yielding  DatumSet // Datums that may be yielded as the iterator progresses
-	yielded   DatumSet // Datums that have been yielded
-	allDatums DatumSet // All datum hashes from the datum iterator
-
-	ancestors []*jobDatumIterator
-	dit       datum.Iterator
-	ditIndex  int
-
-	finished     bool
-	additiveOnly bool
-	done         chan struct{}
-}
-
-type jobChain struct {
-	mutex  sync.Mutex
-	hasher DatumHasher
-	jobs   []*jobDatumIterator
-}
-
-// NewJobChain constructs a JobChain
-func NewJobChain(hasher DatumHasher, baseDatums DatumSet) JobChain {
-	jc := &jobChain{
-		hasher: hasher,
+// NewJobChain creates a new job chain.
+// TODO: We should probably pipe a context through here.
+func NewJobChain(pachClient *client.APIClient, hasher datum.Hasher, opts ...JobChainOption) *JobChain {
+	jc := &JobChain{
+		pachClient: pachClient,
+		hasher:     hasher,
 	}
-
-	// Insert a dummy job representing the given base datum set
-	jdi := &jobDatumIterator{
-		data:      nil,
-		jc:        jc,
-		allDatums: baseDatums,
-		finished:  true,
-		done:      make(chan struct{}),
-		ditIndex:  -1,
+	for _, opt := range opts {
+		opt(jc)
 	}
-	close(jdi.done)
-
-	jc.jobs = []*jobDatumIterator{jdi}
+	if jc.base != nil {
+		// Insert a dummy job representing the given base datum set
+		jdi := &JobDatumIterator{
+			jc:        jc,
+			dit:       jc.base,
+			outputDit: jc.base,
+			done:      make(chan struct{}),
+		}
+		close(jdi.done)
+		jc.prevJob = jdi
+	}
 	return jc
 }
 
-// recalculate is called whenever jdi.yielding is empty (either at init or when
-// a blocking ancestor job has finished), to repopulate it.
-func (jdi *jobDatumIterator) recalculate(allAncestors []*jobDatumIterator) {
-	jdi.ancestors = []*jobDatumIterator{}
-	interestingAncestors := map[*jobDatumIterator]struct{}{}
-	for hash, count := range jdi.allDatums {
-		if yieldedCount, ok := jdi.yielded[hash]; ok {
-			if count-yieldedCount > 0 {
-				jdi.yielding[hash] = count - yieldedCount
-			}
-			continue
-		}
-
-		safeToProcess := true
-		// interestingAncestors should be _all_ unfinished previous jobs which have
-		// _any_ datum overlap with this job
-		for _, ancestor := range allAncestors {
-			if !ancestor.finished {
-				if _, ok := ancestor.allDatums[hash]; ok {
-					interestingAncestors[ancestor] = struct{}{}
-					safeToProcess = false
-				}
-			}
-		}
-
-		if safeToProcess {
-			jdi.yielding[hash] = count
-		}
-	}
-
-	var parentJob *jobDatumIterator
-	for i := len(allAncestors) - 1; i >= 0; i-- {
-		// Skip all failed jobs
-		if allAncestors[i].allDatums != nil {
-			parentJob = allAncestors[i]
-			break
-		}
-	}
-
-	// If this job is additive-only from the parent job, we should mark it now -
-	// loop over parent datums to see if they are all present
-	jdi.additiveOnly = true
-	for hash, parentCount := range parentJob.allDatums {
-		if count, ok := jdi.allDatums[hash]; !ok || count < parentCount {
-			jdi.additiveOnly = false
-			break
-		}
-	}
-
-	if jdi.additiveOnly {
-		// If this is additive-only, we only need to enqueue new datums (since the parent job)
-		for hash, count := range jdi.yielding {
-			if parentCount, ok := parentJob.allDatums[hash]; ok {
-				if count == parentCount {
-					delete(jdi.yielding, hash)
-				} else {
-					jdi.yielding[hash] = count - parentCount
-				}
-			}
-		}
-		// An additive-only job can only progress once its parent job has finished.
-		// At that point it will re-evaluate what datums to process in case of a
-		// failed job or recovered datums.
-		if !parentJob.finished {
-			jdi.ancestors = append(jdi.ancestors, parentJob)
-		}
-	} else {
-		for ancestor := range interestingAncestors {
-			jdi.ancestors = append(jdi.ancestors, ancestor)
-		}
-	}
-}
-
-func (jc *jobChain) Start(jd JobData) (JobDatumIterator, error) {
-	dit, err := jd.Iterator()
-	if err != nil {
-		return nil, err
-	}
-
-	jdi := &jobDatumIterator{
-		data:      jd,
+// CreateJob creates a job in the job chain.
+// TODO: Context should be associated with the iteration, but need to change datum iterator interface for that.
+func (jc *JobChain) CreateJob(ctx context.Context, jobID string, dit, outputDit datum.Iterator) *JobDatumIterator {
+	jdi := &JobDatumIterator{
+		ctx:       ctx,
 		jc:        jc,
-		yielding:  make(DatumSet),
-		yielded:   make(DatumSet),
-		allDatums: make(DatumSet),
-		ancestors: []*jobDatumIterator{},
-		dit:       dit,
-		ditIndex:  -1,
+		parent:    jc.prevJob,
+		jobID:     jobID,
+		stats:     &datum.Stats{ProcessStats: &pps.ProcessStats{}},
+		dit:       datum.NewJobIterator(dit, jobID, jc.hasher),
+		outputDit: outputDit,
 		done:      make(chan struct{}),
 	}
-
-	jdi.dit.Reset()
-	for jdi.dit.Next() {
-		inputs := jdi.dit.Datum()
-		hash := jc.hasher.Hash(inputs)
-		jdi.allDatums[hash]++
-	}
-	jdi.dit.Reset()
-
-	jc.mutex.Lock()
-	defer jc.mutex.Unlock()
-
-	jdi.recalculate(jc.jobs)
-
-	jc.jobs = append(jc.jobs, jdi)
-	return jdi, nil
+	jc.prevJob = jdi
+	return jdi
 }
 
-func (jc *jobChain) indexOf(jd JobData) (int, error) {
-	for i, x := range jc.jobs {
-		if x.data == jd {
-			return i, nil
+// JobDatumIterator provides a way to iterate through the datums in a job.
+type JobDatumIterator struct {
+	ctx            context.Context
+	jc             *JobChain
+	parent         *JobDatumIterator
+	jobID          string
+	stats          *datum.Stats
+	dit, outputDit datum.Iterator
+	finishOnce     sync.Once
+	done           chan struct{}
+	deleter        func(*datum.Meta) error
+}
+
+// SetDeleter sets the deleter callback for the iterator.
+// TODO: There should be a way to handle this through callbacks, but this would require some more changes to the registry.
+func (jdi *JobDatumIterator) SetDeleter(deleter func(*datum.Meta) error) {
+	jdi.deleter = deleter
+}
+
+// Iterate iterates through the datums for the job.
+// This algorithm is split into two parts: before the parent job finishes and after.
+// For each part, we create an output datum fileset that is lexicographically ordered with respect to the order in which the datums were output by the datum iterator (this is implemented through the datum index prefix).
+// For the part before the parent job finishes, we create an output datum fileset for the datums that only exist in the current job and record the datums we could potentially skip in a datum fileset.
+// For the part after the parent job finishes, we use the potentially skipped datum fileset and check it against the parent's output datum fileset to see if we can actually skip the datums. We create an output datum fileset for the datums that we are unable to skip.
+// TODO: There is probably a clean way to cache the output datum filesets so we do not need to recompute them across iterations.
+func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
+	jdi.stats.Skipped = 0
+	for {
+		if jdi.parent == nil {
+			return jdi.dit.Iterate(cb)
 		}
-	}
-	return 0, errors.New("job not found in job chain")
-}
-
-func (jc *jobChain) cleanFinishedJobs() {
-	for len(jc.jobs) > 1 && jc.jobs[1].finished {
-		if jc.jobs[1].allDatums != nil {
-			jc.jobs[0].allDatums = jc.jobs[1].allDatums
-		}
-		jc.jobs = append(jc.jobs[:1], jc.jobs[2:]...)
-	}
-}
-
-func (jc *jobChain) Fail(jd JobData) error {
-	jc.mutex.Lock()
-	defer jc.mutex.Unlock()
-
-	index, err := jc.indexOf(jd)
-	if err != nil {
-		return err
-	}
-
-	jdi := jc.jobs[index]
-
-	if jdi.finished {
-		return errors.New("cannot fail a job that is already finished")
-	}
-
-	jdi.allDatums = nil
-	jdi.finished = true
-	close(jdi.done)
-
-	jc.cleanFinishedJobs()
-
-	return nil
-}
-
-func (jc *jobChain) RecoveredDatums(jd JobData, recoveredDatums DatumSet) error {
-	jc.mutex.Lock()
-	defer jc.mutex.Unlock()
-
-	index, err := jc.indexOf(jd)
-	if err != nil {
-		return err
-	}
-
-	jdi := jc.jobs[index]
-
-	for hash := range recoveredDatums {
-		delete(jdi.allDatums, hash)
-	}
-
-	return nil
-}
-
-func (jc *jobChain) Succeed(jd JobData) error {
-	jc.mutex.Lock()
-	defer jc.mutex.Unlock()
-
-	index, err := jc.indexOf(jd)
-	if err != nil {
-		return err
-	}
-
-	jdi := jc.jobs[index]
-
-	if jdi.finished {
-		return errors.New("cannot succeed a job that is already finished")
-	}
-
-	if len(jdi.yielding) != 0 || len(jdi.ancestors) > 0 {
-		return errors.Errorf(
-			"cannot succeed a job with items remaining on the iterator: %d datums and %d ancestor jobs",
-			len(jdi.yielding), len(jdi.ancestors),
-		)
-	}
-
-	jdi.finished = true
-	jc.cleanFinishedJobs()
-	close(jdi.done)
-	return nil
-}
-
-// TODO: iteration should return a chunk of 'known' new datums before other
-// datums (to optimize for distributing processing across workers). This should
-// still be true even after resetting the iterator.
-func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (int64, error) {
-	for len(jdi.yielding) == 0 {
-		if len(jdi.ancestors) == 0 {
-			return 0, nil
-		}
-
-		// Wait on an ancestor job
-		cases := make([]reflect.SelectCase, 0, len(jdi.ancestors)+1)
-		for _, x := range jdi.ancestors {
-			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(x.done)})
-		}
-		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())})
-
-		// Wait for an ancestor job to finish, then remove it from our dependencies
-		selectIndex, _, _ := reflect.Select(cases)
-		if selectIndex == len(cases)-1 {
-			return 0, ctx.Err()
-		}
-
-		if err := func() error {
-			jdi.jc.mutex.Lock()
-			defer jdi.jc.mutex.Unlock()
-
-			if jdi.finished {
-				return errors.New("stopping datum iteration because job failed")
+		if err := jdi.parent.dit.Iterate(func(_ *datum.Meta) error { return nil }); err != nil {
+			if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+				jdi.parent = jdi.parent.parent
+				continue
 			}
-
-			index, err := jdi.jc.indexOf(jdi.data)
-			if err != nil {
+			return err
+		}
+		break
+	}
+	pachClient := jdi.jc.pachClient.WithCtx(jdi.ctx)
+	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		pachClient = pachClient.WithCtx(ctx)
+		// Upload the datums from the current job and parent job datum iterators into the datum fileset format.
+		filesetID, err := jdi.uploadDatumFileset(pachClient, jdi.dit)
+		if err != nil {
+			return err
+		}
+		renewer.Add(filesetID)
+		parentFilesetID, err := jdi.uploadDatumFileset(pachClient, jdi.parent.dit)
+		if err != nil {
+			return err
+		}
+		renewer.Add(parentFilesetID)
+		// Create the output datum fileset for the new datums (datums that do not exist in the parent job).
+		// TODO: Logging?
+		var outputFilesetID string
+		skippedFilesetID, err := jdi.withDatumFileset(pachClient, func(skippedSet *datum.Set) error {
+			filesetIterator := datum.NewFileSetIterator(pachClient, filesetID)
+			parentFilesetIterator := datum.NewFileSetIterator(pachClient, parentFilesetID)
+			var err error
+			if outputFilesetID, err = jdi.withDatumFileset(pachClient, func(outputSet *datum.Set) error {
+				return datum.Merge([]datum.Iterator{parentFilesetIterator, filesetIterator}, func(metas []*datum.Meta) error {
+					if len(metas) == 1 {
+						if metas[0].JobID != jdi.jobID {
+							return nil
+						}
+						return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
+					}
+					if jdi.skippableDatum(metas[0], metas[1]) {
+						jdi.stats.Skipped++
+						return skippedSet.UploadMeta(metas[0])
+					}
+					return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
+				})
+			}); err != nil {
 				return err
 			}
-
-			jdi.recalculate(jdi.jc.jobs[:index])
+			renewer.Add(outputFilesetID)
 			return nil
-		}(); err != nil {
-			return 0, err
+		})
+		if err != nil {
+			return err
 		}
-
-		jdi.ditIndex = -1
-	}
-
-	batchSize := int64(0)
-	for _, count := range jdi.yielding {
-		batchSize += count
-	}
-
-	return batchSize, nil
-}
-
-func (jdi *jobDatumIterator) NextDatum() ([]*common.Input, int64) {
-	jdi.ditIndex++
-	for jdi.ditIndex < jdi.dit.Len() {
-		inputs := jdi.dit.DatumN(jdi.ditIndex)
-		hash := jdi.jc.hasher.Hash(inputs)
-		if count, ok := jdi.yielding[hash]; ok {
-			if count == 1 {
-				delete(jdi.yielding, hash)
-			} else {
-				jdi.yielding[hash]--
-			}
-			jdi.yielded[hash]++
-			return inputs, int64(jdi.ditIndex)
+		renewer.Add(skippedFilesetID)
+		if err := datum.NewFileSetIterator(pachClient, outputFilesetID).Iterate(cb); err != nil {
+			return err
 		}
-		jdi.ditIndex++
+		select {
+		case <-jdi.parent.done:
+		case <-jdi.ctx.Done():
+			return jdi.ctx.Err()
+		}
+		// Create the output datum fileset for the skipped datums that were not processed by the parent (failed, recovered, etc.).
+		// Also create deletion operations appropriately.
+		skippedFilesetIterator := datum.NewFileSetIterator(pachClient, skippedFilesetID)
+		outputFilesetID, err = jdi.withDatumFileset(pachClient, func(s *datum.Set) error {
+			return datum.Merge([]datum.Iterator{jdi.parent.outputDit, skippedFilesetIterator}, func(metas []*datum.Meta) error {
+				if len(metas) == 1 {
+					// Datum was skipped, but does not exist in the parent job output.
+					if metas[0].JobID == jdi.jobID {
+						jdi.stats.Skipped--
+						return s.UploadMeta(metas[0], datum.WithPrefixIndex())
+					}
+					// Datum only exists in the parent job.
+					return jdi.deleteDatum(metas[0])
+				}
+				// Check if a skipped datum was not successfully processed by the parent.
+				if !jdi.skippableDatum(metas[0], metas[1]) {
+					jdi.stats.Skipped--
+					if err := jdi.deleteDatum(metas[1]); err != nil {
+						return err
+					}
+					return s.UploadMeta(metas[0], datum.WithPrefixIndex())
+				}
+				return nil
+			})
+		})
+		if err != nil {
+			return err
+		}
+		renewer.Add(outputFilesetID)
+		return datum.NewFileSetIterator(pachClient, outputFilesetID).Iterate(cb)
+	})
+}
+
+func (jdi *JobDatumIterator) uploadDatumFileset(pachClient *client.APIClient, dit datum.Iterator) (string, error) {
+	return jdi.withDatumFileset(pachClient, func(s *datum.Set) error {
+		return dit.Iterate(func(meta *datum.Meta) error {
+			return s.UploadMeta(meta)
+		})
+	})
+}
+
+func (jdi *JobDatumIterator) withDatumFileset(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
+	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
+		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
+		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(mf))
+	})
+	if err != nil {
+		return "", err
 	}
-
-	return nil, 0
+	return resp.FilesetId, nil
 }
 
-func (jdi *jobDatumIterator) Reset() {
-	jdi.ditIndex = -1
-	for hash, count := range jdi.yielded {
-		delete(jdi.yielded, hash)
-		jdi.yielding[hash] += count
+func (jdi *JobDatumIterator) deleteDatum(meta *datum.Meta) error {
+	if jdi.deleter == nil {
+		return nil
 	}
+	return jdi.deleter(meta)
 }
 
-func (jdi *jobDatumIterator) MaxLen() int64 {
-	return int64(jdi.dit.Len())
+func (jdi *JobDatumIterator) skippableDatum(meta1, meta2 *datum.Meta) bool {
+	if jdi.jc.noSkip {
+		return false
+	}
+	// If the hashes are equal and the second datum was processed, then skip it.
+	return meta1.Hash == meta2.Hash && meta2.State == datum.State_PROCESSED
 }
 
-func (jdi *jobDatumIterator) DatumSet() DatumSet {
-	return jdi.allDatums
+// Stats returns the stats for the most recent iteration.
+func (jdi *JobDatumIterator) Stats() *datum.Stats {
+	return jdi.stats
 }
 
-func (jdi *jobDatumIterator) AdditiveOnly() bool {
-	return jdi.additiveOnly
+// Finish finishes the job in the job chain.
+func (jdi *JobDatumIterator) Finish() {
+	jdi.finishOnce.Do(func() {
+		close(jdi.done)
+	})
 }

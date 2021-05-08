@@ -3,8 +3,8 @@ package testing
 import (
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 )
 
 // InactiveAPIServer (in the auth/testing package) is an implementation of the
@@ -23,28 +23,63 @@ func (a *InactiveAPIServer) Deactivate(context.Context, *auth.DeactivateRequest)
 	return nil, auth.ErrNotActivated
 }
 
-// GetAdmins implements the GetAdmins RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetAdmins(context.Context, *auth.GetAdminsRequest) (*auth.GetAdminsResponse, error) {
+// GetRoleBinding implements the GetRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetRoleBinding(context.Context, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
-// GetClusterRoleBindings implements the GetClusterRoleBindings RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetClusterRoleBindings(context.Context, *auth.GetClusterRoleBindingsRequest) (*auth.GetClusterRoleBindingsResponse, error) {
+// ModifyRoleBinding implements the ModifyRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyRoleBinding(context.Context, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
-// ModifyClusterRoleBinding implements the ModifyClusterRoleBinding RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ModifyClusterRoleBinding(context.Context, *auth.ModifyClusterRoleBindingRequest) (*auth.ModifyClusterRoleBindingResponse, error) {
+// GetRoleBindingInTransaction implements the GetRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetRoleBindingInTransaction(*txnenv.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
-// ModifyAdmins implements the ModifyAdmins RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ModifyAdmins(context.Context, *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error) {
+// ModifyRoleBindingInTransaction implements the ModifyRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyRoleBindingInTransaction(*txnenv.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
 	return nil, auth.ErrNotActivated
+}
+
+// AddPipelineReaderToRepoInTransaction implements the AddPipelineReaderToRepoInTransaction internal API
+func (a *InactiveAPIServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+	return auth.ErrNotActivated
+}
+
+// AddPipelineWriterToRepoInTransaction implements the AddPipelineWriterToRepoInTransaction internal API
+func (a *InactiveAPIServer) AddPipelineWriterToRepoInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) error {
+	return auth.ErrNotActivated
+}
+
+// RemovePipelineReaderToRepoInTransaction implements the RemovePipelineReaderToRepoInTransaction internal API
+func (a *InactiveAPIServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+	return auth.ErrNotActivated
+}
+
+// CreateRoleBindingInTransaction implements the CreateRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) CreateRoleBindingInTransaction(*txnenv.TransactionContext, string, []string, *auth.Resource) error {
+	return auth.ErrNotActivated
+}
+
+// DeleteRoleBindingInTransaction implements the DeleteRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) DeleteRoleBindingInTransaction(*txnenv.TransactionContext, *auth.Resource) error {
+	return auth.ErrNotActivated
 }
 
 // Authenticate implements the Authenticate RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) Authenticate(context.Context, *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetPermissions implements the GetPermissions RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetPermissions(context.Context, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetPermissionsForPrincipal implements the GetPermissions RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetPermissionsForPrincipal(context.Context, *auth.GetPermissionsForPrincipalRequest) (*auth.GetPermissionsResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
@@ -64,67 +99,18 @@ func (a *InactiveAPIServer) WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.
 	return nil, auth.ErrNotActivated
 }
 
-// SetScope implements the SetScope RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) SetScope(context.Context, *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
+// GetRobotToken implements the GetRobotToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetRobotToken(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
-// SetScopeInTransaction is the same as the SetScope RPC but for use inside a
-// running transaction.  It also returns a NotActivatedError.
-func (a *InactiveAPIServer) SetScopeInTransaction(*txnenv.TransactionContext, *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetScope implements the GetScope RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetScope(context.Context, *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetScopeInTransaction is the same as the GetScope RPC but for use inside a
-// running transaction.  It also returns a NotActivatedError.
-func (a *InactiveAPIServer) GetScopeInTransaction(*txnenv.TransactionContext, *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetACL implements the GetACL RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetACL(context.Context, *auth.GetACLRequest) (*auth.GetACLResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetACLInTransaction is the same as the GetACL RPC but for use inside a
-// running transaction.  It also returns a NotActivatedError.
-func (a *InactiveAPIServer) GetACLInTransaction(*txnenv.TransactionContext, *auth.GetACLRequest) (*auth.GetACLResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// SetACL implements the SetACL RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) SetACL(context.Context, *auth.SetACLRequest) (*auth.SetACLResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// SetACLInTransaction is the same as the SetACL RPC but for use inside a
-// running transaction.  It also returns a NotActivatedError.
-func (a *InactiveAPIServer) SetACLInTransaction(*txnenv.TransactionContext, *auth.SetACLRequest) (*auth.SetACLResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetAuthToken implements the GetAuthToken RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetAuthToken(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetAuthTokenInTransaction is the same as GetAuthToken but for use inside a running transaction.
-func (a *InactiveAPIServer) GetAuthTokenInTransaction(*txnenv.TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
-	return nil, auth.ErrNotActivated
+// GetPipelineAuthTokenInTransaction is the same as GetAuthToken but for use inside a running transaction.
+func (a *InactiveAPIServer) GetPipelineAuthTokenInTransaction(*txnenv.TransactionContext, string) (string, error) {
+	return "", auth.ErrNotActivated
 }
 
 // GetOIDCLogin implements the GetOIDCLogin RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetOIDCLogin(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// ExtendAuthToken implements the ExtendAuthToken RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ExtendAuthToken(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
@@ -135,6 +121,11 @@ func (a *InactiveAPIServer) RevokeAuthToken(context.Context, *auth.RevokeAuthTok
 
 // RevokeAuthTokenInTransaction is the same as RevokeAuthToken but for use inside a running transaction
 func (a *InactiveAPIServer) RevokeAuthTokenInTransaction(*txnenv.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// RevokeAuthTokensForUser implements the RevokeAuthTokensForUser RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) RevokeAuthTokensForUser(context.Context, *auth.RevokeAuthTokensForUserRequest) (*auth.RevokeAuthTokensForUserResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
@@ -153,6 +144,11 @@ func (a *InactiveAPIServer) GetGroups(context.Context, *auth.GetGroupsRequest) (
 	return nil, auth.ErrNotActivated
 }
 
+// GetGroupsForPrincipal implements the GetGroups RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetGroupsForPrincipal(context.Context, *auth.GetGroupsForPrincipalRequest) (*auth.GetGroupsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // GetUsers implements the GetUsers RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetUsers(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -168,11 +164,6 @@ func (a *InactiveAPIServer) GetConfiguration(context.Context, *auth.GetConfigura
 	return nil, auth.ErrNotActivated
 }
 
-// GetOneTimePassword implements the GetOneTimePassword RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetOneTimePassword(context.Context, *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
 // ExtractAuthTokens implements the ExtractAuthTokens RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) ExtractAuthTokens(context.Context, *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -180,5 +171,10 @@ func (a *InactiveAPIServer) ExtractAuthTokens(context.Context, *auth.ExtractAuth
 
 // RestoreAuthToken implements the RestoreAuthToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) RestoreAuthToken(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// RestoreAuthToken implements the RestoreAuthToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) DeleteExpiredAuthTokens(context.Context, *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
 	return nil, auth.ErrNotActivated
 }

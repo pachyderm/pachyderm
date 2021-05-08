@@ -8,25 +8,15 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 // Note: these are stubs only meant for tests - the worker does not run on windows
 
 func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
 	return nil
-}
-
-// Note: this function only exists for tests, the real system uses a fifo for
-// this (which does not exist in the normal filesystem on Windows)
-func createSpoutFifo(path string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	return file.Close()
 }
 
 // WithActiveData is implemented differently in unix vs windows because of how
@@ -68,14 +58,6 @@ func (d *driver) moveData(inputs []*common.Input, dir string) error {
 			if err := os.Rename(src, dst); err != nil {
 				return err
 			}
-		}
-	}
-
-	if d.PipelineInfo().Spout != nil && d.PipelineInfo().Spout.Marker != "" {
-		src := filepath.Join(dir, d.PipelineInfo().Spout.Marker)
-		dst := filepath.Join(d.InputDir(), d.PipelineInfo().Spout.Marker)
-		if err := os.Rename(src, dst); err != nil {
-			return err
 		}
 	}
 

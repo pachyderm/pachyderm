@@ -1,125 +1,126 @@
 # Upgrade Pachyderm
 
-If you need to upgrade Pachyderm from one major version
-to another, such as from `1.10.x` to `1.11.x`, follow the
-instructions in the [Migrate between major versions](./migrations.md).
+!!! Info
+      If you need to upgrade Pachyderm between major versions,
+      such as from `1.12.2` to `2.0.0`, follow the
+      instructions in the [Migrate between major versions](./migrations.md).
 
-Upgrades from one minor version to another, such as from version `1.11.0` to
-version `{{ config.pach_latest_version }}` do not introduce breaking changes. Therefore, the upgrade
+Upgrades between minor releases or point releases, such as from version `1.12.5` to
+version `1.13.0` do not introduce breaking changes. Therefore, the upgrade
 procedure is simple and requires little to no downtime.
 
-!!! warning
+!!! Warning
     Do not use these steps to upgrade between major versions because
     it might result in data corruption.
 
-To upgrade Pachyderm to a minor version, complete the following steps:
+To upgrade Pachyderm from one minor release to another, complete the following steps:
 
-1. Back up your cluster as described in the [Backup and Restore](../backup_restore/#general-backup-procedure)
+1. Back up your cluster as described in the [Backup and Restore](../backup_restore/#backup-your-cluster)
 section.
 
 1. Destroy your Pachyderm cluster:
 
-   ```
-   pachctl undeploy
-   ```
+      ```shell
+      pachctl undeploy
+      ```
 
 1. Upgrade `pachctl` by using `brew` for macOS or `apt` for Linux:
 
-   **Example:**
+      **Example:**
 
-   ```shell
-   brew upgrade pachyderm/tap/pachctl@1.11
-   ```
+      ```shell
+      brew upgrade pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
+      ```
 
-   **System response:**
+      **System response:**
 
-   ```shell
-   ==> Upgrading 1 outdated package:
-   pachyderm/tap/pachctl@1.11
-   ==> Upgrading pachyderm/tap/pachctl@1.11
-   ...
-   ```
+      ```shell
+      ==> Upgrading 1 outdated package:
+      pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
+      ==> Upgrading pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
+      ...
+      ```
 
-   **Note:** You need to specify the version of `pachctl` to which
-   you want to upgrade. For example, if you want to upgrade `1.11.0` to
-   `{{ config.pach_latest_version }}`, add `@1.9` at the end of the upgrade path.
+      **Note:** You need to specify the major/minor version of `pachctl` to which
+      you want to upgrade. For example, if you want to upgrade `1.12.0` to
+      the latest point release of the 1.12, add `@1.12` at the end of the upgrade path.
 
 1. Confirm that the new version has been successfully installed by running
 the following command:
 
-   ```shell
-   pachctl version --client-only
-   ```
+      ```shell
+      pachctl version --client-only
+      ```
 
-   **System response:**
+      **System response:**
 
-   ```shell
-   COMPONENT           VERSION
-   pachctl             {{ config.pach_latest_version }}
-   ```
+      ```shell
+      COMPONENT           VERSION
+      pachctl             {{ config.pach_latest_version }}
+      ```
 
 1. Redeploy Pachyderm by running the `pachctl deploy` command
 with the same arguments, fields, and storage resources
 that you specified when you deployed the previous version
 of Pachyderm:
 
-   ```shell
-   pachctl deploy <args>
-   ```
+      ```shell
+      pachctl deploy <args>
+      ```
 
-   **System response:**
+      **System response:**
 
-   ```shell
-   serviceaccount "pachyderm" created
-   storageclass "etcd-storage-class" created
-   service "etcd-headless" created
-   statefulset "etcd" created
-   service "etcd" created
-   service "pachd" created
-   deployment "pachd" created
-   service "dash" created
-   deployment "dash" created
-   secret "pachyderm-storage-secret" created
+      ```shell
+      serviceaccount "pachyderm" created
+      storageclass "etcd-storage-class" created
+      service "etcd-headless" created
+      statefulset "etcd" created
+      service "etcd" created
+      service "pachd" created
+      deployment "pachd" created
+      service "dash" created
+      deployment "dash" created
+      secret "pachyderm-storage-secret" created
 
-   Pachyderm is launching. Check its status with "kubectl get all"
-   Once launched, access the dashboard by running "pachctl port-forward"
-   ```
+      Pachyderm is launching. Check its status with "kubectl get all"
+      Once launched, access the dashboard by running "pachctl port-forward"
+      ```
 
-   The deployment takes some time. You can run `kubectl get pods` periodically
-   to check the status of the deployment. When Pachyderm is deployed, the command
-   shows all pods as `READY`:
+      The deployment takes some time. You can run `kubectl get pods` periodically
+      to check the status of the deployment. When Pachyderm is deployed, the command
+      shows all pods as `READY`:
 
 
-   ```shell
-   kubectl get pods
-   ```
+      ```shell
+      kubectl get pods
+      ```
 
-   **System response:**
+      **System response:**
 
-   ```shell
-   NAME                     READY     STATUS    RESTARTS   AGE
-   dash-482120938-np8cc     2/2       Running   0          4m
-   etcd-0                   1/1       Running   0          4m
-   pachd-3677268306-9sqm0   1/1       Running   0          4m
-   ```
+      ```shell
+      NAME                     READY     STATUS    RESTARTS   AGE
+      dash-482120938-np8cc     2/2       Running   0          4m
+      etcd-0                   1/1       Running   0          4m
+      pachd-3677268306-9sqm0   1/1       Running   0          4m
+      ```
 
 1. Verify that the new version has been deployed:
 
-   ```shell
-   pachctl version
-   ```
+      ```shell
+      pachctl version
+      ```
 
-   **System response:**
+      **System response:**
 
-   ```shell
-   COMPONENT           VERSION
-   pachctl             {{ config.pach_latest_version }}
-   pachd               {{ config.pach_latest_version }}
-   ```
+      ```shell
+      COMPONENT           VERSION
+      pachctl             {{ config.pach_latest_version }}
+      pachd               {{ config.pach_latest_version }}
+      ```
 
-   The `pachd` and `pachctl` versions must both match the new version.
+      The `pachd` and `pachctl` versions must both match the new version.
 
-## Troubleshooting Minor Upgrades
+## Troubleshooting point release Upgrades
 
 <!-- We might want to move this section to Troubleshooting -->
 
@@ -134,9 +135,10 @@ It can use Persistent Volume Provisioning or pre-provisioned PV’s,
 both of which are dynamically allocated from Pachyderm's point of view.
 Thus, the `--dynamic-etcd-nodes` flag to `pachctl deploy` is used to deploy Pachyderm using StatefulSets.
 
-It is recommended that you deploy Pachyderm using StatefulSets when possible. 
-All of the instructions for cloud provider deployments do this by default.
-We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
+!!! Tip 
+      It is recommended that you deploy Pachyderm using StatefulSets when possible. 
+      All of the instructions for cloud provider deployments do this by default.
+      We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
 
 If you have deployed Pachyderm using StatefulSets, 
 you can still use the *same* deploy command to re-deploy Pachyderm. 
@@ -154,9 +156,9 @@ or re-deploying all of Pachyderm again will fix the issue.
 
 Occasionally, you might see errors similar to the following:
 
-```
-Error from server (AlreadyExists): error when creating "STDIN": secrets "pachyderm-storage-secret" already exists
-```
+   ```shell
+   Error from server (AlreadyExists): error when creating "STDIN": secrets "pachyderm-storage-secret" already exists
+   ```
 
 This might happen when re-deploying the enterprise dashboard, for example. These warning are benign.
 
@@ -168,8 +170,12 @@ the IP address for Pachyderm may have changed.
 
 To fix problems with connections to `pachd` after upgrading, you can perform the appropriate remedy for your situation:
 
-- Re-run `pachctl port-forward &`, or
-- Set the pachd address config value to the updated value, e.g.: ```pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650```
+- Re-run `pachctl port-forward`, or
+- Set the pachd address config value to the updated value, e.g.:
+ 
+```shell
+pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
+```
 
 
 

@@ -6,11 +6,11 @@ import (
 	"io"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/gogo/protobuf/types"
 )
@@ -65,6 +65,9 @@ const (
 	OutputCommitIDEnv = "PACH_OUTPUT_COMMIT_ID"
 	// PeerPortEnv is the env var that sets a custom peer port
 	PeerPortEnv = "PEER_PORT"
+
+	ReprocessSpecUntilSuccess = "until_success"
+	ReprocessSpecEveryJob     = "every_job"
 )
 
 // NewJob creates a pps.Job.
@@ -217,7 +220,7 @@ func (c APIClient) CreateJob(pipeline string, outputCommit, statsCommit *pfs.Com
 // InspectJob returns info about a specific job.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
 // full indicates that the full job info should be returned.
-func (c APIClient) InspectJob(jobID string, blockState bool, full ...bool) (*pps.JobInfo, error) {
+func (c APIClient) InspectJob(jobID string, blockState bool, full ...bool) (*pps.PipelineJobInfo, error) {
 	req := &pps.InspectJobRequest{
 		Job:        NewJob(jobID),
 		BlockState: blockState,
@@ -225,20 +228,20 @@ func (c APIClient) InspectJob(jobID string, blockState bool, full ...bool) (*pps
 	if len(full) > 0 {
 		req.Full = full[0]
 	}
-	jobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)
-	return jobInfo, grpcutil.ScrubGRPC(err)
+	pipelineJobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)
+	return pipelineJobInfo, grpcutil.ScrubGRPC(err)
 }
 
 // InspectJobOutputCommit returns info about a job that created a commit.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
-func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState bool) (*pps.JobInfo, error) {
-	jobInfo, err := c.PpsAPIClient.InspectJob(
+func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState bool) (*pps.PipelineJobInfo, error) {
+	pipelineJobInfo, err := c.PpsAPIClient.InspectJob(
 		c.Ctx(),
 		&pps.InspectJobRequest{
 			OutputCommit: NewCommit(repoName, commitID),
 			BlockState:   blockState,
 		})
-	return jobInfo, grpcutil.ScrubGRPC(err)
+	return pipelineJobInfo, grpcutil.ScrubGRPC(err)
 }
 
 // ListJob returns info about all jobs.
@@ -251,14 +254,14 @@ func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState 
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
 //-1: Return jobs from all historical versions.
-// 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
+// 'includePipelineInfo' controls whether the PipelineJobInfo passed to 'f' includes
 // details fromt the pipeline spec (e.g. the transform). Leaving this 'false'
 // can improve performance.
-func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, history int64, includePipelineInfo bool) ([]*pps.JobInfo, error) {
-	var result []*pps.JobInfo
+func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, history int64, includePipelineInfo bool) ([]*pps.PipelineJobInfo, error) {
+	var result []*pps.PipelineJobInfo
 	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, history,
-		includePipelineInfo, func(ji *pps.JobInfo) error {
-			result = append(result, ji)
+		includePipelineInfo, func(pji *pps.PipelineJobInfo) error {
+			result = append(result, pji)
 			return nil
 		}); err != nil {
 		return nil, err
@@ -267,14 +270,14 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 }
 
 // ListJobF is a previous version of ListJobFilterF, returning info about all jobs
-// and calling f on each JobInfo
+// and calling f on each PipelineJobInfo
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 	outputCommit *pfs.Commit, history int64, includePipelineInfo bool,
-	f func(*pps.JobInfo) error) error {
+	f func(*pps.PipelineJobInfo) error) error {
 	return c.ListJobFilterF(pipelineName, inputCommit, outputCommit, history, includePipelineInfo, "", f)
 }
 
-// ListJobFilterF returns info about all jobs, calling f with each JobInfo.
+// ListJobFilterF returns info about all jobs, calling f with each PipelineJobInfo.
 // If f returns an error iteration of jobs will stop and ListJobF will return
 // that error, unless the error is errutil.ErrBreak in which case it will
 // return nil.
@@ -287,17 +290,17 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
 //-1: Return jobs from all historical versions.
-// 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
+// 'includePipelineInfo' controls whether the PipelineJobInfo passed to 'f' includes
 // details fromt the pipeline spec--setting this to 'false' can improve
 // performance.
 func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit,
 	outputCommit *pfs.Commit, history int64, includePipelineInfo bool, jqFilter string,
-	f func(*pps.JobInfo) error) error {
+	f func(*pps.PipelineJobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
 	}
-	client, err := c.PpsAPIClient.ListJobStream(
+	client, err := c.PpsAPIClient.ListJob(
 		c.Ctx(),
 		&pps.ListJobRequest{
 			Pipeline:     pipeline,
@@ -311,13 +314,13 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 		return grpcutil.ScrubGRPC(err)
 	}
 	for {
-		ji, err := client.Recv()
+		pji, err := client.Recv()
 		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
-		if err := f(ji); err != nil {
+		if err := f(pji); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
@@ -329,7 +332,7 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 // FlushJob calls f with all the jobs which were triggered by commits.
 // If toPipelines is non-nil then only the jobs between commits and those
 // pipelines in the DAG will be returned.
-func (c APIClient) FlushJob(commits []*pfs.Commit, toPipelines []string, f func(*pps.JobInfo) error) error {
+func (c APIClient) FlushJob(commits []*pfs.Commit, toPipelines []string, f func(*pps.PipelineJobInfo) error) error {
 	req := &pps.FlushJobRequest{
 		Commits: commits,
 	}
@@ -341,14 +344,14 @@ func (c APIClient) FlushJob(commits []*pfs.Commit, toPipelines []string, f func(
 		return grpcutil.ScrubGRPC(err)
 	}
 	for {
-		jobInfo, err := client.Recv()
+		pipelineJobInfo, err := client.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return grpcutil.ScrubGRPC(err)
 		}
-		if err := f(jobInfo); err != nil {
+		if err := f(pipelineJobInfo); err != nil {
 			return err
 		}
 	}
@@ -357,10 +360,10 @@ func (c APIClient) FlushJob(commits []*pfs.Commit, toPipelines []string, f func(
 // FlushJobAll returns all the jobs which were triggered by commits.
 // If toPipelines is non-nil then only the jobs between commits and those
 // pipelines in the DAG will be returned.
-func (c APIClient) FlushJobAll(commits []*pfs.Commit, toPipelines []string) ([]*pps.JobInfo, error) {
-	var result []*pps.JobInfo
-	if err := c.FlushJob(commits, toPipelines, func(ji *pps.JobInfo) error {
-		result = append(result, ji)
+func (c APIClient) FlushJobAll(commits []*pfs.Commit, toPipelines []string) ([]*pps.PipelineJobInfo, error) {
+	var result []*pps.PipelineJobInfo
+	if err := c.FlushJob(commits, toPipelines, func(pji *pps.PipelineJobInfo) error {
+		result = append(result, pji)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -390,6 +393,20 @@ func (c APIClient) StopJob(jobID string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+// StopJobOutputCommit stops a job associated with an output commit.
+func (c APIClient) StopJobOutputCommit(repo, commit string) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	_, err := c.PpsAPIClient.StopJob(
+		c.Ctx(),
+		&pps.StopJobRequest{
+			OutputCommit: NewCommit(repo, commit),
+		},
+	)
+	return err
+}
+
 // RestartDatum restarts a datum that's being processed as part of a job.
 // datumFilter is a slice of strings which are matched against either the Path
 // or Hash of the datum, the order of the strings in datumFilter is irrelevant.
@@ -404,81 +421,77 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// ListDatum returns info about datums in a Job
-func (c APIClient) ListDatum(jobID string, pageSize, page int64) (*pps.ListDatumResponse, error) {
-	return c.listDatum(NewJob(jobID), nil, pageSize, page)
+// ListDatum returns info about datums in a job.
+func (c APIClient) ListDatum(job string, cb func(*pps.DatumInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	req := &pps.ListDatumRequest{
+		Job: NewJob(job),
+	}
+	return c.listDatum(req, cb)
+}
+
+// ListDatumAll returns info about datums in a job.
+func (c APIClient) ListDatumAll(job string) (_ []*pps.DatumInfo, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	var dis []*pps.DatumInfo
+	if err := c.ListDatum(job, func(di *pps.DatumInfo) error {
+		dis = append(dis, di)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return dis, nil
 }
 
 // ListDatumInput returns info about datums for a pipeline with input. The
 // pipeline doesn't need to exist.
-func (c APIClient) ListDatumInput(input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
-	return c.listDatum(nil, input, pageSize, page)
+func (c APIClient) ListDatumInput(input *pps.Input, cb func(*pps.DatumInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	req := &pps.ListDatumRequest{
+		Input: input,
+	}
+	return c.listDatum(req, cb)
 }
 
-func (c APIClient) listDatum(job *pps.Job, input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
-	client, err := c.PpsAPIClient.ListDatumStream(
+// ListDatumInputAll returns info about datums for a pipeline with input. The
+// pipeline doesn't need to exist.
+func (c APIClient) ListDatumInputAll(input *pps.Input) (_ []*pps.DatumInfo, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	var dis []*pps.DatumInfo
+	if err := c.ListDatumInput(input, func(di *pps.DatumInfo) error {
+		dis = append(dis, di)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return dis, nil
+}
+
+func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) error) (retErr error) {
+	client, err := c.PpsAPIClient.ListDatum(
 		c.Ctx(),
-		&pps.ListDatumRequest{
-			Input:    input,
-			PageSize: pageSize,
-			Page:     page,
-			Job:      job,
-		},
+		req,
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	resp := &pps.ListDatumResponse{}
-	first := true
-	for {
-		r, err := client.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
-		}
-		if first {
-			resp.TotalPages = r.TotalPages
-			resp.Page = r.Page
-			first = false
-		}
-		resp.DatumInfos = append(resp.DatumInfos, r.DatumInfo)
-	}
-	return resp, nil
-}
-
-// ListDatumF returns info about datums in a Job, calling f with each datum info.
-func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(di *pps.DatumInfo) error) error {
-	return c.listDatumF(NewJob(jobID), nil, pageSize, page, f)
-}
-
-// ListDatumInputF returns info about datums for a pipeline with input, calling
-// f with each datum info. The pipeline doesn't need to exist.
-func (c APIClient) ListDatumInputF(input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
-	return c.listDatumF(nil, input, pageSize, page, f)
-}
-
-func (c APIClient) listDatumF(job *pps.Job, input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
-	client, err := c.PpsAPIClient.ListDatumStream(
-		c.Ctx(),
-		&pps.ListDatumRequest{
-			Input:    input,
-			PageSize: pageSize,
-			Page:     page,
-			Job:      job,
-		},
-	)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
-		resp, err := client.Recv()
-		if errors.Is(err, io.EOF) {
-			return nil
-		} else if err != nil {
-			return grpcutil.ScrubGRPC(err)
+		di, err := client.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
 		}
-		if err := f(resp.DatumInfo); err != nil {
+		if err := cb(di); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
@@ -548,30 +561,9 @@ func (c APIClient) GetLogs(
 	datumID string,
 	master bool,
 	follow bool,
-	tail int64,
+	since time.Duration,
 ) *LogsIter {
-	request := pps.GetLogsRequest{
-		Master: master,
-		Follow: follow,
-		Tail:   tail,
-	}
-	resp := &LogsIter{}
-	if pipelineName != "" {
-		request.Pipeline = NewPipeline(pipelineName)
-	}
-	if jobID != "" {
-		request.Job = NewJob(jobID)
-	}
-	request.DataFilters = data
-	if datumID != "" {
-		request.Datum = &pps.Datum{
-			Job: NewJob(jobID),
-			ID:  datumID,
-		}
-	}
-	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
-	resp.err = grpcutil.ScrubGRPC(resp.err)
-	return resp
+	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, false)
 }
 
 // GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
@@ -585,15 +577,27 @@ func (c APIClient) GetLogsLoki(
 	datumID string,
 	master bool,
 	follow bool,
-	tail int64,
+	since time.Duration,
+) *LogsIter {
+	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, true)
+}
+
+func (c APIClient) getLogs(
+	pipelineName string,
+	jobID string,
+	data []string,
+	datumID string,
+	master bool,
+	follow bool,
+	since time.Duration,
+	useLoki bool,
 ) *LogsIter {
 	request := pps.GetLogsRequest{
 		Master:         master,
 		Follow:         follow,
-		Tail:           tail,
-		UseLokiBackend: true,
+		UseLokiBackend: useLoki,
+		Since:          types.DurationProto(since),
 	}
-	resp := &LogsIter{}
 	if pipelineName != "" {
 		request.Pipeline = NewPipeline(pipelineName)
 	}
@@ -607,6 +611,7 @@ func (c APIClient) GetLogsLoki(
 			ID:  datumID,
 		}
 	}
+	resp := &LogsIter{}
 	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
 	resp.err = grpcutil.ScrubGRPC(resp.err)
 	return resp
@@ -710,13 +715,10 @@ func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.P
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string, force bool, splitTransaction ...bool) error {
+func (c APIClient) DeletePipeline(name string, force bool) error {
 	req := &pps.DeletePipelineRequest{
 		Pipeline: NewPipeline(name),
 		Force:    force,
-	}
-	if len(splitTransaction) > 0 {
-		req.SplitTransaction = splitTransaction[0]
 	}
 	_, err := c.PpsAPIClient.DeletePipeline(
 		c.Ctx(),
@@ -813,7 +815,10 @@ func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 		c.Ctx(),
 		&types.Empty{},
 	)
-	return secretInfos.SecretInfo, grpcutil.ScrubGRPC(err)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return secretInfos.SecretInfo, nil
 }
 
 // CreatePipelineService creates a new pipeline service.
@@ -849,23 +854,6 @@ func (c APIClient) CreatePipelineService(
 				ExternalPort: externalPort,
 			},
 		},
-	)
-	return grpcutil.ScrubGRPC(err)
-}
-
-// GarbageCollect garbage collects unused data.  Currently GC needs to be run
-// while no data is being added or removed (which, among other things, implies
-// that there shouldn't be jobs actively running).  Pfs Garbage collection uses
-// bloom filters to keep track of live objects because it can store more
-// objects than can be indexed in memory. This means that there is a chance for
-// unreferenced objects to not be GCed, this chance increases as the number of
-// objects in the system increases. You can tradeoff using more memory to get a
-// lower chance of collisions, the default value is 10 MB and collisions should
-// be unlikely until you have 10 million objects.
-func (c APIClient) GarbageCollect(memoryBytes int64) error {
-	_, err := c.PpsAPIClient.GarbageCollect(
-		c.Ctx(),
-		&pps.GarbageCollectRequest{MemoryBytes: memoryBytes},
 	)
 	return grpcutil.ScrubGRPC(err)
 }

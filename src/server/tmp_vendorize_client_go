@@ -1,9 +1,0 @@
-package main
-
-import(
-        client "github.com/pachyderm/pachyderm/src/client"
-)
-
-func main() {
-     _ := client.New()
-}

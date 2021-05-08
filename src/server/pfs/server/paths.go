@@ -2,15 +2,10 @@ package server
 
 import (
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
@@ -23,22 +18,19 @@ func globLiteralPrefix(glob string) string {
 	return glob[:idx[0]]
 }
 
-func parseGlob(glob string) (index.Option, func(string) bool, error) {
-	glob = cleanPath(glob)
-	opt := index.WithPrefix(globLiteralPrefix(glob))
+func globMatchFunction(glob string) (func(string) bool, error) {
 	g, err := globlib.Compile(glob, '/')
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	mf := func(path string) bool {
+	return func(path string) bool {
 		// TODO: This does not seem like a good approach for this edge case.
 		if path == "/" && glob == "/" {
 			return true
 		}
 		path = strings.TrimRight(path, "/")
 		return g.Match(path)
-	}
-	return opt, mf, nil
+	}, nil
 }
 
 // pathIsChild determines if the path child is an immediate child of the path parent
@@ -58,22 +50,10 @@ func pathIsChild(parent, child string) bool {
 // "/abc" -> "/abc"
 // "abc/" -> "/abc"
 // "/" -> "/"
-func cleanPath(x string) string {
-	return "/" + strings.Trim(x, "/")
-}
-
-func commitPath(commit *pfs.Commit) string {
-	return commitKey(commit)
-}
-
-func compactedCommitPath(commit *pfs.Commit) string {
-	return path.Join(commitPath(commit), fileset.Compacted)
-}
-
-func checkFilePath(path string) error {
-	path = filepath.Clean(path)
-	if strings.HasPrefix(path, "../") {
-		return errors.Errorf("path (%s) invalid: traverses above root", path)
+func cleanPath(p string) string {
+	p = path.Clean(p)
+	if p == "." {
+		return "/"
 	}
-	return nil
+	return "/" + strings.Trim(p, "/")
 }

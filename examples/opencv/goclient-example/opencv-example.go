@@ -7,9 +7,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	//	"os"
 )
 
@@ -18,7 +19,7 @@ func main() {
 	// Replace the IP address with your `pachd` address.
 	// If running in minikube, this will be your minikube
 	// IP.
-	c, err := client.NewFromAddress("localhost:30650")
+	c, err := client.NewFromURI("grpc://localhost:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -34,15 +35,15 @@ func main() {
 		panic(err)
 	}
 
-	if err := c.PutFileURL("images", "master", "liberty.png", "http://imgur.com/46Q8nDz.png", false, false); err != nil {
+	if err := c.PutFileURL("images", "master", "liberty.png", "http://imgur.com/46Q8nDz.png", false); err != nil {
 		panic(err)
 	}
 
-	if err := c.PutFileURL("images", "master", "AT-AT.png", "http://imgur.com/8MN9Kg0.png", false, false); err != nil {
+	if err := c.PutFileURL("images", "master", "AT-AT.png", "http://imgur.com/8MN9Kg0.png", false); err != nil {
 		panic(err)
 	}
 
-	if err := c.PutFileURL("images", "master", "kitten.png", "http://imgur.com/g2QnNqa.png", false, false); err != nil {
+	if err := c.PutFileURL("images", "master", "kitten.png", "http://imgur.com/g2QnNqa.png", false); err != nil {
 		panic(err)
 	}
 
@@ -52,7 +53,7 @@ func main() {
 		}
 	}()
 
-	files, err := c.ListFile("images", "master", "/")
+	files, err := c.ListFileAll("images", "master", "/")
 	if err != nil {
 		panic(err)
 	}

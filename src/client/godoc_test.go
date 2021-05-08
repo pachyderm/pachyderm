@@ -5,15 +5,15 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 func ExampleAPIClient_CreateRepo() {
 
 	// Create a repo called "test" and print the list of
 	// repositories.
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +41,7 @@ func ExampleAPIClient_CreateRepo() {
 func ExampleAPIClient_DeleteRepo() {
 
 	// Delete a repository called "test".
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func ExampleAPIClient_DeleteRepo() {
 func ExampleAPIClient_ListRepo() {
 
 	// View the list of existing repositories.
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -88,52 +88,12 @@ func ExampleAPIClient_ListRepo() {
 	fmt.Println(repos)
 }
 
-func ExampleAPIClient_PutFileWriter() {
-
-	// This method enables you to put data into a
-	// Pachyderm repo by using an "io.Writer" API.
-
-	c, err := NewFromAddress("127.0.0.1:30650")
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err := c.PfsAPIClient.CreateRepo(
-		c.Ctx(),
-		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
-			Description: "A test repo",
-			Update:      true,
-		},
-	); err != nil {
-		panic(err)
-	}
-	w, err := c.PutFileWriter("test", "master", "file")
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if err := w.Close(); err != nil {
-			panic(err)
-		}
-	}()
-	if _, err := w.Write([]byte("foo\n")); err != nil {
-		panic(err)
-	}
-
-	files, err := c.ListFile("test", "master", "/")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(files)
-}
-
-func ExampleAPIClient_NewPutFileClient() {
+func ExampleAPIClient_NewModifyFileClient() {
 
 	// This method enables you to group multiple "put file" operations into one
 	// request.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -148,19 +108,19 @@ func ExampleAPIClient_NewPutFileClient() {
 	); err != nil {
 		panic(err)
 	}
-	pfc, err := c.NewPutFileClient()
+	mfc, err := c.NewModifyFileClient("test", "master")
 	if err != nil {
 		panic(err)
 	}
 	defer func() {
-		if err := pfc.Close(); err != nil {
+		if err := mfc.Close(); err != nil {
 			panic(err)
 		}
 	}()
-	if _, err := pfc.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := mfc.PutFile("file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFile("test", "master", "/")
+	files, err := c.ListFileAll("test", "master", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -174,7 +134,7 @@ func ExampleAPIClient_PutFile_string() {
 	// string in the scripts and adds it to a file named "file" in the "test"
 	// repository.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -190,10 +150,10 @@ func ExampleAPIClient_PutFile_string() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFile("test", "master", "/")
+	files, err := c.ListFileAll("test", "master", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -210,7 +170,7 @@ func ExampleAPIClient_PutFile_file() {
 	// opens the file named "text.md" and then uses the PutFile method to add it
 	// to the repo "test@master".
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -230,10 +190,10 @@ func ExampleAPIClient_PutFile_file() {
 	if err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "text", f); err != nil {
+	if err := c.PutFile("test", "master", "text", f); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFile("test", "master", "/")
+	files, err := c.ListFileAll("test", "master", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -247,7 +207,7 @@ func ExampleAPIClient_CreateBranch() {
 	// branch that will be used as head, and provenance. Provenance
 	// is an optional paramater and get be set to "nil" for nothing,
 	// to a commit ID or to a branch name.
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -286,7 +246,7 @@ func ExampleAPIClient_ListCommit() {
 	// In the example below, the "to" parameter is left blank, and the "from"
 	// parameter is set to "0", which means all commits.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -302,13 +262,13 @@ func ExampleAPIClient_ListCommit() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file", strings.NewReader("bar\n")); err != nil {
+	if err := c.PutFile("test", "master", "file", strings.NewReader("bar\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file", strings.NewReader("buzz\n")); err != nil {
+	if err := c.PutFile("test", "master", "file", strings.NewReader("buzz\n")); err != nil {
 		panic(err)
 	}
 
@@ -337,7 +297,7 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 	// index [1] that adds "file2" in the repository "test" and will create
 	// a branch "new-branch" in which we will add "file4". "newbranch" will
 	// have "file1", "file2", and "file4", but will not have "file3".
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -353,13 +313,13 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
+	if err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
+	if err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
 		panic(err)
 	}
 
@@ -371,10 +331,10 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 	if err := c.CreateBranch("test", "new-branch", cis[1].Commit.ID, nil); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "new-branch", "file4", strings.NewReader("fizz\n")); err != nil {
+	if err := c.PutFile("test", "new-branch", "file4", strings.NewReader("fizz\n")); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFile("test", "new-branch", "/")
+	files, err := c.ListFileAll("test", "new-branch", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -390,7 +350,7 @@ func ExampleAPIClient_ListCommitF() {
 	// instead of returning all commits at once. Most of Pachyderm's
 	// "List" methods have a similar function.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -406,13 +366,13 @@ func ExampleAPIClient_ListCommitF() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
+	if err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
+	if err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
 		panic(err)
 	}
 
@@ -441,7 +401,7 @@ func ExampleAPIClient_CreatePipeline() {
 	// to "/pfs/out" directory. Because no image is specified,
 	// Pachyderm will use the basic image. The input is defined as
 	// the repo "test" with the "/*" glob pattern.
-	c, err := NewFromAddress("192.168.64.2:30650")
+	c, err := NewFromURI("192.168.64.2:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -457,7 +417,7 @@ func ExampleAPIClient_CreatePipeline() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
 

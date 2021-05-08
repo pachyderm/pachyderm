@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,21 +24,23 @@ import (
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/pachyderm/src/client/admin"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/health"
-	"github.com/pachyderm/pachyderm/src/client/limit"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client/limit"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/health"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
 const (
@@ -62,11 +63,11 @@ type PfsAPIClient pfs.APIClient
 // PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
 
-// ObjectAPIClient is an alias for pfs.ObjectAPIClient
-type ObjectAPIClient pfs.ObjectAPIClient
-
 // AuthAPIClient is an alias of auth.APIClient
 type AuthAPIClient auth.APIClient
+
+// IdentityAPIClient is an alias of identity.APIClient
+type IdentityAPIClient identity.APIClient
 
 // VersionAPIClient is an alias of versionpb.APIClient
 type VersionAPIClient versionpb.APIClient
@@ -84,16 +85,17 @@ type DebugClient debug.DebugClient
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
-	ObjectAPIClient
 	AuthAPIClient
+	IdentityAPIClient
 	VersionAPIClient
 	AdminAPIClient
 	TransactionAPIClient
 	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
+	License    license.APIClient
 
-	// addr is a "host:port" string pointing at a pachd endpoint
-	addr string
+	// addr is the parsed address used to connect to this server
+	addr *grpcutil.PachdAddress
 
 	// The trusted CAs, for authenticating a pachd server over TLS
 	caCerts *x509.CertPool
@@ -128,14 +130,12 @@ type APIClient struct {
 	ctx context.Context
 
 	portForwarder *PortForwarder
-
-	storageV2 bool
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
 // 'c' was created using NewInCluster or NewOnUserMachine then this is how the
 // address may be retrieved from the environment.
-func (c *APIClient) GetAddress() string {
+func (c *APIClient) GetAddress() *grpcutil.PachdAddress {
 	return c.addr
 }
 
@@ -151,31 +151,32 @@ type clientSettings struct {
 	gzipCompress         bool
 	dialTimeout          time.Duration
 	caCerts              *x509.CertPool
-	storageV2            bool
 	unaryInterceptors    []grpc.UnaryClientInterceptor
 	streamInterceptors   []grpc.StreamClientInterceptor
 }
 
-// NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
-	// Validate address
-	if strings.Contains(addr, "://") {
-		return nil, errors.Errorf("address shouldn't contain protocol (\"://\"), but is: %q", addr)
+// NewFromURI creates a new client given a GRPC URI ex. grpc://test.example.com.
+// If no scheme is specified `grpc://` is assumed. A scheme of `grpcs://` enables TLS.
+func NewFromURI(uri string, options ...Option) (*APIClient, error) {
+	pachdAddress, err := grpcutil.ParsePachdAddress(uri)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not parse the pachd address")
 	}
+	return NewFromPachdAddress(pachdAddress, options...)
+}
+
+// NewFromPachdAddress creates a new client given a parsed GRPC address
+func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
+	// By default, use the system CAs for secure connections
+	// if no others are specified.
+	if pachdAddress.Secured {
+		options = append(options, WithSystemCAs)
+	}
+
 	// Apply creation options
 	settings := clientSettings{
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 		dialTimeout:          DefaultDialTimeout,
-	}
-	storageV2Env, ok := os.LookupEnv("STORAGE_V2")
-	if ok {
-		storageV2, err := strconv.ParseBool(storageV2Env)
-		if err != nil {
-			return nil, err
-		}
-		if storageV2 {
-			settings.storageV2 = storageV2
-		}
 	}
 	for _, option := range options {
 		if err := option(&settings); err != nil {
@@ -187,11 +188,10 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		settings.streamInterceptors = append(settings.streamInterceptors, tracing.StreamClientInterceptor())
 	}
 	c := &APIClient{
-		addr:         addr,
+		addr:         pachdAddress,
 		caCerts:      settings.caCerts,
 		limiter:      limit.New(settings.maxConcurrentStreams),
 		gzipCompress: settings.gzipCompress,
-		storageV2:    settings.storageV2,
 	}
 	if err := c.connect(settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
 		return nil, err
@@ -248,8 +248,13 @@ func WithAdditionalRootCAs(pemBytes []byte) Option {
 	}
 }
 
-// WithSystemCAs uses the system certs for client creatin.
+// WithSystemCAs uses the system certs for client creation, if no others are provided.
+// This is the default behaviour when the scheme is `https` or `grpcs`.
 func WithSystemCAs(settings *clientSettings) error {
+	if settings.caCerts != nil {
+		return nil
+	}
+
 	certs, err := x509.SystemCertPool()
 	if err != nil {
 		return errors.Wrap(err, "could not retrieve system cert pool")
@@ -427,17 +432,23 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 		return nil, 0, errors.Wrap(err, "failed to initialize port forwarder")
 	}
 
-	port, err := fw.RunForDaemon(0, 650)
+	var port uint16
+	if context.EnterpriseServer {
+		port, err = fw.RunForEnterpriseServer(0, 650)
+	} else {
+		port, err = fw.RunForDaemon(0, 650)
+	}
+
 	if err != nil {
 		return nil, 0, err
 	}
-
 	log.Debugf("Implicit port forwarder listening on port %d", port)
 
 	return fw, port, nil
 }
 
 // NewForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
 func NewForTest() (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
@@ -458,7 +469,36 @@ func NewForTest() (*APIClient, error) {
 		pachdAddress = &grpcutil.DefaultPachdAddress
 	}
 
-	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
+	client, err := NewFromPachdAddress(pachdAddress, cfgOptions...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
+	}
+	return client, nil
+}
+
+// NewEnterpriseClientForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
+func NewEnterpriseClientForTest() (*APIClient, error) {
+	cfg, err := config.Read(false, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveEnterpriseContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+
+	// create new pachctl client
+	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	if err != nil {
+		return nil, err
+	}
+
+	if pachdAddress == nil {
+		return nil, errors.New("no enterprise server configured")
+	}
+
+	client, err := NewFromPachdAddress(pachdAddress, cfgOptions...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
 	}
@@ -467,11 +507,6 @@ func NewForTest() (*APIClient, error) {
 
 // NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary.
-//
-// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
-// pachyderm client library incompatible with Windows. We may want to move this
-// (and similar) logic into src/server and have it call a NewFromOptions()
-// constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
@@ -481,7 +516,29 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
+	return newOnUserMachine(cfg, context, prefix, options...)
+}
 
+// NewEnterpriseClientOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
+// if it exists. This is intended to be used in the pachctl binary to communicate with the
+// enterprise server.
+func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
+	cfg, err := config.Read(false, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveEnterpriseContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+	return newOnUserMachine(cfg, context, prefix, options...)
+}
+
+// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
+// pachyderm client library incompatible with Windows. We may want to move this
+// (and similar) logic into src/server and have it call a NewFromOptions()
+// constructor.
+func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string, options ...Option) (*APIClient, error) {
 	// create new pachctl client
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
@@ -513,7 +570,7 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 		}
 	}
 
-	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
+	client, err := NewFromPachdAddress(pachdAddress, append(options, cfgOptions...)...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %q", pachdAddress.Qualified())
 	}
@@ -559,7 +616,7 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 	internalHost := os.Getenv("PACHD_PEER_SERVICE_HOST")
 	internalPort := os.Getenv("PACHD_PEER_SERVICE_PORT")
 	if internalHost != "" && internalPort != "" {
-		return NewFromAddress(fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
+		return NewFromURI(fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
 	}
 
 	host, ok := os.LookupEnv("PACHD_SERVICE_HOST")
@@ -571,7 +628,7 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 		return nil, errors.Errorf("PACHD_SERVICE_PORT not set")
 	}
 	// create new pachctl client
-	return NewFromAddress(fmt.Sprintf("%s:%s", host, port), options...)
+	return NewFromURI(fmt.Sprintf("%s:%s", host, port), options...)
 }
 
 // NewInWorker constructs a new APIClient intended to be used from a worker
@@ -587,7 +644,7 @@ func NewInWorker(options ...Option) (*APIClient, error) {
 	}
 
 	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
-		client, err := NewFromAddress(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+		client, err := NewFromURI(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create client")
 		}
@@ -616,9 +673,21 @@ func (c *APIClient) Close() error {
 // Use with caution, there is no undo.
 // TODO: rewrite this to use transactions
 func (c APIClient) DeleteAll() error {
+	if _, err := c.IdentityAPIClient.DeleteAll(
+		c.Ctx(),
+		&identity.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
 		&auth.DeactivateRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -638,6 +707,31 @@ func (c APIClient) DeleteAll() error {
 		c.Ctx(),
 		&transaction.DeleteAllRequest{},
 	); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return nil
+}
+
+// DeleteAllEnterprise deletes everything in the enterprise server.
+// Use with caution, there is no undo.
+// TODO: rewrite this to use transactions
+func (c APIClient) DeleteAllEnterprise() error {
+	if _, err := c.IdentityAPIClient.DeleteAll(
+		c.Ctx(),
+		&identity.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.AuthAPIClient.Deactivate(
+		c.Ctx(),
+		&auth.DeactivateRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
@@ -688,25 +782,23 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	addr := c.addr
-	if !strings.HasPrefix(addr, "dns:///") {
-		addr = "dns:///" + c.addr
-	}
 
-	// TODO: the 'dns:///' prefix above causes connecting to hang on windows
-	// unless we also prevent the resolver from fetching a service config (which
-	// we don't use anyway).  Don't ask me why.
+	// By default GRPC will attempt to get service config from a TXT record when
+	// the `dns:///` scheme is used. Some DNS servers return the wrong type of error
+	// when the TXT record doesn't exist, and it causes GRPC to back off and retry
+	// service discovery forever.
 	dialOptions = append(dialOptions, grpc.WithDisableServiceConfig())
 
-	clientConn, err := grpc.DialContext(ctx, addr, dialOptions...)
+	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...)
 	if err != nil {
 		return err
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
-	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
+	c.IdentityAPIClient = identity.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
+	c.License = license.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
@@ -767,6 +859,11 @@ func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
 	result := *c // copy c
 	result.ctx = ctx
 	return &result
+}
+
+// AuthToken gets the authentication token that is set for this client.
+func (c *APIClient) AuthToken() string {
+	return c.authenticationToken
 }
 
 // SetAuthToken sets the authentication token that will be used for all

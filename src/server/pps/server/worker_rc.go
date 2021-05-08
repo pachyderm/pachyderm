@@ -9,18 +9,16 @@ import (
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	client "github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	workerstats "github.com/pachyderm/pachyderm/src/server/worker/stats"
+	client "github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	workerstats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -92,17 +90,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "PACH_ROOT",
 		Value: a.storageRoot,
 	}, {
-		Name:  "PACH_CACHE_ROOT",
-		Value: a.cacheRoot,
-	}, {
 		Name:  "PACH_NAMESPACE",
 		Value: a.namespace,
-	}, {
-		Name:  "BLOCK_CACHE_BYTES",
-		Value: options.cacheSize,
-	}, {
-		Name:  "PFS_CACHE_SIZE",
-		Value: "16",
 	}, {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
@@ -129,13 +118,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "GC_PERCENT",
 		Value: strconv.FormatInt(int64(a.gcPercent), 10),
+	}, {
+		Name:  "POSTGRES_DATABASE_NAME",
+		Value: a.env.Config().PostgresDBName,
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
-	storageEnvVars, err := getStorageEnvVars(pipelineInfo)
-	if err != nil {
-		return v1.PodSpec{}, err
-	}
-	sidecarEnv = append(sidecarEnv, storageEnvVars...)
+	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
@@ -143,10 +131,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  "PACH_ROOT",
 			Value: a.storageRoot,
-		},
-		{
-			Name:  "PACH_CACHE_ROOT",
-			Value: a.cacheRoot,
 		},
 		{
 			Name:  "PACH_NAMESPACE",
@@ -209,15 +193,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		})
 	}
 	// Propagate feature flags to worker and sidecar
-	if a.env.StorageV2 {
-		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "STORAGE_V2", Value: "true"})
-		workerEnv = append(workerEnv, v1.EnvVar{Name: "STORAGE_V2", Value: "true"})
-	}
-	if a.env.DisableCommitProgressCounter {
+	if a.env.Config().DisableCommitProgressCounter {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 	}
-	if a.env.LokiLogging {
+	if a.env.Config().LokiLogging {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 	}
@@ -245,7 +225,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		userVolumeMounts = append(userVolumeMounts, storageMount)
 	} else {
 		// `pach-dir-volume` is needed for openshift, see:
-		// https://github.com/pachyderm/pachyderm/issues/3404
+		// https://github.com/pachyderm/pachyderm/v2/issues/3404
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: "pach-dir-volume",
 			VolumeSource: v1.VolumeSource{
@@ -442,20 +422,14 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	return podSpec, nil
 }
 
-func getStorageEnvVars(pipelineInfo *pps.PipelineInfo) ([]v1.EnvVar, error) {
-	uploadConcurrencyLimit, ok := os.LookupEnv(assets.UploadConcurrencyLimitEnvVar)
-	if !ok {
-		return nil, errors.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
+func (a *apiServer) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
+	vars := []v1.EnvVar{
+		{Name: assets.UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(a.env.Config().StorageUploadConcurrencyLimit)},
 	}
 	if pipelineInfo.Spout != nil {
-		return []v1.EnvVar{
-			{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
-			{Name: "SPOUT_PIPELINE_NAME", Value: pipelineInfo.Pipeline.Name},
-		}, nil
+		vars = append(vars, v1.EnvVar{Name: "SPOUT_PIPELINE_NAME", Value: pipelineInfo.Pipeline.Name})
 	}
-	return []v1.EnvVar{
-		{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
-	}, nil
+	return vars
 }
 
 // We don't want to expose pipeline auth tokens, so we hash it. This will be
@@ -469,7 +443,7 @@ func hashAuthToken(token string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
@@ -562,16 +536,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
 	})
-	volumes = append(volumes, v1.Volume{
-		Name: "pach-tmp",
-		VolumeSource: v1.VolumeSource{
-			EmptyDir: &v1.EmptyDirVolumeSource{},
-		},
-	})
-	volumeMounts = append(volumeMounts, v1.VolumeMount{
-		Name:      "pach-tmp",
-		MountPath: a.cacheRoot,
-	})
 
 	volumes = append(volumes, v1.Volume{
 		Name: client.PPSWorkerVolume,
@@ -629,7 +593,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	}
 	var s3GatewayPort int32
 	if ppsutil.ContainsS3Inputs(pipelineInfo.Input) || pipelineInfo.S3Out {
-		s3GatewayPort = int32(a.env.S3GatewayPort)
+		s3GatewayPort = int32(a.env.Config().S3GatewayPort)
 	}
 
 	// Generate options for new RC
@@ -656,7 +620,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	}, nil
 }
 
-func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) error {
 	var cfg config.Config
 	err := cfg.InitV2()
 	if err != nil {
@@ -707,7 +671,7 @@ type noValidOptionsErr struct {
 	error
 }
 
-func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
+func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
 		"pipeline", pipelineInfo.Pipeline.Name)
@@ -827,26 +791,6 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 				return err
 			}
 		}
-	}
-
-	// Generate pipeline's auth token & add pipeline to the ACLs of input/output
-	// repos
-	pachClient := a.env.GetPachClient(ctx)
-	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
-			Subject: auth.PipelinePrefix + pipelineInfo.Pipeline.Name,
-			TTL:     -1,
-		})
-		if err != nil {
-			if auth.IsErrNotActivated(err) {
-				return nil // no auth work to do
-			}
-			return grpcutil.ScrubGRPC(err)
-		}
-		ptr.AuthToken = tokenResp.Token
-		return nil
-	}); err != nil {
-		return err
 	}
 
 	// True if the pipeline has a git input

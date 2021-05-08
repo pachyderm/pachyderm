@@ -6,22 +6,22 @@ import (
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
-	"github.com/pachyderm/pachyderm/src/server/cmd/worker/assets"
-	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	"github.com/pachyderm/pachyderm/src/server/worker"
-	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/cmd/worker/assets"
+	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
@@ -50,17 +50,17 @@ func main() {
 // worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
 // which is necessary to get the PipelineInfo from pfs.
-func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
+func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	resp, err := env.GetEtcdClient().Get(ctx, path.Join(env.PPSEtcdPrefix, "pipelines", env.PPSPipelineName))
+	resp, err := env.GetEtcdClient().Get(ctx, path.Join(env.Config().PPSEtcdPrefix, "pipelines", env.Config().PPSPipelineName))
 	if err != nil {
 		return nil, err
 	}
 	if len(resp.Kvs) != 1 {
-		return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.PPSPipelineName, len(resp.Kvs), resp)
+		return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.Config().PPSPipelineName, len(resp.Kvs), resp)
 	}
-	var pipelinePtr pps.EtcdPipelineInfo
+	var pipelinePtr pps.StoredPipelineInfo
 	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
 		return nil, err
 	}
@@ -69,8 +69,8 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 	// because the value in etcd might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	pipelinePtr.SpecCommit.ID = env.PPSSpecCommitID
-	return ppsutil.GetPipelineInfo(pachClient, env.PPSPipelineName, &pipelinePtr)
+	pipelinePtr.SpecCommit.ID = env.Config().PPSSpecCommitID
+	return ppsutil.GetPipelineInfo(pachClient, env.Config().PPSPipelineName, &pipelinePtr)
 }
 
 func do(config interface{}) error {
@@ -87,7 +87,7 @@ func do(config interface{}) error {
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.PPSEtcdPrefix, pipelineInfo, env.PodName, env.Namespace, env.CacheRoot, "/")
+	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.Config().PPSEtcdPrefix, pipelineInfo, env.Config().PodName, env.Config().Namespace, "/")
 	if err != nil {
 		return err
 	}
@@ -100,10 +100,10 @@ func do(config interface{}) error {
 
 	workerserver.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.PodName, pachClient))
+	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient))
 
 	// Put our IP address into etcd, so pachd can discover us
-	key := path.Join(env.PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)
+	key := path.Join(env.Config().PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.Config().PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
@@ -128,7 +128,7 @@ func do(config interface{}) error {
 	}
 
 	// If server ever exits, return error
-	if _, err := server.ListenTCP("", env.PPSWorkerPort); err != nil {
+	if _, err := server.ListenTCP("", env.Config().PPSWorkerPort); err != nil {
 		return err
 	}
 	return server.Wait()

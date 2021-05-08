@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -70,10 +70,14 @@ func NewPortForwarder(context *config.Context, namespace string) (*PortForwarder
 
 // Run starts the port forwarder. Returns after initialization is begun with
 // the locally bound port and any initialization errors.
-func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) (uint16, error) {
+func (f *PortForwarder) Run(appName string, localPort, remotePort uint16, selectors ...string) (uint16, error) {
 	podNameSelector := map[string]string{
 		"suite": "pachyderm",
 		"app":   appName,
+	}
+
+	for i := 1; i < len(selectors); i += 2 {
+		podNameSelector[selectors[i-1]] = selectors[i]
 	}
 
 	podList, err := f.core.Pods(f.namespace).List(metav1.ListOptions{
@@ -169,9 +173,19 @@ func (f *PortForwarder) RunForOIDCACS(localPort, remotePort uint16) (uint16, err
 	return f.Run("pachd", localPort, remotePort)
 }
 
+// RunForDex creates a port forwarder for Dex.
+func (f *PortForwarder) RunForDex(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("pachd", localPort, remotePort)
+}
+
 // RunForDashUI creates a port forwarder for the dash UI.
 func (f *PortForwarder) RunForDashUI(localPort uint16) (uint16, error) {
 	return f.Run("dash", localPort, 8080)
+}
+
+// RunForEnterpriseServer creates a port forwarder for the enterprise server
+func (f *PortForwarder) RunForEnterpriseServer(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("pach-enterprise", localPort, remotePort)
 }
 
 // RunForDashWebSocket creates a port forwarder for the dash websocket.
@@ -187,6 +201,11 @@ func (f *PortForwarder) RunForPFS(localPort uint16) (uint16, error) {
 // RunForS3Gateway creates a port forwarder for the s3gateway.
 func (f *PortForwarder) RunForS3Gateway(localPort uint16) (uint16, error) {
 	return f.Run("pachd", localPort, 600)
+}
+
+// RunForIDE creates a port forwarder for the IDE
+func (f *PortForwarder) RunForIDE(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("jupyterhub", localPort, remotePort, "component", "proxy")
 }
 
 // Close shuts down port forwarding.

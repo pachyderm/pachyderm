@@ -4,24 +4,24 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube_watch "k8s.io/apimachinery/pkg/watch"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 const (
 	masterLockPath = "_master_lock"
+	maxErrCount    = 3 // gives all retried operations ~4.5s total to finish
 )
 
 var (
@@ -35,9 +35,79 @@ var (
 	falseVal bool  // used to delete RCs in deletePipelineResources and restartPipeline()
 )
 
+type eventType int
+
+const (
+	writeEv eventType = iota
+	deleteEv
+)
+
+type pipelineEvent struct {
+	eventType
+	pipeline string
+
+	// etcdVer and etcdRev record the etcd version and key revision at which a
+	// write/delete was observed. These are recorded in traces and are useful for
+	// debugging (e.g. if two consecutive spans have non-consecutive versions,
+	// that would indicate a concurrent write). These will not be set for events
+	// created by pollPipelines.
+	etcdVer int64
+	etcdRev int64
+}
+
+type stepError struct {
+	error
+	retry        bool
+	failPipeline bool
+}
+
+func newRetriableError(err error, message string) error {
+	return stepError{
+		error:        errors.Wrap(err, message),
+		retry:        true,
+		failPipeline: true,
+	}
+}
+
+func (s stepError) Unwrap() error {
+	return s.error
+}
+
+type ppsMaster struct {
+	// The PPS APIServer that owns this struct
+	a *apiServer
+
+	// masterClient is a pachyderm client containing a context that is cancelled if
+	// the current pps master loses its master status
+	// Note: 'masterClient' is unauthenticated.  This uses the PPS token (via
+	// a.sudo()) to authenticate requests as needed.
+	masterClient *client.APIClient
+
+	// fields for monitorPipeline goros, monitorCrashingPipeline goros, etc.
+	monitorCancelsMu       sync.Mutex
+	monitorCancels         map[string]func() // protected by monitorCancelsMu
+	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
+
+	// fields for the pollPipelines and pollPipelinePods goros
+	pollPipelinesMu sync.Mutex
+	pollCancel      func() // protected by pollPipelinesMu
+	pollPodsCancel  func() // protected by pollPipelinesMu
+	pollEtcdCancel  func() // protected by pollPipelinesMu
+
+	// channel through which pipeline events are passed
+	eventCh chan *pipelineEvent
+}
+
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
+	m := &ppsMaster{
+		a:                      a,
+		monitorCancels:         make(map[string]func()),
+		crashingMonitorCancels: make(map[string]func()),
+		eventCh:                make(chan *pipelineEvent, 1), // avoid thrashing
+	}
+
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -48,125 +118,11 @@ func (a *apiServer) master() {
 		}
 		defer masterLock.Unlock(ctx)
 
-		// Note: 'pachClient' is unauthenticated. This will use the PPS token (via
-		// a.sudo()) to authenticate requests.
-		pachClient := a.env.GetPachClient(ctx)
-		kubeClient := a.env.GetKubeClient()
-
 		log.Infof("PPS master: launching master process")
-
-		// start pollPipelines in the background to regularly refresh pipelines
-		a.startPipelinePoller(pachClient)
-
-		// TODO(msteffen) request only keys, since pipeline_controller.go reads
-		// fresh values for each event anyway
-		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch()
-		if err != nil {
-			return errors.Wrapf(err, "error creating watch")
-		}
-		defer pipelineWatcher.Close()
-
-		// watchChan will be nil if the Watch call below errors, this means
-		// that we won't receive events from k8s and won't be able to detect
-		// errors in pods. We could just return that error and retry but that
-		// prevents pachyderm from creating pipelines when there's an issue
-		// talking to k8s.
-		var watchChan <-chan kube_watch.Event
-		kubePipelineWatch, err := kubeClient.CoreV1().Pods(a.namespace).Watch(
-			metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{
-						"component": "worker",
-					})),
-				Watch: true,
-			})
-		if err != nil {
-			log.Errorf("failed to watch kubernetes pods: %v", err)
-		} else {
-			watchChan = kubePipelineWatch.ResultChan()
-			defer kubePipelineWatch.Stop()
-		}
-
-		for {
-			select {
-			case event := <-pipelineWatcher.Watch():
-				if event.Err != nil {
-					return errors.Wrapf(event.Err, "event err")
-				}
-				switch event.Type {
-				case watch.EventPut:
-					pipeline := string(event.Key)
-					// Create/Modify/Delete pipeline resources as needed per new state
-					if err := a.step(pachClient, pipeline, event.Ver, event.Rev); err != nil {
-						log.Errorf("PPS master: %v", err)
-					}
-				case watch.EventDelete:
-					// TODO(msteffen) trace this call
-					// This is also called by pollPipelines below, if it discovers
-					// dangling monitorPipeline goroutines
-					if err := a.deletePipelineResources(pachClient.Ctx(), string(event.Key)); err != nil {
-						log.Errorf("PPS master: could not delete pipeline resources for %q: %v", string(event.Key), err)
-					}
-				}
-			case event := <-watchChan:
-				// if we get an error we restart the watch, k8s watches seem to
-				// sometimes get stuck in a loop returning events with Type =
-				// "" we treat these as errors since otherwise we get an
-				// endless stream of them and can't do anything.
-				if event.Type == kube_watch.Error || event.Type == "" {
-					if kubePipelineWatch != nil {
-						kubePipelineWatch.Stop()
-					}
-					kubePipelineWatch, err = kubeClient.CoreV1().Pods(a.namespace).Watch(
-						metav1.ListOptions{
-							LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-								map[string]string{
-									"component": "worker",
-								})),
-							Watch: true,
-						})
-					if err != nil {
-						log.Errorf("failed to watch kubernetes pods: %v", err)
-						watchChan = nil
-					} else {
-						watchChan = kubePipelineWatch.ResultChan()
-						defer kubePipelineWatch.Stop()
-					}
-				}
-				pod, ok := event.Object.(*v1.Pod)
-				if !ok {
-					continue
-				}
-				if pod.Status.Phase == v1.PodFailed {
-					log.Errorf("pod failed because: %s", pod.Status.Message)
-				}
-				pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
-				for _, status := range pod.Status.ContainerStatuses {
-					if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
-						if err := a.setPipelineCrashing(pachClient.Ctx(), pipelineName, status.State.Waiting.Message); err != nil {
-							return err
-						}
-					}
-				}
-				for _, condition := range pod.Status.Conditions {
-					if condition.Type == v1.PodScheduled &&
-						condition.Status != v1.ConditionTrue && failures[condition.Reason] {
-						if err := a.setPipelineCrashing(pachClient.Ctx(), pipelineName, condition.Message); err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
+		m.masterClient = a.env.GetPachClient(ctx)
+		m.run()
+		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		// cancel all monitorPipeline and monitorCrashingPipeline goroutines.
-		// Strictly speaking, this should be unnecessary, as the base context for
-		// all monitor goros is cancelled by 'defer cancel()' at the beginning of
-		// 'RetryNotify' above. However, these cancel calls also block until the
-		// monitor goros exit, ensuring that a leftover goro won't interfere with a
-		// subsequent iteration
-		a.cancelAllMonitorsAndCrashingMonitors(nil)
-		a.cancelPipelinePoller()
 		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
@@ -181,60 +137,141 @@ func (a *apiServer) setPipelineCrashing(ctx context.Context, pipelineName string
 	return a.setPipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
-func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
+func (m *ppsMaster) run() {
+	// close m.eventCh after all cancels have returned and therefore all pollers
+	// (which are what write to m.eventCh) have exited
+	defer close(m.eventCh)
+	defer m.cancelAllMonitorsAndCrashingMonitors()
+	// start pollers in the background--cancel functions ensure poll/monitor
+	// goroutines all definitely stop (either because cancelXYZ returns or because
+	// the binary panics)
+	m.startPipelinePoller()
+	defer m.cancelPipelinePoller()
+	m.startPipelinePodsPoller()
+	defer m.cancelPipelinePodsPoller()
+	m.startPipelineEtcdPoller()
+	defer m.cancelPipelineEtcdPoller()
+
+	masterCtx := m.masterClient.Ctx()
+eventLoop:
+	for {
+		select {
+		case e := <-m.eventCh:
+			switch e.eventType {
+			case writeEv:
+				if err := m.attemptStep(masterCtx, e); err != nil {
+					log.Errorf("PPS master: %v", err)
+				}
+			case deleteEv:
+				// TODO(msteffen) trace this call
+				if err := m.deletePipelineResources(e.pipeline); err != nil {
+					log.Errorf("PPS master: could not delete resources for pipeline %q: %v",
+						e.pipeline, err)
+				}
+			}
+		case <-masterCtx.Done():
+			break eventLoop
+		}
+	}
+}
+
+// attemptStep calls step for the given pipeline in a backoff loop.
+// When it encounters a stepError, returned by most pipeline controller helper
+// functions, it uses the fields to decide whether to retry the step or,
+// if the retries have been exhausted, fail the pipeline.
+//
+// Other errors are simply logged and ignored, assuming that some future polling
+// of the pipeline will succeed.
+func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
+	var errCount int
+	var stepErr stepError
+	err := backoff.RetryNotify(func() error {
+		// Create/Modify/Delete pipeline resources as needed per new state
+		return m.step(e.pipeline, e.etcdVer, e.etcdRev)
+	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+		errCount++
+		if errors.As(err, &stepErr) {
+			if stepErr.retry && errCount < maxErrCount {
+				log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
+					e.pipeline, err, d)
+				return nil
+			}
+		}
+		return errors.Wrapf(err, "could not update resource for pipeline %q", e.pipeline)
+	})
+	// we've given up on the step, check if the error indicated that the pipeline should fail
+	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
+		failError := m.a.setPipelineFailure(ctx, e.pipeline, fmt.Sprintf(
+			"could not update resources after %d attempts: %v", errCount, err))
+		if failError != nil {
+			return errors.Wrapf(failError, "error failing pipeline %q", e.pipeline)
+		}
+		return errors.Wrapf(err, "failing pipeline %q", e.pipeline)
+	}
+	return err
+}
+
+func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", pipelineName)
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, //lint:ignore SA4006 ctx is unused, but better to have the right ctx in scope so people don't use the wrong one
+	span, ctx := tracing.AddSpanToAnyExisting(m.masterClient.Ctx(),
 		"/pps.Master/DeletePipelineResources", "pipeline", pipelineName)
 	defer func() {
-		tracing.TagAnySpan(span, "err", retErr)
+		tracing.TagAnySpan(ctx, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 
 	// Cancel any running monitorPipeline call
-	a.cancelMonitor(pipelineName)
+	m.cancelMonitor(pipelineName)
 	// Same for cancelCrashingMonitor
-	a.cancelCrashingMonitor(pipelineName)
+	m.cancelCrashingMonitor(pipelineName)
 
-	kubeClient := a.env.GetKubeClient()
+	kubeClient := m.a.env.GetKubeClient()
+	namespace := m.a.namespace
+
 	// Delete any services associated with op.pipeline
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipelineName)
 	opts := &metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	services, err := kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	services, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list services")
 	}
 	for _, service := range services.Items {
-		if err := kubeClient.CoreV1().Services(a.namespace).Delete(service.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().Services(namespace).Delete(service.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return errors.Wrapf(err, "could not delete service %q", service.Name)
 			}
 		}
 	}
-	rcs, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return errors.Wrapf(err, "could not list RCs")
-	}
-	for _, rc := range rcs.Items {
-		if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
-			if !isNotFoundErr(err) {
-				return errors.Wrapf(err, "could not delete RC %q: %v", rc.Name)
-			}
-		}
-	}
-	// delete any secrets associated with the pipeline
-	secrets, err := kubeClient.CoreV1().Secrets(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+
+	// Delete any secrets associated with op.pipeline
+	secrets, err := kubeClient.CoreV1().Secrets(namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list secrets")
 	}
 	for _, secret := range secrets.Items {
-		if err := kubeClient.CoreV1().Secrets(a.namespace).Delete(secret.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().Secrets(namespace).Delete(secret.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return errors.Wrapf(err, "could not delete secret %q", secret.Name)
 			}
 		}
 	}
+
+	// Finally, delete op.pipeline's RC, which will cause pollPipelines to stop
+	// polling it.
+	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return errors.Wrapf(err, "could not list RCs")
+	}
+	for _, rc := range rcs.Items {
+		if err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(rc.Name, opts); err != nil {
+			if !isNotFoundErr(err) {
+				return errors.Wrapf(err, "could not delete RC %q", rc.Name)
+			}
+		}
+	}
+
 	return nil
 }
 

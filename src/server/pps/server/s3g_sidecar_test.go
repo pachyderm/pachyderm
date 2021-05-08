@@ -10,23 +10,20 @@ package server
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +33,6 @@ import (
 // auth on or off. It reads env vars into here and adjusts tests to make sure
 // our s3 gateway feature works in those contexts
 var Namespace string
-var adminToken string
 
 func init() {
 	var ok bool
@@ -46,55 +42,16 @@ func init() {
 	}
 }
 
-// TODO(msteffen) much of the point of factoring GetPachClient into testutil was
-// to avoid test-local helpers like this. For expediency, and because I don't
-// have a clear vision of how to generalize this yet, I'm subverting that vision
-// and creating a helper specific to this test that works with auth both on or
-// off. It's a simpler but more brittle implementation of the code in
-// s/s/auth/server/testing/auth_test.go. CI will not run this suite with auth
-// activated.
-//
-// At some point, we might want to factor a lot of the auth activation code out
-// of src/server/auth/server/testing/auth_test.go into a hypothetical auth
-// activation library and then factor this code into testutil (and make
-// PACH_TEST_WITH_AUTH a standard env variable across tests). Then it would be
-// easier to run all tests with auth either on or off, and we could possibly
-// wrap our auth tests in calls to this hypothetical auth activation library but
-// have them rely on the hypothetical future implementation of
-// tu.GetAuthenticatedPachClient()
 func initPachClient(t testing.TB) (*client.APIClient, string) {
-	// t.Helper()
-	c := tu.GetPachClient(t)
-	if adminToken != "" {
-		// Use the admin token to clear the cluster and get a non-admin user token,
-		// which will be returned. Note that c is shared across tests, but the pach
-		// admin token shouldn't change.
-		c.SetAuthToken(adminToken)
-	}
-	require.NoError(t, c.DeleteAll())
 	if _, ok := os.LookupEnv("PACH_TEST_WITH_AUTH"); !ok {
+		c := tu.GetPachClient(t)
+		require.NoError(t, c.DeleteAll())
 		return c, ""
 	}
-
-	// Activate Pachyderm Enterprise (if it's not already active)
-	require.NoError(t, tu.ActivateEnterprise(t, c))
-
-	activateResp, err := c.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: "robot:admin"},
-	)
-	require.NoError(t, err)
-	c.SetAuthToken(activateResp.PachToken)
-	adminToken = activateResp.PachToken
-
-	// Create new user auth token
-	user := tu.UniqueString("user-")
-	resp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
-		Subject: user,
-	})
-	require.NoError(t, err)
-	userClient := c.WithCtx(context.Background())
-	userClient.SetAuthToken(resp.Token)
-	return userClient, resp.Token
+	rootClient := tu.GetAuthenticatedPachClient(t, tu.RootToken)
+	require.NoError(t, rootClient.DeleteAll())
+	c := tu.GetAuthenticatedPachClient(t, tu.UniqueString("user-"))
+	return c, c.AuthToken()
 }
 
 func TestS3PipelineErrors(t *testing.T) {
@@ -181,11 +138,10 @@ func TestS3Input(t *testing.T) {
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
 
-	_, err := c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
-	require.NoError(t, err)
+	require.NoError(t, c.PutFile(repo, "master", "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
@@ -213,14 +169,14 @@ func TestS3Input(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jobInfo := jis[0]
-	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+	require.Equal(t, 1, len(pjis))
+	pipelineJobInfo := pjis[0]
+	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// Make sure ListFile works
-	files, err := c.ListFile(pipeline, "master", "/")
+	files, err := c.ListFileAll(pipeline, "master", "/")
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{"/pfs_files", "/s3_buckets", "/s3_files"}, files,
 		func(i interface{}) interface{} {
@@ -229,21 +185,21 @@ func TestS3Input(t *testing.T) {
 
 	// check files in /pfs
 	var buf bytes.Buffer
-	c.GetFile(pipeline, "master", "pfs_files", 0, 0, &buf)
+	c.GetFile(pipeline, "master", "pfs_files", &buf)
 	require.True(t,
 		strings.Contains(buf.String(), "out") && !strings.Contains(buf.String(), "input_repo"),
 		"expected \"out\" but not \"input_repo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
-	c.GetFile(pipeline, "master", "s3_buckets", 0, 0, &buf)
+	c.GetFile(pipeline, "master", "s3_buckets", &buf)
 	require.True(t,
 		strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
 		"expected \"input_repo\" but not \"out\" in %s: %q", "s3_buckets", buf.String())
 
 	// Check files in input_repo
 	buf.Reset()
-	c.GetFile(pipeline, "master", "s3_files", 0, 0, &buf)
+	c.GetFile(pipeline, "master", "s3_files", &buf)
 	require.Matches(t, "foo", buf.String())
 
 	// Check that no service is left over
@@ -252,7 +208,7 @@ func TestS3Input(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -270,11 +226,10 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
 
-	_, err := c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
-	require.NoError(t, err)
+	require.NoError(t, c.PutFile(repo, "master", "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
 			Cmd: []string{"bash", "-x"},
@@ -295,15 +250,15 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jobInfo := jis[0]
-	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+	require.Equal(t, 1, len(pjis))
+	pipelineJobInfo := pjis[0]
+	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// check S3_ENDPOINT variable
 	var buf bytes.Buffer
-	c.GetFile(pipeline, "master", "s3_endpoint", 0, 0, &buf)
+	c.GetFile(pipeline, "master", "s3_endpoint", &buf)
 	require.True(t, strings.Contains(buf.String(), ".default"))
 }
 
@@ -317,11 +272,10 @@ func TestS3Output(t *testing.T) {
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
 
-	_, err := c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
-	require.NoError(t, err)
+	require.NoError(t, c.PutFile(repo, "master", "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
@@ -348,14 +302,14 @@ func TestS3Output(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jobInfo := jis[0]
-	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+	require.Equal(t, 1, len(pjis))
+	pipelineJobInfo := pjis[0]
+	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// Make sure ListFile works
-	files, err := c.ListFile(pipeline, "master", "/")
+	files, err := c.ListFileAll(pipeline, "master", "/")
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{"/pfs_files", "/s3_buckets"}, files,
 		func(i interface{}) interface{} {
@@ -364,14 +318,14 @@ func TestS3Output(t *testing.T) {
 
 	// check files in /pfs
 	var buf bytes.Buffer
-	c.GetFile(pipeline, "master", "pfs_files", 0, 0, &buf)
+	c.GetFile(pipeline, "master", "pfs_files", &buf)
 	require.True(t,
 		!strings.Contains(buf.String(), "out") && strings.Contains(buf.String(), "input_repo"),
 		"expected \"input_repo\" but not \"out\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
-	c.GetFile(pipeline, "master", "s3_buckets", 0, 0, &buf)
+	c.GetFile(pipeline, "master", "s3_buckets", &buf)
 	require.True(t,
 		!strings.Contains(buf.String(), "input_repo") && strings.Contains(buf.String(), "out"),
 		"expected \"out\" but not \"input_repo\" in %s: %q", "s3_buckets", buf.String())
@@ -382,7 +336,7 @@ func TestS3Output(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -400,11 +354,10 @@ func TestFullS3(t *testing.T) {
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
 
-	_, err := c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
-	require.NoError(t, err)
+	require.NoError(t, c.PutFile(repo, "master", "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
@@ -432,14 +385,14 @@ func TestFullS3(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
-	jobInfo := jis[0]
-	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+	require.Equal(t, 1, len(pjis))
+	pipelineJobInfo := pjis[0]
+	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// Make sure ListFile works
-	files, err := c.ListFile(pipeline, "master", "/")
+	files, err := c.ListFileAll(pipeline, "master", "/")
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{"/pfs_files", "/s3_buckets"}, files,
 		func(i interface{}) interface{} {
@@ -448,14 +401,14 @@ func TestFullS3(t *testing.T) {
 
 	// check files in /pfs
 	var buf bytes.Buffer
-	c.GetFile(pipeline, "master", "pfs_files", 0, 0, &buf)
+	c.GetFile(pipeline, "master", "pfs_files", &buf)
 	require.True(t,
 		!strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
 		"expected neither \"out\" nor \"input_repo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
-	c.GetFile(pipeline, "master", "s3_buckets", 0, 0, &buf)
+	c.GetFile(pipeline, "master", "s3_buckets", &buf)
 	require.True(t,
 		strings.Contains(buf.String(), "out") && strings.Contains(buf.String(), "input_repo"),
 		"expected both \"input_repo\" and \"out\" in %s: %q", "s3_buckets", buf.String())
@@ -466,7 +419,7 @@ func TestFullS3(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -493,11 +446,10 @@ func TestS3SkippedDatums(t *testing.T) {
 		background := tu.UniqueString(name + "_bg_data")
 		require.NoError(t, c.CreateRepo(background))
 
-		_, err := c.PutFile(s3in, "master", "file", strings.NewReader("foo"))
-		require.NoError(t, err)
+		require.NoError(t, c.PutFile(s3in, "master", "file", strings.NewReader("foo")))
 
 		pipeline := tu.UniqueString("Pipeline")
-		_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
 				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
@@ -538,9 +490,9 @@ func TestS3SkippedDatums(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(s3in, "master")}, nil)
+		pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(s3in, "master")}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jis))
+		require.Equal(t, 1, len(pjis))
 
 		// Part 1: add files in pfs input w/o changing s3 input. Old files in
 		// 'pfsin' should be skipped datums
@@ -551,26 +503,24 @@ func TestS3SkippedDatums(t *testing.T) {
 			bgc, err := c.StartCommit(background, "master")
 			require.NoError(t, err)
 			c.DeleteFile(background, bgc.ID, "/round")
-			_, err = c.PutFile(background, bgc.ID, "/round", strings.NewReader(iS))
-			require.NoError(t, err)
+			require.NoError(t, c.PutFile(background, bgc.ID, "/round", strings.NewReader(iS)))
 			c.FinishCommit(background, bgc.ID)
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
-			_, err = c.PutFile(pfsin, "master", iS, strings.NewReader(iS))
-			require.NoError(t, err)
+			require.NoError(t, c.PutFile(pfsin, "master", iS, strings.NewReader(iS)))
 
 			_, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(s3in, "master")}, nil)
 			require.NoError(t, err)
-			jis, err = c.ListJob(pipeline, nil, nil, 0, false)
+			pjis, err = c.ListJob(pipeline, nil, nil, 0, false)
 			require.NoError(t, err)
-			require.Equal(t, i+2, len(jis)) // one empty job w/ initial s3in commit
-			for j := 0; j < len(jis); j++ {
-				require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
+			require.Equal(t, i+2, len(pjis)) // one empty job w/ initial s3in commit
+			for j := 0; j < len(pjis); j++ {
+				require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
 			}
 
 			// check output
 			var buf bytes.Buffer
-			c.GetFile(pipeline, "master", "out", 0, 0, &buf)
+			c.GetFile(pipeline, "master", "out", &buf)
 			s := bufio.NewScanner(&buf)
 			for s.Scan() {
 				// [0] = bg, [1] = pfsin, [2] = s3in
@@ -589,25 +539,23 @@ func TestS3SkippedDatums(t *testing.T) {
 		bgc, err := c.StartCommit(background, "master")
 		require.NoError(t, err)
 		c.DeleteFile(background, bgc.ID, "/round")
-		_, err = c.PutFile(background, bgc.ID, "/round", strings.NewReader("10"))
-		require.NoError(t, err)
+		require.NoError(t, c.PutFile(background, bgc.ID, "/round", strings.NewReader("10")))
 		c.FinishCommit(background, bgc.ID)
 
 		//  Put new file in 's3in' to create a new datum and trigger a job
 		s3c, err := c.StartCommit(s3in, "master")
 		require.NoError(t, err)
 		c.DeleteFile(s3in, s3c.ID, "/file")
-		_, err = c.PutFile(s3in, s3c.ID, "/file", strings.NewReader("bar"))
-		require.NoError(t, err)
+		require.NoError(t, c.PutFile(s3in, s3c.ID, "/file", strings.NewReader("bar")))
 		c.FinishCommit(s3in, s3c.ID)
 
 		_, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(s3in, "master")}, nil)
 		require.NoError(t, err)
-		jis, err = c.ListJob(pipeline, nil, nil, 0, false)
+		pjis, err = c.ListJob(pipeline, nil, nil, 0, false)
 		require.NoError(t, err)
-		require.Equal(t, 12, len(jis))
-		for j := 0; j < len(jis); j++ {
-			require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
+		require.Equal(t, 12, len(pjis))
+		for j := 0; j < len(pjis); j++ {
+			require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
 
 			// Check that no service is left over
 			k := tu.GetKubeClient(t)
@@ -615,7 +563,7 @@ func TestS3SkippedDatums(t *testing.T) {
 				svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
-					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.ID) {
+					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pjis[j].Job.ID) {
 						return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 					}
 				}
@@ -627,14 +575,11 @@ func TestS3SkippedDatums(t *testing.T) {
 		var buf bytes.Buffer
 		// Flush commit so that GetFile doesn't accidentally run after the job
 		// finishes but before the commit finishes
-		ciIter, err := c.FlushCommit(
+		_, err = c.FlushCommitAll(
 			[]*pfs.Commit{client.NewCommit(s3in, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		for !errors.Is(err, io.EOF) {
-			_, err = ciIter.Next()
-		}
-		c.GetFile(pipeline, "master", "out", 0, 0, &buf)
+		c.GetFile(pipeline, "master", "out", &buf)
 		s := bufio.NewScanner(&buf)
 		var seen [10]bool // One per file in 'pfsin'
 		for s.Scan() {
@@ -713,37 +658,32 @@ func TestS3SkippedDatums(t *testing.T) {
 			bgc, err := c.StartCommit(background, "master")
 			require.NoError(t, err)
 			c.DeleteFile(background, bgc.ID, "/round")
-			_, err = c.PutFile(background, bgc.ID, "/round", strings.NewReader(iS))
-			require.NoError(t, err)
+			require.NoError(t, c.PutFile(background, bgc.ID, "/round", strings.NewReader(iS)))
 			c.FinishCommit(background, bgc.ID)
 
 			// Put new file in 'repo' to create a new datum and trigger a job
-			_, err = c.PutFile(repo, "master", iS, strings.NewReader(iS))
-			require.NoError(t, err)
+			require.NoError(t, c.PutFile(repo, "master", iS, strings.NewReader(iS)))
 
 			_, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 			require.NoError(t, err)
-			jis, err := c.ListJob(pipeline, nil, nil, 0, false)
+			pjis, err := c.ListJob(pipeline, nil, nil, 0, false)
 			require.NoError(t, err)
-			require.Equal(t, i+1, len(jis))
-			for j := 0; j < len(jis); j++ {
-				require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
+			require.Equal(t, i+1, len(pjis))
+			for j := 0; j < len(pjis); j++ {
+				require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
 			}
 
 			// check output
 			// ------------
 			// Flush commit so that GetFile doesn't accidentally run after the job
 			// finishes but before the commit finishes
-			ciIter, err := c.FlushCommit(
+			_, err = c.FlushCommitAll(
 				[]*pfs.Commit{client.NewCommit(repo, "master")},
 				[]*pfs.Repo{client.NewRepo(pipeline)})
 			require.NoError(t, err)
-			for !errors.Is(err, io.EOF) {
-				_, err = ciIter.Next()
-			}
 			for j := 0; j <= i; j++ {
 				var buf bytes.Buffer
-				require.NoError(t, c.GetFile(pipeline, "master", strconv.Itoa(j), 0, 0, &buf))
+				require.NoError(t, c.GetFile(pipeline, "master", strconv.Itoa(j), &buf))
 				// buf contains the background value; this should be updated in every
 				// datum by every job, because this is an S3Out pipeline
 				require.Equal(t, iS, buf.String())
@@ -754,11 +694,11 @@ func TestS3SkippedDatums(t *testing.T) {
 			// result of processing all datums
 			// -------------------------------
 			// check no extra files
-			fis, err := c.ListFile(pipeline, "master", "/bg")
+			fis, err := c.ListFileAll(pipeline, "master", "/bg")
 			require.NoError(t, err)
 			require.Equal(t, 1, len(fis))
 			// check that expected file exists
-			fis, err = c.ListFile(pipeline, "master", fmt.Sprintf("/bg/%d", i))
+			fis, err = c.ListFileAll(pipeline, "master", fmt.Sprintf("/bg/%d", i))
 			require.NoError(t, err)
 			require.Equal(t, 1, len(fis))
 

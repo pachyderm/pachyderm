@@ -14,27 +14,33 @@ You need to complete the following steps to deploy Pachyderm:
 
 Pachyderm requires the following types of persistent storage:
 
-An S3 object store bucket for data. The S3 bucket name
- must be globally unique across the whole
- Amazon region. Therefore, add a descriptive prefix to the S3 bucket
- name, such as your username.
+* An **S3 object store bucket for data**. The S3 bucket name
+  must be globally unique across the whole
+  Amazon region. Therefore, add a descriptive prefix to the S3 bucket
+  name, such as your username.
 
-An Elastic Block Storage (EBS) persistent volume (PV) for Pachyderm
- metadata. Pachyderm recommends that you assign at least 10 GB for this
- persistent EBS volume. If you expect your cluster to be very
- long running a scale to thousands of jobs per commits, you might
- need to go add more storage. However, you can easily increase the
- size of the persistent volume later.
+* An **Elastic Block Storage (EBS) persistent volume (PV) for Pachyderm metadata**.
+ 
+!!! Warning
+      The metadata service generally requires a small persistent volume size (i.e. 10GB) **but high IOPS (1500)**. Pachyderm recommends SSD **gp3** for this persistent EBS volume which delivers a baseline performance of 3,000 IOPS and 125MB/s at any volume size. Any other disk choice may require to oversize the volume significantly to ensure enough IOPS.
+
+
+See [volume types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html).
+
+If you expect your cluster to be very long
+running or scale to thousands of jobs per commits, you might need to go add
+more storage.  However, you can easily increase the size of the persistent
+volume later.
 
 To add stateful storage, complete the following steps:
 
 1. Set up the following system variables:
 
-   * `BUCKET_NAME` — A globally unique S3 bucket name.
-   * `STORAGE_SIZE` — The size of the persistent volume in GB. For example, `10`.
-   * `AWS_REGION` — The AWS region of your Kubernetes cluster. For example,
-   `us-west-2` and not `us-west-2a`.
-  
+      * `BUCKET_NAME` — A globally unique S3 bucket name.
+      * `STORAGE_SIZE` — The size of the persistent volume in GB. For example, `500`.
+      * `AWS_REGION` — The AWS region of your Kubernetes cluster. For example,
+      `us-west-2` and not `us-west-2a`.
+   
 
 1. Create an S3 bucket:
 
@@ -54,9 +60,9 @@ To add stateful storage, complete the following steps:
 
 1. Verify that the S3 bucket was created:
 
-   ```
-   aws s3api list-buckets --query 'Buckets[].Name'
-   ```
+      ```
+      aws s3api list-buckets --query 'Buckets[].Name'
+      ```
 
 ### (Optional) Set up Bucket Encryption
 
@@ -64,11 +70,13 @@ Amazon S3 supports two types of bucket encryption — server-side encryption
 (SSE-S3) and AWS Key Management Service (AWS KMS), which stores customer
 master keys. Pachyderm supports both these methods. Therefore, when you
 are creating a bucket for your Pachyderm cluster, you can set up either
-of them. Because Pachyderm requests to buckets do not include encryption
+of them. Because Pachyderm requests that buckets do not include encryption
 information, the method that you select for the bucket is applied.
-Setting up communication between Pachyderm object storage clients and AWS KMS
-to append encryption information to Pachyderm requests is not supported and
-not recommended. 
+
+!!! Info
+      Setting up communication between Pachyderm object storage clients and AWS KMS
+      to append encryption information to Pachyderm requests is not supported and
+      not recommended. 
 
 To set up bucket encryption, see [Amazon S3 Default Encryption for S3 Buckets](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html).
 
@@ -101,118 +109,118 @@ To deploy Pachyderm with an IAM role, complete the following steps:
 
 1. Find the IAM role assigned to the cluster:
 
-   1. Go to the AWS Management console.
-   1. Select an EC2 instance in the Kubernetes cluster.
-   1. Click **Description**.
-   1. Find the **IAM Role** field.
+      1. Go to the AWS Management console.
+      1. Select an EC2 instance in the Kubernetes cluster.
+      1. Click **Description**.
+      1. Find the **IAM Role** field.
 
 1. Enable access to the S3 bucket for the IAM role:
 
-   1. In the **IAM Role** field, click on the IAM role.
-   1. In the **Permissions** tab, click **Edit policy**.
-   1. Select the **JSON** tab.
-   1. Append the following text to the end of the existing JSON:
+      1. In the **IAM Role** field, click on the IAM role.
+      1. In the **Permissions** tab, click **Edit policy**.
+      1. Select the **JSON** tab.
+      1. Append the following text to the end of the existing JSON:
 
-      ```json
-      {
-          "Effect": "Allow",
-              "Action": [
-                  "s3:ListBucket"
-              ],
-              "Resource": [
-                  "arn:aws:s3:::<your-bucket>"
-              ]
-      },
-      {
-          "Effect": "Allow",
-          "Action": [
-              "s3:PutObject",
-          "s3:GetObject",
-          "s3:DeleteObject"
-          ],
-          "Resource": [
-              "arn:aws:s3:::<your-bucket>/*"
-          ]
-      }
-      ```
+         ```json
+         {
+            "Effect": "Allow",
+               "Action": [
+                     "s3:ListBucket"
+               ],
+               "Resource": [
+                     "arn:aws:s3:::<your-bucket>"
+               ]
+         },
+         {
+            "Effect": "Allow",
+            "Action": [
+               "s3:PutObject",
+            "s3:GetObject",
+            "s3:DeleteObject"
+            ],
+            "Resource": [
+               "arn:aws:s3:::<your-bucket>/*"
+            ]
+         }
+         ```
 
-      Replace `<your-bucket>` with the name of your S3 bucket.
+         Replace `<your-bucket>` with the name of your S3 bucket.
 
-      **Note:** For the EKS cluster, you might need to use the
-      **Add inline policy** button and create a name for the new policy.
-      The JSON above is inserted between the square brackets for the `Statement` element.
+         **Note:** For the EKS cluster, you might need to use the
+         **Add inline policy** button and create a name for the new policy.
+         The JSON above is inserted between the square brackets for the `Statement` element.
 
 1. Set up trust relationships for the IAM role:
 
-   1. Click the **Trust relationships > Edit trust relationship**.
-   1. Ensure that you see a statement with `sts:AssumeRole`. Example:
+      1. Click the **Trust relationships > Edit trust relationship**.
+      1. Ensure that you see a statement with `sts:AssumeRole`. Example:
 
-      ```json
-      {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-            "Effect": "Allow",
-            "Principal": {
-              "Service": "ec2.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
-          }
-        ]
-      }
-      ```
+         ```json
+         {
+         "Version": "2012-10-17",
+         "Statement": [
+            {
+               "Effect": "Allow",
+               "Principal": {
+               "Service": "ec2.amazonaws.com"
+               },
+               "Action": "sts:AssumeRole"
+            }
+         ]
+         }
+         ```
 
 1. Set the system variable `IAM_ROLE` to the IAM role name
    for the Pachyderm deployment.
 
 1. Deploy Pachyderm:
 
-   ```shell
-   pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --iam-role ${IAM_ROLE}
-   ```
+      ```shell
+      pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --iam-role ${IAM_ROLE}
+      ```
 
-   The deployment takes some time. You can run `kubectl get pods` periodically
-   to check the status of deployment. When Pachyderm is deployed, the command
-   shows all pods as `READY`:
+      The deployment takes some time. You can run `kubectl get pods` periodically
+      to check the status of deployment. When Pachyderm is deployed, the command
+      shows all pods as `READY`:
 
-   ```shell
-   kubectl get pods
-   ```
+      ```shell
+      kubectl get pods
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
-   NAME                     READY     STATUS    RESTARTS   AGE
-   dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
-   etcd-0                   1/1       Running   0          4m
-   pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
-   ```
+      ```shell
+      NAME                     READY     STATUS    RESTARTS   AGE
+      dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
+      etcd-0                   1/1       Running   0          4m
+      pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
+      ```
 
-   **Note:** If you see a few restarts on the `pachd` nodes, it means that
-   Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
-   Kubernetes restarted those pods. You can safely ignore this message.
+      **Note:** If you see a few restarts on the `pachd` nodes, it means that
+      Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
+      Kubernetes restarted those pods. You can safely ignore this message.
 
-1. Verify that the Pachyderm cluster is up and running:
+   1. Verify that the Pachyderm cluster is up and running:
 
-   ```shell
-   pachctl version
-   ```
+      ```shell
+      pachctl version
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
-   COMPONENT           VERSION
-   pachctl             {{ config.pach_latest_version }}
-   pachd               {{ config.pach_latest_version }}
-   ```
+      ```shell
+      COMPONENT           VERSION
+      pachctl             {{ config.pach_latest_version }}
+      pachd               {{ config.pach_latest_version }}
+      ```
 
-   * If you want to access the Pachyderm UI or use the S3 gateway, you need to
-   forward Pachyderm ports. Open a new terminal window and run the
-   following command:
+      * If you want to access the Pachyderm UI or use the S3 gateway, you need to
+      forward Pachyderm ports. Open a new terminal window and run the
+      following command:
 
-   ```shell
-   pachctl port-forward
-   ```
+      ```shell
+      pachctl port-forward
+      ```
 
 ## Deploy Pachyderm with an Access Key
 
@@ -230,57 +238,57 @@ steps:
 
 1. Run the following command to deploy your Pachyderm cluster:
 
-   ```shell
-   pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY},"
-   ```
+      ```shell
+      pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY},"
+      ```
 
-   The `,` at the end of the `credentials` flag in the deploy
-   command is for an optional temporary AWS token. You might use
-   such a token if you are just experimenting with
-   Pachyderm. However, do not use this token in a
-   production deployment.
+      The `,` at the end of the `credentials` flag in the deploy
+      command is for an optional temporary AWS token. You might use
+      such a token if you are just experimenting with
+      Pachyderm. However, do not use this token in a
+      production deployment.
 
-   The deployment takes some time. You can run `kubectl get pods` periodically
-   to check the status of deployment. When Pachyderm is deployed, the command
-   shows all pods as `READY`:
+      The deployment takes some time. You can run `kubectl get pods` periodically
+      to check the status of deployment. When Pachyderm is deployed, the command
+      shows all pods as `READY`:
 
-    ```shell
-    kubectl get pods
-    ```
+      ```shell
+      kubectl get pods
+      ```
 
-    **System Response:**
+      **System Response:**
 
-    ```shell
-    NAME                     READY     STATUS    RESTARTS   AGE
-    dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
-    etcd-0                   1/1       Running   0          4m
-    pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
-    ```
+      ```shell
+      NAME                     READY     STATUS    RESTARTS   AGE
+      dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
+      etcd-0                   1/1       Running   0          4m
+      pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
+      ```
 
-    **Note:** If you see a few restarts on the `pachd` nodes, it means that
-    Kubernetes tried to bring up those pods before `etcd` was ready.
-    Therefore, Kubernetes restarted those pods. You can safely ignore this
-    message.
+      **Note:** If you see a few restarts on the `pachd` nodes, it means that
+      Kubernetes tried to bring up those pods before `etcd` was ready.
+      Therefore, Kubernetes restarted those pods. You can safely ignore this
+      message.
 
 1. Verify that the Pachyderm cluster is up and running:
 
-   ```shell
-   pachctl version
-   ```
+      ```shell
+      pachctl version
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```shell
+      ```shell
 
-   COMPONENT           VERSION
-   pachctl             {{ config.pach_latest_version }}
-   pachd               {{ config.pach_latest_version }}
-   ```
+      COMPONENT           VERSION
+      pachctl             {{ config.pach_latest_version }}
+      pachd               {{ config.pach_latest_version }}
+      ```
 
-   * If you want to access the Pachyderm UI or use S3 gateway, you need to
-   forward Pachyderm ports. Open a new terminal window and run the
-   following command:
+      * If you want to access the Pachyderm UI or use S3 gateway, you need to
+      forward Pachyderm ports. Open a new terminal window and run the
+      following command:
 
-     ```shell
-     pachctl port-forward
-     ```
+      ```shell
+      pachctl port-forward
+      ```

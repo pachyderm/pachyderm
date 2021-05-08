@@ -9,24 +9,24 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	"github.com/pachyderm/pachyderm/src/server/pkg/work"
-	"github.com/pachyderm/pachyderm/src/server/worker/driver"
-	"github.com/pachyderm/pachyderm/src/server/worker/logs"
-	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/service"
-	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/spout"
-	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform"
-	"github.com/pachyderm/pachyderm/src/server/worker/server"
-	"github.com/pachyderm/pachyderm/src/server/worker/stats"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/work"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/service"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/spout"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
 )
 
 const (
@@ -52,7 +52,6 @@ func NewWorker(
 	pipelineInfo *pps.PipelineInfo,
 	workerName string,
 	namespace string,
-	hashtreePath string,
 	rootPath string,
 ) (*Worker, error) {
 	stats.InitPrometheus()
@@ -67,7 +66,6 @@ func NewWorker(
 		pachClient,
 		etcdClient,
 		etcdPrefix,
-		hashtreePath,
 		rootPath,
 		namespace,
 	)
@@ -120,30 +118,13 @@ func (w *Worker) worker() {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
 
-		// Clean the driver hashtree cache for any jobs that are deleted
-		eg.Go(func() error {
-			return driver.Jobs().ReadOnly(ctx).WatchF(func(e *watch.Event) error {
-				var key string
-				jobInfo := &pps.EtcdJobInfo{}
-				if err := e.Unmarshal(&key, jobInfo); err != nil {
-					return err
-				}
-
-				if e.Type == watch.EventDelete || (e.Type == watch.EventPut && ppsutil.IsTerminal(jobInfo.State)) {
-					driver.ChunkCaches().RemoveCache(key)
-					driver.ChunkStatsCaches().RemoveCache(key)
-				}
-				return nil
-			})
-		})
-
 		// Run any worker tasks that the master creates
 		eg.Go(func() error {
 			return driver.NewTaskWorker().Run(
 				ctx,
-				func(ctx context.Context, subtask *work.Task) error {
+				func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
 					driver := w.driver.WithContext(ctx)
-					return transform.Worker(driver, logger, subtask, w.status)
+					return nil, transform.Worker(driver, logger, subtask, w.status)
 				},
 			)
 		})

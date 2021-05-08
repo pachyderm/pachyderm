@@ -12,17 +12,17 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	logrus "github.com/sirupsen/logrus"
 
 	v1 "k8s.io/api/core/v1"
@@ -52,7 +52,7 @@ func (a *apiServer) ServeSidecarS3G() {
 
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
-	specCommit := a.env.PPSSpecCommitID
+	specCommit := a.env.Config().PPSSpecCommitID
 	if specCommit == "" {
 		// This error is not recoverable
 		panic("cannot serve sidecar S3 gateway if no spec commit is set")
@@ -62,7 +62,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		defer retryCancel()
 		if err := a.sudo(s.pachClient.WithCtx(retryCtx), func(superUserClient *client.APIClient) error {
 			buf := bytes.Buffer{}
-			if err := superUserClient.GetFile(ppsconsts.SpecRepo, specCommit, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
+			if err := superUserClient.GetFile(ppsconsts.SpecRepo, specCommit, ppsconsts.SpecFile, &buf); err != nil {
 				return errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
 			}
 			if err := proto.Unmarshal(buf.Bytes(), s.pipelineInfo); err != nil {
@@ -79,7 +79,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		// Set auth token for s.pachClient (pipelinePtr.AuthToken will be empty if
 		// auth is off)
 		pipelineName := s.pipelineInfo.Pipeline.Name
-		pipelinePtr := &pps.EtcdPipelineInfo{}
+		pipelinePtr := &pps.StoredPipelineInfo{}
 		err := a.pipelines.ReadOnly(retryCtx).Get(pipelineName, pipelinePtr)
 		if err != nil {
 			return errors.Wrapf(err, "could not get auth token from etcdPipelineInfo")
@@ -117,7 +117,7 @@ func (a *apiServer) ServeSidecarS3G() {
 
 type jobHandler interface {
 	// OnCreate runs when a job is created. Should be idempotent.
-	OnCreate(ctx context.Context, jobInfo *pps.JobInfo)
+	OnCreate(ctx context.Context, pipelineJobInfo *pps.PipelineJobInfo)
 
 	// OnTerminate runs when a job ends. Should be idempotent.
 	OnTerminate(ctx context.Context, jobID string)
@@ -174,8 +174,8 @@ type s3InstanceCreatingJobHandler struct {
 	s *sidecarS3G
 }
 
-func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
-	jobID := jobInfo.Job.ID
+func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, pipelineJobInfo *pps.PipelineJobInfo) {
+	jobID := pipelineJobInfo.Job.ID
 
 	// serve new S3 gateway & add to s.servers
 	s.s.serversMu.Lock()
@@ -186,7 +186,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 
 	// Initialize new S3 gateway
 	var inputBuckets []*s3.Bucket
-	pps.VisitInput(jobInfo.Input, func(in *pps.Input) {
+	pps.VisitInput(pipelineJobInfo.Input, func(in *pps.Input) {
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
 				Repo:   in.Pfs.Repo,
@@ -198,8 +198,8 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	var outputBucket *s3.Bucket
 	if s.s.pipelineInfo.S3Out {
 		outputBucket = &s3.Bucket{
-			Repo:   jobInfo.OutputCommit.Repo.Name,
-			Commit: jobInfo.OutputCommit.ID,
+			Repo:   pipelineJobInfo.OutputCommit.Repo.Name,
+			Commit: pipelineJobInfo.OutputCommit.ID,
 			Name:   "out",
 		}
 	}
@@ -208,7 +208,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	// more than one job in s.servers). When parallel jobs are implemented, the
 	// servers in s.servers won't actually serve anymore, and instead parent
 	// server will forward requests based on the request hostname
-	port := s.s.apiServer.env.S3GatewayPort
+	port := s.s.apiServer.env.Config().S3GatewayPort
 	strport := strconv.FormatInt(int64(port), 10)
 	var server *http.Server
 	err := backoff.RetryNotify(func() error {
@@ -281,10 +281,10 @@ func (s *k8sServiceCreatingJobHandler) S3G() *sidecarS3G {
 	return s.s
 }
 
-func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
+func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, pipelineJobInfo *pps.PipelineJobInfo) {
 	// Create kubernetes service for the current job ('jobInfo')
 	labels := map[string]string{
-		"app":       ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion),
+		"app":       ppsutil.PipelineRcName(pipelineJobInfo.Pipeline.Name, pipelineJobInfo.PipelineVersion),
 		"suite":     "pachyderm",
 		"component": "worker",
 	}
@@ -294,7 +294,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.ID),
+			Name:   ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID),
 			Labels: labels,
 		},
 		Spec: v1.ServiceSpec{
@@ -306,7 +306,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			ClusterIP: "None",
 			Ports: []v1.ServicePort{
 				{
-					Port: int32(s.s.apiServer.env.S3GatewayPort),
+					Port: int32(s.s.apiServer.env.Config().S3GatewayPort),
 					Name: "s3-gateway-port",
 				},
 			},
@@ -324,7 +324,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		return nil
 	})
 	if err != nil {
-		logrus.Errorf("could not create service for %q: %v", jobInfo.Job.ID, err)
+		logrus.Errorf("could not create service for %q: %v", pipelineJobInfo.Job.ID, err)
 	}
 }
 
@@ -425,10 +425,10 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	// Inspect the job and make sure it's relevant, as this worker may be old
 	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", jobID)
 
-	var jobInfo *pps.JobInfo
+	var pipelineJobInfo *pps.PipelineJobInfo
 	if err := backoff.RetryNotify(func() error {
 		var err error
-		jobInfo, err = pachClient.InspectJob(jobID, false)
+		pipelineJobInfo, err = pachClient.InspectJob(jobID, false)
 		if err != nil {
 			if col.IsErrNotFound(err) {
 				// TODO(msteffen): I'm not sure what this means--maybe that the service
@@ -447,21 +447,21 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 		logrus.Errorf("permanent error inspecting job %q: %v", jobID, err)
 		return // leak the job; better than getting stuck?
 	}
-	if jobInfo.PipelineVersion < h.s.pipelineInfo.Version {
-		logrus.Infof("skipping job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
+	if pipelineJobInfo.PipelineVersion < h.s.pipelineInfo.Version {
+		logrus.Infof("skipping job %v as it uses old pipeline version %d", jobID, pipelineJobInfo.PipelineVersion)
 		return
 	}
-	if jobInfo.PipelineVersion > h.s.pipelineInfo.Version {
+	if pipelineJobInfo.PipelineVersion > h.s.pipelineInfo.Version {
 		logrus.Infof("skipping job %q as its pipeline version version %d is "+
 			"greater than this worker's pipeline version (%d), this should "+
 			"automatically resolve when the worker is updated", jobID,
-			jobInfo.PipelineVersion, h.s.pipelineInfo.Version)
+			pipelineJobInfo.PipelineVersion, h.s.pipelineInfo.Version)
 		return
 	}
-	if ppsutil.IsTerminal(jobInfo.State) {
+	if ppsutil.IsTerminal(pipelineJobInfo.State) {
 		h.h.OnTerminate(jobCtx, jobID)
 		return
 	}
 
-	h.h.OnCreate(jobCtx, jobInfo)
+	h.h.OnCreate(jobCtx, pipelineJobInfo)
 }

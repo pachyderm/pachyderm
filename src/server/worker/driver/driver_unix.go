@@ -8,15 +8,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
-
-// Mkfifo does not exist on Windows, so this is left unimplemented there, except for tests
-func createSpoutFifo(path string) error {
-	return syscall.Mkfifo(path, 0666)
-}
 
 func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{
@@ -34,6 +29,17 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 	d.activeDataMutex.Lock()
 	defer d.activeDataMutex.Unlock()
 
+	// If a custom user is set, make sure the directory and its content are owned by them.
+	if d.uid != nil && d.gid != nil {
+		if err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			return os.Chown(name, int(*d.uid), int(*d.gid))
+		}); err != nil {
+			return err
+		}
+	}
 	if err := d.linkData(inputs, dir); err != nil {
 		return errors.Wrap(err, "error when linking active data directory")
 	}
@@ -96,7 +102,7 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 			return err
 		}
 
-		// Always overwrite the symlink at this point, in case it's relative or some dumb shit
+		// Always overwrite the symlink at this point, in case it's relative
 		return os.Symlink(filepath.Join(target), filepath.Join(path))
 	})
 }
@@ -123,15 +129,6 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 			if err := os.Symlink(src, dst); err != nil {
 				return err
 			}
-		}
-	}
-
-	if d.PipelineInfo().Spout != nil && d.PipelineInfo().Spout.Marker != "" {
-		if err := os.Symlink(
-			filepath.Join(dir, d.PipelineInfo().Spout.Marker),
-			filepath.Join(d.InputDir(), d.PipelineInfo().Spout.Marker),
-		); err != nil {
-			return err
 		}
 	}
 

@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
 
 	"golang.org/x/net/context"
 )
@@ -18,11 +18,11 @@ type apiServer struct {
 	driver *driver
 
 	// env generates clients for pachyderm's downstream services
-	env *serviceenv.ServiceEnv
+	env serviceenv.ServiceEnv
 }
 
 func newAPIServer(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 ) (*apiServer, error) {
@@ -31,7 +31,7 @@ func newAPIServer(
 		return nil, err
 	}
 	s := &apiServer{
-		Logger: log.NewLogger("transaction.API"),
+		Logger: log.NewLogger("transaction.API", env.Logger()),
 		driver: d,
 		env:    env,
 	}

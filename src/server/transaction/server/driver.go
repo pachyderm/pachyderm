@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/transactiondb"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -34,7 +34,7 @@ type driver struct {
 }
 
 func newDriver(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 ) (*driver, error) {
@@ -126,7 +126,7 @@ func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transac
 			}
 			commit := info.Responses[i].Commit
 			if commit != nil {
-				if err := directTxn.DeleteCommit(&pfs.DeleteCommitRequest{Commit: commit}); err != nil {
+				if err := directTxn.SquashCommit(&pfs.SquashCommitRequest{Commit: commit}); err != nil {
 					return err
 				}
 			}
@@ -200,8 +200,8 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
 			response = &transaction.TransactionResponse{}
-		} else if request.DeleteCommit != nil {
-			err = directTxn.DeleteCommit(request.DeleteCommit)
+		} else if request.SquashCommit != nil {
+			err = directTxn.SquashCommit(request.SquashCommit)
 			response = &transaction.TransactionResponse{}
 		} else if request.CreateBranch != nil {
 			err = directTxn.CreateBranch(request.CreateBranch)

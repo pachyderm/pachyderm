@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/cmd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
 	"github.com/spf13/pflag"
 )
 

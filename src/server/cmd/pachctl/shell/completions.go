@@ -9,13 +9,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
-	pps_pretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pps_pretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
 	prompt "github.com/c-bata/go-prompt"
 	units "github.com/docker/go-units"
@@ -146,7 +146,7 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 	case commitOrBranchPart:
 		return BranchCompletion(flag, text, maxCompletions)
 	case filePart:
-		if err := c.GlobFileF(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
+		if err := c.GlobFile(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
 				maxCompletions--
 			} else {
@@ -203,29 +203,29 @@ func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, Ca
 	return result, CacheAll
 }
 
-func jobDesc(ji *pps.JobInfo) string {
+func jobDesc(pji *pps.PipelineJobInfo) string {
 	statusString := ""
-	if ji.Finished == nil {
-		statusString = fmt.Sprintf("%s for %s", pps_pretty.JobState(ji.State), pretty.Since(ji.Started))
+	if pji.Finished == nil {
+		statusString = fmt.Sprintf("%s for %s", pps_pretty.JobState(pji.State), pretty.Since(pji.Started))
 	} else {
-		statusString = fmt.Sprintf("%s %s", pps_pretty.JobState(ji.State), pretty.Ago(ji.Finished))
+		statusString = fmt.Sprintf("%s %s", pps_pretty.JobState(pji.State), pretty.Ago(pji.Finished))
 	}
-	return fmt.Sprintf("%s: %s - %s", ji.Pipeline.Name, pps_pretty.Progress(ji), statusString)
+	return fmt.Sprintf("%s: %s - %s", pji.Pipeline.Name, pps_pretty.Progress(pji), statusString)
 }
 
 // JobCompletion completes job parameters of the form <job>
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
-	if err := c.ListJobF("", nil, nil, 0, false, func(ji *pps.JobInfo) error {
+	if err := c.ListJobF("", nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
 		if maxCompletions > 0 {
 			maxCompletions--
 		} else {
 			return errutil.ErrBreak
 		}
 		result = append(result, prompt.Suggest{
-			Text:        ji.Job.ID,
-			Description: jobDesc(ji),
+			Text:        pji.Job.ID,
+			Description: jobDesc(pji),
 		})
 		return nil
 	}); err != nil {

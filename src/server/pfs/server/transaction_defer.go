@@ -1,11 +1,11 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // Propagater is an object that is used to propagate PFS branches at the end of
@@ -75,7 +75,7 @@ func (f *PipelineFinisher) FinishPipelineCommits(branch *pfs.Branch) error {
 // Run finishes any open commits on output branches of pipelines modified in the preceeding transaction
 func (f *PipelineFinisher) Run() error {
 	for _, branch := range f.branches {
-		if err := f.d.listCommitF(
+		if err := f.d.listCommit(
 			f.txnCtx.Client,
 			branch.Repo,
 			client.NewCommit(branch.Repo.Name, branch.Name), // to
@@ -83,18 +83,7 @@ func (f *PipelineFinisher) Run() error {
 			0,     // number
 			false, // reverse
 			func(commitInfo *pfs.CommitInfo) error {
-				// finish all open commits on the branch
-				if commitInfo.Finished != nil {
-					return nil
-				}
-				return f.d.finishCommit(
-					f.txnCtx,
-					client.NewCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID),
-					// empty, no tree
-					nil,
-					true,
-					"",
-				)
+				return f.txnCtx.Client.StopJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 			}); err != nil && !isNotFoundErr(err) {
 			return err
 		}

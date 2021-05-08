@@ -8,6 +8,7 @@ base:
   # the above command to replace it inline)
   preload_docker_images:
    - bash:4
+   - debian:buster-slim
    - dockermuenster/caddy:0.9.3
    - gcr.io/google_containers/kube-state-metrics:v0.5.0
    - gcr.io/k8s-minikube/storage-provisioner:v1.8.1
@@ -47,7 +48,7 @@ base:
     RUN cd /root && wget -nv -O - https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz | tar -zxf -
     ENV GOPATH=/root/go
     ENV PATH=/root/go/bin:${PATH}
-    RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS DOCKER_PWD AMAZON_CLIENT_ID AMAZON_CLIENT_SECRET AMAZON_CLIENT_BUCKET AMAZON_CLIENT_REGION ECS_CLIENT_ID ECS_CLIENT_SECRET ECS_CLIENT_BUCKET ECS_CLIENT_CUSTOM_ENDPOINT GOOGLE_CLIENT_BUCKET GOOGLE_CLIENT_CREDS GOOGLE_CLIENT_HMAC_ID GOOGLE_CLIENT_HMAC_SECRET GOOGLE_CLIENT_REGION MICROSOFT_CLIENT_ID MICROSOFT_CLIENT_SECRET MICROSOFT_CLIENT_CONTAINER" >> /etc/ssh/sshd_config
+    RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS DOCKER_PWD AMAZON_CLIENT_ID AMAZON_CLIENT_SECRET AMAZON_CLIENT_BUCKET AMAZON_CLIENT_REGION ECS_CLIENT_ID ECS_CLIENT_SECRET ECS_CLIENT_BUCKET ECS_CLIENT_CUSTOM_ENDPOINT GOOGLE_CLIENT_BUCKET GOOGLE_CLIENT_CREDS GOOGLE_CLIENT_HMAC_ID GOOGLE_CLIENT_HMAC_SECRET GOOGLE_CLIENT_REGION MICROSOFT_CLIENT_ID MICROSOFT_CLIENT_SECRET MICROSOFT_CLIENT_CONTAINER GOOGLE_TEST_UPLOAD_CREDS BIGQUERY_PROJECT BIGQUERY_DATASET BIGQUERY_TABLE TEST_RESULTS_BUCKET CIRCLE_REPOSITORY_URL CIRCLE_STAGE CIRCLE_BUILD_NUM CIRCLE_SHA1" >> /etc/ssh/sshd_config
     RUN mkdir /root/project
     WORKDIR /root/project
     # Warm up go mod cache and go build cache we set VERSION_ADDITIONAL so that
@@ -79,12 +80,18 @@ base:
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
     git tag -f -am "Circl CI test bake script" v0.0.1-circle-test-base-image
+    # VERSION is used by docker-build-pipeline-build (Env.VERSION in
+    # goreleaser/docker-build-pipelines.yml), needs to be something like
+    # '1.12.0-CIbuild'
+    export VERSION="$(pachctl version --client-only)"
+    echo "Using VERSION=$VERSION"
     make docker-build
     # build docker images that are used in tests
     (cd etc/testing/images/ubuntu_with_s3_clients; make image)
     make docker-build-kafka
     make docker-build-spout-test
     make docker-build-test-entrypoint
+    make docker-build-pipeline-build
     make docker-build-proto
     set +x
     echo "============= POST BAKE IMAGES =================="
@@ -119,11 +126,12 @@ base:
 
 runtime:
   cpus: 4
-  memory: 8GB
+  memory: 16GB
   disk: 50GB
 
-prewarm_pool_size: 12
-max_pool_size: 24
-# timeout vms after 1hr. hopefully tests will clean them up sooner, but if the
-# tests themselves timeout and cleanup doesn't get run...
-default_lease_timeout: 1h
+prewarm_pool_size: 10
+max_pool_size: 20
+# timeout vms after 6 hours. hopefully tests will clean them up sooner, but if
+# the tests themselves timeout and cleanup doesn't get run, we don't want old
+# VMs building up and stopping new ones getting scheduled.
+default_lease_timeout: 6h
