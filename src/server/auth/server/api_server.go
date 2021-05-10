@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"path"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgerrcode"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -360,6 +362,35 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		return nil, err
 	}
 	return &auth.ActivateResponse{PachToken: pachToken}, nil
+}
+
+// RotateRootToken implements the protobuf auth.RotateRootToken RPC
+func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
+	// We don't want to actually log the request/response since they contain credentials.
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+
+	// TODO(acohen4): Merge with postgres-integration library changes
+	var rootToken string
+	if err := a.processInTransaction(ctx, func(sqlTx *sqlx.Tx) error {
+		// First revoke root's existing auth token
+		if err := a.deleteAuthTokensForSubjectInTransaction(ctx, sqlTx, auth.RootUser); err != nil {
+			return err
+		}
+		// If the new token is in the request, use it.
+		// Otherwise generate a new random token.
+		rootToken = req.RootToken
+		if rootToken == "" {
+			rootToken = uuid.NewWithoutDashes()
+		}
+		if err := a.insertAuthTokenNoTTLInTransaction(ctx, sqlTx, auth.HashToken(rootToken), auth.RootUser); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &auth.RotateRootTokenResponse{RootToken: rootToken}, nil
 }
 
 // Deactivate implements the protobuf auth.Deactivate RPC
@@ -1412,9 +1443,8 @@ func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.Revok
 	if strings.HasPrefix(req.Username, auth.PachPrefix) {
 		return nil, errors.New("cannot revoke tokens for pach: users")
 	}
-
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, req.Username); err != nil {
-		return nil, errors.Wrapf(err, "error deleting all auth tokens")
+	if err := a.deleteAuthTokensForSubject(ctx, req.Username); err != nil {
+		return nil, err
 	}
 	return &auth.RevokeAuthTokensForUserResponse{}, nil
 }
@@ -1486,9 +1516,16 @@ func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subje
 	return nil
 }
 
+// TODO(acohen4): replace this function with what's implemented in postgres-integration once it lands
 func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
+	return a.processInTransaction(ctx, func(sqlTx *sqlx.Tx) error {
+		return a.insertAuthTokenNoTTLInTransaction(ctx, sqlTx, tokenHash, subject)
+	})
+}
+
+func (a *apiServer) insertAuthTokenNoTTLInTransaction(ctx context.Context, sqlTx *sqlx.Tx, tokenHash string, subject string) error {
 	// Register the pachd in the database
-	if _, err := a.env.GetDBClient().ExecContext(ctx,
+	if _, err := sqlTx.ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject) 
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
 		if pgErr, ok := err.(*pq.Error); ok {
@@ -1512,6 +1549,36 @@ func (a *apiServer) deleteAllAuthTokens(ctx context.Context) error {
 func (a *apiServer) deleteAuthToken(ctx context.Context, tokenHash string) error {
 	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
 		return errors.Wrapf(err, "error deleting token")
+	}
+	return nil
+}
+
+func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) error {
+	return a.processInTransaction(ctx, func(sqlTx *sqlx.Tx) error {
+		return a.deleteAuthTokensForSubjectInTransaction(ctx, sqlTx, subject)
+	})
+}
+
+func (a *apiServer) deleteAuthTokensForSubjectInTransaction(ctx context.Context, tx *sqlx.Tx, subject string) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, subject); err != nil {
+		return errors.Wrapf(err, "error deleting all auth tokens")
+	}
+	return nil
+}
+
+func (a *apiServer) processInTransaction(ctx context.Context, f func(sqlTx *sqlx.Tx) error) error {
+	sqlTx, err := a.env.GetDBClient().BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return err
+	}
+	err = f(sqlTx)
+	if err != nil {
+		sqlTx.Rollback()
+		return err
+	}
+	err = sqlTx.Commit()
+	if err != nil {
+		return errors.Wrapf(err, "Error while commiting SQL Transaction")
 	}
 	return nil
 }
