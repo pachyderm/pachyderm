@@ -638,19 +638,9 @@ func (d *driver) makeCommit(
 
 	// keep track of which branches are represented in the commit provenance
 	provBranches := make(map[string]bool)
-	for _, prov := range provenance {
-		// resolve the provenance
-		var err error
-		prov, err = d.resolveCommitProvenance(txnCtx.Stm, prov)
-		if err != nil {
-			return nil, err
-		}
-		provBranches[branchKey(prov.Commit.Branch)] = true
-	}
-
 	newCommitProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range provenance {
-		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, prov.Commit)
+		prov, provCommitInfo, err := d.resolveCommitProvenance(txnCtx.Stm, prov)
 		if err != nil {
 			return nil, err
 		}
@@ -668,12 +658,6 @@ func (d *driver) makeCommit(
 	provenantBranches := make(map[string]bool)
 	// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
 	for _, prov := range newCommitProv {
-		// resolve the provenance
-		var err error
-		prov, err = d.resolveCommitProvenance(txnCtx.Stm, prov)
-		if err != nil {
-			return nil, err
-		}
 		// there should only be one representative of each branch in the commit provenance
 		if _, ok := provenantBranches[branchKey(prov.Commit.Branch)]; ok {
 			return nil, errors.Errorf("the commit provenance contains multiple commits from the same branch")
@@ -755,17 +739,23 @@ func (d *driver) makeCommit(
 // If a complete commit provenance is passed in it just uses that.
 // It accepts an STM so that it can be used in a transaction and avoids an
 // inconsistent call to d.inspectCommit()
-func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.CommitProvenance) (*pfs.CommitProvenance, error) {
+func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.CommitProvenance) (*pfs.CommitProvenance, *pfs.CommitInfo, error) {
 	if userCommitProvenance == nil {
-		return nil, errors.Errorf("cannot resolve nil commit provenance")
+		return nil, nil, errors.Errorf("cannot resolve nil commit provenance")
 	}
+	// if specified, the provenance's branch name should override the commit's branch name
+	specifiedBranch := userCommitProvenance.Commit.Branch.Name
+
 	// resolve the commit in case the commit is actually a branch name
-	userCommitProvInfo, err := d.resolveCommit(stm, userCommitProvenance.Commit)
+	commitInfo, err := d.resolveCommit(stm, userCommitProvenance.Commit)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	userCommitProvenance.Commit = userCommitProvInfo.Commit
-	return userCommitProvenance, nil
+	userCommitProvenance.Commit = commitInfo.Commit
+	if specifiedBranch != "" {
+		userCommitProvenance.Commit.Branch.Name = specifiedBranch
+	}
+	return userCommitProvenance, commitInfo, nil
 }
 
 // TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
@@ -977,7 +967,7 @@ nextSubvBI:
 				return err
 			}
 			for _, provProv := range provOfSubvBHeadInfo.Provenance {
-				newProvProv, err := d.resolveCommitProvenance(stm, provProv)
+				newProvProv, _, err := d.resolveCommitProvenance(stm, provProv)
 				if err != nil {
 					return errors.Wrapf(err, "could not resolve provenant commit %s@%s (%s)",
 						provProv.Commit.Branch.Repo.Name, provProv.Commit.Branch.Name, provProv.Commit.ID)

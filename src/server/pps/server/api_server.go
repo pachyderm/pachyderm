@@ -2250,11 +2250,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		}
 	}
 
-	// spouts don't need to keep track of branch provenance since they are essentially inputs
-	if request.Spout != nil {
-		provenance = nil
-	}
-
 	// Create/update output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
 	if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{

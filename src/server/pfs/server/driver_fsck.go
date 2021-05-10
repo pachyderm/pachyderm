@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -12,6 +13,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
+
+// fsckCommitKey is not commitKey because it ignores the commit branch.  Until
+// provenance is removed for global IDs, commit provenance references a commit
+// on a specific branch, which does not necessarily equal the branch that the
+// commit was initially created on and will confuse fsck if we include it.
+func fsckCommitKey(commit *pfs.Commit) string {
+	return path.Join(commit.Branch.Repo.Name, commit.ID)
+}
 
 func equalBranches(a, b []*pfs.Branch) bool {
 	aMap := make(map[string]bool)
@@ -38,10 +47,10 @@ func equalCommits(a, b []*pfs.Commit) bool {
 	aMap := make(map[string]bool)
 	bMap := make(map[string]bool)
 	for _, commit := range a {
-		aMap[commitKey(commit)] = true
+		aMap[fsckCommitKey(commit)] = true
 	}
 	for _, commit := range b {
-		bMap[commitKey(commit)] = true
+		bMap[fsckCommitKey(commit)] = true
 	}
 	if len(aMap) != len(bMap) {
 		return false
@@ -151,10 +160,10 @@ func (e ErrProvenanceTransitivity) Error() string {
 	fullMap := make(map[string]*pfs.Commit)
 	provMap := make(map[string]*pfs.Commit)
 	for _, prov := range e.FullProvenance {
-		fullMap[commitKey(prov)] = prov
+		fullMap[fsckCommitKey(prov)] = prov
 	}
 	for _, prov := range e.CommitInfo.Provenance {
-		provMap[commitKey(prov.Commit)] = prov.Commit
+		provMap[fsckCommitKey(prov.Commit)] = prov.Commit
 	}
 	msg.WriteString("the following commit provenances are missing from the full provenance:\n")
 	for k, v := range fullMap {
@@ -246,7 +255,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 		commits := d.commits(repoName).ReadOnly(ctx)
 		commitInfo := &pfs.CommitInfo{}
 		if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
-			commitInfos[commitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+			commitInfos[fsckCommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 			return nil
 		}); err != nil {
 			return err
@@ -299,7 +308,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 				}
 				if provBranchInfo.Head != nil {
 					// in this case, the headCommit Provenance should contain provBranch.Head
-					headCommitInfo, ok := commitInfos[commitKey(bi.Head)]
+					headCommitInfo, ok := commitInfos[fsckCommitKey(bi.Head)]
 					if !ok {
 						if !fix {
 							if err := onError(ErrCommitInfoNotFound{
@@ -314,8 +323,8 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 							Commit: bi.Head,
 							Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
 						}
-						commitInfos[commitKey(bi.Head)] = headCommitInfo
-						newCommitInfos[commitKey(bi.Head)] = headCommitInfo
+						commitInfos[fsckCommitKey(bi.Head)] = headCommitInfo
+						newCommitInfos[fsckCommitKey(bi.Head)] = headCommitInfo
 						if err := onFix(fmt.Sprintf(
 							"creating commit %s@%s which was missing, but referenced by %s@%s",
 							bi.Head.Branch.Repo.Name, bi.Head.ID,
@@ -360,7 +369,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 		for _, prov := range ci.Provenance {
 			directProvenance = append(directProvenance, prov.Commit)
 			transitiveProvenance = append(transitiveProvenance, prov.Commit)
-			provCommitInfo, ok := commitInfos[commitKey(prov.Commit)]
+			provCommitInfo, ok := commitInfos[fsckCommitKey(prov.Commit)]
 			if !ok {
 				if !fix {
 					if err := onError(ErrCommitInfoNotFound{
@@ -375,8 +384,8 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 					Commit: prov.Commit,
 					Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
 				}
-				commitInfos[commitKey(prov.Commit)] = provCommitInfo
-				newCommitInfos[commitKey(prov.Commit)] = provCommitInfo
+				commitInfos[fsckCommitKey(prov.Commit)] = provCommitInfo
+				newCommitInfos[fsckCommitKey(prov.Commit)] = provCommitInfo
 				if err := onFix(fmt.Sprintf(
 					"creating commit %s@%s which was missing, but referenced by %s@%s",
 					prov.Commit.Branch.Repo.Name, prov.Commit.ID,
@@ -409,7 +418,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 				continue
 			}
 			contains := false
-			provCommitInfo, ok := commitInfos[commitKey(prov.Commit)]
+			provCommitInfo, ok := commitInfos[fsckCommitKey(prov.Commit)]
 			if !ok {
 				if !fix {
 					if err := onError(ErrCommitInfoNotFound{
@@ -424,8 +433,8 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 					Commit: prov.Commit,
 					Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
 				}
-				commitInfos[commitKey(prov.Commit)] = provCommitInfo
-				newCommitInfos[commitKey(prov.Commit)] = provCommitInfo
+				commitInfos[fsckCommitKey(prov.Commit)] = provCommitInfo
+				newCommitInfos[fsckCommitKey(prov.Commit)] = provCommitInfo
 				if err := onFix(fmt.Sprintf(
 					"creating commit %s@%s which was missing, but referenced by %s@%s",
 					prov.Commit.Branch.Repo.Name, prov.Commit.ID,
@@ -447,7 +456,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 						}
 						break // can't continue loop now that subvCommit is nil
 					}
-					subvCommitInfo, ok := commitInfos[commitKey(subvCommit)]
+					subvCommitInfo, ok := commitInfos[fsckCommitKey(subvCommit)]
 					if !ok {
 						if !fix {
 							if err := onError(ErrCommitInfoNotFound{
@@ -462,8 +471,8 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 							Commit: subvCommit,
 							Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
 						}
-						commitInfos[commitKey(subvCommit)] = subvCommitInfo
-						newCommitInfos[commitKey(subvCommit)] = subvCommitInfo
+						commitInfos[fsckCommitKey(subvCommit)] = subvCommitInfo
+						newCommitInfos[fsckCommitKey(subvCommit)] = subvCommitInfo
 						if err := onFix(fmt.Sprintf(
 							"creating commit %s@%s which was missing, but referenced by %s@%s",
 							subvCommit.Branch.Repo.Name, subvCommit.ID,
@@ -506,7 +515,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 					}
 					break // can't continue loop now that subvCommit is nil
 				}
-				subvCommitInfo, ok := commitInfos[commitKey(subvCommit)]
+				subvCommitInfo, ok := commitInfos[fsckCommitKey(subvCommit)]
 				if !ok {
 					if !fix {
 						if err := onError(ErrCommitInfoNotFound{
@@ -521,8 +530,8 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 						Commit: subvCommit,
 						Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
 					}
-					commitInfos[commitKey(subvCommit)] = subvCommitInfo
-					newCommitInfos[commitKey(subvCommit)] = subvCommitInfo
+					commitInfos[fsckCommitKey(subvCommit)] = subvCommitInfo
+					newCommitInfos[fsckCommitKey(subvCommit)] = subvCommitInfo
 					if err := onFix(fmt.Sprintf(
 						"creating commit %s@%s which was missing, but referenced by %s@%s",
 						subvCommit.Branch.Repo.Name, subvCommit.ID,
