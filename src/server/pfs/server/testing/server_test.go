@@ -1358,6 +1358,17 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, "buzz", buf.String())
 	})
 
+	suite.Run("PutFileBranchCommitID", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		err := env.PachClient.PutFile(repo, "", "master", "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile())
+		require.NoError(t, err)
+	})
+
 	suite.Run("PutSameFileInParallel", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
