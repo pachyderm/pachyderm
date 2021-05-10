@@ -83,14 +83,6 @@ func (c APIClient) GetTransaction() (*transaction.Transaction, error) {
 	return GetTransaction(c.Ctx())
 }
 
-// NewCommitResponse is a helper function to instantiate a TransactionResponse
-// for a transaction item that returns a Commit ID.
-func NewCommitResponse(commit *pfs.Commit) *transaction.TransactionResponse {
-	return &transaction.TransactionResponse{
-		Commit: commit,
-	}
-}
-
 // ListTransaction is an RPC that fetches a list of all open transactions in the
 // Pachyderm cluster.
 func (c APIClient) ListTransaction() ([]*transaction.TransactionInfo, error) {

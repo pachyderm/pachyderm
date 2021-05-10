@@ -31,6 +31,7 @@ message TransactionRequest {
 message TransactionResponse {
   // At most, one of these fields should be set (most responses are empty)
   pfs.Commit commit = 2; // Only used for StartCommit - any way we can deterministically provide this before finishing the transaction?
+  string fileset_id = 3 [(gogoproto.customname) = "FilesetID"]; // Used when the request uploads file data to be stored in a commit (CreatePipeline)
 }
 
 message Transaction {

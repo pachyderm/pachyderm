@@ -1822,18 +1822,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.CreatePipeline(request, &specCommit)
 	}); err != nil {
-		// attempt to clean up any commit we created
-		if specCommit != nil {
-			a.sudo(a.env.GetPachClient(ctx), func(superClient *client.APIClient) error {
-				return superClient.SquashCommit(ppsconsts.SpecRepo, specCommit.ID)
-			})
-		}
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest, prevSpecCommit **pfs.Commit) error {
+func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest, specFileset fileset.ID) error {
 	// Validate request
 	if err := a.validatePipelineRequest(request); err != nil {
 		return err
