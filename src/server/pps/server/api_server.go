@@ -1173,7 +1173,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		var pipelineInfo *pps.PipelineInfo
 		var err error
 		if request.Pipeline != nil {
-			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
+			pipelineInfo, err = a.inspectPipeline(ctx, request.Pipeline.Name)
 			if err != nil {
 				return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
 			}
@@ -1185,7 +1185,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			if err != nil {
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 			}
-			pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
+			pipelineInfo, err = a.inspectPipeline(ctx, jobPtr.Pipeline.Name)
 			if err != nil {
 				return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
 			}
@@ -1345,7 +1345,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	// RC name
 	var pipelineInfo *pps.PipelineInfo
 	if request.Pipeline != nil {
-		pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
+		pipelineInfo, err = a.inspectPipeline(ctx, request.Pipeline.Name)
 		if err != nil {
 			return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
 		}
@@ -1357,7 +1357,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if err != nil {
 			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 		}
-		pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
+		pipelineInfo, err = a.inspectPipeline(ctx, jobPtr.Pipeline.Name)
 		if err != nil {
 			return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
 		}
@@ -2417,16 +2417,15 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	return a.inspectPipeline(pachClient, request.Pipeline.Name)
+	return a.inspectPipeline(ctx, request.Pipeline.Name)
 }
 
 // inspectPipeline contains the functional implementation of InspectPipeline.
 // Many functions (GetLogs, ListPipeline, CreateJob) need to inspect a pipeline,
 // so they call this instead of making an RPC
-func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (*pps.PipelineInfo, error) {
+func (a *apiServer) inspectPipeline(ctx context.Context, name string) (*pps.PipelineInfo, error) {
 	var response *pps.PipelineInfo
-	if err := a.txnEnv.WithReadContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		response, err = a.inspectPipelineInTransaction(txnCtx, name)
 		return err
@@ -2743,7 +2742,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// - spec commit in etcdPipelineInfo (which may not be the HEAD of the
 	//   pipeline's spec branch)
 	// - kubernetes services (for service pipelines, githook pipelines, etc)
-	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline.Name)
 	if err != nil {
 		logrus.Errorf("error inspecting pipeline: %v", err)
 		pipelineInfo = &pps.PipelineInfo{Pipeline: request.Pipeline, OutputBranch: "master"}
@@ -2861,7 +2860,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	pachClient := a.env.GetPachClient(ctx)
 
 	// Get request.Pipeline's info
-	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -2902,7 +2901,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	pachClient := a.env.GetPachClient(ctx)
 
 	// Get request.Pipeline's info
-	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -2944,7 +2943,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	pfsClient := pachClient.PfsAPIClient
 	ppsClient := pachClient.PpsAPIClient
 
-	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -3114,7 +3113,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 	pachClient := a.env.GetPachClient(ctx)
 
-	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline.Name)
 	if err != nil {
 		return nil, err
 	}
