@@ -30,9 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
-// TODO:
-// s3 input / gateway stuff (need more information here).
-// egress (maybe should be a part of the datum package).
+// TODO(2.0 optional):
 // Prometheus stats? (refer to old driver code and tests)
 // capture logs (refer to old driver code and tests).
 // In general, need to spend some time walking through the old driver

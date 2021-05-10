@@ -89,6 +89,7 @@ for platform in custom google amazon microsoft; do
   done
 done
 
+# TODO(2.0 required): Investigate flakiness.
 # XXX: for now, skip diffing because 'ci_build' ends up in the version. Not
 # sure how to workaround that.
 # https://app.circleci.com/pipelines/github/pachyderm/pachyderm/80/workflows/088e1426-b4ce-4baa-85e2-f9a20cc75151/jobs/2934

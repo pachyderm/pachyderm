@@ -524,6 +524,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
+	// TODO(2.0 required): Investigate flakiness.
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
