@@ -214,7 +214,7 @@ func orderToSQL(order etcd.SortOrder) (string, error) {
 	return "", errors.Errorf("unsupported sort order: %d", order)
 }
 
-func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string, error) {
+func targetToSQL(target etcd.SortTarget) (string, error) {
 	switch target {
 	case SortByCreateRevision:
 		return "createdat", nil
@@ -226,7 +226,12 @@ func (c *postgresReadOnlyCollection) targetToSQL(target etcd.SortTarget) (string
 	return "", errors.Errorf("unsupported sort target for postgres collections: %d", target)
 }
 
-func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
+func (c *postgresCollection) list(
+	ctx context.Context,
+	withFields map[string]string,
+	opts *Options,
+	q sqlx.ExtContext,
+	f func(*model) error) error {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	params := map[string]interface{}{}
@@ -242,14 +247,14 @@ func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Op
 	if opts.Order != SortNone {
 		if order, err := orderToSQL(opts.Order); err != nil {
 			return err
-		} else if target, err := c.targetToSQL(opts.Target); err != nil {
+		} else if target, err := targetToSQL(opts.Target); err != nil {
 			return err
 		} else {
 			query += fmt.Sprintf(" order by %s %s", target, order)
 		}
 	}
 
-	rows, err := c.db.NamedQueryContext(c.ctx, query, params)
+	rows, err := sqlx.NamedQueryContext(ctx, q, query, params)
 	if err != nil {
 		return c.mapSQLError(err, "")
 	}
@@ -270,6 +275,10 @@ func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Op
 	}
 
 	return c.mapSQLError(rows.Close(), "")
+}
+
+func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
+	return c.postgresCollection.list(c.ctx, withFields, opts, c.db, f)
 }
 
 func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
@@ -504,6 +513,22 @@ func (c *postgresReadWriteCollection) Get(key string, val proto.Message) error {
 		return err
 	}
 	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
+}
+
+func (c *postgresReadWriteCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
+	return c.postgresCollection.list(context.Background(), withFields, opts, c.tx, f)
+}
+
+func (c *postgresReadWriteCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+	if err := c.validateIndex(index); err != nil {
+		return err
+	}
+	return c.list(map[string]string{indexFieldName(index): indexVal}, opts, func(m *model) error {
+		if err := proto.Unmarshal(m.Proto, val); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return f(m.Key)
+	})
 }
 
 func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {

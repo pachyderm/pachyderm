@@ -159,7 +159,7 @@ or type (e.g. csv, binary, images, etc).`,
 	var repoType string
 	listRepo := &cobra.Command{
 		Short: "Return a list of repos.",
-		Long:  "Return a list of repos.",
+		Long:  "Return a list of repos. By default, only show user repos",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if all && repoType != "" {
 				return errors.Errorf("cannot set a repo type with --all")
