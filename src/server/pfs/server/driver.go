@@ -1272,8 +1272,11 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 	if !uuid.IsUUIDWithoutDashes(commit.ID) {
 		branchInfo := &pfs.BranchInfo{}
 		// See if we are given a branch
-		branch := client.NewBranch(commit.Repo.Name, commit.ID)
-		if err := d.branches.ReadWrite(sqlTx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
+		branch := pfs.Branch{
+			Repo: commit.Repo,
+			Name: commit.ID,
+		}
+		if err := d.branches.ReadWrite(sqlTx).Get(pfsdb.BranchKey(&branch), branchInfo); err != nil {
 			return nil, err
 		}
 		if branchInfo.Head == nil {
@@ -1465,8 +1468,8 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
 	// TODO update branches inside this txn, by storing a repo's branches in its
 	// RepoInfo or its HEAD commit
-	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
-	affectedRepos := make(map[string]struct{})  // repos containing deleted commits
+	deleted := make(map[string]*pfs.CommitInfo)   // deleted commits
+	affectedRepoKeys := make(map[string]struct{}) // repos containing deleted commits
 
 	// 1) re-read CommitInfo inside txn
 	userCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, userCommit)
@@ -1478,16 +1481,18 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// pfs.CommitRange.Lower, and is an ancestor of 'upper'
 	deleteCommit := func(lower, upper *pfs.Commit) error {
 		// Validate arguments
-		if lower.Repo.Name != upper.Repo.Name {
-			return errors.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
+		lowerKey := pfsdb.RepoKey(lower.Repo)
+
+		if upperKey := pfsdb.RepoKey(upper.Repo); upperKey != lowerKey {
+			return errors.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lowerKey, upperKey)
 		}
-		affectedRepos[lower.Repo.Name] = struct{}{}
+		affectedRepoKeys[lowerKey] = struct{}{}
 
 		// delete commits on path upper -> ... -> lower (traverse ParentCommits)
 		commit := upper
 		for {
 			if commit == nil {
-				return errors.Errorf("encountered nil parent commit in %s/%s...%s", lower.Repo.Name, lower.ID, upper.ID)
+				return errors.Errorf("encountered nil parent commit in %s/%s...%s", lowerKey, lower.ID, upper.ID)
 			}
 			// Store commitInfo in 'deleted' and remove commit from etcd
 			commitInfo := &pfs.CommitInfo{}
@@ -1679,9 +1684,9 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// points to a deleted commit
 	var affectedBranches []*pfs.BranchInfo
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
-	for repo := range affectedRepos {
+	for repoKey := range affectedRepoKeys {
 		repoInfo := &pfs.RepoInfo{}
-		if err := repos.Get(repo, repoInfo); err != nil {
+		if err := repos.Get(repoKey, repoInfo); err != nil {
 			return err
 		}
 		for _, brokenBranch := range repoInfo.Branches {
@@ -1723,7 +1728,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 					repoInfo.SizeBytes = 0
 				}
 
-				if err := repos.Put(repo, repoInfo); err != nil {
+				if err := repos.Put(repoKey, repoInfo); err != nil {
 					return err
 				}
 			}
