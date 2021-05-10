@@ -201,8 +201,9 @@ From here, go back to the list of Pachyderm releases, and click "tags". Click
 on the tag for the release you want to delete, and then click "delete" again
 to delete the tag. Finally, you'll need to sync your local set of Git tags
 with those on GitHub: either re-clone the Pachyderm repo or run: `git fetch
---tag --prune` (This prevents the release process from failing with
-`tag already exists`.)
+--tags --prune --prune-tags` (This prevents the release process from failing
+with `tag already exists`, but _will delete any local tags that haven't been
+pushed_)
 
 At this point, you can re-run the release process when you're ready.
 
