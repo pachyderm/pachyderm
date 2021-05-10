@@ -19,10 +19,22 @@ const generatePathWithSearch = (
   return path + '?' + urlParams.toString();
 };
 
-export const projectRoute = ({projectId}: {projectId: string}) =>
-  generatePathWithSearch(PROJECT_PATH, {
-    projectId: encodeURIComponent(projectId),
-  });
+export const projectRoute = ({
+  projectId,
+  withSearch = true,
+}: {
+  projectId: string;
+  withSearch?: boolean;
+}) => {
+  return withSearch
+    ? generatePathWithSearch(PROJECT_PATH, {
+        projectId: encodeURIComponent(projectId),
+      })
+    : generatePath(PROJECT_PATH, {
+        projectId: encodeURIComponent(projectId),
+      });
+};
+
 export const dagRoute = ({
   projectId,
   dagId,

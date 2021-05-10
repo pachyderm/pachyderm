@@ -24,7 +24,9 @@ const ProjectHeader = ({totalDags}: {totalDags: number}) => {
   return (
     <Header>
       <Link
-        to={goesBackToProject ? projectRoute({projectId}) : '/'}
+        to={
+          goesBackToProject ? projectRoute({projectId, withSearch: false}) : '/'
+        }
         className={styles.goBack}
       >
         <BackArrowSvg

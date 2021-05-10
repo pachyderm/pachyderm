@@ -1,4 +1,3 @@
-import classnames from 'classnames';
 import React, {useState} from 'react';
 import {Redirect} from 'react-router';
 

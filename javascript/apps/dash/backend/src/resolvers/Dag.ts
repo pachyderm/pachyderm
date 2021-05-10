@@ -326,9 +326,12 @@ const dagResolver: DagResolver = {
         };
 
         return withSubscription<Dag[]>({
-          triggerNames: [`${account.id}_DAGS_UPDATED`, 'DAGS_UPDATED'],
+          triggerNames: [
+            `${account.id}_DAGS_${direction}_UPDATED`,
+            `DAGS_${direction}_UPDATED`,
+          ],
           resolver: getDags,
-          intervalKey: projectId,
+          intervalKey: `${projectId}-${direction}`,
         });
       },
       resolve: (result: Dag[]) => {
