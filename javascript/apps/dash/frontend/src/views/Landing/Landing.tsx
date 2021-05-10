@@ -1,4 +1,4 @@
-import {Group, TableView, Dropdown} from '@pachyderm/components';
+import {Group, TableView, DefaultDropdown} from '@pachyderm/components';
 import React from 'react';
 
 import Sidebar from '@dash-frontend/components/Sidebar';
@@ -65,22 +65,17 @@ const Landing: React.FC = () => {
                   )}
                 </TableView.Body.Tabs>
                 <Group spacing={32}>
-                  <Dropdown
+                  <DefaultDropdown
                     storeSelected
                     initialSelectId="Created On"
                     onSelect={handleSortSelect}
+                    items={[
+                      {id: 'Created On', content: 'Created On'},
+                      {id: 'Name A-Z', content: 'Name A-Z'},
+                    ]}
                   >
-                    <Dropdown.Button>{`Sort by: ${sortButtonText}`}</Dropdown.Button>
-
-                    <Dropdown.Menu>
-                      <Dropdown.MenuItem id="Created On">
-                        Created On
-                      </Dropdown.MenuItem>
-                      <Dropdown.MenuItem id="Name A-Z">
-                        Name A-Z
-                      </Dropdown.MenuItem>
-                    </Dropdown.Menu>
-                  </Dropdown>
+                    Sort by: {sortButtonText}
+                  </DefaultDropdown>
 
                   <TableView.Body.Dropdown
                     formCtx={filterFormCtx}

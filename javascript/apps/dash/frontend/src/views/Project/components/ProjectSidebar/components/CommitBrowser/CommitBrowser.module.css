@@ -17,3 +17,7 @@
 .empty {
   font-size: 0.75rem;
 }
+
+.commits {
+  margin-top: 0.625rem;
+}

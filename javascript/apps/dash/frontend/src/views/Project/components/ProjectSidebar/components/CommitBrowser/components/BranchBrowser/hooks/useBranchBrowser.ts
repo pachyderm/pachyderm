@@ -1,14 +1,18 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {DropdownItem} from '@pachyderm/components';
+import {useCallback, useMemo} from 'react';
 import {useHistory} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
+import {RepoQuery} from '@graphqlTypes';
 
-const useBranchBrowser = () => {
-  const {dagId, projectId, repoId} = useUrlState();
-  const browserRef = useRef<HTMLDivElement>(null);
+interface useBranchBrowserOpts {
+  branches?: RepoQuery['repo']['branches'];
+}
+
+const useBranchBrowser = ({branches = []}: useBranchBrowserOpts = {}) => {
+  const {dagId, projectId, repoId, branchId} = useUrlState();
   const browserHistory = useHistory();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const handleBranchClick = useCallback(
     (branchId: string) => {
       browserHistory.push(
@@ -19,28 +23,29 @@ const useBranchBrowser = () => {
           repoId,
         }),
       );
-
-      setIsMenuOpen(false);
     },
     [browserHistory, dagId, projectId, repoId],
   );
-  const handleHeaderClick = useCallback(() => {
-    setIsMenuOpen(!isMenuOpen);
-  }, [isMenuOpen]);
 
-  useEffect(() => {
-    const handleClick = (evt: MouseEvent) => {
-      if (!browserRef.current?.contains(evt.target as Node)) {
-        return setIsMenuOpen(false);
-      }
-    };
+  const dropdownItems: DropdownItem[] = useMemo(() => {
+    return [
+      {id: 'none', value: 'none', content: 'none'},
+      ...branches
+        .map((branch) => ({
+          id: branch.id,
+          value: branch.name,
+          content: branch.name,
+        }))
+        .sort((a, b) => {
+          if (a.value === 'master' || b.value > a.value) return -1;
+          if (a.value > b.value) return 1;
 
-    window.addEventListener('click', handleClick);
+          return 0;
+        }),
+    ];
+  }, [branches]);
 
-    return () => window.removeEventListener('click', handleClick);
-  }, []);
-
-  return {browserRef, isMenuOpen, handleBranchClick, handleHeaderClick};
+  return {handleBranchClick, branchId, dropdownItems};
 };
 
 export default useBranchBrowser;
