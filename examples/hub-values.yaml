@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+
 dash:
   image:
     tag: "0.5.58"
