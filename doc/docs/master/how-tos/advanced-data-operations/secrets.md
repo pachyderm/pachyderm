@@ -74,7 +74,7 @@ You can now edit your pipeline specification file as follow.
 
 
 ## Reference a Secret in Pachyderm's specification file
-Now that your secret is created on Pachyderm cluster, you will need to notify your pipeline by updating your pipeline [specification file](https://docs.pachyderm.com/latest/reference/pipeline_spec/#json-manifest-format).
+Now that your secret is created on Pachyderm cluster, you will need to notify your pipeline by updating your pipeline [specification file](https://docs.pachyderm.com/latest/reference/pipeline_spec/#manifest-format).
 In Pachyderm, a Secret can be used in three different ways:
 
 1. **As a container environment variable**:
