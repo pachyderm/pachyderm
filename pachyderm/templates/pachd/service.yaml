@@ -69,6 +69,14 @@ spec:
     port: 30657
     {{- end }}
     targetPort: oidc-port
+  - name: identity-port
+    {{- if eq .Values.pachd.service.type "NodePort" }}
+    nodePort: 30658
+    port: 658
+    {{ else }}
+    port: 30658
+    {{- end }}
+    targetPort: identity-port
   - name: api-git-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30655

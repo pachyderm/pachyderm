@@ -331,6 +331,9 @@ spec:
         - containerPort: 657
           name: oidc-port
           protocol: TCP
+        - containerPort: 658
+          name: identity-port
+          protocol: TCP
         - containerPort: 656
           name: prom-metrics
           protocol: TCP

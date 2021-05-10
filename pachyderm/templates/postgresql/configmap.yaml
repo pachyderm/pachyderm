@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  init-db.sh: |2
+
+    #!/bin/bash
+    set -e
+
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        CREATE DATABASE dex;
+        GRANT ALL PRIVILEGES ON DATABASE dex TO postgres;
+    EOSQL
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres-init-cm
+  namespace: default
