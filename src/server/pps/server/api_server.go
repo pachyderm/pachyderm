@@ -627,7 +627,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 					return nil, err
 				}
 				if ppsutil.IsTerminal(jobPtr.State) {
-					return a.pipelineJobInfoFromPtr(pachClient, jobPtr, true)
+					return a.pipelineJobInfoFromPtr(pachClientpachClient, jobPtr, true)
 				}
 			}
 		}
@@ -665,10 +665,10 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	return pipelineJobInfo, nil
 }
 
-// listJob is the internal implementation of ListJob shared between ListJob and
+// listJobInTransaction is the internal implementation of ListJob shared between ListJob and
 // ListJobStream. When ListJob is removed, this should be inlined into
 // ListJobStream.
-func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline,
+func (a *apiServer) listJobInTransaction(txnCtx, pipeline *pps.Pipeline,
 	outputCommit *pfs.Commit, inputCommits []*pfs.Commit, history int64, full bool,
 	jqFilter string, f func(*pps.PipelineJobInfo) error) error {
 	if pipeline != nil {
@@ -679,7 +679,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		// caller without access to a single pipeline's output repo couldn't run
 		// `pachctl list job` at all) and instead silently skip jobs where the user
 		// doesn't have access to the job's output repo.
-		if err := authServer.CheckRepoIsAuthorized(pachClient, pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+		if err := authServer.CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 
 			return err
 		}
@@ -924,17 +924,15 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
 	if request.Job == nil {
 		return nil, errors.New("Job cannot be nil")
 	}
-	if err := a.stopJob(ctx, pachClient, request.Job, nil, "job deleted"); err != nil {
-		return nil, err
-	}
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
-	})
-	if err != nil {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		if err := a.stopJob(ctx, pachClient, request.Job, nil, "job deleted"); err != nil {
+			return nil, err
+		}
+		return a.jobs.ReadWrite(txnCtx.Stm).Delete(request.Job.ID)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -944,33 +942,38 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	if err := a.stopJob(ctx, pachClient, request.Job, request.OutputCommit, "job stopped"); err != nil {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return a.stopJobInTransaction(txnCtx, request.Job, request.OutputCommit, "job stopped")
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
+func (a *apiServer) stopJobInTransaction(txnCtx *txnenv.TransactionContext, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
 	if job == nil && outputCommit == nil {
 		return errors.New("Job or OutputCommit must be specified")
 	}
 	if job != nil {
-		pipelineJobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{Job: job})
+		pipelineJobInfo, err := a.InspectJob(txnCtx.Ctx(), &pps.InspectJobRequest{Job: job})
 		if err != nil {
 			return err
 		}
 		outputCommit = pipelineJobInfo.OutputCommit
 	}
-	commitInfo, err := pachClient.InspectCommit(outputCommit.Repo.Name, outputCommit.ID)
+	commitInfo, err := txnCtx.InspectCommitInTranaction(txnCtx, &pfs.InspectCommitRequest{
+		Name: outputCommit.Repo.Name,
+		ID:   outputCommit.ID,
+	})
 	if err != nil {
 		if pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
 			return nil
 		}
 		return err
 	}
-	statsCommit := ppsutil.GetStatsCommit(commitInfo)
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+
+	if err := func() error {
+		statsCommit := ppsutil.GetStatsCommit(commitInfo)
 		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: commitInfo.Commit,
 			Empty:  true,
@@ -981,7 +984,7 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 			Commit: statsCommit,
 			Empty:  true,
 		})
-	}); err != nil {
+	}(); err != nil {
 		if pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
 			return nil
 		}
@@ -989,6 +992,7 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 			return err
 		}
 	}
+
 	// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
 	// more comprehensive solution to this with global ids.
 	pipelineJobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{OutputCommit: outputCommit})
