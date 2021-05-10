@@ -162,7 +162,7 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	// Request that will list all files in root
 	ch := s.minioClient.ListObjects("in2", "", false, make(chan struct{}))
 	expectedFiles := []string{}
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 100; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
 	}
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
@@ -171,7 +171,7 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	// the same as "", e.g. rust-s3 client)
 	ch = s.minioClient.ListObjects("in2", "/", false, make(chan struct{}))
 	expectedFiles = []string{}
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 100; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
 	}
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
@@ -179,7 +179,7 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	// Request that will list all files starting with 1
 	ch = s.minioClient.ListObjects("in2", "1", false, make(chan struct{}))
 	expectedFiles = []string{}
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 100; i++ {
 		file := fmt.Sprintf("%d", i)
 		if strings.HasPrefix(file, "1") {
 			expectedFiles = append(expectedFiles, file)
@@ -247,7 +247,7 @@ func TestWorkerDriver(t *testing.T) {
 	// create a develop branch on the input repo
 	inputDevelopCommit, err := pachClient.StartCommit(inputRepo, "develop")
 	require.NoError(t, err)
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 100; i++ {
 		putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "", i)
 	}
 	for i := 0; i < 10; i++ {
@@ -263,18 +263,20 @@ func TestWorkerDriver(t *testing.T) {
 		[]*Bucket{
 			&Bucket{
 				Repo:   inputRepo,
+				Branch: inputMasterCommit.Branch.Name,
 				Commit: inputMasterCommit.ID,
 				Name:   "in1",
 			},
 			&Bucket{
 				Repo:   inputRepo,
+				Branch: inputDevelopCommit.Branch.Name,
 				Commit: inputDevelopCommit.ID,
 				Name:   "in2",
 			},
 		},
 		&Bucket{
 			Repo:   outputRepo,
-			Commit: outputBranch,
+			Branch: outputBranch,
 			Name:   "out",
 		},
 	)
