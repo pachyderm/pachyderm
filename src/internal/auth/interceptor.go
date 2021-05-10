@@ -173,16 +173,17 @@ var authHandlers = map[string]authHandler{
 	"/pps.API/StopPipeline":    authDisabledOr(authenticated),
 	"/pps.API/RunPipeline":     authDisabledOr(authenticated),
 	"/pps.API/RunCron":         authDisabledOr(authenticated),
-	"/pps.API/CreateSecret":    authDisabledOr(authenticated),
-	"/pps.API/DeleteSecret":    authDisabledOr(authenticated),
-	"/pps.API/ListSecret":      authDisabledOr(authenticated),
-	"/pps.API/InspectSecret":   authDisabledOr(authenticated),
 	"/pps.API/GetLogs":         authDisabledOr(authenticated),
 	"/pps.API/GarbageCollect":  authDisabledOr(authenticated),
 	"/pps.API/UpdateJobState":  authDisabledOr(authenticated),
 	"/pps.API/ListPipeline":    authDisabledOr(authenticated),
 	"/pps.API/ActivateAuth":    clusterPermissions(auth.Permission_CLUSTER_AUTH_ACTIVATE),
 	"/pps.API/DeleteAll":       authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DELETE_ALL)),
+
+	"/pps.API/CreateSecret":  authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_CREATE_SECRET)),
+	"/pps.API/ListSecret":    authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LIST_SECRETS)),
+	"/pps.API/DeleteSecret":  authDisabledOr(clusterPermissions(auth.Permission_SECRET_DELETE)),
+	"/pps.API/InspectSecret": authDisabledOr(clusterPermissions(auth.Permission_SECRET_INSPECT)),
 
 	//
 	// TransactionAPI

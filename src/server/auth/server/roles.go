@@ -76,6 +76,7 @@ var (
 		auth.Permission_CLUSTER_AUTH_GET_ROBOT_TOKEN,
 	}
 
+	// licenseAdmin has the ability to update the enterprise license and manage clusters
 	licenseAdminRole = []auth.Permission{
 		auth.Permission_CLUSTER_LICENSE_ACTIVATE,
 		auth.Permission_CLUSTER_LICENSE_GET_CODE,
@@ -83,6 +84,14 @@ var (
 		auth.Permission_CLUSTER_LICENSE_UPDATE_CLUSTER,
 		auth.Permission_CLUSTER_LICENSE_DELETE_CLUSTER,
 		auth.Permission_CLUSTER_LICENSE_LIST_CLUSTERS,
+	}
+
+	// secretAdmin has the ability to list, create and delete secrets in k8s
+	secretAdminRole = []auth.Permission{
+		auth.Permission_CLUSTER_CREATE_SECRET,
+		auth.Permission_CLUSTER_LIST_SECRETS,
+		auth.Permission_SECRET_INSPECT,
+		auth.Permission_SECRET_DELETE,
 	}
 
 	// clusterAdmin is a catch-all role that has every permission
@@ -94,6 +103,7 @@ var (
 		debuggerRole,
 		robotUserRole,
 		licenseAdminRole,
+		secretAdminRole,
 		[]auth.Permission{
 			auth.Permission_CLUSTER_MODIFY_BINDINGS,
 			auth.Permission_CLUSTER_GET_BINDINGS,

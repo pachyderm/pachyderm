@@ -146,7 +146,6 @@ enum Permission {
   CLUSTER_AUTH_DELETE_EXPIRED_TOKENS               = 140;
   CLUSTER_AUTH_REVOKE_USER_TOKENS                  = 142;
 
-
   CLUSTER_ENTERPRISE_ACTIVATE            = 114;
   CLUSTER_ENTERPRISE_HEARTBEAT           = 115;
   CLUSTER_ENTERPRISE_GET_CODE            = 116;
@@ -173,6 +172,12 @@ enum Permission {
   CLUSTER_LICENSE_UPDATE_CLUSTER         = 135;
   CLUSTER_LICENSE_DELETE_CLUSTER         = 136;
   CLUSTER_LICENSE_LIST_CLUSTERS          = 137;
+
+  // TODO(actgardner): Make k8s secrets into nouns and add an Update RPC
+  CLUSTER_CREATE_SECRET  = 143;
+  CLUSTER_LIST_SECRETS   = 144;
+  SECRET_DELETE          = 145;
+  SECRET_INSPECT         = 146;
 
   CLUSTER_DELETE_ALL             = 138;
 
