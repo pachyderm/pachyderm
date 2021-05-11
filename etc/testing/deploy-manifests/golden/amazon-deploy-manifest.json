@@ -817,36 +817,6 @@
                 }
               },
               {
-                "name": "AMAZON_VAULT_ADDR",
-                "valueFrom": {
-                  "secretKeyRef": {
-                    "name": "pachyderm-storage-secret",
-                    "key": "amazon-vault-addr",
-                    "optional": true
-                  }
-                }
-              },
-              {
-                "name": "AMAZON_VAULT_ROLE",
-                "valueFrom": {
-                  "secretKeyRef": {
-                    "name": "pachyderm-storage-secret",
-                    "key": "amazon-vault-role",
-                    "optional": true
-                  }
-                }
-              },
-              {
-                "name": "AMAZON_VAULT_TOKEN",
-                "valueFrom": {
-                  "secretKeyRef": {
-                    "name": "pachyderm-storage-secret",
-                    "key": "amazon-vault-token",
-                    "optional": true
-                  }
-                }
-              },
-              {
                 "name": "AMAZON_DISTRIBUTION",
                 "valueFrom": {
                   "secretKeyRef": {

@@ -499,24 +499,6 @@ spec:
               key: amazon-token
               name: pachyderm-storage-secret
               optional: true
-        - name: AMAZON_VAULT_ADDR
-          valueFrom:
-            secretKeyRef:
-              key: amazon-vault-addr
-              name: pachyderm-storage-secret
-              optional: true
-        - name: AMAZON_VAULT_ROLE
-          valueFrom:
-            secretKeyRef:
-              key: amazon-vault-role
-              name: pachyderm-storage-secret
-              optional: true
-        - name: AMAZON_VAULT_TOKEN
-          valueFrom:
-            secretKeyRef:
-              key: amazon-vault-token
-              name: pachyderm-storage-secret
-              optional: true
         - name: AMAZON_DISTRIBUTION
           valueFrom:
             secretKeyRef:

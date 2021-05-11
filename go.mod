@@ -32,9 +32,8 @@ require (
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
 	github.com/hanwen/go-fuse/v2 v2.0.3
-	github.com/hashicorp/go-retryablehttp v0.5.4 // indirect
 	github.com/hashicorp/golang-lru v0.5.3
-	github.com/hashicorp/vault v1.1.3
+	//github.com/hashicorp/vault v1.1.3
 	github.com/itchyny/gojq v0.11.2
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
