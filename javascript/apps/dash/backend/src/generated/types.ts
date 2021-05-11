@@ -21,6 +21,282 @@ export type Scalars = {
   Float: number;
 };
 
+export type Account = {
+  __typename?: 'Account';
+  id: Scalars['ID'];
+  email: Scalars['String'];
+  name?: Maybe<Scalars['String']>;
+};
+
+export type AuthConfig = {
+  __typename?: 'AuthConfig';
+  authUrl: Scalars['String'];
+  clientId: Scalars['String'];
+  pachdClientId: Scalars['String'];
+};
+
+export type Branch = {
+  __typename?: 'Branch';
+  id: Scalars['ID'];
+  name: Scalars['ID'];
+};
+
+export type Commit = {
+  __typename?: 'Commit';
+  branch?: Maybe<Branch>;
+  description?: Maybe<Scalars['String']>;
+  id: Scalars['ID'];
+  started: Scalars['Int'];
+  finished: Scalars['Int'];
+  sizeBytes: Scalars['Int'];
+  sizeDisplay: Scalars['String'];
+};
+
+export type CronInput = {
+  __typename?: 'CronInput';
+  name: Scalars['String'];
+  repo: Repo;
+};
+
+export type Dag = {
+  __typename?: 'Dag';
+  id: Scalars['String'];
+  nodes: Array<Node>;
+  links: Array<Link>;
+  priorityPipelineState?: Maybe<PipelineState>;
+};
+
+export enum DagDirection {
+  UP = 'UP',
+  DOWN = 'DOWN',
+  LEFT = 'LEFT',
+  RIGHT = 'RIGHT',
+}
+
+export type DagQueryArgs = {
+  projectId: Scalars['ID'];
+  nodeWidth: Scalars['Int'];
+  nodeHeight: Scalars['Int'];
+  direction: DagDirection;
+};
+
+export type File = {
+  __typename?: 'File';
+  committed?: Maybe<Timestamp>;
+  commitId: Scalars['String'];
+  download?: Maybe<Scalars['String']>;
+  hash: Scalars['String'];
+  path: Scalars['String'];
+  repoName: Scalars['String'];
+  sizeBytes: Scalars['Float'];
+  type: FileType;
+};
+
+export type FileQueryArgs = {
+  commitId?: Maybe<Scalars['String']>;
+  path?: Maybe<Scalars['String']>;
+  repoName: Scalars['String'];
+};
+
+export enum FileType {
+  RESERVED = 'RESERVED',
+  DIR = 'DIR',
+  FILE = 'FILE',
+}
+
+export type GitInput = {
+  __typename?: 'GitInput';
+  name: Scalars['String'];
+  url: Scalars['String'];
+};
+
+export type Input = {
+  __typename?: 'Input';
+  id: Scalars['ID'];
+  type: InputType;
+  joinedWith: Array<Scalars['String']>;
+  groupedWith: Array<Scalars['String']>;
+  crossedWith: Array<Scalars['String']>;
+  unionedWith: Array<Scalars['String']>;
+  pfsInput?: Maybe<PfsInput>;
+  cronInput?: Maybe<CronInput>;
+  gitInput?: Maybe<GitInput>;
+};
+
+export type InputPipeline = {
+  __typename?: 'InputPipeline';
+  id: Scalars['ID'];
+};
+
+export enum InputType {
+  PFS = 'PFS',
+  CRON = 'CRON',
+  GIT = 'GIT',
+}
+
+export type Job = {
+  __typename?: 'Job';
+  id: Scalars['ID'];
+  createdAt: Scalars['Int'];
+  state: JobState;
+};
+
+export type JobQueryArgs = {
+  projectId: Scalars['ID'];
+  limit?: Maybe<Scalars['Int']>;
+  pipelineId?: Maybe<Scalars['String']>;
+};
+
+export enum JobState {
+  JOB_STARTING = 'JOB_STARTING',
+  JOB_RUNNING = 'JOB_RUNNING',
+  JOB_FAILURE = 'JOB_FAILURE',
+  JOB_SUCCESS = 'JOB_SUCCESS',
+  JOB_KILLED = 'JOB_KILLED',
+  JOB_EGRESSING = 'JOB_EGRESSING',
+}
+
+export type Link = {
+  __typename?: 'Link';
+  id: Scalars['ID'];
+  source: Scalars['String'];
+  sourceState?: Maybe<PipelineState>;
+  targetState?: Maybe<PipelineState>;
+  target: Scalars['String'];
+  state?: Maybe<JobState>;
+  bendPoints: Array<PointCoordinates>;
+  startPoint: PointCoordinates;
+  endPoint: PointCoordinates;
+};
+
+export type Mutation = {
+  __typename?: 'Mutation';
+  exchangeCode: Tokens;
+};
+
+export type MutationExchangeCodeArgs = {
+  code: Scalars['String'];
+};
+
+export type Node = {
+  __typename?: 'Node';
+  id: Scalars['ID'];
+  name: Scalars['String'];
+  type: NodeType;
+  x: Scalars['Float'];
+  y: Scalars['Float'];
+  state?: Maybe<PipelineState>;
+  access: Scalars['Boolean'];
+};
+
+export type NodeSelector = {
+  __typename?: 'NodeSelector';
+  key: Scalars['String'];
+  value: Scalars['String'];
+};
+
+export enum NodeType {
+  PIPELINE = 'PIPELINE',
+  REPO = 'REPO',
+}
+
+export type PfsInput = {
+  __typename?: 'PFSInput';
+  name: Scalars['String'];
+  repo: Repo;
+};
+
+export type Pach = {
+  __typename?: 'Pach';
+  id: Scalars['ID'];
+};
+
+export type Pipeline = {
+  __typename?: 'Pipeline';
+  id: Scalars['ID'];
+  name: Scalars['String'];
+  version: Scalars['Int'];
+  createdAt: Scalars['Int'];
+  state: PipelineState;
+  stopped: Scalars['Boolean'];
+  recentError?: Maybe<Scalars['String']>;
+  numOfJobsStarting: Scalars['Int'];
+  numOfJobsRunning: Scalars['Int'];
+  numOfJobsFailing: Scalars['Int'];
+  numOfJobsSucceeding: Scalars['Int'];
+  numOfJobsKilled: Scalars['Int'];
+  numOfJobsEgressing: Scalars['Int'];
+  lastJobState?: Maybe<JobState>;
+  description?: Maybe<Scalars['String']>;
+  type: PipelineType;
+  transform?: Maybe<Transform>;
+  inputString: Scalars['String'];
+  cacheSize: Scalars['String'];
+  datumTimeoutS?: Maybe<Scalars['Int']>;
+  datumTries: Scalars['Int'];
+  jobTimeoutS?: Maybe<Scalars['Int']>;
+  enableStats: Scalars['Boolean'];
+  outputBranch: Scalars['String'];
+  s3OutputRepo?: Maybe<Scalars['String']>;
+  egress: Scalars['Boolean'];
+  schedulingSpec?: Maybe<SchedulingSpec>;
+};
+
+export type PipelineQueryArgs = {
+  projectId: Scalars['String'];
+  id: Scalars['ID'];
+};
+
+export enum PipelineState {
+  PIPELINE_STARTING = 'PIPELINE_STARTING',
+  PIPELINE_RUNNING = 'PIPELINE_RUNNING',
+  PIPELINE_RESTARTING = 'PIPELINE_RESTARTING',
+  PIPELINE_FAILURE = 'PIPELINE_FAILURE',
+  PIPELINE_PAUSED = 'PIPELINE_PAUSED',
+  PIPELINE_STANDBY = 'PIPELINE_STANDBY',
+  PIPELINE_CRASHING = 'PIPELINE_CRASHING',
+}
+
+export enum PipelineType {
+  STANDARD = 'STANDARD',
+  SPOUT = 'SPOUT',
+  SERVICE = 'SERVICE',
+}
+
+export type PointCoordinates = {
+  __typename?: 'PointCoordinates';
+  x: Scalars['Float'];
+  y: Scalars['Float'];
+};
+
+export type Project = {
+  __typename?: 'Project';
+  id: Scalars['ID'];
+  name: Scalars['String'];
+  status: ProjectStatus;
+  description: Scalars['String'];
+  createdAt: Scalars['Int'];
+};
+
+export type ProjectDetails = {
+  __typename?: 'ProjectDetails';
+  repoCount: Scalars['Int'];
+  pipelineCount: Scalars['Int'];
+  sizeBytes: Scalars['Float'];
+  sizeDisplay: Scalars['String'];
+  jobs: Array<Job>;
+};
+
+export type ProjectDetailsQueryArgs = {
+  projectId: Scalars['String'];
+  jobsLimit?: Maybe<Scalars['Int']>;
+};
+
+export enum ProjectStatus {
+  HEALTHY = 'HEALTHY',
+  UNHEALTHY = 'UNHEALTHY',
+}
+
 export type Query = {
   __typename?: 'Query';
   account: Account;
@@ -69,144 +345,6 @@ export type QuerySearchResultsArgs = {
   args: SearchResultQueryArgs;
 };
 
-export type PfsInput = {
-  __typename?: 'PFSInput';
-  name: Scalars['String'];
-  repo: Repo;
-};
-
-export type CronInput = {
-  __typename?: 'CronInput';
-  name: Scalars['String'];
-  repo: Repo;
-};
-
-export type GitInput = {
-  __typename?: 'GitInput';
-  name: Scalars['String'];
-  url: Scalars['String'];
-};
-
-export enum InputType {
-  PFS = 'PFS',
-  CRON = 'CRON',
-  GIT = 'GIT',
-}
-
-export type Input = {
-  __typename?: 'Input';
-  id: Scalars['ID'];
-  type: InputType;
-  joinedWith: Array<Scalars['String']>;
-  groupedWith: Array<Scalars['String']>;
-  crossedWith: Array<Scalars['String']>;
-  unionedWith: Array<Scalars['String']>;
-  pfsInput?: Maybe<PfsInput>;
-  cronInput?: Maybe<CronInput>;
-  gitInput?: Maybe<GitInput>;
-};
-
-export enum PipelineState {
-  PIPELINE_STARTING = 'PIPELINE_STARTING',
-  PIPELINE_RUNNING = 'PIPELINE_RUNNING',
-  PIPELINE_RESTARTING = 'PIPELINE_RESTARTING',
-  PIPELINE_FAILURE = 'PIPELINE_FAILURE',
-  PIPELINE_PAUSED = 'PIPELINE_PAUSED',
-  PIPELINE_STANDBY = 'PIPELINE_STANDBY',
-  PIPELINE_CRASHING = 'PIPELINE_CRASHING',
-}
-
-export enum JobState {
-  JOB_STARTING = 'JOB_STARTING',
-  JOB_RUNNING = 'JOB_RUNNING',
-  JOB_FAILURE = 'JOB_FAILURE',
-  JOB_SUCCESS = 'JOB_SUCCESS',
-  JOB_KILLED = 'JOB_KILLED',
-  JOB_EGRESSING = 'JOB_EGRESSING',
-}
-
-export enum ProjectStatus {
-  HEALTHY = 'HEALTHY',
-  UNHEALTHY = 'UNHEALTHY',
-}
-
-export enum PipelineType {
-  STANDARD = 'STANDARD',
-  SPOUT = 'SPOUT',
-  SERVICE = 'SERVICE',
-}
-
-export type Transform = {
-  __typename?: 'Transform';
-  cmdList: Array<Scalars['String']>;
-  image: Scalars['String'];
-};
-
-export type NodeSelector = {
-  __typename?: 'NodeSelector';
-  key: Scalars['String'];
-  value: Scalars['String'];
-};
-
-export type SchedulingSpec = {
-  __typename?: 'SchedulingSpec';
-  nodeSelectorMap: Array<NodeSelector>;
-  priorityClassName: Scalars['String'];
-};
-
-export type Pipeline = {
-  __typename?: 'Pipeline';
-  id: Scalars['ID'];
-  name: Scalars['String'];
-  version: Scalars['Int'];
-  createdAt: Scalars['Int'];
-  state: PipelineState;
-  stopped: Scalars['Boolean'];
-  recentError?: Maybe<Scalars['String']>;
-  numOfJobsStarting: Scalars['Int'];
-  numOfJobsRunning: Scalars['Int'];
-  numOfJobsFailing: Scalars['Int'];
-  numOfJobsSucceeding: Scalars['Int'];
-  numOfJobsKilled: Scalars['Int'];
-  numOfJobsEgressing: Scalars['Int'];
-  lastJobState?: Maybe<JobState>;
-  description?: Maybe<Scalars['String']>;
-  type: PipelineType;
-  transform?: Maybe<Transform>;
-  inputString: Scalars['String'];
-  cacheSize: Scalars['String'];
-  datumTimeoutS?: Maybe<Scalars['Int']>;
-  datumTries: Scalars['Int'];
-  jobTimeoutS?: Maybe<Scalars['Int']>;
-  enableStats: Scalars['Boolean'];
-  outputBranch: Scalars['String'];
-  s3OutputRepo?: Maybe<Scalars['String']>;
-  egress: Scalars['Boolean'];
-  schedulingSpec?: Maybe<SchedulingSpec>;
-};
-
-export type InputPipeline = {
-  __typename?: 'InputPipeline';
-  id: Scalars['ID'];
-};
-
-export type Branch = {
-  __typename?: 'Branch';
-  id: Scalars['ID'];
-  name: Scalars['ID'];
-};
-
-export type Commit = {
-  __typename?: 'Commit';
-  branch?: Maybe<Branch>;
-  description?: Maybe<Scalars['String']>;
-  id: Scalars['ID'];
-  started: Scalars['Int'];
-  finished: Scalars['Int'];
-  sizeBytes: Scalars['Int'];
-  sizeDisplay: Scalars['String'];
-};
-
 export type Repo = {
   __typename?: 'Repo';
   branches: Array<Branch>;
@@ -220,145 +358,20 @@ export type Repo = {
   linkedPipeline?: Maybe<Pipeline>;
 };
 
-export type Pach = {
-  __typename?: 'Pach';
-  id: Scalars['ID'];
-};
-
-export type Job = {
-  __typename?: 'Job';
-  id: Scalars['ID'];
-  createdAt: Scalars['Int'];
-  state: JobState;
-};
-
-export enum NodeType {
-  PIPELINE = 'PIPELINE',
-  REPO = 'REPO',
-}
-
-export type Node = {
-  __typename?: 'Node';
-  id: Scalars['ID'];
-  name: Scalars['String'];
-  type: NodeType;
-  x: Scalars['Float'];
-  y: Scalars['Float'];
-  state?: Maybe<PipelineState>;
-  access: Scalars['Boolean'];
-};
-
-export type PointCoordinates = {
-  __typename?: 'PointCoordinates';
-  x: Scalars['Float'];
-  y: Scalars['Float'];
-};
-
-export type Link = {
-  __typename?: 'Link';
-  id: Scalars['ID'];
-  source: Scalars['String'];
-  sourceState?: Maybe<PipelineState>;
-  targetState?: Maybe<PipelineState>;
-  target: Scalars['String'];
-  state?: Maybe<JobState>;
-  bendPoints: Array<PointCoordinates>;
-  startPoint: PointCoordinates;
-  endPoint: PointCoordinates;
-};
-
-export type Dag = {
-  __typename?: 'Dag';
-  id: Scalars['String'];
-  nodes: Array<Node>;
-  links: Array<Link>;
-  priorityPipelineState?: Maybe<PipelineState>;
-};
-
-export type DagQueryArgs = {
-  projectId: Scalars['ID'];
-  nodeWidth: Scalars['Int'];
-  nodeHeight: Scalars['Int'];
-  direction: DagDirection;
-};
-
-export enum DagDirection {
-  UP = 'UP',
-  DOWN = 'DOWN',
-  LEFT = 'LEFT',
-  RIGHT = 'RIGHT',
-}
-
-export type JobQueryArgs = {
-  projectId: Scalars['ID'];
-  limit?: Maybe<Scalars['Int']>;
-  pipelineId?: Maybe<Scalars['String']>;
-};
-
-export type Project = {
-  __typename?: 'Project';
-  id: Scalars['ID'];
-  name: Scalars['String'];
-  status: ProjectStatus;
-  description: Scalars['String'];
-  createdAt: Scalars['Int'];
-};
-
-export type ProjectDetails = {
-  __typename?: 'ProjectDetails';
-  repoCount: Scalars['Int'];
-  pipelineCount: Scalars['Int'];
-  sizeBytes: Scalars['Float'];
-  sizeDisplay: Scalars['String'];
-  jobs: Array<Job>;
-};
-
-export enum FileType {
-  RESERVED = 'RESERVED',
-  DIR = 'DIR',
-  FILE = 'FILE',
-}
-
-export type Timestamp = {
-  __typename?: 'Timestamp';
-  seconds: Scalars['Int'];
-  nanos: Scalars['Int'];
-};
-
-export type File = {
-  __typename?: 'File';
-  committed?: Maybe<Timestamp>;
-  commitId: Scalars['String'];
-  download?: Maybe<Scalars['String']>;
-  hash: Scalars['String'];
-  path: Scalars['String'];
-  repoName: Scalars['String'];
-  sizeBytes: Scalars['Float'];
-  type: FileType;
-};
-
-export type FileQueryArgs = {
-  commitId?: Maybe<Scalars['String']>;
-  path?: Maybe<Scalars['String']>;
-  repoName: Scalars['String'];
-};
-
-export type ProjectDetailsQueryArgs = {
+export type RepoQueryArgs = {
   projectId: Scalars['String'];
-  jobsLimit?: Maybe<Scalars['Int']>;
-};
-
-export type Tokens = {
-  __typename?: 'Tokens';
-  pachToken: Scalars['String'];
-  idToken: Scalars['String'];
-};
-
-export type Account = {
-  __typename?: 'Account';
   id: Scalars['ID'];
-  email: Scalars['String'];
-  name?: Maybe<Scalars['String']>;
+};
+
+export type SchedulingSpec = {
+  __typename?: 'SchedulingSpec';
+  nodeSelectorMap: Array<NodeSelector>;
+  priorityClassName: Scalars['String'];
+};
+
+export type SearchResultQueryArgs = {
+  projectId: Scalars['String'];
+  query: Scalars['String'];
 };
 
 export type SearchResults = {
@@ -366,28 +379,6 @@ export type SearchResults = {
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
   job?: Maybe<Job>;
-};
-
-export type AuthConfig = {
-  __typename?: 'AuthConfig';
-  authUrl: Scalars['String'];
-  clientId: Scalars['String'];
-  pachdClientId: Scalars['String'];
-};
-
-export type PipelineQueryArgs = {
-  projectId: Scalars['String'];
-  id: Scalars['ID'];
-};
-
-export type RepoQueryArgs = {
-  projectId: Scalars['String'];
-  id: Scalars['ID'];
-};
-
-export type SearchResultQueryArgs = {
-  projectId: Scalars['String'];
-  query: Scalars['String'];
 };
 
 export type Subscription = {
@@ -399,13 +390,22 @@ export type SubscriptionDagsArgs = {
   args: DagQueryArgs;
 };
 
-export type Mutation = {
-  __typename?: 'Mutation';
-  exchangeCode: Tokens;
+export type Timestamp = {
+  __typename?: 'Timestamp';
+  seconds: Scalars['Int'];
+  nanos: Scalars['Int'];
 };
 
-export type MutationExchangeCodeArgs = {
-  code: Scalars['String'];
+export type Tokens = {
+  __typename?: 'Tokens';
+  pachToken: Scalars['String'];
+  idToken: Scalars['String'];
+};
+
+export type Transform = {
+  __typename?: 'Transform';
+  cmdList: Array<Scalars['String']>;
+  image: Scalars['String'];
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -527,170 +527,146 @@ export type DirectiveResolverFn<
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
-  Query: ResolverTypeWrapper<{}>;
-  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
+  Account: ResolverTypeWrapper<Account>;
   ID: ResolverTypeWrapper<Scalars['ID']>;
-  PFSInput: ResolverTypeWrapper<PfsInput>;
   String: ResolverTypeWrapper<Scalars['String']>;
-  CronInput: ResolverTypeWrapper<CronInput>;
-  GitInput: ResolverTypeWrapper<GitInput>;
-  InputType: InputType;
-  Input: ResolverTypeWrapper<Input>;
-  PipelineState: PipelineState;
-  JobState: JobState;
-  ProjectStatus: ProjectStatus;
-  PipelineType: PipelineType;
-  Transform: ResolverTypeWrapper<Transform>;
-  NodeSelector: ResolverTypeWrapper<NodeSelector>;
-  SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
-  Pipeline: ResolverTypeWrapper<Pipeline>;
-  Int: ResolverTypeWrapper<Scalars['Int']>;
-  InputPipeline: ResolverTypeWrapper<InputPipeline>;
+  AuthConfig: ResolverTypeWrapper<AuthConfig>;
   Branch: ResolverTypeWrapper<Branch>;
   Commit: ResolverTypeWrapper<Commit>;
-  Repo: ResolverTypeWrapper<Repo>;
-  Pach: ResolverTypeWrapper<Pach>;
-  Job: ResolverTypeWrapper<Job>;
-  NodeType: NodeType;
-  Node: ResolverTypeWrapper<Node>;
-  Float: ResolverTypeWrapper<Scalars['Float']>;
-  PointCoordinates: ResolverTypeWrapper<PointCoordinates>;
-  Link: ResolverTypeWrapper<Link>;
+  Int: ResolverTypeWrapper<Scalars['Int']>;
+  CronInput: ResolverTypeWrapper<CronInput>;
   Dag: ResolverTypeWrapper<Dag>;
-  DagQueryArgs: DagQueryArgs;
   DagDirection: DagDirection;
+  DagQueryArgs: DagQueryArgs;
+  File: ResolverTypeWrapper<File>;
+  Float: ResolverTypeWrapper<Scalars['Float']>;
+  FileQueryArgs: FileQueryArgs;
+  FileType: FileType;
+  GitInput: ResolverTypeWrapper<GitInput>;
+  Input: ResolverTypeWrapper<Input>;
+  InputPipeline: ResolverTypeWrapper<InputPipeline>;
+  InputType: InputType;
+  Job: ResolverTypeWrapper<Job>;
   JobQueryArgs: JobQueryArgs;
+  JobState: JobState;
+  Link: ResolverTypeWrapper<Link>;
+  Mutation: ResolverTypeWrapper<{}>;
+  Node: ResolverTypeWrapper<Node>;
+  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
+  NodeSelector: ResolverTypeWrapper<NodeSelector>;
+  NodeType: NodeType;
+  PFSInput: ResolverTypeWrapper<PfsInput>;
+  Pach: ResolverTypeWrapper<Pach>;
+  Pipeline: ResolverTypeWrapper<Pipeline>;
+  PipelineQueryArgs: PipelineQueryArgs;
+  PipelineState: PipelineState;
+  PipelineType: PipelineType;
+  PointCoordinates: ResolverTypeWrapper<PointCoordinates>;
   Project: ResolverTypeWrapper<Project>;
   ProjectDetails: ResolverTypeWrapper<ProjectDetails>;
-  FileType: FileType;
-  Timestamp: ResolverTypeWrapper<Timestamp>;
-  File: ResolverTypeWrapper<File>;
-  FileQueryArgs: FileQueryArgs;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
-  Tokens: ResolverTypeWrapper<Tokens>;
-  Account: ResolverTypeWrapper<Account>;
-  SearchResults: ResolverTypeWrapper<SearchResults>;
-  AuthConfig: ResolverTypeWrapper<AuthConfig>;
-  PipelineQueryArgs: PipelineQueryArgs;
+  ProjectStatus: ProjectStatus;
+  Query: ResolverTypeWrapper<{}>;
+  Repo: ResolverTypeWrapper<Repo>;
   RepoQueryArgs: RepoQueryArgs;
+  SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
   SearchResultQueryArgs: SearchResultQueryArgs;
+  SearchResults: ResolverTypeWrapper<SearchResults>;
   Subscription: ResolverTypeWrapper<{}>;
-  Mutation: ResolverTypeWrapper<{}>;
+  Timestamp: ResolverTypeWrapper<Timestamp>;
+  Tokens: ResolverTypeWrapper<Tokens>;
+  Transform: ResolverTypeWrapper<Transform>;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
-  Query: {};
-  Boolean: Scalars['Boolean'];
+  Account: Account;
   ID: Scalars['ID'];
-  PFSInput: PfsInput;
   String: Scalars['String'];
-  CronInput: CronInput;
-  GitInput: GitInput;
-  Input: Input;
-  Transform: Transform;
-  NodeSelector: NodeSelector;
-  SchedulingSpec: SchedulingSpec;
-  Pipeline: Pipeline;
-  Int: Scalars['Int'];
-  InputPipeline: InputPipeline;
+  AuthConfig: AuthConfig;
   Branch: Branch;
   Commit: Commit;
-  Repo: Repo;
-  Pach: Pach;
-  Job: Job;
-  Node: Node;
-  Float: Scalars['Float'];
-  PointCoordinates: PointCoordinates;
-  Link: Link;
+  Int: Scalars['Int'];
+  CronInput: CronInput;
   Dag: Dag;
   DagQueryArgs: DagQueryArgs;
+  File: File;
+  Float: Scalars['Float'];
+  FileQueryArgs: FileQueryArgs;
+  GitInput: GitInput;
+  Input: Input;
+  InputPipeline: InputPipeline;
+  Job: Job;
   JobQueryArgs: JobQueryArgs;
+  Link: Link;
+  Mutation: {};
+  Node: Node;
+  Boolean: Scalars['Boolean'];
+  NodeSelector: NodeSelector;
+  PFSInput: PfsInput;
+  Pach: Pach;
+  Pipeline: Pipeline;
+  PipelineQueryArgs: PipelineQueryArgs;
+  PointCoordinates: PointCoordinates;
   Project: Project;
   ProjectDetails: ProjectDetails;
-  Timestamp: Timestamp;
-  File: File;
-  FileQueryArgs: FileQueryArgs;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
-  Tokens: Tokens;
-  Account: Account;
-  SearchResults: SearchResults;
-  AuthConfig: AuthConfig;
-  PipelineQueryArgs: PipelineQueryArgs;
+  Query: {};
+  Repo: Repo;
   RepoQueryArgs: RepoQueryArgs;
+  SchedulingSpec: SchedulingSpec;
   SearchResultQueryArgs: SearchResultQueryArgs;
+  SearchResults: SearchResults;
   Subscription: {};
-  Mutation: {};
+  Timestamp: Timestamp;
+  Tokens: Tokens;
+  Transform: Transform;
 }>;
 
-export type QueryResolvers<
+export type AccountResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']
+  ParentType extends ResolversParentTypes['Account'] = ResolversParentTypes['Account']
 > = ResolversObject<{
-  account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
-  authConfig?: Resolver<ResolversTypes['AuthConfig'], ParentType, ContextType>;
-  dag?: Resolver<
-    ResolversTypes['Dag'],
-    ParentType,
-    ContextType,
-    RequireFields<QueryDagArgs, 'args'>
-  >;
-  files?: Resolver<
-    Array<ResolversTypes['File']>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryFilesArgs, 'args'>
-  >;
-  jobs?: Resolver<
-    Array<ResolversTypes['Job']>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryJobsArgs, 'args'>
-  >;
-  loggedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  pipeline?: Resolver<
-    ResolversTypes['Pipeline'],
-    ParentType,
-    ContextType,
-    RequireFields<QueryPipelineArgs, 'args'>
-  >;
-  project?: Resolver<
-    ResolversTypes['Project'],
-    ParentType,
-    ContextType,
-    RequireFields<QueryProjectArgs, 'id'>
-  >;
-  projectDetails?: Resolver<
-    ResolversTypes['ProjectDetails'],
-    ParentType,
-    ContextType,
-    RequireFields<QueryProjectDetailsArgs, 'args'>
-  >;
-  projects?: Resolver<
-    Array<ResolversTypes['Project']>,
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type AuthConfigResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['AuthConfig'] = ResolversParentTypes['AuthConfig']
+> = ResolversObject<{
+  authUrl?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  clientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  pachdClientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type BranchResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Branch'] = ResolversParentTypes['Branch']
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type CommitResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Commit'] = ResolversParentTypes['Commit']
+> = ResolversObject<{
+  branch?: Resolver<Maybe<ResolversTypes['Branch']>, ParentType, ContextType>;
+  description?: Resolver<
+    Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
-  repo?: Resolver<
-    ResolversTypes['Repo'],
-    ParentType,
-    ContextType,
-    RequireFields<QueryRepoArgs, 'args'>
-  >;
-  searchResults?: Resolver<
-    ResolversTypes['SearchResults'],
-    ParentType,
-    ContextType,
-    RequireFields<QuerySearchResultsArgs, 'args'>
-  >;
-}>;
-
-export type PfsInputResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['PFSInput'] = ResolversParentTypes['PFSInput']
-> = ResolversObject<{
-  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  repo?: Resolver<ResolversTypes['Repo'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  finished?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -700,6 +676,40 @@ export type CronInputResolvers<
 > = ResolversObject<{
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   repo?: Resolver<ResolversTypes['Repo'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type DagResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Dag'] = ResolversParentTypes['Dag']
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  nodes?: Resolver<Array<ResolversTypes['Node']>, ParentType, ContextType>;
+  links?: Resolver<Array<ResolversTypes['Link']>, ParentType, ContextType>;
+  priorityPipelineState?: Resolver<
+    Maybe<ResolversTypes['PipelineState']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type FileResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['File'] = ResolversParentTypes['File']
+> = ResolversObject<{
+  committed?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
+    ParentType,
+    ContextType
+  >;
+  commitId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  download?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  hash?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['FileType'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -756,12 +766,87 @@ export type InputResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type TransformResolvers<
+export type InputPipelineResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Transform'] = ResolversParentTypes['Transform']
+  ParentType extends ResolversParentTypes['InputPipeline'] = ResolversParentTypes['InputPipeline']
 > = ResolversObject<{
-  cmdList?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
-  image?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Job'] = ResolversParentTypes['Job']
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type LinkResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Link'] = ResolversParentTypes['Link']
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  sourceState?: Resolver<
+    Maybe<ResolversTypes['PipelineState']>,
+    ParentType,
+    ContextType
+  >;
+  targetState?: Resolver<
+    Maybe<ResolversTypes['PipelineState']>,
+    ParentType,
+    ContextType
+  >;
+  target?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  state?: Resolver<Maybe<ResolversTypes['JobState']>, ParentType, ContextType>;
+  bendPoints?: Resolver<
+    Array<ResolversTypes['PointCoordinates']>,
+    ParentType,
+    ContextType
+  >;
+  startPoint?: Resolver<
+    ResolversTypes['PointCoordinates'],
+    ParentType,
+    ContextType
+  >;
+  endPoint?: Resolver<
+    ResolversTypes['PointCoordinates'],
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type MutationResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']
+> = ResolversObject<{
+  exchangeCode?: Resolver<
+    ResolversTypes['Tokens'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationExchangeCodeArgs, 'code'>
+  >;
+}>;
+
+export type NodeResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Node'] = ResolversParentTypes['Node']
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
+  x?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  y?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  state?: Resolver<
+    Maybe<ResolversTypes['PipelineState']>,
+    ParentType,
+    ContextType
+  >;
+  access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -774,20 +859,20 @@ export type NodeSelectorResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type SchedulingSpecResolvers<
+export type PfsInputResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['SchedulingSpec'] = ResolversParentTypes['SchedulingSpec']
+  ParentType extends ResolversParentTypes['PFSInput'] = ResolversParentTypes['PFSInput']
 > = ResolversObject<{
-  nodeSelectorMap?: Resolver<
-    Array<ResolversTypes['NodeSelector']>,
-    ParentType,
-    ContextType
-  >;
-  priorityClassName?: Resolver<
-    ResolversTypes['String'],
-    ParentType,
-    ContextType
-  >;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  repo?: Resolver<ResolversTypes['Repo'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type PachResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Pach'] = ResolversParentTypes['Pach']
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -857,154 +942,12 @@ export type PipelineResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type InputPipelineResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['InputPipeline'] = ResolversParentTypes['InputPipeline']
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type BranchResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Branch'] = ResolversParentTypes['Branch']
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type CommitResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Commit'] = ResolversParentTypes['Commit']
-> = ResolversObject<{
-  branch?: Resolver<Maybe<ResolversTypes['Branch']>, ParentType, ContextType>;
-  description?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  finished?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  sizeBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type RepoResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Repo'] = ResolversParentTypes['Repo']
-> = ResolversObject<{
-  branches?: Resolver<Array<ResolversTypes['Branch']>, ParentType, ContextType>;
-  commits?: Resolver<Array<ResolversTypes['Commit']>, ParentType, ContextType>;
-  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  sizeBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  linkedPipeline?: Resolver<
-    Maybe<ResolversTypes['Pipeline']>,
-    ParentType,
-    ContextType
-  >;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type PachResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Pach'] = ResolversParentTypes['Pach']
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type JobResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Job'] = ResolversParentTypes['Job']
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type NodeResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Node'] = ResolversParentTypes['Node']
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
-  x?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  y?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  state?: Resolver<
-    Maybe<ResolversTypes['PipelineState']>,
-    ParentType,
-    ContextType
-  >;
-  access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
 export type PointCoordinatesResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['PointCoordinates'] = ResolversParentTypes['PointCoordinates']
 > = ResolversObject<{
   x?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   y?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type LinkResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Link'] = ResolversParentTypes['Link']
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  source?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  sourceState?: Resolver<
-    Maybe<ResolversTypes['PipelineState']>,
-    ParentType,
-    ContextType
-  >;
-  targetState?: Resolver<
-    Maybe<ResolversTypes['PipelineState']>,
-    ParentType,
-    ContextType
-  >;
-  target?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  state?: Resolver<Maybe<ResolversTypes['JobState']>, ParentType, ContextType>;
-  bendPoints?: Resolver<
-    Array<ResolversTypes['PointCoordinates']>,
-    ParentType,
-    ContextType
-  >;
-  startPoint?: Resolver<
-    ResolversTypes['PointCoordinates'],
-    ParentType,
-    ContextType
-  >;
-  endPoint?: Resolver<
-    ResolversTypes['PointCoordinates'],
-    ParentType,
-    ContextType
-  >;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type DagResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Dag'] = ResolversParentTypes['Dag']
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  nodes?: Resolver<Array<ResolversTypes['Node']>, ParentType, ContextType>;
-  links?: Resolver<Array<ResolversTypes['Link']>, ParentType, ContextType>;
-  priorityPipelineState?: Resolver<
-    Maybe<ResolversTypes['PipelineState']>,
-    ParentType,
-    ContextType
-  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1032,50 +975,102 @@ export type ProjectDetailsResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type TimestampResolvers<
+export type QueryResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Timestamp'] = ResolversParentTypes['Timestamp']
+  ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']
 > = ResolversObject<{
-  seconds?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  nanos?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type FileResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['File'] = ResolversParentTypes['File']
-> = ResolversObject<{
-  committed?: Resolver<
-    Maybe<ResolversTypes['Timestamp']>,
+  account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
+  authConfig?: Resolver<ResolversTypes['AuthConfig'], ParentType, ContextType>;
+  dag?: Resolver<
+    ResolversTypes['Dag'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryDagArgs, 'args'>
+  >;
+  files?: Resolver<
+    Array<ResolversTypes['File']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryFilesArgs, 'args'>
+  >;
+  jobs?: Resolver<
+    Array<ResolversTypes['Job']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryJobsArgs, 'args'>
+  >;
+  loggedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  pipeline?: Resolver<
+    ResolversTypes['Pipeline'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryPipelineArgs, 'args'>
+  >;
+  project?: Resolver<
+    ResolversTypes['Project'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryProjectArgs, 'id'>
+  >;
+  projectDetails?: Resolver<
+    ResolversTypes['ProjectDetails'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryProjectDetailsArgs, 'args'>
+  >;
+  projects?: Resolver<
+    Array<ResolversTypes['Project']>,
     ParentType,
     ContextType
   >;
-  commitId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  download?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  hash?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  type?: Resolver<ResolversTypes['FileType'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+  repo?: Resolver<
+    ResolversTypes['Repo'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryRepoArgs, 'args'>
+  >;
+  searchResults?: Resolver<
+    ResolversTypes['SearchResults'],
+    ParentType,
+    ContextType,
+    RequireFields<QuerySearchResultsArgs, 'args'>
+  >;
 }>;
 
-export type TokensResolvers<
+export type RepoResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Tokens'] = ResolversParentTypes['Tokens']
+  ParentType extends ResolversParentTypes['Repo'] = ResolversParentTypes['Repo']
 > = ResolversObject<{
-  pachToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  idToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type AccountResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Account'] = ResolversParentTypes['Account']
-> = ResolversObject<{
+  branches?: Resolver<Array<ResolversTypes['Branch']>, ParentType, ContextType>;
+  commits?: Resolver<Array<ResolversTypes['Commit']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  linkedPipeline?: Resolver<
+    Maybe<ResolversTypes['Pipeline']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SchedulingSpecResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['SchedulingSpec'] = ResolversParentTypes['SchedulingSpec']
+> = ResolversObject<{
+  nodeSelectorMap?: Resolver<
+    Array<ResolversTypes['NodeSelector']>,
+    ParentType,
+    ContextType
+  >;
+  priorityClassName?: Resolver<
+    ResolversTypes['String'],
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1093,16 +1088,6 @@ export type SearchResultsResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type AuthConfigResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['AuthConfig'] = ResolversParentTypes['AuthConfig']
-> = ResolversObject<{
-  authUrl?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  clientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  pachdClientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
 export type SubscriptionResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription']
@@ -1116,48 +1101,63 @@ export type SubscriptionResolvers<
   >;
 }>;
 
-export type MutationResolvers<
+export type TimestampResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']
+  ParentType extends ResolversParentTypes['Timestamp'] = ResolversParentTypes['Timestamp']
 > = ResolversObject<{
-  exchangeCode?: Resolver<
-    ResolversTypes['Tokens'],
-    ParentType,
-    ContextType,
-    RequireFields<MutationExchangeCodeArgs, 'code'>
-  >;
+  seconds?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  nanos?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type TokensResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Tokens'] = ResolversParentTypes['Tokens']
+> = ResolversObject<{
+  pachToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  idToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type TransformResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Transform'] = ResolversParentTypes['Transform']
+> = ResolversObject<{
+  cmdList?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  image?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type Resolvers<ContextType = Context> = ResolversObject<{
-  Query?: QueryResolvers<ContextType>;
-  PFSInput?: PfsInputResolvers<ContextType>;
-  CronInput?: CronInputResolvers<ContextType>;
-  GitInput?: GitInputResolvers<ContextType>;
-  Input?: InputResolvers<ContextType>;
-  Transform?: TransformResolvers<ContextType>;
-  NodeSelector?: NodeSelectorResolvers<ContextType>;
-  SchedulingSpec?: SchedulingSpecResolvers<ContextType>;
-  Pipeline?: PipelineResolvers<ContextType>;
-  InputPipeline?: InputPipelineResolvers<ContextType>;
+  Account?: AccountResolvers<ContextType>;
+  AuthConfig?: AuthConfigResolvers<ContextType>;
   Branch?: BranchResolvers<ContextType>;
   Commit?: CommitResolvers<ContextType>;
-  Repo?: RepoResolvers<ContextType>;
-  Pach?: PachResolvers<ContextType>;
-  Job?: JobResolvers<ContextType>;
-  Node?: NodeResolvers<ContextType>;
-  PointCoordinates?: PointCoordinatesResolvers<ContextType>;
-  Link?: LinkResolvers<ContextType>;
+  CronInput?: CronInputResolvers<ContextType>;
   Dag?: DagResolvers<ContextType>;
+  File?: FileResolvers<ContextType>;
+  GitInput?: GitInputResolvers<ContextType>;
+  Input?: InputResolvers<ContextType>;
+  InputPipeline?: InputPipelineResolvers<ContextType>;
+  Job?: JobResolvers<ContextType>;
+  Link?: LinkResolvers<ContextType>;
+  Mutation?: MutationResolvers<ContextType>;
+  Node?: NodeResolvers<ContextType>;
+  NodeSelector?: NodeSelectorResolvers<ContextType>;
+  PFSInput?: PfsInputResolvers<ContextType>;
+  Pach?: PachResolvers<ContextType>;
+  Pipeline?: PipelineResolvers<ContextType>;
+  PointCoordinates?: PointCoordinatesResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
-  Timestamp?: TimestampResolvers<ContextType>;
-  File?: FileResolvers<ContextType>;
-  Tokens?: TokensResolvers<ContextType>;
-  Account?: AccountResolvers<ContextType>;
+  Query?: QueryResolvers<ContextType>;
+  Repo?: RepoResolvers<ContextType>;
+  SchedulingSpec?: SchedulingSpecResolvers<ContextType>;
   SearchResults?: SearchResultsResolvers<ContextType>;
-  AuthConfig?: AuthConfigResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
-  Mutation?: MutationResolvers<ContextType>;
+  Timestamp?: TimestampResolvers<ContextType>;
+  Tokens?: TokensResolvers<ContextType>;
+  Transform?: TransformResolvers<ContextType>;
 }>;
 
 /**

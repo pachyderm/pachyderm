@@ -37,7 +37,7 @@ const DefaultDropdown: React.FC = () => {
             <ChipGroup>
               {history.map((item, i) => (
                 <Chip
-                  key={`history${i}`}
+                  key={item}
                   onClick={() => {
                     setSearchValue(item);
                   }}
