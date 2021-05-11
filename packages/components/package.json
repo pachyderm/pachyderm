@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "0.16.0",
+  "version": "0.16.1",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -58,20 +58,22 @@
     "style-loader": "^0.23.1",
     "stylelint": "^13.8.0",
     "tsconfig-paths-webpack-plugin": "^3.3.0",
-    "typescript": "^4.1.2"
+    "typescript": "^4.1.2",
+    "react-helmet": "^6.1.0",
+    "react-hook-form": "^6.14.1"
   },
   "dependencies": {
     "@types/lodash": "^4.14.167",
     "classnames": "^2.2.6",
     "lodash": "^4.17.20",
-    "react-helmet": "^6.1.0",
-    "react-hook-form": "^6.14.1",
     "splitting": "^1.0.6"
   },
   "peerDependencies": {
     "react": ">=17.0.0",
     "react-dom": ">=17.0.0",
-    "react-router-dom": ">=5.2.0"
+    "react-router-dom": ">=5.2.0",
+    "react-helmet": ">=6.1.0",
+    "react-hook-form": ">=6.14.1"
   },
   "license": "SEE LICENSE IN LICENSE"
 }
