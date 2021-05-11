@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
-	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -5144,11 +5143,6 @@ func TestPFS(suite *testing.T) {
 	)
 
 	suite.Run("FuzzProvenance", func(t *testing.T) {
-		// TODO(2.0 required): This might need to be updated when global IDs are merged, but we will want some version
-		// of this prior to the 2.0 GA.
-		if os.Getenv("RUN_BAD_TESTS") == "" {
-			t.Skip("Skipping because RUN_BAD_TESTS was empty")
-		}
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -5365,9 +5359,7 @@ func TestPFS(suite *testing.T) {
 	// off since it is based on the output size). The output size calculation is a bit questionable due to the compaction delay (a
 	// file may be accounted for in the size even if it is deleted).
 	suite.Run("Trigger", func(t *testing.T) {
-		if os.Getenv("RUN_BAD_TESTS") == "" {
-			t.Skip("Skipping because RUN_BAD_TESTS was empty")
-		}
+		t.Skip("Does not work with V2, needs investigation")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 

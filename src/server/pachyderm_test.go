@@ -5281,7 +5281,7 @@ func TestUnionInput(t *testing.T) {
 }
 
 func TestPipelineWithStats(t *testing.T) {
-	// TODO(2.0 optional): Change the semantics of the test.
+	// TODO(2.0 required): Change the semantics of the test.
 	t.Skip("Stats semantics different in V2")
 	//if testing.Short() {
 	//	t.Skip("Skipping integration tests in short mode")
@@ -5362,7 +5362,7 @@ func TestPipelineWithStats(t *testing.T) {
 }
 
 func TestPipelineWithStatsFailedDatums(t *testing.T) {
-	// TODO(2.0 optional): Change the semantics of the test.
+	// TODO(2.0 required): Change the semantics of the test.
 	t.Skip("Stats semantics different in V2")
 	//	if testing.Short() {
 	//		t.Skip("Skipping integration tests in short mode")
@@ -5508,7 +5508,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 }
 
 func TestPipelineWithStatsAcrossJobs(t *testing.T) {
-	// TODO(2.0 optional): Change semantics of test.
+	// TODO(2.0 required): Change semantics of test.
 	t.Skip("Stats semantics different in V2")
 	//	if testing.Short() {
 	//		t.Skip("Skipping integration tests in short mode")
@@ -5602,7 +5602,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 }
 
 func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
-	// TODO(2.0 optional): Change semantics of test.
+	// TODO(2.0 required): Change semantics of test.
 	t.Skip("Stats semantics different in V2")
 	//	// If I add a file in commit1, delete it in commit2, add it again in commit 3 ...
 	//	// the datum will be marked as success on the 3rd job, even though it should be marked as skipped
@@ -7679,7 +7679,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 }
 
 func TestListDatumDuringJob(t *testing.T) {
-	// TODO(2.0 optional): Change semantics of test to list datums that have been processed while the job is running.
+	// TODO(2.0 required): Change semantics of test to list datums that have been processed while the job is running.
 	t.Skip("Semantics need to be changed for V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -9767,10 +9767,6 @@ func TestCopyOutToIn(t *testing.T) {
 }
 
 func TestKeepRepo(t *testing.T) {
-	// TODO(2.0 required): Investigate flakiness.
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

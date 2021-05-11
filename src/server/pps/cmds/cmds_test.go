@@ -290,9 +290,7 @@ func TestRunPipeline(t *testing.T) {
 	// Since there is no relationship between the commits created by run pipeline, there should be no
 	// relationship between the stats commits. So, the stats commits should also be dangling commits.
 	// This might be easier to address when global IDs are implemented.
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	t.Skip("Run pipeline does not work correctly with stats enabled")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

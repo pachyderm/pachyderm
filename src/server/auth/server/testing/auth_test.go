@@ -550,10 +550,6 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 }
 
 func TestPipelineMultipleInputs(t *testing.T) {
-	// TODO(2.0 required): Investigate flakiness.
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1886,10 +1882,6 @@ func TestInspectDatum(t *testing.T) {
 //}
 
 func TestPipelineNewInput(t *testing.T) {
-	// TODO(2.0 required): Investigate flakiness.
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
