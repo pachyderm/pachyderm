@@ -17,10 +17,9 @@ const BranchBrowser: React.FC<BranchBrowserProps> = ({repo}) => {
 
   return (
     <SearchableDropdown
-      initialSelectId={branchId}
-      searchOpts={{placeholder: 'Search a branch by name', autoComplete: 'off'}}
+      selectedId={branchId}
+      searchOpts={{placeholder: 'Search a branch by name'}}
       menuOpts={{className: styles.menu}}
-      storeSelected
       items={dropdownItems}
       onSelect={handleBranchClick}
       emptyResultsContent={'No matching branches found.'}
