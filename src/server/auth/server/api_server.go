@@ -57,10 +57,6 @@ const (
 
 	// the length of interval between expired auth token cleanups
 	cleanupIntervalHours = 24
-
-	inactiveClusterLicenseMsg = "Pachyderm Enterprise is not active in this " +
-		"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
-		"auth is deactivated, only cluster admins can perform any operations)"
 )
 
 // DefaultOIDCConfig is the default config for the auth API server
@@ -307,7 +303,7 @@ func (a *apiServer) getEnterpriseTokenState(ctx context.Context) (enterpriseclie
 
 // expiredEnterpriseCheck enforces that if the cluster's enterprise token is
 // expired, users cannot log in. The root token can be used to access the cluster.
-func (a *apiServer) expiredEnterpriseCheck(ctx context.Context) error {
+func (a *apiServer) expiredEnterpriseCheck(ctx context.Context, username string) error {
 	state, err := a.getEnterpriseTokenState(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
@@ -317,10 +313,10 @@ func (a *apiServer) expiredEnterpriseCheck(ctx context.Context) error {
 		return nil
 	}
 
-	// this call internally checks for an Active License
-	// and Authorized Users in case of a deactivated license
-	if _, err = a.getAuthenticatedUser(ctx); err != nil {
-		return errors.New(inactiveClusterLicenseMsg)
+	if err = a.userHasExpiredClusterAccessCheck(ctx, username); err != nil {
+		return errors.Wrapf(err, "Pachyderm Enterprise is not active in this "+
+			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm "+
+			"auth is deactivated, only cluster admins can perform any operations)")
 	}
 	return nil
 }
@@ -334,10 +330,10 @@ func (a *apiServer) userHasExpiredClusterAccessCheck(ctx context.Context, userna
 	// Any User with the Cluster Admin Role keeps cluster access
 	isAdmin, err := a.hasClusterRole(ctx, username, auth.ClusterAdminRole)
 	if err != nil {
-		return errors.Wrapf(err, inactiveClusterLicenseMsg)
+		return err
 	}
 	if !isAdmin {
-		return errors.New(inactiveClusterLicenseMsg)
+		return errors.Errorf("user: %v, is not priviledged to operate while Enterprise License is disabled", username)
 	}
 	return nil
 }
@@ -490,11 +486,6 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 
-	// If the cluster's enterprise token is expired, login is disabled
-	if err := a.expiredEnterpriseCheck(ctx); err != nil {
-		return nil, err
-	}
-
 	// verify whatever credential the user has presented, and write a new
 	// Pachyderm token for the user that their credential belongs to
 	var pachToken string
@@ -507,6 +498,10 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		username := auth.UserPrefix + email
+
+		if err := a.expiredEnterpriseCheck(ctx, username); err != nil {
+			return nil, err
+		}
 
 		// Generate a new Pachyderm token and write it
 		token, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
@@ -523,6 +518,10 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		username := auth.UserPrefix + claims.Email
+
+		if err := a.expiredEnterpriseCheck(ctx, username); err != nil {
+			return nil, err
+		}
 
 		// Sync the user's group membership from the groups claim
 		if err := a.syncGroupMembership(ctx, claims); err != nil {
@@ -1309,16 +1308,8 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		return nil, lookupErr
 	}
 
-	state, err := a.getEnterpriseTokenState(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
-	}
-
-	if state != enterpriseclient.State_ACTIVE {
-		// license is expired. Check to see whether the user can still access it.
-		if err = a.userHasExpiredClusterAccessCheck(ctx, tokenInfo.Subject); err != nil {
-			return nil, err
-		}
+	if err := a.expiredEnterpriseCheck(ctx, tokenInfo.Subject); err != nil {
+		return nil, err
 	}
 
 	// verify token hasn't expired
