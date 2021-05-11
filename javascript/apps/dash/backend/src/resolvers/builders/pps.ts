@@ -1,3 +1,4 @@
+import {RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {JobInfo, JobState, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
 import fromPairs from 'lodash/fromPairs';
 
@@ -80,5 +81,15 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
     id: jobInfo.job?.id || '',
     state: toGQLJobState(jobInfo.state),
     createdAt: jobInfo.started?.seconds || 0,
+  };
+};
+
+export const repoInfoToGQLRepo = (repoInfo: RepoInfo.AsObject) => {
+  return {
+    createdAt: repoInfo.created?.seconds || 0,
+    description: repoInfo.description,
+    name: repoInfo.repo?.name || '',
+    sizeInBytes: repoInfo.sizeBytes,
+    id: repoInfo?.repo?.name || '',
   };
 };

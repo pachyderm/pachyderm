@@ -3,7 +3,11 @@ import {ApolloError} from 'apollo-server-express';
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
 import {QueryResolvers} from '@graphqlTypes';
 
-import {jobInfoToGQLJob, pipelineInfoToGQLPipeline} from './builders/pps';
+import {
+  jobInfoToGQLJob,
+  pipelineInfoToGQLPipeline,
+  repoInfoToGQLRepo,
+} from './builders/pps';
 
 interface SearchResolver {
   Query: {
@@ -13,7 +17,7 @@ interface SearchResolver {
 
 const searchResolver: SearchResolver = {
   Query: {
-    searchResults: async (_parent, {query}, {pachClient, log}) => {
+    searchResults: async (_parent, {args: {query}}, {pachClient, log}) => {
       if (query) {
         //Check if query is commit or job id
         if (UUID_WITHOUT_DASHES_REGEX.test(query)) {
@@ -21,39 +25,49 @@ const searchResolver: SearchResolver = {
             const job = await pachClient.pps().inspectJob(query);
             return {
               pipelines: [],
+              repos: [],
               job: job ? jobInfoToGQLJob(job) : null,
             };
           } catch (e) {
             if ((e as ApolloError).extensions.code === 'NOT_FOUND') {
               return {
                 pipelines: [],
+                repos: [],
                 job: null,
               };
-            } else {
-              return e;
             }
+            return e;
           }
         }
 
         const lowercaseQuery = query.toLowerCase();
-        const jq = `select((.pipeline.name | ascii_downcase | contains("${lowercaseQuery}")) or (.description // "" | ascii_downcase | contains("${lowercaseQuery}")))`;
+        const jq = `select(.pipeline.name | ascii_downcase | startswith("${lowercaseQuery}"))`;
 
         log.info(
           {eventSource: 'searchResolver', meta: {jq}},
           'querying pipelines with jq filter',
         );
 
-        const pipelines = await pachClient.pps().listPipeline(jq);
+        const [repos, pipelines] = await Promise.all([
+          pachClient.pfs().listRepo(),
+          pachClient.pps().listPipeline(jq),
+        ]);
+        const filteredRepos = repos.filter((r) =>
+          r.repo?.name.toLowerCase().startsWith(lowercaseQuery),
+        );
+
         return {
           pipelines: pipelines
             ? pipelines.map((p) => pipelineInfoToGQLPipeline(p))
             : [],
+          repos: filteredRepos.map((r) => repoInfoToGQLRepo(r)),
           job: null,
         };
       }
 
       return {
         pipelines: [],
+        repos: [],
         job: null,
       };
     },

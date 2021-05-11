@@ -1,0 +1,26 @@
+.base {
+  padding: 1.25rem;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.base .sectionHeader {
+  line-height: 0.75rem;
+}
+
+.recentSearchGroup {
+  margin-bottom: 0.938rem;
+}
+
+.jobsGroup {
+  margin-bottom: 0.625rem;
+}
+
+.searchHr {
+  margin-top: 0.625rem;
+  margin-bottom: 1.25rem;
+}

@@ -275,7 +275,8 @@ type Account {
 }
 
 type SearchResults {
-  pipelines: [Pipeline]!
+  pipelines: [Pipeline!]!
+  repos: [Repo!]!
   job: Job
 }
 
@@ -295,6 +296,11 @@ input RepoQueryArgs {
   id: ID!
 }
 
+input SearchResultQueryArgs {
+  projectId: String!
+  query: String!
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -305,7 +311,7 @@ type Query {
   dag(args: DagQueryArgs!): Dag!
   files(args: FileQueryArgs!): [File!]!
   account: Account!
-  searchResults(query: String!): SearchResults!
+  searchResults(args: SearchResultQueryArgs!): SearchResults!
   authConfig: AuthConfig!
 }
 

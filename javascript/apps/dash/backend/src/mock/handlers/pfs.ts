@@ -9,10 +9,7 @@ const pfs: Pick<IAPIServer, 'listRepo' | 'inspectRepo'> = {
 
     const reply = new ListRepoResponse();
 
-    // "tutorial" in this case represents the default/catch-all project in core pach
-    reply.setRepoInfoList(
-      projectId ? repos[projectId.toString()] : repos['tutorial'],
-    );
+    reply.setRepoInfoList(projectId ? repos[projectId.toString()] : repos['1']);
 
     callback(null, reply);
   },

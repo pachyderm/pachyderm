@@ -1,0 +1,23 @@
+.base {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0.938rem 0.75rem 1.563rem;
+}
+
+.base:hover {
+  cursor: pointer;
+  background-color: var(--hover-grey);
+}
+
+.base > span {
+  color: var(--pachyderm-black);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 0.938rem;
+}
+
+.underline {
+  border-bottom: 1px solid var(--pachyderm-black);
+  display:inline-block
+}

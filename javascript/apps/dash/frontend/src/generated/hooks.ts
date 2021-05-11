@@ -838,3 +838,71 @@ export type RepoQueryResult = Apollo.QueryResult<
   Types.RepoQuery,
   Types.RepoQueryVariables
 >;
+export const SearchResultsDocument = gql`
+  query searchResults($args: SearchResultQueryArgs!) {
+    searchResults(args: $args) {
+      pipelines {
+        name
+        id
+      }
+      repos {
+        name
+        id
+      }
+      job {
+        id
+      }
+    }
+  }
+`;
+
+/**
+ * __useSearchResultsQuery__
+ *
+ * To run a query within a React component, call `useSearchResultsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useSearchResultsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useSearchResultsQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useSearchResultsQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.SearchResultsQuery,
+    Types.SearchResultsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.SearchResultsQuery,
+    Types.SearchResultsQueryVariables
+  >(SearchResultsDocument, options);
+}
+export function useSearchResultsLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.SearchResultsQuery,
+    Types.SearchResultsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.SearchResultsQuery,
+    Types.SearchResultsQueryVariables
+  >(SearchResultsDocument, options);
+}
+export type SearchResultsQueryHookResult = ReturnType<
+  typeof useSearchResultsQuery
+>;
+export type SearchResultsLazyQueryHookResult = ReturnType<
+  typeof useSearchResultsLazyQuery
+>;
+export type SearchResultsQueryResult = Apollo.QueryResult<
+  Types.SearchResultsQuery,
+  Types.SearchResultsQueryVariables
+>;

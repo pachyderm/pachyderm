@@ -1,0 +1,14 @@
+.messagingWrapper {
+  padding-bottom: 0.625rem;
+}
+
+.text {
+  opacity: 0.8;
+  color: var(--pachyderm-black);
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
+
+div.messagingWrapper {
+  line-height: 0.75rem;
+}

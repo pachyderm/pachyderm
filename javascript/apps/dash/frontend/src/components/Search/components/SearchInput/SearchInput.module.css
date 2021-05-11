@@ -1,0 +1,64 @@
+.input {
+  border-radius: 3px;
+  border: 1px solid var(--border-grey);
+  padding-left: 2.65rem;
+  padding-right: 2rem;
+  height: 2.438rem;
+  width: 31.25rem;
+  background-color: var(--white);
+  font-size: 0.75rem;
+  color: var(--pachyderm-black);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.input::placeholder {
+  opacity: 0.8;
+  color: var(--pachyderm-black);
+  font-weight: 400;
+}
+
+.input:focus,
+.input:active,
+.input {
+  outline: none;
+  border-color: var(--border-grey);
+}
+
+.open {
+  border-radius: 3px 3px 0px 0px;
+  border-bottom: var(--white);
+}
+
+.searchIcon {
+  position: absolute;
+  left: 1.313rem;
+  top: 0.563rem;
+  z-index: 2;
+}
+
+.button {
+  --button-size: 1.625rem;
+  border: none;
+  background: none;
+  position: absolute;
+  height: var(--button-size);
+  right: 0.5rem;
+  top: calc((2.438rem - var(--button-size)) / 2);
+}
+
+.button > svg {
+  vertical-align: middle;
+}
+
+.button > svg > path {
+  transform: scale(0.8);
+}
+
+.button:hover > svg > path {
+  fill: var(--pachyderm-black);
+}
+
+.button:focus:not([class$='focus-visible']) {
+  outline: none;
+}

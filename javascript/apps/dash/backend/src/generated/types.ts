@@ -66,7 +66,7 @@ export type QueryRepoArgs = {
 };
 
 export type QuerySearchResultsArgs = {
-  query: Scalars['String'];
+  args: SearchResultQueryArgs;
 };
 
 export type PfsInput = {
@@ -363,7 +363,8 @@ export type Account = {
 
 export type SearchResults = {
   __typename?: 'SearchResults';
-  pipelines: Array<Maybe<Pipeline>>;
+  pipelines: Array<Pipeline>;
+  repos: Array<Repo>;
   job?: Maybe<Job>;
 };
 
@@ -382,6 +383,11 @@ export type PipelineQueryArgs = {
 export type RepoQueryArgs = {
   projectId: Scalars['String'];
   id: Scalars['ID'];
+};
+
+export type SearchResultQueryArgs = {
+  projectId: Scalars['String'];
+  query: Scalars['String'];
 };
 
 export type Subscription = {
@@ -524,8 +530,8 @@ export type ResolversTypes = ResolversObject<{
   Query: ResolverTypeWrapper<{}>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   ID: ResolverTypeWrapper<Scalars['ID']>;
-  String: ResolverTypeWrapper<Scalars['String']>;
   PFSInput: ResolverTypeWrapper<PfsInput>;
+  String: ResolverTypeWrapper<Scalars['String']>;
   CronInput: ResolverTypeWrapper<CronInput>;
   GitInput: ResolverTypeWrapper<GitInput>;
   InputType: InputType;
@@ -567,6 +573,7 @@ export type ResolversTypes = ResolversObject<{
   AuthConfig: ResolverTypeWrapper<AuthConfig>;
   PipelineQueryArgs: PipelineQueryArgs;
   RepoQueryArgs: RepoQueryArgs;
+  SearchResultQueryArgs: SearchResultQueryArgs;
   Subscription: ResolverTypeWrapper<{}>;
   Mutation: ResolverTypeWrapper<{}>;
 }>;
@@ -576,8 +583,8 @@ export type ResolversParentTypes = ResolversObject<{
   Query: {};
   Boolean: Scalars['Boolean'];
   ID: Scalars['ID'];
-  String: Scalars['String'];
   PFSInput: PfsInput;
+  String: Scalars['String'];
   CronInput: CronInput;
   GitInput: GitInput;
   Input: Input;
@@ -611,6 +618,7 @@ export type ResolversParentTypes = ResolversObject<{
   AuthConfig: AuthConfig;
   PipelineQueryArgs: PipelineQueryArgs;
   RepoQueryArgs: RepoQueryArgs;
+  SearchResultQueryArgs: SearchResultQueryArgs;
   Subscription: {};
   Mutation: {};
 }>;
@@ -673,7 +681,7 @@ export type QueryResolvers<
     ResolversTypes['SearchResults'],
     ParentType,
     ContextType,
-    RequireFields<QuerySearchResultsArgs, 'query'>
+    RequireFields<QuerySearchResultsArgs, 'args'>
   >;
 }>;
 
@@ -1076,10 +1084,11 @@ export type SearchResultsResolvers<
   ParentType extends ResolversParentTypes['SearchResults'] = ResolversParentTypes['SearchResults']
 > = ResolversObject<{
   pipelines?: Resolver<
-    Array<Maybe<ResolversTypes['Pipeline']>>,
+    Array<ResolversTypes['Pipeline']>,
     ParentType,
     ContextType
   >;
+  repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
   job?: Resolver<Maybe<ResolversTypes['Job']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1391,4 +1400,16 @@ export type RepoQuery = {__typename?: 'Query'} & {
         {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>
       >;
     };
+};
+
+export type SearchResultsQueryVariables = Exact<{
+  args: SearchResultQueryArgs;
+}>;
+
+export type SearchResultsQuery = {__typename?: 'Query'} & {
+  searchResults: {__typename?: 'SearchResults'} & {
+    pipelines: Array<{__typename?: 'Pipeline'} & Pick<Pipeline, 'name' | 'id'>>;
+    repos: Array<{__typename?: 'Repo'} & Pick<Repo, 'name' | 'id'>>;
+    job?: Maybe<{__typename?: 'Job'} & Pick<Job, 'id'>>;
+  };
 };

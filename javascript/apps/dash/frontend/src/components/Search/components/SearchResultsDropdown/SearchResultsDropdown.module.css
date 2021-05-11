@@ -1,0 +1,30 @@
+.base {
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.625rem;
+  padding-left: 1.563rem;
+  padding-right: 0.938rem;
+}
+
+.searchHr {
+  margin-top: 0.625rem;
+  margin-bottom: 1.25rem;
+  margin-left: 1.563rem;
+  margin-right: 0.938rem;
+}
+
+
+.margin {
+  margin-left: 1.563rem;
+  margin-right: 0.938rem;
+}
+
+.noResults {
+  padding: 1.25rem 0 1.25rem 1.25rem;
+}

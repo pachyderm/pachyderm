@@ -47,18 +47,30 @@
   outline: none;
 }
 
+.projectNameWrapper {
+  border-left: 1px solid var(--placeholder-grey);
+  padding-left: 1.5625rem;
+}
+
 .projectName {
   font-size: 0.875rem;
   color: var(--white);
   margin-bottom: 0;
-  padding-left: 1.5625rem;
   padding-top: 0.875rem;
   padding-bottom: 0.875rem;
   font-weight: bold;
-  border-left: 1px solid var(--placeholder-grey);
+  user-select: none;
+  width: 13.125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .projectNameLoader {
   width: 10rem;
   margin-bottom: 0;
+}
+
+.projectNameTooltip {
+  margin-top: 0.75rem;
 }
