@@ -157,7 +157,11 @@ func RegisterCmd() *cobra.Command {
 			}
 
 			if pachdAddr == "" {
-				pachdAddr = ec.GetAddress().Qualified()
+				pachdAddr = c.GetAddress().Qualified()
+			}
+
+			if enterpriseAddr == "" {
+				enterpriseAddr = ec.GetAddress().Qualified()
 			}
 
 			if clusterId == "" {
