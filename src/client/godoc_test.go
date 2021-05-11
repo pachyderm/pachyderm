@@ -445,5 +445,5 @@ func ExampleAPIClient_CreatePipeline() {
 	fmt.Println(pipelines)
 
 	// Output:
-	// [pipeline:<name:"test-pipeline" > version:1 transform:<image:"ubuntu:16.04" cmd:"bash" stdin:"cp /pfs/test/* /pfs/out/" > parallelism_spec:<constant:1 > created_at:<seconds:1585783817 nanos:990814317 > output_branch:"master" input:<pfs:<name:"test" repo:"test" branch:"master" glob:"/*" > > cache_size:"64M" salt:"95e86369074f472c87d77f1116656813" max_queue_size:1 spec_commit:<repo:<name:"__spec__" > id:"7ddade34799b450db6b10231bbb287b7" > datum_tries:3 ]
+	// [pipeline:<name:"test-pipeline" > version:1 transform:<image:"ubuntu:20.04" cmd:"bash" stdin:"cp /pfs/test/* /pfs/out/" > parallelism_spec:<constant:1 > created_at:<seconds:1585783817 nanos:990814317 > output_branch:"master" input:<pfs:<name:"test" repo:"test" branch:"master" glob:"/*" > > cache_size:"64M" salt:"95e86369074f472c87d77f1116656813" max_queue_size:1 spec_commit:<repo:<name:"__spec__" > id:"7ddade34799b450db6b10231bbb287b7" > datum_tries:3 ]
 }

@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm/v2
 
-go 1.15
+go 1.16
 
 require (
 	cloud.google.com/go/storage v1.3.0
@@ -74,12 +74,12 @@ require (
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9
-	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
+	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6
+	golang.org/x/sys v0.0.0-20210511113859-b0526f3d8744
 	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.6 // indirect

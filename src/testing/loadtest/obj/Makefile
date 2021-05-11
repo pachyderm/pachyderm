@@ -6,7 +6,7 @@ docker-build:
 	@# Note: if BENCH_VERSION is set, then this adds :$BENCH_VERSION to the image tag
 	for bin in supervisor; do \
 		image_name="pachyderm/obj-loadtest-$${bin}$${BENCH_VERSION:+:$$BENCH_VERSION}"; \
-		printf "FROM ubuntu\nCOPY $${bin} /\nRUN apt-get update && apt-get install -y ca-certificates\n" >_out/Dockerfile; \
+		printf "FROM ubuntu:20.04\nCOPY $${bin} /\nRUN apt-get update && apt-get install -y ca-certificates\n" >_out/Dockerfile; \
 		docker build -t $${image_name} ./_out; \
 		docker push $${image_name}; \
 	done

@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 LABEL maintainer=msteffen@pachyderm.io
 
 RUN apt-get update -y && apt-get install -y \

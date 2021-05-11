@@ -1,4 +1,4 @@
-FROM golang:latest
+FROM golang:1.16.4
 
 LABEL name="Pachyderm" \
       vendor="Pachyderm"
