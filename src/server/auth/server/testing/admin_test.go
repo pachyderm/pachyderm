@@ -478,7 +478,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := aliceClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})
@@ -517,7 +517,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := rootClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})
@@ -566,7 +566,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := aliceClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})
@@ -607,7 +607,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := rootClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})
@@ -1055,7 +1055,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := aliceClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})

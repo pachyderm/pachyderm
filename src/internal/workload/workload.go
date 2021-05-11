@@ -97,7 +97,7 @@ func (w *worker) createRepo(c *client.APIClient) error {
 	if err := c.CreateRepo(repoName); err != nil {
 		return err
 	}
-	w.repos = append(w.repos, &pfs.Repo{Name: repoName})
+	w.repos = append(w.repos, client.NewRepo(repoName))
 
 	// Start the first commit in the repo (no parent). This is critical to
 	// advanceCommit(), which will try to finish a commit the first time it's

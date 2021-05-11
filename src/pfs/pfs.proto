@@ -15,6 +15,7 @@ import "auth/auth.proto";
 
 message Repo {
   string name = 1;
+  string type = 2;
 }
 
 message Branch {
@@ -181,6 +182,9 @@ message InspectRepoRequest {
 
 message ListRepoRequest {
   reserved 1;
+  // type is the type of (system) repos that should be returned
+  // an empty string requests all repos
+  string type = 2;
 }
 
 message ListRepoResponse {

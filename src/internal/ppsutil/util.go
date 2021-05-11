@@ -39,7 +39,7 @@ import (
 
 // PipelineRepo creates a pfs repo for a given pipeline.
 func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
-	return &pfs.Repo{Name: pipeline.Name}
+	return client.NewRepo(pipeline.Name)
 }
 
 // PipelineRcName generates the name of the k8s replication controller that
