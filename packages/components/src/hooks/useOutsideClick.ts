@@ -25,9 +25,11 @@ const useOutsideClick = (
     };
 
     document.addEventListener('mousedown', handleClick);
+    document.addEventListener('pointerdown', handleClick);
 
     return () => {
       document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('pointerdown', handleClick);
     };
   }, [ref, handleOutsideClick]);
 };
