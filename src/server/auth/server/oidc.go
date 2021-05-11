@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 
 	oidc "github.com/coreos/go-oidc"
 	logrus "github.com/sirupsen/logrus"
@@ -138,10 +140,47 @@ func (a *apiServer) getOIDCConfig(ctx context.Context) (*oidcConfig, error) {
 }
 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
-func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error) {
+func (a *apiServer) GetOIDCLoginURL(ctx context.Context, loginType auth.OIDCLoginType) (string, string, error) {
 	config, err := a.getOIDCConfig(ctx)
 	if err != nil {
 		return "", "", err
+	}
+
+	// To mint a Privileged ID Token,
+	// (1) modify our OIDC Config to create an Auth URL generating an ID Token where all Pachd OIDC Clients are listed as the token's Audience
+	// (2) register the Enterprise-Server OIDC Client as a trusted peer all other OIDC Clients
+	if loginType == auth.OIDCLoginType_PRIVILEDGED {
+		// Add all Registered Clients as Audience of the resulting ID Token
+		clustersResp, err := a.env.GetPachClient(ctx).License.ListClusters(ctx, &license.ListClustersRequest{})
+		if err != nil {
+			return "", "", errors.Wrapf(err, "failed to query clusters from the license server")
+		}
+		for _, cluster := range clustersResp.Clusters {
+			config.oauthConfig.Scopes = append(config.oauthConfig.Scopes, auth.TrustedPeerAudienceScopePrefix+cluster.ClientId)
+		}
+
+		// expose an RPC to get the enterprise Client ID?
+		enterpriseClientID := "enterprise-app-id"
+
+		// Make sure All Clients have the Enterprise-Server Client App registered as a Trusted Peer
+		for _, cluster := range clustersResp.Clusters {
+			clientResp, err := a.env.GetPachClient(ctx).IdentityAPIClient.GetOIDCClient(ctx, &identity.GetOIDCClientRequest{Id: cluster.ClientId})
+			if err != nil {
+				return "", "", errors.Wrapf(err, "failed to get OIDC Client with ID:%v", cluster.ClientId)
+			}
+			isEnterpriseTrusted := false
+			for _, peer := range clientResp.Client.TrustedPeers {
+				if peer == enterpriseClientID {
+					isEnterpriseTrusted = true
+				}
+			}
+			if !isEnterpriseTrusted {
+				trustedPeers := append(clientResp.Client.TrustedPeers, enterpriseClientID)
+				a.env.GetPachClient(ctx).IdentityAPIClient.UpdateOIDCClient(ctx, &identity.UpdateOIDCClientRequest{
+					Client: &identity.OIDCClient{Id: cluster.ClientId, TrustedPeers: trustedPeers},
+				})
+			}
+		}
 	}
 
 	state := random.String(30)
@@ -161,11 +200,11 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 	return url, state, nil
 }
 
-// OIDCStateToEmail takes the state token created for the OIDC session and
+// OIDCStateToEmailAndToken takes the state token created for the OIDC session and
 // uses it discover the email of the user who obtained the code (or verify that
 // the code belongs to them). This is how Pachyderm currently implements OIDC
 // authorization in a production cluster
-func (a *apiServer) OIDCStateToEmail(ctx context.Context, state string) (email string, retErr error) {
+func (a *apiServer) OIDCStateToEmailAndToken(ctx context.Context, state string) (email, idToken string, retErr error) {
 	defer func() {
 		logrus.Infof("converted OIDC state %q to email %q (or err: %v)",
 			half(state), email, retErr)
@@ -201,6 +240,7 @@ func (a *apiServer) OIDCStateToEmail(ctx context.Context, state string) (email s
 			} else if si.Email != "" {
 				// Success
 				email = si.Email
+				idToken = si.RawIdToken
 				return nil
 			}
 		}
@@ -213,9 +253,9 @@ func (a *apiServer) OIDCStateToEmail(ctx context.Context, state string) (email s
 		}
 		return nil
 	}); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return email, nil
+	return email, idToken, nil
 }
 
 // handleOIDCExchange implements the /authorization-code/callback endpoint. In
@@ -260,7 +300,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	// Verify the ID token, and if it's valid, add it to this state's SessionInfo
 	// in postgres, so that any concurrent Authorize() calls can discover it and give
 	// the caller a Pachyderm token.
-	nonce, email, conversionErr := a.handleOIDCExchangeInternal(
+	nonce, email, rawIdToken, conversionErr := a.handleOIDCExchangeInternal(
 		context.Background(), code, state)
 	_, txErr := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		var si auth.SessionInfo
@@ -275,6 +315,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 			}
 			if conversionErr == nil {
 				si.Email = email
+				si.RawIdToken = rawIdToken
 			} else {
 				si.ConversionErr = true
 			}
@@ -316,7 +357,6 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 	if err != nil {
 		return nil, nil, err
 	}
-
 	var verifier = config.oidcProvider.Verifier(&oidc.Config{ClientID: config.ClientID})
 	idToken, err := verifier.Verify(config.Ctx(ctx), rawIDToken)
 	if err != nil {
@@ -347,7 +387,7 @@ func (a *apiServer) syncGroupMembership(ctx context.Context, claims *IDTokenClai
 // authorization code into an access token. The caller (handleOIDCExchange) is
 // responsible for storing any responses from this in postgres and sending an HTTP
 // response to the user's browser.
-func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, state string) (nonce, email string, retErr error) {
+func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, state string) (nonce, email, rawIdToken string, retErr error) {
 	// log request, but do not log auth code (short-lived, but senstive user authenticator)
 	logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q }", half(state))
 	defer func() {
@@ -357,32 +397,32 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 
 	config, err := a.getOIDCConfig(ctx)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// Use the authorization code that is pushed to the redirect
 	tok, err := config.oauthConfig.Exchange(config.Ctx(ctx), authCode)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "failed to exchange code")
+		return "", "", "", errors.Wrapf(err, "failed to exchange code")
 	}
 
 	// Extract the ID Token from OAuth2 token.
 	rawIDToken, ok := tok.Extra("id_token").(string)
 	if !ok {
-		return "", "", errors.New("missing id token")
+		return "", "", "", errors.New("missing id token")
 	}
 
 	// Parse and verify ID Token payload.
 	idToken, claims, err := a.validateIDToken(ctx, rawIDToken)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "could not verify token")
+		return "", "", "", errors.Wrapf(err, "could not verify token")
 	}
 
 	if err := a.syncGroupMembership(ctx, claims); err != nil {
-		return "", "", errors.Wrapf(err, "could not sync group membership")
+		return "", "", "", errors.Wrapf(err, "could not sync group membership")
 	}
 
-	return idToken.Nonce, claims.Email, nil
+	return idToken.Nonce, claims.Email, rawIDToken, nil
 }
 
 func (a *apiServer) serveOIDC() error {

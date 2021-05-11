@@ -353,7 +353,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		roleBindings := a.roleBindings.ReadWrite(txCtx.SqlTx)
 		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
-				auth.RootUser: &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
+				auth.RootUser: {Roles: map[string]bool{auth.ClusterAdminRole: true}},
 			},
 		}); err != nil {
 			return err
@@ -449,10 +449,11 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	// verify whatever credential the user has presented, and write a new
 	// Pachyderm token for the user that their credential belongs to
 	var pachToken string
+	var idToken string // is only set when Authenticating with the OIDC State
 	switch {
 	case req.OIDCState != "":
 		// Determine caller's Pachyderm/OIDC user info (email)
-		email, err := a.OIDCStateToEmail(ctx, req.OIDCState)
+		email, idTok, err := a.OIDCStateToEmailAndToken(ctx, req.OIDCState)
 		if err != nil {
 			return nil, err
 		}
@@ -469,6 +470,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
 		pachToken = t
+		idToken = idTok
 
 	case req.IdToken != "":
 		// Determine caller's Pachyderm/OIDC user info (email)
@@ -512,6 +514,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	// Return new pachyderm token to caller
 	return &auth.AuthenticateResponse{
 		PachToken: pachToken,
+		IdToken:   idToken,
 	}, nil
 }
 
@@ -970,7 +973,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 	defer func(start time.Time) { a.LogResp(req, nil, retErr, time.Since(start)) }(time.Now())
 	var err error
 
-	authURL, state, err := a.GetOIDCLoginURL(ctx)
+	authURL, state, err := a.GetOIDCLoginURL(ctx, req.LoginType)
 	if err != nil {
 		return nil, err
 	}
@@ -1368,7 +1371,6 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		configToStore = proto.Clone(&DefaultOIDCConfig).(*auth.OIDCConfig)
 	}
 
-	// set the new config
 	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		return a.authConfig.ReadWrite(sqlTx).Put(configKey, configToStore)
 	}); err != nil {

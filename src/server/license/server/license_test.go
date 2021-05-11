@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -432,4 +434,49 @@ func TestListUserClusters(t *testing.T) {
 	userClustersResp, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(userClustersResp.Clusters))
+}
+
+// testing the cluster fanout pattern
+func TestClusterFanout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	clusters := []*license.ClusterStatus{
+		{
+			Id:      "Bugs",
+			Address: "0.0.0.0:8000",
+		},
+		{
+			Id:      "Daffy",
+			Address: "0.0.0.0:8001",
+		},
+		{
+			Id:      "Marvin",
+			Address: "0.0.0.0:8002",
+		},
+	}
+	cb := func(c *client.APIClient) error {
+		if c.GetAddress().Port == 8000 { // success
+			time.Sleep(time.Duration(3) * time.Second)
+			return nil
+		} else if c.GetAddress().Port == 8001 { // fails
+			time.Sleep(time.Duration(2) * time.Second)
+			return errors.New("failure")
+		} else if c.GetAddress().Port == 8002 { // timeout
+			time.Sleep(time.Duration(12) * time.Second)
+			return nil
+		}
+		return errors.New("else condition!")
+	}
+	report, err := ClusterFanout(context.Background(), clusters, "", cb)
+	require.NoError(t, err)
+
+	// fmt.Println(report.failures[0].err.Error())
+	require.Equal(t, 1, len(report.timeouts))
+
+	require.Equal(t, 1, len(report.successes))
+	require.Equal(t, 1, len(report.failures))
+	require.Equal(t, 1, len(report.timeouts))
+
 }

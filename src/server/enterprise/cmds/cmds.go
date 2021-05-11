@@ -3,15 +3,19 @@ package cmds
 import (
 	"fmt"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
+
+	"github.com/pkg/browser"
 )
 
 func newClient(enterprise bool) (*client.APIClient, error) {
@@ -36,6 +40,31 @@ func getIsActiveContextEnterpriseServer() (bool, error) {
 		return false, errors.Wrapf(err, "could not retrieve the enterprise context from the config")
 	}
 	return ctx.EnterpriseServer, nil
+}
+
+func requestOIDCPrivilegedLogin(c *client.APIClient, openBrowser bool) (string, error) {
+	var authURL string
+	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{LoginType: auth.OIDCLoginType_PRIVILEDGED})
+	if err != nil {
+		return "", err
+	}
+	authURL = loginInfo.LoginURL
+	state := loginInfo.State
+
+	// print the prepared URL and promp the user to click on it
+	fmt.Println("You will momentarily be directed to your IdP and asked to authorize Pachyderm's " +
+		"login app on your IdP.\n\nPaste the following URL into a browser if not automatically redirected:\n\n" +
+		authURL + "\n\n" +
+		"")
+
+	if openBrowser {
+		err = browser.OpenURL(authURL)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return state, nil
 }
 
 // ActivateCmd returns a cobra.Command to activate the license service,
@@ -304,6 +333,72 @@ func SyncContextsCmd() *cobra.Command {
 		}),
 	}
 	return cmdutil.CreateAlias(syncContexts, "enterprise sync-contexts")
+}
+
+func RevokeUserTokensCmd() *cobra.Command {
+	var username string
+	revokeUserTokens := &cobra.Command{
+		Short: "Revoke a user's auth tokens across all the clusters registered with the enterprise server.",
+		Long:  "Revoke a user's auth tokens across all the clusters registered with the enterprise server.",
+		Run: cmdutil.Run(func(args []string) error {
+			ec, err := client.NewEnterpriseClientOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer ec.Close()
+
+			// first login to get a privileged ID Token
+			var idToken string
+			noBrowser := false
+			if state, err := requestOIDCPrivilegedLogin(ec, !noBrowser); err == nil {
+				// Exchange OIDC token for Pachyderm token
+				fmt.Println("Retrieving Pachyderm token...")
+				resp, authErr := ec.Authenticate(
+					ec.Ctx(),
+					&auth.AuthenticateRequest{OIDCState: state})
+				if authErr != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
+						"authorization failed (OIDC state token: %q; Pachyderm logs may "+
+							"contain more information)",
+						// Print state token as it's logged, for easy searching
+						fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
+				}
+				idToken = resp.IdToken
+			} else {
+				return fmt.Errorf("no authentication providers are configured")
+			}
+
+			resp, err := ec.License.RevokeTokensForUserAcrossClusters(ec.Ctx(), &license.RevokeTokensForUserAcrossClustersRequest{Username: username, IdToken: idToken})
+			if err != nil {
+				return err
+			}
+			message := ""
+			if len(resp.SuccessClusters) > 0 {
+				message += "The token was successfully revoked in these clusters:\n"
+				for _, c := range resp.SuccessClusters {
+					message += fmt.Sprintf("-> %v\n", c)
+				}
+			}
+			if len(resp.FailureClusters) > 0 {
+				message += "The user failed to be revoked for these clusters.\n" +
+					"Retry running 'enterprise revoke-user-tokens'.\n"
+				for _, c := range resp.FailureClusters {
+					message += fmt.Sprintf("-> %v. Message: %v\n", c.ReceiverId, c.Err)
+				}
+			}
+			if len(resp.TimedoutClusters) > 0 {
+				message += "The following clusters timed out while attempting to revoke the user.\n" +
+					"Retry running 'enterprise revoke-user-tokens'.\n"
+				for _, c := range resp.TimedoutClusters {
+					message += fmt.Sprintf("-> %v\n", c)
+				}
+			}
+			fmt.Println(message)
+			return nil
+		}),
+	}
+	revokeUserTokens.PersistentFlags().StringVar(&username, "username", "", "The username of the user whose access should be revoked.")
+	return cmdutil.CreateAlias(revokeUserTokens, "enterprise revoke-user-tokens")
 }
 
 // Cmds returns pachctl commands related to Pachyderm Enterprise
