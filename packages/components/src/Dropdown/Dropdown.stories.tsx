@@ -8,7 +8,7 @@ export default {title: 'Dropdown'};
 
 const items: DropdownItem[] = [
   {id: 'easy', content: 'Easy'},
-  {id: 'medium', content: 'Medium'},
+  {id: 'medium', content: 'Medium', disabled: true},
   {id: 'hard', content: 'Hard'},
 ];
 
@@ -37,16 +37,21 @@ export const Search = () => {
   const [branch, setBranch] = useState('master');
 
   const items: DropdownItem[] = [
-    {id: 'master', value: 'master', content: 'master'},
-    {id: 'staging', value: 'staging', content: 'staging'},
-    {id: 'development', value: 'development', content: 'development'},
+    {id: 'master', value: 'master', content: 'master', closeOnClick: true},
+    {id: 'staging', value: 'staging', content: 'staging', closeOnClick: true},
+    {
+      id: 'development',
+      value: 'development',
+      content: 'development',
+      closeOnClick: true,
+    },
   ];
 
   return (
     <SearchableDropdown
-      items={items}
-      storeSelected
+      selectedId={branch}
       onSelect={setBranch}
+      items={items}
       searchOpts={{placeholder: 'Search a branch by name'}}
       emptyResultsContent={'No matching branches found.'}
     >

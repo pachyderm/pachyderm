@@ -1,14 +1,9 @@
 import {render, waitFor, act, fireEvent} from '@testing-library/react';
-import React from 'react';
+import React, {useState} from 'react';
 
 import {click, type} from 'testHelpers';
 
-import {
-  DefaultDropdown,
-  DropdownItem,
-  SearchableDropdown,
-  DropdownProps,
-} from '../';
+import {DropdownItem, SearchableDropdown, DropdownProps} from '../';
 
 describe('Dropdown', () => {
   const renderTestbed = ({
@@ -26,9 +21,13 @@ describe('Dropdown', () => {
       <>
         <div>Outside</div>
 
-        <DefaultDropdown onSelect={onSelect} items={items}>
+        <SearchableDropdown
+          onSelect={onSelect}
+          items={items}
+          emptyResultsContent={'No results found.'}
+        >
           Button
-        </DefaultDropdown>
+        </SearchableDropdown>
       </>,
     );
 
@@ -127,25 +126,42 @@ describe('Dropdown', () => {
       expect(queryByRole('menu')).toBeNull();
     });
 
-    it('should allow users to navigate to the first active item with the down key', async () => {
-      const {onSelect, getByText} = renderTestbed();
+    it('should allow users to navigate to the search bar with the down key', async () => {
+      const {getByText} = renderTestbed();
 
       const button = getByText('Button');
 
       fireEvent.keyDown(button, {key: 'ArrowDown'});
       fireEvent.keyDown(button, {key: 'ArrowDown'});
+
+      expect(document.activeElement?.nodeName).toBe('INPUT');
+    });
+
+    it('should allow users to navigate to the first active item with the down key', async () => {
+      const {onSelect, getByText, getByLabelText} = renderTestbed();
+
+      const button = getByText('Button');
+
+      fireEvent.keyDown(button, {key: 'ArrowDown'});
+      fireEvent.keyDown(button, {key: 'ArrowDown'});
+
+      const searchBar = getByLabelText('Search');
+      fireEvent.keyDown(searchBar, {key: 'ArrowDown'});
 
       await type(document.activeElement as HTMLElement, '{enter}');
       expect(onSelect).toHaveBeenCalledWith('link1');
     });
 
     it('should allow users to descend through active menu items with the down key', () => {
-      const {onSelect, getByText} = renderTestbed();
+      const {onSelect, getByText, getByLabelText} = renderTestbed();
 
       const button = getByText('Button');
 
       fireEvent.keyDown(button, {key: 'ArrowDown'});
       fireEvent.keyDown(button, {key: 'ArrowDown'});
+
+      const searchBar = getByLabelText('Search');
+      fireEvent.keyDown(searchBar, {key: 'ArrowDown'});
 
       click(document.activeElement as HTMLElement);
       expect(onSelect).toHaveBeenLastCalledWith('link1');
@@ -161,8 +177,7 @@ describe('Dropdown', () => {
         key: 'ArrowDown',
       });
 
-      click(document.activeElement as HTMLElement);
-      expect(onSelect).toHaveBeenLastCalledWith('link1');
+      expect(document.activeElement?.nodeName).toBe('INPUT');
     });
 
     it('should allow users to ascend through active menu items with the up key', () => {
@@ -205,6 +220,8 @@ describe('Dropdown', () => {
 
   describe('search', () => {
     const TestBed = (props: DropdownProps) => {
+      const [branch, setBranch] = useState('master');
+
       const items: DropdownItem[] = [
         {id: '0', value: 'master', content: 'master'},
         {id: '1', value: 'staging', content: 'staging'},
@@ -213,6 +230,8 @@ describe('Dropdown', () => {
 
       return (
         <SearchableDropdown
+          selectedId={branch}
+          onSelect={setBranch}
           items={items}
           emptyResultsContent={'No results found.'}
           {...props}

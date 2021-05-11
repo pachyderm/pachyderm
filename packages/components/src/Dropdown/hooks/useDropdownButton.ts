@@ -1,5 +1,6 @@
 import {useCallback} from 'react';
 
+import findFocusableChild from 'Dropdown/utils/findFocusableChild';
 import {Keys} from 'lib/types';
 
 import useDropdown from './useDropdown';
@@ -27,7 +28,7 @@ const useDropdownButton = (ref: React.RefObject<HTMLButtonElement>) => {
         });
 
         if (firstActiveItem) {
-          (firstActiveItem as HTMLElement).focus();
+          findFocusableChild(firstActiveItem)?.focus();
         }
       }
     },

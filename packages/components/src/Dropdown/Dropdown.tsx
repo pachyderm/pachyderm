@@ -31,6 +31,7 @@ export interface DropdownProps {
   storeSelected?: boolean;
   filter?: (items: ItemObject, searchValue: string) => boolean;
   formCtx?: UseFormMethods;
+  selectedId?: string;
 }
 
 const defaultFilter = (item: ItemObject, searchValue: string) => {
@@ -48,12 +49,15 @@ export const Dropdown: React.FC<DropdownProps> = ({
   storeSelected = false,
   filter = defaultFilter,
   formCtx,
+  selectedId: managedSelectedId,
 }) => {
   const defaultFormContext = useForm();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedId, selectId] = useState(initialSelectId);
+  const [internalSelectedId, selectId] = useState(initialSelectId);
   const [filteredResults, setFilteredResults] = useState<ItemObject[]>([]);
+
+  const selectedId = managedSelectedId || internalSelectedId;
 
   const setSelectedId = useCallback(
     (id: string) => {

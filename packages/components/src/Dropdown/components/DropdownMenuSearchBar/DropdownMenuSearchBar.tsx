@@ -1,6 +1,8 @@
 import classnames from 'classnames';
-import React, {InputHTMLAttributes, useCallback} from 'react';
+import React, {InputHTMLAttributes, useCallback, useRef} from 'react';
 import {useFormContext} from 'react-hook-form';
+
+import useItemKeyController from 'Dropdown/hooks/useItemKeyController';
 
 import {CloseSVG, SearchSVG} from '../../../Svg';
 
@@ -13,16 +15,19 @@ export type DropdownMenuSearchBarProps = Omit<
 
 const DropdownMenuSearchBar: React.FC<DropdownMenuSearchBarProps> = ({
   className,
+  autoComplete = 'off',
   ...rest
 }) => {
   const {register, setValue} = useFormContext();
+  const ref = useRef<HTMLDivElement>(null);
+  const {handleKeyDown} = useItemKeyController({ref});
 
   const clear = useCallback(() => {
     setValue('search', '');
   }, [setValue]);
 
   return (
-    <div className={styles.base}>
+    <div className={styles.base} ref={ref}>
       <SearchSVG className={styles.search} aria-hidden />
 
       <input
@@ -31,6 +36,8 @@ const DropdownMenuSearchBar: React.FC<DropdownMenuSearchBarProps> = ({
         name="search"
         aria-label="Search"
         ref={register}
+        autoComplete={autoComplete}
+        onKeyDown={handleKeyDown}
         {...rest}
       />
 
