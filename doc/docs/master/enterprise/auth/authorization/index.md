@@ -38,9 +38,9 @@ Pachyderm has 2 types of resources: **Repositories**: `repo`, **Clusters**: `clu
     Two additionnal tiers: A `project` tier between the cluster and repo levels, and the `enterprise` tier, above all clusters, at the enterprise server level, are in the works. Clusters contain one to many projects. Projects contain one to many repositories.
 
 ## Roles
-Pachyderm has 4 predefined roles granting permissions to its Resources.
-Those Roles are listed in no specific hierarchical order. 
-Some might inherit a set of permissions from anouther.
+Pachyderm has a number of predefined roles granting permissions to its Resources.
+Those Roles are listed here in no specific hierarchical order. 
+Some might inherit a set of permissions from another.
 
 - **repoReader**: Can consume data from a repo, but cannot edit them.
 repoReader can execute commands such as `pachctl get file` and
@@ -55,25 +55,29 @@ adding, deleting, or updating the files in the repo. The
 - **repoOwner**: Additionaly to having the repoReader and the repoWriter Roles,
 a RepoOwner can grant permission to users on the Repository.
 
-!!! Note
-    repoReader, repoWriter, and repoOwner can be set at all levels: cluster, project, and repo. 
+    !!! Note
+        repoReader, repoWriter, and repoOwner can be set at all levels: cluster, project, and repo. 
+
+- **secretAdmin**: A secretAdmin has the ability to create, update, delete Kubernetes secrets on a cluster.
+
+    !!! Note
+        repoReader, repoWriter, and repoOwner can be set at all levels: cluster, project, and repo. 
+
 
 - **clusterAdmin**: A clusterAdmin can perform any
 action on the cluster including appointing other clusterAdmins.
 By default, the activation of Auth (`pachctl auth activate`) creates a Root User
 with irrevocable ClusterAdmin rights. This Role must be set at the cluster level only.
 
-!!! Note
-    When Pachyderm Auth is not enabled,
-    all users are clusterAdmins.
+    !!! Info
+        When Pachyderm Auth is not enabled,
+        all users are clusterAdmins.
 
-The `clusterAdmin` role is broken up in a set of finer grained roles, so users can delegate specific tasks without giving full admin privileges to a cluster.
-Those roles are listed below. The union of them all is equivalent to the ClusterAdmin role.
+    The `clusterAdmin` role is broken up in a set of finer grained roles, so users can delegate specific tasks without giving full admin privileges to a cluster.
+    Those roles are listed below. The union of them all is equivalent to the ClusterAdmin role.
 
-!!! Note
-    None of those sub-roles have shared privileges.
-
-- **oidcAppAdmin**: An oidcAppAdmin can configure oidc apps. In other terms, they can perform operations such as `pachctl idp create client`. This command is rarely necessary to most users. Usually, a `pachctl deploy` will invoke a 'pachctl idp create client' under the hood and register Pachyderm's apps like Hub, for example. However, there might be cases where this registration of new oidc clients needs do be made explicitely. This could happen in the case were someone decides to reinstall Pachyderm manually, component by component, without the automated `pachctl deploy` for example???????????. 
+    !!! Note
+        None of those sub-roles have shared privileges.
 
 - **idpAdmin**: An ipdAdmin can configure identity providers. They can perform operations such as `pachctl idp create-connector` or `pachctl idp get-connector`.
 
@@ -81,9 +85,11 @@ Those roles are listed below. The union of them all is equivalent to the Cluster
 
 - **debugger**: A debugger role has the ability to produce debug dumps.
 
-- **licenseAdmin**: This role grant the ability to register new clusters with the license server, as well as manage and update the enterprise license. For example, this role can perform a `pachctl enterprise register`, `pachctl enterprise register` or `pachctl enterprise register`.
+- **licenseAdmin**: This role grant the ability to register new clusters with the license server, as well as manage and update the enterprise license. For example, this role can perform a `pachctl enterprise register`, `pachctl license activate` or `pachctl license delete`.
 
-A use case for fine grained admin access would be Hub where we want to give `allClusterUsers` the debugger and `repoOwner` roles but not full cluster admin privileges. 
+- **oidcAppAdmin**: An oidcAppAdmin can configure oidc apps between the Identity service and pachd (a cluster). In other terms, they can perform operations such as `pachctl idp create client`. This command is rarely necessary to most users. Usually, a `pachctl deploy` will invoke a `pachctl idp create client` under the hood and register Pachyderm's apps like the IDE, for example. However, there might be cases where this registration of new oidc clients needs do be made explicitely. This could happen in the case were someone decides to reinstall Pachyderm manually, component by component, without the automated `pachctl deploy` for example???????????. 
 
-!!! Note
-    can be set at all levels: cluster, project, and repo. 
+    A use case for fine grained admin access would be Hub where we want to give `allClusterUsers` the debugger and `repoOwner` roles but not full cluster admin privileges. ?????
+
+    !!! Note
+        The above roles constituting the clusterAdmin role can be set at the cluster level only????
