@@ -25,7 +25,7 @@ build:
 	npm run build --prefix ./frontend && npm run build --prefix ./backend
 
 graphql:
-	npm run generate-types --prefix ./backend && npm run generate-hooks --prefix ./frontend
+	npm run generate-types && npm run lint --prefix ./backend -- --fix && npm run lint:js --prefix ./frontend -- --fix
 
 test:
 	npm test --prefix ./backend && npm test --prefix ./frontend

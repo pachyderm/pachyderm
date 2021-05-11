@@ -1,19 +1,16 @@
 schema:
-  - ./src/schema.graphqls
-  - ../frontend/src/client.schema.graphqls
+  - backend/src/schema.graphqls
+  - frontend/src/client.schema.graphqls
+documents:
+  - 'frontend/src/queries/*.ts'
+  - 'frontend/src/mutations/*.ts'
 generates:
-  ./src/generated/types.ts:
-    documents:
-      - '../frontend/src/queries/*.ts'
-      - '../frontend/src/mutations/*.ts'
+  backend/src/generated/types.ts:
     config:
       contextType: \@dash-backend/lib/types#Context
       useIndexSignature: true
       namingConvention:
         enumValues: keep
-    hooks:
-      afterOneFileWrite:
-        - eslint --fix
     plugins:
       - typescript
       - typescript-resolvers
@@ -24,3 +21,14 @@ generates:
             - "/* eslint-disable @typescript-eslint/ban-types */"
             - "/* eslint-disable import/no-duplicates */"
             - "/* eslint-disable @typescript-eslint/no-explicit-any */\n"
+  frontend/src/generated/hooks.ts:
+    preset: import-types
+    presetConfig:
+      typesPath: \@graphqlTypes
+    plugins:
+      - typescript-react-apollo
+      - add:
+          content:
+            - /* eslint-disable @typescript-eslint/naming-convention */
+    config:
+      withHooks: true

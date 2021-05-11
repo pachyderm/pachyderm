@@ -44,12 +44,6 @@
   },
   "devDependencies": {
     "@cypress/code-coverage": "3.9.5",
-    "@graphql-codegen/add": "2.0.2",
-    "@graphql-codegen/cli": "1.17.3",
-    "@graphql-codegen/import-types-preset": "1.18.1",
-    "@graphql-codegen/typescript": "1.20.0",
-    "@graphql-codegen/typescript-operations": "1.17.13",
-    "@graphql-codegen/typescript-react-apollo": "2.2.3",
     "@pachyderm/config": "0.5.0",
     "@pachyderm/scripts": "0.5.4",
     "@sentry/cli": "1.55.0",

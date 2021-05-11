@@ -37,11 +37,6 @@
   },
   "devDependencies": {
     "@apollo/client": "3.3.1",
-    "@graphql-codegen/add": "2.0.1",
-    "@graphql-codegen/cli": "1.19.2",
-    "@graphql-codegen/typescript": "1.17.11",
-    "@graphql-codegen/typescript-operations": "1.17.15",
-    "@graphql-codegen/typescript-resolvers": "1.18.1",
     "@pachyderm/config": "0.5.0",
     "@types/bunyan": "1.8.6",
     "@types/cookie-parser": "1.4.2",
