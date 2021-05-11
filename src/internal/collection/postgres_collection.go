@@ -192,16 +192,24 @@ func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
 	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
 }
 
-func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
-	return c.list(map[string]string{indexFieldName(index): indexVal}, opts, func(m *model) error {
+	return c.list(ctx, map[string]string{indexFieldName(index): indexVal}, opts, q, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return f(m.Key)
 	})
+}
+
+func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+	return c.getByIndex(c.ctx, c.db, index, indexVal, val, opts, f)
+}
+
+func (c *postgresReadWriteCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+	return c.getByIndex(context.Background(), c.tx, index, indexVal, val, opts, f)
 }
 
 func orderToSQL(order etcd.SortOrder) (string, error) {
@@ -513,22 +521,6 @@ func (c *postgresReadWriteCollection) Get(key string, val proto.Message) error {
 		return err
 	}
 	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
-}
-
-func (c *postgresReadWriteCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
-	return c.postgresCollection.list(context.Background(), withFields, opts, c.tx, f)
-}
-
-func (c *postgresReadWriteCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
-	if err := c.validateIndex(index); err != nil {
-		return err
-	}
-	return c.list(map[string]string{indexFieldName(index): indexVal}, opts, func(m *model) error {
-		if err := proto.Unmarshal(m.Proto, val); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return f(m.Key)
-	})
 }
 
 func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
