@@ -411,8 +411,8 @@ nav:
                 - Model overview: enterprise/auth/authorization/index.md
                 - Role Binding: enterprise/auth/authorization/role-binding.md
         - Enterprise Server:
-            - Setup an Enterprise Server: enterprise/auth/license-server/setup.md 
-            - Manage your Enterprise Server: enterprise/auth/license-server/manage.md 
+            - Setup an Enterprise Server: enterprise/auth/enterprise-server/setup.md 
+            - Manage your Enterprise Server: enterprise/auth/enterprise-server/manage.md 
         - Advanced Statistics: enterprise/stats.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
