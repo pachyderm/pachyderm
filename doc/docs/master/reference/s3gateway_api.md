@@ -1,47 +1,22 @@
 # S3 Gateway API
 
-This section outlines the HTTP API exposed by the s3 gateway and any peculiarities
-relative to S3. The operations largely mirror those documented in S3's
-[official docs](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations_Amazon_Simple_Storage_Service.html).
+This section outlines the operations exposed by Pachyderm's HTTP API [S3 Gateway](../../deploy-manage/manage/s3gateway/). 
 
-Generally, you would not call these endpoints directly, but rather use a
-tool or library designed to work with S3-like APIs. Because of that, some
-working knowledge of S3 and HTTP is assumed.
 
-### Authentication
-
-If authentication is not enabled on the Pachyderm cluster, S3 gateway
-endpoints can be hit without passing auth credentials, with the requirement that the AWS access key and secret key are set to the same value.
-
-If authentication is enabled, credentials must be passed using AWS'
-[signature v2](https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html)
-or [signature v4](https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html)
-methods. For both methods, set the AWS access key and secret key to the
-same value. Both values are the Pachyderm auth token that is used to issue the
-relevant PFS calls. One or both signature methods are built into most s3 tools
-and libraries already, so you do not need to configure these methods manually.
-
-### Buckets
-
-Buckets are represented via `branch.repo`. For example, the `master.images`
-bucket corresponds to the `master` branch of the `images` repo.
-
-### Operations
-
-#### `ListBuckets`
+## `ListBuckets`
 
 Route: `GET /`.
 
 Lists all of the branches across all of the repos as S3 buckets.
 
-#### `DeleteBucket`
+## `DeleteBucket`
 
 Route: `DELETE /<branch>.<repo>/`.
 
 Deletes the branch. If it is the last branch in the repo, the repo is also
 deleted. Unlike S3, you can delete non-empty branches.
 
-#### `ListObjects`
+## `ListObjects`
 
 Route: `GET /<branch>.<repo>/`
 
@@ -62,26 +37,26 @@ specific object listed.
 hash of the file contents.
 * The S3 `StorageClass` and `Owner` fields always have the same filler value.
 
-#### `GetBucketLocation`
+## `GetBucketLocation`
 
 Route: `GET /<branch>.<repo>/?location`
 
 This will always serve the same location for every bucket, but the endpoint
 is implemented to provide better compatibility with S3 clients.
 
-#### `GetBucketVersioning`
+## `GetBucketVersioning`
 
 Route: `GET /<branch>.<repo>/?versioning`
 
 This will get whether versioning is enabled, which is always true.
 
-#### `ListMultipartUploads`
+## `ListMultipartUploads`
 
 Route: `GET /<branch>.<repo>/?uploads`
 
 Lists the in-progress multipart uploads in the given branch. The `delimiter` query parameter is not supported.
 
-#### `CreateBucket`
+## `CreateBucket`
 
 Route: `PUT /<branch>.<repo>/`.
 
@@ -90,19 +65,19 @@ is likewise created. As per S3's behavior in some regions (but not all),
 trying to create the same bucket twice will return a `BucketAlreadyOwnedByYou`
 error.
 
-#### `DeleteObjects`
+## `DeleteObjects`
 
 Route: `POST /<branch>.<repo>/?delete`.
 
 Deletes multiple files specified in the request payload.
 
-#### `DeleteObject`
+## `DeleteObject`
 
 Route: `DELETE /<branch>.<repo>/<filepath>`.
 
 Deletes the PFS file `filepath` in an atomic commit on the HEAD of `branch`.
 
-#### `GetObject`
+## `GetObject`
 
 Route: `GET /<branch>.<repo>/<filepath>`.
 
@@ -121,7 +96,7 @@ modified this specific object.
 * The HTTP `ETag` does not use MD5, but is a cryptographically secure hash of
 the file contents.
 
-#### `PutObject`
+## `PutObject`
 
 Route: `PUT /<branch>.<repo>/<filepath>`.
 
@@ -134,13 +109,13 @@ Unlike s3, a 64mb max size is not enforced on this endpoint. Especially,
 as the file upload size gets larger, we recommend setting the `Content-MD5`
 request header to ensure data integrity.
 
-#### `AbortMultipartUpload`
+## `AbortMultipartUpload`
 
 Route: `DELETE /<branch>.<repo>?uploadId=<uploadId>`
 
 Aborts an in-progress multipart upload.
 
-#### `CompleteMultipartUpload`
+## `CompleteMultipartUpload`
 
 Route: `POST /<branch>.<repo>?uploadId=<uploadId>`
 
@@ -149,19 +124,19 @@ payload, they must be of the same format as returned by the S3
 gateway when the multipart chunks are included. If they are `md5`
 hashes or any other hash algorithm, they are ignored.
 
-#### `CreateMultipartUpload`
+## `CreateMultipartUpload`
 
 Route: `POST /<branch>.<repo>?uploads`
 
 Initiates a multipart upload.
 
-#### `ListParts`
+## `ListParts`
 
 Route: `GET /<branch>.<repo>?uploadId=<uploadId>`
 
 Lists the parts of an in-progress multipart upload.
 
-#### `UploadPart`
+## `UploadPart`
 
 Route: `PUT /<branch>.<repo>?uploadId=<uploadId>&partNumber=<partNumber>`
 

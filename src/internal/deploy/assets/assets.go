@@ -166,20 +166,19 @@ type AssetOpts struct {
 	EtcdOpts
 	PostgresOpts
 	StorageOpts
-	PachdShards uint64
-	Version     string
-	LogLevel    string
-	Metrics     bool
-	Dynamic     bool
-	DashOnly    bool
-	NoDash      bool
-	DashImage   string
-	Registry    string
-	EtcdPrefix  string
-	PachdPort   int32
-	TracePort   int32
-	HTTPPort    int32
-	PeerPort    int32
+	Version    string
+	LogLevel   string
+	Metrics    bool
+	Dynamic    bool
+	DashOnly   bool
+	NoDash     bool
+	DashImage  string
+	Registry   string
+	EtcdPrefix string
+	PachdPort  int32
+	TracePort  int32
+	HTTPPort   int32
+	PeerPort   int32
 
 	// NoGuaranteed will not generate assets that have both resource limits and
 	// resource requests set which causes kubernetes to give the pods
@@ -188,17 +187,12 @@ type AssetOpts struct {
 	// help much and may cause more instability than it prevents.
 	NoGuaranteed bool
 
-	// BlockCacheSize is the amount of memory each PachD node allocates towards
-	// its cache of PFS blocks. If empty, assets.go will choose a default size.
-	BlockCacheSize string
-
 	// PachdCPURequest is the amount of CPU we request for each pachd node. If
 	// empty, assets.go will choose a default size.
 	PachdCPURequest string
 
 	// PachdNonCacheMemRequest is the amount of memory we request for each
-	// pachd node in addition to BlockCacheSize. If empty, assets.go will choose
-	// a default size.
+	// pachd node. If empty, assets.go will choose a default size.
 	PachdNonCacheMemRequest string
 
 	// IAM role that the Pachyderm deployment should assume when talking to AWS
@@ -225,11 +219,6 @@ type AssetOpts struct {
 
 	// NoExposeDockerSocket if true prevents pipelines from accessing the docker socket.
 	NoExposeDockerSocket bool
-
-	// ExposeObjectAPI, if set, causes pachd to serve Object/Block API requests on
-	// its public port. This should generally be false in production (it breaks
-	// auth) but is needed by tests
-	ExposeObjectAPI bool
 
 	// If set, the files indictated by 'TLS.ServerCert' and 'TLS.ServerKey' are
 	// placed into a Kubernetes secret and used by pachd nodes to authenticate
@@ -259,7 +248,6 @@ func replicas(r int32) *int32 {
 }
 
 // fillDefaultResourceRequests sets any of:
-//   opts.BlockCacheSize
 //   opts.PachdNonCacheMemRequest
 //   opts.PachdCPURequest
 //   opts.EtcdCPURequest
@@ -271,11 +259,8 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend Backend)
 	if persistentDiskBackend == LocalBackend {
 		// For local deployments, we set the resource requirements and cache sizes
 		// low so that pachyderm clusters will fit inside e.g. minikube or travis
-		if opts.BlockCacheSize == "" {
-			opts.BlockCacheSize = "256M"
-		}
 		if opts.PachdNonCacheMemRequest == "" {
-			opts.PachdNonCacheMemRequest = "256M"
+			opts.PachdNonCacheMemRequest = "512M"
 		}
 		if opts.PachdCPURequest == "" {
 			opts.PachdCPURequest = "0.25"
@@ -297,9 +282,6 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend Backend)
 	} else {
 		// For non-local deployments, we set the resource requirements and cache
 		// sizes higher, so that the cluster is stable and performant
-		if opts.BlockCacheSize == "" {
-			opts.BlockCacheSize = "1G"
-		}
 		if opts.PachdNonCacheMemRequest == "" {
 			opts.PachdNonCacheMemRequest = "2G"
 		}
@@ -538,8 +520,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 	if opts.PeerPort == 0 {
 		opts.PeerPort = 653
 	}
-	mem := resource.MustParse(opts.BlockCacheSize)
-	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
+	mem := resource.MustParse(opts.PachdNonCacheMemRequest)
 	cpu := resource.MustParse(opts.PachdCPURequest)
 	image := AddRegistry(opts.Registry, versionedPachdImage(opts))
 	volumes := []v1.Volume{
@@ -610,7 +591,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 	envVars := []v1.EnvVar{
 		{Name: "PACH_ROOT", Value: "/pach"},
 		{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
-		{Name: "NUM_SHARDS", Value: fmt.Sprintf("%d", opts.PachdShards)},
 		{Name: "STORAGE_BACKEND", Value: backendEnvVar},
 		{Name: "STORAGE_HOST_PATH", Value: storageHostPath},
 		{Name: "WORKER_IMAGE", Value: AddRegistry(opts.Registry, versionedWorkerImage(opts))},
@@ -621,7 +601,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		{Name: "PACHD_VERSION", Value: opts.Version},
 		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
 		{Name: "LOG_LEVEL", Value: opts.LogLevel},
-		{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
 		{Name: "IAM_ROLE", Value: opts.IAMRole},
 		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
 		{
@@ -642,7 +621,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 				},
 			},
 		},
-		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
 		{Name: "CLUSTER_DEPLOYMENT_ID", Value: opts.ClusterDeploymentID},
 		{Name: RequireCriticalServersOnlyEnvVar, Value: strconv.FormatBool(opts.RequireCriticalServersOnly)},
 		{

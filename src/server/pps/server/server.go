@@ -36,7 +36,6 @@ func NewAPIServer(
 		storageRoot:           env.Config().StorageRoot,
 		storageBackend:        env.Config().StorageBackend,
 		storageHostPath:       env.Config().StorageHostPath,
-		cacheRoot:             env.Config().CacheRoot,
 		iamRole:               env.Config().IAMRole,
 		imagePullSecret:       env.Config().ImagePullSecret,
 		noExposeDockerSocket:  env.Config().NoExposeDockerSocket,

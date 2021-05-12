@@ -216,7 +216,6 @@ func withManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 			UploadConcurrencyLimit:  assets.DefaultUploadConcurrencyLimit,
 			PutFileConcurrencyLimit: assets.DefaultPutFileConcurrencyLimit,
 		},
-		PachdShards:                16,
 		Version:                    "local",
 		LogLevel:                   "info",
 		Namespace:                  namespaceName,

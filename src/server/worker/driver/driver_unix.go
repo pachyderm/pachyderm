@@ -29,6 +29,17 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 	d.activeDataMutex.Lock()
 	defer d.activeDataMutex.Unlock()
 
+	// If a custom user is set, make sure the directory and its content are owned by them.
+	if d.uid != nil && d.gid != nil {
+		if err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			return os.Chown(name, int(*d.uid), int(*d.gid))
+		}); err != nil {
+			return err
+		}
+	}
 	if err := d.linkData(inputs, dir); err != nil {
 		return errors.Wrap(err, "error when linking active data directory")
 	}

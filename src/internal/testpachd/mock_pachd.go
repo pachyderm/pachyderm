@@ -93,6 +93,7 @@ type getUsersFunc func(context.Context, *auth.GetUsersRequest) (*auth.GetUsersRe
 type extractAuthTokensFunc func(context.Context, *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error)
 type restoreAuthTokenFunc func(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error)
 type deleteExpiredAuthTokensFunc func(context.Context, *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error)
+type RotateRootTokenFunc func(context.Context, *auth.RotateRootTokenRequest) (*auth.RotateRootTokenResponse, error)
 
 type mockActivateAuth struct{ handler activateAuthFunc }
 type mockDeactivateAuth struct{ handler deactivateAuthFunc }
@@ -120,6 +121,7 @@ type mockGetUsers struct{ handler getUsersFunc }
 type mockExtractAuthTokens struct{ handler extractAuthTokensFunc }
 type mockRestoreAuthToken struct{ handler restoreAuthTokenFunc }
 type mockDeleteExpiredAuthTokens struct{ handler deleteExpiredAuthTokensFunc }
+type mockRotateRootToken struct{ handler RotateRootTokenFunc }
 
 func (mock *mockActivateAuth) Use(cb activateAuthFunc)                             { mock.handler = cb }
 func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)                         { mock.handler = cb }
@@ -144,6 +146,7 @@ func (mock *mockGetUsers) Use(cb getUsersFunc)                                  
 func (mock *mockExtractAuthTokens) Use(cb extractAuthTokensFunc)                   { mock.handler = cb }
 func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)                     { mock.handler = cb }
 func (mock *mockDeleteExpiredAuthTokens) Use(cb deleteExpiredAuthTokensFunc)       { mock.handler = cb }
+func (mock *mockRotateRootToken) Use(cb RotateRootTokenFunc)                       { mock.handler = cb }
 
 type authServerAPI struct {
 	mock *mockAuthServer
@@ -174,6 +177,7 @@ type mockAuthServer struct {
 	ExtractAuthTokens          mockExtractAuthTokens
 	RestoreAuthToken           mockRestoreAuthToken
 	DeleteExpiredAuthTokens    mockDeleteExpiredAuthTokens
+	RotateRootToken            mockRotateRootToken
 }
 
 func (api *authServerAPI) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
@@ -316,6 +320,13 @@ func (api *authServerAPI) DeleteExpiredAuthTokens(ctx context.Context, req *auth
 		return api.mock.DeleteExpiredAuthTokens.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.DeleteExpiredAuthTokens")
+}
+
+func (api *authServerAPI) RotateRootToken(ctx context.Context, req *auth.RotateRootTokenRequest) (*auth.RotateRootTokenResponse, error) {
+	if api.mock.RotateRootToken.handler != nil {
+		return api.mock.RotateRootToken.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.RotateRootToken")
 }
 
 /* Enterprise Server Mocks */

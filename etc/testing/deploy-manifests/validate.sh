@@ -44,26 +44,26 @@ custom_args=(
 google_args=(
 --cluster-deployment-id test
 --dynamic-etcd-nodes 3
-  pach-bucket # <bucket-name>
   50          # <disk-size>
+  pach-bucket # <bucket-name>
 )
 # shellcheck disable=SC2034
 amazon_args=(
 --cluster-deployment-id test
 --dynamic-etcd-nodes 3
 --credentials "AWSIDAWSIDAWSIDAWSID,awssecret+awssecret+awssecret+awssecret+"
-  pach-bucket # <bucket-name>
   us-west-1   # <region>
   50          # <disk-size>
+  pach-bucket # <bucket-name>
 )
 # shellcheck disable=SC2034
 microsoft_args=(
 --cluster-deployment-id test
 --dynamic-etcd-nodes 3
+  50                         # <disk-size>
   pach-container             # <container>
   pach-account               # <account-name>
   "cGFjaC1hY2NvdW50LWtleQ==" # <account-key> (base64-encoded "pach-account-key")
-  50                         # <disk-size>
 )
 
 pach_config="${here}/${dest_dir}/pachconfig"
