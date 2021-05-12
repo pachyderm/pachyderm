@@ -87,6 +87,7 @@ type driver struct {
 	storage         *fileset.Storage
 	commitStore     commitStore
 	compactionQueue *work.TaskQueue
+	compactor       *compactor
 }
 
 func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
@@ -128,7 +129,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.GetDBClient(), tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, fileset.StorageOptions(env.Config())...)
 	// Setup compaction queue and worker.
-	d.compactionQueue, err = work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)
+	d.compactor, err = newCompactor(d.storage, etcdClient, etcdPrefix, env.Config().StorageCompactionMaxFanIn)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +148,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	}
 	// Setup PFS master
 	go d.master(env.Context())
-	go d.compactionWorker(env.Context())
+	go d.compactor.compactionWorker(env.Context())
 	return d, nil
 }
 
@@ -791,7 +792,6 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 // TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
 // We are going to want to move the compaction to the read side, and just mark the commit as finished here.
 func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
-	ctx := txnCtx.Client.Ctx()
 	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
@@ -803,31 +803,6 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if description != "" {
 		commitInfo.Description = description
 	}
-	var ids []fileset.ID
-	if commitInfo.ParentCommit != nil {
-		id, err := d.commitStore.GetTotalFileset(ctx, commitInfo.ParentCommit)
-		if err != nil {
-			return err
-		}
-		ids = append(ids, *id)
-	}
-	id, err := d.commitStore.GetDiffFileset(ctx, commit)
-	if err != nil {
-		return err
-	}
-	ids = append(ids, *id)
-	compactedID, err := d.compact(ctx, ids)
-	if err != nil {
-		return err
-	}
-	if err := d.commitStore.SetTotalFileset(ctx, commit, *compactedID); err != nil {
-		return err
-	}
-	outputSize, err := d.storage.SizeOf(ctx, *compactedID)
-	if err != nil {
-		return err
-	}
-	commitInfo.SizeBytes = uint64(outputSize)
 	commitInfo.Finished = types.TimestampNow()
 	empty := strings.Contains(commitInfo.Description, pfs.EmptyStr)
 	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {

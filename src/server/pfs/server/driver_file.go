@@ -432,7 +432,7 @@ func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*
 		return nil, err
 	}
 	if commitInfo.Finished != nil {
-		return d.commitStore.GetTotalFileset(pachClient.Ctx(), commitInfo.Commit)
+		return d.getOrComputeTotal(pachClient, commitInfo.Commit)
 	}
 	var ids []fileset.ID
 	if commitInfo.ParentCommit != nil {
@@ -449,4 +449,50 @@ func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*
 	}
 	ids = append(ids, *id)
 	return d.storage.Compose(pachClient.Ctx(), ids, defaultTTL)
+}
+
+func (d *driver) getOrComputeTotal(pachClient *client.APIClient, commit *pfs.Commit) (*fileset.ID, error) {
+	ctx := pachClient.Ctx()
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return nil, err
+	}
+	if commitInfo.Finished == nil {
+		return nil, errors.Errorf("attempted to compute total of unfinished commit")
+	}
+	commit = commitInfo.Commit
+	id, err := d.commitStore.GetTotalFileset(ctx, commit)
+	if err != nil {
+		return nil, err
+	}
+	if id != nil {
+		return id, nil
+	}
+	id, err = d.commitStore.GetDiffFileset(ctx, commit)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := d.storage.Flatten(ctx, []fileset.ID{*id})
+	if err != nil {
+		return nil, err
+	}
+	var inputs []fileset.ID
+	if commitInfo.ParentCommit != nil {
+		parentDiff, err := d.getOrComputeTotal(pachClient, commitInfo.ParentCommit)
+		if err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, *parentDiff)
+		inputs = append(inputs, ids...)
+	} else {
+		inputs = ids
+	}
+	output, err := d.compactor.Compact(ctx, inputs, defaultTTL)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.commitStore.SetTotalFileset(ctx, commit, *output); err != nil {
+		return nil, err
+	}
+	return d.commitStore.GetTotalFileset(ctx, commit)
 }

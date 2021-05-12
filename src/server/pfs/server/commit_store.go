@@ -20,7 +20,7 @@ type commitStore interface {
 	// AddFileset appends a fileset to the diff.
 	AddFileset(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error
 	// SetTotalFileset sets the total fileset for the commit, overwriting whatever is there.
-	CASTotalFileset(ctx context.Context, commit *pfs.Commit, prev, next fileset.ID) error
+	SetTotalFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
 	// GetTotalFileset returns the total fileset for a commit.
 	GetTotalFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
 	// GetDiffFileset returns the diff fileset for a commit
@@ -84,7 +84,7 @@ func (cs *postgresCommitStore) GetTotalFileset(ctx context.Context, commit *pfs.
 		return nil, err
 	}
 	if id == nil {
-		return cs.s.Compose(ctx, nil, defaultTTL)
+		return nil, nil
 	}
 	return cs.s.Clone(ctx, *id, defaultTTL)
 }
@@ -104,45 +104,12 @@ func (cs *postgresCommitStore) GetDiffFileset(ctx context.Context, commit *pfs.C
 	return cs.s.Compose(ctx, ids, defaultTTL)
 }
 
-func (cs *postgresCommitStore) UpdateTotalFileset(ctx context.Context, commit *pfs.Commit, cb func(diff, total *fileset.ID) (*fileset.ID, error)) error {
+func (cs *postgresCommitStore) SetTotalFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		diffIDs, err := getDiff(tx, commit)
-		if err != nil {
-			return err
-		}
-		totalID, err := getTotal(tx, commit)
-		if err != nil && err != sql.ErrNoRows {
-			return err
-		}
-		diffID, err := cs.s.Compose(ctx, diffIDs, defaultTTL)
-		if err != nil {
-			return err
-		}
-		newTotalID, err := cb(diffID, totalID)
-		if err != nil {
-			return err
-		}
-		return setTotal(tx, cs.tr, commit, *newTotalID)
-	})
-}
-
-func (cs *postgresCommitStore) CASTotalFileset(ctx context.Context, commit *pfs.Commit, prev, next fileset.ID) error {
-	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		actual, err := getTotal(tx, commit)
-		if err != nil && err != sql.ErrNoRows {
-			return err
-		}
-		if err == nil {
-			if eq, err := cs.s.ShallowEqual(ctx, *actual, prev); err != nil {
-				return err
-			} else if !eq {
-				return errConcurrentModification
-			}
-		}
 		if err := dropTotal(tx, cs.tr, commit); err != nil {
 			return err
 		}
-		return setTotal(tx, cs.tr, commit, next)
+		return setTotal(tx, cs.tr, commit, id)
 	})
 }
 
