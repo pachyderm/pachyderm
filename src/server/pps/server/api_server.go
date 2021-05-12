@@ -1847,8 +1847,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.validatePipelineRequest(request); err != nil {
-		return nil, err
+	if request.Pipeline == nil {
+		return nil, errors.New("request.Pipeline cannot be nil")
 	}
 
 	// Annotate current span with pipeline & persist any extended trace to etcd
@@ -1859,14 +1859,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}()
 	extended.PersistAny(ctx, a.env.GetEtcdClient(), request.Pipeline.Name)
 
-	// CreatePipeline has a complicated relationship with transactions because it
-	// needs to write the pipeline spec to PFS.  To avoid duplicating this logic
-	// between here and in the transaction server, we call out to the transaction
-	// server with a batch transaction containing only this request.
-	pachClient := a.env.GetPachClient(ctx)
-	if _, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-		_, err := builder.PpsAPIClient.CreatePipeline(ctx, request)
-		return err
+	// Don't provide a fileset and the transaction env will generate it
+	filesetID := ""
+	var prevSpecCommit *pfs.Commit
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.CreatePipeline(request, &filesetID, &prevSpecCommit)
 	}); err != nil {
 		return nil, err
 	}
@@ -2002,8 +1999,8 @@ func (a *apiServer) PreparePipelineSpecFileset(txnCtx *txnenv.TransactionContext
 func (a *apiServer) CreatePipelineInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pps.CreatePipelineRequest,
-	specFilesetID string,
-	prevSpecCommit *pfs.Commit,
+	specFilesetID *string,
+	prevSpecCommit **pfs.Commit,
 ) error {
 	oldPipelineInfo, newPipelineInfo, err := a.pipelineInfosForUpdate(txnCtx, request)
 	if err != nil {
@@ -2012,10 +2009,10 @@ func (a *apiServer) CreatePipelineInTransaction(
 
 	pipelineName := request.Pipeline.Name
 	if oldPipelineInfo == nil {
-		if prevSpecCommit != nil {
+		if *prevSpecCommit != nil {
 			return errors.Errorf("transaction conflict: pipeline %s was deleted", pipelineName)
 		}
-	} else if !proto.Equal(oldPipelineInfo.SpecCommit, prevSpecCommit) {
+	} else if !proto.Equal(oldPipelineInfo.SpecCommit, *prevSpecCommit) {
 		return errors.Errorf("transaction conflict: pipeline %s was changed concurrently", pipelineName)
 	}
 
@@ -2121,7 +2118,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		outputBranchHead = client.NewCommit(pipelineName, newPipelineInfo.OutputBranch)
 		statsBranchHead = client.NewCommit(pipelineName, "stats")
 	} else {
-		specCommit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineName, specFilesetID, prevSpecCommit)
+		specCommit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineName, *specFilesetID, *prevSpecCommit)
 		if err != nil {
 			return err
 		}

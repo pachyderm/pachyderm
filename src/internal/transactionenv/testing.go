@@ -130,7 +130,7 @@ func (mpts *MockPpsTransactionServer) UpdateJobStateInTransaction(*TransactionCo
 }
 
 // CreatePipelineInTransaction always errors
-func (mpts *MockPpsTransactionServer) CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, string, *pfs.Commit) error {
+func (mpts *MockPpsTransactionServer) CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error {
 	return unimplementedError("PpsTransactionServer.UpdateJobStateInTransaction")
 }
 
