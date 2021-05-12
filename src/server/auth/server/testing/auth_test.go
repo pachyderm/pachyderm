@@ -14,12 +14,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
@@ -550,9 +553,6 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 }
 
 func TestPipelineMultipleInputs(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1885,9 +1885,6 @@ func TestInspectDatum(t *testing.T) {
 //}
 
 func TestPipelineNewInput(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2718,4 +2715,68 @@ func TestDeleteExpiredAuthTokens(t *testing.T) {
 	require.Equal(t, 2, len(postDeleteTokens), "only the two unexpired tokens should be returned.")
 	require.True(t, contains(postDeleteTokens, auth.HashToken(noExpirationResp.Token)), "robot token without expiration should be extracted")
 	require.True(t, contains(postDeleteTokens, auth.HashToken(slowExpirationResp.Token)), "robot token without expiration should be extracted")
+}
+
+func TestExpiredClusterLocksOutUsers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+
+	repo := tu.UniqueString("TestRotateAuthToken")
+	require.NoError(t, aliceClient.CreateRepo(repo))
+
+	// Admin can list repos
+	repoInfo, err := adminClient.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(repoInfo))
+
+	// Alice can list repos
+	repoInfo, err = aliceClient.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(repoInfo))
+
+	// set Enterprise Token value to have expired
+	ts := &types.Timestamp{Seconds: time.Now().Unix() - 100}
+	resp, err := adminClient.License.Activate(adminClient.Ctx(),
+		&license.ActivateRequest{
+			ActivationCode: tu.GetTestEnterpriseCode(t),
+			Expires:        ts,
+		})
+	require.NoError(t, err)
+	require.True(t, resp.GetInfo().Expires.Seconds == ts.Seconds)
+
+	// Heartbeat forces Enterprise Service to refresh it's view of the LicenseRecord
+	_, err = adminClient.Enterprise.Heartbeat(adminClient.Ctx(), &enterprise.HeartbeatRequest{})
+	require.NoError(t, err)
+
+	// verify Alice can no longer operate on the system
+	_, err = aliceClient.ListRepo()
+	require.YesError(t, err)
+	require.True(t, strings.Contains(err.Error(), "Pachyderm Enterprise is not active"))
+
+	// verify that admin can still complete an operation (ex. ListRepo)
+	repoInfo, err = adminClient.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(repoInfo))
+
+	// admin grants alice cluster admin role
+	_, err = adminClient.AuthAPIClient.ModifyRoleBinding(adminClient.Ctx(),
+		&auth.ModifyRoleBindingRequest{
+			Principal: alice,
+			Roles:     []string{auth.ClusterAdminRole},
+			Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
+		})
+	require.NoError(t, err)
+
+	// verify that the Alice can now operate on cluster again
+	repoInfo, err = aliceClient.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(repoInfo))
 }

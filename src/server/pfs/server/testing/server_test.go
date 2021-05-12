@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
-	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -1180,7 +1179,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("TestPutFile", func(t *testing.T) {
-		// TODO: Implement directory & file path collision?
+		// TODO(2.0 required): Implement directory & file path collision?
 		t.Skip("Directory & file path collision detection not implemented in V2")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -1734,7 +1733,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileTypeConflict", func(t *testing.T) {
-		// TODO: Implement directory & file path collision?
+		// TODO(2.0 required): Implement directory & file path collision?
 		t.Skip("Directory & file path collision detection not implemented in V2")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2069,7 +2068,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("OffsetRead", func(t *testing.T) {
-		// TODO: Decide on how to expose offset read.
+		// TODO(2.0 required): Decide on how to expose offset read.
 		t.Skip("Offset read exists (inefficient), just need to decide on how to expose it in V2")
 		//t.Parallel()
 		//env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2352,7 +2351,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileValidCharacters", func(t *testing.T) {
-		// TODO: Decide what characters are valid.
+		// TODO(2.0 required): Decide what characters are valid.
 		t.Skip("Need to spend some time deciding what characters are valid / invalid in V2")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2627,7 +2626,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileSplit", func(t *testing.T) {
-		// TODO: Implement put file split.
+		// TODO(2.0 optional): Implement put file split.
 		t.Skip("Put file split not implemented in V2")
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2736,11 +2735,8 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileSplitBig", func(t *testing.T) {
-		// TODO: Implement put file split.
+		// TODO(2.0 optional): Implement put file split.
 		t.Skip("Put file split not implemented in V2")
-		//	if os.Getenv("RUN_BAD_TESTS") == "" {
-		//		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-		//	}
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 		//
@@ -2770,7 +2766,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileSplitCSV", func(t *testing.T) {
-		// TODO: Implement put file split.
+		// TODO(2.0 optional): Implement put file split.
 		t.Skip("Put file split not implemented in V2")
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2795,7 +2791,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileSplitSQL", func(t *testing.T) {
-		// TODO: Implement put file split.
+		// TODO(2.0 optional): Implement put file split.
 		t.Skip("Put file split not implemented in V2")
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -3175,7 +3171,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("Overwrite", func(t *testing.T) {
-		// TODO: Implement put file split.
+		// TODO(2.0 optional): Implement put file split.
 		t.Skip("Put file split not implemented in V2")
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -4426,7 +4422,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileCommit", func(t *testing.T) {
-		// TODO: Concurrent one-off commits are not safe in V2. We should either make them safe through
+		// TODO(2.0 required): Concurrent one-off commits are not safe in V2. We should either make them safe through
 		// a transactional create & finish (probably create a fileset then transactionally create & finish commit),
 		// or block concurrent operations until it completes.
 		t.Skip("Concurrent one-off commits are not safe in V2")
@@ -4577,7 +4573,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("ReadSizeLimited", func(t *testing.T) {
-		// TODO: Decide on how to expose offset read.
+		// TODO(2.0 required): Decide on how to expose offset read.
 		t.Skip("Offset read exists (inefficient), just need to decide on how to expose it in V2")
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -5124,7 +5120,7 @@ func TestPFS(suite *testing.T) {
 		b.Reset()
 		require.YesError(t, c.GetFile(test, "master", "file1", &b))
 
-		// TODO: Should this behavior be kept in 2.0? If so, we need
+		// TODO(2.0 required): Should this behavior be kept in 2.0? If so, we need
 		// to lazily make the one-off commit.
 		// Empty ModifyFileClients shouldn't error or create commits
 		//mfc, err = c.NewModifyFileClient(test, "master")
@@ -5147,9 +5143,6 @@ func TestPFS(suite *testing.T) {
 	)
 
 	suite.Run("FuzzProvenance", func(t *testing.T) {
-		if os.Getenv("RUN_BAD_TESTS") == "" {
-			t.Skip("Skipping because RUN_BAD_TESTS was empty")
-		}
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -5361,10 +5354,12 @@ func TestPFS(suite *testing.T) {
 	})
 
 	// TestTrigger tests branch triggers
+	// TODO(2.0 required): This test does not work with V2. It is not clear what the issue is yet. Something noteworthy is that the output
+	// size does not increase for the second to last commit, which may have something to do with compaction (the trigger won't kick
+	// off since it is based on the output size). The output size calculation is a bit questionable due to the compaction delay (a
+	// file may be accounted for in the size even if it is deleted).
 	suite.Run("Trigger", func(t *testing.T) {
-		if os.Getenv("RUN_BAD_TESTS") == "" {
-			t.Skip("Skipping because RUN_BAD_TESTS was empty")
-		}
+		t.Skip("Does not work with V2, needs investigation")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -5747,7 +5742,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("LargeDeleteRepo", func(t *testing.T) {
-		// TODO: Reenable when repo metadata is in Postgres to test that large transactions are solved in 2.0.
+		// TODO(2.0 required): Reenable when repo metadata is in Postgres to test that large transactions are solved in 2.0.
 		t.Skip("Reenable when repo metadata is in Postgres")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -5917,7 +5912,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("TestPanicOnNilArgs", func(t *testing.T) {
-		// TODO: Add validation to all PFS endpoints.
+		// TODO(2.0 required): Add validation to all PFS endpoints.
 		t.Skip("PFS endpoints are not fully validated in V2")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))

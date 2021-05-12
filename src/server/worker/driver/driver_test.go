@@ -1,6 +1,6 @@
 package driver
 
-// TODO: Implement the driver tests with the V2 changes. I think there is a good chance
+// TODO(2.0 optional): Implement the driver tests with the V2 changes. I think there is a good chance
 // that we rewrite the driver a bit, so we should probably hold off on this for now.
 //var inputRepo = "inputRepo"
 //var inputGitRepo = "https://github.com/pachyderm/test-artifacts.git"
