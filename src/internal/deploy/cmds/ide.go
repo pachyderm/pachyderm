@@ -24,22 +24,22 @@ const (
 	defaultIDEVersion      = "2.0.0-a2"
 	defaultIDEChartVersion = "0.9.1" // see https://jupyterhub.github.io/helm-chart/
 	ideNotes               = `
-	Thanks for installing the Pachyderm IDE!
-	
-	It may take a few minutes for all of the pods to spin up. If you have kubectl
-	access, you can check progress with:
-	
-	  kubectl get pod -l release=pachyderm-ide
-	
-	Once all of the pods are in the 'Ready' status, you can access the IDE
-	by running 'pachctl port-forward' and visiting 'localhost:30659'
-	
-	For more information about the Pachyderm IDE, see these resources:
-	
-	* Our how-tos: https://docs.pachyderm.com/latest/how-tos/use-pachyderm-ide/
-	* The Z2JH docs, which the IDE builds off of:
-	  https://zero-to-jupyterhub.readthedocs.io/en/latest/
-	`
+Thanks for installing the Pachyderm IDE!
+
+It may take a few minutes for all of the pods to spin up. If you have kubectl
+access, you can check progress with:
+
+	kubectl get pod -l release=pachyderm-ide
+
+Once all of the pods are in the 'Ready' status, you can access the IDE
+by running 'pachctl port-forward' and visiting 'localhost:30659'
+
+For more information about the Pachyderm IDE, see these resources:
+
+* Our how-tos: https://docs.pachyderm.com/latest/how-tos/use-pachyderm-ide/
+* The Z2JH docs, which the IDE builds off of:
+https://zero-to-jupyterhub.readthedocs.io/en/latest/
+`
 )
 
 func createDeployIDECmd() *cobra.Command {
