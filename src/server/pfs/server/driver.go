@@ -83,9 +83,9 @@ type driver struct {
 	branches    collectionFactory
 	openCommits col.EtcdCollection
 
-	storage         *fileset.Storage
-	commitStore     commitStore
-	compactor       *compactor
+	storage     *fileset.Storage
+	commitStore commitStore
+	compactor   *compactor
 }
 
 func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
@@ -1275,6 +1275,37 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		commitInfo.Branch = commitBranch
 	}
 	userCommit.ID = commitInfo.Commit.ID
+	return commitInfo, nil
+}
+
+// getCommit is like inspectCommit, without the blocking.
+// It does not the size to the CommitInfo
+func (d *driver) getCommit(pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	if commit.GetRepo().GetName() == fileSetsRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commit,
+			Description: "FileSet - Virtual Commit",
+			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return cinfo, nil
+	}
+	ctx := pachClient.Ctx()
+	if commit == nil {
+		return nil, errors.Errorf("cannot inspect nil commit")
+	}
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		return nil, err
+	}
+
+	// Check if the commitID is a branch name
+	var commitInfo *pfs.CommitInfo
+	if err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		var err error
+		commitInfo, err = d.resolveCommit(stm, commit)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 	return commitInfo, nil
 }
 

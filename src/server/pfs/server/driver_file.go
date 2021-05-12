@@ -424,10 +424,7 @@ func (d *driver) addFileset(pachClient *client.APIClient, commit *pfs.Commit, fi
 }
 
 func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*fileset.ID, error) {
-	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
-		return nil, err
-	}
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	commitInfo, err := d.getCommit(pachClient, commit)
 	if err != nil {
 		return nil, err
 	}
@@ -453,7 +450,7 @@ func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*
 
 func (d *driver) getOrComputeTotal(pachClient *client.APIClient, commit *pfs.Commit) (*fileset.ID, error) {
 	ctx := pachClient.Ctx()
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	commitInfo, err := d.getCommit(pachClient, commit)
 	if err != nil {
 		return nil, err
 	}
