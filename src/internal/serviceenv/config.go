@@ -20,7 +20,6 @@ type GlobalConfiguration struct {
 	PPSEtcdPrefix       string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	Namespace           string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot         string `env:"PACH_ROOT,default=/pach"`
-	CacheRoot           string `env:"PACH_CACHE_ROOT,default=/pach-cache"`
 	GCPercent           int    `env:"GC_PERCENT,default=50"`
 	LokiHost            string `env:"LOKI_SERVICE_HOST"`
 	LokiPort            string `env:"LOKI_SERVICE_PORT"`
@@ -48,7 +47,6 @@ type PachdFullConfiguration struct {
 // PachdSpecificConfiguration contains the pachd specific configuration.
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
-	NumShards                  uint64 `env:"NUM_SHARDS,default=32"`
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
 	EtcdPrefix                 string `env:"ETCD_PREFIX,default="`
@@ -66,7 +64,6 @@ type PachdSpecificConfiguration struct {
 	IAMRole                    string `env:"IAM_ROLE,default="`
 	ImagePullSecret            string `env:"IMAGE_PULL_SECRET,default="`
 	NoExposeDockerSocket       bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
-	ExposeObjectAPI            bool   `env:"EXPOSE_OBJECT_API,default=false"`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`

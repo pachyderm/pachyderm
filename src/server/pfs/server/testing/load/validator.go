@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 const defaultTag = "tag"
@@ -81,7 +82,7 @@ func (v *Validator) Validate(client Client, repo, commit string) (retErr error) 
 	if err != nil {
 		return err
 	}
-	return tarutil.Iterate(r, func(file tarutil.File) error {
+	err = tarutil.Iterate(r, func(file tarutil.File) error {
 		if len(files) == 0 {
 			return errors.Errorf("got back more files than expected")
 		}
@@ -102,6 +103,10 @@ func (v *Validator) Validate(client Client, repo, commit string) (retErr error) 
 		files = files[1:]
 		return nil
 	})
+	if pfsserver.IsFileNotFoundErr(err) && len(files) == 0 {
+		return nil
+	}
+	return err
 }
 
 type validatorClient struct {

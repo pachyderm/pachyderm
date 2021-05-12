@@ -47,6 +47,14 @@ message ActivateResponse {
 message DeactivateRequest {}
 message DeactivateResponse {}
 
+message RotateRootTokenRequest {
+  // root_token is used as the new root token value. If it's unset, then a token will be auto-generated.
+  string root_token = 1;
+}
+
+message RotateRootTokenResponse {
+  string root_token = 1;
+}
 
 // Configure Pachyderm's auth system with an OIDC provider 
 message OIDCConfig{
@@ -145,6 +153,7 @@ enum Permission {
   CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL       = 141;
   CLUSTER_AUTH_DELETE_EXPIRED_TOKENS               = 140;
   CLUSTER_AUTH_REVOKE_USER_TOKENS                  = 142;
+  CLUSTER_AUTH_ROTATE_ROOT_TOKEN                   = 147;
 
   CLUSTER_ENTERPRISE_ACTIVATE            = 114;
   CLUSTER_ENTERPRISE_HEARTBEAT           = 115;
@@ -172,6 +181,12 @@ enum Permission {
   CLUSTER_LICENSE_UPDATE_CLUSTER         = 135;
   CLUSTER_LICENSE_DELETE_CLUSTER         = 136;
   CLUSTER_LICENSE_LIST_CLUSTERS          = 137;
+
+  // TODO(actgardner): Make k8s secrets into nouns and add an Update RPC
+  CLUSTER_CREATE_SECRET  = 143;
+  CLUSTER_LIST_SECRETS   = 144;
+  SECRET_DELETE          = 145;
+  SECRET_INSPECT         = 146;
 
   CLUSTER_DELETE_ALL             = 138;
 
@@ -448,4 +463,5 @@ service API {
   rpc RestoreAuthToken(RestoreAuthTokenRequest) returns (RestoreAuthTokenResponse) {}
 
   rpc DeleteExpiredAuthTokens(DeleteExpiredAuthTokensRequest) returns (DeleteExpiredAuthTokensResponse) {}
+  rpc RotateRootToken(RotateRootTokenRequest) returns (RotateRootTokenResponse) {}
 }

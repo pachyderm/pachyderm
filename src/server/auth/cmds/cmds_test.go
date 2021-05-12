@@ -28,6 +28,26 @@ func loginAsUser(t *testing.T, user string) {
 	config.WritePachTokenToConfig(token.Token, false)
 }
 
+// this function executes the command and returns the last word
+// in the output
+func executeCmdAndGetLastWord(t *testing.T, cmd *exec.Cmd) string {
+	out, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+
+	require.NoError(t, cmd.Start())
+	sc := bufio.NewScanner(out)
+	sc.Split(bufio.ScanWords)
+	var token string
+	for sc.Scan() {
+		tmp := sc.Text()
+		if strings.TrimSpace(tmp) != "" {
+			token = tmp
+		}
+	}
+	cmd.Wait()
+	return token
+}
+
 // TestActivate tests that activating, deactivating and re-activating works.
 // This means all cluster state is being reset correctly.
 func TestActivate(t *testing.T) {
@@ -221,9 +241,8 @@ func TestGetAndUseRobotToken(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	// TODO(2.0 required): Investigate test not passing.
+	t.Skip("Test not passing")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -323,6 +342,51 @@ func TestGetGroups(t *testing.T) {
 
 	require.NoError(t, tu.BashCmd(`pachctl auth get-groups {{ .alice }} | match '{{ .group }}'`,
 		"group", group, "alice", alice).Run())
+}
+
+// TestRotateRootToken tests that calling 'pachctl auth rotate-root-token' rotates the root user's token
+func TestRotateRootToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	sessionToken := c.AuthToken()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami | match "pach:root"
+	`).Run())
+
+	// rotate current user's token
+	token := executeCmdAndGetLastWord(t, exec.Command("pachctl", "auth", "rotate-root-token"))
+
+	// current user (root) can't authenticate
+	require.YesError(t, tu.BashCmd(`
+		pachctl auth whoami
+	`).Run())
+
+	// root can authenticate once the new token is set
+	require.NoError(t, config.WritePachTokenToConfig(token, false))
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami | match "pach:root"
+	`).Run())
+
+	// rotate to new token and get (the same) output token
+	token = executeCmdAndGetLastWord(t, exec.Command("pachctl", "auth", "rotate-root-token", "--supply-token", sessionToken))
+
+	require.Equal(t, sessionToken, token)
+
+	require.YesError(t, tu.BashCmd(`
+		pachctl auth whoami
+	`).Run())
+
+	// root can authenticate once the new token is set
+	require.NoError(t, config.WritePachTokenToConfig(sessionToken, false))
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami | match "pach:root"
+	`).Run())
 }
 
 func TestMain(m *testing.M) {

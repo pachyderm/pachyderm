@@ -1772,7 +1772,6 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	seen := make(map[string]bool)
 
 	return d.commits.ReadOnly(pachClient.Ctx()).WatchByIndexF(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), func(ev *watch.Event) error {
-		fmt.Printf("got event: %s\n", string(ev.Key))
 		var key string
 		commitInfo := &pfs.CommitInfo{}
 		if err := ev.Unmarshal(&key, commitInfo); err != nil {
