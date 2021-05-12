@@ -66,28 +66,30 @@ popd
 pachctl delete pipeline --all
 pachctl delete repo --all
 
-pushd examples/word_count
-    # note: we do not test reducing because it's slower
-    pachctl create repo urls
-    pachctl put file urls@master -f Wikipedia
-    pachctl create pipeline -f scraper.json
-    pachctl create pipeline -f map/map.json
-
-    # wait for everything to finish
-    commit_id=$(pachctl list commit urls -n 1 --raw | jq .commit.id -r)
-    pachctl flush commit "urls@$commit_id"
-
-    # just make sure the count for the word 'wikipedia' is a valid and
-    # positive int, since the specific count may vary over time
-    wikipedia_count=$(pachctl get file map@master:wikipedia)
-    if [ "$wikipedia_count" -le 0 ]; then
-        echo "Unexpected count for the word 'wikipedia': $wikipedia_count"
-        exit 1
-    fi
-popd
-
-pachctl delete pipeline --all
-pachctl delete repo --all
+## TODO(2.0 optional): Add wikipedia file to CI? Also, this test will need to be rewritten
+## when the file part change PR is merged.
+##pushd examples/word_count
+##    # note: we do not test reducing because it's slower
+##    pachctl create repo urls
+##    pachctl put file urls@master -f Wikipedia
+##    pachctl create pipeline -f scraper.json
+##    pachctl create pipeline -f map/map.json
+##
+##    # wait for everything to finish
+##    commit_id=$(pachctl list commit urls -n 1 --raw | jq .commit.id -r)
+##    pachctl flush commit "urls@$commit_id"
+##
+##    # just make sure the count for the word 'wikipedia' is a valid and
+##    # positive int, since the specific count may vary over time
+##    wikipedia_count=$(pachctl get file map@master:wikipedia)
+##    if [ "$wikipedia_count" -le 0 ]; then
+##        echo "Unexpected count for the word 'wikipedia': $wikipedia_count"
+##        exit 1
+##    fi
+##popd
+##
+##pachctl delete pipeline --all
+##pachctl delete repo --all
 
 ## TODO(2.0 optional): Implement put file split.
 ##pushd examples/ml/hyperparameter
