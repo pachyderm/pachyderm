@@ -2,7 +2,6 @@ package fileset
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strings"
 	"time"

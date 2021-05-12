@@ -6,7 +6,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
@@ -14,6 +13,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+/* TODO: brendon - reenable compaction
 func (d *driver) compact(ctx context.Context, ids []fileset.ID) (*fileset.ID, error) {
 	return d.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 		var id *fileset.ID
@@ -67,6 +67,7 @@ func (d *driver) compact(ctx context.Context, ids []fileset.ID) (*fileset.ID, er
 		return id, nil
 	})
 }
+*/
 
 func (d *driver) compactionWorker(ctx context.Context) {
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
@@ -102,6 +103,7 @@ func (d *driver) compactionWorker(ctx context.Context) {
 	})
 }
 
+/*
 func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
@@ -112,6 +114,7 @@ func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {
 		Value:   data,
 	}, nil
 }
+*/
 
 func deserializeCompactionTask(taskAny *types.Any) (*CompactionTask, error) {
 	task := &CompactionTask{}
@@ -132,6 +135,7 @@ func serializeCompactionResult(res *CompactionTaskResult) (*types.Any, error) {
 	}, nil
 }
 
+/*
 func deserializeCompactionResult(any *types.Any) (*CompactionTaskResult, error) {
 	res := &CompactionTaskResult{}
 	if err := types.UnmarshalAny(any, res); err != nil {
@@ -139,3 +143,4 @@ func deserializeCompactionResult(any *types.Any) (*CompactionTaskResult, error) 
 	}
 	return res, nil
 }
+*/
