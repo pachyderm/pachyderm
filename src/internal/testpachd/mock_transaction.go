@@ -29,16 +29,6 @@ func (mock *mockCreatePipelineInTransaction) Use(cb createPipelineInTransactionF
 	mock.handler = cb
 }
 
-type preparePipelineSpecFilesetFunc func(*txnenv.TransactionContext, *pps.CreatePipelineRequest) (string, *pfs.Commit, error)
-
-type mockPreparePipelineSpecFileset struct {
-	handler preparePipelineSpecFilesetFunc
-}
-
-func (mock *mockPreparePipelineSpecFileset) Use(cb preparePipelineSpecFilesetFunc) {
-	mock.handler = cb
-}
-
 type ppsTransactionAPI struct {
 	mock *MockPPSTransactionServer
 }
@@ -49,7 +39,6 @@ type MockPPSTransactionServer struct {
 	api                         ppsTransactionAPI
 	UpdateJobStateInTransaction mockUpdateJobStateInTransaction
 	CreatePipelineInTransaction mockCreatePipelineInTransaction
-	PreparePipelineSpecFileset  mockPreparePipelineSpecFileset
 }
 
 func (api *ppsTransactionAPI) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContext, req *pps.UpdateJobStateRequest) error {
@@ -64,13 +53,6 @@ func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txnenv.Transac
 		return api.mock.CreatePipelineInTransaction.handler(txnCtx, req, filesetID, prevSpecCommit)
 	}
 	return fmt.Errorf("unhandled pachd mock: pps.CreatePipelineInTransaction")
-}
-
-func (api *ppsTransactionAPI) PreparePipelineSpecFileset(txnCtx *txnenv.TransactionContext, req *pps.CreatePipelineRequest) (string, *pfs.Commit, error) {
-	if api.mock.PreparePipelineSpecFileset.handler != nil {
-		return api.mock.PreparePipelineSpecFileset.handler(txnCtx, req)
-	}
-	return "", nil, fmt.Errorf("unhandled pachd mock: pps.CreatePipelineInTransaction")
 }
 
 // NewMockPPSTransactionServer instantiates a MockPPSTransactionServer

@@ -2,8 +2,6 @@ package transactionenv
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
@@ -198,10 +196,6 @@ type PfsTransactionServer interface {
 type PpsTransactionServer interface {
 	UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error
 	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error
-
-	// Used internally by the transaction server for writing the pipeline spec to
-	// PFS outside of the transaction before a CreatePipeline call.
-	PreparePipelineSpecFileset(*TransactionContext, *pps.CreatePipelineRequest) (string, *pfs.Commit, error)
 }
 
 // TransactionEnv contains the APIServer instances for each subsystem that may
@@ -306,26 +300,6 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 
 func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, filesetID *string, prevSpecCommit **pfs.Commit) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	// CreatePipelineInTransaction requires the pipeline spec to be written into a
-	// fileset outside of the transaction.
-	if *filesetID != "" {
-		// If we already have a fileset, try to renew it - if that fails, invalidate it
-		if err := t.txnCtx.Client.RenewFileSet(*filesetID, 600*time.Second); err != nil {
-			*filesetID = ""
-		}
-	}
-
-	if *filesetID == "" {
-		// No existing fileset or the old one expired, create a new fileset
-		var err error
-		*filesetID, *prevSpecCommit, err = t.txnCtx.Pps().PreparePipelineSpecFileset(t.txnCtx, req)
-		if err != nil {
-			return err
-		}
-		// The transaction cannot continue because it cannot see the fileset - abort and retry
-		return &col.ErrTransactionConflict{}
-	}
-
 	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevSpecCommit)
 }
 

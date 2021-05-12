@@ -732,6 +732,7 @@ func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) 
 }
 
 func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
+	fmt.Printf("AddFileset outside of transaction\n")
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		return txnCtx.Pfs().AddFilesetInTransaction(txnCtx, req)
 	}); err != nil {
@@ -741,6 +742,7 @@ func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) 
 }
 
 func (a *apiServer) AddFilesetInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.AddFilesetRequest) error {
+	fmt.Printf("AddFileset in transaction\n")
 	fsid, err := fileset.ParseID(request.FilesetId)
 	if err != nil {
 		return err

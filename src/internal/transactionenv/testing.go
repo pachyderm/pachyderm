@@ -131,10 +131,5 @@ func (mpts *MockPpsTransactionServer) UpdateJobStateInTransaction(*TransactionCo
 
 // CreatePipelineInTransaction always errors
 func (mpts *MockPpsTransactionServer) CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error {
-	return unimplementedError("PpsTransactionServer.UpdateJobStateInTransaction")
-}
-
-// CreatePipelineInTransaction always errors
-func (mpts *MockPpsTransactionServer) PreparePipelineSpecFileset(*TransactionContext, *pps.CreatePipelineRequest) (string, *pfs.Commit, error) {
-	return "", nil, unimplementedError("PpsTransactionServer.PreparePipelineSpecFileset")
+	return unimplementedError("PpsTransactionServer.CreatePipelineInTransaction")
 }

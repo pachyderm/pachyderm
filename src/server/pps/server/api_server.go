@@ -1640,7 +1640,8 @@ func (a *apiServer) writePipelineInfoToFileset(pachClient *client.APIClient, pip
 		return "", errors.Wrapf(err, "could not marshal PipelineInfo")
 	}
 	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
-		return mf.PutFile(ppsconsts.SpecFile, bytes.NewReader(data))
+		err := mf.PutFile(ppsconsts.SpecFile, bytes.NewReader(data))
+		return err
 	})
 	if err != nil {
 		return "", err
@@ -1660,7 +1661,7 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 		if prevSpecCommit == nil {
 			prevSpecCommit = client.NewCommit(ppsconsts.SpecRepo, "")
 		}
-		commit, err = txnCtx.Pfs().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
+		commit, err = superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
 			Parent: prevSpecCommit,
 			Branch: pipelineName,
 		}, nil)
@@ -1668,14 +1669,14 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 			return err
 		}
 
-		if err := txnCtx.Pfs().AddFilesetInTransaction(txnCtx, &pfs.AddFilesetRequest{
+		if err := superCtx.Pfs().AddFilesetInTransaction(superCtx, &pfs.AddFilesetRequest{
 			Commit:    commit,
 			FilesetId: filesetID,
 		}); err != nil {
 			return err
 		}
 
-		return txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+		return superCtx.Pfs().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
 			Commit: commit,
 		})
 	}); err != nil {
@@ -1979,23 +1980,6 @@ func (a *apiServer) pipelineInfosForUpdate(txnCtx *txnenv.TransactionContext, re
 	return oldPipelineInfo, newPipelineInfo, nil
 }
 
-func (a *apiServer) PreparePipelineSpecFileset(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest) (string, *pfs.Commit, error) {
-	oldPipelineInfo, newPipelineInfo, err := a.pipelineInfosForUpdate(txnCtx, request)
-	if err != nil {
-		return "", nil, err
-	}
-
-	filesetID, err := a.writePipelineInfoToFileset(txnCtx.Client, newPipelineInfo)
-	if err != nil {
-		return "", nil, err
-	}
-
-	if oldPipelineInfo == nil {
-		return filesetID, nil, nil
-	}
-	return filesetID, oldPipelineInfo.SpecCommit, nil
-}
-
 func (a *apiServer) CreatePipelineInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pps.CreatePipelineRequest,
@@ -2006,14 +1990,37 @@ func (a *apiServer) CreatePipelineInTransaction(
 	if err != nil {
 		return err
 	}
-
 	pipelineName := request.Pipeline.Name
-	if oldPipelineInfo == nil {
-		if *prevSpecCommit != nil {
-			return errors.Errorf("transaction conflict: pipeline %s was deleted", pipelineName)
+
+	if *specFilesetID != "" {
+		// If we already have a fileset, try to renew it - if that fails, invalidate it
+		if err := txnCtx.Client.RenewFileSet(*specFilesetID, 600*time.Second); err != nil {
+			*specFilesetID = ""
 		}
-	} else if !proto.Equal(oldPipelineInfo.SpecCommit, *prevSpecCommit) {
-		return errors.Errorf("transaction conflict: pipeline %s was changed concurrently", pipelineName)
+	}
+
+	// If the expected spec commit doesn't match up with oldPipelineInfo, we need
+	// to recreate the fileset
+	staleFileset := false
+	if oldPipelineInfo == nil {
+		staleFileset = (*prevSpecCommit != nil)
+	} else {
+		staleFileset = !proto.Equal(oldPipelineInfo.SpecCommit, *prevSpecCommit)
+	}
+
+	if staleFileset || *specFilesetID == "" {
+		// No existing fileset or the old one expired, create a new fileset - the
+		// pipeline spec to be written into a fileset outside of the transaction.
+		*specFilesetID, err = a.writePipelineInfoToFileset(txnCtx.Client, newPipelineInfo)
+		if err != nil {
+			return err
+		}
+		if oldPipelineInfo != nil {
+			*prevSpecCommit = oldPipelineInfo.SpecCommit
+		}
+
+		// The transaction cannot continue because it cannot see the fileset - abort and retry
+		return &col.ErrTransactionConflict{}
 	}
 
 	// Verify that all input repos exist (create cron and git repos if necessary)
