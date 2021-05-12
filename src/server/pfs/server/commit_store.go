@@ -80,6 +80,7 @@ func (cs *postgresCommitStore) AddFilesetTx(tx *sqlx.Tx, commit *pfs.Commit, id 
 }
 
 func (cs *postgresCommitStore) GetTotalFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+	panic("brendon: disabling compaction for now") // TODO
 	var result *fileset.ID
 	if err := dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
 		id, err := getTotal(tx, commit)

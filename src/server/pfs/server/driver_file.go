@@ -429,9 +429,11 @@ func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*
 	if err != nil {
 		return nil, err
 	}
+	/* TODO: brendon: re-enable compaction
 	if commitInfo.Finished != nil {
 		return d.commitStore.GetTotalFileset(pachClient.Ctx(), commitInfo.Commit)
 	}
+	*/
 	var ids []fileset.ID
 	if commitInfo.ParentCommit != nil {
 		// ¯\_(ツ)_/¯
