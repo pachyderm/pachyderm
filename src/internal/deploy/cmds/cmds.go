@@ -545,14 +545,14 @@ func standardDeployCmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(deployLocal, "deploy local"))
 
 	deployGoogle := &cobra.Command{
-		Use:   "{{alias}} <bucket-name> <disk-size> [<credentials-file>]",
+		Use:   "{{alias}} <disk-size> [<bucket-name>] [<credentials-file>]",
 		Short: "Deploy a Pachyderm cluster running on Google Cloud Platform.",
 		Long: `Deploy a Pachyderm cluster running on Google Cloud Platform.
-  <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
   <disk-size>: Size of Google Compute Engine persistent disks in GB (assumed to all be the same).
+  <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
   <credentials-file>: A file containing the private key for the account (downloaded from Google Compute Engine).`,
 		PreRun: deployPreRun,
-		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(1, 3, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -560,12 +560,21 @@ func standardDeployCmds() []*cobra.Command {
 				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 				finishMetricsWait()
 			}()
-			volumeSize, err := strconv.Atoi(args[1])
+			volumeSize, err := strconv.Atoi(args[0])
 			if err != nil {
 				return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			var buf bytes.Buffer
+			var bucket string
 			var cred string
+
+			// The enterprise server doesn't need a GCS bucket, but pachd deployments do
+			if len(args) > 1 {
+				bucket = strings.TrimPrefix(args[1], "gs://")
+			} else if !enterpriseServer {
+				return errors.New("bucket-name is required for pachd deployments")
+			}
+
 			if len(args) == 3 {
 				credBytes, err := ioutil.ReadFile(args[2])
 				if err != nil {
@@ -573,7 +582,6 @@ func standardDeployCmds() []*cobra.Command {
 				}
 				cred = string(credBytes)
 			}
-			bucket := strings.TrimPrefix(args[0], "gs://")
 			if err = assets.WriteGoogleAssets(
 				encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
 			); err != nil {
@@ -672,14 +680,14 @@ If <object store backend> is \"s3\", then the arguments are:
 	var iamRole string
 	var vault string
 	deployAmazon := &cobra.Command{
-		Use:   "{{alias}} <bucket-name> <region> <disk-size>",
+		Use:   "{{alias}} <region> <disk-size> [<bucket-name>]",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
 		Long: `Deploy a Pachyderm cluster running on AWS.
-  <bucket-name>: An S3 bucket where Pachyderm will store PFS data.
   <region>: The AWS region where Pachyderm is being deployed (e.g. us-west-1)
-  <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).`,
+  <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).
+  <bucket-name>: An S3 bucket where Pachyderm will store PFS data.`,
 		PreRun: deployPreRun,
-		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -687,7 +695,10 @@ If <object store backend> is \"s3\", then the arguments are:
 				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 				finishMetricsWait()
 			}()
-			if creds == "" && vault == "" && iamRole == "" {
+
+			// Require credentials to access S3 for pachd deployments.
+			// Enterprise server deployments don't require an S3 bucket, so they don't need credentials.
+			if creds == "" && vault == "" && iamRole == "" && !enterpriseServer {
 				return errors.Errorf("one of --credentials, --vault, or --iam-role needs to be provided")
 			}
 
@@ -737,9 +748,9 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 				opts.IAMRole = iamRole
 			}
-			volumeSize, err := strconv.Atoi(args[2])
+			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
-				return errors.Errorf("volume size needs to be an integer; instead got %v", args[2])
+				return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			if strings.TrimSpace(cloudfrontDistribution) != "" {
 				log.Warningf("you specified a cloudfront distribution; deploying on " +
@@ -747,7 +758,15 @@ If <object store backend> is \"s3\", then the arguments are:
 					"restrictions have been applied to cloudfront, making all data " +
 					"public (obscured but not secured)\n")
 			}
-			bucket, region := strings.TrimPrefix(args[0], "s3://"), args[1]
+
+			var bucket string
+			if len(args) == 3 {
+				bucket = strings.TrimPrefix(args[2], "s3://")
+			} else if !enterpriseServer {
+				return errors.New("expected 3 arguments (bucket-name is required for pachd deployments)")
+			}
+
+			region := args[0]
 			if !awsRegionRE.MatchString(region) {
 				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match %q)\n", awsRegionRE)
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
@@ -803,13 +822,13 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy aws"))
 
 	deployMicrosoft := &cobra.Command{
-		Use:   "{{alias}} <container> <account-name> <account-key> <disk-size>",
+		Use:   "{{alias}} <disk-size> [<container> <account-name> <account-key>]",
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Long: `Deploy a Pachyderm cluster running on Microsoft Azure.
-  <container>: An Azure container where Pachyderm will store PFS data.
-  <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).`,
+  <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).
+  <container>: An Azure container where Pachyderm will store PFS data.`,
 		PreRun: deployPreRun,
-		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(1, 4, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -817,7 +836,19 @@ If <object store backend> is \"s3\", then the arguments are:
 				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 				finishMetricsWait()
 			}()
-			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
+
+			var container, accountName, accountKey string
+			// The enterprise server doesn't need an object store, so these arguments aren't required
+			if !enterpriseServer {
+				if len(args) != 4 {
+					return errors.New("expected 4 arguments (container, account-name and account-key are required for pachd deployments)")
+				}
+
+				container = strings.TrimPrefix(args[1], "wasb://")
+				accountName, accountKey = args[2], args[3]
+			}
+
+			if _, err := base64.StdEncoding.DecodeString(args[3]); err != nil {
 				return errors.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
 			}
 			if opts.EtcdOpts.Volume != "" {
@@ -827,18 +858,17 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 				opts.EtcdOpts.Volume = tempURI.String()
 			}
-			volumeSize, err := strconv.Atoi(args[3])
+			volumeSize, err := strconv.Atoi(args[0])
 			if err != nil {
 				return errors.Errorf("volume size needs to be an integer; instead got %v", args[3])
 			}
 			var buf bytes.Buffer
-			container := strings.TrimPrefix(args[0], "wasb://")
-			accountName, accountKey := args[1], args[2]
 			if err = assets.WriteMicrosoftAssets(
 				encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
 			); err != nil {
 				return err
 			}
+
 			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}

@@ -25,7 +25,7 @@ func TestDashImageExists(t *testing.T) {
 }
 
 func TestWarnInvalidAmazonCreds(t *testing.T) {
-	c := tu.Cmd("pachctl", "deploy", "amazon", "bucket", "us-west-1", "10",
+	c := tu.Cmd("pachctl", "deploy", "amazon", "us-west-1", "10", "bucket",
 		"--credentials=lol,wat",
 		"--dynamic-etcd-nodes=1", "--dry-run")
 	var warningMsg bytes.Buffer
@@ -38,7 +38,7 @@ func TestWarnInvalidAmazonCreds(t *testing.T) {
 }
 
 func TestWarnBadRegion(t *testing.T) {
-	c := tu.Cmd("pachctl", "deploy", "amazon", "bucket", "bad-region", "10",
+	c := tu.Cmd("pachctl", "deploy", "amazon", "bad-region", "10", "bucket",
 		fmt.Sprintf("--credentials=%s,%s", FakeAWSAccessKeyID, FakeAWSSecret),
 		"--dynamic-etcd-nodes=1", "--dry-run")
 	var warningMsg bytes.Buffer
@@ -51,7 +51,7 @@ func TestWarnBadRegion(t *testing.T) {
 }
 
 func TestStripS3Prefix(t *testing.T) {
-	c := tu.Cmd("pachctl", "deploy", "amazon", "s3://bucket", "us-west-1", "10",
+	c := tu.Cmd("pachctl", "deploy", "amazon", "us-west-1", "10", "s3://bucket",
 		fmt.Sprintf("--credentials=%s,%s", FakeAWSAccessKeyID, FakeAWSSecret),
 		"--dynamic-etcd-nodes=1", "--dry-run")
 	var k8sManifest bytes.Buffer
