@@ -147,7 +147,7 @@ func isTransactionError(err error) bool {
 	if errors.As(err, pqerr) {
 		return pgerrcode.IsTransactionRollback(string(pqerr.Code))
 	}
-	return false
+	return IsErrTransactionConflict(err)
 }
 
 func isDuplicateKeyError(err error) bool {

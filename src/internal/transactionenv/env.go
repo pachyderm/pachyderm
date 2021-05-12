@@ -322,9 +322,10 @@ func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, 
 		if err != nil {
 			return err
 		}
+		// The transaction cannot continue because it cannot see the fileset - abort and retry
+		return &col.ErrTransactionConflict{}
 	}
 
-	fmt.Printf("calling createPipelineInTransaction with fileset: %v, prevSpecCommit: %v\n", *filesetID, *prevSpecCommit)
 	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevSpecCommit)
 }
 

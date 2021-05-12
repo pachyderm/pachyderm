@@ -101,24 +101,6 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		// first try to clean up any aspects of the transaction that live outside the sqlTx
-		info := &transaction.TransactionInfo{}
-		if err := d.transactions.ReadOnly(ctx).Get(txn.ID, info); err != nil {
-			return err
-		}
-		directTxn := txnenv.NewDirectTransaction(txnCtx)
-		for i, req := range info.Requests {
-			if req.CreatePipeline == nil || len(info.Responses) <= i {
-				continue
-			}
-			commit := info.Responses[i].Commit
-			if commit != nil {
-				if err := directTxn.SquashCommit(&pfs.SquashCommitRequest{Commit: commit}); err != nil {
-					return err
-				}
-			}
-		}
-		// now that all side effects are undone, delete the transaction
 		return d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID)
 	})
 }
