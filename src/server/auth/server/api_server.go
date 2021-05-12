@@ -1324,6 +1324,9 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 // GetConfiguration implements the protobuf auth.GetConfiguration RPC.
 func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (resp *auth.GetConfigurationResponse, retErr error) {
 	removeSecret := func(r *auth.GetConfigurationResponse) *auth.GetConfigurationResponse {
+		if r.Configuration == nil {
+			return r
+		}
 		copyResp := proto.Clone(r).(*auth.GetConfigurationResponse)
 		copyResp.Configuration.ClientSecret = ""
 		return copyResp
@@ -1348,6 +1351,9 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 // SetConfiguration implements the protobuf auth.SetConfiguration RPC
 func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest) (resp *auth.SetConfigurationResponse, retErr error) {
 	removeSecret := func(r *auth.SetConfigurationRequest) *auth.SetConfigurationRequest {
+		if r.Configuration == nil {
+			return r
+		}
 		copyReq := proto.Clone(r).(*auth.SetConfigurationRequest)
 		copyReq.Configuration.ClientSecret = ""
 		return copyReq
