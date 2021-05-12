@@ -31,6 +31,7 @@ func ActivateCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			// Activate the license server
 			req := &license.ActivateRequest{
@@ -58,6 +59,8 @@ func AddClusterCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			resp, err := c.License.AddCluster(c.Ctx(), &license.AddClusterRequest{
 				Id:      id,
@@ -90,6 +93,8 @@ func UpdateClusterCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			_, err = c.License.UpdateCluster(c.Ctx(), &license.UpdateClusterRequest{
 				Id:                  id,
@@ -118,6 +123,8 @@ func DeleteClusterCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			_, err = c.License.DeleteCluster(c.Ctx(), &license.DeleteClusterRequest{
 				Id: id,
@@ -139,6 +146,8 @@ func ListClustersCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			resp, err := c.License.ListClusters(c.Ctx(), &license.ListClustersRequest{})
 			if err != nil {
@@ -168,6 +177,8 @@ func DeleteAllCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+
 			if _, err := c.License.DeleteAll(c.Ctx(), &license.DeleteAllRequest{}); err != nil {
 				return err
 			}
@@ -190,6 +201,8 @@ func GetStateCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+
 			resp, err := c.License.GetActivationCode(c.Ctx(), &license.GetActivationCodeRequest{})
 			if err != nil {
 				return err

@@ -64,6 +64,9 @@ func SetIdentityServerConfigCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
+
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 			req := &identity.SetIdentityServerConfigRequest{
 				Config: &identity.IdentityServerConfig{
 					Issuer: issuer,
@@ -87,6 +90,9 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
+
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 			resp, err := c.GetIdentityServerConfig(c.Ctx(), &identity.GetIdentityServerConfigRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -110,6 +116,8 @@ func CreateIDPConnectorCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 			var rawConfigBytes []byte
 			if file == "-" {
 				var err error
@@ -159,6 +167,8 @@ func UpdateIDPConnectorCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+
 			var rawConfigBytes []byte
 			if file == "-" {
 				var err error
@@ -207,6 +217,7 @@ func GetIDPConnectorCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			resp, err := c.GetIDPConnector(c.Ctx(), &identity.GetIDPConnectorRequest{Id: args[0]})
 			if err != nil {
@@ -237,6 +248,8 @@ func DeleteIDPConnectorCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			_, err = c.DeleteIDPConnector(c.Ctx(), &identity.DeleteIDPConnectorRequest{Id: args[0]})
 			return grpcutil.ScrubGRPC(err)
@@ -283,6 +296,7 @@ func CreateOIDCClientCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			req := &identity.CreateOIDCClientRequest{
 				Client: &identity.OIDCClient{
@@ -323,6 +337,7 @@ func DeleteOIDCClientCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			_, err = c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: args[0]})
 			return grpcutil.ScrubGRPC(err)
@@ -343,6 +358,7 @@ func GetOIDCClientCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			resp, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: args[0]})
 			if err != nil {
@@ -369,6 +385,7 @@ func UpdateOIDCClientCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			req := &identity.UpdateOIDCClientRequest{
 				Client: &identity.OIDCClient{
@@ -400,6 +417,7 @@ func ListOIDCClientsCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 
 			resp, err := c.ListOIDCClients(c.Ctx(), &identity.ListOIDCClientsRequest{})
 			if err != nil {
