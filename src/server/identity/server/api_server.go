@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -92,8 +93,14 @@ func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.G
 }
 
 func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (resp *identity.CreateIDPConnectorResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeJSONConfig := func(r *identity.CreateIDPConnectorRequest) *identity.CreateIDPConnectorRequest {
+		copyReq := proto.Clone(r).(*identity.CreateIDPConnectorRequest)
+		copyReq.Connector.JsonConfig = ""
+		return copyReq
+	}
+
+	a.LogReq(removeJSONConfig(req))
+	defer func(start time.Time) { a.LogResp(removeJSONConfig(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.createConnector(req); err != nil {
 		return nil, err
@@ -102,8 +109,14 @@ func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.Create
 }
 
 func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPConnectorRequest) (resp *identity.GetIDPConnectorResponse, retErr error) {
+	removeJSONConfig := func(r *identity.GetIDPConnectorResponse) *identity.GetIDPConnectorResponse {
+		copyResp := proto.Clone(r).(*identity.GetIDPConnectorResponse)
+		copyResp.Connector.JsonConfig = ""
+		return copyResp
+	}
+
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeJSONConfig(resp), retErr, time.Since(start)) }(time.Now())
 
 	c, err := a.api.getConnector(req.Id)
 	if err != nil {
@@ -116,8 +129,14 @@ func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPCon
 }
 
 func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.UpdateIDPConnectorRequest) (resp *identity.UpdateIDPConnectorResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeJSONConfig := func(r *identity.UpdateIDPConnectorRequest) *identity.UpdateIDPConnectorRequest {
+		copyReq := proto.Clone(r).(*identity.UpdateIDPConnectorRequest)
+		copyReq.Connector.JsonConfig = ""
+		return copyReq
+	}
+
+	a.LogReq(removeJSONConfig(req))
+	defer func(start time.Time) { a.LogResp(removeJSONConfig(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.updateConnector(req); err != nil {
 		return nil, err
@@ -127,8 +146,16 @@ func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.Update
 }
 
 func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDPConnectorsRequest) (resp *identity.ListIDPConnectorsResponse, retErr error) {
+	removeJSONConfig := func(r *identity.ListIDPConnectorsResponse) *identity.ListIDPConnectorsResponse {
+		copyResp := proto.Clone(r).(*identity.ListIDPConnectorsResponse)
+		for _, c := range copyResp.Connectors {
+			c.JsonConfig = ""
+		}
+		return copyResp
+	}
+
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeJSONConfig(resp), retErr, time.Since(start)) }(time.Now())
 
 	connectors, err := a.api.listConnectors()
 	if err != nil {
@@ -150,8 +177,14 @@ func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.Delete
 }
 
 func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOIDCClientRequest) (resp *identity.CreateOIDCClientResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeSecret := func(r *identity.CreateOIDCClientRequest) *identity.CreateOIDCClientRequest {
+		copyReq := proto.Clone(r).(*identity.CreateOIDCClientRequest)
+		copyReq.Client.Secret = ""
+		return copyReq
+	}
+
+	a.LogReq(removeSecret(req))
+	defer func(start time.Time) { a.LogResp(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
 
 	client, err := a.api.createClient(ctx, req)
 	if err != nil {
@@ -164,8 +197,13 @@ func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOI
 }
 
 func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOIDCClientRequest) (resp *identity.UpdateOIDCClientResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeSecret := func(r *identity.UpdateOIDCClientRequest) *identity.UpdateOIDCClientRequest {
+		copyReq := proto.Clone(r).(*identity.UpdateOIDCClientRequest)
+		copyReq.Client.Secret = ""
+		return copyReq
+	}
+	a.LogReq(removeSecret(req))
+	defer func(start time.Time) { a.LogResp(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.updateClient(ctx, req); err != nil {
 		return nil, err
@@ -175,8 +213,13 @@ func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOI
 }
 
 func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClientRequest) (resp *identity.GetOIDCClientResponse, retErr error) {
+	removeSecret := func(r *identity.GetOIDCClientResponse) *identity.GetOIDCClientResponse {
+		copyResp := proto.Clone(r).(*identity.GetOIDCClientResponse)
+		copyResp.Client.Secret = ""
+		return copyResp
+	}
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	client, err := a.api.getClient(req.Id)
 	if err != nil {
@@ -187,8 +230,15 @@ func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClie
 }
 
 func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCClientsRequest) (resp *identity.ListOIDCClientsResponse, retErr error) {
+	removeSecret := func(r *identity.ListOIDCClientsResponse) *identity.ListOIDCClientsResponse {
+		copyResp := proto.Clone(r).(*identity.ListOIDCClientsResponse)
+		for _, c := range copyResp.Clients {
+			c.Secret = ""
+		}
+		return copyResp
+	}
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	clients, err := a.api.listClients()
 	if err != nil {
