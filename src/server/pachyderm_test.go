@@ -572,7 +572,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 }
 
 func TestRunPipeline(t *testing.T) {
-	// TODO: Run pipeline creates a dangling commit, but uses the stats branch for stats commits.
+	// TODO(2.0 optional): Run pipeline creates a dangling commit, but uses the stats branch for stats commits.
 	// Since there is no relationship between the commits created by run pipeline, there should be no
 	// relationship between the stats commits. So, the stats commits should also be dangling commits.
 	// This might be easier to address when global IDs are implemented.
@@ -5281,7 +5281,7 @@ func TestUnionInput(t *testing.T) {
 }
 
 func TestPipelineWithStats(t *testing.T) {
-	// TODO: Change the semantics of the test.
+	// TODO(2.0 required): Change the semantics of the test.
 	t.Skip("Stats semantics different in V2")
 	//if testing.Short() {
 	//	t.Skip("Skipping integration tests in short mode")
@@ -5362,7 +5362,7 @@ func TestPipelineWithStats(t *testing.T) {
 }
 
 func TestPipelineWithStatsFailedDatums(t *testing.T) {
-	// TODO: Change the semantics of the test.
+	// TODO(2.0 required): Change the semantics of the test.
 	t.Skip("Stats semantics different in V2")
 	//	if testing.Short() {
 	//		t.Skip("Skipping integration tests in short mode")
@@ -5428,7 +5428,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 }
 
 func TestPipelineWithStatsPaginated(t *testing.T) {
-	// TODO: Implement datum pagination?.
+	// TODO(2.0 optional): Implement datum pagination?.
 	t.Skip("Datum pagination not implemented in V2")
 	//	if testing.Short() {
 	//		t.Skip("Skipping integration tests in short mode")
@@ -5508,7 +5508,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 }
 
 func TestPipelineWithStatsAcrossJobs(t *testing.T) {
-	// TODO: Change semantics of test.
+	// TODO(2.0 required): Change semantics of test.
 	t.Skip("Stats semantics different in V2")
 	//	if testing.Short() {
 	//		t.Skip("Skipping integration tests in short mode")
@@ -5602,7 +5602,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 }
 
 func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
-	// TODO: Change semantics of test.
+	// TODO(2.0 required): Change semantics of test.
 	t.Skip("Stats semantics different in V2")
 	//	// If I add a file in commit1, delete it in commit2, add it again in commit 3 ...
 	//	// the datum will be marked as success on the 3rd job, even though it should be marked as skipped
@@ -5998,7 +5998,7 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
-		// TODO: This test does not work with V2. It is not clear what the issue is yet. It may be related to the fact that
+		// TODO(2.0 required): This test does not work with V2. It is not clear what the issue is yet. It may be related to the fact that
 		// run pipeline does not work correctly with stats (which is always enabled in V2).
 		t.Skip("Does not work with V2, needs investigation")
 		pipeline7 := tu.UniqueString("cron7-")
@@ -6943,9 +6943,6 @@ func TestLongDatums(t *testing.T) {
 func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 	// TODO: Implement git input.
 	t.Skip("Git input not implemented in V2")
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7682,7 +7679,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 }
 
 func TestListDatumDuringJob(t *testing.T) {
-	// TODO: Change semantics of test to list datums that have been processed while the job is running.
+	// TODO(2.0 required): Change semantics of test to list datums that have been processed while the job is running.
 	t.Skip("Semantics need to be changed for V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -8207,7 +8204,7 @@ func TestCancelManyJobs(t *testing.T) {
 // downstream commits are also deleted.
 // DAG in this test: repo -> pipeline[0] -> pipeline[1]
 func TestSquashCommitPropagation(t *testing.T) {
-	// TODO: Implement put file split in V2.
+	// TODO(2.0 optional): Implement put file split in V2.
 	t.Skip("Put file split not implemented in V2")
 	// 	if testing.Short() {
 	// 		t.Skip("Skipping integration tests in short mode")
@@ -8783,7 +8780,7 @@ func TestPipelineVersions(t *testing.T) {
 // well, adding more data with the same header should not change the contents of
 // existing data.
 func TestSplitFileHeader(t *testing.T) {
-	// TODO: Implement put file split in V2?
+	// TODO(2.0 optional): Implement put file split in V2?
 	t.Skip("Split file header not implemented in V2")
 	//	if testing.Short() {
 	//		t.Skip("Skipping integration tests in short mode")
@@ -8844,7 +8841,7 @@ func TestSplitFileHeader(t *testing.T) {
 }
 
 func TestNewHeaderCausesReprocess(t *testing.T) {
-	// TODO: Implement put file split in V2?
+	// TODO(2.0 optional): Implement put file split in V2?
 	t.Skip("Split file header not implemented in V2")
 	//	if testing.Short() {
 	//		t.Skip("Skipping integration tests in short mode")
@@ -9770,9 +9767,6 @@ func TestCopyOutToIn(t *testing.T) {
 }
 
 func TestKeepRepo(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -9879,7 +9873,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "services can only be run with a constant parallelism of 1", err.Error())
 
-	// TODO: This error isn't triggered in V2?
+	// TODO(2.0 required): This error isn't triggered in V2?
 	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 	//	Pipeline:   client.NewPipeline(pipelineName),
 	//	Transform:  &pps.Transform{},
@@ -10019,7 +10013,7 @@ func TestMalformedPipeline(t *testing.T) {
 }
 
 func TestTrigger(t *testing.T) {
-	// TODO: This test does not work with V2. It is not clear what the issue is yet. Something noteworthy is that the output
+	// TODO(2.0 required): This test does not work with V2. It is not clear what the issue is yet. Something noteworthy is that the output
 	// size does not increase for the second to last commit, which may have something to do with compaction (the trigger won't kick
 	// off since it is based on the output size). The output size calculation is a bit questionable due to the compaction delay (a
 	// file may be accounted for in the size even if it is deleted).

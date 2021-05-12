@@ -286,9 +286,11 @@ func TestJSONMultiplePipelinesError(t *testing.T) {
 }
 
 func TestRunPipeline(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	// TODO(2.0 optional): Run pipeline creates a dangling commit, but uses the stats branch for stats commits.
+	// Since there is no relationship between the commits created by run pipeline, there should be no
+	// relationship between the stats commits. So, the stats commits should also be dangling commits.
+	// This might be easier to address when global IDs are implemented.
+	t.Skip("Run pipeline does not work correctly with stats enabled")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -331,10 +333,6 @@ func TestRunPipeline(t *testing.T) {
 
 // TestYAMLPipelineSpec tests creating a pipeline with a YAML pipeline spec
 func TestYAMLPipelineSpec(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
-
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
