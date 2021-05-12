@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -19,14 +17,6 @@ import (
 
 const FakeAWSAccessKeyID = "MADEUPAWSACCESSKEYID"
 const FakeAWSSecret = "YIUo7lLijgheOTbSR57DCv8eGVklj8UHUQb9aTDf"
-
-func TestDashImageExists(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
-	c := exec.Command("docker", "pull", fmt.Sprintf("%s:%s", defaultDashImage, defaultDashVersion))
-	require.NoError(t, c.Run())
-}
 
 func TestWarnInvalidAmazonCreds(t *testing.T) {
 	c := tu.Cmd("pachctl", "deploy", "amazon", "bucket", "us-west-1", "10",
