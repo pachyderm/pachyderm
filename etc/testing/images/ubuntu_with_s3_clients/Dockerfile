@@ -1,5 +1,8 @@
 FROM ubuntu:20.04
 LABEL maintainer=msteffen@pachyderm.io
+# Fix timezone issue
+ENV TZ=UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update -y && apt-get install -y \
   curl \
