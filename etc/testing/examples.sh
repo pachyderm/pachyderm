@@ -55,8 +55,8 @@ pushd examples/shuffle
     fi
 
     # check that the files were made
-    files=$(pachctl list file "shuffle@master:*" --raw | jq '.file.path' -r)
-    expected_files=$(echo -e "/apple\n/apple/cost.json\n/apple/img.jpeg\n/mango\n/mango/cost.json\n/mango/img.jpeg")
+    files=$(pachctl glob file "shuffle@master:**" --raw | jq '.file.path' -r)
+    expected_files=$(echo -e "/apple/\n/apple/cost.json\n/apple/img.jpeg\n/mango/\n/mango/cost.json\n/mango/img.jpeg")
     if [ "$files" != "$expected_files" ]; then
         echo "Unexpected output files in shuffle repo: $files"
         exit 1
@@ -89,38 +89,39 @@ popd
 pachctl delete pipeline --all
 pachctl delete repo --all
 
-pushd examples/ml/hyperparameter
-    pachctl create repo raw_data
-    pachctl create repo parameters
-    pachctl list repo
-
-    pushd data
-        pachctl put file raw_data@master:iris.csv -f noisy_iris.csv
-
-        pushd parameters
-            pachctl put file parameters@master -f c_parameters.txt --split line --target-file-datums 1 
-            pachctl put file parameters@master -f gamma_parameters.txt --split line --target-file-datums 1
-        popd
-    popd
-
-    pachctl create pipeline -f split.json 
-    pachctl create pipeline -f model.json
-    pachctl create pipeline -f test.json 
-    pachctl create pipeline -f select.json
-
-    commit_id=$(pachctl list commit raw_data -n 1 --raw | jq .commit.id -r)
-    pachctl flush job "raw_data@$commit_id"
-
-    # just make sure we outputted some files
-    selected_file_count=$(pachctl list file select@master | wc -l)
-    if [ "$selected_file_count" -le 2 ]; then
-        echo "Expected some files to be outputted in the select repo"
-        exit 1
-    fi
-popd
-
-pachctl delete pipeline --all
-pachctl delete repo --all
+## TODO(2.0 optional): Implement put file split.
+##pushd examples/ml/hyperparameter
+##    pachctl create repo raw_data
+##    pachctl create repo parameters
+##    pachctl list repo
+##
+##    pushd data
+##        pachctl put file raw_data@master:iris.csv -f noisy_iris.csv
+##
+##        pushd parameters
+##            pachctl put file parameters@master -f c_parameters.txt --split line --target-file-datums 1 
+##            pachctl put file parameters@master -f gamma_parameters.txt --split line --target-file-datums 1
+##        popd
+##    popd
+##
+##    pachctl create pipeline -f split.json 
+##    pachctl create pipeline -f model.json
+##    pachctl create pipeline -f test.json 
+##    pachctl create pipeline -f select.json
+##
+##    commit_id=$(pachctl list commit raw_data -n 1 --raw | jq .commit.id -r)
+##    pachctl flush job "raw_data@$commit_id"
+##
+##    # just make sure we outputted some files
+##    selected_file_count=$(pachctl list file select@master | wc -l)
+##    if [ "$selected_file_count" -le 2 ]; then
+##        echo "Expected some files to be outputted in the select repo"
+##        exit 1
+##    fi
+##popd
+##
+##pachctl delete pipeline --all
+##pachctl delete repo --all
 
 pushd examples/ml/iris
     pachctl create repo training
