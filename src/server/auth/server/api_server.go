@@ -1323,8 +1323,16 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 
 // GetConfiguration implements the protobuf auth.GetConfiguration RPC.
 func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (resp *auth.GetConfigurationResponse, retErr error) {
+	removeSecret := func(r *auth.GetConfigurationResponse) *auth.GetConfigurationResponse {
+		if r.Configuration == nil {
+			return r
+		}
+		copyResp := proto.Clone(r).(*auth.GetConfigurationResponse)
+		copyResp.Configuration.ClientSecret = ""
+		return copyResp
+	}
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	if !a.watchesEnabled {
 		return nil, errors.New("watches are not enabled, unable to get current config")
@@ -1342,8 +1350,16 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 
 // SetConfiguration implements the protobuf auth.SetConfiguration RPC
 func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest) (resp *auth.SetConfigurationResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeSecret := func(r *auth.SetConfigurationRequest) *auth.SetConfigurationRequest {
+		if r.Configuration == nil {
+			return r
+		}
+		copyReq := proto.Clone(r).(*auth.SetConfigurationRequest)
+		copyReq.Configuration.ClientSecret = ""
+		return copyReq
+	}
+	a.LogReq(removeSecret(req))
+	defer func(start time.Time) { a.LogResp(removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	if !a.watchesEnabled {
 		return nil, errors.New("watches are not enabled, unable to set config")
