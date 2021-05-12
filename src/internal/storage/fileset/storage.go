@@ -151,7 +151,6 @@ func (s *Storage) ComposeTx(tx *sqlx.Tx, ids []ID, ttl time.Duration) (*ID, erro
 // CloneTx creates a new fileset, identical to the fileset at id, but with the specified ttl.
 // The ttl can be ignored by using track.NoTTL
 func (s *Storage) CloneTx(tx *sqlx.Tx, id ID, ttl time.Duration) (*ID, error) {
-	fmt.Printf("Cloning fileset %s\n", id.HexString())
 	md, err := s.store.GetTx(tx, id)
 	if err != nil {
 		return nil, err
@@ -324,7 +323,6 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 
 func (s *Storage) newPrimitiveTx(tx *sqlx.Tx, prim *Primitive, ttl time.Duration) (*ID, error) {
 	id := newID()
-	fmt.Printf("new primitive fileset: %s\n", id.HexString())
 	md := &Metadata{
 		Value: &Metadata_Primitive{
 			Primitive: prim,
@@ -357,7 +355,6 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 
 func (s *Storage) newCompositeTx(tx *sqlx.Tx, comp *Composite, ttl time.Duration) (*ID, error) {
 	id := newID()
-	fmt.Printf("new composite fileset: %s\n", id.HexString())
 	md := &Metadata{
 		Value: &Metadata_Composite{
 			Composite: comp,
