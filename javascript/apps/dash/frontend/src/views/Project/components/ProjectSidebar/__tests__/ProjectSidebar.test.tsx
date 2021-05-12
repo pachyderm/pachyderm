@@ -1,7 +1,7 @@
 import {render} from '@testing-library/react';
 import React from 'react';
 
-import {withContextProviders} from '@dash-frontend/testHelpers';
+import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import ProjectSidebar from '../ProjectSidebar';
 
@@ -56,16 +56,40 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/1/dag/images/repo/montage/branch/master',
+        '/project/3/dag/cron/repo/cron/branch/master',
       );
 
       const {findByTestId, getByText} = render(<Project />);
 
       const repoName = await findByTestId('Title__name');
-      const size = getByText('1000 B');
+      const size = getByText('607.28 KB');
+      const commit = getByText('ID 9d5daa0918ac4c43a476b86e3bb5e88e');
 
-      expect(repoName).toHaveTextContent('montage');
+      expect(repoName).toHaveTextContent('cron');
       expect(size).toBeInTheDocument();
+      expect(commit).toBeInTheDocument();
+    });
+
+    it('should show no commits when the branch has no commits', () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/3/dag/cron/repo/cron/branch/master',
+      );
+
+      const {getByText} = render(<Project />);
+
+      const selectorButton = getByText('Commits (Branch: master)');
+
+      click(selectorButton);
+
+      const noneOption = getByText('none');
+
+      click(noneOption);
+
+      const emptyMessage = getByText('There are no commits for this branch');
+
+      expect(emptyMessage).toBeInTheDocument();
     });
   });
 });

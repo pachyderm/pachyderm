@@ -24,10 +24,8 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
   const {authConfig, error: authConfigError} = useAuthConfig({
     skip: loggedIn,
   });
-  const [
-    exchangeCodeMutation,
-    {data: codeMutationData, error, loading},
-  ] = useExchangeCodeMutation({onError});
+  const [exchangeCodeMutation, {data: codeMutationData, error, loading}] =
+    useExchangeCodeMutation({onError});
 
   const exchangeCode = useCallback(
     (code: MutationExchangeCodeArgs['code']) => {

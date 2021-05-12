@@ -10,12 +10,8 @@ import {NotFoundMessage, SectionHeader} from '../Messaging';
 import styles from './DefaultDropdown.module.css';
 
 const DefaultDropdown: React.FC = () => {
-  const {
-    setSearchValue,
-    history,
-    clearSearchHistory,
-    closeDropdown,
-  } = useSearch();
+  const {setSearchValue, history, clearSearchHistory, closeDropdown} =
+    useSearch();
   const {stateCounts, allJobs, routeToJobs} = useDefaultDropdown();
 
   const handleChipClick = useCallback(() => {

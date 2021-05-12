@@ -26,9 +26,9 @@ const useBranchBrowser = ({branches = []}: useBranchBrowserOpts = {}) => {
     },
     [browserHistory, dagId, projectId, repoId],
   );
-
   const dropdownItems = useMemo<DropdownItem[]>(() => {
     return [
+      {id: 'master', value: 'master', content: 'master', closeOnClick: true},
       {id: 'none', value: 'none', content: 'none', closeOnClick: true},
       ...branches
         .map((branch) => ({
@@ -37,12 +37,8 @@ const useBranchBrowser = ({branches = []}: useBranchBrowserOpts = {}) => {
           content: branch.name,
           closeOnClick: true,
         }))
-        .sort((a, b) => {
-          if (a.value === 'master' || b.value > a.value) return -1;
-          if (a.value > b.value) return 1;
-
-          return 0;
-        }),
+        .filter((branch) => branch.value !== 'master')
+        .sort((a, b) => (a.value > b.value ? 1 : -1)),
     ];
   }, [branches]);
 

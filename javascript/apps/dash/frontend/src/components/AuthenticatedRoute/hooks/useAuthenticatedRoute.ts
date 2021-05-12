@@ -12,13 +12,10 @@ const useAuthenticatedRoute = () => {
     authConfig,
     authConfigError,
   } = useAuth();
-  const {
-    initiateOauthFlow,
-    loginWindowError,
-    loginWindowSucceeded,
-  } = useLoginWindow({
-    onSuccess: exchangeCode,
-  });
+  const {initiateOauthFlow, loginWindowError, loginWindowSucceeded} =
+    useLoginWindow({
+      onSuccess: exchangeCode,
+    });
   const {search} = useLocation();
   const routerHistory = useHistory();
   const params = useMemo(() => new URLSearchParams(search), [search]);

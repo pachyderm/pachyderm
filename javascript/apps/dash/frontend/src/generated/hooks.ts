@@ -51,7 +51,8 @@ export function useExchangeCodeMutation(
 export type ExchangeCodeMutationHookResult = ReturnType<
   typeof useExchangeCodeMutation
 >;
-export type ExchangeCodeMutationResult = Apollo.MutationResult<Types.ExchangeCodeMutation>;
+export type ExchangeCodeMutationResult =
+  Apollo.MutationResult<Types.ExchangeCodeMutation>;
 export type ExchangeCodeMutationOptions = Apollo.BaseMutationOptions<
   Types.ExchangeCodeMutation,
   Types.ExchangeCodeMutationVariables
@@ -323,7 +324,8 @@ export function useGetDagsSubscription(
 export type GetDagsSubscriptionHookResult = ReturnType<
   typeof useGetDagsSubscription
 >;
-export type GetDagsSubscriptionResult = Apollo.SubscriptionResult<Types.GetDagsSubscription>;
+export type GetDagsSubscriptionResult =
+  Apollo.SubscriptionResult<Types.GetDagsSubscription>;
 export const GetFilesDocument = gql`
   query getFiles($args: FileQueryArgs!) {
     files(args: $args) {

@@ -33,9 +33,10 @@ const useLink = (link: Link) => {
     [link.startPoint, link.endPoint, link.bendPoints],
   );
 
-  const transferring = useMemo(() => link.state === JobState.JOB_RUNNING, [
-    link.state,
-  ]);
+  const transferring = useMemo(
+    () => link.state === JobState.JOB_RUNNING,
+    [link.state],
+  );
 
   return {
     d,

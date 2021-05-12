@@ -459,7 +459,7 @@ export interface SubscriptionSubscriberObject<
   TKey extends string,
   TParent,
   TContext,
-  TArgs
+  TArgs,
 > {
   subscribe: SubscriptionSubscribeFn<
     {[key in TKey]: TResult},
@@ -485,7 +485,7 @@ export type SubscriptionObject<
   TKey extends string,
   TParent,
   TContext,
-  TArgs
+  TArgs,
 > =
   | SubscriptionSubscriberObject<TResult, TKey, TParent, TContext, TArgs>
   | SubscriptionResolverObject<TResult, TParent, TContext, TArgs>;
@@ -495,7 +495,7 @@ export type SubscriptionResolver<
   TKey extends string,
   TParent = {},
   TContext = {},
-  TArgs = {}
+  TArgs = {},
 > =
   | ((
       ...args: any[]
@@ -520,7 +520,7 @@ export type DirectiveResolverFn<
   TResult = {},
   TParent = {},
   TContext = {},
-  TArgs = {}
+  TArgs = {},
 > = (
   next: NextResolverFn<TResult>,
   parent: TParent,
@@ -629,7 +629,7 @@ export type ResolversParentTypes = ResolversObject<{
 
 export type AccountResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Account'] = ResolversParentTypes['Account']
+  ParentType extends ResolversParentTypes['Account'] = ResolversParentTypes['Account'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -639,7 +639,7 @@ export type AccountResolvers<
 
 export type AuthConfigResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['AuthConfig'] = ResolversParentTypes['AuthConfig']
+  ParentType extends ResolversParentTypes['AuthConfig'] = ResolversParentTypes['AuthConfig'],
 > = ResolversObject<{
   authUrl?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   clientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -649,7 +649,7 @@ export type AuthConfigResolvers<
 
 export type BranchResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Branch'] = ResolversParentTypes['Branch']
+  ParentType extends ResolversParentTypes['Branch'] = ResolversParentTypes['Branch'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
@@ -658,7 +658,7 @@ export type BranchResolvers<
 
 export type CommitResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Commit'] = ResolversParentTypes['Commit']
+  ParentType extends ResolversParentTypes['Commit'] = ResolversParentTypes['Commit'],
 > = ResolversObject<{
   branch?: Resolver<Maybe<ResolversTypes['Branch']>, ParentType, ContextType>;
   description?: Resolver<
@@ -676,7 +676,7 @@ export type CommitResolvers<
 
 export type CronInputResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['CronInput'] = ResolversParentTypes['CronInput']
+  ParentType extends ResolversParentTypes['CronInput'] = ResolversParentTypes['CronInput'],
 > = ResolversObject<{
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   repo?: Resolver<ResolversTypes['Repo'], ParentType, ContextType>;
@@ -685,7 +685,7 @@ export type CronInputResolvers<
 
 export type DagResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Dag'] = ResolversParentTypes['Dag']
+  ParentType extends ResolversParentTypes['Dag'] = ResolversParentTypes['Dag'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   nodes?: Resolver<Array<ResolversTypes['Node']>, ParentType, ContextType>;
@@ -700,7 +700,7 @@ export type DagResolvers<
 
 export type FileResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['File'] = ResolversParentTypes['File']
+  ParentType extends ResolversParentTypes['File'] = ResolversParentTypes['File'],
 > = ResolversObject<{
   committed?: Resolver<
     Maybe<ResolversTypes['Timestamp']>,
@@ -719,7 +719,7 @@ export type FileResolvers<
 
 export type GitInputResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['GitInput'] = ResolversParentTypes['GitInput']
+  ParentType extends ResolversParentTypes['GitInput'] = ResolversParentTypes['GitInput'],
 > = ResolversObject<{
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -728,7 +728,7 @@ export type GitInputResolvers<
 
 export type InputResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Input'] = ResolversParentTypes['Input']
+  ParentType extends ResolversParentTypes['Input'] = ResolversParentTypes['Input'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   type?: Resolver<ResolversTypes['InputType'], ParentType, ContextType>;
@@ -772,7 +772,7 @@ export type InputResolvers<
 
 export type InputPipelineResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['InputPipeline'] = ResolversParentTypes['InputPipeline']
+  ParentType extends ResolversParentTypes['InputPipeline'] = ResolversParentTypes['InputPipeline'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -780,7 +780,7 @@ export type InputPipelineResolvers<
 
 export type JobResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Job'] = ResolversParentTypes['Job']
+  ParentType extends ResolversParentTypes['Job'] = ResolversParentTypes['Job'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -790,7 +790,7 @@ export type JobResolvers<
 
 export type LinkResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Link'] = ResolversParentTypes['Link']
+  ParentType extends ResolversParentTypes['Link'] = ResolversParentTypes['Link'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   source?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -826,7 +826,7 @@ export type LinkResolvers<
 
 export type MutationResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']
+  ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
   exchangeCode?: Resolver<
     ResolversTypes['Tokens'],
@@ -838,7 +838,7 @@ export type MutationResolvers<
 
 export type NodeResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Node'] = ResolversParentTypes['Node']
+  ParentType extends ResolversParentTypes['Node'] = ResolversParentTypes['Node'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -856,7 +856,7 @@ export type NodeResolvers<
 
 export type NodeSelectorResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['NodeSelector'] = ResolversParentTypes['NodeSelector']
+  ParentType extends ResolversParentTypes['NodeSelector'] = ResolversParentTypes['NodeSelector'],
 > = ResolversObject<{
   key?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   value?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -865,7 +865,7 @@ export type NodeSelectorResolvers<
 
 export type PfsInputResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['PFSInput'] = ResolversParentTypes['PFSInput']
+  ParentType extends ResolversParentTypes['PFSInput'] = ResolversParentTypes['PFSInput'],
 > = ResolversObject<{
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   repo?: Resolver<ResolversTypes['Repo'], ParentType, ContextType>;
@@ -874,7 +874,7 @@ export type PfsInputResolvers<
 
 export type PachResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Pach'] = ResolversParentTypes['Pach']
+  ParentType extends ResolversParentTypes['Pach'] = ResolversParentTypes['Pach'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -882,7 +882,7 @@ export type PachResolvers<
 
 export type PipelineResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Pipeline'] = ResolversParentTypes['Pipeline']
+  ParentType extends ResolversParentTypes['Pipeline'] = ResolversParentTypes['Pipeline'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -948,7 +948,7 @@ export type PipelineResolvers<
 
 export type PointCoordinatesResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['PointCoordinates'] = ResolversParentTypes['PointCoordinates']
+  ParentType extends ResolversParentTypes['PointCoordinates'] = ResolversParentTypes['PointCoordinates'],
 > = ResolversObject<{
   x?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   y?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
@@ -957,7 +957,7 @@ export type PointCoordinatesResolvers<
 
 export type ProjectResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Project'] = ResolversParentTypes['Project']
+  ParentType extends ResolversParentTypes['Project'] = ResolversParentTypes['Project'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -969,7 +969,7 @@ export type ProjectResolvers<
 
 export type ProjectDetailsResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['ProjectDetails'] = ResolversParentTypes['ProjectDetails']
+  ParentType extends ResolversParentTypes['ProjectDetails'] = ResolversParentTypes['ProjectDetails'],
 > = ResolversObject<{
   repoCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   pipelineCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -981,7 +981,7 @@ export type ProjectDetailsResolvers<
 
 export type QueryResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']
+  ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query'],
 > = ResolversObject<{
   account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
   authConfig?: Resolver<ResolversTypes['AuthConfig'], ParentType, ContextType>;
@@ -1043,7 +1043,7 @@ export type QueryResolvers<
 
 export type RepoResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Repo'] = ResolversParentTypes['Repo']
+  ParentType extends ResolversParentTypes['Repo'] = ResolversParentTypes['Repo'],
 > = ResolversObject<{
   branches?: Resolver<Array<ResolversTypes['Branch']>, ParentType, ContextType>;
   commits?: Resolver<Array<ResolversTypes['Commit']>, ParentType, ContextType>;
@@ -1063,7 +1063,7 @@ export type RepoResolvers<
 
 export type SchedulingSpecResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['SchedulingSpec'] = ResolversParentTypes['SchedulingSpec']
+  ParentType extends ResolversParentTypes['SchedulingSpec'] = ResolversParentTypes['SchedulingSpec'],
 > = ResolversObject<{
   nodeSelectorMap?: Resolver<
     Array<ResolversTypes['NodeSelector']>,
@@ -1080,7 +1080,7 @@ export type SchedulingSpecResolvers<
 
 export type SearchResultsResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['SearchResults'] = ResolversParentTypes['SearchResults']
+  ParentType extends ResolversParentTypes['SearchResults'] = ResolversParentTypes['SearchResults'],
 > = ResolversObject<{
   pipelines?: Resolver<
     Array<ResolversTypes['Pipeline']>,
@@ -1094,7 +1094,7 @@ export type SearchResultsResolvers<
 
 export type SubscriptionResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription']
+  ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription'],
 > = ResolversObject<{
   dags?: SubscriptionResolver<
     Array<ResolversTypes['Dag']>,
@@ -1107,7 +1107,7 @@ export type SubscriptionResolvers<
 
 export type TimestampResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Timestamp'] = ResolversParentTypes['Timestamp']
+  ParentType extends ResolversParentTypes['Timestamp'] = ResolversParentTypes['Timestamp'],
 > = ResolversObject<{
   seconds?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   nanos?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -1116,7 +1116,7 @@ export type TimestampResolvers<
 
 export type TokensResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Tokens'] = ResolversParentTypes['Tokens']
+  ParentType extends ResolversParentTypes['Tokens'] = ResolversParentTypes['Tokens'],
 > = ResolversObject<{
   pachToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   idToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -1125,7 +1125,7 @@ export type TokensResolvers<
 
 export type TransformResolvers<
   ContextType = Context,
-  ParentType extends ResolversParentTypes['Transform'] = ResolversParentTypes['Transform']
+  ParentType extends ResolversParentTypes['Transform'] = ResolversParentTypes['Transform'],
 > = ResolversObject<{
   cmdList?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   image?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

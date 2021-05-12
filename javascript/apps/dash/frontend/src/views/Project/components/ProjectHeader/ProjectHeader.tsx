@@ -13,12 +13,8 @@ import useProjectHeader from './hooks/useProjectHeader';
 import styles from './ProjectHeader.module.css';
 
 const ProjectHeader = ({totalDags}: {totalDags: number}) => {
-  const {
-    projectName,
-    numOfFailedJobs,
-    seeJobsUrl,
-    loading,
-  } = useProjectHeader();
+  const {projectName, numOfFailedJobs, seeJobsUrl, loading} =
+    useProjectHeader();
   const {projectId, dagId} = useUrlState();
   const goesBackToProject = dagId && totalDags > 1;
 

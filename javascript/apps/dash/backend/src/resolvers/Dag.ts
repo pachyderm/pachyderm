@@ -309,9 +309,8 @@ const dagResolver: DagResolver = {
               const id =
                 minBy(componentRepos, (r) => r.created?.seconds)?.repo?.name ||
                 '';
-              const priorityPipelineState = getPriorityPipelineState(
-                componentPipelines,
-              );
+              const priorityPipelineState =
+                getPriorityPipelineState(componentPipelines);
 
               return normalizeDAGData(
                 component,

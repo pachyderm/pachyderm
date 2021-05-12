@@ -14,10 +14,10 @@ const SearchInput: React.FC = () => {
 
   const {register} = useFormContext();
 
-  const showButton = useMemo(() => isOpen && searchValue, [
-    isOpen,
-    searchValue,
-  ]);
+  const showButton = useMemo(
+    () => isOpen && searchValue,
+    [isOpen, searchValue],
+  );
 
   return (
     <>

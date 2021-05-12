@@ -31,14 +31,8 @@ const Node: React.FC<NodeProps> = ({
   nodeHeight,
   nodeWidth,
 }) => {
-  const {
-    hoveredNode,
-    onClick,
-    onMouseOut,
-    onMouseOver,
-    selectedNode,
-    state,
-  } = useNode(node, isInteractive);
+  const {hoveredNode, onClick, onMouseOut, onMouseOver, selectedNode, state} =
+    useNode(node, isInteractive);
 
   const classes = classNames(styles.nodeGroup, {
     [styles.interactive]: isInteractive,

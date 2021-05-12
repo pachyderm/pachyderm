@@ -83,7 +83,8 @@ const cron = [
   new RepoInfo()
     .setRepo(new Repo().setName('cron'))
     .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
-    .setBranchesList([new Branch().setName('master')]),
+    .setBranchesList([new Branch().setName('master')])
+    .setSizeBytes(621858),
   new RepoInfo()
     .setRepo(new Repo().setName('processor'))
     .setCreated(timestampFromObject({seconds: 1614226189, nanos: 0}))
