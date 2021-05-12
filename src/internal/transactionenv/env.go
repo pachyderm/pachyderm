@@ -37,7 +37,7 @@ type PfsWrites interface {
 // depending on if there is an active transaction in the client context.
 type PpsWrites interface {
 	UpdateJobState(*pps.UpdateJobStateRequest) error
-	CreatePipeline(*pps.CreatePipelineRequest, **pfs.Commit) error
+	CreatePipeline(*pps.CreatePipelineRequest, string, *pfs.Commit) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -99,6 +99,13 @@ func (t *TransactionContext) Auth() AuthTransactionServer {
 // (which will not maintain transactional guarantees)
 func (t *TransactionContext) Pfs() PfsTransactionServer {
 	return t.txnEnv.pfsServer
+}
+
+// Pps returns a reference to the PPS API Server so that transactionally-
+// supported methods can be called across the API boundary without using RPCs
+// (which will not maintain transactional guarantees)
+func (t *TransactionContext) Pps() PpsTransactionServer {
+	return t.txnEnv.ppsServer
 }
 
 // PropagateCommit saves a branch to be propagated at the end of the transaction
@@ -180,13 +187,19 @@ type PfsTransactionServer interface {
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
 	InspectBranchInTransaction(*TransactionContext, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
 	DeleteBranchInTransaction(*TransactionContext, *pfs.DeleteBranchRequest) error
+
+	AddFilesetInTransaction(*TransactionContext, *pfs.AddFilesetRequest) error
 }
 
 // PpsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PPS server.
 type PpsTransactionServer interface {
 	UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error
-	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, **pfs.Commit) error
+	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, string, *pfs.Commit) error
+
+	// Used internally by the transaction server for writing the pipeline spec to
+	// PFS outside of the transaction before a CreatePipeline call.
+	PreparePipelineSpecFileset(*TransactionContext, *pps.CreatePipelineRequest) (string, *pfs.Commit, error)
 }
 
 // TransactionEnv contains the APIServer instances for each subsystem that may
@@ -289,9 +302,9 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 	return t.txnCtx.txnEnv.authServer.ModifyRoleBindingInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, specCommit **pfs.Commit) error {
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, filesetID string, prevSpecCommit *pfs.Commit) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, specCommit)
+	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevSpecCommit)
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
@@ -356,7 +369,7 @@ func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error
 	return err
 }
 
-func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ **pfs.Commit) error {
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ string, _ *pfs.Commit) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
 	return err
 }

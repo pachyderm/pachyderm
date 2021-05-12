@@ -318,6 +318,10 @@ func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJo
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{UpdateJobState: req})
 	return nil, nil
 }
+func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreatePipeline: req})
+	return nil, nil
+}
 
 // Boilerplate for making unsupported API requests error when used on a TransactionBuilder
 func unsupportedError(name string) error {
@@ -420,9 +424,6 @@ func (c *ppsBuilderClient) ListDatum(ctx context.Context, req *pps.ListDatumRequ
 }
 func (c *ppsBuilderClient) RestartDatum(ctx context.Context, req *pps.RestartDatumRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RestartDatum")
-}
-func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("CreatePipeline")
 }
 func (c *ppsBuilderClient) InspectPipeline(ctx context.Context, req *pps.InspectPipelineRequest, opts ...grpc.CallOption) (*pps.PipelineInfo, error) {
 	return nil, unsupportedError("InspectPipeline")

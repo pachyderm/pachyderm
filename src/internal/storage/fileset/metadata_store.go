@@ -25,6 +25,7 @@ type MetadataStore interface {
 	DB() *sqlx.DB
 	SetTx(tx *sqlx.Tx, id ID, md *Metadata) error
 	Get(ctx context.Context, id ID) (*Metadata, error)
+	GetTx(tx *sqlx.Tx, id ID) (*Metadata, error)
 	DeleteTx(tx *sqlx.Tx, id ID) error
 }
 

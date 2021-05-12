@@ -732,15 +732,23 @@ func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) 
 }
 
 func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
-	pachClient := a.env.GetPachClient(ctx)
-	fsid, err := fileset.ParseID(req.FilesetId)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.addFileset(pachClient, req.Commit, *fsid); err != nil {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return txnCtx.Pfs().AddFilesetInTransaction(txnCtx, req)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) AddFilesetInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.AddFilesetRequest) error {
+	fsid, err := fileset.ParseID(request.FilesetId)
+	if err != nil {
+		return err
+	}
+	if err := a.driver.addFileset(txnCtx, request.Commit, *fsid); err != nil {
+		return err
+	}
+	return nil
 }
 
 // RenewFileset implements the pfs.RenewFileset RPC

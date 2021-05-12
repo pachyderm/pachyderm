@@ -12,7 +12,6 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -59,15 +58,20 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 		Started:  now(),
 	}
 
-	var err error
-	err = d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	// Create any needed filesets before running the transaction
+	responses, err := d.prepareFilesets(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+	info.Responses = responses
+
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		info, err = d.runTransaction(txnCtx, info)
 		if err != nil {
 			return err
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -211,12 +215,13 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 			response = &transaction.TransactionResponse{}
 		} else if request.CreatePipeline != nil {
 			// find the existing spec commit, if it exists
-			var filesetID *fileset.ID
 			if len(info.Responses) > i && info.Responses[i] != nil {
-				filesetID, err = fileset.ParseID(info.Responses[i].FilesetID)
-				if err == nil {
-					err = directTxn.CreatePipeline(request.CreatePipeline, filesetID)
-					response = &transaction.TransactionResponse{FilesetID: filesetID.HexString()}
+				subResponse := info.Responses[i].CreatePipelineResponse
+				if subResponse == nil {
+					err = errors.New("internal error: incorrect response type for create pipeline in transaction")
+				} else {
+					err = directTxn.CreatePipeline(request.CreatePipeline, subResponse.FilesetId, subResponse.PrevSpecCommit)
+					response = info.Responses[i]
 				}
 			} else {
 				err = errors.New("internal error: create pipeline spec should have been stored in a fileset before starting the transaction")
@@ -237,19 +242,41 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 }
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
+
+	// TODO: unify this logic with appendTransaction
+	// First, load the existing info and provision any missing filesets
 	info := &transaction.TransactionInfo{}
-	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := d.transactions.ReadOnly(ctx).Get(txn.ID, info); err != nil {
+		return nil, err
+	}
+
+	// Save the length so that we can check that nothing else modifies the
+	// transaction in the meantime
+	numRequests := len(info.Requests)
+	numResponses := len(info.Responses)
+
+	// Create any needed filesets before running the transaction
+	responses, err := d.prepareFilesets(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
 		if err != nil {
 			return err
 		}
+		if len(info.Requests) != numRequests || len(info.Responses) != numResponses {
+			// Someone else modified the transaction while we prepared the filesets
+			return &transactionConflictError{}
+		}
+		info.Responses = responses
 		info, err = d.runTransaction(txnCtx, info)
 		if err != nil {
 			return err
 		}
 		return d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID)
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return info, nil
@@ -267,39 +294,51 @@ func (d *driver) prepareFilesets(
 	info *transaction.TransactionInfo,
 ) ([]*transaction.TransactionResponse, error) {
 	newResponses := []*transaction.TransactionResponse{}
-	for i, request := range info.Requests {
-		var response *transaction.TransactionResponse
 
-		if request.CreatePipeline != nil {
-			var filesetID fileset.ID
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		for i, request := range info.Requests {
+			var response *transaction.TransactionResponse
 
-			// If there is an existing fileset, try to renew it
-			if len(info.Responses) > i && info.Responses[i] != nil {
-				filesetID, err = fileset.ParseID(info.Responses[i].FilesetID)
-				if err != nil {
-					return err
+			if request.CreatePipeline != nil {
+				fmt.Printf("prepareFilesets building response for create pipeline")
+				filesetID := ""
+
+				// If there is an existing fileset, try to renew it
+				if len(info.Responses) > i && info.Responses[i] != nil && info.Responses[i].CreatePipelineResponse != nil {
+					response = info.Responses[i]
+					filesetID = response.CreatePipelineResponse.FilesetId
+					if err := txnCtx.Client.RenewFileSet(filesetID, 600*time.Second); err != nil {
+						filesetID = ""
+					}
 				}
-				if err := client.RenewFileSet(filesetID, 600*time.Second); err != nil {
-					filesetID = nil
+
+				if filesetID == "" {
+					// No existing fileset or the old one expired, create a new fileset
+					filesetID, prevSpecCommit, err := txnCtx.Pps().PreparePipelineSpecFileset(txnCtx, request.CreatePipeline)
+					if err != nil {
+						return err
+					}
+					response = &transaction.TransactionResponse{
+						CreatePipelineResponse: &transaction.CreatePipelineTransactionResponse{
+							FilesetId:      filesetID,
+							PrevSpecCommit: prevSpecCommit,
+						},
+					}
 				}
+			} else if len(info.Responses) > i {
+				response = info.Responses[i]
 			}
 
-			if filesetID == nil {
-				// If we don't have a renewed filesetID, create one based off of the spec
-				if err := client.WithCreateFilesetClient(func(mf *client.ModifyFile) error {
-				}); err != nil {
-					return err
-				}
-			}
-
-			response = &transaction.TransactionResponse{FilesetID: filesetID.HexString()}
-		} else if len(info.Responses) > i {
-			response = info.Responses[i]
+			newResponses = append(newResponses, response)
 		}
-
-		newResponses = append(newResponses, response)
+		return nil
+	}); err != nil {
+		return nil, err
 	}
-	return newResponses
+
+	fmt.Printf("prepareFilesets, newResponses: %d of %d\n", len(newResponses), len(info.Requests))
+
+	return newResponses, nil
 }
 
 func (d *driver) appendTransaction(

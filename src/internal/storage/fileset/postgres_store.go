@@ -68,6 +68,21 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 	return md, nil
 }
 
+func (s *postgresStore) GetTx(tx *sqlx.Tx, id ID) (*Metadata, error) {
+	var mdData []byte
+	if err := tx.Get(&mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrFileSetNotExists
+		}
+		return nil, err
+	}
+	md := &Metadata{}
+	if err := proto.Unmarshal(mdData, md); err != nil {
+		return nil, err
+	}
+	return md, nil
+}
+
 func (s *postgresStore) DeleteTx(tx *sqlx.Tx, id ID) error {
 	_, err := tx.Exec(`DELETE FROM storage.filesets WHERE id = $1`, id)
 	return err
