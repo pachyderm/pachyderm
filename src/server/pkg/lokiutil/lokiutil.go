@@ -46,11 +46,9 @@ func forEachLine(resp loki.QueryResponse, f func(t time.Time, line string) error
 	return nil
 }
 
-// QueryRange calls QueryRange on the passed loki.Client and calls f with each
-// logline.
+// QueryRange calls QueryRange on the passed loki.Client and calls f with each logline.
 func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, through time.Time, follow bool, f func(t time.Time, line string) error) error {
 	for {
-		// Unfortunately there's no way to pass ctx to this function.
 		resp, err := c.QueryRange(ctx, queryStr, maxLogMessages, from, through, "FORWARD", 0, 0, true)
 		if err != nil {
 			return err
@@ -67,7 +65,7 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 			return nil
 		}
 		from = from.Add(time.Nanosecond)
-		// check if the context has been cancelled
+		// check if the context has been cancelled TODO: No longer needed?
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

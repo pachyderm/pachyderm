@@ -9,19 +9,21 @@ import (
 	"time"
 )
 
+// ** Why this is here **
+// We use a stripped down version of the loki client as importing
+// the main client locks us to old module deps like k8s.io/client-go
 var (
 	queryRangePath = "/loki/api/v1/query_range"
-	//lokiAddress    = "http://localhost:3100" //TODO Make configurable for on cluster
 )
 
-// Loki Client
+// Client holds configuration for the loki
 type Client struct {
 	Address string
 }
 
-// QueryRange(queryStr string, limit int, from, through time.Time, direction logproto.Direction, step, interval time.Duration, quiet bool) (*loghttp.QueryResponse, error)
+// QueryRange queries Loki in a given time range
 func (c *Client) QueryRange(ctx context.Context, queryStr string, limit int, start, end time.Time, direction string, step, interval time.Duration, quiet bool) (*QueryResponse, error) {
-	params := NewQueryStringBuilder()
+	params := newQueryStringBuilder()
 	params.SetString("query", queryStr)
 	params.SetInt32("limit", limit)
 	params.SetInt("start", start.UnixNano())
