@@ -47,28 +47,26 @@ func now() *types.Timestamp {
 }
 
 func (d *driver) batchTransaction(ctx context.Context, req []*transaction.TransactionRequest) (*transaction.TransactionInfo, error) {
-	// Because we're building and running the entire transaction atomically here,
-	// there is no need to persist the TransactionInfo to the collection
-	info := &transaction.TransactionInfo{
-		Transaction: &transaction.Transaction{
-			ID: uuid.New(),
-		},
-		Requests: req,
-		Started:  now(),
-	}
-
+	var result *transaction.TransactionInfo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		var err error
-		info, err = d.runTransaction(txnCtx, info)
-		if err != nil {
-			return err
+		// Because we're building and running the entire transaction atomically here,
+		// there is no need to persist the TransactionInfo to the collection
+		info := &transaction.TransactionInfo{
+			Transaction: &transaction.Transaction{
+				ID: uuid.New(),
+			},
+			Requests: req,
+			Started:  now(),
 		}
-		return nil
+
+		var err error
+		result, err = d.runTransaction(txnCtx, info)
+		return err
 	}); err != nil {
 		return nil, err
 	}
 
-	return info, nil
+	return result, nil
 }
 
 func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction, error) {
@@ -139,6 +137,7 @@ func (d *driver) deleteAll(ctx context.Context, sqlTx *sqlx.Tx, running *transac
 }
 
 func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+	result := proto.Clone(info).(*transaction.TransactionInfo)
 	responses := []*transaction.TransactionResponse{}
 	directTxn := txnenv.NewDirectTransaction(txnCtx)
 	for i, request := range info.Requests {
@@ -222,8 +221,8 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 		responses = append(responses, response)
 	}
 
-	info.Responses = responses
-	return info, nil
+	result.Responses = responses
+	return result, nil
 }
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
