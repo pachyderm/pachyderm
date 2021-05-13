@@ -979,25 +979,27 @@ func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, out
 	}
 
 	commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
-		Commit: client.NewCommit(outputCommit.Repo.Name, outputCommit.ID),
+		Commit: client.NewCommit(pipelineJobInfo.OutputCommit.Repo.Name, pipelineJobInfo.OutputCommit.ID),
 	})
 	if err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
 		return err
 	}
-	statsCommit := ppsutil.GetStatsCommit(commitInfo)
+	if commitInfo != nil {
+		statsCommit := ppsutil.GetStatsCommit(commitInfo)
 
-	if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-		Commit: commitInfo.Commit,
-		Empty:  true,
-	}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
-		return err
-	}
+		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+			Commit: commitInfo.Commit,
+			Empty:  true,
+		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
+			return err
+		}
 
-	if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-		Commit: statsCommit,
-		Empty:  true,
-	}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
-		return err
+		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+			Commit: statsCommit,
+			Empty:  true,
+		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
+			return err
+		}
 	}
 
 	// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
