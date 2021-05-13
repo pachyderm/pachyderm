@@ -1,5 +1,13 @@
 .base {
   width: 100%;
+  height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.base::-webkit-scrollbar {
+  display: none;
 }
 
 .topContent {
@@ -20,7 +28,17 @@
   font-weight: 600;
   line-height: 22px;
   font-size: 0.875rem;
+  padding: 1rem;
+  background-color: var(--white);
+  position: sticky;
+  z-index: 1;
+  top: -1px
 }
+
+.subTitle.stuck {
+  border-bottom: solid 1px var(--line-grey);
+}
+
 .inline {
   display: inline-flex;
   width: 100%;

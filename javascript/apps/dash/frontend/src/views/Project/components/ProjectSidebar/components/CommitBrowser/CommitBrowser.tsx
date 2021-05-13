@@ -9,9 +9,10 @@ import BranchBrowser from './components/BranchBrowser';
 
 type CommitBrowserProps = {
   repo?: RepoQuery['repo'];
+  repoBaseRef: React.RefObject<HTMLDivElement>;
 };
 
-const CommitBrowser: React.FC<CommitBrowserProps> = ({repo}) => {
+const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
   const {branchId} = useUrlState();
   const currentCommits = useMemo(
     () =>
@@ -23,8 +24,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo}) => {
 
   return (
     <>
-      <BranchBrowser repo={repo} />
-
+      <BranchBrowser repo={repo} repoBaseRef={repoBaseRef} />
       <div className={styles.commits}>
         {currentCommits.length ? (
           currentCommits.map((commit) => {

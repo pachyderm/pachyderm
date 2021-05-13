@@ -1,6 +1,6 @@
 import {SkeletonDisplayText, Link} from '@pachyderm/components';
 import {format, fromUnixTime} from 'date-fns';
-import React from 'react';
+import React, {useRef} from 'react';
 
 import Description from '@dash-frontend/components/Description';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
@@ -15,16 +15,19 @@ import styles from './RepoDetails.module.css';
 const RepoDetails = () => {
   const {projectId, dagId} = useUrlState();
   const {loading, repo} = useCurrentRepo();
+  const repoBaseRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className={styles.base}>
-      {loading ? (
-        <SkeletonDisplayText data-testid={'RepoDetails__RepoNameSkeleton'} />
-      ) : (
-        <Title>{repo?.name}</Title>
-      )}
+    <div className={styles.base} ref={repoBaseRef}>
+      <div className={styles.title}>
+        {loading ? (
+          <SkeletonDisplayText data-testid={'RepoDetails__RepoNameSkeleton'} />
+        ) : (
+          <Title>{repo?.name}</Title>
+        )}
+      </div>
 
-      <dl>
+      <dl className={styles.repoInfo}>
         <Description loading={loading} term="Created">
           {repo ? format(fromUnixTime(repo.createdAt), 'MM/d/yyyy') : 'N/A'}
         </Description>
@@ -52,7 +55,7 @@ const RepoDetails = () => {
         </Description>
       </dl>
       <div className={styles.divider} />
-      <CommitBrowser repo={repo} />
+      <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} />
     </div>
   );
 };

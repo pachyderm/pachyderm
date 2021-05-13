@@ -1,3 +1,4 @@
+import classnames from 'classnames';
 import React from 'react';
 
 import {Job} from '@graphqlTypes';
@@ -12,6 +13,7 @@ type JobListBaseProps = {
   loading?: boolean;
   projectId: string;
   expandActions?: boolean;
+  listScroll?: boolean;
 };
 
 const JobListBase: React.FC<JobListBaseProps> = ({
@@ -19,13 +21,17 @@ const JobListBase: React.FC<JobListBaseProps> = ({
   jobs,
   projectId,
   expandActions = false,
+  listScroll = false,
 }) => {
   if (loading) return <JobListSkeleton expandActions={expandActions} />;
 
   if (jobs?.length === 0) return <JobListEmptyState />;
 
   return (
-    <ul className={styles.base} data-testid={`JobList__project${projectId}`}>
+    <ul
+      className={classnames(styles.base, {[styles.listScroll]: listScroll})}
+      data-testid={`JobList__project${projectId}`}
+    >
       {jobs?.map((job) => (
         <JobListItem job={job} key={job.id} expandActions={expandActions} />
       ))}

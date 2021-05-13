@@ -8,12 +8,14 @@ import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 
+import styles from './PipelineInfo.module.css';
+
 const PipelineInfo = () => {
   const {projectId, dagId, pipelineId} = useUrlState();
   const {pipeline, loading} = useCurrentPipeline();
 
   return (
-    <dl>
+    <dl className={styles.base}>
       <Description term="Pipeline Status" loading={loading}>
         {pipeline && <PipelineStateComponent state={pipeline.state} />}
       </Description>

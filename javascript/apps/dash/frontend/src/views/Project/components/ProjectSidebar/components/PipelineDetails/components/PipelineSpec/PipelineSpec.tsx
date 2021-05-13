@@ -13,7 +13,7 @@ const PipelineSpec = () => {
   const {pipeline, loading} = useCurrentPipeline();
 
   return (
-    <dl>
+    <dl className={styles.base}>
       <Description term="Inputs" loading={loading} lines={9}>
         {pipeline && (
           <PipelineInput

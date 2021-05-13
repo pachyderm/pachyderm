@@ -42,7 +42,7 @@ const Project: React.FC = () => {
   return (
     <>
       <ProjectHeader totalDags={dags.length} />
-      <View>
+      <View canvas={dagsToShow.length === 1}>
         {dagsToShow.map((dag) => {
           return (
             <DAG

@@ -1,5 +1,6 @@
 :root {
   --header-height: 4.25rem;
+  --sidebar-header-height: 9.875rem;
   --padding-view-y: 1.25rem;
 }
 
@@ -16,6 +17,7 @@
 body {
   color: var(--pachyderm-black);
   box-sizing: border-box;
+  overflow-y: hidden;
 }
 
 main {

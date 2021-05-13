@@ -4,6 +4,24 @@
   flex: 1;
   width: 100%;
   padding: var(--padding-view-y) var(--padding-view-x);
+  height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-grey) transparent;
+}
+
+.canvas {
+  padding: 0;
+}
+
+::-webkit-scrollbar {
+  width: 1rem;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-grey);
+  border-radius: 0.5rem;
+  border: solid 0.25rem var(--background-grey);
 }
 
 .base.sidenav {

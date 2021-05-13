@@ -1,9 +1,11 @@
 import {Group, InfoSVG} from '@pachyderm/components';
-import React from 'react';
+import classNames from 'classnames';
+import React, {useRef} from 'react';
 import {Link} from 'react-router-dom';
 
 import Description from '@dash-frontend/components/Description';
 import JobListStatic from '@dash-frontend/components/JobList/components/JobListStatic';
+import useIntersection from '@dash-frontend/hooks/useIntersection';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {Project} from '@graphqlTypes';
 
@@ -17,9 +19,12 @@ type ProjectPreviewProps = {
 
 const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
   const {projectDetails, loading} = useProjectDetails(project.id);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const subtitleRef = useRef<HTMLHeadingElement>(null);
+  const isStuck = useIntersection(subtitleRef.current, sidebarRef.current);
 
   return (
-    <div className={styles.base}>
+    <div className={styles.base} ref={sidebarRef}>
       <div className={styles.topContent}>
         <Group spacing={24} vertical>
           <h4 className={styles.title}>Project Preview</h4>
@@ -45,9 +50,16 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
             </div>
           </Description>
           <Group.Divider />
-          <h4 className={styles.subTitle}>Last 30 Jobs</h4>
         </Group>
       </div>
+      <h4
+        ref={subtitleRef}
+        className={classNames(styles.subTitle, {
+          [styles.stuck]: isStuck,
+        })}
+      >
+        Last 30 Jobs
+      </h4>
       <JobListStatic
         projectId={project.id}
         jobs={projectDetails?.jobs}

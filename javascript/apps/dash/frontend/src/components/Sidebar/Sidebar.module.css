@@ -9,16 +9,19 @@
 }
 
 .overlay {
-  position: absolute;
+  position: fixed;
   right: 0;
-  top: 0;
+  top: var(--header-height);
   bottom: 0;
   width: auto;
   max-width: none;
-  overflow-y: auto;
 }
 
 .closeContainer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 2;
   padding: 1rem 1.375rem;
 }
 

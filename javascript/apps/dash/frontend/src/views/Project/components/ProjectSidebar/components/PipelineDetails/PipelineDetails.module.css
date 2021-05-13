@@ -1,11 +1,10 @@
 .base {
   width: 24.1875rem;
-  padding: 0 1.5625rem;
+  padding-top: 3.5rem;
 }
 
-.tabsHeader {
+.tabsHeader, .title {
   padding: 0 1.5625rem;
-  margin: 0 -1.5625rem;
 }
 
 .nameLoader {

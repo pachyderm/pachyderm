@@ -6,6 +6,7 @@ import styles from './Sidebar.module.css';
 
 interface SidebarProps extends HTMLAttributes<HTMLDivElement> {
   overlay?: boolean;
+  fixed?: boolean;
   onClose?: () => void;
 }
 
@@ -14,10 +15,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   overlay,
   onClose,
   className,
+  fixed,
   ...rest
 }) => (
   <div
-    className={classnames(styles.base, {[styles.overlay]: overlay}, className)}
+    className={classnames(
+      styles.base,
+      {[styles.overlay]: overlay, [styles.fixed]: fixed},
+      className,
+    )}
     {...rest}
   >
     {onClose && (

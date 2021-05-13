@@ -34,6 +34,7 @@ const JobList: React.FC<JobListProps> = ({
         loading={loading}
         jobs={filteredJobs}
         expandActions={expandActions}
+        listScroll
       />
     </Form>
   );

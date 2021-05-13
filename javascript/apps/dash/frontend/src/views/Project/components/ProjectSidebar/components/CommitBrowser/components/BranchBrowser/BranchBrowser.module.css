@@ -1,4 +1,11 @@
-.menu {
-  top: 0.625rem;
-  left: -1.25rem;
+.base {
+  position: sticky;
+  z-index: 1;
+  top: -1px;
+  padding: 1rem 1.5625rem;
+  background-color: var(--white);
+}
+
+.base.stuck {
+  border-bottom: solid 1px var(--line-grey);
 }

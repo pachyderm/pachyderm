@@ -18,13 +18,15 @@ const PipelineDetails = () => {
 
   return (
     <div className={styles.base}>
-      {loading ? (
-        <SkeletonDisplayText
-          data-testid={'PipelineDetails__pipelineNameSkeleton'}
-        />
-      ) : (
-        <Title>{pipelineName}</Title>
-      )}
+      <div className={styles.title}>
+        {loading ? (
+          <SkeletonDisplayText
+            data-testid={'PipelineDetails__pipelineNameSkeleton'}
+          />
+        ) : (
+          <Title>{pipelineName}</Title>
+        )}
+      </div>
       <Tabs.RouterTabs basePathTabId={TAB_ID.INFO} basePath={PIPELINE_PATH}>
         <Tabs.TabsHeader className={styles.tabsHeader}>
           {TAB_IDS.map((tabId) => (

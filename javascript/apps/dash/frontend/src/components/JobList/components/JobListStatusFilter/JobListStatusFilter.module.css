@@ -1,7 +1,8 @@
 .base {
   padding-left: 2rem;
   padding-right: 5.4375rem;
-  padding-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  padding-top: 3.5rem;
   border-bottom: 1px solid var(--line-grey);
 }
 

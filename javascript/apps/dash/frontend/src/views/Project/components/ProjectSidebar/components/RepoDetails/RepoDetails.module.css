@@ -1,11 +1,26 @@
 .base {
-  padding: 0 1.5625rem;
   width: 24.0625rem;
+  height: calc(100vh - var(--header-height) - 56px);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.base::-webkit-scrollbar {
+  display: none;
+}
+
+.repoInfo, .title {
+  padding: 0 1.5625rem;
+}
+
+.title {
+  padding-top: 3.5rem;
 }
 
 .divider {
   background-color: var(--line-grey);
   height: 1px;
-  margin: 1.5rem 0;
+  margin-bottom: 0.625rem;
+  margin-top: 1.5625rem;
   width: 100%;
 }

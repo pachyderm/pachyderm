@@ -1,3 +1,7 @@
+.commit, .empty {
+  padding: 0 1.5625rem;
+}
+
 .commitTime {
   font-size: 0.75rem;
 }
