@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"reflect"
-	"runtime/debug"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
