@@ -281,7 +281,7 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 func (env *NonblockingServiceEnv) initListener() error {
 	dsn := dbutil.GetDSN(
 		dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
-		dbutil.WithDBName(env.config.PostgresDBName),
+		dbutil.WithDBName(env.config.PostgresDB),
 	)
 	return backoff.Retry(func() error {
 		// The PostgresListener is lazily initialized to avoid consuming too many
