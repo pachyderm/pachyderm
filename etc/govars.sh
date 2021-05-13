@@ -11,19 +11,22 @@
 
 if test -z "${GOPATH}"
 then
-  export GOPATH=$(go env GOPATH)
+  GOPATH=$(go env GOPATH)
+  export GOPATH # make linter happy SC2155
 fi
 
 if test -z "${GOBIN}"
 then
   # Set GOBIN based on GOPATH (necessary on Windows)
   # TODO(msteffen) would it be better to use 'go env GOBIN'?
-  export GOBIN="${GOPATH}/bin"
+  GOBIN="${GOPATH}/bin"
+  export GOBIN # make linter happy SC2155
 fi
 
 if test -z "${PACHCTL}"
 then
   # Set PACHCTL based on GOBIN (want compiled pachctl to override system
   # pachctl, if any)
-  export PACHCTL="${GOBIN}/pachctl"
+  PACHCTL="${GOBIN}/pachctl"
+  export PACHCTL # make linter happy SC2155
 fi

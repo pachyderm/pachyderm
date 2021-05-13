@@ -457,7 +457,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:14.04
+		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
@@ -540,7 +540,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:14.04
+		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1031,7 +1031,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:14.04
+		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1102,7 +1102,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
-				Image: "ubuntu:16.04",
+				Image: "", // default image: DefaultUserImage
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp /pfs/*/* /pfs/out"},
 			},
@@ -1182,7 +1182,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{
 			"sleep 10",
@@ -1242,7 +1242,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	pipeline2 := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline2,
-		"", // default image: ubuntu:16.04
+		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1293,7 +1293,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{
 			"sleep 10",
