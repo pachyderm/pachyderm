@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.2
+
+- Fixes a bug that causes pipeline master to block after losing connection to etcd (#6042)
+- Fixes a bug that failed initialization if pachd was not run as root (#6065)
+- Fixes a bug that failed to run pipelines after few hours of operation (#6083)
+
 ## 1.13.1
 
 - Fixes a bug that would fail enterprise check when autoscaling is enabled (#6008)
