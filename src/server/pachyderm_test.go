@@ -9377,7 +9377,7 @@ func TestCreatePipelineErrorNoPipeline(t *testing.T) {
 			Input: client.NewPFSInput(dataRepo, "/*"),
 		})
 	require.YesError(t, err)
-	require.Matches(t, "pipeline", err.Error())
+	require.Matches(t, "request.Pipeline", err.Error())
 }
 
 // TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
