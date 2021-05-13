@@ -14,11 +14,12 @@ var (
 	//lokiAddress    = "http://localhost:3100" //TODO Make configurable for on cluster
 )
 
+// Loki Client
 type Client struct {
 	Address string
 }
 
-//	QueryRange(queryStr string, limit int, from, through time.Time, direction logproto.Direction, step, interval time.Duration, quiet bool) (*loghttp.QueryResponse, error)
+// QueryRange(queryStr string, limit int, from, through time.Time, direction logproto.Direction, step, interval time.Duration, quiet bool) (*loghttp.QueryResponse, error)
 func (c *Client) QueryRange(ctx context.Context, queryStr string, limit int, start, end time.Time, direction string, step, interval time.Duration, quiet bool) (*QueryResponse, error) {
 	params := NewQueryStringBuilder()
 	params.SetString("query", queryStr)
