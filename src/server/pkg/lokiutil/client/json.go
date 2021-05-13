@@ -10,6 +10,7 @@ import (
 	"github.com/modern-go/reflect2"
 )
 
+// From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/entry.go
 func init() {
 	json.RegisterExtension(&jsonExtension{})
 }
@@ -70,6 +71,7 @@ type QueryResponse struct {
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
+// From: https://github.com/grafana/loki/blob/a9d85de4aa5290cf2f8b2dca5d08645bbd0dc66c/pkg/loghttp/query.go
 func (q *QueryResponseData) UnmarshalJSON(data []byte) error {
 	unmarshal := struct {
 		Type   ResultType      `json:"resultType"`
@@ -117,12 +119,15 @@ func (q *QueryResponseData) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/entry.go
 type jsonExtension struct {
 	json.DummyExtension
 }
 
+// From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/entry.go
 type sliceEntryDecoder struct{}
 
+// From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/entry.go
 func (sliceEntryDecoder) Decode(ptr unsafe.Pointer, iter *json.Iterator) {
 	fmt.Println("Decode called")
 	*((*[]Entry)(ptr)) = (*((*[]Entry)(ptr)))[:0]
@@ -160,6 +165,7 @@ func (sliceEntryDecoder) Decode(ptr unsafe.Pointer, iter *json.Iterator) {
 	})
 }
 
+// From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/entry.go
 func readTimestamp(iter *json.Iterator) (time.Time, bool) {
 	s := iter.ReadString()
 	if iter.Error != nil {
@@ -181,6 +187,7 @@ func (entryEncoder) IsEmpty(ptr unsafe.Pointer) bool {
 	return false
 }*/
 
+// From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/entry.go
 func (e *jsonExtension) CreateDecoder(typ reflect2.Type) json.ValDecoder {
 	if typ == reflect2.TypeOf([]Entry{}) {
 		return sliceEntryDecoder{}
