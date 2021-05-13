@@ -71,7 +71,7 @@ func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool, 
 	}
 
 	defer resp.Body.Close()
-	return json.NewDecoder(req.Body).Decode(out)
+	return json.NewDecoder(resp.Body).Decode(out)
 }
 
 func buildURL(u, p, q string) (string, error) {

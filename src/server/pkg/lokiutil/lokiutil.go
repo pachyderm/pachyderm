@@ -65,12 +65,6 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 			return nil
 		}
 		from = from.Add(time.Nanosecond)
-		// check if the context has been cancelled TODO: No longer needed?
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
 	}
 }
 
