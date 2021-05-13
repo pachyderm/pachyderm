@@ -138,90 +138,63 @@ func (d *driver) deleteAll(ctx context.Context, sqlTx *sqlx.Tx, running *transac
 
 func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	result := proto.Clone(info).(*transaction.TransactionInfo)
-	responses := []*transaction.TransactionResponse{}
+	for len(result.Responses) < len(result.Requests) {
+		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
+	}
+
 	directTxn := txnenv.NewDirectTransaction(txnCtx)
 	for i, request := range info.Requests {
 		var err error
-		var response *transaction.TransactionResponse
+		response := result.Responses[i]
 
 		if request.CreateRepo != nil {
 			err = directTxn.CreateRepo(request.CreateRepo)
-			response = &transaction.TransactionResponse{}
 		} else if request.DeleteRepo != nil {
 			err = directTxn.DeleteRepo(request.DeleteRepo)
-			response = &transaction.TransactionResponse{}
 		} else if request.StartCommit != nil {
 			// Do a little extra work here so we can make sure the new commit ID is
 			// the same every time.  We store the response the first time and reuse
 			// the commit ID on subsequent runs.
 			var commit *pfs.Commit
-			if len(info.Responses) > i {
-				commit = info.Responses[i].Commit
-				if commit == nil {
-					err = errors.Errorf("unexpected stored response type for StartCommit")
-				}
-			}
 			if err == nil {
-				commit, err = directTxn.StartCommit(request.StartCommit, commit)
-				response = &transaction.TransactionResponse{Commit: commit}
+				response.Commit, err = directTxn.StartCommit(request.StartCommit, commit)
 			}
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
-			response = &transaction.TransactionResponse{}
 		} else if request.SquashCommit != nil {
 			err = directTxn.SquashCommit(request.SquashCommit)
-			response = &transaction.TransactionResponse{}
 		} else if request.CreateBranch != nil {
 			err = directTxn.CreateBranch(request.CreateBranch)
-			response = &transaction.TransactionResponse{}
 		} else if request.DeleteBranch != nil {
 			err = directTxn.DeleteBranch(request.DeleteBranch)
-			response = &transaction.TransactionResponse{}
 		} else if request.UpdateJobState != nil {
 			err = directTxn.UpdateJobState(request.UpdateJobState)
-			response = &transaction.TransactionResponse{}
 		} else if request.DeleteAll != nil {
 			// TODO: extend this to delete everything through PFS, PPS, Auth and
 			// update the client DeleteAll call to use only this, then remove unused
 			// RPCs.  This is not currently feasible because it does an orderly
 			// deletion that generates a very large transaction.
 			err = d.deleteAll(txnCtx.ClientContext, txnCtx.SqlTx, info.Transaction)
-			response = &transaction.TransactionResponse{}
 		} else if request.CreatePipeline != nil {
-			// find the existing spec commit, if it exists
-			filesetID := ""
-			var prevSpecCommit *pfs.Commit
-			if len(info.Responses) > i {
-				subResponse := info.Responses[i].CreatePipelineResponse
-				if subResponse == nil {
-					err = errors.New("internal error: incorrect response type for CreatePipeline in transaction")
-				} else {
-					filesetID = subResponse.FilesetId
-					prevSpecCommit = subResponse.PrevSpecCommit
-				}
+			if response.CreatePipelineResponse == nil {
+				response.CreatePipelineResponse = &transaction.CreatePipelineTransactionResponse{}
 			}
+			filesetID := &response.CreatePipelineResponse.FilesetId
+			prevSpecCommit := &response.CreatePipelineResponse.PrevSpecCommit
 
-			if err == nil {
-				err = directTxn.CreatePipeline(request.CreatePipeline, &filesetID, &prevSpecCommit)
-				response = &transaction.TransactionResponse{
-					CreatePipelineResponse: &transaction.CreatePipelineTransactionResponse{
-						FilesetId:      filesetID,
-						PrevSpecCommit: prevSpecCommit,
-					},
-				}
-			}
+			// CreatePipeline may update the fileset and prevSpecCommit even if it
+			// fails (because these refer to things outside of the transaction) - we
+			// need to save them into the response so they can be seen the next time
+			// the transaction is attempted.
+			err = directTxn.CreatePipeline(request.CreatePipeline, filesetID, prevSpecCommit)
 		} else {
 			err = errors.New("unrecognized transaction request type")
 		}
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "error running request %d of %d", i+1, len(info.Requests))
+			return result, errors.Wrapf(err, "error running request %d of %d", i+1, len(info.Requests))
 		}
-
-		responses = append(responses, response)
 	}
-
-	result.Responses = responses
 	return result, nil
 }
 
@@ -261,11 +234,11 @@ func (d *driver) appendTransaction(
 		// 1. make sure the appended request is valid
 		// 2. Capture the result of the request to be returned
 		var numRequests, numResponses int
-		var dryrunResponses []*transaction.TransactionResponse
+		var newResponses []*transaction.TransactionResponse
 
-		info := &transaction.TransactionInfo{}
 		if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 			// Get the existing transaction and append the new requests
+			info := &transaction.TransactionInfo{}
 			err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, info)
 			if err != nil {
 				return err
@@ -276,19 +249,22 @@ func (d *driver) appendTransaction(
 			numRequests = len(info.Requests)
 			numResponses = len(info.Responses)
 			info.Requests = append(info.Requests, items...)
-
-			info, err = d.runTransaction(txnCtx, info)
-			if err != nil {
-				return err
+			if newResponses != nil {
+				info.Responses = newResponses
 			}
 
-			dryrunResponses = info.Responses[numResponses:]
-			return nil
+			// This may error with a postgres-level transaction conflict, in which
+			// case we want to save the generated responses and reattempt.  The saved
+			// responses will contain any references to objects generated outside of
+			// the transaction and need to be reused on the next attempt.
+			info, err = d.runTransaction(txnCtx, info)
+			newResponses = info.Responses
+			return err
 		}); err != nil {
 			return nil, err
 		}
 
-		info = &transaction.TransactionInfo{}
+		info := &transaction.TransactionInfo{}
 		if err := col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
 			// Update the existing transaction with the new requests/responses
 			return d.transactions.ReadWrite(sqlTx).Update(txn.ID, info, func() error {
@@ -298,7 +274,7 @@ func (d *driver) appendTransaction(
 				}
 
 				info.Requests = append(info.Requests, items...)
-				info.Responses = append(info.Responses, dryrunResponses...)
+				info.Responses = newResponses
 				return nil
 			})
 		}); err == nil {

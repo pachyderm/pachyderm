@@ -104,11 +104,7 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 			return err
 		}
 
-		err = errors.EnsureStack(tx.Commit())
-		if err != nil {
-			return err
-		}
-		return nil
+		return errors.EnsureStack(tx.Commit())
 	}
 
 	for {
@@ -125,17 +121,23 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
 func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return errors.EnsureStack(err)
+	attemptTx := func() error {
+		tx, err := db.BeginTxx(ctx, nil)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		defer tx.Rollback()
+		return apply(tx)
 	}
-	defer tx.Rollback()
-
-	err = apply(tx)
-	if err != nil {
-		return err
+	for {
+		if err := attemptTx(); err != nil {
+			if !isTransactionError(err) {
+				return err
+			}
+		} else {
+			return nil
+		}
 	}
-	return nil
 }
 
 func (c *postgresCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
