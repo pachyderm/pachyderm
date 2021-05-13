@@ -36,6 +36,7 @@ type PfsWrites interface {
 // directly run the request through PPS or append it to the active transaction,
 // depending on if there is an active transaction in the client context.
 type PpsWrites interface {
+	StopJob(*pps.StopJobRequest) error
 	UpdateJobState(*pps.UpdateJobStateRequest) error
 	CreatePipeline(*pps.CreatePipelineRequest, *string, **pfs.Commit) error
 }
@@ -194,6 +195,7 @@ type PfsTransactionServer interface {
 // PpsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PPS server.
 type PpsTransactionServer interface {
+	StopJobInTransaction(*TransactionContext, *pps.StopJobRequest) error
 	UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error
 	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error
 }
@@ -288,6 +290,11 @@ func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) erro
 	return t.txnCtx.txnEnv.pfsServer.DeleteBranchInTransaction(t.txnCtx, req)
 }
 
+func (t *directTransaction) StopJob(original *pps.StopJobRequest) error {
+	req := proto.Clone(original).(*pps.StopJobRequest)
+	return t.txnCtx.txnEnv.ppsServer.StopJobInTransaction(t.txnCtx, req)
+}
+
 func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) error {
 	req := proto.Clone(original).(*pps.UpdateJobStateRequest)
 	return t.txnCtx.txnEnv.ppsServer.UpdateJobStateInTransaction(t.txnCtx, req)
@@ -357,6 +364,11 @@ func (t *appendTransaction) CreateBranch(req *pfs.CreateBranchRequest) error {
 
 func (t *appendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteBranch: req})
+	return err
+}
+
+func (t *appendTransaction) StopJob(req *pps.StopJobRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StopJob: req})
 	return err
 }
 

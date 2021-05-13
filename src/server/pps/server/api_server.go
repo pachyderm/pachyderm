@@ -921,15 +921,14 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
 	if request.Job == nil {
 		return nil, errors.New("Job cannot be nil")
 	}
-	if err := a.stopJob(ctx, pachClient, request.Job, nil, "job deleted"); err != nil {
-		return nil, err
-	}
-	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		return a.jobs.ReadWrite(sqlTx).Delete(request.Job.ID)
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		if err := a.stopJob(txnCtx, request.Job, nil, "job deleted"); err != nil {
+			return err
+		}
+		return a.jobs.ReadWrite(txnCtx.SqlTx).Delete(request.Job.ID)
 	}); err != nil {
 		return nil, err
 	}
@@ -940,68 +939,73 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	if err := a.stopJob(ctx, pachClient, request.Job, request.OutputCommit, "job stopped"); err != nil {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.StopJob(request)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
-	if job == nil && outputCommit == nil {
-		return errors.New("Job or OutputCommit must be specified")
-	}
+// StopJobInTransaction is identical to StopJob except that it can run inside an
+// existing postgres transaction.  This is not an RPC.
+func (a *apiServer) StopJobInTransaction(txnCtx *txnenv.TransactionContext, request *pps.StopJobRequest) error {
+	return a.stopJob(txnCtx, request.Job, request.OutputCommit, "job stopped")
+}
+
+func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
+	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
+	pipelineJobInfo := &pps.StoredPipelineJobInfo{}
 	if job != nil {
-		pipelineJobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{Job: job})
-		if err != nil {
+		if err := jobs.Get(job.ID, pipelineJobInfo); err != nil {
 			return err
 		}
-		outputCommit = pipelineJobInfo.OutputCommit
-	}
-	commitInfo, err := pachClient.InspectCommit(outputCommit.Repo.Name, outputCommit.ID)
-	if err != nil {
-		if pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
+	} else if outputCommit != nil {
+		count := 0
+		if err := jobs.GetByIndex(ppsdb.JobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJobInfo, col.DefaultOptions(), func(string) error {
+			count++
+			if count > 1 {
+				return errors.Errorf("found multiple jobs with output commit: %s@%s", outputCommit.Repo.Name, outputCommit.ID)
+			}
 			return nil
-		}
-		return err
-	}
-	statsCommit := ppsutil.GetStatsCommit(commitInfo)
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-			Commit: commitInfo.Commit,
-			Empty:  true,
 		}); err != nil {
 			return err
 		}
-		return txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-			Commit: statsCommit,
-			Empty:  true,
-		})
-	}); err != nil {
-		if pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
-			return nil
+		if count == 0 {
+			return errors.Errorf("job with output commit %s@%s not found", outputCommit.Repo.Name, outputCommit.ID)
 		}
-		if !pfsServer.IsCommitFinishedErr(err) {
-			return err
-		}
+	} else {
+		return errors.New("Job or OutputCommit must be specified")
 	}
-	// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
-	// more comprehensive solution to this with global ids.
-	pipelineJobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{OutputCommit: outputCommit})
-	if err != nil {
-		// TODO: It would be better for this to be a structured error.
-		if strings.Contains(err.Error(), "not found") {
-			return nil
-		}
+
+	commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+		Commit: client.NewCommit(outputCommit.Repo.Name, outputCommit.ID),
+	})
+	if err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
 		return err
 	}
-	pipelineJobInfo.State = pps.JobState_JOB_KILLED
-	pipelineJobInfo.Reason = reason
-	err = ppsutil.WriteJobInfo(pachClient, pipelineJobInfo)
-	if ppsServer.IsJobFinishedErr(err) {
+	statsCommit := ppsutil.GetStatsCommit(commitInfo)
+
+	if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+		Commit: commitInfo.Commit,
+		Empty:  true,
+	}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
+		return err
+	}
+
+	if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+		Commit: statsCommit,
+		Empty:  true,
+	}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
+		return err
+	}
+
+	// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
+	// more comprehensive solution to this with global ids.
+	if ppsutil.IsTerminal(pipelineJobInfo.State) {
 		return nil
 	}
-	return err
+	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, pipelineJobInfo, pps.JobState_JOB_KILLED, reason)
 }
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC

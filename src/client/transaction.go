@@ -314,6 +314,10 @@ func (c *pfsBuilderClient) DeleteBranch(ctx context.Context, req *pfs.DeleteBran
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{DeleteBranch: req})
 	return nil, nil
 }
+func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{StopJob: req})
+	return nil, nil
+}
 func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJobStateRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{UpdateJobState: req})
 	return nil, nil
@@ -412,9 +416,6 @@ func (c *ppsBuilderClient) FlushJob(ctx context.Context, req *pps.FlushJobReques
 }
 func (c *ppsBuilderClient) DeleteJob(ctx context.Context, req *pps.DeleteJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteJob")
-}
-func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("StopJob")
 }
 func (c *ppsBuilderClient) InspectDatum(ctx context.Context, req *pps.InspectDatumRequest, opts ...grpc.CallOption) (*pps.DatumInfo, error) {
 	return nil, unsupportedError("InspectDatum")

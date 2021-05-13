@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // Propagater is an object that is used to propagate PFS branches at the end of
@@ -65,6 +66,7 @@ func (a *apiServer) NewPipelineFinisher(txnCtx *txnenv.TransactionContext) txnen
 
 // FinishPipelineCommits marks a branch as belonging to a pipeline which is being modified and thus
 // needs old open commits finished
+// TODO: this should really be in a seperate transaction-defer for PPS code
 func (f *PipelineFinisher) FinishPipelineCommits(branch *pfs.Branch) error {
 	if branch == nil || branch.Repo == nil {
 		return errors.Errorf("cannot finish commits on nil branch")
@@ -76,6 +78,10 @@ func (f *PipelineFinisher) FinishPipelineCommits(branch *pfs.Branch) error {
 // Run finishes any open commits on output branches of pipelines modified in the preceeding transaction
 func (f *PipelineFinisher) Run() error {
 	for _, branch := range f.branches {
+		// TODO: I believe this takes linear time based on the number of commits in a pipeline
+		// the listCommit is also outside of the transaction, so new commits may be
+		// made that can't be found in the transaction (hopefully this causes a
+		// transaction conflict, though)
 		if err := f.d.listCommit(
 			f.txnCtx.Client,
 			branch.Repo,
@@ -84,7 +90,9 @@ func (f *PipelineFinisher) Run() error {
 			0,     // number
 			false, // reverse
 			func(commitInfo *pfs.CommitInfo) error {
-				return f.txnCtx.Client.StopJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+				return f.txnCtx.Pps().StopJobInTransaction(f.txnCtx, &pps.StopJobRequest{
+					OutputCommit: commitInfo.Commit,
+				})
 			}); err != nil && !isNotFoundErr(err) {
 			return err
 		}

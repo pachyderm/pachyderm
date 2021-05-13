@@ -124,6 +124,11 @@ func NewMockPpsTransactionServer() *MockPpsTransactionServer {
 	return &MockPpsTransactionServer{}
 }
 
+// StopJobInTransaction always errors
+func (mpts *MockPpsTransactionServer) StopJobInTransaction(*TransactionContext, *pps.StopJobRequest) error {
+	return unimplementedError("PpsTransactionServer.StopJobInTransaction")
+}
+
 // UpdateJobStateInTransaction always errors
 func (mpts *MockPpsTransactionServer) UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error {
 	return unimplementedError("PpsTransactionServer.UpdateJobStateInTransaction")
