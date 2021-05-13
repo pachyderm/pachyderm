@@ -110,7 +110,6 @@ type apiServer struct {
 	storageRoot           string
 	storageBackend        string
 	storageHostPath       string
-	cacheRoot             string
 	iamRole               string
 	imagePullSecret       string
 	noExposeDockerSocket  bool
@@ -462,7 +461,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 		switch operation {
 		case pipelineOpCreate:
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-				Repo: &pfs.Repo{Name: output},
+				Repo: client.NewRepo(output),
 			}); err == nil {
 				// the repo already exists, so we need the same permissions as update
 				required = auth.Permission_REPO_WRITE
@@ -477,7 +476,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-				Repo: &pfs.Repo{Name: output},
+				Repo: client.NewRepo(output),
 			}); isNotFoundErr(err) {
 				// special case: the pipeline output repo has been deleted (so the
 				// pipeline is now invalid). It should be possible to delete the pipeline.
@@ -783,7 +782,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(pachClient *client.APIClient, jobPtr 
 	result := &pps.PipelineJobInfo{
 		Job:           jobPtr.Job,
 		Pipeline:      jobPtr.Pipeline,
-		OutputRepo:    &pfs.Repo{Name: jobPtr.Pipeline.Name},
+		OutputRepo:    client.NewRepo(jobPtr.Pipeline.Name),
 		OutputCommit:  jobPtr.OutputCommit,
 		Restart:       jobPtr.Restart,
 		DataProcessed: jobPtr.DataProcessed,
@@ -1042,8 +1041,44 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	// TODO: Auth?
+	if request.Input != nil {
+		return listDatumInput(a.env.GetPachClient(server.Context()), request.Input, func(meta *datum.Meta) error {
+			return server.Send(convertDatumMetaToInfo(meta))
+		})
+	}
 	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
 		return server.Send(convertDatumMetaToInfo(meta))
+	})
+}
+
+func listDatumInput(pachClient *client.APIClient, input *pps.Input, cb func(*datum.Meta) error) error {
+	setInputDefaults("", input)
+	var visitErr error
+	pps.VisitInput(input, func(input *pps.Input) {
+		if visitErr != nil {
+			return
+		}
+		if input.Pfs != nil {
+			ci, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Branch)
+			if err != nil {
+				visitErr = err
+				return
+			}
+			input.Pfs.Commit = ci.Commit.ID
+		}
+		if input.Cron != nil {
+			visitErr = errors.Errorf("can't list datums with a cron input, there will be no datums until the pipeline is created")
+		}
+	})
+	if visitErr != nil {
+		return visitErr
+	}
+	di, err := datum.NewIterator(pachClient, input)
+	if err != nil {
+		return err
+	}
+	return di.Iterate(func(meta *datum.Meta) error {
+		return cb(meta)
 	})
 }
 
@@ -1084,9 +1119,6 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	})
 	if err != nil {
 		return err
-	}
-	if pipelineJobInfo.StatsCommit == nil {
-		return errors.Errorf("job not finished")
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	fsi := datum.NewCommitIterator(pachClient, pipelineJobInfo.StatsCommit.Repo.Name, pipelineJobInfo.StatsCommit.ID)
@@ -2029,7 +2061,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		if input.Pfs != nil {
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx,
 				&pfs.InspectRepoRequest{
-					Repo: client.NewRepo(input.Pfs.Repo),
+					Repo: client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType),
 				},
 			); err != nil {
 				visitErr = err
@@ -2368,6 +2400,9 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 			}
 			if input.Pfs.Name == "" {
 				input.Pfs.Name = input.Pfs.Repo
+			}
+			if input.Pfs.RepoType == "" {
+				input.Pfs.RepoType = pfs.UserRepoType
 			}
 		}
 		if input.Cron != nil {
@@ -3058,9 +3093,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
 			Parent: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: request.Pipeline.Name,
-				},
+				Repo: client.NewRepo(request.Pipeline.Name),
 			},
 			Provenance: provenance,
 		})
@@ -3074,9 +3107,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			newCommitProv := client.NewCommitProvenance(newCommit.Repo.Name, "", newCommit.ID)
 			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
 				Parent: &pfs.Commit{
-					Repo: &pfs.Repo{
-						Name: request.Pipeline.Name,
-					},
+					Repo: client.NewRepo(request.Pipeline.Name),
 				},
 				Branch:     "stats",
 				Provenance: append(provenance, newCommitProv),

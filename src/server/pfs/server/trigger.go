@@ -24,7 +24,7 @@ func (d *driver) triggerCommit(
 ) ([]*pfs.Branch, error) {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+	if err := repos.Get(pfsdb.RepoKey(commit.Repo), repoInfo); err != nil {
 		return nil, err
 	}
 	newHead := &pfs.CommitInfo{}

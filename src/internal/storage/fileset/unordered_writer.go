@@ -43,11 +43,10 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 	return uw, nil
 }
 
-func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag ...string) (retErr error) {
-	// TODO: Validate
-	//if err := ppath.ValidatePath(hdr.Name); err != nil {
-	//	return nil, err
-	//}
+func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag ...string) error {
+	if err := Validate(p); err != nil {
+		return err
+	}
 	tag := uw.defaultTag
 	if len(customTag) > 0 && customTag[0] != "" {
 		tag = customTag[0]
@@ -148,6 +147,9 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 
 // Delete deletes a file from the file set.
 func (uw *UnorderedWriter) Delete(p string, tags ...string) error {
+	if err := Validate(p); err != nil {
+		return err
+	}
 	p = Clean(p, IsDir(p))
 	if len(tags) > 0 && tags[0] == "" {
 		tags = nil

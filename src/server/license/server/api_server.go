@@ -123,8 +123,15 @@ func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp
 
 // GetActivationCode returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), including the enterprise activation code
 func (a *apiServer) GetActivationCode(ctx context.Context, req *lc.GetActivationCodeRequest) (resp *lc.GetActivationCodeResponse, retErr error) {
+	// Redact the activation code from the response
+	removeSecret := func(r *lc.GetActivationCodeResponse) *lc.GetActivationCodeResponse {
+		copyResp := proto.Clone(r).(*lc.GetActivationCodeResponse)
+		copyResp.ActivationCode = ""
+		return copyResp
+	}
+
 	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.pachLogger.Log(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	return a.getLicenseRecord()
 }
@@ -190,8 +197,14 @@ func (a *apiServer) validateClusterConfig(ctx context.Context, address string) e
 // AddCluster registers a new pachd with this license server. Each pachd is configured with a shared secret
 // which is used to authenticate to the license server when heartbeating.
 func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (resp *lc.AddClusterResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, nil, retErr, time.Since(start)) }(time.Now())
+	// Redact the secret from the request
+	removeSecret := func(r *lc.AddClusterRequest) *lc.AddClusterRequest {
+		copyReq := proto.Clone(r).(*lc.AddClusterRequest)
+		copyReq.Secret = ""
+		return copyReq
+	}
+	a.LogReq(removeSecret(req))
+	defer func(start time.Time) { a.pachLogger.Log(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
 
 	// Make sure we have an active license
 	if err := a.checkLicenseState(); err != nil {

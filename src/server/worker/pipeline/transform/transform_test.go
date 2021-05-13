@@ -180,7 +180,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		return &pps.PipelineJobInfo{
 			Job:              etcdJobInfo.Job,
 			Pipeline:         etcdJobInfo.Pipeline,
-			OutputRepo:       &pfs.Repo{Name: etcdJobInfo.Pipeline.Name},
+			OutputRepo:       client.NewRepo(etcdJobInfo.Pipeline.Name),
 			OutputCommit:     etcdJobInfo.OutputCommit,
 			Restart:          etcdJobInfo.Restart,
 			DataProcessed:    etcdJobInfo.DataProcessed,

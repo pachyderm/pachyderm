@@ -7,7 +7,6 @@ package server
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -478,7 +477,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := aliceClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})
@@ -517,16 +516,13 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := rootClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -566,7 +562,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := aliceClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})
@@ -607,7 +603,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := rootClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})
@@ -1055,7 +1051,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := aliceClient.FlushCommitAll(
 			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		return err
 	})
@@ -1326,4 +1322,47 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	pi, err := rootClient.InspectPipeline(pipeline)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
+}
+
+func TestRotateRootToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// create a repo for the purpose of testing access
+	repo := tu.UniqueString("TestRotateRootToken")
+	require.NoError(t, rootClient.CreateRepo(repo))
+
+	// rotate token after creating the repo
+	rotateReq := &auth.RotateRootTokenRequest{}
+	rotateResp, err := rootClient.RotateRootToken(rootClient.Ctx(), rotateReq)
+	require.NoError(t, err)
+
+	_, err = rootClient.ListRepo()
+	require.YesError(t, err, "the list operation is expected to fail since the token configured into the client is no longer valid")
+
+	rootClient.SetAuthToken(rotateResp.RootToken)
+	listResp, err := rootClient.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(listResp), "now that the rotated token is configured in the client, the operation should work")
+
+	// now try setting the token
+	rotateReq = &auth.RotateRootTokenRequest{
+		RootToken: tu.RootToken,
+	}
+	rotateResp, err = rootClient.RotateRootToken(rootClient.Ctx(), rotateReq)
+	require.NoError(t, err)
+	require.Equal(t, rotateResp.RootToken, tu.RootToken)
+
+	_, err = rootClient.ListRepo()
+	require.YesError(t, err)
+
+	rootClient.SetAuthToken(rotateResp.RootToken)
+	listResp, err = rootClient.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(listResp))
 }

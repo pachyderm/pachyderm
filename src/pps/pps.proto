@@ -86,6 +86,7 @@ message Spout {
 message PFSInput {
   string name = 1;
   string repo = 2;
+  string repo_type = 13;
   string branch = 3;
   string commit = 4;
   string glob = 5;
@@ -111,6 +112,7 @@ message PFSInput {
 message CronInput {
   string name = 1;
   string repo = 2;
+  string repo_type = 13;
   string commit = 3;
   string spec = 4;
   // Overwrite, if true, will expose a single datum that gets overwritten each
@@ -616,11 +618,11 @@ message ListDatumRequest {
   // Only one can be set.
   // Job is the job to list datums from.
   Job job = 1;
+  // Input is the input to list datums from.
+  // The datums listed are the ones that would be run if a pipeline was created
+  // with the provided input.
+  Input input = 2;
   // TODO:
-  //// Input is the input to list datums from.
-  //// The datums listed are the ones that would be run if a pipeline was created
-  //// with input.
-  //Input input = 4;
   //int64 page_size = 2;
   //int64 page = 3;
 }

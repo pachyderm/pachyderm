@@ -141,7 +141,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	}
 	if err := col.NewSQLTx(env.Context(), env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		repos := d.repos.ReadWrite(sqlTx)
-		return repos.Create(repo.Name, repoInfo)
+		return repos.Create(pfsdb.RepoKey(repo), repoInfo)
 	}); err != nil && !col.IsErrExists(err) {
 		return nil, err
 	}
@@ -183,13 +183,18 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 		return err
 	}
 
+	if repo.Type == "" {
+		// default to user type
+		repo.Type = pfs.UserRepoType
+	}
+
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
 	// check if 'repo' already exists. If so, return that error. Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
 	// calling "createRepo" on a repo that already exists)
 	var existingRepoInfo pfs.RepoInfo
-	err = repos.Get(repo.Name, &existingRepoInfo)
+	err = repos.Get(pfsdb.RepoKey(repo), &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
 		return errors.Wrapf(err, "error checking whether \"%s\" exists", repo.Name)
 	} else if err == nil {
@@ -215,8 +220,19 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 			return errors.Wrapf(err, "could not update description of %q", repo)
 		}
 		existingRepoInfo.Description = description
-		return repos.Put(repo.Name, &existingRepoInfo)
+		return repos.Put(pfsdb.RepoKey(repo), &existingRepoInfo)
 	} else {
+		// if this is a system repo, make sure the corresponding user repo already exists
+		if repo.Type != pfs.UserRepoType {
+			baseRepo := client.NewRepo(repo.Name)
+			err = repos.Get(pfsdb.RepoKey(baseRepo), &existingRepoInfo)
+			if err != nil && col.IsErrNotFound(err) {
+				return errors.Errorf("cannot create a system repo without a corresponding 'user' repo")
+			} else if err != nil {
+				return errors.Wrapf(err, "error checking whether user repo for %q exists", repo.Name)
+			}
+		}
+
 		// New repo case
 		if authIsActivated {
 			// Create ACL for new repo. Make caller the sole owner. If the ACL already
@@ -225,7 +241,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo \"%s\"", repo.Name)
 			}
 		}
-		return repos.Create(repo.Name, &pfs.RepoInfo{
+		return repos.Create(pfsdb.RepoKey(repo), &pfs.RepoInfo{
 			Repo:        repo,
 			Created:     types.TimestampNow(),
 			Description: description,
@@ -240,7 +256,7 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 	}
 
 	result := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(repo.Name, result); err != nil {
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(repo), result); err != nil {
 		return nil, err
 	}
 	if includeAuth {
@@ -269,13 +285,14 @@ func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.ListRepoResponse, error) {
+func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool, repoType string) (*pfs.ListRepoResponse, error) {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions(), func(string) error {
+
+	processFunc := func(string) error {
 		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
 			return nil
 		}
@@ -291,9 +308,19 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 		}
 		result.RepoInfo = append(result.RepoInfo, proto.Clone(repoInfo).(*pfs.RepoInfo))
 		return nil
-	}); err != nil {
+	}
+
+	var err error
+	if repoType == "" {
+		// blank type means return all
+		err = repos.List(repoInfo, col.DefaultOptions(), processFunc)
+	} else {
+		err = repos.GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc)
+	}
+	if err != nil {
 		return nil, err
 	}
+
 	return result, nil
 }
 
@@ -309,8 +336,8 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// check if 'repo' is already gone. If so, return that error. Otherwise,
 	// proceed with auth check (avoids awkward "access denied" error when calling
 	// "deleteRepo" on a repo that's already gone)
-	var existingRepoInfo pfs.RepoInfo
-	err := repos.Get(repo.Name, &existingRepoInfo)
+	var repoInfo pfs.RepoInfo
+	err := repos.Get(pfsdb.RepoKey(repo), &repoInfo)
 	if err != nil {
 		if !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "error checking whether \"%s\" exists", repo.Name)
@@ -322,17 +349,31 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 		return err
 	}
 
-	repoInfo := new(pfs.RepoInfo)
-	if err := repos.Get(repo.Name, repoInfo); err != nil {
-		if !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "repos.Get")
+	// if this is a user repo, delete any dependent repos
+	if repo.Type == pfs.UserRepoType {
+		var dependentRepos []pfs.Repo
+		var otherRepo pfs.RepoInfo
+		if err := repos.GetByIndex(pfsdb.ReposNameIndex, repo.Name, &otherRepo, col.DefaultOptions(), func(key string) error {
+			if otherRepo.Repo.Type != repo.Type {
+				dependentRepos = append(dependentRepos, *otherRepo.Repo)
+			}
+			return nil
+		}); err != nil && !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
+		}
+
+		// delete the repos we found
+		for _, dep := range dependentRepos {
+			if err := d.deleteRepo(txnCtx, &dep, force); err != nil {
+				return errors.Wrapf(err, "error deleting dependent repo %q", pfsdb.RepoKey(&dep))
+			}
 		}
 	}
 
 	// make a list of all the commits
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadOnly(txnCtx.ClientContext).GetByIndex(pfsdb.CommitsRepoIndex, repo.Name, commitInfo, col.DefaultOptions(), func(string) error {
+	if err := d.commits.ReadOnly(txnCtx.ClientContext).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), commitInfo, col.DefaultOptions(), func(string) error {
 		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
@@ -351,7 +392,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 			}
 			// or if the repo has already been deleted
 			ri := new(pfs.RepoInfo)
-			if err := repos.Get(prov.Commit.Repo.Name, ri); err != nil {
+			if err := repos.Get(pfsdb.RepoKey(prov.Commit.Repo), ri); err != nil {
 				if !col.IsErrNotFound(err) {
 					return errors.Wrapf(err, "repo %v was not found", prov.Commit.Repo.Name)
 				}
@@ -404,14 +445,14 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// deleteBranch, we also do branches.DeleteAll(), this insulates us
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in postgres but branches do.
-	if err := d.branches.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.BranchesRepoIndex, repo.Name); err != nil {
+	if err := d.branches.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo)); err != nil {
 		return err
 	}
 	// Similarly with commits
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, repo.Name); err != nil {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo)); err != nil {
 		return err
 	}
-	if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
+	if err := repos.Delete(pfsdb.RepoKey(repo)); err != nil && !col.IsErrNotFound(err) {
 		return errors.Wrapf(err, "repos.Delete")
 	}
 
@@ -532,7 +573,7 @@ func (d *driver) makeCommit(
 
 	// Check if repo exists
 	repoInfo := new(pfs.RepoInfo)
-	if err := repos.Get(parent.Repo.Name, repoInfo); err != nil {
+	if err := repos.Get(pfsdb.RepoKey(parent.Repo), repoInfo); err != nil {
 		return nil, err
 	}
 
@@ -603,7 +644,7 @@ func (d *driver) makeCommit(
 	}
 
 	// Update repoInfo (potentially with new branch and new size)
-	if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
+	if err := repos.Put(pfsdb.RepoKey(parent.Repo), repoInfo); err != nil {
 		return nil, err
 	}
 
@@ -854,7 +895,7 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 	// update the repo size if this is the head of master
 	repos := d.repos.ReadWrite(sqlTx)
 	repoInfo := new(pfs.RepoInfo)
-	if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+	if err := repos.Get(pfsdb.RepoKey(commit.Repo), repoInfo); err != nil {
 		return err
 	}
 	for _, branch := range repoInfo.Branches {
@@ -867,7 +908,7 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 			// had shared its head commit with master, and then we created a new commit on that branch
 			if branchInfo.Head != nil && branchInfo.Head.ID == commit.ID {
 				repoInfo.SizeBytes = commitInfo.SizeBytes
-				if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
+				if err := repos.Put(pfsdb.RepoKey(commit.Repo), repoInfo); err != nil {
 					return err
 				}
 			}
@@ -1204,8 +1245,11 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 	if !uuid.IsUUIDWithoutDashes(commit.ID) {
 		branchInfo := &pfs.BranchInfo{}
 		// See if we are given a branch
-		branch := client.NewBranch(commit.Repo.Name, commit.ID)
-		if err := d.branches.ReadWrite(sqlTx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
+		branch := pfs.Branch{
+			Repo: commit.Repo,
+			Name: commit.ID,
+		}
+		if err := d.branches.ReadWrite(sqlTx).Get(pfsdb.BranchKey(&branch), branchInfo); err != nil {
 			return nil, err
 		}
 		if branchInfo.Head == nil {
@@ -1361,7 +1405,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 				return err
 			}
 		} else {
-			if err := d.commits.ReadOnly(ctx).GetRevByIndex(pfsdb.CommitsRepoIndex, repo.Name, ci, opts, listCallback); err != nil {
+			if err := d.commits.ReadOnly(ctx).GetRevByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), ci, opts, listCallback); err != nil {
 				return err
 			}
 		}
@@ -1397,8 +1441,8 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
 	// TODO update branches inside this txn, by storing a repo's branches in its
 	// RepoInfo or its HEAD commit
-	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
-	affectedRepos := make(map[string]struct{})  // repos containing deleted commits
+	deleted := make(map[string]*pfs.CommitInfo)   // deleted commits
+	affectedRepoKeys := make(map[string]struct{}) // repos containing deleted commits
 
 	// 1) re-read CommitInfo inside txn
 	userCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, userCommit)
@@ -1410,16 +1454,18 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// pfs.CommitRange.Lower, and is an ancestor of 'upper'
 	deleteCommit := func(lower, upper *pfs.Commit) error {
 		// Validate arguments
-		if lower.Repo.Name != upper.Repo.Name {
-			return errors.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
+		lowerKey := pfsdb.RepoKey(lower.Repo)
+
+		if upperKey := pfsdb.RepoKey(upper.Repo); upperKey != lowerKey {
+			return errors.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lowerKey, upperKey)
 		}
-		affectedRepos[lower.Repo.Name] = struct{}{}
+		affectedRepoKeys[lowerKey] = struct{}{}
 
 		// delete commits on path upper -> ... -> lower (traverse ParentCommits)
 		commit := upper
 		for {
 			if commit == nil {
-				return errors.Errorf("encountered nil parent commit in %s/%s...%s", lower.Repo.Name, lower.ID, upper.ID)
+				return errors.Errorf("encountered nil parent commit in %s/%s...%s", lowerKey, lower.ID, upper.ID)
 			}
 			// Store commitInfo in 'deleted' and remove commit from etcd
 			commitInfo := &pfs.CommitInfo{}
@@ -1611,9 +1657,9 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// points to a deleted commit
 	var affectedBranches []*pfs.BranchInfo
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
-	for repo := range affectedRepos {
+	for repoKey := range affectedRepoKeys {
 		repoInfo := &pfs.RepoInfo{}
-		if err := repos.Get(repo, repoInfo); err != nil {
+		if err := repos.Get(repoKey, repoInfo); err != nil {
 			return err
 		}
 		for _, brokenBranch := range repoInfo.Branches {
@@ -1655,7 +1701,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 					repoInfo.SizeBytes = 0
 				}
 
-				if err := repos.Put(repo, repoInfo); err != nil {
+				if err := repos.Put(repoKey, repoInfo); err != nil {
 					return err
 				}
 			}
@@ -1699,8 +1745,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
 
-	return d.commits.ReadOnly(pachClient.Ctx()).WatchByIndexF(pfsdb.CommitsRepoIndex, repo.Name, func(ev *watch.Event) error {
-		fmt.Printf("got event: %s\n", string(ev.Key))
+	return d.commits.ReadOnly(pachClient.Ctx()).WatchByIndexF(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), func(ev *watch.Event) error {
 		var key string
 		commitInfo := &pfs.CommitInfo{}
 		if err := ev.Unmarshal(&key, commitInfo); err != nil {
@@ -1945,7 +1990,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
+	if err := repos.Update(pfsdb.RepoKey(branch.Repo), repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
 		if branch.Name == "master" && commit != nil {
 			ci, err := d.resolveCommit(txnCtx.SqlTx, commit)
@@ -2124,7 +2169,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 			return nil, err
 		}
 	} else {
-		if err := d.branches.ReadOnly(pachClient.Ctx()).GetRevByIndex(pfsdb.BranchesRepoIndex, repo.Name, branchInfo, opts, listCallback); err != nil {
+		if err := d.branches.ReadOnly(pachClient.Ctx()).GetRevByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo), branchInfo, opts, listCallback); err != nil {
 			return nil, err
 		}
 	}
@@ -2172,7 +2217,7 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		}
 	}
 	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(branch.Repo.Name, repoInfo, func() error {
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(pfsdb.RepoKey(branch.Repo), repoInfo, func() error {
 		del(&repoInfo.Branches, branch)
 		return nil
 	}); err != nil {
@@ -2215,7 +2260,7 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 		return err
 	}
 	repoInfo := &pfs.RepoInfo{}
-	return d.repos.ReadWrite(sqlTx).Update(provBranch.Repo.Name, repoInfo, func() error {
+	return d.repos.ReadWrite(sqlTx).Update(pfsdb.RepoKey(provBranch.Repo), repoInfo, func() error {
 		add(&repoInfo.Branches, provBranch)
 		return nil
 	})
@@ -2242,7 +2287,7 @@ func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pf
 func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth)
+	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth, "")
 	if err != nil {
 		return err
 	}

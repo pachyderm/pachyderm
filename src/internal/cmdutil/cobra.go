@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -104,6 +105,19 @@ func ErrorAndExit(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
+func repoFromString(name string) *pfs.Repo {
+	var repo pfs.Repo
+	if strings.Contains(name, ".") {
+		repoParts := strings.SplitN(name, ".", 2)
+		repo.Name = repoParts[0]
+		repo.Type = repoParts[1]
+	} else {
+		repo.Name = name
+		repo.Type = pfs.UserRepoType
+	}
+	return &repo
+}
+
 // ParseCommit takes an argument of the form "repo[@branch-or-commit]" and
 // returns the corresponding *pfs.Commit.
 func ParseCommit(arg string) (*pfs.Commit, error) {
@@ -111,11 +125,10 @@ func ParseCommit(arg string) (*pfs.Commit, error) {
 	if parts[0] == "" {
 		return nil, errors.Errorf("invalid format \"%s\": repo cannot be empty", arg)
 	}
+
 	commit := &pfs.Commit{
-		Repo: &pfs.Repo{
-			Name: parts[0],
-		},
-		ID: "",
+		Repo: repoFromString(parts[0]),
+		ID:   "",
 	}
 	if len(parts) == 2 {
 		commit.ID = parts[1]
@@ -227,10 +240,8 @@ func ParseFile(arg string) (*pfs.File, error) {
 	}
 	file := &pfs.File{
 		Commit: &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: repoAndRest[0],
-			},
-			ID: "",
+			Repo: repoFromString(repoAndRest[0]),
+			ID:   "",
 		},
 		Path: "",
 	}
@@ -261,7 +272,7 @@ func ParsePartialFile(arg string) *pfs.File {
 		partialFile.Commit = commit
 		return partialFile
 	}
-	partialFile.Commit = &pfs.Commit{Repo: &pfs.Repo{Name: arg}}
+	partialFile.Commit = &pfs.Commit{Repo: client.NewRepo(arg)}
 	return partialFile
 }
 
