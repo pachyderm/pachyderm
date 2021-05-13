@@ -1,12 +1,13 @@
 import classNames from 'classnames';
 import React, {LabelHTMLAttributes} from 'react';
+import {FieldPath, FieldValues} from 'react-hook-form';
 
 import MaxLength from './components/MaxLength';
 import styles from './Label.module.css';
 
 interface LabelProps extends LabelHTMLAttributes<HTMLLabelElement> {
   optional?: boolean;
-  htmlFor: string;
+  htmlFor: FieldPath<FieldValues>;
   label: string;
   maxLength?: number;
 }

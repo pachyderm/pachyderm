@@ -1,10 +1,10 @@
 import noop from 'lodash/noop';
 import React, {useMemo} from 'react';
-import {FormProvider, SubmitHandler, UseFormMethods} from 'react-hook-form';
+import {FormProvider, SubmitHandler, UseFormReturn} from 'react-hook-form';
 
 export interface FormProps<T>
   extends Omit<React.FormHTMLAttributes<HTMLFormElement>, 'onSubmit'> {
-  formContext: UseFormMethods<T>;
+  formContext: UseFormReturn<T>;
   onSubmit?: SubmitHandler<T>;
 }
 

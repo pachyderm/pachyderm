@@ -1,13 +1,20 @@
 import classNames from 'classnames';
 import React, {InputHTMLAttributes} from 'react';
-import {useFormContext, RegisterOptions} from 'react-hook-form';
+import {
+  useFormContext,
+  RegisterOptions,
+  FieldPath,
+  FieldValues,
+} from 'react-hook-form';
+
+import useRHFInputProps from 'hooks/useRHFInputProps';
 
 import {CheckboxCheckedSVG, CheckboxSVG} from '../Svg';
 
 import styles from './Checkbox.module.css';
 
 export interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
-  name: string;
+  name: FieldPath<FieldValues>;
   label?: React.ReactNode;
   small?: boolean;
   validationOptions?: RegisterOptions;
@@ -19,6 +26,8 @@ export const Checkbox: React.FC<CheckboxProps> = ({
   className,
   small = false,
   validationOptions = {},
+  onChange,
+  onBlur,
   ...rest
 }) => {
   const {register, watch} = useFormContext();
@@ -29,15 +38,22 @@ export const Checkbox: React.FC<CheckboxProps> = ({
     [styles.small]: small,
   });
 
+  const {handleChange, handleBlur, ...inputProps} = useRHFInputProps({
+    onChange,
+    onBlur,
+    registerOutput: register(name, validationOptions),
+  });
+
   return (
     <label className={classes}>
       <div className={styles.checkboxContainer}>
         <input
-          ref={register(validationOptions)}
           type="checkbox"
           className={styles.input}
-          name={name}
+          onChange={handleChange}
+          onBlur={handleBlur}
           {...rest}
+          {...inputProps}
         />
 
         {!value && (

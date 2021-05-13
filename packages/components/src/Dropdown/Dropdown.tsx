@@ -1,7 +1,7 @@
 import classNames from 'classnames';
 import noop from 'lodash/noop';
 import React, {useState, useMemo, useCallback, useRef} from 'react';
-import {FormProvider, useForm, UseFormMethods} from 'react-hook-form';
+import {FormProvider, useForm, UseFormReturn} from 'react-hook-form';
 
 import useOutsideClick from 'hooks/useOutsideClick';
 
@@ -30,8 +30,8 @@ export interface DropdownProps {
   initialSelectId?: string;
   storeSelected?: boolean;
   filter?: (items: ItemObject, searchValue: string) => boolean;
-  formCtx?: UseFormMethods;
   selectedId?: string;
+  formCtx?: UseFormReturn;
 }
 
 const defaultFilter = (item: ItemObject, searchValue: string) => {

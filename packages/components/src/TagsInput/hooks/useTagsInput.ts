@@ -16,16 +16,15 @@ export const useTagsInput = ({
 }: UseTagsInputProps) => {
   const {
     clearErrors,
-    errors: formErrors,
     setError,
     setValue: setFormValue,
     register,
-    formState,
+    formState: {errors: formErrors, isSubmitted},
   } = useFormContext();
+
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [focused, setFocused] = useState(false);
   const [values, setValues] = useState<string[]>(defaultValues);
-  const {isSubmitted} = formState;
 
   const errors = useMemo(() => {
     return values.map((v) => !validate(v));

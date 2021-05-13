@@ -1,6 +1,12 @@
 import classnames from 'classnames';
 import React, {useState, useMemo, useEffect, useRef, useCallback} from 'react';
-import {useFormContext, RegisterOptions, CustomElement} from 'react-hook-form';
+import {
+  useFormContext,
+  RegisterOptions,
+  CustomElement,
+  FieldPath,
+  FieldValues,
+} from 'react-hook-form';
 
 import ComboBox from './components/ComboBox';
 import SelectOption from './components/SelectOption';
@@ -11,7 +17,7 @@ import styles from './Select.module.css';
 
 export interface SelectProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'placeholder'> {
-  id: string;
+  id: FieldPath<FieldValues>;
   validationOptions?: RegisterOptions;
   initialValue?: string;
   placeholder?: React.ReactNode;
@@ -86,6 +92,8 @@ const Select: React.FC<SelectProps> = ({
     ],
   );
 
+  const {ref: formRef} = register(id, validationOptions);
+
   useEffect(() => {
     setFormValue(id, value);
   }, [id, value, setFormValue]);
@@ -107,8 +115,8 @@ const Select: React.FC<SelectProps> = ({
   }, [value, options, displayValue, placeholder]);
 
   useEffect(() => {
-    return register(selectRef.current, validationOptions);
-  }, [register, selectRef, validationOptions]);
+    return formRef(selectRef.current);
+  }, [validationOptions, formRef]);
 
   useEffect(() => {
     if (isOpen && activeValue) {

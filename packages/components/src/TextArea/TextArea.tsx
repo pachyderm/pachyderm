@@ -2,6 +2,8 @@ import classNames from 'classnames';
 import React, {useCallback, TextareaHTMLAttributes, useMemo} from 'react';
 import {RegisterOptions} from 'react-hook-form';
 
+import useRHFInputProps from 'hooks/useRHFInputProps';
+
 import useClearableInput from '../hooks/useClearableInput';
 import useFormField from '../hooks/useFormField';
 import {ExitSVG} from '../Svg';
@@ -37,6 +39,8 @@ const TextArea: React.FC<TextAreaProps> = ({
   name,
   readOnly,
   disabled,
+  onChange,
+  onBlur,
   ...rest
 }) => {
   const {
@@ -76,6 +80,12 @@ const TextArea: React.FC<TextAreaProps> = ({
     [styles.autoExpand]: autoExpand,
   });
 
+  const {handleChange, handleBlur, ...inputProps} = useRHFInputProps({
+    onChange,
+    onBlur,
+    registerOutput: register(name, validationOptions),
+  });
+
   return (
     <>
       <div className={styles.wrapper}>
@@ -84,12 +94,13 @@ const TextArea: React.FC<TextAreaProps> = ({
           aria-describedby={errorId}
           className={classes}
           onInput={handleInput}
-          ref={register(validationOptions)}
           rows={rows}
-          name={name}
           readOnly={readOnly}
           disabled={disabled}
+          onChange={handleChange}
+          onBlur={handleBlur}
           {...rest}
+          {...inputProps}
         />
         {showButton && (
           <button

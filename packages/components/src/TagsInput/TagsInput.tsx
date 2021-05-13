@@ -1,6 +1,7 @@
 import classNames from 'classnames';
 import capitalize from 'lodash/capitalize';
 import React, {InputHTMLAttributes} from 'react';
+import {FieldPath, FieldValues} from 'react-hook-form';
 
 import {CloseSVG} from '../Svg';
 import {FieldError} from '../Text';
@@ -11,7 +12,7 @@ import styles from './TagsInput.module.css';
 export interface TagsInputProps extends InputHTMLAttributes<HTMLInputElement> {
   'data-testid'?: string;
   defaultValues?: string[];
-  name?: string;
+  name?: FieldPath<FieldValues>;
   placeholder?: string;
   errorMessage?: string;
   validate?: (value: string) => boolean;
@@ -81,7 +82,7 @@ export const TagsInput: React.FC<TagsInputProps> = ({
           onKeyDown={handleKeyDown}
           ref={inputRef}
         />
-        <input type="hidden" name={name} ref={register()} />
+        <input type="hidden" {...register(name)} />
       </div>
       <span className={styles.inline}>
         {values.length > 1 && (

@@ -21,9 +21,8 @@ describe('useFormField', () => {
         <input
           aria-invalid={hasError}
           aria-describedby={errorId}
-          name="test"
           id="test"
-          ref={register({required: 'Test is required'})}
+          {...register('test', {required: 'Test is required'})}
         />
         <ErrorComponent />
       </>

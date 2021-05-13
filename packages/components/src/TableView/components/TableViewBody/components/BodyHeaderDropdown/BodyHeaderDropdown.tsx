@@ -1,5 +1,5 @@
 import React from 'react';
-import {UseFormMethods} from 'react-hook-form';
+import {UseFormReturn} from 'react-hook-form';
 
 import {Dropdown} from 'Dropdown';
 
@@ -8,7 +8,7 @@ import {DropdownButtonProps} from '../../../../../Dropdown/components/DropdownBu
 import styles from './BodyHeaderDropdown.module.css';
 
 export type BodyHeaderDropdownProps = {
-  formCtx: UseFormMethods;
+  formCtx: UseFormReturn;
   buttonText: string;
   color?: DropdownButtonProps['color'];
 };

@@ -6,18 +6,17 @@ import {FieldError as FieldErrorComponent} from '../Text';
 const useFormField = (name: string) => {
   const {
     register,
-    errors,
     reset,
     watch,
     setValue,
-    formState,
+    formState: {errors, touchedFields},
   } = useFormContext();
 
   const fieldError: FieldError | undefined = errors[name];
   const hasError = Boolean(fieldError);
   const hasErrorMessage = Boolean(hasError && fieldError?.message);
   const errorId = hasErrorMessage ? `${name}-error` : undefined;
-  const isTouched = formState.touched[name];
+  const isTouched = touchedFields[name];
 
   const error = useCallback(
     ({...rest}) => {

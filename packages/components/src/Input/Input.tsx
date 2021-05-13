@@ -2,6 +2,8 @@ import classNames from 'classnames';
 import React, {forwardRef, InputHTMLAttributes, useMemo} from 'react';
 import {RegisterOptions} from 'react-hook-form';
 
+import useRHFInputProps from 'hooks/useRHFInputProps';
+
 import useClearableInput from '../hooks/useClearableInput';
 import useFormField from '../hooks/useFormField';
 import {ExitSVG} from '../Svg';
@@ -26,6 +28,8 @@ const Input: React.ForwardRefRenderFunction<HTMLInputElement, InputProps> = (
     type,
     validationOptions = {},
     showErrors = true,
+    onChange,
+    onBlur,
     ...rest
   },
   ref,
@@ -71,6 +75,17 @@ const Input: React.ForwardRefRenderFunction<HTMLInputElement, InputProps> = (
     [styles.clearable]: clearable,
   });
 
+  const {
+    ref: formRef,
+    handleChange,
+    handleBlur,
+    ...inputProps
+  } = useRHFInputProps({
+    onChange,
+    onBlur,
+    registerOutput: register(name, validationOptions),
+  });
+
   return (
     <>
       <div className={styles.wrapper}>
@@ -78,7 +93,7 @@ const Input: React.ForwardRefRenderFunction<HTMLInputElement, InputProps> = (
           aria-invalid={hasError}
           aria-describedby={errorId}
           ref={(e: HTMLInputElement) => {
-            register(e, validationOptions);
+            formRef(e);
             if (typeof ref === 'function') {
               ref(e);
             } else if (ref) {
@@ -86,12 +101,14 @@ const Input: React.ForwardRefRenderFunction<HTMLInputElement, InputProps> = (
             }
           }}
           className={classes}
-          name={name}
           disabled={disabled}
           readOnly={readOnly}
           defaultValue={defaultValue}
           type={type}
+          onChange={handleChange}
+          onBlur={handleBlur}
           {...rest}
+          {...inputProps}
         />
         {showButton && (
           <button

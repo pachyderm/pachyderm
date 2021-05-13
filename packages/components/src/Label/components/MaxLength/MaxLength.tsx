@@ -1,10 +1,10 @@
 import React from 'react';
-import {useFormContext} from 'react-hook-form';
+import {FieldPath, FieldValues, useFormContext} from 'react-hook-form';
 
 import HelperText from '../HelperText';
 
 interface MaxLengthProps {
-  htmlFor: string;
+  htmlFor: FieldPath<FieldValues>;
   maxLength: number;
   className?: string;
 }
