@@ -59,13 +59,18 @@ func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool, 
 	if err != nil {
 		return err
 	}
-	//TODO pass through context with http.NewRequest("GET", "http://www.yahoo.co.jp", nil)
-	// https://gist.github.com/superbrothers/dae0030c151d1f3c24311df77405169b
-	req, err := http.Get(us)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", us, nil)
 	if err != nil {
 		return err
 	}
-	defer req.Body.Close()
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
 	return json.NewDecoder(req.Body).Decode(out)
 }
 
