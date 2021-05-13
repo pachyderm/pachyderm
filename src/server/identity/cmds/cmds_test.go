@@ -44,7 +44,7 @@ func TestClientCRUD(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.ActivateAuth(t)
-	//defer tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
 		echo '{"id": "{{.id}}", "name": "testclient", "secret": "a secret", "redirect_uris": ["https://localhost:1234"]}' | pachctl idp create-client  \
 		  | match 'secret: "a secret"'
