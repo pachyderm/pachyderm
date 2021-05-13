@@ -78,12 +78,12 @@ func (f *PipelineFinisher) Run() error {
 		if err := f.d.listCommit(
 			f.txnCtx.Client,
 			branch.Repo,
-			client.NewCommit(branch.Repo.Name, branch.Name), // to
+			client.NewCommit(branch.Repo.Name, branch.Name, ""), // to
 			nil,   // from
 			0,     // number
 			false, // reverse
 			func(commitInfo *pfs.CommitInfo) error {
-				return f.txnCtx.Client.StopJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+				return f.txnCtx.Client.StopJobOutputCommit(commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID)
 			}); err != nil && !isNotFoundErr(err) {
 			return err
 		}

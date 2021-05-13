@@ -37,12 +37,12 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
 var CommitsRepoIndex = &col.Index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.CommitInfo).Commit.Repo.Name
+		return val.(*pfs.CommitInfo).Commit.Branch.Repo.Name
 	},
 }
 
 func CommitKey(commit *pfs.Commit) string {
-	return commit.Repo.Name + "@" + commit.ID
+	return commit.Branch.Repo.Name + "@" + commit.Branch.Name + "=" + commit.ID
 }
 
 // Commits returns a collection of commits

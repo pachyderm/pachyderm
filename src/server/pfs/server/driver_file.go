@@ -23,10 +23,13 @@ import (
 
 func (d *driver) modifyFile(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	ctx := pachClient.Ctx()
-	repo := commit.Repo.Name
-	var branch string
-	if !uuid.IsUUIDWithoutDashes(commit.ID) {
-		branch = commit.ID
+	// Store the originally-requested parameters because they will be overwritten by inspectCommit
+	repo := commit.Branch.Repo.Name
+	branch := commit.Branch.Name
+	commitID := commit.ID
+	if branch == "" && !uuid.IsUUIDWithoutDashes(commitID) {
+		branch = commitID
+		commitID = ""
 	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -36,7 +39,9 @@ func (d *driver) modifyFile(pachClient *client.APIClient, commit *pfs.Commit, cb
 		return d.oneOffModifyFile(ctx, repo, branch, cb)
 	}
 	if commitInfo.Finished != nil {
-		if branch == "" {
+		// The commit is already finished - if the commit was explicitly specified,
+		// error out, otherwise we can make a child commit since this is the branch head.
+		if commitID != "" {
 			return pfsserver.ErrCommitFinished{commitInfo.Commit}
 		}
 		var opts []fileset.UnorderedWriterOption
@@ -59,7 +64,7 @@ func (d *driver) modifyFile(pachClient *client.APIClient, commit *pfs.Commit, cb
 // TODO: Cleanup after failure?
 func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) (retErr error) {
-		commit, err := d.startCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, "")
+		commit, err := d.startCommit(txnCtx, "", nil, client.NewBranch(repo, branch), nil, "")
 		if err != nil {
 			return err
 		}
@@ -112,7 +117,7 @@ func (d *driver) getDefaultTag() string {
 }
 
 func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, opts ...index.Option) (*pfs.CommitInfo, fileset.FileSet, error) {
-	if commit.Repo.Name == fileSetsRepo {
+	if commit.Branch.Repo.Name == fileSetsRepo {
 		fsid, err := fileset.ParseID(commit.ID)
 		if err != nil {
 			return nil, nil, err
@@ -123,7 +128,7 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 		}
 		return &pfs.CommitInfo{Commit: commit}, fs, nil
 	}
-	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
@@ -321,17 +326,20 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 	if newFile.Commit == nil {
 		return errors.New("file commit cannot be nil")
 	}
-	if newFile.Commit.Repo == nil {
+	if newFile.Commit.Branch == nil {
+		return errors.New("file commit branch cannot be nil")
+	}
+	if newFile.Commit.Branch.Repo == nil {
 		return errors.New("file commit repo cannot be nil")
 	}
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := authserver.CheckRepoIsAuthorized(pachClient, oldFile.Commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
+		if err := authserver.CheckRepoIsAuthorized(pachClient, oldFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		if err := authserver.CheckRepoIsAuthorized(pachClient, newFile.Commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
+		if err := authserver.CheckRepoIsAuthorized(pachClient, newFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}

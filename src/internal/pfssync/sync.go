@@ -84,7 +84,7 @@ func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...Downlo
 	if dc.lazy || dc.empty {
 		return d.downloadInfo(storageRoot, file, dc)
 	}
-	r, err := d.pachClient.GetFileTar(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+	r, err := d.pachClient.GetFileTar(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path)
 	if err != nil {
 		return err
 	}
@@ -95,9 +95,10 @@ func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...Downlo
 }
 
 func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *downloadConfig) (retErr error) {
-	repo := file.Commit.Repo.Name
+	repo := file.Commit.Branch.Repo.Name
+	branch := file.Commit.Branch.Name
 	commit := file.Commit.ID
-	return d.pachClient.WalkFile(repo, commit, file.Path, func(fi *pfs.FileInfo) error {
+	return d.pachClient.WalkFile(repo, branch, commit, file.Path, func(fi *pfs.FileInfo) error {
 		basePath, err := filepath.Rel(path.Dir(file.Path), fi.File.Path)
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -108,7 +109,7 @@ func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *do
 		}
 		if config.lazy {
 			return d.makePipe(fullPath, func(w io.Writer) error {
-				r, err := d.pachClient.GetFileTar(repo, commit, fi.File.Path)
+				r, err := d.pachClient.GetFileTar(repo, branch, commit, fi.File.Path)
 				if err != nil {
 					return err
 				}

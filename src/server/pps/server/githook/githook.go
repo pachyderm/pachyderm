@@ -184,17 +184,17 @@ func (s *gitHookServer) commitPayload(repoName string, branchName string, rawPay
 	}
 	defer func() {
 		if retErr != nil {
-			if err := s.client.SquashCommit(repoName, commit.ID); err != nil {
+			if err := s.client.SquashCommit(repoName, branchName, commit.ID); err != nil {
 				logrus.Errorf("git webhook failed to delete partial commit (%v) on repo (%v) with error %v", commit.ID, repoName, err)
 			}
 			return
 		}
-		retErr = s.client.FinishCommit(repoName, commit.ID)
+		retErr = s.client.FinishCommit(repoName, branchName, commit.ID)
 	}()
-	if err = s.client.DeleteFile(repoName, commit.ID, "commit.json"); err != nil {
+	if err = s.client.DeleteFile(repoName, branchName, commit.ID, "commit.json"); err != nil {
 		return err
 	}
-	if err = s.client.PutFile(repoName, commit.ID, "commit.json", bytes.NewReader(rawPayload)); err != nil {
+	if err = s.client.PutFile(repoName, branchName, commit.ID, "commit.json", bytes.NewReader(rawPayload)); err != nil {
 		return err
 	}
 	return nil

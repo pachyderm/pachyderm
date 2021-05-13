@@ -94,7 +94,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	err = pc.GlobFile(bucket.Repo, bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(bucket.Repo, bucket.Branch, bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -167,7 +167,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 			// Bucket already exists - this is not an error so long as the
 			// branch being created is new. Verify if that is the case now,
 			// since PFS' `CreateBranch` won't error out.
-			_, err := pc.InspectBranch(bucket.Repo, bucket.Commit)
+			_, err := pc.InspectBranch(bucket.Repo, bucket.Branch)
 			if err != nil {
 				if !pfsServer.IsBranchNotFoundErr(err) {
 					return s2.InternalError(r, err)
@@ -182,7 +182,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 		}
 	}
 
-	err = pc.CreateBranch(bucket.Repo, bucket.Commit, "", nil)
+	err = pc.CreateBranch(bucket.Repo, bucket.Branch, "", "", nil)
 	if err != nil {
 		if ancestry.IsInvalidNameError(err) {
 			return s2.InvalidBucketNameError(r)
@@ -213,14 +213,14 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 	// `DeleteBranch` does not return an error if a non-existing branch is
 	// deleting. So first, we verify that the branch exists so we can
 	// otherwise return a 404.
-	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Commit)
+	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Branch)
 	if err != nil {
 		return maybeNotFoundError(r, err)
 	}
 
 	if branchInfo.Head != nil {
 		hasFiles := false
-		err = pc.WalkFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
+		err = pc.WalkFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
 			if fileInfo.FileType == pfsClient.FileType_FILE {
 				hasFiles = true
 				return errutil.ErrBreak
@@ -236,7 +236,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 		}
 	}
 
-	err = pc.DeleteBranch(bucket.Repo, bucket.Commit, false)
+	err = pc.DeleteBranch(bucket.Repo, bucket.Branch, false)
 	if err != nil {
 		return s2.InternalError(r, err)
 	}

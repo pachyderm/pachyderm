@@ -50,7 +50,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 				Glob:   "/*",
 			},
 		},
-		SpecCommit: client.NewCommit(ppsconsts.SpecRepo, name),
+		SpecCommit: client.NewCommit(ppsconsts.SpecRepo, name, ""),
 	}
 }
 
