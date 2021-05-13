@@ -469,10 +469,6 @@ func (d *driver) getOrComputeTotal(pachClient *client.APIClient, commit *pfs.Com
 	if err != nil {
 		return nil, err
 	}
-	ids, err := d.storage.Flatten(ctx, []fileset.ID{*id})
-	if err != nil {
-		return nil, err
-	}
 	var inputs []fileset.ID
 	if commitInfo.ParentCommit != nil {
 		parentDiff, err := d.getOrComputeTotal(pachClient, commitInfo.ParentCommit)
@@ -480,10 +476,8 @@ func (d *driver) getOrComputeTotal(pachClient *client.APIClient, commit *pfs.Com
 			return nil, err
 		}
 		inputs = append(inputs, *parentDiff)
-		inputs = append(inputs, ids...)
-	} else {
-		inputs = ids
 	}
+	inputs = append(inputs, *id)
 	output, err := d.compactor.Compact(ctx, inputs, defaultTTL)
 	if err != nil {
 		return nil, err

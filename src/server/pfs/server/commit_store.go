@@ -175,10 +175,8 @@ func dropTotal(tx *sqlx.Tx, tr track.Tracker, commit *pfs.Commit) error {
 	if err := tr.DeleteTx(tx, trackID); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, commit.ID); err != nil {
-		return err
-	}
-	return nil
+	_, err = tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, commit.ID)
+	return err
 }
 
 func setTotal(tx *sqlx.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID) error {

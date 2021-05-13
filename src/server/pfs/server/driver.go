@@ -1279,7 +1279,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 }
 
 // getCommit is like inspectCommit, without the blocking.
-// It does not the size to the CommitInfo
+// It does not add the size to the CommitInfo
 func (d *driver) getCommit(pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if commit.GetRepo().GetName() == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
