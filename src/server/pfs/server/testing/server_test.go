@@ -2395,7 +2395,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		var eg errgroup.Group
 		for i := 0; i < 25; i++ {
@@ -5025,7 +5025,7 @@ func TestPFS(suite *testing.T) {
 			data := dataPrefix + strconv.Itoa(i)
 			// Retry start commit until it eventually succeeds.
 			monkeyRetry(t, func() error {
-				commit, err = env.PachClient.StartCommit(repo, "")
+				commit, err = env.PachClient.StartCommit(repo, "master")
 				return err
 			}, seedStr(seed))
 			// Retry put file until it eventually succeeds.
