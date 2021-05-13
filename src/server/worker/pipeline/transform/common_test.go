@@ -66,7 +66,6 @@ type testDriver struct {
 	inner driver.Driver
 }
 
-// Fuck golang
 func (td *testDriver) Jobs() col.PostgresCollection {
 	return td.inner.Jobs()
 }

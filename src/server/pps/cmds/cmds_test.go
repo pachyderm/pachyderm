@@ -783,7 +783,7 @@ func TestMissingPipeline(t *testing.T) {
 		pachctl create pipeline <<EOF
 		  {
 		    "transform": {
-		      "image": "ubuntu"
+			  "image": "ubuntu:20.04"
 		    },
 		    "input": {
 		      "pfs": {
@@ -806,7 +806,7 @@ func TestUnnamedPipeline(t *testing.T) {
 		  {
 		    "pipeline": {},
 		    "transform": {
-		      "image": "ubuntu"
+			  "image": "ubuntu:20.04"
 		    },
 		    "input": {
 		      "pfs": {
@@ -1056,7 +1056,7 @@ func TestNoWarningTagSpecified(t *testing.T) {
 	}
 	// should not emit a warning (stderr should be empty) because user
 	// specified non-empty, non-latest tag
-	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:xenial")
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:20.04")
 	require.NoError(t, err)
 	require.Equal(t, "", stderr)
 }
