@@ -101,7 +101,7 @@ func TestGetAndUseRobotToken(t *testing.T) {
 		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
-		pachctl auth get-robot-token --enterprise -q {{.alice}} | pachctl auth use-auth-token --enterprise
+		pachctl auth get-robot-token --enterprise -q {{.alice}} | tail -1 | pachctl auth use-auth-token --enterprise
 		pachctl auth get-robot-token -q {{.bob}} | pachctl auth use-auth-token
 		pachctl auth whoami --enterprise | match {{.alice}}
 		pachctl auth whoami | match {{.bob}}
