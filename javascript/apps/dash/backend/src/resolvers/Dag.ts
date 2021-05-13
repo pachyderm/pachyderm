@@ -151,6 +151,7 @@ const normalizeDAGData = async (
     {id: 'root', children: elkChildren, edges: elkEdges},
     {
       layoutOptions: {
+        'org.eclipse.elk.padding': '80',
         'org.eclipse.elk.algorithm': 'layered',
         'org.eclipse.elk.mergeEdges': 'false',
         'org.eclipse.elk.direction': direction,

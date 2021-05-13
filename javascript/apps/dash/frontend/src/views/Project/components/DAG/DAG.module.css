@@ -2,14 +2,12 @@
   font-size: var(--font-size-body-medium);
   overflow-x: hidden;
   background: var(--white);
-  padding-top: 4rem;
 }
 
 .multiDag {
   box-shadow: 0 1px 2px 0 var(--border-grey);
   border-radius: 3px;
   margin-bottom: 1.25rem;
-  padding-left: 2rem;
 }
 
 .pipelineStatus {
@@ -17,8 +15,8 @@
   color: var(--pachyderm-coral);
   padding: 0.25rem 1rem 0.25rem 0.5rem;
   position: absolute;
-  margin-top: -3rem;
-  margin-left: -1rem;
+  margin-top: 1rem;
+  margin-left: 1rem;
   border-radius: 1rem;
 }
 
@@ -27,7 +25,6 @@
 }
 
 .canvasControls {
-  margin-top: -4rem;
   height: 4rem;
   padding-left: 1rem;
   display: flex;
@@ -38,6 +35,11 @@
 .graph {
   transform-box: fill-box;
   transform-origin: center;
+}
+
+.multiDag .graph {
+  transform-box: initial;
+  transform-origin: left;
 }
 
 .rotate {
