@@ -459,10 +459,10 @@ func (d *driver) getOrComputeTotal(pachClient *client.APIClient, commit *pfs.Com
 	}
 	commit = commitInfo.Commit
 	id, err := d.commitStore.GetTotalFileset(ctx, commit)
-	if err != nil {
+	if err != nil && err != errNoTotalFileset {
 		return nil, err
 	}
-	if id != nil {
+	if err == nil {
 		return id, nil
 	}
 	id, err = d.commitStore.GetDiffFileset(ctx, commit)

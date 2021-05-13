@@ -127,7 +127,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.GetDBClient(), tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, fileset.StorageOptions(env.Config())...)
 	// Setup compaction queue and worker.
-	d.compactor, err = newCompactor(d.storage, etcdClient, etcdPrefix, env.Config().StorageCompactionMaxFanIn)
+	d.compactor, err = newCompactor(env.Context(), d.storage, etcdClient, etcdPrefix, env.Config().StorageCompactionMaxFanIn)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,6 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	}
 	// Setup PFS master
 	go d.master(env.Context())
-	go d.compactor.compactionWorker(env.Context())
 	return d, nil
 }
 

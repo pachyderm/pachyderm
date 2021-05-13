@@ -6,10 +6,13 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
+
+var errNoTotalFileset = errors.Errorf("no total fileset")
 
 const commitTrackerPrefix = "commit/"
 
@@ -81,7 +84,7 @@ func (cs *postgresCommitStore) GetTotalFileset(ctx context.Context, commit *pfs.
 		return nil, err
 	}
 	if id == nil {
-		return nil, nil
+		return nil, errNoTotalFileset
 	}
 	return cs.s.Clone(ctx, *id, defaultTTL)
 }

@@ -25,21 +25,23 @@ type compactor struct {
 	worker          *work.Worker
 }
 
-func newCompactor(storage *fileset.Storage, etcdClient *etcd.Client, etcdPrefix string, maxFanIn int) (*compactor, error) {
+func newCompactor(ctx context.Context, storage *fileset.Storage, etcdClient *etcd.Client, etcdPrefix string, maxFanIn int) (*compactor, error) {
 	if maxFanIn < 2 {
 		panic(maxFanIn)
 	}
-	compactionQueue, err := work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)
+	compactionQueue, err := work.NewTaskQueue(ctx, etcdClient, etcdPrefix, storageTaskNamespace)
 	if err != nil {
 		return nil, err
 	}
 	worker := work.NewWorker(etcdClient, etcdPrefix, storageTaskNamespace)
-	return &compactor{
+	c := &compactor{
 		storage:         storage,
 		maxFanIn:        maxFanIn,
 		compactionQueue: compactionQueue,
 		worker:          worker,
-	}, nil
+	}
+	go c.compactionWorker(ctx)
+	return c, nil
 }
 
 func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
