@@ -29,7 +29,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -84,9 +83,9 @@ type driver struct {
 	branches    collectionFactory
 	openCommits col.EtcdCollection
 
-	storage         *fileset.Storage
-	commitStore     commitStore
-	compactionQueue *work.TaskQueue
+	storage     *fileset.Storage
+	commitStore commitStore
+	compactor   *compactor
 }
 
 func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
@@ -128,7 +127,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.GetDBClient(), tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, fileset.StorageOptions(env.Config())...)
 	// Setup compaction queue and worker.
-	d.compactionQueue, err = work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)
+	d.compactor, err = newCompactor(env.Context(), d.storage, etcdClient, etcdPrefix, env.Config().StorageCompactionMaxFanIn)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +146,6 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	}
 	// Setup PFS master
 	go d.master(env.Context())
-	go d.compactionWorker(env.Context())
 	return d, nil
 }
 
@@ -791,7 +789,6 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 // TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
 // We are going to want to move the compaction to the read side, and just mark the commit as finished here.
 func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
-	ctx := txnCtx.Client.Ctx()
 	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
@@ -803,31 +800,6 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if description != "" {
 		commitInfo.Description = description
 	}
-	var ids []fileset.ID
-	if commitInfo.ParentCommit != nil {
-		id, err := d.commitStore.GetTotalFileset(ctx, commitInfo.ParentCommit)
-		if err != nil {
-			return err
-		}
-		ids = append(ids, *id)
-	}
-	id, err := d.commitStore.GetDiffFileset(ctx, commit)
-	if err != nil {
-		return err
-	}
-	ids = append(ids, *id)
-	compactedID, err := d.compact(ctx, ids)
-	if err != nil {
-		return err
-	}
-	if err := d.commitStore.SetTotalFileset(ctx, commit, *compactedID); err != nil {
-		return err
-	}
-	outputSize, err := d.storage.SizeOf(ctx, *compactedID)
-	if err != nil {
-		return err
-	}
-	commitInfo.SizeBytes = uint64(outputSize)
 	commitInfo.Finished = types.TimestampNow()
 	empty := strings.Contains(commitInfo.Description, pfs.EmptyStr)
 	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
@@ -1302,6 +1274,37 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		commitInfo.Branch = commitBranch
 	}
 	userCommit.ID = commitInfo.Commit.ID
+	return commitInfo, nil
+}
+
+// getCommit is like inspectCommit, without the blocking.
+// It does not add the size to the CommitInfo
+func (d *driver) getCommit(pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	if commit.GetRepo().GetName() == fileSetsRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commit,
+			Description: "FileSet - Virtual Commit",
+			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return cinfo, nil
+	}
+	ctx := pachClient.Ctx()
+	if commit == nil {
+		return nil, errors.Errorf("cannot inspect nil commit")
+	}
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		return nil, err
+	}
+
+	// Check if the commitID is a branch name
+	var commitInfo *pfs.CommitInfo
+	if err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		var err error
+		commitInfo, err = d.resolveCommit(stm, commit)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 	return commitInfo, nil
 }
 
