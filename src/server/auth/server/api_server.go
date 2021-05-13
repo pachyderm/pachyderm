@@ -79,15 +79,15 @@ type apiServer struct {
 	clusterRoleBindingCache *keycache.Cache
 
 	// roleBindings is a collection of resource name -> role binding mappings.
-	roleBindings col.Collection
+	roleBindings col.EtcdCollection
 	// members is a collection of username -> groups mappings.
-	members col.Collection
+	members col.EtcdCollection
 	// groups is a collection of group -> usernames mappings.
-	groups col.Collection
+	groups col.EtcdCollection
 	// collection containing the auth config (under the key configKey)
-	authConfig col.Collection
+	authConfig col.EtcdCollection
 	// oidcStates  contains the set of OIDC nonces for requests that are in progress
-	oidcStates col.Collection
+	oidcStates col.EtcdCollection
 
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
@@ -141,7 +141,7 @@ func NewAuthServer(
 	watchesEnabled bool,
 ) (APIServer, error) {
 
-	authConfig := col.NewCollection(
+	authConfig := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(etcdPrefix, configKey),
 		nil,
@@ -149,7 +149,7 @@ func NewAuthServer(
 		nil,
 		nil,
 	)
-	roleBindings := col.NewCollection(
+	roleBindings := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(etcdPrefix, roleBindingsPrefix),
 		nil,
@@ -161,7 +161,7 @@ func NewAuthServer(
 		env:        env,
 		txnEnv:     txnEnv,
 		pachLogger: log.NewLogger("auth.API", env.Logger()),
-		members: col.NewCollection(
+		members: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),
 			nil,
@@ -169,7 +169,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		groups: col.NewCollection(
+		groups: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, groupsPrefix),
 			nil,
@@ -177,7 +177,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		oidcStates: col.NewCollection(
+		oidcStates: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(oidcAuthnPrefix),
 			nil,
@@ -198,8 +198,8 @@ func NewAuthServer(
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(env.Context(), authConfig, configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(env.Context(), roleBindings, clusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(env.Context(), authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(env.Context(), roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch()
@@ -265,7 +265,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	b.MaxInterval = 5 * time.Second
 	if err := backoff.Retry(func() error {
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
+			superUserTokenCol := col.NewEtcdCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
 			// TODO(msteffen): Don't use an empty key, as it will not be erased by
 			// superUserTokenCol.DeleteAll()
 			err := superUserTokenCol.Get("", &tokenProto)
@@ -1252,7 +1252,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	membersCol := a.members.ReadOnly(ctx)
 	groups := &auth.Groups{}
 	var users []string
-	if err := membersCol.List(groups, col.DefaultOptions, func(user string) error {
+	if err := membersCol.List(groups, col.DefaultOptions(), func(user string) error {
 		users = append(users, user)
 		return nil
 	}); err != nil {

@@ -37,7 +37,7 @@ type apiServer struct {
 
 	// enterpriseToken is a collection containing at most one Pachyderm enterprise
 	// token
-	enterpriseToken col.Collection
+	enterpriseToken col.EtcdCollection
 }
 
 func (a *apiServer) LogReq(request interface{}) {
@@ -46,7 +46,7 @@ func (a *apiServer) LogReq(request interface{}) {
 
 // New returns an implementation of license.APIServer.
 func New(env serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
-	enterpriseToken := col.NewCollection(
+	enterpriseToken := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		etcdPrefix,
 		nil,
@@ -58,7 +58,7 @@ func New(env serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
 	s := &apiServer{
 		pachLogger:           log.NewLogger("license.API", env.Logger()),
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(env.Context(), enterpriseToken, licenseRecordKey, defaultRecord),
+		enterpriseTokenCache: keycache.NewCache(env.Context(), enterpriseToken.ReadOnly(env.Context()), licenseRecordKey, defaultRecord),
 		enterpriseToken:      enterpriseToken,
 	}
 	go s.enterpriseTokenCache.Watch()

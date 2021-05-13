@@ -43,7 +43,7 @@ require (
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/julienschmidt/httprouter v1.3.0
-	github.com/lib/pq v1.3.0
+	github.com/lib/pq v1.10.0
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
@@ -76,7 +76,7 @@ require (
 	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/net v0.0.0-20201021035429-f5854403a974
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20210511113859-b0526f3d8744

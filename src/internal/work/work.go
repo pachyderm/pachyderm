@@ -33,7 +33,7 @@ type TaskQueue struct {
 
 type taskEtcd struct {
 	etcdClient                    *etcd.Client
-	taskCol, subtaskCol, claimCol col.Collection
+	taskCol, subtaskCol, claimCol col.EtcdCollection
 }
 
 // NewTaskQueue sets up a new task queue.
@@ -61,8 +61,8 @@ func newTaskEtcd(etcdClient *etcd.Client, etcdPrefix string, taskNamespace strin
 	}
 }
 
-func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Message) col.Collection {
-	return col.NewCollection(
+func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Message) col.EtcdCollection {
+	return col.NewEtcdCollection(
 		etcdClient,
 		etcdPrefix,
 		nil,
@@ -164,6 +164,9 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 		return m.subtaskCol.ReadOnly(ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
 			var key string
 			subtaskInfo := &TaskInfo{}
+			if e.Type == watch.EventDelete {
+				return errors.New("task was deleted while waiting for results")
+			}
 			if err := e.Unmarshal(&key, subtaskInfo); err != nil {
 				return err
 			}
@@ -275,14 +278,14 @@ type ProcessFunc func(context.Context, *Task) (*types.Any, error)
 func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 	taskQueue := newTaskQueue(ctx)
 	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
-		var taskID string
+		taskID := string(e.Key)
 		task := &Task{}
-		if err := e.Unmarshal(&taskID, task); err != nil {
-			return err
-		}
 		if e.Type == watch.EventDelete {
 			taskQueue.deleteTask(taskID)
 			return nil
+		}
+		if err := e.Unmarshal(&taskID, task); err != nil {
+			return err
 		}
 		return taskQueue.runTask(ctx, taskID, func(taskEntry *taskEntry) {
 			if err := w.taskFunc(task, taskEntry, processFunc); err != nil && !errors.Is(taskEntry.ctx.Err(), context.Canceled) {
@@ -293,12 +296,12 @@ func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 }
 
 func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessFunc) error {
-	claimWatch, err := w.claimCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterPut())
+	claimWatch, err := w.claimCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.IgnorePut)
 	if err != nil {
 		return err
 	}
 	defer claimWatch.Close()
-	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterDelete())
+	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.IgnoreDelete)
 	if err != nil {
 		return err
 	}
@@ -309,13 +312,7 @@ func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessF
 			if e.Type == watch.EventError {
 				return e.Err
 			}
-			if e.Type != watch.EventDelete {
-				continue
-			}
-			var subtaskKey string
-			if err := e.Unmarshal(&subtaskKey, &Claim{}); err != nil {
-				return err
-			}
+			subtaskKey := string(e.Key)
 			taskEntry.runSubtask(w.subtaskFunc(subtaskKey, processFunc))
 		case e := <-subtaskWatch.Watch():
 			if e.Type == watch.EventError {

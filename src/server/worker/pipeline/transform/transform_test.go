@@ -289,22 +289,22 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 
 func TestTransformPipeline(suite *testing.T) {
 	suite.Parallel()
-	postgres := testutil.NewPostgresDeployment(suite)
 
 	suite.Run("TestJobSuccess", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
+		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 		testJobSuccess(t, env, pi, []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		})
 	})
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
+		t.Parallel()
 		objC, bucket := testutil.NewObjectClient(t)
 		pi := defaultPipelineInfo()
 		pi.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", bucket)}
-		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
+		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 
 		files := []tarutil.File{
 			tarutil.NewMemFile("/file1", []byte("foo")),
@@ -329,7 +329,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobFailedDatum", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
+		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 
 		pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
@@ -346,7 +346,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobMultiDatum", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
+		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
@@ -383,7 +383,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSerial", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
+		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
@@ -426,7 +426,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSerialDelete", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, postgres.NewDatabaseConfig(t), pi)
+		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{

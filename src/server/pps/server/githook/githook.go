@@ -36,7 +36,7 @@ type gitHookServer struct {
 	hook       *github.Webhook
 	client     *client.APIClient
 	etcdClient *etcd.Client
-	pipelines  col.Collection
+	pipelines  col.EtcdCollection
 }
 
 func hookPath() string {

@@ -76,7 +76,7 @@ func InitialState() State {
 			);
 			INSERT INTO migrations (id, name, start_time, end_time) VALUES (0, 'init', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;
 			`)
-			return err
+			return errors.EnsureStack(err)
 		},
 	}
 }
@@ -103,7 +103,7 @@ func collectStates(slice []State, s State) []State {
 func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) error {
 	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	env := baseEnv
 	env.Tx = tx
@@ -115,7 +115,7 @@ func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) 
 		}
 		_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if finished, err := isFinished(ctx, tx, state); err != nil {
 			return err
@@ -125,14 +125,14 @@ func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) 
 			return nil
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		logrus.Infof("applying migration %d %s", state.n, state.name)
 		if err := state.change(ctx, env); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		logrus.Infof("successfully applied migration %d", state.n)
 		return nil
@@ -140,9 +140,9 @@ func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) 
 		if err := tx.Rollback(); err != nil {
 			logrus.Error(err)
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
-	return tx.Commit()
+	return errors.EnsureStack(tx.Commit())
 }
 
 // BlockUntil blocks until state is actualized.
@@ -164,12 +164,12 @@ func BlockUntil(ctx context.Context, db *sqlx.DB, state State) error {
 			WHERE table_schema = $1
 			AND table_name = $2
 		)`, schemaName, tableName); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if tableExists {
 			var latest int
-			if err := db.GetContext(ctx, &latest, `SELECT COALESCE(MAX(id), 0) FROM migrations`); err != nil && err != sql.ErrNoRows {
-				return err
+			if err := db.GetContext(ctx, &latest, `SELECT COALESCE(MAX(id), 0) FROM migrations`); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return errors.EnsureStack(err)
 			}
 			if latest == state.n {
 				return nil
@@ -179,7 +179,7 @@ func BlockUntil(ctx context.Context, db *sqlx.DB, state State) error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		case <-ticker.C:
 		}
 	}
@@ -192,10 +192,10 @@ func isFinished(ctx context.Context, tx *sqlx.Tx, state State) (bool, error) {
 	FROM migrations
 	WHERE id = $1
 	`, state.n); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
-		return false, err
+		return false, errors.EnsureStack(err)
 	}
 	if name != state.name {
 		return false, errors.Errorf("migration mismatch %d HAVE: %s WANT: %s", state.n, name, state.name)

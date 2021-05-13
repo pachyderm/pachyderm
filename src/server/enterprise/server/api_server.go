@@ -40,10 +40,10 @@ type apiServer struct {
 	enterpriseTokenCache *keycache.Cache
 
 	// enterpriseTokenCol is a collection containing the enterprise license state
-	enterpriseTokenCol col.Collection
+	enterpriseTokenCol col.EtcdCollection
 
 	// configCol is a collection containing the license server configuration
-	configCol col.Collection
+	configCol col.EtcdCollection
 }
 
 func (a *apiServer) LogReq(request interface{}) {
@@ -53,7 +53,7 @@ func (a *apiServer) LogReq(request interface{}) {
 // NewEnterpriseServer returns an implementation of ec.APIServer.
 func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
-	enterpriseTokenCol := col.NewCollection(
+	enterpriseTokenCol := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		etcdPrefix,
 		nil,
@@ -65,9 +65,9 @@ func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APISe
 	s := &apiServer{
 		pachLogger:           log.NewLogger("enterprise.API", env.Logger()),
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(env.Context(), enterpriseTokenCol, enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseTokenCache: keycache.NewCache(env.Context(), enterpriseTokenCol.ReadOnly(env.Context()), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
-		configCol:            col.NewCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
+		configCol:            col.NewEtcdCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
 	}
 	go s.enterpriseTokenCache.Watch()
 	go s.heartbeatRoutine()

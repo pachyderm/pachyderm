@@ -8268,10 +8268,10 @@ func TestSquashCommitPropagation(t *testing.T) {
 	// 		})
 }
 
-// TestSquashCommitRunsJob creates an input reo, commits several times, and then
-// creates a pipeline. Creating the pipeline will spawn a job and while that
-// job is running, this test deletes the HEAD commit of the input branch, which
-// deletes the job's output commit and cancels the job. This should start
+// TestSquashCommitRunsJob creates an input repo, commits several times, and
+// then creates a pipeline. Creating the pipeline will spawn a job and while
+// that job is running, this test deletes the HEAD commit of the input branch,
+// which deletes the job's output commit and cancels the job. This should start
 // another job that processes the original input HEAD commit's parent.
 func TestSquashCommitRunsJob(t *testing.T) {
 	if testing.Short() {
@@ -8349,7 +8349,7 @@ func TestSquashCommitRunsJob(t *testing.T) {
 		}, backoff.NewTestingBackOff())
 	})
 
-	// Delete the first commit in the input repo
+	// Delete the second commit in the input repo
 	require.NoError(t, c.SquashCommit(repo, commit2.ID))
 
 	// Wait until PPS has started processing commit1
