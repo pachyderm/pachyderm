@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"reflect"
-	"runtime/debug"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -40,7 +39,6 @@ type Event struct {
 // Unmarshal unmarshals the item in an event into a protobuf message.
 func (e *Event) Unmarshal(key *string, val proto.Message) error {
 	if e.Value == nil {
-		debug.PrintStack()
 		return errors.Errorf("Cannot unmarshal an event with a null value, type: %v", e.Type)
 	}
 	if err := CheckType(e.Template, val); err != nil {
