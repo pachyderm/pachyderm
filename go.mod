@@ -5,7 +5,11 @@ go 1.15
 require (
 	cloud.google.com/go/storage v1.3.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.18 // indirect
+	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
+	github.com/HdrHistogram/hdrhistogram-go v1.1.0 // indirect
 	github.com/OneOfOne/xxhash v1.2.6
+	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/beevik/etree v1.1.0
@@ -34,15 +38,20 @@ require (
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 	github.com/golang/protobuf v1.3.3
 	github.com/golang/snappy v0.0.1
-	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/google/go-github v17.0.0+incompatible
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
-	github.com/grafana/loki v1.5.0
+	//github.com/grafana/loki v1.5.0
 	github.com/hanwen/go-fuse/v2 v2.0.3
 	github.com/hashicorp/go-hclog v0.8.0 // indirect
+	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
 	github.com/hashicorp/go-plugin v1.0.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.5.4 // indirect
+	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
+	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
+	github.com/hashicorp/go-uuid v1.0.2 // indirect
+	github.com/hashicorp/go-version v1.3.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/vault v1.1.3
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
@@ -50,7 +59,7 @@ require (
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/jonboulle/clockwork v0.2.2 // indirect
-	github.com/json-iterator/go v1.1.9 // indirect
+	github.com/json-iterator/go v1.1.9
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.3.0
@@ -58,8 +67,9 @@ require (
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/mattn/go-tty v0.0.3 // indirect
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/minio/minio-go/v6 v6.0.55
-	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/modern-go/reflect2 v1.0.1
 	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.1-0.20200124165624-2876d2018785
@@ -80,8 +90,9 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v0.0.6-0.20191202130430-b04b5bfc50cb
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
+	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
@@ -117,7 +128,7 @@ require (
 // For the moment, the windows build requires a fix that has not been tagged with an official release
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
 
-replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
+replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.2.0+incompatible
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
