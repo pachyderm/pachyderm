@@ -1,5 +1,14 @@
 # Commit messages from a Kafka queue
 
+![pach_logo](./img/pach_logo.svg)
+   This example is based on **spouts 1.0** implementation
+   prior to Pachyderm 1.12.
+   The implementation in spouts 2.0 is significantly different.
+   We recommend upgrading 
+   to the latest version
+   of Pachyderm
+   and using the **spouts 2.0** implementation.
+   
 This is a simple example of using spouts with [Kafka](https://kafka.apache.org) to process messages and write them to files.
 
 
