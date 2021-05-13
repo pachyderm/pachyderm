@@ -1,4 +1,4 @@
-package lokiutil
+package client
 
 import (
 	"net/url"

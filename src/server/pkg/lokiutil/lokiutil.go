@@ -7,8 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-
-	loki "github.com/grafana/loki/pkg/logcli/client"
+	loki "github.com/pachyderm/pachyderm/src/server/pkg/lokiutil/client"
 )
 
 const (
@@ -17,9 +16,9 @@ const (
 	maxLogMessages = 5000
 )
 
-func forEachLine(resp QueryResponse, f func(t time.Time, line string) error) error {
+func forEachLine(resp loki.QueryResponse, f func(t time.Time, line string) error) error {
 	// sort and display entries
-	streams, ok := resp.Data.Result.(Streams)
+	streams, ok := resp.Data.Result.(loki.Streams)
 	if !ok {
 		return errors.Errorf("resp.Data.Result must be of type loghttp.Streams to call ForEachStream on it")
 	}
@@ -52,7 +51,7 @@ func forEachLine(resp QueryResponse, f func(t time.Time, line string) error) err
 func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, through time.Time, follow bool, f func(t time.Time, line string) error) error {
 	for {
 		// Unfortunately there's no way to pass ctx to this function.
-		resp, err := QueryRangeInternal(ctx, queryStr, maxLogMessages, from, through, "FORWARD", 0, 0, true)
+		resp, err := c.QueryRange(ctx, queryStr, maxLogMessages, from, through, "FORWARD", 0, 0, true)
 		if err != nil {
 			return err
 		}
@@ -78,6 +77,6 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 }
 
 type streamEntryPair struct {
-	entry  Entry
-	labels LabelSet
+	entry  loki.Entry
+	labels loki.LabelSet
 }

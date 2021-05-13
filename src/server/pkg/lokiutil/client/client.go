@@ -1,4 +1,4 @@
-package lokiutil
+package client
 
 import (
 	"context"
@@ -11,11 +11,15 @@ import (
 
 var (
 	queryRangePath = "/loki/api/v1/query_range"
-	lokiAddress    = "http://localhost:3100" //TODO Make configurable for on cluster
+	//lokiAddress    = "http://localhost:3100" //TODO Make configurable for on cluster
 )
 
+type Client struct {
+	Address string
+}
+
 //	QueryRange(queryStr string, limit int, from, through time.Time, direction logproto.Direction, step, interval time.Duration, quiet bool) (*loghttp.QueryResponse, error)
-func QueryRangeInternal(ctx context.Context, queryStr string, limit int, start, end time.Time, direction string, step, interval time.Duration, quiet bool) (*QueryResponse, error) {
+func (c *Client) QueryRange(ctx context.Context, queryStr string, limit int, start, end time.Time, direction string, step, interval time.Duration, quiet bool) (*QueryResponse, error) {
 	params := NewQueryStringBuilder()
 	params.SetString("query", queryStr)
 	params.SetInt32("limit", limit)
@@ -33,22 +37,22 @@ func QueryRangeInternal(ctx context.Context, queryStr string, limit int, start, 
 		params.SetFloat("interval", interval.Seconds())
 	}
 
-	return doQuery(ctx, queryRangePath, params.Encode(), quiet)
+	return c.doQuery(ctx, queryRangePath, params.Encode(), quiet)
 }
 
-func doQuery(ctx context.Context, path string, query string, quiet bool) (*QueryResponse, error) {
+func (c *Client) doQuery(ctx context.Context, path string, query string, quiet bool) (*QueryResponse, error) {
 	var err error
 	var r QueryResponse
 
-	if err = doRequest(ctx, path, query, quiet, &r); err != nil {
+	if err = c.doRequest(ctx, path, query, quiet, &r); err != nil {
 		return nil, err
 	}
 
 	return &r, nil
 }
 
-func doRequest(ctx context.Context, path, query string, quiet bool, out interface{}) error {
-	us, err := buildURL(lokiAddress, path, query) //TODO pass through address
+func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool, out interface{}) error {
+	us, err := buildURL(c.Address, path, query)
 	if err != nil {
 		return err
 	}
