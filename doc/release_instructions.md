@@ -113,7 +113,7 @@ Copy the commit hash printed from the above command. Search for "git checkout" i
 `.testfaster.yml` file. Replace the hash value with the one from above git log cmd.
 
 ```shell
-git commit -am "Upadate test faster hash for $(pachctl version --client-only) release"
+git commit -am "Update test faster hash for $(pachctl version --client-only) release"
 ```
 
 ### Update the changelog [apply step only when running point-release target]
@@ -121,7 +121,7 @@ git commit -am "Upadate test faster hash for $(pachctl version --client-only) re
 Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
 
 ```shell
-git commit -am "Upadate change log for $(pachctl version --client-only) release"
+git commit -am "Update change log for $(pachctl version --client-only) release"
 ```
 
 ### Push changes [apply step only when running point-release target]

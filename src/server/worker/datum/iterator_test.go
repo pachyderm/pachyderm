@@ -286,7 +286,6 @@ func TestIterators(t *testing.T) {
 // TODO: The trailing slash glob replace is not capturing the right key and the PFS path stuff
 // might need some work because it does not seem to make sense that we return a file for a path that
 // ends in a trailing slash.
-// Make work with V2.
 //func TestJoinTrailingSlash(t *testing.T) {
 //	t.Parallel()
 //  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))

@@ -450,6 +450,18 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
+	var enterpriseAPIServer eprsclient.APIServer
+	if err := logGRPCServerSetup("Enterprise API", func() error {
+		enterpriseAPIServer, err = eprsserver.NewEnterpriseServer(
+			env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+		if err != nil {
+			return err
+		}
+		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+		return nil
+	}); err != nil {
+		return err
+	}
 	var transactionAPIServer txnserver.APIServer
 	if err := logGRPCServerSetup("Transaction API", func() error {
 		transactionAPIServer, err = txnserver.NewAPIServer(

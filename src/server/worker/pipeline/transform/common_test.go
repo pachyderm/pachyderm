@@ -66,11 +66,10 @@ type testDriver struct {
 	inner driver.Driver
 }
 
-// Fuck golang
-func (td *testDriver) Jobs() col.Collection {
+func (td *testDriver) Jobs() col.EtcdCollection {
 	return td.inner.Jobs()
 }
-func (td *testDriver) Pipelines() col.Collection {
+func (td *testDriver) Pipelines() col.EtcdCollection {
 	return td.inner.Pipelines()
 }
 func (td *testDriver) NewTaskWorker() *work.Worker {

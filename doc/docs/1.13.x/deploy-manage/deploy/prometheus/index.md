@@ -35,19 +35,19 @@ Prometheus' **Kubernetes cluster monitoring** using the Prometheus Operator:
         apiVersion: monitoring.coreos.com/v1
         kind: ServiceMonitor
         metadata:
-        name: pachyderm-scraper
-        labels:
+          name: pachyderm-scraper
+          labels:
             release: <a-release-name>
         spec:
             selector:
                 matchLabels:
-                suite: pachyderm
+                  suite: pachyderm
             namespaceSelector:
                 matchNames:
                 - default
             endpoints:
             - port: prometheus-metrics
-                interval: 30s
+              interval: 30s
         ```
     - Create a ServiceMonitor looking to scrape metrics from `suite: pachyderm`:
         ```shell

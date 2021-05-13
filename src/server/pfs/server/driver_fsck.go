@@ -251,18 +251,18 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	newCommitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
-		commits := d.commits(repoName).ReadOnly(ctx)
+	if err := repos.List(repoInfo, col.DefaultOptions(), func(string) error {
+		commits := d.commits(repoInfo.Repo.Name).ReadOnly(ctx)
 		commitInfo := &pfs.CommitInfo{}
-		if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
+		if err := commits.List(commitInfo, col.DefaultOptions(), func(string) error {
 			commitInfos[fsckCommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 			return nil
 		}); err != nil {
 			return err
 		}
-		branches := d.branches(repoName).ReadOnly(ctx)
+		branches := d.branches(repoInfo.Repo.Name).ReadOnly(ctx)
 		branchInfo := &pfs.BranchInfo{}
-		return branches.List(branchInfo, col.DefaultOptions, func(branchName string) error {
+		return branches.List(branchInfo, col.DefaultOptions(), func(string) error {
 			branchInfos[branchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
 			return nil
 		})

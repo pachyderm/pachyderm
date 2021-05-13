@@ -44,7 +44,7 @@ func NewGarbageCollector(tracker Tracker, period time.Duration, deleter Deleter)
 	}
 }
 
-// RunForever runs the gc loop, until the context is cancelled. It returns ErrContextCancell on exit.
+// RunForever runs the gc loop, until the context is cancelled. It returns context.Canceled on exit.
 func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 	ticker := time.NewTicker(gc.period)
 	defer ticker.Stop()

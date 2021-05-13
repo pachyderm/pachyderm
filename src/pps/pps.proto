@@ -389,6 +389,7 @@ message StoredPipelineInfo {
   // k8s privileges and without knowing the number of cluster nodes in the
   // Coefficient case.
   uint64 parallelism = 7;
+  Pipeline pipeline = 8;
 }
 
 message PipelineInfo {
@@ -615,11 +616,11 @@ message ListDatumRequest {
   // Only one can be set.
   // Job is the job to list datums from.
   Job job = 1;
+  // Input is the input to list datums from.
+  // The datums listed are the ones that would be run if a pipeline was created
+  // with the provided input.
+  Input input = 2;
   // TODO:
-  //// Input is the input to list datums from.
-  //// The datums listed are the ones that would be run if a pipeline was created
-  //// with input.
-  //Input input = 4;
   //int64 page_size = 2;
   //int64 page = 3;
 }

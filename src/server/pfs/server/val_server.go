@@ -30,10 +30,13 @@ func newValidatedAPIServer(embeddedServer APIServer, env serviceenv.ServiceEnv) 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
-	repo := request.Repo
-	// Check if the caller is authorized to delete this repo
-	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_DELETE); err != nil {
-		return err
+	// TODO(2.0 required): How should auth be applied when using all?
+	if !request.All {
+		repo := request.Repo
+		// Check if the caller is authorized to delete this repo
+		if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_DELETE); err != nil {
+			return err
+		}
 	}
 	return a.APIServer.DeleteRepoInTransaction(txnCtx, request)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"math"
 	"os"
 	"path"
@@ -69,7 +68,7 @@ type CommitStream interface {
 	Close()
 }
 
-type collectionFactory func(string) col.Collection
+type collectionFactory func(string) col.EtcdCollection
 
 type driver struct {
 	env serviceenv.ServiceEnv
@@ -79,10 +78,10 @@ type driver struct {
 	prefix     string
 
 	// collections
-	repos       col.Collection
+	repos       col.EtcdCollection
 	commits     collectionFactory
 	branches    collectionFactory
-	openCommits col.Collection
+	openCommits col.EtcdCollection
 
 	storage         *fileset.Storage
 	commitStore     commitStore
@@ -100,7 +99,6 @@ func branchKey(branch *pfs.Branch) string {
 func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
 	// Setup etcd, object storage, and database clients.
 	etcdClient := env.GetEtcdClient()
-	fmt.Printf("making client: %s, %s\n", env.Config().StorageBackend, env.Config().StorageRoot)
 	objClient, err := obj.NewClient(env.Config().StorageBackend, env.Config().StorageRoot)
 	if err != nil {
 		return nil, err
@@ -112,10 +110,10 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		etcdClient: etcdClient,
 		prefix:     etcdPrefix,
 		repos:      pfsdb.Repos(etcdClient, etcdPrefix),
-		commits: func(repo string) col.Collection {
+		commits: func(repo string) col.EtcdCollection {
 			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
 		},
-		branches: func(repo string) col.Collection {
+		branches: func(repo string) col.EtcdCollection {
 			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
 		},
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
@@ -155,15 +153,15 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		return nil, err
 	}
 	// Setup PFS master
-	go d.master(env)
-	go d.compactionWorker()
+	go d.master(env.Context())
+	go d.compactionWorker(env.Context())
 	return d, nil
 }
 
 func (d *driver) activateAuth(txnCtx *txnenv.TransactionContext) error {
 	repos := d.repos.ReadOnly(txnCtx.ClientContext)
 	repoInfo := &pfs.RepoInfo{}
-	return repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
+	return repos.List(repoInfo, col.DefaultOptions(), func(string) error {
 		err := txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 			Type: auth.ResourceType_REPO,
 			Name: repoInfo.Repo.Name,
@@ -284,8 +282,8 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
-		if repoName == ppsconsts.SpecRepo {
+	if err := repos.List(repoInfo, col.DefaultOptions(), func(string) error {
+		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
 			return nil
 		}
 		if includeAuth && authSeemsActive {
@@ -295,7 +293,7 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repoName)
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repoInfo.Repo.Name)
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, proto.Clone(repoInfo).(*pfs.RepoInfo))
@@ -342,8 +340,8 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	commits := d.commits(repo.Name).ReadOnly(txnCtx.ClientContext)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
-	if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
-		commitInfos[commitID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+	if err := commits.List(commitInfo, col.DefaultOptions(), func(string) error {
+		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
 		return err
@@ -442,8 +440,6 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, paren
 //   from 'branch'.
 // - If 'parent' is set, it determines the parent commit, but 'branch' is
 //   still moved to point at the new commit
-// TODO: Remove the v1 storage data structures from this function, they are not
-// used for now.
 func (d *driver) makeCommit(
 	txnCtx *txnenv.TransactionContext,
 	ID string,
@@ -1324,16 +1320,15 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		number = math.MaxUint64
 	}
 	commits := d.commits(repo.Name).ReadOnly(ctx)
-	ci := &pfs.CommitInfo{}
 
 	if from != nil && to == nil {
 		return errors.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp (or reversed if so requested.)
-		opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+		opts := col.DefaultOptions()
 		if reverse {
-			opts.Order = etcd.SortAscend
+			opts.Order = col.SortAscend
 		}
 		// we hold onto a revisions worth of cis so that we can sort them by provenance
 		var cis []*pfs.CommitInfo
@@ -1357,8 +1352,9 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 			cis = nil
 			return nil
 		}
+		ci := &pfs.CommitInfo{}
 		lastRev := int64(-1)
-		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
+		if err := commits.ListRev(ci, opts, func(key string, createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -1373,6 +1369,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		}); err != nil {
 			return err
 		}
+
 		// Call sendCis one last time to send whatever's pending in 'cis'
 		if err := sendCis(); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return err
@@ -1705,7 +1702,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	}
 
 	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
-	newCommitWatcher, err := commits.Watch(watch.WithSort(etcd.SortByCreateRevision, etcd.SortAscend))
+	newCommitWatcher, err := commits.Watch(watch.WithSort(col.SortByCreateRevision, col.SortAscend))
 	if err != nil {
 		return err
 	}
@@ -2104,11 +2101,9 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	}
 
 	var result []*pfs.BranchInfo
-	branchInfo := &pfs.BranchInfo{}
-	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
-	opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+	opts := col.DefaultOptions()
 	if reverse {
-		opts.Order = etcd.SortAscend
+		opts.Order = col.SortAscend
 	}
 	var bis []*pfs.BranchInfo
 	sendBis := func() {
@@ -2121,7 +2116,9 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 		bis = nil
 	}
 	lastRev := int64(-1)
-	if err := branches.ListRev(branchInfo, &opts, func(branch string, createRev int64) error {
+	branchInfo := &pfs.BranchInfo{}
+	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
+	if err := branches.ListRev(branchInfo, opts, func(key string, createRev int64) error {
 		if createRev != lastRev {
 			sendBis()
 			lastRev = createRev

@@ -426,11 +426,59 @@ func (c APIClient) ListDatum(job string, cb func(*pps.DatumInfo) error) (retErr 
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
+	req := &pps.ListDatumRequest{
+		Job: NewJob(job),
+	}
+	return c.listDatum(req, cb)
+}
+
+// ListDatumAll returns info about datums in a job.
+func (c APIClient) ListDatumAll(job string) (_ []*pps.DatumInfo, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	var dis []*pps.DatumInfo
+	if err := c.ListDatum(job, func(di *pps.DatumInfo) error {
+		dis = append(dis, di)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return dis, nil
+}
+
+// ListDatumInput returns info about datums for a pipeline with input. The
+// pipeline doesn't need to exist.
+func (c APIClient) ListDatumInput(input *pps.Input, cb func(*pps.DatumInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	req := &pps.ListDatumRequest{
+		Input: input,
+	}
+	return c.listDatum(req, cb)
+}
+
+// ListDatumInputAll returns info about datums for a pipeline with input. The
+// pipeline doesn't need to exist.
+func (c APIClient) ListDatumInputAll(input *pps.Input) (_ []*pps.DatumInfo, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	var dis []*pps.DatumInfo
+	if err := c.ListDatumInput(input, func(di *pps.DatumInfo) error {
+		dis = append(dis, di)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return dis, nil
+}
+
+func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) error) (retErr error) {
 	client, err := c.PpsAPIClient.ListDatum(
 		c.Ctx(),
-		&pps.ListDatumRequest{
-			Job: NewJob(job),
-		},
+		req,
 	)
 	if err != nil {
 		return err
@@ -450,21 +498,6 @@ func (c APIClient) ListDatum(job string, cb func(*pps.DatumInfo) error) (retErr 
 			return err
 		}
 	}
-}
-
-// ListDatumAll returns info about datums in a job.
-func (c APIClient) ListDatumAll(job string) (_ []*pps.DatumInfo, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	var dis []*pps.DatumInfo
-	if err := c.ListDatum(job, func(di *pps.DatumInfo) error {
-		dis = append(dis, di)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return dis, nil
 }
 
 // InspectDatum returns info about a single datum

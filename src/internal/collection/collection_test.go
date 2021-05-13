@@ -1,667 +1,939 @@
 package collection_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"testing"
-	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/gogo/protobuf/proto"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
+)
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/types"
+const (
+	defaultCollectionSize = 10
+	originalValue         = "old"
+	changedValue          = "new"
+	collectionName        = "test_items"
 )
 
 var (
-	pipelineIndex *col.Index = &col.Index{
-		Field: "Pipeline",
-		Multi: false,
-	}
-	commitMultiIndex *col.Index = &col.Index{
-		Field: "Provenance",
-		Multi: true,
+	TestSecondaryIndex = &col.Index{
+		Name: "Value",
+		Extract: func(val proto.Message) string {
+			return val.(*col.TestItem).Value
+		},
 	}
 )
 
-func TestDryrun(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
+type TestError struct{}
 
-	jobs := col.NewCollection(etcdClient, uuidPrefix, nil, &pps.PipelineJobInfo{}, nil, nil)
-
-	job := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p1"),
-	}
-	err := col.NewDryrunSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return jobs.ReadWrite(stm).Put(job.Job.ID, job)
-	})
-	require.NoError(t, err)
-
-	err = jobs.ReadOnly(context.Background()).Get("j1", job)
-	require.True(t, col.IsErrNotFound(err))
+func (te TestError) Is(other error) bool {
+	_, ok := other.(TestError)
+	return ok
 }
 
-func TestDelNonexistant(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	jobs := col.NewCollection(etcdClient, uuidPrefix, nil, &pps.PipelineJobInfo{}, nil, nil)
-
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		err := jobs.ReadWrite(stm).Delete("test")
-		require.True(t, col.IsErrNotFound(err))
-		return err
-	})
-	require.True(t, col.IsErrNotFound(err))
+func (te TestError) Error() string {
+	return "TestError"
 }
 
-func TestGetAfterDel(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
+type ReadCallback func(context.Context) col.ReadOnlyCollection
+type WriteCallback func(context.Context, func(col.ReadWriteCollection) error) error
 
-	jobs := col.NewCollection(etcdClient, uuidPrefix, nil, &pps.PipelineJobInfo{}, nil, nil)
+func idRange(start int, end int) []string {
+	result := make([]string, 0, end-start)
+	for i := start; i < end; i++ {
+		result = append(result, makeID(i))
+	}
+	return result
+}
 
-	j1 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p1"),
+func putItem(id string, value ...string) func(rw col.ReadWriteCollection) error {
+	return func(rw col.ReadWriteCollection) error {
+		testProto := makeProto(id, value...)
+		return rw.Put(testProto.ID, testProto)
 	}
-	j2 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j2"),
-		Pipeline: client.NewPipeline("p1"),
-	}
-	j3 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j3"),
-		Pipeline: client.NewPipeline("p2"),
-	}
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		rw := jobs.ReadWrite(stm)
-		rw.Put(j1.Job.ID, j1)
-		rw.Put(j2.Job.ID, j2)
-		rw.Put(j3.Job.ID, j3)
-		return nil
-	})
-	require.NoError(t, err)
+}
 
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		job := &pps.PipelineJobInfo{}
-		rw := jobs.ReadWrite(stm)
-		if err := rw.Get(j1.Job.ID, job); err != nil {
+// canceledContext is a helper function to provide a context that is already canceled
+func canceledContext() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	return ctx
+}
+
+// populateCollection writes a standard set of rows to the collection for use by
+// individual tests.
+func populateCollection(rw col.ReadWriteCollection) error {
+	for _, id := range idRange(0, defaultCollectionSize) {
+		if err := putItem(id, originalValue)(rw); err != nil {
 			return err
 		}
-
-		if err := rw.Get("j4", job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", "j4")
-		}
-
-		rw.DeleteAll()
-
-		if err := rw.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
-		}
-		if err := rw.Get(j2.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
-		}
-		return nil
-	})
-	require.NoError(t, err)
-
-	count, err := jobs.ReadOnly(context.Background()).Count()
-	require.NoError(t, err)
-	require.Equal(t, int64(0), count)
+	}
+	return nil
 }
 
-func TestDeletePrefix(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	jobs := col.NewCollection(etcdClient, uuidPrefix, nil, &pps.PipelineJobInfo{}, nil, nil)
-
-	j1 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("prefix/suffix/job"),
-		Pipeline: client.NewPipeline("p"),
-	}
-	j2 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("prefix/suffix/job2"),
-		Pipeline: client.NewPipeline("p"),
-	}
-	j3 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("prefix/job3"),
-		Pipeline: client.NewPipeline("p"),
-	}
-	j4 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("job4"),
-		Pipeline: client.NewPipeline("p"),
-	}
-
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		rw := jobs.ReadWrite(stm)
-		rw.Put(j1.Job.ID, j1)
-		rw.Put(j2.Job.ID, j2)
-		rw.Put(j3.Job.ID, j3)
-		rw.Put(j4.Job.ID, j4)
-		return nil
-	})
-	require.NoError(t, err)
-
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		job := &pps.PipelineJobInfo{}
-		rw := jobs.ReadWrite(stm)
-
-		rw.DeleteAllPrefix("prefix/suffix")
-		if err := rw.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
-		}
-		if err := rw.Get(j2.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
-		}
-		if err := rw.Get(j3.Job.ID, job); err != nil {
-			return err
-		}
-		if err := rw.Get(j4.Job.ID, job); err != nil {
-			return err
-		}
-
-		rw.DeleteAllPrefix("prefix")
-		if err := rw.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
-		}
-		if err := rw.Get(j2.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
-		}
-		if err := rw.Get(j3.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j3.Job.ID)
-		}
-		if err := rw.Get(j4.Job.ID, job); err != nil {
-			return err
-		}
-
-		rw.Put(j1.Job.ID, j1)
-		if err := rw.Get(j1.Job.ID, job); err != nil {
-			return err
-		}
-
-		rw.DeleteAllPrefix("prefix/suffix")
-		if err := rw.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
-		}
-
-		rw.Put(j2.Job.ID, j2)
-		if err := rw.Get(j2.Job.ID, job); err != nil {
-			return err
-		}
-
-		return nil
-	})
-	require.NoError(t, err)
-
-	job := &pps.PipelineJobInfo{}
-	ro := jobs.ReadOnly(context.Background())
-	require.True(t, col.IsErrNotFound(ro.Get(j1.Job.ID, job)))
-	require.NoError(t, ro.Get(j2.Job.ID, job))
-	require.Equal(t, j2, job)
-	require.True(t, col.IsErrNotFound(ro.Get(j3.Job.ID, job)))
-	require.NoError(t, ro.Get(j4.Job.ID, job))
-	require.Equal(t, j4, job)
+// Helper function to turn an int ID into a string so we don't need to use string literals
+func makeID(i int) string {
+	return fmt.Sprintf("%d", i)
 }
 
-func TestIndex(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	pipelineJobInfos := col.NewCollection(etcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.PipelineJobInfo{}, nil, nil)
-
-	j1 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p1"),
+// Helper function to instantiate the proto for a row by ID
+func makeProto(id string, value ...string) *col.TestItem {
+	if len(value) > 0 {
+		return &col.TestItem{ID: id, Value: value[0]}
 	}
-	j2 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j2"),
-		Pipeline: client.NewPipeline("p1"),
-	}
-	j3 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j3"),
-		Pipeline: client.NewPipeline("p2"),
-	}
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		rw := pipelineJobInfos.ReadWrite(stm)
-		rw.Put(j1.Job.ID, j1)
-		rw.Put(j2.Job.ID, j2)
-		rw.Put(j3.Job.ID, j3)
-		return nil
-	})
-	require.NoError(t, err)
+	return &col.TestItem{ID: id, Value: changedValue}
+}
 
-	ro := pipelineJobInfos.ReadOnly(context.Background())
+type RowDiff struct {
+	Deleted []string
+	Changed []string
+	Created []string
+}
 
-	job := &pps.PipelineJobInfo{}
-	i := 1
-	require.NoError(t, ro.GetByIndex(pipelineIndex, j1.Pipeline, job, col.DefaultOptions, func(ID string) error {
-		switch i {
-		case 1:
-			require.Equal(t, j1.Job.ID, ID)
-			require.Equal(t, j1, job)
-		case 2:
-			require.Equal(t, j2.Job.ID, ID)
-			require.Equal(t, j2, job)
-		case 3:
-			t.Fatal("too many jobs")
+// checkDefaultCollection validates that the contents of the collection match
+// the expected set of rows based on a diff from the default collection
+// populated by populateCollection.
+func checkDefaultCollection(t *testing.T, ro col.ReadOnlyCollection, diff RowDiff) {
+	expected := map[string]string{}
+	for _, id := range idRange(0, defaultCollectionSize) {
+		expected[id] = originalValue
+	}
+	if diff.Deleted != nil {
+		for _, id := range diff.Deleted {
+			_, ok := expected[id]
+			require.True(t, ok, "test specified a deleted row that was not in the original set")
+			delete(expected, id)
 		}
-		i++
+	}
+	if diff.Changed != nil {
+		for _, id := range diff.Changed {
+			_, ok := expected[id]
+			require.True(t, ok, "test specified a changed row that was not in the original set")
+			expected[id] = changedValue
+		}
+	}
+	if diff.Created != nil {
+		for _, id := range diff.Created {
+			_, ok := expected[id]
+			require.False(t, ok, "test specified an added row that was already in the original set")
+			expected[id] = changedValue
+		}
+	}
+	checkCollection(t, ro, expected)
+}
+
+func checkItem(t *testing.T, item *col.TestItem, id string, value string) error {
+	if item.ID != id {
+		return errors.Errorf("Item has incorrect ID, expected: %s, actual: %s", id, item.ID)
+	}
+	if item.Value != value {
+		return errors.Errorf("Item has incorrect Value, expected: %s, actual: %s", value, item.Value)
+	}
+	return nil
+}
+
+func checkCollection(t *testing.T, ro col.ReadOnlyCollection, expected map[string]string) {
+	testProto := &col.TestItem{}
+	actual := map[string]string{}
+	require.NoError(t, ro.List(testProto, col.DefaultOptions(), func(id string) error {
+		require.Equal(t, id, testProto.ID)
+		actual[testProto.ID] = testProto.Value
 		return nil
 	}))
 
-	i = 1
-	require.NoError(t, ro.GetByIndex(pipelineIndex, j3.Pipeline, job, col.DefaultOptions, func(ID string) error {
-		switch i {
-		case 1:
-			require.Equal(t, j3.Job.ID, ID)
-			require.Equal(t, j3, job)
-		case 2:
-			t.Fatal("too many jobs")
-		}
-		i++
-		return nil
-	}))
-}
-
-func TestIndexWatch(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	pipelineJobInfos := col.NewCollection(etcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.PipelineJobInfo{}, nil, nil)
-
-	j1 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p1"),
-	}
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return pipelineJobInfos.ReadWrite(stm).Put(j1.Job.ID, j1)
-	})
-	require.NoError(t, err)
-
-	ro := pipelineJobInfos.ReadOnly(context.Background())
-
-	watcher, err := ro.WatchByIndex(pipelineIndex, j1.Pipeline)
-	eventCh := watcher.Watch()
-	require.NoError(t, err)
-	var ID string
-	job := new(pps.PipelineJobInfo)
-	event := <-eventCh
-	require.NoError(t, event.Err)
-	require.Equal(t, event.Type, watch.EventPut)
-	require.NoError(t, event.Unmarshal(&ID, job))
-	require.Equal(t, j1.Job.ID, ID)
-	require.Equal(t, j1, job)
-
-	// Now we will put j1 again, unchanged.  We want to make sure
-	// that we do not receive an event.
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return pipelineJobInfos.ReadWrite(stm).Put(j1.Job.ID, j1)
-	})
-	require.NoError(t, err)
-
-	select {
-	case event := <-eventCh:
-		t.Fatalf("should not have received an event %v", event)
-	case <-time.After(2 * time.Second):
+	for k, v := range expected {
+		other, ok := actual[k]
+		require.True(t, ok, "row '%s' was expected to be present but was not found", k)
+		require.Equal(t, v, other, "row '%s' had an unexpected value", k)
 	}
 
-	j2 := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j2"),
-		Pipeline: client.NewPipeline("p1"),
-	}
-
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return pipelineJobInfos.ReadWrite(stm).Put(j2.Job.ID, j2)
-	})
-	require.NoError(t, err)
-
-	event = <-eventCh
-	require.NoError(t, event.Err)
-	require.Equal(t, event.Type, watch.EventPut)
-	require.NoError(t, event.Unmarshal(&ID, job))
-	require.Equal(t, j2.Job.ID, ID)
-	require.Equal(t, j2, job)
-
-	j1Prime := &pps.PipelineJobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p3"),
-	}
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return pipelineJobInfos.ReadWrite(stm).Put(j1.Job.ID, j1Prime)
-	})
-	require.NoError(t, err)
-
-	event = <-eventCh
-	require.NoError(t, event.Err)
-	require.Equal(t, event.Type, watch.EventDelete)
-	require.NoError(t, event.Unmarshal(&ID, job))
-	require.Equal(t, j1.Job.ID, ID)
-
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return pipelineJobInfos.ReadWrite(stm).Delete(j2.Job.ID)
-	})
-	require.NoError(t, err)
-
-	event = <-eventCh
-	require.NoError(t, event.Err)
-	require.Equal(t, event.Type, watch.EventDelete)
-	require.NoError(t, event.Unmarshal(&ID, job))
-	require.Equal(t, j2.Job.ID, ID)
-}
-
-func TestMultiIndex(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	cis := col.NewCollection(etcdClient, uuidPrefix, []*col.Index{commitMultiIndex}, &pfs.CommitInfo{}, nil, nil)
-
-	c1 := &pfs.CommitInfo{
-		Commit: client.NewCommit("repo", "", "c1"),
-		Provenance: []*pfs.CommitProvenance{
-			client.NewCommitProvenance("in", "master", "c1"),
-			client.NewCommitProvenance("in", "master", "c2"),
-			client.NewCommitProvenance("in", "master", "c3"),
-		},
-	}
-	c2 := &pfs.CommitInfo{
-		Commit: client.NewCommit("repo", "", "c2"),
-		Provenance: []*pfs.CommitProvenance{
-			client.NewCommitProvenance("in", "master", "c1"),
-			client.NewCommitProvenance("in", "master", "c2"),
-			client.NewCommitProvenance("in", "master", "c3"),
-		},
-	}
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		cis := cis.ReadWrite(stm)
-		cis.Put(c1.Commit.ID, c1)
-		cis.Put(c2.Commit.ID, c2)
-		return nil
-	})
-	require.NoError(t, err)
-
-	cisReadonly := cis.ReadOnly(context.Background())
-
-	// Test that the first key retrieves both r1 and r2
-	ci := &pfs.CommitInfo{}
-	i := 1
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c1"), ci, col.DefaultOptions, func(ID string) error {
-		if i == 1 {
-			require.Equal(t, c1.Commit.ID, ID)
-			require.Equal(t, c1, ci)
-		} else {
-			require.Equal(t, c2.Commit.ID, ID)
-			require.Equal(t, c2, ci)
-		}
-		i++
-		return nil
-	}))
-
-	// Test that the second key retrieves both r1 and r2
-	i = 1
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c2"), ci, col.DefaultOptions, func(ID string) error {
-		if i == 1 {
-			require.Equal(t, c1.Commit.ID, ID)
-			require.Equal(t, c1, ci)
-		} else {
-			require.Equal(t, c2.Commit.ID, ID)
-			require.Equal(t, c2, ci)
-		}
-		i++
-		return nil
-	}))
-
-	// replace "c3" in the provenance of c1 with "c4"
-	c1.Provenance[2].Commit.ID = "c4"
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return cis.ReadWrite(stm).Put(c1.Commit.ID, c1)
-	})
-	require.NoError(t, err)
-
-	// Now "c3" only retrieves c2 (indexes are updated)
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c3"), ci, col.DefaultOptions, func(ID string) error {
-		require.Equal(t, c2.Commit.ID, ID)
-		require.Equal(t, c2, ci)
-		return nil
-	}))
-
-	// And "C4" only retrieves r1 (indexes are updated)
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c4"), ci, col.DefaultOptions, func(ID string) error {
-		require.Equal(t, c1.Commit.ID, ID)
-		require.Equal(t, c1, ci)
-		return nil
-	}))
-
-	// Delete c1 from etcd completely
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return cis.ReadWrite(stm).Delete(c1.Commit.ID)
-	})
-	require.NoError(t, err)
-
-	// Now "c1" only retrieves c2
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "", "c1"), ci, col.DefaultOptions, func(ID string) error {
-		require.Equal(t, c2.Commit.ID, ID)
-		require.Equal(t, c2, ci)
-		return nil
-	}))
-}
-
-func TestBoolIndex(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
-	boolValues := col.NewCollection(etcdClient, uuidPrefix, []*col.Index{{
-		Field: "Value",
-		Multi: false,
-	}}, &types.BoolValue{}, nil, nil)
-
-	r1 := &types.BoolValue{
-		Value: true,
-	}
-	r2 := &types.BoolValue{
-		Value: false,
-	}
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		boolValues := boolValues.ReadWrite(stm)
-		boolValues.Put("true", r1)
-		boolValues.Put("false", r2)
-		return nil
-	})
-	require.NoError(t, err)
-
-	// Test that we don't format the index string incorrectly
-	resp, err := etcdClient.Get(context.Background(), uuidPrefix, etcd.WithPrefix())
-	require.NoError(t, err)
-	for _, kv := range resp.Kvs {
-		if !bytes.Contains(kv.Key, []byte("__index_")) {
-			continue // not an index record
-		}
-		require.True(t,
-			bytes.Contains(kv.Key, []byte("__index_Value/true")) ||
-				bytes.Contains(kv.Key, []byte("__index_Value/false")), string(kv.Key))
+	for k := range actual {
+		_, ok := expected[k]
+		require.True(t, ok, "row '%s' was present but was not expected", k)
 	}
 }
 
-var epsilon = &types.BoolValue{Value: true}
+func collectionTests(
+	parent *testing.T,
+	newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback),
+) {
+	parent.Run("ReadOnly", func(suite *testing.T) {
+		suite.Parallel()
+		emptyReader, _ := newCollection(context.Background(), suite)
+		emptyRead := emptyReader(context.Background())
+		defaultReader, writer := newCollection(context.Background(), suite)
+		defaultRead := defaultReader(context.Background())
+		require.NoError(suite, writer(context.Background(), populateCollection))
 
-func TestTTL(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
+		suite.Run("Get", func(subsuite *testing.T) {
+			subsuite.Parallel()
 
-	clxn := col.NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
-	const TTL = 5
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
-	})
-	require.NoError(t, err)
-
-	var actualTTL int64
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		var err error
-		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
-		return err
-	})
-	require.NoError(t, err)
-	require.True(t, actualTTL > 0 && actualTTL < TTL, "actualTTL was %v", actualTTL)
-}
-
-func TestTTLExpire(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	clxn := col.NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
-	const TTL = 5
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
-	})
-	require.NoError(t, err)
-
-	time.Sleep((TTL + 1) * time.Second)
-	value := &types.BoolValue{}
-	err = clxn.ReadOnly(context.Background()).Get("key", value)
-	require.NotNil(t, err)
-	require.Matches(t, "not found", err.Error())
-}
-
-func TestTTLExtend(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	// Put value with short TLL & check that it was set
-	clxn := col.NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
-	const TTL = 5
-	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
-	})
-	require.NoError(t, err)
-
-	var actualTTL int64
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		var err error
-		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
-		return err
-	})
-	require.NoError(t, err)
-	require.True(t, actualTTL > 0 && actualTTL < TTL, "actualTTL was %v", actualTTL)
-
-	// Put value with new, longer TLL and check that it was set
-	const LongerTTL = 15
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return clxn.ReadWrite(stm).PutTTL("key", epsilon, LongerTTL)
-	})
-	require.NoError(t, err)
-
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		var err error
-		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
-		return err
-	})
-	require.NoError(t, err)
-	require.True(t, actualTTL > TTL && actualTTL < LongerTTL, "actualTTL was %v", actualTTL)
-}
-
-func TestIteration(t *testing.T) {
-	etcdClient := getEtcdClient(t)
-	t.Run("one-val-per-txn", func(t *testing.T) {
-		uuidPrefix := uuid.NewWithoutDashes()
-		testCol := col.NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
-		numVals := 1000
-		for i := 0; i < numVals; i++ {
-			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-				return testCol.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &types.Empty{})
+			subsuite.Run("ErrNotFound", func(t *testing.T) {
+				t.Parallel()
+				testProto := &col.TestItem{}
+				err := defaultRead.Get("baz", testProto)
+				require.True(t, errors.Is(err, col.ErrNotFound{}), "Incorrect error: %v", err)
+				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
 			})
-			require.NoError(t, err)
-		}
-		ro := testCol.ReadOnly(context.Background())
-		val := &types.Empty{}
-		i := numVals - 1
-		require.NoError(t, ro.List(val, col.DefaultOptions, func(key string) error {
-			require.Equal(t, fmt.Sprintf("%d", i), key)
-			i--
-			return nil
-		}))
+
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				testProto := &col.TestItem{}
+				require.NoError(t, defaultRead.Get("5", testProto))
+				require.Equal(t, "5", testProto.ID)
+			})
+		})
+
+		suite.Run("GetByIndex", func(subsuite *testing.T) {
+			subsuite.Parallel()
+
+			subsuite.Run("Empty", func(t *testing.T) {
+				t.Parallel()
+				testProto := &col.TestItem{}
+				err := emptyRead.GetByIndex(TestSecondaryIndex, "foo", testProto, col.DefaultOptions(), func(key string) error {
+					return errors.New("GetByIndex callback should not have been called for an empty collection")
+				})
+				require.NoError(t, err)
+			})
+
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				testProto := &col.TestItem{}
+				keys := []string{}
+				err := defaultRead.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
+					require.Equal(t, testProto.ID, key)
+					require.Equal(t, testProto.Value, originalValue)
+					keys = append(keys, key)
+					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
+					testProto.ID = ""
+					testProto.Value = ""
+					return nil
+				})
+				require.NoError(t, err)
+				require.ElementsEqual(t, keys, idRange(0, defaultCollectionSize))
+			})
+
+			subsuite.Run("NoResults", func(t *testing.T) {
+				t.Parallel()
+				testProto := &col.TestItem{}
+				err := defaultRead.GetByIndex(TestSecondaryIndex, changedValue, testProto, col.DefaultOptions(), func(string) error {
+					return errors.New("GetByIndex callback should not have been called for an index value with no rows")
+				})
+				require.NoError(t, err)
+			})
+
+			subsuite.Run("InvalidIndex", func(t *testing.T) {
+				t.Parallel()
+				t.Skip("etcd collections do not validate their indexes")
+				err := defaultRead.GetByIndex(&col.Index{}, "", &col.TestItem{}, col.DefaultOptions(), func(key string) error {
+					return errors.New("GetByIndex callback should not have been called when using an invalid index")
+				})
+				require.YesError(t, err)
+				require.Matches(t, "Unknown collection index", err.Error())
+			})
+
+			subsuite.Run("Partitioned", func(t *testing.T) {
+				t.Parallel()
+				partitionedReader, partitionedWriter := newCollection(context.Background(), suite)
+				partitionedRead := partitionedReader(context.Background())
+				require.NoError(t, partitionedWriter(context.Background(), populateCollection))
+
+				expected := map[string][]string{
+					"a": idRange(0, 3),
+					"b": idRange(3, 6),
+					"c": idRange(6, 9),
+					"d": idRange(9, 12),
+				}
+
+				require.NoError(t, partitionedWriter(context.Background(), func(rw col.ReadWriteCollection) error {
+					for idxVal, ids := range expected {
+						for _, id := range ids {
+							testProto := &col.TestItem{ID: id, Value: idxVal}
+							if err := rw.Put(id, testProto); err != nil {
+								return err
+							}
+						}
+					}
+					return nil
+				}))
+
+				for idxVal, ids := range expected {
+					testProto := &col.TestItem{}
+					keys := []string{}
+					err := partitionedRead.GetByIndex(TestSecondaryIndex, idxVal, testProto, col.DefaultOptions(), func(key string) error {
+						require.Equal(t, testProto.ID, key)
+						require.Equal(t, testProto.Value, idxVal)
+						keys = append(keys, key)
+						// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
+						testProto.ID = ""
+						testProto.Value = ""
+						return nil
+					})
+					require.NoError(t, err)
+					require.ElementsEqual(t, keys, ids)
+				}
+			})
+		})
+
+		suite.Run("List", func(subsuite *testing.T) {
+			subsuite.Parallel()
+
+			subsuite.Run("Empty", func(t *testing.T) {
+				t.Parallel()
+				testProto := &col.TestItem{}
+				err := emptyRead.List(testProto, col.DefaultOptions(), func(string) error {
+					return errors.New("List callback should not have been called for an empty collection")
+				})
+				require.NoError(t, err)
+			})
+
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				items := map[string]string{}
+				testProto := &col.TestItem{}
+				err := defaultRead.List(testProto, col.DefaultOptions(), func(key string) error {
+					require.Equal(t, testProto.ID, key)
+					items[testProto.ID] = testProto.Value
+					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
+					testProto.ID = ""
+					testProto.Value = ""
+					return nil
+				})
+				require.NoError(t, err)
+
+				keys := []string{}
+				for k, v := range items {
+					keys = append(keys, k)
+					require.Equal(t, originalValue, v)
+				}
+				expectedKeys := idRange(0, defaultCollectionSize)
+				require.ElementsEqual(t, expectedKeys, keys)
+			})
+
+			subsuite.Run("Sort", func(subsuite *testing.T) {
+				subsuite.Parallel()
+
+				testSort := func(t *testing.T, ro col.ReadOnlyCollection, target col.SortTarget, expectedAsc []string) {
+					t.Parallel()
+
+					collect := func(order col.SortOrder) []string {
+						keys := []string{}
+						testProto := &col.TestItem{}
+						err := ro.List(testProto, &col.Options{Target: target, Order: order}, func(string) error {
+							keys = append(keys, testProto.ID)
+							return nil
+						})
+						require.NoError(t, err)
+						return keys
+					}
+
+					t.Run("SortAscend", func(t *testing.T) {
+						t.Parallel()
+						keys := collect(col.SortAscend)
+						require.Equal(t, expectedAsc, keys)
+					})
+
+					t.Run("SortDescend", func(t *testing.T) {
+						t.Parallel()
+						keys := collect(col.SortDescend)
+						reversed := []string{}
+						for i := len(expectedAsc) - 1; i >= 0; i-- {
+							reversed = append(reversed, expectedAsc[i])
+						}
+						require.Equal(t, reversed, keys)
+					})
+
+					t.Run("SortNone", func(t *testing.T) {
+						t.Parallel()
+						keys := collect(col.SortNone)
+						require.ElementsEqual(t, expectedAsc, keys)
+					})
+				}
+
+				subsuite.Run("CreatedAt", func(t *testing.T) {
+					// The default collection was written in a single transaction, so all
+					// the rows have the same created time - make our own
+					createReader, writer := newCollection(context.Background(), t)
+					createCol := createReader(context.Background())
+
+					createKeys := []string{"0", "6", "7", "9", "3", "8", "4", "1", "2", "5"}
+					for _, k := range createKeys {
+						err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+							testProto := &col.TestItem{ID: k, Value: originalValue}
+							return rw.Create(k, testProto)
+						})
+						require.NoError(t, err)
+					}
+
+					checkDefaultCollection(t, createCol, RowDiff{})
+					testSort(t, createCol, col.SortByCreateRevision, createKeys)
+				})
+
+				subsuite.Run("UpdatedAt", func(t *testing.T) {
+					// Create a new collection that we can modify to get a different ordering here
+					reader, writer := newCollection(context.Background(), t)
+					modRead := reader(context.Background())
+					require.NoError(suite, writer(context.Background(), populateCollection))
+
+					modKeys := []string{"5", "7", "2", "9", "1", "0", "8", "4", "3", "6"}
+					for _, k := range modKeys {
+						err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+							testProto := &col.TestItem{}
+							if err := rw.Update(k, testProto, func() error {
+								testProto.Value = changedValue
+								return nil
+							}); err != nil {
+								return err
+							}
+							return nil
+						})
+						require.NoError(t, err)
+					}
+					testSort(t, modRead, col.SortByModRevision, modKeys)
+				})
+
+				subsuite.Run("Key", func(t *testing.T) {
+					testSort(t, defaultRead, col.SortByKey, idRange(0, 10))
+				})
+			})
+
+			subsuite.Run("ErrorInCallback", func(t *testing.T) {
+				t.Parallel()
+				count := 0
+				testProto := &col.TestItem{}
+				err := defaultRead.List(testProto, col.DefaultOptions(), func(string) error {
+					count++
+					return &TestError{}
+				})
+				require.YesError(t, err)
+				require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				require.Equal(t, 1, count, "List callback was called multiple times despite erroring")
+			})
+
+			subsuite.Run("ErrBreak", func(t *testing.T) {
+				t.Parallel()
+				count := 0
+				testProto := &col.TestItem{}
+				err := defaultRead.List(testProto, col.DefaultOptions(), func(string) error {
+					count++
+					return errutil.ErrBreak
+				})
+				require.NoError(t, err)
+				require.Equal(t, 1, count, "List callback was called multiple times despite aborting")
+			})
+		})
+
+		suite.Run("Count", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				count, err := defaultRead.Count()
+				require.NoError(t, err)
+				require.Equal(t, int64(10), count)
+
+				count, err = emptyRead.Count()
+				require.NoError(t, err)
+				require.Equal(t, int64(0), count)
+			})
+		})
 	})
-	t.Run("many-vals-per-txn", func(t *testing.T) {
-		uuidPrefix := uuid.NewWithoutDashes()
-		testCol := col.NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
-		numBatches := 10
-		valsPerBatch := 7
-		for i := 0; i < numBatches; i++ {
-			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-				for j := 0; j < valsPerBatch; j++ {
-					if err := testCol.ReadWrite(stm).Put(fmt.Sprintf("%d", i*valsPerBatch+j), &types.Empty{}); err != nil {
+
+	parent.Run("ReadWrite", func(suite *testing.T) {
+		suite.Parallel()
+		initCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
+			reader, writer := newCollection(context.Background(), t)
+			require.NoError(t, writer(context.Background(), populateCollection))
+			return reader(context.Background()), writer
+		}
+
+		testRollback := func(t *testing.T, cb func(rw col.ReadWriteCollection) error) error {
+			readOnly, writer := initCollection(t)
+			err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+				return cb(rw)
+			})
+			require.YesError(t, err)
+			checkDefaultCollection(t, readOnly, RowDiff{})
+			return err
+		}
+
+		suite.Run("Get", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				readOnly, writer := initCollection(t)
+
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := &col.TestItem{}
+					if err := rw.Get(makeID(8), testProto); err != nil {
 						return err
 					}
-				}
-				return nil
+					if testProto.Value != originalValue {
+						return errors.Errorf("Incorrect value when fetching via ReadWriteCollection.Get, expected: %s, actual: %s", originalValue, testProto.Value)
+					}
+					return nil
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
 			})
-			require.NoError(t, err)
-		}
-		vals := make(map[string]bool)
-		ro := testCol.ReadOnly(context.Background())
-		val := &types.Empty{}
-		require.NoError(t, ro.List(val, col.DefaultOptions, func(key string) error {
-			require.False(t, vals[key], "saw value %s twice", key)
-			vals[key] = true
-			return nil
-		}))
-		require.Equal(t, numBatches*valsPerBatch, len(vals), "didn't receive every value")
-	})
-	t.Run("large-vals", func(t *testing.T) {
-		uuidPrefix := uuid.NewWithoutDashes()
-		testCol := col.NewCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, nil, nil)
-		numVals := 100
-		longString := strings.Repeat("foo\n", 1024*256) // 1 MB worth of foo
-		for i := 0; i < numVals; i++ {
-			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-				if err := testCol.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &pfs.Repo{Name: longString}); err != nil {
-					return err
-				}
-				return nil
+
+			subsuite.Run("AfterDelete", func(t *testing.T) {
+				t.Parallel()
+				readOnly, writer := initCollection(t)
+
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := &col.TestItem{}
+					if err := rw.Get(makeID(1), testProto); err != nil {
+						return err
+					}
+
+					oobID := makeID(10)
+					if err := rw.Get(oobID, testProto); !col.IsErrNotFound(err) {
+						return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", oobID)
+					}
+
+					rw.DeleteAll()
+
+					for _, id := range idRange(0, defaultCollectionSize) {
+						if err := rw.Get(id, testProto); !col.IsErrNotFound(err) {
+							return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", id)
+						}
+					}
+					return nil
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Deleted: idRange(0, defaultCollectionSize)})
+
+				count, err := readOnly.Count()
+				require.NoError(t, err)
+				require.Equal(t, int64(0), count)
 			})
-			require.NoError(t, err)
-		}
-		ro := testCol.ReadOnly(context.Background())
-		val := &pfs.Repo{}
-		vals := make(map[string]bool)
-		valsOrder := []string{}
-		require.NoError(t, ro.List(val, col.DefaultOptions, func(key string) error {
-			require.False(t, vals[key], "saw value %s twice", key)
-			vals[key] = true
-			valsOrder = append(valsOrder, key)
-			return nil
-		}))
-		for i, key := range valsOrder {
-			require.Equal(t, key, strconv.Itoa(numVals-i-1), "incorrect order returned")
-		}
-		require.Equal(t, numVals, len(vals), "didn't receive every value")
-		vals = make(map[string]bool)
-		valsOrder = []string{}
-		require.NoError(t, ro.List(val, &col.Options{etcd.SortByCreateRevision, etcd.SortAscend, true}, func(key string) error {
-			require.False(t, vals[key], "saw value %s twice", key)
-			vals[key] = true
-			valsOrder = append(valsOrder, key)
-			return nil
-		}))
-		for i, key := range valsOrder {
-			require.Equal(t, key, strconv.Itoa(i), "incorrect order returned")
-		}
-		require.Equal(t, numVals, len(vals), "didn't receive every value")
+		})
+
+		suite.Run("Create", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				newID := makeID(10)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := makeProto(newID)
+					return rw.Create(testProto.ID, testProto)
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
+			})
+
+			subsuite.Run("ErrExists", func(t *testing.T) {
+				t.Parallel()
+				overwriteID := makeID(5)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := makeProto(overwriteID)
+					return rw.Create(testProto.ID, testProto)
+				})
+				require.YesError(t, err)
+				require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
+				require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: overwriteID}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+				subsuite.Run("CreateError", func(t *testing.T) {
+					t.Parallel()
+					newID := makeID(10)
+					overwriteID := makeID(6)
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := makeProto(newID)
+						if err := rw.Create(testProto.ID, testProto); err != nil {
+							return err
+						}
+						testProto = makeProto(overwriteID)
+						return rw.Create(testProto.ID, testProto)
+					})
+					require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
+					require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: overwriteID}), "Incorrect error: %v", err)
+				})
+
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := makeProto(makeID(10))
+						if err := rw.Create(testProto.ID, testProto); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+			})
+		})
+
+		suite.Run("Put", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Insert", func(t *testing.T) {
+				t.Parallel()
+				newID := makeID(10)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := makeProto(newID)
+					return rw.Put(testProto.ID, testProto)
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
+			})
+
+			subsuite.Run("Overwrite", func(t *testing.T) {
+				t.Parallel()
+				overwriteID := makeID(5)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := makeProto(overwriteID)
+					return rw.Put(testProto.ID, testProto)
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Changed: []string{overwriteID}})
+			})
+
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := makeProto(makeID(10))
+						if err := rw.Put(testProto.ID, testProto); err != nil {
+							return err
+						}
+						testProto = makeProto(makeID(8))
+						if err := rw.Put(testProto.ID, testProto); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+			})
+		})
+
+		suite.Run("Update", func(subsuite *testing.T) {
+			subsuite.Parallel()
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				updateID := makeID(1)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := &col.TestItem{}
+					if err := rw.Upsert(updateID, testProto, func() error {
+						if err := checkItem(t, testProto, updateID, originalValue); err != nil {
+							return err
+						}
+						testProto.Value = changedValue
+						return nil
+					}); err != nil {
+						return err
+					}
+					if err := rw.Get(updateID, testProto); err != nil {
+						return err
+					}
+					return checkItem(t, testProto, updateID, changedValue)
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Changed: []string{updateID}})
+			})
+
+			subsuite.Run("ErrorInCallback", func(t *testing.T) {
+				t.Parallel()
+				updateID := makeID(2)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := &col.TestItem{}
+					return rw.Update(updateID, testProto, func() error {
+						return &TestError{}
+					})
+				})
+				require.YesError(t, err)
+				require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("NotFound", func(t *testing.T) {
+				t.Parallel()
+				notExistsID := makeID(10)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := &col.TestItem{}
+					return rw.Update(notExistsID, testProto, func() error {
+						return nil
+					})
+				})
+				require.YesError(t, err)
+				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
+				require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: notExistsID}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+
+				subsuite.Run("ErrorInCallback", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &col.TestItem{}
+						if err := rw.Update(makeID(2), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						}); err != nil {
+							return err
+						}
+						return rw.Update(makeID(2), testProto, func() error {
+							return &TestError{}
+						})
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+
+				subsuite.Run("UpdateError", func(t *testing.T) {
+					t.Parallel()
+					notExistsID := makeID(10)
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &col.TestItem{}
+						if err := rw.Update(makeID(3), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						}); err != nil {
+							return err
+						}
+						return rw.Update(notExistsID, testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						})
+					})
+					require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
+					require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: notExistsID}), "Incorrect error: %v", err)
+				})
+
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &col.TestItem{}
+						if err := rw.Update(makeID(6), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						}); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+			})
+		})
+
+		suite.Run("Upsert", func(subsuite *testing.T) {
+			subsuite.Parallel()
+
+			subsuite.Run("Insert", func(t *testing.T) {
+				t.Parallel()
+				newID := makeID(10)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := &col.TestItem{}
+					return rw.Upsert(newID, testProto, func() error {
+						if testProto.ID != "" {
+							return errors.Errorf("Upsert of new row modified the ID, new value: %s", testProto.ID)
+						}
+						if testProto.Value != "" {
+							return errors.Errorf("Upsert of new row modified the Value, new value: %s", testProto.Value)
+						}
+						testProto.ID = newID
+						testProto.Value = changedValue
+						return nil
+					})
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
+			})
+
+			subsuite.Run("ErrorInCallback", func(t *testing.T) {
+				t.Parallel()
+				newID := makeID(10)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := &col.TestItem{}
+					return rw.Upsert(newID, testProto, func() error {
+						return &TestError{}
+					})
+				})
+				require.YesError(t, err)
+				require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("Overwrite", func(t *testing.T) {
+				t.Parallel()
+				overwriteID := makeID(5)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					testProto := &col.TestItem{}
+					return rw.Upsert(overwriteID, testProto, func() error {
+						if testProto.ID != overwriteID {
+							return errors.Errorf("Upsert of existing row does not pass through the ID, expected: %s, actual: %s", overwriteID, testProto.ID)
+						}
+						if testProto.Value != originalValue {
+							return errors.Errorf("Upsert of existing row does not pass through the value, expected: %s, actual: %s", originalValue, testProto.Value)
+						}
+						testProto.Value = changedValue
+						return nil
+					})
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Changed: []string{overwriteID}})
+			})
+
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+
+				subsuite.Run("UpsertError", func(t *testing.T) {
+					t.Parallel()
+					existsID := makeID(3)
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &col.TestItem{}
+						if err := rw.Upsert(makeID(6), testProto, func() error {
+							return nil
+						}); err != nil {
+							return err
+						}
+						return rw.Create(existsID, testProto)
+					})
+					require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
+					require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: existsID}), "Incorrect error: %v", err)
+				})
+
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &col.TestItem{}
+						if err := rw.Upsert(makeID(6), testProto, func() error {
+							return nil
+						}); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+
+				subsuite.Run("UserErrorInCallback", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						testProto := &col.TestItem{}
+						if err := rw.Upsert(makeID(5), testProto, func() error {
+							testProto.Value = changedValue
+							return nil
+						}); err != nil {
+							return err
+						}
+
+						return rw.Upsert(makeID(6), testProto, func() error {
+							return &TestError{}
+						})
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+			})
+		})
+
+		suite.Run("Delete", func(subsuite *testing.T) {
+			subsuite.Parallel()
+
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				deleteID := makeID(3)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					return rw.Delete(deleteID)
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Deleted: []string{deleteID}})
+			})
+
+			subsuite.Run("NotExists", func(t *testing.T) {
+				t.Parallel()
+				notExistsID := makeID(10)
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					return rw.Delete(notExistsID)
+				})
+				require.YesError(t, err)
+				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
+				require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: notExistsID}), "Incorrect error: %v", err)
+				checkDefaultCollection(t, readOnly, RowDiff{})
+			})
+
+			subsuite.Run("TransactionRollback", func(subsuite *testing.T) {
+				subsuite.Parallel()
+
+				subsuite.Run("DeleteError", func(t *testing.T) {
+					t.Parallel()
+					notExistsID := makeID(10)
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						if err := rw.Delete(makeID(6)); err != nil {
+							return err
+						}
+						return rw.Delete(notExistsID)
+					})
+					require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
+					require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: notExistsID}), "Incorrect error: %v", err)
+				})
+
+				subsuite.Run("UserError", func(t *testing.T) {
+					t.Parallel()
+					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+						if err := rw.Delete(makeID(6)); err != nil {
+							return err
+						}
+						return &TestError{}
+					})
+					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+				})
+			})
+		})
+
+		suite.Run("DeleteAll", func(subsuite *testing.T) {
+			subsuite.Parallel()
+
+			subsuite.Run("Success", func(t *testing.T) {
+				t.Parallel()
+				readOnly, writer := initCollection(t)
+				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+					return rw.DeleteAll()
+				})
+				require.NoError(t, err)
+				checkDefaultCollection(t, readOnly, RowDiff{Deleted: idRange(0, 10)})
+				count, err := readOnly.Count()
+				require.NoError(t, err)
+				require.Equal(t, int64(0), count)
+			})
+
+			subsuite.Run("TransactionRollback", func(t *testing.T) {
+				t.Parallel()
+				err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					if err := rw.DeleteAll(); err != nil {
+						return err
+					}
+					return &TestError{}
+				})
+				require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
+			})
+		})
 	})
 }
 
-func getEtcdClient(t *testing.T) *etcd.Client {
-	env := testetcd.NewEnv(t)
-	return env.EtcdClient
-}
+// TODO: test indexes
+// TODO: test multiple changes to the same row in one txn
+// TODO: test interruption

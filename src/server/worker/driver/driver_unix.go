@@ -29,6 +29,17 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 	d.activeDataMutex.Lock()
 	defer d.activeDataMutex.Unlock()
 
+	// If a custom user is set, make sure the directory and its content are owned by them.
+	if d.uid != nil && d.gid != nil {
+		if err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			return os.Chown(name, int(*d.uid), int(*d.gid))
+		}); err != nil {
+			return err
+		}
+	}
 	if err := d.linkData(inputs, dir); err != nil {
 		return errors.Wrap(err, "error when linking active data directory")
 	}
@@ -64,12 +75,12 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 
 		target, err := os.Readlink(path)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if !filepath.IsAbs(target) {
 			target, err = filepath.Abs(filepath.Join(filepath.Dir(path), target))
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 
@@ -88,11 +99,11 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 		}
 
 		if err := os.Remove(path); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		// Always overwrite the symlink at this point, in case it's relative
-		return os.Symlink(filepath.Join(target), filepath.Join(path))
+		return errors.EnsureStack(os.Symlink(filepath.Join(target), filepath.Join(path)))
 	})
 }
 
@@ -116,14 +127,14 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 			src := filepath.Join(dir, input.Name)
 			dst := filepath.Join(d.InputDir(), input.Name)
 			if err := os.Symlink(src, dst); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 	}
 
 	if !d.PipelineInfo().S3Out {
 		if err := os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out")); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 

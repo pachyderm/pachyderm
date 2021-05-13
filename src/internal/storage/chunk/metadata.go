@@ -73,7 +73,7 @@ func SetupPostgresStoreV0(tx *sqlx.Tx) error {
 		PRIMARY KEY(name)
 	)
 	`)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // KeyStore is a store for named secret keys

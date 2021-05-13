@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -17,15 +18,16 @@ import (
 // TestServiceEnv is a simple implementation of ServiceEnv that can be constructed with
 // existing clients.
 type TestServiceEnv struct {
-	Configuration *Configuration
-	PachClient    *client.APIClient
-	EtcdClient    *etcd.Client
-	KubeClient    *kube.Clientset
-	LokiClient    *loki.Client
-	DBClient      *sqlx.DB
-	DexDB         dex_storage.Storage
-	Log           *log.Logger
-	Ctx           context.Context
+	Configuration    *Configuration
+	PachClient       *client.APIClient
+	EtcdClient       *etcd.Client
+	KubeClient       *kube.Clientset
+	LokiClient       *loki.Client
+	DBClient         *sqlx.DB
+	PostgresListener *col.PostgresListener
+	DexDB            dex_storage.Storage
+	Log              *log.Logger
+	Ctx              context.Context
 
 	// Ready is a channel that blocks `GetPachClient` until it's closed.
 	// This avoids a race when we need to instantiate the server before
@@ -53,6 +55,9 @@ func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
 func (s *TestServiceEnv) GetDBClient() *sqlx.DB {
 	return s.DBClient
 }
+func (s *TestServiceEnv) GetPostgresListener() *col.PostgresListener {
+	return s.PostgresListener
+}
 
 func (s *TestServiceEnv) Context() context.Context {
 	return s.Ctx
@@ -72,8 +77,20 @@ func (s *TestServiceEnv) GetDexDB() dex_storage.Storage {
 
 func (s *TestServiceEnv) Close() error {
 	eg := &errgroup.Group{}
-	eg.Go(s.GetPachClient(context.Background()).Close)
-	eg.Go(s.GetEtcdClient().Close)
-	eg.Go(s.GetDBClient().Close)
+	if client := s.GetPachClient(context.Background()); client != nil {
+		eg.Go(client.Close)
+	}
+	if client := s.GetEtcdClient(); client != nil {
+		eg.Go(client.Close)
+	}
+	if client := s.GetDBClient(); client != nil {
+		eg.Go(client.Close)
+	}
+	if client := s.GetDexDB(); client != nil {
+		eg.Go(client.Close)
+	}
+	if listener := s.GetPostgresListener(); listener != nil {
+		eg.Go(listener.Close)
+	}
 	return eg.Wait()
 }

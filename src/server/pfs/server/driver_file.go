@@ -177,8 +177,9 @@ func (d *driver) copyFile(pachClient *client.APIClient, uw *fileset.UnorderedWri
 	return uw.Copy(ctx, fs, appendFile, tag)
 }
 
-func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob string) (Source, error) {
-	glob = cleanPath(glob)
+func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File) (Source, error) {
+	commit := file.Commit
+	glob := cleanPath(file.Path)
 	commitInfo, fs, err := d.openCommit(pachClient, commit, index.WithPrefix(globLiteralPrefix(glob)))
 	if err != nil {
 		return nil, err
@@ -194,7 +195,8 @@ func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob 
 			}, true)
 		}),
 	}
-	return NewSource(d.storage, commitInfo, fs, opts...), nil
+	s := NewSource(d.storage, commitInfo, fs, opts...)
+	return NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file}), nil
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {

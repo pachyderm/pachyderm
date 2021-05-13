@@ -16,7 +16,12 @@ import (
 
 func newClient(enterprise bool) (*client.APIClient, error) {
 	if enterprise {
-		return client.NewEnterpriseClientOnUserMachine("user")
+		c, err := client.NewEnterpriseClientOnUserMachine("user")
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+		return c, nil
 	}
 	return client.NewOnUserMachine("user")
 }
@@ -157,7 +162,11 @@ func RegisterCmd() *cobra.Command {
 			}
 
 			if pachdAddr == "" {
-				pachdAddr = ec.GetAddress().Qualified()
+				pachdAddr = c.GetAddress().Qualified()
+			}
+
+			if enterpriseAddr == "" {
+				enterpriseAddr = ec.GetAddress().Qualified()
 			}
 
 			if clusterId == "" {

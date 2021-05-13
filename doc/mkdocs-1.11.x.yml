@@ -115,6 +115,7 @@ nav:
         - Overview: getting_started/index.md
         - Local Installation: getting_started/local_installation.md
         - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
+        - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
         - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
     - Concepts:
@@ -188,17 +189,18 @@ nav:
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
             - Getting Started with Pachyderm Hub: pachhub/pachhub_getting_started.md
-            - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
-            - Deploy on AWS:
-                - Overview: deploy-manage/deploy/amazon_web_services/index.md
-                - Deploy Pachyderm on Amazon EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
-                - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
-                - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
-                - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
-            - Deploy on Azure: deploy-manage/deploy/azure.md
-            - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
-            - Deploy on OpenShift: deploy-manage/deploy/openshift.md
-            - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+            - Production Deployments:
+                - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
+                - Deploy on AWS:
+                    - Overview: deploy-manage/deploy/amazon_web_services/index.md
+                    - Deploy Pachyderm on Amazon EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
+                    - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
+                    - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
+                    - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
+                - Deploy on Azure: deploy-manage/deploy/azure.md
+                - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
+                - Deploy on OpenShift: deploy-manage/deploy/openshift.md
+                - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
@@ -214,32 +216,41 @@ nav:
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
-            - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
-            - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
-            - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
+            - Post-Deployment:    
+                - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
+                - Configure Ingress:
+                    - Overview: deploy-manage/deploy/ingress/index.md
+                    - Pachyderm UI (Dash) Ingress: deploy-manage/deploy/ingress/pach-ui-ingress.md            
+                - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
+                - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
+                - Monitor cluster metrics with Prometheus: 
+                    - Set up Prometheus: deploy-manage/deploy/prometheus/index.md
+                    - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
+                    - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
+                - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
             - Configure External Access:
                 - Overview: deploy-manage/manage/configure-external-access.md
                 - deploy-manage/manage/expose-pach-ui-ingress.md 
-            - Using Pachctl Shell: deploy-manage/manage/pachctl_shell.md
             - Autoscale your Cluster: deploy-manage/manage/autoscaling.md
-            - Backup and Restore: deploy-manage/manage/backup_restore.md
-            - Storage Use Optimization: deploy-manage/manage/data_management.md
-            - Use GPUs: deploy-manage/manage/gpus.md
-            - Sharing GPU Resources: deploy-manage/manage/sharing_gpu_resources.md
+            - Use the S3 Gateway:   
+                - Global S3 Gateway: deploy-manage/manage/s3gateway/index.md
+                - Configure your S3 Client: deploy-manage/manage/s3gateway/configure-s3client.md
+                - Sidecar S3 Gateway: deploy-manage/manage/s3gateway/deploy-s3gateway-sidecar.md
+                - Supported Operations: deploy-manage/manage/s3gateway/supported-operations.md
+                - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
+            - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
             - Upgrades and Migrations:
                 - Overview: deploy-manage/manage/upgrades_migrations.md
                 - Migrate to a Major Version: deploy-manage/manage/migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
-            - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
-            - Using the S3 Gateway:
-                - Overview: deploy-manage/manage/s3gateway/index.md
-                - Configure the S3 Gateway: deploy-manage/manage/s3gateway/configure-s3client.md
-                - Create an S3-enabled Pipeline: deploy-manage/manage/s3gateway/deploy-s3gateway-sidecar.md
-                - Supported Operations: deploy-manage/manage/s3gateway/supported-operations.md
-                - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
+            - Backup and Restore: deploy-manage/manage/backup_restore.md
+            - Optimize Performance:
+                - Storage Use Optimization: deploy-manage/manage/data_management.md
+                - Use GPUs: deploy-manage/manage/gpus.md
+                - Share GPU Resources: deploy-manage/manage/sharing_gpu_resources.md
     - Reference:
         - Overview: reference/index.md
         - Pipeline Specification: reference/pipeline_spec.md

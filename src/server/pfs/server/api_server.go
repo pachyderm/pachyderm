@@ -532,9 +532,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
-		commit := request.File.Commit
-		glob := request.File.Path
-		src, err := a.driver.getFile(a.env.GetPachClient(ctx), commit, glob)
+		src, err := a.driver.getFile(a.env.GetPachClient(ctx), request.File)
 		if err != nil {
 			return 0, err
 		}

@@ -18,7 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/workload"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -72,7 +72,8 @@ func TestChunkSize(t *testing.T) {
 func TestLargeFile(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	src := workload.RandString(rand.New(rand.NewSource(123)), GB+17)
+	random.SeedRand(123)
+	src := random.String(GB + 17)
 	err := env.PachClient.PutFile("repo", "master", "", "file", strings.NewReader(src))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -85,7 +86,8 @@ func TestLargeFile(t *testing.T) {
 func BenchmarkLargeFile(b *testing.B) {
 	env := testpachd.NewRealEnv(b, testutil.NewTestDBConfig(b))
 	require.NoError(b, env.PachClient.CreateRepo("repo"))
-	src := workload.RandString(rand.New(rand.NewSource(123)), GB)
+	random.SeedRand(123)
+	src := random.String(GB)
 	err := env.PachClient.PutFile("repo", "master", "", "file", strings.NewReader(src))
 	require.NoError(b, err)
 	b.ResetTimer()
