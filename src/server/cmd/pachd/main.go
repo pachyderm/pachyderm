@@ -187,7 +187,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), true)
 			if err != nil {
 				return err
 			}
@@ -288,7 +288,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), false)
 			if err != nil {
 				return err
 			}
@@ -453,7 +453,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	var enterpriseAPIServer eprsclient.APIServer
 	if err := logGRPCServerSetup("Enterprise API", func() error {
 		enterpriseAPIServer, err = eprsserver.NewEnterpriseServer(
-			env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), false)
 		if err != nil {
 			return err
 		}
@@ -642,7 +642,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), true)
 			if err != nil {
 				return err
 			}
@@ -793,7 +793,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), false)
 			if err != nil {
 				return err
 			}
