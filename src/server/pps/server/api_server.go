@@ -990,14 +990,14 @@ func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, out
 		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: commitInfo.Commit,
 			Empty:  true,
-		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
+		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
 		}
 
 		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: statsCommit,
 			Empty:  true,
-		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
+		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
 		}
 	}
