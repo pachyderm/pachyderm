@@ -85,6 +85,11 @@ type driver struct {
 	compactor   *compactor
 }
 
+// TODO: use pfsdb.CommitKey instead once branches are in the primary key (part of global IDs)
+func commitKey(commit *pfs.Commit) string {
+	return pfsdb.BranchKey(commit.Branch) + "=" + commit.ID
+}
+
 func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
 	// Setup etcd, object storage, and database clients.
 	etcdClient := env.GetEtcdClient()
@@ -950,7 +955,7 @@ nextSubvBI:
 			// - We need to key on both the commit id and the branch name, so that
 			//   branches with a shared commit are both represented in the provenance
 			provCommit := client.NewCommit(provOfSubvB.Repo.Name, provOfSubvB.Name, provOfSubvBI.Head.ID)
-			newCommitProvMap[pfsdb.CommitKey(provCommit)] = &pfs.CommitProvenance{Commit: provCommit}
+			newCommitProvMap[commitKey(provCommit)] = &pfs.CommitProvenance{Commit: provCommit}
 			provOfSubvBHeadInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(provOfSubvBI.Head), provOfSubvBHeadInfo); err != nil {
 				return err
@@ -962,7 +967,7 @@ nextSubvBI:
 						provProv.Commit.Branch.Repo.Name, provProv.Commit.Branch.Name, provProv.Commit.ID)
 				}
 				provProv = newProvProv
-				newCommitProvMap[pfsdb.CommitKey(provProv.Commit)] = provProv
+				newCommitProvMap[commitKey(provProv.Commit)] = provProv
 			}
 		}
 		if len(newCommitProvMap) == 0 {
@@ -982,8 +987,8 @@ nextSubvBI:
 			}
 			provIntersection := make(map[string]struct{})
 			for _, p := range subvBHeadInfo.Provenance {
-				if _, ok := newCommitProvMap[pfsdb.CommitKey(p.Commit)]; ok {
-					provIntersection[pfsdb.CommitKey(p.Commit)] = struct{}{}
+				if _, ok := newCommitProvMap[commitKey(p.Commit)]; ok {
+					provIntersection[commitKey(p.Commit)] = struct{}{}
 				}
 			}
 			if len(newCommitProvMap) == len(provIntersection) {
