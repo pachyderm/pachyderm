@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
@@ -155,10 +154,7 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 			// Do a little extra work here so we can make sure the new commit ID is
 			// the same every time.  We store the response the first time and reuse
 			// the commit ID on subsequent runs.
-			var commit *pfs.Commit
-			if err == nil {
-				response.Commit, err = directTxn.StartCommit(request.StartCommit, commit)
-			}
+			response.Commit, err = directTxn.StartCommit(request.StartCommit, response.Commit)
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
 		} else if request.SquashCommit != nil {
