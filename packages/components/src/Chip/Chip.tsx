@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import React, {InputHTMLAttributes} from 'react';
+import React, {ButtonHTMLAttributes, InputHTMLAttributes} from 'react';
 import {useFormContext} from 'react-hook-form';
 
 import useRHFInputProps from 'hooks/useRHFInputProps';
@@ -10,14 +10,21 @@ export interface ChipInputProps extends InputHTMLAttributes<HTMLInputElement> {
   name: string;
 }
 
-export const Chip: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({
+export interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  selected?: boolean;
+}
+
+export const Chip: React.FC<ChipProps> = ({
   className,
   children,
+  selected,
   ...rest
 }) => {
-  const classes = classNames(styles.base, className);
+  const classes = classNames(styles.base, className, {
+    [styles.selected]: selected,
+  });
   return (
-    <button className={classes} {...rest}>
+    <button className={classes} aria-pressed={selected} {...rest}>
       {children}
     </button>
   );
