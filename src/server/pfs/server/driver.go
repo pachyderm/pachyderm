@@ -2071,7 +2071,7 @@ func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Br
 	// Check that the user is logged in, but don't require any access level
 	if _, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{}); err != nil {
 		if !auth.IsErrNotActivated(err) {
-			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to run fsck)")
+			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to inspect a branch)")
 		}
 	}
 
