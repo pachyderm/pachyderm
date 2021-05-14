@@ -54,7 +54,7 @@ function test_bucket {
         "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
     test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
     echo "Running ${bucket_size} tests of ${total_tests} total tests"
-    make RUN="-run=\"${test_regex}\"" "${target}"
+    make RUN="-run='${test_regex}'" "${target}"
     set -x
 }
 
