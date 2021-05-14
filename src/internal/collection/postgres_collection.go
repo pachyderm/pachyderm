@@ -192,11 +192,11 @@ func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
 	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
 }
 
-func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message, opts *Options, greedy bool, f func(string) error) error {
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
-	return c.list(ctx, map[string]string{indexFieldName(index): indexVal}, opts, q, func(m *model) error {
+	return c.list(ctx, map[string]string{indexFieldName(index): indexVal}, opts, greedy, q, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -205,11 +205,11 @@ func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, 
 }
 
 func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
-	return c.getByIndex(c.ctx, c.db, index, indexVal, val, opts, f)
+	return c.getByIndex(c.ctx, c.db, index, indexVal, val, opts, false, f)
 }
 
 func (c *postgresReadWriteCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
-	return c.getByIndex(context.Background(), c.tx, index, indexVal, val, opts, f)
+	return c.getByIndex(context.Background(), c.tx, index, indexVal, val, opts, true, f)
 }
 
 func orderToSQL(order etcd.SortOrder) (string, error) {
@@ -238,8 +238,10 @@ func (c *postgresCollection) list(
 	ctx context.Context,
 	withFields map[string]string,
 	opts *Options,
+	greedy bool,
 	q sqlx.ExtContext,
-	f func(*model) error) error {
+	f func(*model) error,
+) error {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	params := map[string]interface{}{}
@@ -268,6 +270,33 @@ func (c *postgresCollection) list(
 	}
 	defer rows.Close()
 
+	// greedy=true indicates that this may be run in a transaction, so we have to
+	// read the entire result set before returning control back to the user, or
+	// they could run a nested query which will break the pq parser.
+	if greedy {
+		results := []*model{}
+		for rows.Next() {
+			result := &model{}
+			if err := rows.StructScan(result); err != nil {
+				return c.mapSQLError(err, "")
+			}
+			results = append(results, result)
+		}
+		if err := rows.Close(); err != nil {
+			return c.mapSQLError(err, "")
+		}
+
+		for _, result := range results {
+			if err := f(result); err != nil {
+				if errors.Is(err, errutil.ErrBreak) {
+					return nil
+				}
+				return err
+			}
+		}
+		return nil
+	}
+
 	result := &model{}
 	for rows.Next() {
 		if err := rows.StructScan(result); err != nil {
@@ -286,7 +315,7 @@ func (c *postgresCollection) list(
 }
 
 func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
-	return c.postgresCollection.list(c.ctx, withFields, opts, c.db, f)
+	return c.postgresCollection.list(c.ctx, withFields, opts, false, c.db, f)
 }
 
 func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
