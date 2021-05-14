@@ -34,7 +34,7 @@ describe('Dag resolver', () => {
 
     const dag = data?.dag;
 
-    expect(dag?.links.length).toBe(5);
+    expect(dag?.links.length).toBe(6);
     expect(
       doesLinkExistInDag({source: 'montage', target: 'montage_repo'}, dag),
     ).toBe(true);
@@ -49,6 +49,12 @@ describe('Dag resolver', () => {
     ).toBe(true);
     expect(
       doesLinkExistInDag({source: 'images_repo', target: 'edges'}, dag),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag(
+        {source: 'montage_repo', target: 'https://egress.com'},
+        dag,
+      ),
     ).toBe(true);
   });
 

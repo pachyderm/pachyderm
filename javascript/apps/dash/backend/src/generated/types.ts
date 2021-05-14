@@ -171,6 +171,7 @@ export type Link = {
   bendPoints: Array<PointCoordinates>;
   startPoint: PointCoordinates;
   endPoint: PointCoordinates;
+  transferring: Scalars['Boolean'];
 };
 
 export type Mutation = {
@@ -202,6 +203,7 @@ export type NodeSelector = {
 export enum NodeType {
   PIPELINE = 'PIPELINE',
   REPO = 'REPO',
+  EGRESS = 'EGRESS',
 }
 
 export type PfsInput = {
@@ -554,9 +556,9 @@ export type ResolversTypes = ResolversObject<{
   JobQueryArgs: JobQueryArgs;
   JobState: JobState;
   Link: ResolverTypeWrapper<Link>;
+  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Mutation: ResolverTypeWrapper<{}>;
   Node: ResolverTypeWrapper<Node>;
-  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
   NodeType: NodeType;
   PFSInput: ResolverTypeWrapper<PfsInput>;
@@ -603,9 +605,9 @@ export type ResolversParentTypes = ResolversObject<{
   Job: Job;
   JobQueryArgs: JobQueryArgs;
   Link: Link;
+  Boolean: Scalars['Boolean'];
   Mutation: {};
   Node: Node;
-  Boolean: Scalars['Boolean'];
   NodeSelector: NodeSelector;
   PFSInput: PfsInput;
   Pach: Pach;
@@ -821,6 +823,7 @@ export type LinkResolvers<
     ParentType,
     ContextType
   >;
+  transferring?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1245,7 +1248,13 @@ export type GetDagsSubscription = {__typename?: 'Subscription'} & {
         links: Array<
           {__typename?: 'Link'} & Pick<
             Link,
-            'id' | 'source' | 'target' | 'sourceState' | 'targetState' | 'state'
+            | 'id'
+            | 'source'
+            | 'target'
+            | 'sourceState'
+            | 'targetState'
+            | 'state'
+            | 'transferring'
           > & {
               bendPoints: Array<
                 {__typename?: 'PointCoordinates'} & Pick<

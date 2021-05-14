@@ -31,8 +31,15 @@ const Node: React.FC<NodeProps> = ({
   nodeHeight,
   nodeWidth,
 }) => {
-  const {hoveredNode, onClick, onMouseOut, onMouseOver, selectedNode, state} =
-    useNode(node, isInteractive);
+  const {
+    hoveredNode,
+    onClick,
+    onMouseOut,
+    onMouseOver,
+    selectedNode,
+    state,
+    groupName,
+  } = useNode(node, isInteractive);
 
   const classes = classNames(styles.nodeGroup, {
     [styles.interactive]: isInteractive,
@@ -65,7 +72,7 @@ const Node: React.FC<NodeProps> = ({
   return (
     <g
       className={classes}
-      id={`${node.name}GROUP`}
+      id={groupName}
       transform={`translate (${node.x}, ${node.y})`}
       onClick={onClick}
       onMouseOver={onMouseOver}

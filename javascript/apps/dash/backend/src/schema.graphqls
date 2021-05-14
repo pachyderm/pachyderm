@@ -156,6 +156,7 @@ type Job {
 enum NodeType {
   PIPELINE
   REPO
+  EGRESS
 }
 
 type Node {
@@ -185,6 +186,7 @@ type Link {
   bendPoints: [PointCoordinates!]!
   startPoint: PointCoordinates!
   endPoint: PointCoordinates!
+  transferring: Boolean!
 }
 
 type Dag {

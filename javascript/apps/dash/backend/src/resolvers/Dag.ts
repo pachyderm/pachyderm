@@ -5,6 +5,7 @@ import {
   PipelineState,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 import ELK from 'elkjs/lib/elk.bundled.js';
+import flatMap from 'lodash/flatMap';
 import flatten from 'lodash/flatten';
 import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
@@ -27,6 +28,7 @@ import {
   SubscriptionResolvers,
   PipelineState as GQLPipelineState,
   DagDirection,
+  JobState,
 } from '@graphqlTypes';
 
 interface DagResolver {
@@ -77,16 +79,57 @@ const deriveVertices = (
     parents: r.repo && pipelineMap[r.repo.name] ? [r.repo.name] : [],
   }));
 
-  const pipelineNodes = pipelines.map((p) => ({
-    name: p.pipeline?.name || '',
-    type: NodeType.PIPELINE,
-    state: toGQLPipelineState(p.state),
-    access: true,
-    jobState: toGQLJobState(p.lastJobState),
-    parents: p.input ? flattenPipelineInput(p.input) : [],
-  }));
+  const pipelineNodes = flatMap(pipelines, (p) => {
+    const pipelineName = p.pipeline?.name || '';
+    const state = toGQLPipelineState(p.state);
+    const jobState = toGQLJobState(p.lastJobState);
+
+    const nodes: Vertex[] = [
+      {
+        name: pipelineName,
+        type: NodeType.PIPELINE,
+        state,
+        access: true,
+        jobState,
+        parents: p.input ? flattenPipelineInput(p.input) : [],
+      },
+    ];
+
+    if (p.egress) {
+      nodes.push({
+        name: p.egress.url,
+        type: NodeType.EGRESS,
+        access: true,
+        parents: [`${pipelineName}_repo`],
+        state,
+        jobState,
+      });
+    }
+
+    return nodes;
+  });
 
   return [...repoNodes, ...pipelineNodes];
+};
+
+interface DeriveTransferringStateOpts {
+  targetNodeType: NodeType;
+  state?: JobState;
+  targetNodeState?: JobState;
+}
+
+const deriveTransferringState = ({
+  targetNodeType,
+  state,
+  targetNodeState,
+}: DeriveTransferringStateOpts) => {
+  // Should display transferring _from_ a corresponding egressing pipeline's output repo.
+  // Because repos do not have a "state", we need to use the target node's state instead.
+  return (
+    (targetNodeType === NodeType.EGRESS &&
+      targetNodeState === JobState.JOB_EGRESSING) ||
+    (targetNodeType !== NodeType.EGRESS && state === JobState.JOB_RUNNING)
+  );
 };
 
 const normalizeDAGData = async (
@@ -116,16 +159,23 @@ const normalizeDAGData = async (
       node.parents.reduce<LinkInputData[]>((acc, parentName) => {
         const source = correspondingIndex[parentName || ''];
         if (Number.isInteger(source)) {
+          const state = vertices[source].jobState;
+
           return [
             ...acc,
             {
               id: `${parentName}-${node.name}`,
               sources: [parentName],
               targets: [node.name],
-              state: vertices[source].jobState,
+              state,
               sourceState: vertices[source].state,
               targetstate: node.state,
               sections: [],
+              transferring: deriveTransferringState({
+                targetNodeType: node.type,
+                state,
+                targetNodeState: node.jobState,
+              }),
             },
           ];
         }

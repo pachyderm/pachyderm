@@ -22,7 +22,7 @@ export interface Context extends UnauthenticatedContext {
 
 export interface LinkInputData
   extends ElkExtendedEdge,
-    Pick<Link, 'state' | 'targetState' | 'sourceState'> {}
+    Pick<Link, 'state' | 'targetState' | 'sourceState' | 'transferring'> {}
 
 export interface NodeInputData extends ElkNode, Omit<Node, 'x' | 'y'> {}
 

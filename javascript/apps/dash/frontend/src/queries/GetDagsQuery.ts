@@ -19,6 +19,7 @@ export const GET_DAGS_QUERY = gql`
         sourceState
         targetState
         state
+        transferring
         bendPoints {
           x
           y

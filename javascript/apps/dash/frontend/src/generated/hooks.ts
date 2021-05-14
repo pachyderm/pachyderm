@@ -274,6 +274,7 @@ export const GetDagsDocument = gql`
         sourceState
         targetState
         state
+        transferring
         bendPoints {
           x
           y
