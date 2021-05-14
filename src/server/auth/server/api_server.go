@@ -1312,7 +1312,7 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 // GetConfiguration implements the protobuf auth.GetConfiguration RPC.
 func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (resp *auth.GetConfigurationResponse, retErr error) {
 	removeSecret := func(r *auth.GetConfigurationResponse) *auth.GetConfigurationResponse {
-		if r.Configuration == nil {
+		if r == nil || r.Configuration == nil {
 			return r
 		}
 		copyResp := proto.Clone(r).(*auth.GetConfigurationResponse)
@@ -1321,6 +1321,10 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 	}
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isActive(ctx); err != nil {
+		return nil, err
+	}
 
 	if !a.watchesEnabled {
 		return nil, errors.New("watches are not enabled, unable to get current config")

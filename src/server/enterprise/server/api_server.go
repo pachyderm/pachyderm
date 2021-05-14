@@ -10,6 +10,7 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -143,9 +144,15 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		return nil, err
 	}
 
-	authEnabled, err := localClient.IsAuthActive()
-	if err != nil {
+	var clientID string
+	authEnabled := true
+	config, err := a.env.AuthServer().GetConfiguration(ctx, &auth.GetConfigurationRequest{})
+	if err != nil && auth.IsErrNotActivated(err) {
+		authEnabled = false
+	} else if err != nil {
 		return nil, err
+	} else {
+		clientID = config.Configuration.ClientID
 	}
 
 	pachClient, err := client.NewFromURI(licenseServer)
@@ -158,6 +165,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		Secret:      secret,
 		Version:     versionResp,
 		AuthEnabled: authEnabled,
+		ClientId:    clientID,
 	})
 }
 
