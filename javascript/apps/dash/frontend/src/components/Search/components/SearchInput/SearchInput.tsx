@@ -25,12 +25,11 @@ const SearchInput: React.FC = () => {
         <SearchSVG aria-hidden width={22} height={22} />
       </span>
       <input
-        name="search"
         role="searchbox"
         placeholder={placeholderText}
-        ref={register}
         className={classNames(styles.input, {[styles.open]: isOpen})}
         onFocus={openDropdown}
+        {...register('search')}
       />
       {showButton && (
         <button

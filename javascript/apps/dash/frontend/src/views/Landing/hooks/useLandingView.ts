@@ -62,10 +62,16 @@ export const useLandingView = () => {
 
   const {watch} = filterFormCtx;
 
-  const filters = watch(['HEALTHY', 'UNHEALTHY'], {
-    HEALTHY: true,
-    UNHEALTHY: true,
-  });
+  const HEALTHY = watch('HEALTHY', true);
+  const UNHEALTHY = watch('UNHEALTHY', true);
+
+  const filters = useMemo(
+    () => ({
+      HEALTHY,
+      UNHEALTHY,
+    }),
+    [HEALTHY, UNHEALTHY],
+  );
 
   const filterStatus = useMemo(() => {
     if (every(filters, (filter) => !!filter)) {

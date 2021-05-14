@@ -17,8 +17,8 @@ const Search: React.FC = () => {
 
   const formCtx = useForm();
   const {watch, setValue, reset} = formCtx;
-  const debouncedValue = useDebounce(watch('search'), 200);
   const searchValue = watch('search');
+  const debouncedValue = useDebounce(searchValue, 200);
 
   const setSearchValue = useCallback(
     (value) => {
