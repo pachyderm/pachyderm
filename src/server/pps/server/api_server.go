@@ -955,31 +955,20 @@ func (a *apiServer) StopJobInTransaction(txnCtx *txnenv.TransactionContext, requ
 
 func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
 	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
+	if (job == nil) == (outputCommit == nil) {
+		return errors.New("Exactly one of Job or OutputCommit must be specified")
+	}
+
 	pipelineJobInfo := &pps.StoredPipelineJobInfo{}
 	if job != nil {
 		if err := jobs.Get(job.ID, pipelineJobInfo); err != nil {
 			return err
 		}
-	} else if outputCommit != nil {
-		count := 0
-		if err := jobs.GetByIndex(ppsdb.JobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJobInfo, col.DefaultOptions(), func(string) error {
-			count++
-			if count > 1 {
-				return errors.Errorf("found multiple jobs with output commit: %s", pfsdb.CommitKey(outputCommit))
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-		if count == 0 {
-			return errors.Errorf("job with output commit %s not found", pfsdb.CommitKey(outputCommit))
-		}
-	} else {
-		return errors.New("Job or OutputCommit must be specified")
+		outputCommit = pipelineJobInfo.OutputCommit
 	}
 
 	commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
-		Commit: proto.Clone(pipelineJobInfo.OutputCommit).(*pfs.Commit),
+		Commit: proto.Clone(outputCommit).(*pfs.Commit),
 	})
 	if err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
 		return err
@@ -1000,12 +989,23 @@ func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, out
 		}
 	}
 
-	// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
-	// more comprehensive solution to this with global ids.
-	if ppsutil.IsTerminal(pipelineJobInfo.State) {
-		return nil
+	handleJob := func(pji *pps.StoredPipelineJobInfo) error {
+		// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
+		// more comprehensive solution to this with global ids.
+		if ppsutil.IsTerminal(pji.State) {
+			return nil
+		}
+		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, pji, pps.JobState_JOB_KILLED, reason)
 	}
-	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, pipelineJobInfo, pps.JobState_JOB_KILLED, reason)
+
+	if job != nil {
+		return handleJob(pipelineJobInfo)
+	}
+
+	// Continue on idempotently if we find multiple jobs or no jobs.
+	return jobs.GetByIndex(ppsdb.JobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJobInfo, col.DefaultOptions(), func(string) error {
+		return handleJob(pipelineJobInfo)
+	})
 }
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC

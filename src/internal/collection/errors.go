@@ -59,7 +59,7 @@ func (err ErrTransactionConflict) Is(other error) bool {
 }
 
 func (err ErrTransactionConflict) Error() string {
-	return "transaction conflict"
+	return "transaction conflict, will be reattempted"
 }
 
 // IsErrTransactionConflict determines if an error is an ErrTransactionConflict error
