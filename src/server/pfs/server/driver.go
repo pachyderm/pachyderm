@@ -1919,12 +1919,9 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		}
 	}
 
-	// The request must do exactly one of:
-	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
-	// 2) re-pointing 'branch' at a new commit
 	if commit != nil {
 		// Determine if this is a provenance update
-		sameTarget := branch.Repo.Name == commit.Branch.Repo.Name && (branch.Name == commit.Branch.Name || branch.Name == commit.ID)
+		sameTarget := branch.Repo.Name == commit.Branch.Repo.Name && branch.Repo.Type == commit.Branch.Repo.Type && (branch.Name == commit.Branch.Name || branch.Name == commit.ID)
 		if !sameTarget && provenance != nil {
 			for _, provBranch := range provenance {
 				provBranchInfo := &pfs.BranchInfo{}

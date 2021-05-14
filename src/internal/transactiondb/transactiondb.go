@@ -13,14 +13,7 @@ const (
 	transactionsCollectionName = "transactions"
 )
 
-// AllCollections returns a list of all the Transaction API collections for
-// postgres-initialization purposes. These collections are not usable for
-// querying.
-func AllCollections() []col.PostgresCollection {
-	return []col.PostgresCollection{
-		col.NewPostgresCollection(transactionsCollectionName, nil, nil, nil, nil, nil),
-	}
-}
+var transactionsIndexes = []*col.Index{}
 
 // Transactions returns a collection of open transactions
 func Transactions(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
@@ -29,7 +22,16 @@ func Transactions(db *sqlx.DB, listener *col.PostgresListener) col.PostgresColle
 		db,
 		listener,
 		&transaction.TransactionInfo{},
-		nil,
+		transactionsIndexes,
 		nil,
 	)
+}
+
+// AllCollections returns a list of all the Transaction API collections for
+// postgres-initialization purposes. These collections are not usable for
+// querying.
+func AllCollections() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(transactionsCollectionName, nil, nil, nil, transactionsIndexes, nil),
+	}
 }
