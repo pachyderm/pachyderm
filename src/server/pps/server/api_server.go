@@ -1725,7 +1725,7 @@ func (a *apiServer) fixPipelineInputRepoACLs(ctx context.Context, pipelineInfo *
 	})
 }
 
-func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
 	add := make(map[string]struct{})
 	remove := make(map[string]struct{})
 	var pipelineName string
@@ -1789,40 +1789,29 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 	delete(remove, pipelineName)
 	delete(add, pipelineName)
 
-	var eg errgroup.Group
+	defer func() {
+		retErr = errors.Wrapf(retErr, "error fixing ACLs on \"%s\"'s input repos", pipelineName)
+	}()
+
 	// Remove pipeline from old, unused inputs
 	for repo := range remove {
-		repo := repo
-		eg.Go(func() error {
-			// If we get an `ErrNoRoleBinding` that means the input repo no longer exists - we're removing it anyways, so we don't care.
-			if err := txnCtx.Auth().RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineName); err != nil && !auth.IsErrNoRoleBinding(err) {
-				return err
-			}
-			return nil
-		})
+		// If we get an `ErrNoRoleBinding` that means the input repo no longer exists - we're removing it anyways, so we don't care.
+		if err := txnCtx.Auth().RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineName); err != nil && !auth.IsErrNoRoleBinding(err) {
+			return err
+		}
 	}
 	// Add pipeline to every new input's ACL as a READER
 	for repo := range add {
-		repo := repo
-		eg.Go(func() error {
-			// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
-			if err := txnCtx.Auth().AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
-				return err
-			}
-			return nil
-		})
+		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
+		if err := txnCtx.Auth().AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
+			return err
+		}
 	}
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
-		eg.Go(func() error {
-			if err := txnCtx.Auth().AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
-				return err
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error fixing ACLs on \"%s\"'s input repos", pipelineName)
+		if err := txnCtx.Auth().AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
+			return err
+		}
 	}
 	return nil
 }
