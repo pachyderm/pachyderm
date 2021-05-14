@@ -116,7 +116,7 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
-	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, &buf); err != nil {
+	if err := pachClient.GetFile(ptr.SpecCommit.Branch.Repo.Name, ptr.SpecCommit.Branch.Name, ptr.SpecCommit.ID, ppsconsts.SpecFile, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
 	} else {
 		if err := result.Unmarshal(buf.Bytes()); err != nil {
@@ -273,7 +273,7 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 	// for a given branch, the commit assigned to it will be the latest commit on that branch
 	// this is ensured by the way we sort the commit provenance when creating the outputCommit
 	for _, prov := range outputCommitInfo.Provenance {
-		branchToCommit[key(prov.Commit.Repo.Name, prov.Branch.Name)] = prov.Commit
+		branchToCommit[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)] = prov.Commit
 	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) {
@@ -424,7 +424,7 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 
 func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
 	for _, commitRange := range commitInfo.Subvenance {
-		if commitRange.Lower.Repo.Name == commitInfo.Commit.Repo.Name {
+		if commitRange.Lower.Branch.Repo.Name == commitInfo.Commit.Branch.Repo.Name {
 			return commitRange.Lower
 		}
 	}

@@ -30,25 +30,24 @@ func NewBranch(repoName string, branchName string) *pfs.Branch {
 }
 
 // NewCommit creates a pfs.Commit.
-func NewCommit(repoName string, commitID string) *pfs.Commit {
+func NewCommit(repoName string, branchName string, commitID string) *pfs.Commit {
 	return &pfs.Commit{
-		Repo: NewRepo(repoName),
-		ID:   commitID,
+		Branch: NewBranch(repoName, branchName),
+		ID:     commitID,
 	}
 }
 
 // NewCommitProvenance creates a pfs.CommitProvenance.
 func NewCommitProvenance(repoName string, branchName string, commitID string) *pfs.CommitProvenance {
 	return &pfs.CommitProvenance{
-		Commit: NewCommit(repoName, commitID),
-		Branch: NewBranch(repoName, branchName),
+		Commit: NewCommit(repoName, branchName, commitID),
 	}
 }
 
 // NewFile creates a pfs.File.
-func NewFile(repoName string, commitID string, path string) *pfs.File {
+func NewFile(repoName string, branchName string, commitID string, path string) *pfs.File {
 	return &pfs.File{
-		Commit: NewCommit(repoName, commitID),
+		Commit: NewCommit(repoName, branchName, commitID),
 		Path:   path,
 	}
 }
@@ -140,14 +139,11 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 // alias for the created Commit. This enables a more intuitive access pattern.
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
-func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, error) {
+func (c APIClient) StartCommit(repoName string, branchName string) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
-			Parent: &pfs.Commit{
-				Repo: NewRepo(repoName),
-			},
-			Branch: branch,
+			Branch: NewBranch(repoName, branchName),
 		},
 	)
 	if err != nil {
@@ -170,15 +166,12 @@ func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, err
 // commit without affecting the contents of the parent Commit. You may pass ""
 // as parentCommit in which case the new Commit will have no parent and will
 // initially appear empty.
-func (c APIClient) StartCommitParent(repoName string, branch string, parentCommit string) (*pfs.Commit, error) {
+func (c APIClient) StartCommitParent(repoName string, branchName string, parentBranch string, parentCommit string) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
-			Parent: &pfs.Commit{
-				Repo: NewRepo(repoName),
-				ID:   parentCommit,
-			},
-			Branch: branch,
+			Parent: NewCommit(repoName, parentBranch, parentCommit),
+			Branch: NewBranch(repoName, branchName),
 		},
 	)
 	if err != nil {
@@ -190,32 +183,32 @@ func (c APIClient) StartCommitParent(repoName string, branch string, parentCommi
 // FinishCommit ends the process of committing data to a Repo and persists the
 // Commit. Once a Commit is finished the data becomes immutable and future
 // attempts to write to it with PutFile will error.
-func (c APIClient) FinishCommit(repoName string, commitID string) error {
+func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) error {
 	_, err := c.PfsAPIClient.FinishCommit(
 		c.Ctx(),
 		&pfs.FinishCommitRequest{
-			Commit: NewCommit(repoName, commitID),
+			Commit: NewCommit(repoName, branchName, commitID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
 // InspectCommit returns info about a specific Commit.
-func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
-	return c.inspectCommit(repoName, commitID, pfs.CommitState_STARTED)
+func (c APIClient) InspectCommit(repoName string, branchName string, commitID string) (*pfs.CommitInfo, error) {
+	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_STARTED)
 }
 
 // BlockCommit returns info about a specific Commit, but blocks until that
 // commit has been finished.
-func (c APIClient) BlockCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
-	return c.inspectCommit(repoName, commitID, pfs.CommitState_FINISHED)
+func (c APIClient) BlockCommit(repoName string, branchName string, commitID string) (*pfs.CommitInfo, error) {
+	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_FINISHED)
 }
 
-func (c APIClient) inspectCommit(repoName string, commitID string, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+func (c APIClient) inspectCommit(repoName string, branchName string, commitID string, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
 		c.Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     NewCommit(repoName, commitID),
+			Commit:     NewCommit(repoName, branchName, commitID),
 			BlockState: blockState,
 		},
 	)
@@ -234,9 +227,9 @@ func (c APIClient) inspectCommit(repoName string, commitID string, blockState pf
 // If `to` and `from` are the same commit, no commits will be returned.
 // `number` determines how many commits are returned.  If `number` is 0,
 // all commits that match the aforementioned criteria are returned.
-func (c APIClient) ListCommit(repoName string, to string, from string, number uint64) ([]*pfs.CommitInfo, error) {
+func (c APIClient) ListCommit(repoName string, toBranchName string, to string, fromBranchName string, from string, number uint64) ([]*pfs.CommitInfo, error) {
 	var result []*pfs.CommitInfo
-	if err := c.ListCommitF(repoName, to, from, number, false, func(ci *pfs.CommitInfo) error {
+	if err := c.ListCommitF(repoName, toBranchName, to, fromBranchName, from, number, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -255,18 +248,18 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 // `number` determines how many commits are returned.  If `number` is 0,
 // `reverse` lists the commits from oldest to newest, rather than newest to oldest
 // all commits that match the aforementioned criteria are passed to f.
-func (c APIClient) ListCommitF(repoName string, to string, from string, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
+func (c APIClient) ListCommitF(repoName string, toBranchName string, to string, fromBranchName, from string, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.ListCommitRequest{
 		// repoName may be "", but the repo object must exist
 		Repo:    NewRepo(repoName),
 		Number:  number,
 		Reverse: reverse,
 	}
-	if from != "" {
-		req.From = NewCommit(repoName, from)
+	if from != "" || fromBranchName != "" {
+		req.From = NewCommit(repoName, fromBranchName, from)
 	}
-	if to != "" {
-		req.To = NewCommit(repoName, to)
+	if to != "" || toBranchName != "" {
+		req.To = NewCommit(repoName, toBranchName, to)
 	}
 	stream, err := c.PfsAPIClient.ListCommit(c.Ctx(), req)
 	if err != nil {
@@ -291,19 +284,19 @@ func (c APIClient) ListCommitF(repoName string, to string, from string, number u
 
 // ListCommitByRepo lists all commits in a repo.
 func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) {
-	return c.ListCommit(repoName, "", "", 0)
+	return c.ListCommit(repoName, "", "", "", "", 0)
 }
 
 // CreateBranch creates a new branch
-func (c APIClient) CreateBranch(repoName string, branch string, commit string, provenance []*pfs.Branch) error {
+func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch string, commitID string, provenance []*pfs.Branch) error {
 	var head *pfs.Commit
-	if commit != "" {
-		head = NewCommit(repoName, commit)
+	if commitBranch != "" || commitID != "" {
+		head = NewCommit(repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
 		&pfs.CreateBranchRequest{
-			Branch:     NewBranch(repoName, branch),
+			Branch:     NewBranch(repoName, branchName),
 			Head:       head,
 			Provenance: provenance,
 		},
@@ -314,15 +307,15 @@ func (c APIClient) CreateBranch(repoName string, branch string, commit string, p
 // CreateBranchTrigger Creates a branch with a trigger. Note: triggers and
 // provenance are mutually exclusive. See the docs on triggers to learn more
 // about why this is.
-func (c APIClient) CreateBranchTrigger(repoName string, branch string, commit string, trigger *pfs.Trigger) error {
+func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commitBranch string, commitID string, trigger *pfs.Trigger) error {
 	var head *pfs.Commit
-	if commit != "" {
-		head = NewCommit(repoName, commit)
+	if commitBranch != "" || commitID != "" {
+		head = NewCommit(repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
 		&pfs.CreateBranchRequest{
-			Branch:  NewBranch(repoName, branch),
+			Branch:  NewBranch(repoName, branchName),
 			Head:    head,
 			Trigger: trigger,
 		},
@@ -331,11 +324,11 @@ func (c APIClient) CreateBranchTrigger(repoName string, branch string, commit st
 }
 
 // InspectBranch returns information on a specific PFS branch
-func (c APIClient) InspectBranch(repoName string, branch string) (*pfs.BranchInfo, error) {
+func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.BranchInfo, error) {
 	branchInfo, err := c.PfsAPIClient.InspectBranch(
 		c.Ctx(),
 		&pfs.InspectBranchRequest{
-			Branch: NewBranch(repoName, branch),
+			Branch: NewBranch(repoName, branchName),
 		},
 	)
 	return branchInfo, grpcutil.ScrubGRPC(err)
@@ -355,20 +348,14 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	return branchInfos.BranchInfo, nil
 }
 
-// SetBranch sets a commit and its ancestors as a branch.
-// SetBranch is deprecated in favor of CreateBranch.
-func (c APIClient) SetBranch(repoName string, commit string, branch string) error {
-	return c.CreateBranch(repoName, branch, commit, nil)
-}
-
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
 // In other words, those commits can still be accessed via commit IDs and
 // other branches they happen to be on.
-func (c APIClient) DeleteBranch(repoName string, branch string, force bool) error {
+func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) error {
 	_, err := c.PfsAPIClient.DeleteBranch(
 		c.Ctx(),
 		&pfs.DeleteBranchRequest{
-			Branch: NewBranch(repoName, branch),
+			Branch: NewBranch(repoName, branchName),
 			Force:  force,
 		},
 	)
@@ -376,11 +363,11 @@ func (c APIClient) DeleteBranch(repoName string, branch string, force bool) erro
 }
 
 // SquashCommit deletes a commit.
-func (c APIClient) SquashCommit(repoName string, commitID string) error {
+func (c APIClient) SquashCommit(repoName string, branchName string, commitID string) error {
 	_, err := c.PfsAPIClient.SquashCommit(
 		c.Ctx(),
 		&pfs.SquashCommitRequest{
-			Commit: NewCommit(repoName, commitID),
+			Commit: NewCommit(repoName, branchName, commitID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -457,18 +444,18 @@ func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
-func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
+func (c APIClient) SubscribeCommit(repoName string, branchName string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pfs.SubscribeCommitRequest{
-		Repo:   NewRepo(repo),
-		Branch: branch,
+		Repo:   NewRepo(repoName),
+		Branch: branchName,
 		Prov:   prov,
 		State:  state,
 	}
 	if from != "" {
-		req.From = NewCommit(repo, from)
+		req.From = NewCommit(repoName, branchName, from)
 	}
 	client, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), req)
 	if err != nil {
@@ -492,14 +479,14 @@ func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenan
 }
 
 // ClearCommit clears the state of an open commit.
-func (c APIClient) ClearCommit(repo, commit string) (retErr error) {
+func (c APIClient) ClearCommit(repoName string, branchName string, commitID string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	_, err := c.PfsAPIClient.ClearCommit(
 		c.Ctx(),
 		&pfs.ClearCommitRequest{
-			Commit: NewCommit(repo, commit),
+			Commit: NewCommit(repoName, branchName, commitID),
 		},
 	)
 	return err

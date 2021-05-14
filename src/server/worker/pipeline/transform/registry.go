@@ -76,14 +76,14 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error)
 	defer pj.jdit.SetDeleter(nil)
 	// Setup file operation client for output Meta commit.
 	metaCommit := pj.metaCommitInfo.Commit
-	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfMeta client.ModifyFile) error {
+	return pachClient.WithModifyFileClient(metaCommit.Branch.Repo.Name, metaCommit.Branch.Name, metaCommit.ID, func(mfMeta client.ModifyFile) error {
 		// Setup file operation client for output PFS commit.
 		outputCommit := pj.commitInfo.Commit
-		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfPFS client.ModifyFile) error {
+		return pachClient.WithModifyFileClient(outputCommit.Branch.Repo.Name, outputCommit.Branch.Name, outputCommit.ID, func(mfPFS client.ModifyFile) error {
 			parentMetaCommit := pj.metaCommitInfo.ParentCommit
 			metaFileWalker := func(path string) ([]string, error) {
 				var files []string
-				if err := pachClient.WalkFile(parentMetaCommit.Repo.Name, parentMetaCommit.ID, path, func(fi *pfs.FileInfo) error {
+				if err := pachClient.WalkFile(parentMetaCommit.Branch.Repo.Name, parentMetaCommit.Branch.Name, parentMetaCommit.ID, path, func(fi *pfs.FileInfo) error {
 					if fi.FileType == pfs.FileType_FILE {
 						files = append(files, fi.File.Path)
 					}
@@ -179,7 +179,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 		reg.jobChain = chain.NewJobChain(
 			pachClient,
 			hasher,
-			append(opts, chain.WithBase(datum.NewCommitIterator(pachClient, commit.Repo.Name, commit.ID)))...,
+			append(opts, chain.WithBase(datum.NewCommitIterator(pachClient, commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)))...,
 		)
 	}
 	return nil
@@ -188,7 +188,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.PipelineJobInfo, error) {
 	pachClient := reg.driver.PachClient()
 	pipelineInfo := reg.driver.PipelineInfo()
-	pipelineJobInfo, err := pachClient.InspectJobOutputCommit(pipelineInfo.Pipeline.Name, commitInfo.Commit.ID, false)
+	pipelineJobInfo, err := pachClient.InspectJobOutputCommit(pipelineInfo.Pipeline.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID, false)
 	if err != nil {
 		// TODO: It would be better for this to be a structured error.
 		if strings.Contains(err.Error(), "not found") {
@@ -222,7 +222,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 	if err != nil {
 		return err
 	}
-	metaCommitInfo, err := reg.driver.PachClient().InspectCommit(pipelineJobInfo.StatsCommit.Repo.Name, pipelineJobInfo.StatsCommit.ID)
+	metaCommitInfo, err := reg.driver.PachClient().InspectCommit(pipelineJobInfo.StatsCommit.Branch.Repo.Name, pipelineJobInfo.StatsCommit.Branch.Name, pipelineJobInfo.StatsCommit.ID)
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 	if err != nil {
 		return err
 	}
-	outputDit := datum.NewCommitIterator(pachClient, pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
+	outputDit := datum.NewCommitIterator(pachClient, pj.metaCommitInfo.Commit.Branch.Repo.Name, pj.metaCommitInfo.Commit.Branch.Name, pj.metaCommitInfo.Commit.ID)
 	pj.jdit = reg.jobChain.CreateJob(pj.driver.PachClient().Ctx(), pj.pji.Job.ID, dit, outputDit)
 	var afterTime time.Duration
 	if pj.pji.JobTimeout != nil {
@@ -324,18 +324,18 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 					pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.pji.Job.ID, err)
 				}
 				// Reload the job's commitInfo(s) as they may have changed and clear the state of the commit(s).
-				pj.commitInfo, err = reg.driver.PachClient().InspectCommit(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID)
+				pj.commitInfo, err = reg.driver.PachClient().InspectCommit(pj.commitInfo.Commit.Branch.Repo.Name, pj.commitInfo.Commit.Branch.Name, pj.commitInfo.Commit.ID)
 				if err != nil {
 					return err
 				}
-				if err := pj.driver.PachClient().ClearCommit(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID); err != nil {
+				if err := pj.driver.PachClient().ClearCommit(pj.commitInfo.Commit.Branch.Repo.Name, pj.commitInfo.Commit.Branch.Name, pj.commitInfo.Commit.ID); err != nil {
 					return err
 				}
-				pj.metaCommitInfo, err = reg.driver.PachClient().InspectCommit(pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
+				pj.metaCommitInfo, err = reg.driver.PachClient().InspectCommit(pj.metaCommitInfo.Commit.Branch.Repo.Name, pj.metaCommitInfo.Commit.Branch.Name, pj.metaCommitInfo.Commit.ID)
 				if err != nil {
 					return err
 				}
-				return pj.driver.PachClient().ClearCommit(pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
+				return pj.driver.PachClient().ClearCommit(pj.metaCommitInfo.Commit.Branch.Repo.Name, pj.metaCommitInfo.Commit.Branch.Name, pj.metaCommitInfo.Commit.ID)
 			})
 			pj.logger.Logf("master done running processJobs")
 		}); err != nil {
@@ -438,7 +438,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	// If we had a way to map the output added through the S3 gateway back to the datums, and stored this in the appropriate place in the stats commit, then we would be able
 	// handle datums the same way we handle normal pipelines.
 	if pj.driver.PipelineInfo().S3Out {
-		if err := pachClient.DeleteFile(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID, "/"); err != nil {
+		if err := pachClient.DeleteFile(pj.commitInfo.Commit.Branch.Repo.Name, pj.commitInfo.Commit.Branch.Name, pj.commitInfo.Commit.ID, "/"); err != nil {
 			return err
 		}
 	}
@@ -501,14 +501,16 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 							return err
 						}
 						renewer.Remove(data.FilesetId)
-						repo := pj.commitInfo.Commit.Repo.Name
+						repo := pj.commitInfo.Commit.Branch.Repo.Name
+						branch := pj.commitInfo.Commit.Branch.Name
 						commit := pj.commitInfo.Commit.ID
-						if err := pachClient.AddFileset(repo, commit, data.OutputFilesetId); err != nil {
+						if err := pachClient.AddFileset(repo, branch, commit, data.OutputFilesetId); err != nil {
 							return err
 						}
-						repo = pj.metaCommitInfo.Commit.Repo.Name
+						repo = pj.metaCommitInfo.Commit.Branch.Repo.Name
+						branch = pj.metaCommitInfo.Commit.Branch.Name
 						commit = pj.metaCommitInfo.Commit.ID
-						if err := pachClient.AddFileset(repo, commit, data.MetaFilesetId); err != nil {
+						if err := pachClient.AddFileset(repo, branch, commit, data.MetaFilesetId); err != nil {
 							return err
 						}
 						return datum.MergeStats(stats, data.Stats)
@@ -580,10 +582,11 @@ func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 }
 
 func (reg *registry) processJobEgressing(pj *pendingJob) error {
-	repo := pj.commitInfo.Commit.Repo.Name
+	repo := pj.commitInfo.Commit.Branch.Repo.Name
+	branch := pj.commitInfo.Commit.Branch.Name
 	commit := pj.commitInfo.Commit.ID
 	url := pj.pji.Egress.URL
-	if err := pj.driver.PachClient().GetFileURL(repo, commit, "/", url); err != nil {
+	if err := pj.driver.PachClient().GetFileURL(repo, branch, commit, "/", url); err != nil {
 		return err
 	}
 	return reg.succeedJob(pj)
@@ -600,8 +603,8 @@ func failedInputs(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 			})
 		if err != nil {
 			if vistErr == nil {
-				vistErr = errors.Wrapf(err, "error blocking on commit %s/%s",
-					commit.Repo.Name, commit.ID)
+				vistErr = errors.Wrapf(err, "error blocking on commit %s@%s",
+					commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 			}
 			return
 		}
@@ -611,13 +614,10 @@ func failedInputs(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 	}
 	pps.VisitInput(pipelineJobInfo.Input, func(input *pps.Input) {
 		if input.Pfs != nil && input.Pfs.Commit != "" {
-			blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Commit))
-		}
-		if input.Cron != nil && input.Cron.Commit != "" {
-			blockCommit(input.Cron.Name, client.NewCommit(input.Cron.Repo, input.Cron.Commit))
+			blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit))
 		}
 		if input.Git != nil && input.Git.Commit != "" {
-			blockCommit(input.Git.Name, client.NewCommit(input.Git.Name, input.Git.Commit))
+			blockCommit(input.Git.Name, client.NewCommit(input.Git.Name, input.Git.Branch, input.Git.Commit))
 		}
 	})
 	return failed, vistErr

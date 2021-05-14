@@ -4,6 +4,7 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 
@@ -22,9 +23,8 @@ func (d *driver) triggerCommit(
 	txnCtx *txnenv.TransactionContext,
 	commit *pfs.Commit,
 ) ([]*pfs.Branch, error) {
-	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.Get(pfsdb.RepoKey(commit.Repo), repoInfo); err != nil {
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
 		return nil, err
 	}
 	newHead := &pfs.CommitInfo{}
@@ -33,15 +33,13 @@ func (d *driver) triggerCommit(
 	}
 	// find which branches this commit is the head of
 	headBranches := make(map[string]bool)
-	if newHead.Branch != nil {
-		// If the commit was made as part of a branch, then it _was_ the branch head
-		// at some point in time, although it is not guaranteed to still be the
-		// branch head. This can happen on a downstream pipeline with triggers - the
-		// upstream pipeline may have multiple unfinished commits in its output
-		// branch that will be finished one at a time. Without this code, only
-		// finishing the _last_ commit would have a chance of triggering.
-		headBranches[newHead.Branch.Name] = true
-	}
+	// The commit _was_ the branch head at some point in time, although it is
+	// not guaranteed to still be the branch head. This can happen on a
+	// downstream pipeline with triggers - the upstream pipeline may have
+	// multiple unfinished commits in its output branch that will be finished
+	// one at a time. Without this code, only finishing the _last_ commit would
+	// have a chance of triggering.
+	headBranches[newHead.Commit.Branch.Name] = true
 	for _, b := range repoInfo.Branches {
 		bi := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), bi); err != nil {
@@ -64,7 +62,7 @@ func (d *driver) triggerCommit(
 			return err
 		}
 		if bi.Trigger != nil {
-			if err := triggerBranch(client.NewBranch(commit.Repo.Name, bi.Trigger.Branch)); err != nil && !col.IsErrNotFound(err) {
+			if err := triggerBranch(client.NewBranch(commit.Branch.Repo.Name, bi.Trigger.Branch)); err != nil && !col.IsErrNotFound(err) {
 				return err
 			}
 			if headBranches[bi.Trigger.Branch] {
@@ -86,7 +84,7 @@ func (d *driver) triggerCommit(
 					}); err != nil {
 						return err
 					}
-					result = append(result, branch)
+					result = append(result, proto.Clone(commit.Branch).(*pfs.Branch))
 					headBranches[bi.Branch.Name] = true
 				}
 			}

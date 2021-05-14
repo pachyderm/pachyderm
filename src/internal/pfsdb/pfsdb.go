@@ -71,12 +71,12 @@ func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 var CommitsRepoIndex = &col.Index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return RepoKey(val.(*pfs.CommitInfo).Commit.Repo)
+		return RepoKey(val.(*pfs.CommitInfo).Commit.Branch.Repo)
 	},
 }
 
 func CommitKey(commit *pfs.Commit) string {
-	return RepoKey(commit.Repo) + "@" + commit.ID
+	return RepoKey(commit.Branch.Repo) + "@" + commit.ID
 }
 
 // Commits returns a collection of commits

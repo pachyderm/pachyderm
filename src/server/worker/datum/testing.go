@@ -76,7 +76,7 @@ func (mi *MockIterator) DatumN(index int) []*common.Input {
 		// Warning: this might break some assumptions about the format of this data
 		result = append(result, &common.Input{
 			FileInfo: &pfs.FileInfo{
-				File:      client.NewFile("dummy-repo", "dummy-commit", "/path"),
+				File:      client.NewFile("dummy-repo", "dummy-branch", "dummy-commit", "/path"),
 				FileType:  pfs.FileType_FILE,
 				SizeBytes: uint64(index),
 				Hash:      []byte(fmt.Sprintf("%d", index)),

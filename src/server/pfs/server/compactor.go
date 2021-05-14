@@ -3,9 +3,11 @@ package server
 import (
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
@@ -13,11 +15,39 @@ import (
 	"golang.org/x/net/context"
 )
 
-/* TODO: brendon - reenable compaction
-func (d *driver) compact(ctx context.Context, ids []fileset.ID) (*fileset.ID, error) {
-	return d.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+var _ fileset.Compactor = &compactor{}
+
+type compactor struct {
+	storage  *fileset.Storage
+	maxFanIn int
+
+	compactionQueue *work.TaskQueue
+	worker          *work.Worker
+}
+
+func newCompactor(ctx context.Context, storage *fileset.Storage, etcdClient *etcd.Client, etcdPrefix string, maxFanIn int) (*compactor, error) {
+	if maxFanIn < 2 {
+		panic(maxFanIn)
+	}
+	compactionQueue, err := work.NewTaskQueue(ctx, etcdClient, etcdPrefix, storageTaskNamespace)
+	if err != nil {
+		return nil, err
+	}
+	worker := work.NewWorker(etcdClient, etcdPrefix, storageTaskNamespace)
+	c := &compactor{
+		storage:         storage,
+		maxFanIn:        maxFanIn,
+		compactionQueue: compactionQueue,
+		worker:          worker,
+	}
+	go c.compactionWorker(ctx)
+	return c, nil
+}
+
+func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+	return c.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 		var id *fileset.ID
-		if err := d.compactionQueue.RunTaskBlock(ctx, func(master *work.Master) error {
+		if err := c.compactionQueue.RunTaskBlock(ctx, func(master *work.Master) error {
 			workerFunc := func(ctx context.Context, tasks []fileset.CompactionTask) ([]fileset.ID, error) {
 				workTasks := make([]*work.Task, len(tasks))
 				for i, task := range tasks {
@@ -57,7 +87,7 @@ func (d *driver) compact(ctx context.Context, ids []fileset.ID) (*fileset.ID, er
 				}
 				return results, nil
 			}
-			dc := fileset.NewDistributedCompactor(d.storage, d.env.Config().StorageCompactionMaxFanIn, workerFunc)
+			dc := fileset.NewDistributedCompactor(c.storage, c.maxFanIn, workerFunc)
 			var err error
 			id, err = dc.Compact(master.Ctx(), ids, ttl)
 			return err
@@ -67,12 +97,10 @@ func (d *driver) compact(ctx context.Context, ids []fileset.ID) (*fileset.ID, er
 		return id, nil
 	})
 }
-*/
 
-func (d *driver) compactionWorker(ctx context.Context) {
-	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
-	backoff.RetryUntilCancel(ctx, func() error {
-		return w.Run(ctx, func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
+func (c *compactor) compactionWorker(ctx context.Context) error {
+	return backoff.RetryUntilCancel(ctx, func() error {
+		return c.worker.Run(ctx, func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
 			task, err := deserializeCompactionTask(subtask.Data)
 			if err != nil {
 				return nil, err
@@ -89,7 +117,7 @@ func (d *driver) compactionWorker(ctx context.Context) {
 				Lower: task.Range.Lower,
 				Upper: task.Range.Upper,
 			}
-			id, err := d.storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
+			id, err := c.storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
 			if err != nil {
 				return nil, err
 			}
@@ -103,7 +131,6 @@ func (d *driver) compactionWorker(ctx context.Context) {
 	})
 }
 
-/*
 func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
@@ -114,7 +141,6 @@ func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {
 		Value:   data,
 	}, nil
 }
-*/
 
 func deserializeCompactionTask(taskAny *types.Any) (*CompactionTask, error) {
 	task := &CompactionTask{}
@@ -135,7 +161,6 @@ func serializeCompactionResult(res *CompactionTaskResult) (*types.Any, error) {
 	}, nil
 }
 
-/*
 func deserializeCompactionResult(any *types.Any) (*CompactionTaskResult, error) {
 	res := &CompactionTaskResult{}
 	if err := types.UnmarshalAny(any, res); err != nil {
@@ -143,4 +168,3 @@ func deserializeCompactionResult(any *types.Any) (*CompactionTaskResult, error) 
 	}
 	return res, nil
 }
-*/

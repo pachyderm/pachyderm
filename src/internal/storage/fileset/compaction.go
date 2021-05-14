@@ -62,6 +62,11 @@ type CompactionTask struct {
 	PathRange *index.PathRange
 }
 
+// Compactor performs compaction
+type Compactor interface {
+	Compact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error)
+}
+
 // CompactionWorker can perform CompactionTasks
 type CompactionWorker func(ctx context.Context, spec CompactionTask) (*ID, error)
 

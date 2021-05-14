@@ -85,7 +85,7 @@ func (f *PipelineFinisher) Run() error {
 		if err := f.d.listCommit(
 			f.txnCtx.Client,
 			branch.Repo,
-			client.NewCommit(branch.Repo.Name, branch.Name), // to
+			client.NewCommit(branch.Repo.Name, branch.Name, ""), // to
 			nil,   // from
 			0,     // number
 			false, // reverse

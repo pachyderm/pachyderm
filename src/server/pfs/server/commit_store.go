@@ -13,6 +13,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+var errNoTotalFileset = errors.Errorf("no total fileset")
+
 const commitTrackerPrefix = "commit/"
 
 type commitStore interface {
@@ -80,57 +82,45 @@ func (cs *postgresCommitStore) AddFilesetTx(tx *sqlx.Tx, commit *pfs.Commit, id 
 }
 
 func (cs *postgresCommitStore) GetTotalFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
-	panic("brendon: disabling compaction for now") // TODO
-	var result *fileset.ID
+	var id *fileset.ID
 	if err := dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		id, err := getTotal(tx, commit)
+		var err error
+		id, err = getTotal(tx, commit)
 		if err != nil && err != sql.ErrNoRows {
 			return err
 		}
 		if id == nil {
-			result, err = cs.s.ComposeTx(tx, nil, defaultTTL)
-			return err
+			return errNoTotalFileset
 		}
-		result, err = cs.s.CloneTx(tx, *id, defaultTTL)
+		id, err = cs.s.CloneTx(tx, *id, defaultTTL)
 		return err
 	}); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return id, nil
 }
 
 func (cs *postgresCommitStore) GetDiffFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
-	var result *fileset.ID
+	var ids []fileset.ID
 	if err := dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		ids, err := getDiff(tx, commit)
+		var err error
+		ids, err = getDiff(tx, commit)
 		if err != nil && err != sql.ErrNoRows {
 			return err
 		}
-		result, err = cs.s.ComposeTx(tx, ids, defaultTTL)
-		return err
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return cs.s.Compose(ctx, ids, defaultTTL)
 }
 
 func (cs *postgresCommitStore) SetTotalFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		if err := cs.dropTotal(tx, commit); err != nil {
+		if err := dropTotal(tx, cs.tr, commit); err != nil {
 			return err
 		}
-		oid := commitTotalTrackerID(commit, id)
-		pointsTo := []string{id.TrackerID()}
-		if err := cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
-			return err
-		}
-		_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
-		VALUES ($1, $2)
-		ON CONFLICT (commit_id) DO UPDATE
-		SET fileset_id = $2
-		WHERE commit_totals.commit_id = $1
-		`, commit.ID, id)
-		return err
+		return setTotal(tx, cs.tr, commit, id)
 	})
 }
 
@@ -141,7 +131,7 @@ func (cs *postgresCommitStore) DropFilesets(ctx context.Context, commit *pfs.Com
 }
 
 func (cs *postgresCommitStore) DropFilesetsTx(tx *sqlx.Tx, commit *pfs.Commit) error {
-	if err := cs.dropTotal(tx, commit); err != nil {
+	if err := dropTotal(tx, cs.tr, commit); err != nil {
 		return err
 	}
 	return cs.dropDiff(tx, commit)
@@ -159,24 +149,6 @@ func (cs *postgresCommitStore) dropDiff(tx *sqlx.Tx, commit *pfs.Commit) error {
 		}
 	}
 	if _, err := tx.Exec(`DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, commit.ID); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (cs *postgresCommitStore) dropTotal(tx *sqlx.Tx, commit *pfs.Commit) error {
-	id, err := getTotal(tx, commit)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil
-		}
-		return err
-	}
-	trackID := commitTotalTrackerID(commit, *id)
-	if err := cs.tr.DeleteTx(tx, trackID); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, commit.ID); err != nil {
 		return err
 	}
 	return nil
@@ -203,6 +175,37 @@ func getTotal(tx *sqlx.Tx, commit *pfs.Commit) (*fileset.ID, error) {
 		return nil, err
 	}
 	return &id, nil
+}
+
+func dropTotal(tx *sqlx.Tx, tr track.Tracker, commit *pfs.Commit) error {
+	id, err := getTotal(tx, commit)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return err
+	}
+	trackID := commitTotalTrackerID(commit, *id)
+	if err := tr.DeleteTx(tx, trackID); err != nil {
+		return err
+	}
+	_, err = tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, commit.ID)
+	return err
+}
+
+func setTotal(tx *sqlx.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID) error {
+	oid := commitTotalTrackerID(commit, id)
+	pointsTo := []string{id.TrackerID()}
+	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
+		return err
+	}
+	_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
+	VALUES ($1, $2)
+	ON CONFLICT (commit_id) DO UPDATE
+	SET fileset_id = $2
+	WHERE commit_totals.commit_id = $1
+	`, commit.ID, id)
+	return err
 }
 
 func commitDiffTrackerID(commit *pfs.Commit, fs fileset.ID) string {

@@ -258,7 +258,7 @@ func datumFiles(datumInfo *ppsclient.DatumInfo) string {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
-		fmt.Fprintf(builder, "%s@%s:%s", fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path)
+		fmt.Fprintf(builder, "%s@%s:%s", fi.File.Commit.Branch.Repo.Name, fi.File.Commit.ID, fi.File.Path)
 	}
 	return builder.String()
 }
@@ -327,7 +327,7 @@ func PrintFileHeader(w io.Writer) {
 
 // PrintFile values for a pfs file.
 func PrintFile(w io.Writer, file *pfsclient.File) {
-	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Repo.Name, file.Commit.ID, file.Path)
+	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Branch.Repo.Name, file.Commit.ID, file.Path)
 }
 
 func datumState(datumState ppsclient.DatumState) string {

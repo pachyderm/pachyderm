@@ -1294,7 +1294,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 
 	// insert the source code
-	if err := pc.WithModifyFileClient(buildPipelineName, "source", func(mf pachdclient.ModifyFile) error {
+	if err := pc.WithModifyFileClient(buildPipelineName, "source", "", func(mf pachdclient.ModifyFile) error {
 		if update {
 			if err := mf.DeleteFile("/"); err != nil {
 				return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
