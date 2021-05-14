@@ -35,15 +35,15 @@ func main() {
 		panic(err)
 	}
 
-	if err := c.PutFileURL("images", "master", "liberty.png", "http://imgur.com/46Q8nDz.png", false); err != nil {
+	if err := c.PutFileURL("images", "master", "", "liberty.png", "http://imgur.com/46Q8nDz.png", false); err != nil {
 		panic(err)
 	}
 
-	if err := c.PutFileURL("images", "master", "AT-AT.png", "http://imgur.com/8MN9Kg0.png", false); err != nil {
+	if err := c.PutFileURL("images", "master", "", "AT-AT.png", "http://imgur.com/8MN9Kg0.png", false); err != nil {
 		panic(err)
 	}
 
-	if err := c.PutFileURL("images", "master", "kitten.png", "http://imgur.com/g2QnNqa.png", false); err != nil {
+	if err := c.PutFileURL("images", "master", "", "kitten.png", "http://imgur.com/g2QnNqa.png", false); err != nil {
 		panic(err)
 	}
 
@@ -53,7 +53,7 @@ func main() {
 		}
 	}()
 
-	files, err := c.ListFileAll("images", "master", "/")
+	files, err := c.ListFileAll("images", "master", "", "/")
 	if err != nil {
 		panic(err)
 	}

@@ -130,6 +130,10 @@ type APIClient struct {
 	ctx context.Context
 
 	portForwarder *PortForwarder
+
+	// The client context name this client was created from, if it was created by
+	// NewOnUserMachine
+	clientContextName string
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -512,11 +516,11 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
-	_, context, err := cfg.ActiveContext(true)
+	name, context, err := cfg.ActiveContext(true)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
-	return newOnUserMachine(cfg, context, prefix, options...)
+	return newOnUserMachine(cfg, context, name, prefix, options...)
 }
 
 // NewEnterpriseClientOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
@@ -527,18 +531,18 @@ func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APICli
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
-	_, context, err := cfg.ActiveEnterpriseContext(true)
+	name, context, err := cfg.ActiveEnterpriseContext(true)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
-	return newOnUserMachine(cfg, context, prefix, options...)
+	return newOnUserMachine(cfg, context, name, prefix, options...)
 }
 
 // TODO(msteffen) this logic is fairly linux/unix specific, and makes the
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string, options ...Option) (*APIClient, error) {
+func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, prefix string, options ...Option) (*APIClient, error) {
 	// create new pachctl client
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
@@ -603,6 +607,8 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string
 	// Add port forwarding. This will set it to nil if port forwarding is
 	// disabled, or an address is explicitly set.
 	client.portForwarder = fw
+
+	client.clientContextName = contextName
 
 	return client, nil
 }
@@ -870,4 +876,11 @@ func (c *APIClient) AuthToken() string {
 // API calls for this client.
 func (c *APIClient) SetAuthToken(token string) {
 	c.authenticationToken = token
+}
+
+// ClientContextName returns the name of the context in the client config
+// that produced this client, or an empty string if the client was not
+// produced from a configured client context.
+func (c *APIClient) ClientContextName() string {
+	return c.clientContextName
 }

@@ -16,15 +16,15 @@ import (
 )
 
 // PutFile puts a file into PFS from a reader.
-func (c APIClient) PutFile(repo, commit, path string, r io.Reader, opts ...PutFileOption) error {
-	return c.WithModifyFileClient(repo, commit, func(mf ModifyFile) error {
+func (c APIClient) PutFile(repo, branch, commit, path string, r io.Reader, opts ...PutFileOption) error {
+	return c.WithModifyFileClient(repo, branch, commit, func(mf ModifyFile) error {
 		return mf.PutFile(path, r, opts...)
 	})
 }
 
 // PutFileTar puts a set of files into PFS from a tar stream.
-func (c APIClient) PutFileTar(repo, commit string, r io.Reader, opts ...PutFileOption) error {
-	return c.WithModifyFileClient(repo, commit, func(mf ModifyFile) error {
+func (c APIClient) PutFileTar(repo, branch, commit string, r io.Reader, opts ...PutFileOption) error {
+	return c.WithModifyFileClient(repo, branch, commit, func(mf ModifyFile) error {
 		return mf.PutFileTar(r, opts...)
 	})
 }
@@ -32,24 +32,24 @@ func (c APIClient) PutFileTar(repo, commit string, r io.Reader, opts ...PutFileO
 // PutFileURL puts a file into PFS using the content found at a URL.
 // The URL is sent to the server which performs the request.
 // recursive allow for recursive scraping of some types of URLs for example on s3:// urls.
-func (c APIClient) PutFileURL(repo, commit, path, url string, recursive bool, opts ...PutFileOption) error {
-	return c.WithModifyFileClient(repo, commit, func(mf ModifyFile) error {
+func (c APIClient) PutFileURL(repo, branch, commit, path, url string, recursive bool, opts ...PutFileOption) error {
+	return c.WithModifyFileClient(repo, branch, commit, func(mf ModifyFile) error {
 		return mf.PutFileURL(path, url, recursive, opts...)
 	})
 }
 
 // DeleteFile deletes a file from PFS.
-func (c APIClient) DeleteFile(repo, commit, path string, opts ...DeleteFileOption) error {
-	return c.WithModifyFileClient(repo, commit, func(mf ModifyFile) error {
+func (c APIClient) DeleteFile(repo, branch, commit, path string, opts ...DeleteFileOption) error {
+	return c.WithModifyFileClient(repo, branch, commit, func(mf ModifyFile) error {
 		return mf.DeleteFile(path, opts...)
 	})
 }
 
 // CopyFile copies a file from one PFS location to another.
 // It can be used on directories or regular files.
-func (c APIClient) CopyFile(dstRepo, dstCommit, dstPath, srcRepo, srcCommit, srcPath string, opts ...CopyFileOption) error {
-	return c.WithModifyFileClient(dstRepo, dstCommit, func(mf ModifyFile) error {
-		return mf.CopyFile(dstPath, NewFile(srcRepo, srcCommit, srcPath), opts...)
+func (c APIClient) CopyFile(dstRepo, dstBranch, dstCommit, dstPath, srcRepo, srcBranch, srcCommit, srcPath string, opts ...CopyFileOption) error {
+	return c.WithModifyFileClient(dstRepo, dstBranch, dstCommit, func(mf ModifyFile) error {
+		return mf.CopyFile(dstPath, NewFile(srcRepo, srcBranch, srcCommit, srcPath), opts...)
 	})
 }
 
@@ -73,10 +73,10 @@ type ModifyFile interface {
 
 // WithModifyFileClient creates a new ModifyFileClient that is scoped to the passed in callback.
 // TODO: Context should be a parameter, not stored in the pach client.
-func (c APIClient) WithModifyFileClient(repo, commit string, cb func(ModifyFile) error) (retErr error) {
+func (c APIClient) WithModifyFileClient(repo, branch, commit string, cb func(ModifyFile) error) (retErr error) {
 	cancelCtx, cancel := context.WithCancel(c.Ctx())
 	defer cancel()
-	mfc, err := c.WithCtx(cancelCtx).NewModifyFileClient(repo, commit)
+	mfc, err := c.WithCtx(cancelCtx).NewModifyFileClient(repo, branch, commit)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (c APIClient) WithModifyFileClient(repo, commit string, cb func(ModifyFile)
 }
 
 // NewModifyFileClient creates a new ModifyFileClient.
-func (c APIClient) NewModifyFileClient(repo, commit string) (_ *ModifyFileClient, retErr error) {
+func (c APIClient) NewModifyFileClient(repo, branch, commit string) (_ *ModifyFileClient, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -98,7 +98,7 @@ func (c APIClient) NewModifyFileClient(repo, commit string) (_ *ModifyFileClient
 		return nil, err
 	}
 	if err := client.Send(&pfs.ModifyFileRequest{
-		Commit: NewCommit(repo, commit),
+		Commit: NewCommit(repo, branch, commit),
 	}); err != nil {
 		return nil, err
 	}
@@ -340,14 +340,14 @@ func (ctfsc *CreateFilesetClient) Close() (*pfs.CreateFilesetResponse, error) {
 }
 
 // AddFileset adds a fileset to a commit.
-func (c APIClient) AddFileset(repo, commit, ID string) (retErr error) {
+func (c APIClient) AddFileset(repo, branch, commit, ID string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	_, err := c.PfsAPIClient.AddFileset(
 		c.Ctx(),
 		&pfs.AddFilesetRequest{
-			Commit:    NewCommit(repo, commit),
+			Commit:    NewCommit(repo, branch, commit),
 			FilesetId: ID,
 		},
 	)
@@ -375,8 +375,8 @@ func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
 // TODO: Should we error if multiple files are matched?
-func (c APIClient) GetFile(repo, commit, path string, w io.Writer) error {
-	r, err := c.getFileTar(repo, commit, path)
+func (c APIClient) GetFile(repo, branch, commit, path string, w io.Writer) error {
+	r, err := c.getFileTar(repo, branch, commit, path)
 	if err != nil {
 		return err
 	}
@@ -385,12 +385,12 @@ func (c APIClient) GetFile(repo, commit, path string, w io.Writer) error {
 	}, true)
 }
 
-func (c APIClient) getFileTar(repo, commit, path string) (_ io.Reader, retErr error) {
+func (c APIClient) getFileTar(repo, branch, commit, path string) (_ io.Reader, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pfs.GetFileRequest{
-		File: NewFile(repo, commit, path),
+		File: NewFile(repo, branch, commit, path),
 	}
 	client, err := c.PfsAPIClient.GetFile(c.Ctx(), req)
 	if err != nil {
@@ -400,14 +400,14 @@ func (c APIClient) getFileTar(repo, commit, path string) (_ io.Reader, retErr er
 }
 
 // GetFileTar gets a tar file from PFS.
-func (c APIClient) GetFileTar(repo, commit, path string) (io.Reader, error) {
-	return c.getFileTar(repo, commit, path)
+func (c APIClient) GetFileTar(repo, branch, commit, path string) (io.Reader, error) {
+	return c.getFileTar(repo, branch, commit, path)
 }
 
 // GetFileReader gets a reader for the specified path
 // TODO: This should probably be an io.ReadCloser so we can close the rpc if the full file isn't read.
-func (c APIClient) GetFileReader(repo, commit, path string) (io.Reader, error) {
-	r, err := c.getFileTar(repo, commit, path)
+func (c APIClient) GetFileReader(repo, branch, commit, path string) (io.Reader, error) {
+	r, err := c.getFileTar(repo, branch, commit, path)
 	if err != nil {
 		return nil, err
 	}
@@ -420,19 +420,19 @@ func (c APIClient) GetFileReader(repo, commit, path string) (io.Reader, error) {
 
 // GetFileReadSeeker returns a reader for the contents of a file at a specific
 // Commit that permits Seeking to different points in the file.
-func (c APIClient) GetFileReadSeeker(repo, commit, path string) (io.ReadSeeker, error) {
-	fi, err := c.InspectFile(repo, commit, path)
+func (c APIClient) GetFileReadSeeker(repo, branch, commit, path string) (io.ReadSeeker, error) {
+	fi, err := c.InspectFile(repo, branch, commit, path)
 	if err != nil {
 		return nil, err
 	}
-	r, err := c.GetFileReader(repo, commit, path)
+	r, err := c.GetFileReader(repo, branch, commit, path)
 	if err != nil {
 		return nil, err
 	}
 	return &getFileReadSeeker{
 		Reader: r,
 		c:      c,
-		file:   NewFile(repo, commit, path),
+		file:   NewFile(repo, branch, commit, path),
 		offset: 0,
 		size:   int64(fi.SizeBytes),
 	}, nil
@@ -447,7 +447,7 @@ type getFileReadSeeker struct {
 
 func (gfrs *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	getFileReader := func(offset int64) (io.Reader, error) {
-		r, err := gfrs.c.GetFileReader(gfrs.file.Commit.Repo.Name, gfrs.file.Commit.ID, gfrs.file.Path)
+		r, err := gfrs.c.GetFileReader(gfrs.file.Commit.Branch.Repo.Name, gfrs.file.Commit.Branch.Name, gfrs.file.Commit.ID, gfrs.file.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -484,12 +484,12 @@ func (gfrs *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 }
 
 // GetFileURL gets the file at the specified URL
-func (c APIClient) GetFileURL(repo, commit, path, URL string) (retErr error) {
+func (c APIClient) GetFileURL(repo, branch, commit, path, URL string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pfs.GetFileRequest{
-		File: NewFile(repo, commit, path),
+		File: NewFile(repo, branch, commit, path),
 		URL:  URL,
 	}
 	client, err := c.PfsAPIClient.GetFile(c.Ctx(), req)
@@ -501,28 +501,28 @@ func (c APIClient) GetFileURL(repo, commit, path, URL string) (retErr error) {
 }
 
 // InspectFile returns metadata about the specified file
-func (c APIClient) InspectFile(repo, commit, path string) (_ *pfs.FileInfo, retErr error) {
+func (c APIClient) InspectFile(repo, branch, commit, path string) (_ *pfs.FileInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	fi, err := c.PfsAPIClient.InspectFile(
 		c.Ctx(),
 		&pfs.InspectFileRequest{
-			File: NewFile(repo, commit, path),
+			File: NewFile(repo, branch, commit, path),
 		},
 	)
 	return fi, err
 }
 
 // ListFile returns info about all files in a Commit under path, calling cb with each FileInfo.
-func (c APIClient) ListFile(repo, commit, path string, cb func(fi *pfs.FileInfo) error) (retErr error) {
+func (c APIClient) ListFile(repo, branch, commit, path string, cb func(fi *pfs.FileInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	client, err := c.PfsAPIClient.ListFile(
 		c.Ctx(),
 		&pfs.ListFileRequest{
-			File: NewFile(repo, commit, path),
+			File: NewFile(repo, branch, commit, path),
 		},
 	)
 	if err != nil {
@@ -546,12 +546,12 @@ func (c APIClient) ListFile(repo, commit, path string, cb func(fi *pfs.FileInfo)
 }
 
 // ListFileAll returns info about all files in a Commit under path.
-func (c APIClient) ListFileAll(repo, commit, path string) (_ []*pfs.FileInfo, retErr error) {
+func (c APIClient) ListFileAll(repo, branch, commit, path string) (_ []*pfs.FileInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	var fis []*pfs.FileInfo
-	if err := c.ListFile(repo, commit, path, func(fi *pfs.FileInfo) error {
+	if err := c.ListFile(repo, branch, commit, path, func(fi *pfs.FileInfo) error {
 		fis = append(fis, fi)
 		return nil
 	}); err != nil {
@@ -563,14 +563,14 @@ func (c APIClient) ListFileAll(repo, commit, path string) (_ []*pfs.FileInfo, re
 // GlobFile returns files that match a given glob pattern in a given commit,
 // calling cb with each FileInfo. The pattern is documented here:
 // https://golang.org/pkg/path/filepath/#Match
-func (c APIClient) GlobFile(repo, commit, pattern string, cb func(fi *pfs.FileInfo) error) (retErr error) {
+func (c APIClient) GlobFile(repo, branch, commit, pattern string, cb func(fi *pfs.FileInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	client, err := c.PfsAPIClient.GlobFile(
 		c.Ctx(),
 		&pfs.GlobFileRequest{
-			Commit:  NewCommit(repo, commit),
+			Commit:  NewCommit(repo, branch, commit),
 			Pattern: pattern,
 		},
 	)
@@ -596,12 +596,12 @@ func (c APIClient) GlobFile(repo, commit, pattern string, cb func(fi *pfs.FileIn
 
 // GlobFileAll returns files that match a given glob pattern in a given commit.
 // The pattern is documented here: https://golang.org/pkg/path/filepath/#Match
-func (c APIClient) GlobFileAll(repo, commit, pattern string) (_ []*pfs.FileInfo, retErr error) {
+func (c APIClient) GlobFileAll(repo, branch, commit, pattern string) (_ []*pfs.FileInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	var fis []*pfs.FileInfo
-	if err := c.GlobFile(repo, commit, pattern, func(fi *pfs.FileInfo) error {
+	if err := c.GlobFile(repo, branch, commit, pattern, func(fi *pfs.FileInfo) error {
 		fis = append(fis, fi)
 		return nil
 	}); err != nil {
@@ -612,7 +612,7 @@ func (c APIClient) GlobFileAll(repo, commit, pattern string) (_ []*pfs.FileInfo,
 
 // DiffFile returns the differences between 2 paths at 2 commits.
 // It streams back one file at a time which is either from the new path, or the old path
-func (c APIClient) DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string, shallow bool, cb func(*pfs.FileInfo, *pfs.FileInfo) error) (retErr error) {
+func (c APIClient) DiffFile(newRepo, newBranch, newCommit, newPath, oldRepo, oldBranch, oldCommit, oldPath string, shallow bool, cb func(*pfs.FileInfo, *pfs.FileInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -620,10 +620,10 @@ func (c APIClient) DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, old
 	defer cancel()
 	var oldFile *pfs.File
 	if oldRepo != "" {
-		oldFile = NewFile(oldRepo, oldCommit, oldPath)
+		oldFile = NewFile(oldRepo, oldBranch, oldCommit, oldPath)
 	}
 	req := &pfs.DiffFileRequest{
-		NewFile: NewFile(newRepo, newCommit, newPath),
+		NewFile: NewFile(newRepo, newBranch, newCommit, newPath),
 		OldFile: oldFile,
 		Shallow: shallow,
 	}
@@ -646,12 +646,12 @@ func (c APIClient) DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, old
 }
 
 // DiffFileAll returns the differences between 2 paths at 2 commits.
-func (c APIClient) DiffFileAll(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string, shallow bool) (_ []*pfs.FileInfo, _ []*pfs.FileInfo, retErr error) {
+func (c APIClient) DiffFileAll(newRepo, newBranch, newCommit, newPath, oldRepo, oldBranch, oldCommit, oldPath string, shallow bool) (_ []*pfs.FileInfo, _ []*pfs.FileInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	var newFis, oldFis []*pfs.FileInfo
-	if err := c.DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath, shallow, func(newFi, oldFi *pfs.FileInfo) error {
+	if err := c.DiffFile(newRepo, newBranch, newCommit, newPath, oldRepo, oldBranch, oldCommit, oldPath, shallow, func(newFi, oldFi *pfs.FileInfo) error {
 		if newFi != nil {
 			newFis = append(newFis, newFi)
 		}
@@ -666,14 +666,14 @@ func (c APIClient) DiffFileAll(newRepo, newCommit, newPath, oldRepo, oldCommit, 
 }
 
 // WalkFile walks the files under path.
-func (c APIClient) WalkFile(repo, commit, path string, cb func(*pfs.FileInfo) error) (retErr error) {
+func (c APIClient) WalkFile(repo, branch, commit, path string, cb func(*pfs.FileInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	client, err := c.PfsAPIClient.WalkFile(
 		c.Ctx(),
 		&pfs.WalkFileRequest{
-			File: NewFile(repo, commit, path),
+			File: NewFile(repo, branch, commit, path),
 		})
 	if err != nil {
 		return err

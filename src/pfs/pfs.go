@@ -21,9 +21,9 @@ const (
 	SpecRepoType  = "spec"
 )
 
-// FullID prints repoName/CommitID
+// FullID prints repoName@CommitID
 func (c *Commit) FullID() string {
-	return fmt.Sprintf("%s/%s", c.Repo.Name, c.ID)
+	return fmt.Sprintf("%s@%s", c.Branch.Repo.Name, c.ID)
 }
 
 // NewHash returns a hash that PFS uses internally to compute checksums.
