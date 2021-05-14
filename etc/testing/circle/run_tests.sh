@@ -44,7 +44,7 @@ function test_bucket {
     tests=( $(go test -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
     # Add anchors for the regex so we don't run collateral tests
     tests=( "${tests[@]/#/^}" )
-    tests=( "${tests[@]/%/$}" )
+    tests=( "${tests[@]/%/\$\$}" )
     total_tests="${#tests[@]}"
     # Determine the offset and length of the sub-array of tests we want to run
     # The last bucket may have a few extra tests, to accommodate rounding
