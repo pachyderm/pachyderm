@@ -1,7 +1,7 @@
 package pfs
 
 import (
-	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctx"
 	pfsgrpc "github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -23,16 +23,16 @@ type API interface {
 	pfsgrpc.APIServer
 
 	// Repo
-	CreateRepoTx(tx *sqlx.Tx, req CreateRepoRequest) error
+	CreateRepoTx(tx pachctx.Tx, req CreateRepoRequest) error
 	// ...
-	ListRepoTx(tx *sqlx.Tx, req ListRepoRequest) (*ListRepoResponse, error)
+	ListRepoTx(tx pachctx.Tx, req ListRepoRequest) (*ListRepoResponse, error)
 
 	// Commit
-	StartCommitTx(tx *sqlx.Tx, req StartCommitRequest) error
+	StartCommitTx(tx pachctx.Tx, req StartCommitRequest) error
 	// ...
-	ClearCommitTx(tx *sqlx.Tx, req ClearCommitRequest) error
+	ClearCommitTx(tx pachctx.Tx, req ClearCommitRequest) error
 
 	// Fileset
-	AddFilesetTx(tx *sqlx.Tx, req AddFilesetRequest) error
-	GetFilesetTx(tx *sqlx.Tx, req GetFilesetRequest) (*CreateFilesetResponse, error)
+	AddFilesetTx(tx pachctx.Tx, req AddFilesetRequest) error
+	GetFilesetTx(tx pachctx.Tx, req GetFilesetRequest) (*CreateFilesetResponse, error)
 }
