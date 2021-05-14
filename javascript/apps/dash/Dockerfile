@@ -12,9 +12,9 @@ RUN apk add --no-cache \
     pango-dev \
     giflib-dev
 
-RUN make ci
-RUN make build
-RUN make prune-deps
+RUN make ci &&\
+    make build &&\
+    make prune-deps
 
 CMD ["npm", "start", "--prefix", "./backend"]
 EXPOSE 4000
