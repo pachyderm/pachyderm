@@ -3,12 +3,11 @@ package transactionenv
 import (
 	"context"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -37,16 +36,6 @@ type PfsWrites interface {
 type PpsWrites interface {
 	UpdateJobState(*pps.UpdateJobStateRequest) error
 	CreatePipeline(*pps.CreatePipelineRequest, **pfs.Commit) error
-}
-
-// AuthWrites is an interface providing a wrapper for each operation that
-// may be appended to a transaction through the Auth server.  Each call may
-// either directly run the request through Auth or append it to the active
-// transaction, depending on if there is an active transaction in the client
-// context.
-type AuthWrites interface {
-	ModifyRoleBinding(*auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
-	DeleteRoleBinding(*auth.Resource) error
 }
 
 // PfsPropagater is the interface that PFS implements to propagate commits at
@@ -82,13 +71,6 @@ type TransactionContext struct {
 	pfsPropagater  PfsPropagater
 	commitFinisher PipelineCommitFinisher
 	txnEnv         *TransactionEnv
-}
-
-// Auth returns a reference to the Auth API Server so that transactionally-
-// supported methods can be called across the API boundary without using RPCs
-// (which will not maintain transactional guarantees)
-func (t *TransactionContext) Auth() AuthTransactionServer {
-	return t.txnEnv.authServer
 }
 
 // Pfs returns a reference to the PFS API Server so that transactionally-
@@ -136,29 +118,6 @@ type TransactionServer interface {
 	) (*transaction.TransactionResponse, error)
 }
 
-// AuthTransactionServer is an interface for the transactionally-supported
-// methods that can be called through the auth server.
-type AuthTransactionServer interface {
-	AuthorizeInTransaction(*TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
-
-	ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
-	GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
-
-	// Methods to add and remove pipelines from input and output repos. These do their own auth checks
-	// for specific permissions required to use a repo as a pipeline input/output.
-	AddPipelineReaderToRepoInTransaction(*TransactionContext, string, string) error
-	AddPipelineWriterToRepoInTransaction(*TransactionContext, string) error
-	RemovePipelineReaderFromRepoInTransaction(*TransactionContext, string, string) error
-
-	// Create and Delete are internal-only APIs used by other services when creating/destroying resources.
-	CreateRoleBindingInTransaction(*TransactionContext, string, []string, *auth.Resource) error
-	DeleteRoleBindingInTransaction(*TransactionContext, *auth.Resource) error
-
-	// GetPipelineAuthTokenInTransaction is an internal API used by PPS to generate tokens for pipelines
-	GetPipelineAuthTokenInTransaction(*TransactionContext, string) (string, error)
-	RevokeAuthTokenInTransaction(*TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
-}
-
 // PfsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
@@ -191,24 +150,18 @@ type PpsTransactionServer interface {
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
-	serviceEnv serviceenv.ServiceEnv
-	txnServer  TransactionServer
-	authServer AuthTransactionServer
-	pfsServer  PfsTransactionServer
-	ppsServer  PpsTransactionServer
+	txnServer TransactionServer
+	pfsServer PfsTransactionServer
+	ppsServer PpsTransactionServer
 }
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (env *TransactionEnv) Initialize(
-	serviceEnv serviceenv.ServiceEnv,
 	txnServer TransactionServer,
-	authServer AuthTransactionServer,
 	pfsServer PfsTransactionServer,
 	ppsServer PpsTransactionServer,
 ) {
-	env.serviceEnv = serviceEnv
 	env.txnServer = txnServer
-	env.authServer = authServer
 	env.pfsServer = pfsServer
 	env.ppsServer = ppsServer
 }
@@ -226,7 +179,6 @@ func (env *TransactionEnv) Initialize(
 type Transaction interface {
 	PfsWrites
 	PpsWrites
-	AuthWrites
 }
 
 type directTransaction struct {
@@ -281,19 +233,9 @@ func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) 
 	return t.txnCtx.txnEnv.ppsServer.UpdateJobStateInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
-	req := proto.Clone(original).(*auth.ModifyRoleBindingRequest)
-	return t.txnCtx.txnEnv.authServer.ModifyRoleBindingInTransaction(t.txnCtx, req)
-}
-
 func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, specCommit **pfs.Commit) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
 	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, specCommit)
-}
-
-func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
-	req := proto.Clone(original).(*auth.Resource)
-	return t.txnCtx.txnEnv.authServer.DeleteRoleBindingInTransaction(t.txnCtx, req)
 }
 
 type appendTransaction struct {
@@ -358,21 +300,13 @@ func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ **p
 	return err
 }
 
-func (t *appendTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
-	panic("ModifyRoleBinding not yet implemented in transactions")
-}
-
-func (t *appendTransaction) DeleteRoleBinding(original *auth.Resource) error {
-	panic("DeleteRoleBinding not yet implemented in transactions")
-}
-
 // WithTransaction will call the given callback with a txnenv.Transaction
 // object, which is instantiated differently based on if an active
 // transaction is present in the RPC context.  If an active transaction is
 // present, any calls into the Transaction are first dry-run then appended
 // to the transaction.  If there is no active transaction, the request will be
 // run directly through the selected server.
-func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transaction) error) error {
+func (env *TransactionEnv) WithTransaction(ctx context.Context, etcdClient *etcd.Client, cb func(Transaction) error) error {
 	activeTxn, err := client.GetTransaction(ctx)
 	if err != nil {
 		return err
@@ -383,7 +317,7 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		return cb(appendTxn)
 	}
 
-	return env.WithWriteContext(ctx, func(txnCtx *TransactionContext) error {
+	return env.WithWriteContext(ctx, etcdClient, func(txnCtx *TransactionContext) error {
 		directTxn := NewDirectTransaction(txnCtx)
 		return cb(directTxn)
 	})
@@ -391,12 +325,10 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 
 // WithWriteContext will call the given callback with a TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
-func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*TransactionContext) error) error {
-	_, err := col.NewSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
-		pachClient := env.serviceEnv.GetPachClient(ctx)
+func (env *TransactionEnv) WithWriteContext(ctx context.Context, etcdClient *etcd.Client, cb func(*TransactionContext) error) error {
+	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
 		txnCtx := &TransactionContext{
-			Client:        pachClient,
-			ClientContext: pachClient.Ctx(),
+			ClientContext: ctx,
 			Stm:           stm,
 			txnEnv:        env,
 		}
@@ -417,12 +349,10 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 // WithReadContext will call the given callback with a TransactionContext
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
-func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*TransactionContext) error) error {
-	return col.NewDryrunSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
-		pachClient := env.serviceEnv.GetPachClient(ctx)
+func (env *TransactionEnv) WithReadContext(ctx context.Context, etcdClient *etcd.Client, cb func(*TransactionContext) error) error {
+	return col.NewDryrunSTM(ctx, etcdClient, func(stm col.STM) error {
 		txnCtx := &TransactionContext{
-			Client:         pachClient,
-			ClientContext:  pachClient.Ctx(),
+			ClientContext:  ctx,
 			Stm:            stm,
 			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 			txnEnv:         env,

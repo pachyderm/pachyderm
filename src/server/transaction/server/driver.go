@@ -21,6 +21,8 @@ import (
 )
 
 type driver struct {
+	env serviceenv.ServiceEnv
+
 	// txnEnv stores references to other pachyderm APIServer instances so we can
 	// make calls within the same transaction without serializing through RPCs
 	txnEnv *txnenv.TransactionEnv
@@ -40,6 +42,7 @@ func newDriver(
 ) (*driver, error) {
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
+		env:          env,
 		txnEnv:       txnEnv,
 		etcdClient:   etcdClient,
 		prefix:       etcdPrefix,
@@ -67,7 +70,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 	}
 
 	var err error
-	err = d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err = d.txnEnv.WithWriteContext(ctx, d.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		info, err = d.runTransaction(txnCtx, info)
 		if err != nil {
 			return err
@@ -112,7 +115,7 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 }
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	return d.txnEnv.WithWriteContext(ctx, d.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		// first try to clean up any aspects of the transaction that live outside the STM
 		info := &transaction.TransactionInfo{}
 		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
@@ -248,7 +251,7 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := d.txnEnv.WithWriteContext(ctx, d.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
 		if err != nil {
 			return err
@@ -286,7 +289,7 @@ func (d *driver) appendTransaction(
 		var dryrunResponses []*transaction.TransactionResponse
 
 		info := &transaction.TransactionInfo{}
-		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		err := d.txnEnv.WithReadContext(ctx, d.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 			// Get the existing transaction and append the new requests
 			err := d.transactions.ReadWrite(txnCtx.Stm).Get(txn.ID, info)
 			if err != nil {

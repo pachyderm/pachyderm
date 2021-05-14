@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -18,6 +19,8 @@ import (
 // TestServiceEnv is a simple implementation of ServiceEnv that can be constructed with
 // existing clients.
 type TestServiceEnv struct {
+	Auth auth_server.APIServer
+
 	Configuration    *Configuration
 	PachClient       *client.APIClient
 	EtcdClient       *etcd.Client
@@ -93,4 +96,8 @@ func (s *TestServiceEnv) Close() error {
 		eg.Go(listener.Close)
 	}
 	return eg.Wait()
+}
+
+func (s *TestServiceEnv) AuthServer() auth_server.APIServer {
+	return s.Auth
 }

@@ -63,7 +63,7 @@ func (d *driver) modifyFile(pachClient *client.APIClient, commit *pfs.Commit, cb
 
 // TODO: Cleanup after failure?
 func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) (retErr error) {
+	return d.txnEnv.WithWriteContext(ctx, d.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) (retErr error) {
 		commit, err := d.startCommit(txnCtx, "", nil, client.NewBranch(repo, branch), nil, "")
 		if err != nil {
 			return err

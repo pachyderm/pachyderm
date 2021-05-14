@@ -34,7 +34,7 @@ func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionC
 	if !request.All {
 		repo := request.Repo
 		// Check if the caller is authorized to delete this repo
-		if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_DELETE); err != nil {
+		if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_DELETE); err != nil {
 			return err
 		}
 	}
@@ -55,7 +55,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txnenv.Transactio
 	if userCommit.Branch.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_WRITE); err != nil {
 		return err
 	}
 	return a.APIServer.FinishCommitInTransaction(txnCtx, request)
@@ -75,7 +75,7 @@ func (a *validatedAPIServer) SquashCommitInTransaction(txnCtx *txnenv.Transactio
 	if userCommit.Branch.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_DELETE_COMMIT); err != nil {
+	if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_DELETE_COMMIT); err != nil {
 		return err
 	}
 	return a.APIServer.SquashCommitInTransaction(txnCtx, request)

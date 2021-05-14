@@ -60,7 +60,7 @@ func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, a.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		return a.driver.activateAuth(txnCtx)
 	}); err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func (a *apiServer) CreateRepoInTransaction(txnCtx *txnenv.TransactionContext, r
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.txnEnv.WithTransaction(ctx, a.env.GetEtcdClient(), func(txn txnenv.Transaction) error {
 		return txn.CreateRepo(request)
 	}); err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var info *pfs.RepoInfo
-	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithReadContext(ctx, a.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		info, err = a.InspectRepoInTransaction(txnCtx, request)
 		return err
@@ -133,7 +133,7 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, r
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.txnEnv.WithTransaction(ctx, a.env.GetEtcdClient(), func(txn txnenv.Transaction) error {
 		return txn.DeleteRepo(request)
 	}); err != nil {
 		return nil, err
@@ -160,7 +160,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var err error
 	commit := &pfs.Commit{}
-	if err = a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err = a.txnEnv.WithTransaction(ctx, a.env.GetEtcdClient(), func(txn txnenv.Transaction) error {
 		commit, err = txn.StartCommit(request, nil)
 		return err
 	}); err != nil {
@@ -184,7 +184,7 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext,
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.txnEnv.WithTransaction(ctx, a.env.GetEtcdClient(), func(txn txnenv.Transaction) error {
 		return txn.FinishCommit(request)
 	}); err != nil {
 		return nil, err
@@ -228,7 +228,7 @@ func (a *apiServer) SquashCommitInTransaction(txnCtx *txnenv.TransactionContext,
 func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.txnEnv.WithTransaction(ctx, a.env.GetEtcdClient(), func(txn txnenv.Transaction) error {
 		return txn.SquashCommit(request)
 	}); err != nil {
 		return nil, err
@@ -267,7 +267,7 @@ func (a *apiServer) CreateBranchInTransaction(txnCtx *txnenv.TransactionContext,
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.txnEnv.WithTransaction(ctx, a.env.GetEtcdClient(), func(txn txnenv.Transaction) error {
 		return txn.CreateBranch(request)
 	}); err != nil {
 		return nil, err
@@ -280,7 +280,7 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	branchInfo := &pfs.BranchInfo{}
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, a.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		branchInfo, err = a.driver.inspectBranch(txnCtx, request.Branch)
 		return err
@@ -315,7 +315,7 @@ func (a *apiServer) DeleteBranchInTransaction(txnCtx *txnenv.TransactionContext,
 func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.txnEnv.WithTransaction(ctx, a.env.GetEtcdClient(), func(txn txnenv.Transaction) error {
 		return txn.DeleteBranch(request)
 	}); err != nil {
 		return nil, err
@@ -680,7 +680,7 @@ func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFi
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithWriteContext(ctx, a.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		return a.driver.deleteAll(txnCtx)
 	})
 	if err != nil {

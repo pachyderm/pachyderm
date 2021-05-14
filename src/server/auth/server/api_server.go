@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -61,12 +62,6 @@ const (
 
 // DefaultOIDCConfig is the default config for the auth API server
 var DefaultOIDCConfig = auth.OIDCConfig{}
-
-// APIServer represents an auth api server
-type APIServer interface {
-	auth.APIServer
-	txnenv.AuthTransactionServer
-}
 
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
@@ -139,7 +134,7 @@ func NewAuthServer(
 	public bool,
 	requireNoncriticalServers bool,
 	watchesEnabled bool,
-) (APIServer, error) {
+) (auth_server.APIServer, error) {
 
 	authConfig := col.NewEtcdCollection(
 		env.GetEtcdClient(),
@@ -634,7 +629,7 @@ func (a *apiServer) Authorize(
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.AuthorizeResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, a.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		response, err = a.AuthorizeInTransaction(txnCtx, req)
 		return err
@@ -654,7 +649,7 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 	}
 
 	var request *authorizeRequest
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, a.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		request, err = a.evaluateRoleBindingInTransaction(txnCtx, req.Principal, req.Resource, permissions)
 		return err
@@ -780,7 +775,7 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionCon
 // that is included in the repoReader role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
 func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, sourceRepo, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, sourceRepo, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
 		return err
 	}
 
@@ -793,7 +788,7 @@ func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.Transact
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
 func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) error {
 	// Check that the user is allowed to add a pipeline to write to the output repo.
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
 		return err
 	}
 
@@ -808,7 +803,7 @@ func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.Tra
 	// Check that the user is allowed to remove input repos from the pipeline repo - this check is on the pipeline itself
 	// and not sourceRepo because otherwise users could break piplines they don't have access to by revoking them from the
 	// input repo.
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return err
 	}
 
@@ -837,11 +832,11 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	// and the permission required depends on the type of resource.
 	switch req.Resource.Type {
 	case auth.ResourceType_CLUSTER:
-		if err := CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
+		if err := a.CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
 			return nil, err
 		}
 	case auth.ResourceType_REPO:
-		if err := CheckRepoIsAuthorizedInTransaction(txnCtx, req.Resource.Name, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
+		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, req.Resource.Name, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
 			return nil, err
 		}
 	default:
@@ -889,9 +884,9 @@ func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleB
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.ModifyRoleBindingResponse
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.txnEnv.WithWriteContext(ctx, a.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		response, err = txn.ModifyRoleBinding(req)
+		response, err = a.ModifyRoleBindingInTransaction(txnCtx, req)
 		return err
 	}); err != nil {
 		return nil, err
@@ -950,7 +945,7 @@ func (a *apiServer) GetRoleBinding(ctx context.Context, req *auth.GetRoleBinding
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.GetRoleBindingResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, a.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		response, err = a.GetRoleBindingInTransaction(txnCtx, req)
 		return err
@@ -1026,7 +1021,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	a.txnEnv.WithWriteContext(ctx, a.env.GetEtcdClient(), func(txnCtx *txnenv.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
 	})
