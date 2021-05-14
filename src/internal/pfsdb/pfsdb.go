@@ -40,6 +40,14 @@ func RepoKey(repo *pfs.Repo) string {
 	return repo.Name + "." + repo.Type
 }
 
+func repoKeyCheck(key string) error {
+	parts := strings.Split(key, ".")
+	if len(parts) < 2 || len(parts[1]) == 0 {
+		return errors.Errorf("repo must have a specified type")
+	}
+	return nil
+}
+
 // Repos returns a collection of repos
 func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
@@ -48,13 +56,7 @@ func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 		listener,
 		&pfs.RepoInfo{},
 		reposIndexes,
-		func(key string) error {
-			parts := strings.Split(key, ".")
-			if len(parts) < 2 || len(parts[1]) == 0 {
-				return errors.Errorf("repo must have a specified type")
-			}
-			return nil
-		},
+		repoKeyCheck,
 	)
 }
 
@@ -105,10 +107,14 @@ func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollectio
 		&pfs.BranchInfo{},
 		branchesIndexes,
 		func(key string) error {
-			if uuid.IsUUIDWithoutDashes(key) {
+			keyParts := strings.Split(key, "@")
+			if len(keyParts) != 2 {
+				return errors.Errorf("branch key %s isn't valid, use BranchKey to generate it", key)
+			}
+			if uuid.IsUUIDWithoutDashes(keyParts[1]) {
 				return errors.Errorf("branch name cannot be a UUID V4")
 			}
-			return nil
+			return repoKeyCheck(keyParts[0])
 		},
 	)
 }

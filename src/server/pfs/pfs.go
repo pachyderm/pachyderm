@@ -123,11 +123,11 @@ func (e ErrCommitNotFinished) Error() string {
 
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
-	commitDeletedRe           = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
+	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
 	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
-	repoNotFoundRe            = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
+	repoNotFoundRe            = regexp.MustCompile(`repos [a-zA-Z0-9.\-_]{1,255} not found`)
 	repoExistsRe              = regexp.MustCompile(`repo ?[a-zA-Z0-9.\-_]{1,255} already exists`)
-	branchNotFoundRe          = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
+	branchNotFoundRe          = regexp.MustCompile(`branches [a-zA-Z0-9.\-_@]{1,255} not found`)
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
 	hasNoHeadRe               = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
