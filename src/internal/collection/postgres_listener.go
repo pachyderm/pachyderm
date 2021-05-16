@@ -89,7 +89,7 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context, startTime t
 		case eventData := <-pw.buf:
 			if !eventData.time.Before(startTime) || eventData.err != nil {
 				// This may block, but that is fine, it will put back pressure on the 'buf' channel
-				pw.c <- eventData.WatchEvent(pw.template, pw.db)
+				pw.c <- eventData.WatchEvent(ctx, pw.db, pw.template)
 			}
 		case <-pw.done:
 			// watcher has been closed, safe to abort
@@ -227,7 +227,7 @@ func parsePostgresEvent(payload string) *postgresEvent {
 	return result
 }
 
-func (pe *postgresEvent) WatchEvent(template proto.Message, db *sqlx.DB) *watch.Event {
+func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template proto.Message) *watch.Event {
 	if pe.err != nil {
 		return &watch.Event{Err: pe.err, Type: watch.EventError}
 	}
@@ -238,7 +238,7 @@ func (pe *postgresEvent) WatchEvent(template proto.Message, db *sqlx.DB) *watch.
 	if pe.protoData == nil && pe.storedID != "" {
 		// The proto data was too large to fit in the payload, read it from a temporary location.
 		// TODO: get a real context
-		if err := db.QueryRowContext(context.Background(), "select proto from collections.large_notifications where id = $1", pe.storedID).Scan(&pe.protoData); err != nil {
+		if err := db.QueryRowContext(ctx, "select proto from collections.large_notifications where id = $1", pe.storedID).Scan(&pe.protoData); err != nil {
 			// If the row is gone, this watcher is lagging too much, error it out
 			return &watch.Event{Err: errors.Wrap(err, "failed to read notification data from large_notifications table, watcher latency may be too high"), Type: watch.EventError}
 		}

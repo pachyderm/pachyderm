@@ -136,6 +136,36 @@ create table if not exists collections.large_notifications (
 	if _, err := sqlTx.ExecContext(ctx, notificationTable); err != nil {
 		return errors.EnsureStack(err)
 	}
+
+	notificationsIndex := "create index on collections.large_notifications (createdat);"
+	if _, err := sqlTx.Exec(notificationsIndex); err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	// The sweep function makes sure that the size of the large_notifications
+	// table is bounded by deleting notifications over a certain age when a new
+	// notification is written.
+	notificationsSweepFunction := `
+create or replace function collections.notifications_sweep_trigger_fn() returns trigger as $$
+begin
+  delete from collections.large_notifications where createdat < now() - interval '1 hour';
+  return new;
+end;
+$$ language 'plpgsql';
+`
+	if _, err := sqlTx.ExecContext(ctx, notificationsSweepFunction); err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	notificationsSweepTrigger := `
+create trigger updatedat_trigger
+	after insert on collections.large_notifications
+	for each row execute procedure collections.notifications_sweep_trigger_fn();
+`
+	if _, err := sqlTx.ExecContext(ctx, notificationsSweepTrigger); err != nil {
+		return errors.EnsureStack(err)
+	}
+
 	return nil
 }
 
@@ -161,6 +191,13 @@ func SetupPostgresCollections(ctx context.Context, sqlTx *sqlx.Tx, collections .
 		createTable := fmt.Sprintf("create table if not exists collections.%s (%s);", col.table, strings.Join(columns, ", "))
 		if _, err := sqlTx.Exec(createTable); err != nil {
 			return errors.EnsureStack(err)
+		}
+
+		for _, idx := range col.indexes {
+			createIndex := fmt.Sprintf("create index on collections.%s (%s);", col.table, indexFieldName(idx))
+			if _, err := sqlTx.Exec(createIndex); err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 
 		updatedatTrigger := fmt.Sprintf(`
