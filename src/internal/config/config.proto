@@ -13,8 +13,8 @@ import "gogoproto/gogo.proto";
 // message (this allows us to make significant changes to the config structure
 // without breaking existing users by defining a new config version).
 //
-// DO NOT change or remove field numbers from this proto, otherwise ALL
-// pachyderm user configs will fail to parse.
+// These structures are stored in a JSON format, so it should be safe to modify
+// fields as long as compatibility is ensured with previous versions.
 message Config {
     string user_id = 1 [(gogoproto.customname) = "UserID"];
 
@@ -25,20 +25,18 @@ message Config {
 }
 
 // ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - June 2019)
-// DO NOT change or remove field numbers from this proto, as if you do, v1 user
-// configs will become unparseable.
 message ConfigV1 {
     // A host:port pointing pachd at a pachyderm cluster.
-    string pachd_address = 2;
+    string pachd_address = 1;
 
     // Trusted root certificates (overrides installed certificates), formatted
     // as base64-encoded PEM
-    string server_cas = 3 [(gogoproto.customname) = "ServerCAs"];
+    string server_cas = 2 [(gogoproto.customname) = "ServerCAs"];
 
     // A secret token identifying the current pachctl user within their
     // pachyderm cluster. This is included in all RPCs sent by pachctl, and used
     // to determine if pachctl actions are authorized.
-    string session_token = 1;
+    string session_token = 3;
 
     // The currently active transaction for batching together pachctl commands.
     // This can be set or cleared via many of the `pachctl * transaction` commands.
@@ -49,15 +47,13 @@ message ConfigV1 {
 // ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 message ConfigV2 {
     string active_context = 1;
-    string active_enterprise_context = 5;
-    map<string, Context> contexts = 2;
-    bool metrics = 3;
-    int64 max_shell_completions = 4;
+    string active_enterprise_context = 2;
+    map<string, Context> contexts = 3;
+    bool metrics = 4;
+    int64 max_shell_completions = 5;
 }
 
 message Context {
-    reserved 9;
-
     // Where this context came from
     ContextSource source = 1;
 
@@ -89,16 +85,16 @@ message Context {
 
     // A mapping of service -> port number, when port forwarding is
     // running for this context.
-    map<string, uint32> port_forwarders = 10;
+    map<string, uint32> port_forwarders = 9;
 
     // A unique ID for the cluster deployment. At client initialization time,
     // we ensure this is the same as what the cluster reports back, to prevent
     // us from connecting to the wrong cluster.
-    string cluster_deployment_id = 11 [(gogoproto.customname) = "ClusterDeploymentID"];
+    string cluster_deployment_id = 10 [(gogoproto.customname) = "ClusterDeploymentID"];
 
     // A boolean that records whether the context points at an enterprise server.
     // If false, the context points at a stand-alone pachd.
-    bool enterprise_server = 12;
+    bool enterprise_server = 11;
 }
 
 enum ContextSource {
