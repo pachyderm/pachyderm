@@ -15,16 +15,18 @@ import (
 type Propagater struct {
 	d     *driver
 	sqlTx *sqlx.Tx
+	job   *pfs.Job
 
 	// Branches to propagate when the transaction completes
 	branches    []*pfs.Branch
 	isNewCommit bool
 }
 
-func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx) txnenv.PfsPropagater {
+func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx, job *pfs.Job) txnenv.PfsPropagater {
 	return &Propagater{
 		d:     a.driver,
 		sqlTx: sqlTx,
+		job:   job,
 	}
 }
 
@@ -42,7 +44,7 @@ func (t *Propagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error
 // Run performs any final tasks and cleanup tasks in the transaction, such as
 // propagating branches
 func (t *Propagater) Run() error {
-	return t.d.propagateCommits(t.sqlTx, t.branches, t.isNewCommit)
+	return t.d.propagateCommits(t.sqlTx, t.job, t.branches, t.isNewCommit)
 }
 
 // PipelineFinisher closes any open commits on a pipeline output branch,

@@ -122,8 +122,8 @@ type apiServer struct {
 	peerPort              uint16
 	gcPercent             int
 	// collections
-	pipelines col.PostgresCollection
-	jobs      col.PostgresCollection
+	pipelines    col.PostgresCollection
+	pipelineJobs col.PostgresCollection
 }
 
 func merge(from, to map[string]bool) {
@@ -512,10 +512,10 @@ func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobSt
 }
 
 func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContext, request *pps.UpdateJobStateRequest) error {
-	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
+	pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
 
 	jobPtr := &pps.StoredPipelineJobInfo{}
-	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
+	if err := pipelineJobs.Get(request.Job.ID, jobPtr); err != nil {
 		return err
 	}
 	if ppsutil.IsTerminal(jobPtr.State) {
@@ -530,7 +530,7 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 	jobPtr.DataTotal = request.DataTotal
 	jobPtr.Stats = request.Stats
 
-	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, jobPtr, request.State, request.Reason)
+	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), pipelineJobs, jobPtr, request.State, request.Reason)
 }
 
 // CreateJob implements the protobuf pps.CreateJob RPC
@@ -552,7 +552,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			request.Stats = &pps.ProcessStats{}
 		}
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
-		jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
+		pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
 		job = client.NewJob(uuid.NewWithoutDashes())
 		jobPtr := &pps.StoredPipelineJobInfo{
 			Job:           job,
@@ -569,7 +569,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Started:       request.Started,
 			Finished:      request.Finished,
 		}
-		return ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_STARTING, "")
+		return ppsutil.UpdateJobState(pipelines, pipelineJobs, jobPtr, pps.JobState_JOB_STARTING, "")
 	}); err != nil {
 		return nil, err
 	}
@@ -584,7 +584,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if request.Job == nil && request.OutputCommit == nil {
 		return nil, errors.Errorf("must specify either a Job or an OutputCommit")
 	}
-	jobs := a.jobs.ReadOnly(ctx)
+	pipelineJobs := a.pipelineJobs.ReadOnly(ctx)
 	if request.OutputCommit != nil {
 		if request.Job != nil {
 			return nil, errors.Errorf("can't set both Job and OutputCommit")
@@ -607,7 +607,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		}
 	}
 	if request.BlockState {
-		watcher, err := jobs.WatchOne(request.Job.ID)
+		watcher, err := pipelineJobs.WatchOne(request.Job.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -636,7 +636,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		}
 	}
 	jobPtr := &pps.StoredPipelineJobInfo{}
-	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
+	if err := pipelineJobs.Get(request.Job.ID, jobPtr); err != nil {
 		return nil, err
 	}
 	pipelineJobInfo, err := a.pipelineJobInfoFromPtr(pachClient, jobPtr, true)
@@ -724,7 +724,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		}); err != nil {
 		return err
 	}
-	jobs := a.jobs.ReadOnly(pachClient.Ctx())
+	pipelineJobs := a.pipelineJobs.ReadOnly(pachClient.Ctx())
 	jobPtr := &pps.StoredPipelineJobInfo{}
 	_f := func(string) error {
 		pipelineJobInfo, err := a.pipelineJobInfoFromPtr(pachClient, jobPtr, len(inputCommits) > 0 || full)
@@ -775,11 +775,11 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		return f(pipelineJobInfo)
 	}
 	if pipeline != nil {
-		return jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline.Name, jobPtr, col.DefaultOptions(), _f)
+		return pipelineJobs.GetByIndex(ppsdb.PipelineJobsPipelineIndex, pipeline.Name, jobPtr, col.DefaultOptions(), _f)
 	} else if outputCommit != nil {
-		return jobs.GetByIndex(ppsdb.JobsOutputIndex, pfsdb.CommitKey(outputCommit), jobPtr, col.DefaultOptions(), _f)
+		return pipelineJobs.GetByIndex(ppsdb.PipelineJobsOutputIndex, pfsdb.CommitKey(outputCommit), jobPtr, col.DefaultOptions(), _f)
 	} else {
-		return jobs.List(jobPtr, col.DefaultOptions(), _f)
+		return pipelineJobs.List(jobPtr, col.DefaultOptions(), _f)
 	}
 }
 
@@ -806,7 +806,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(pachClient *client.APIClient, jobPtr 
 	if err != nil {
 		if isNotFoundErr(err) {
 			if err := col.NewSQLTx(pachClient.Ctx(), a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-				return a.jobs.ReadWrite(sqlTx).Delete(jobPtr.Job.ID)
+				return a.pipelineJobs.ReadWrite(sqlTx).Delete(jobPtr.Job.ID)
 			}); err != nil {
 				return nil, err
 			}
@@ -934,7 +934,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 		return nil, err
 	}
 	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		return a.jobs.ReadWrite(sqlTx).Delete(request.Job.ID)
+		return a.pipelineJobs.ReadWrite(sqlTx).Delete(request.Job.ID)
 	}); err != nil {
 		return nil, err
 	}
@@ -1182,7 +1182,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			// If user provides a job, lookup the pipeline from the job info, and then
 			// get the pipeline RC
 			var jobPtr pps.StoredPipelineJobInfo
-			err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
+			err = a.pipelineJobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
 			if err != nil {
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 			}
@@ -1354,7 +1354,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		// If user provides a job, lookup the pipeline from the job info, and then
 		// get the pipeline RC
 		var jobPtr pps.StoredPipelineJobInfo
-		err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
+		err = a.pipelineJobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
 		if err != nil {
 			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 		}
@@ -2798,7 +2798,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// pollPipelines.
 	var eg errgroup.Group
 	jobPtr := &pps.StoredPipelineJobInfo{}
-	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobPtr, col.DefaultOptions(), func(jobID string) error {
+	if err := a.pipelineJobs.ReadOnly(ctx).GetByIndex(ppsdb.PipelineJobsPipelineIndex, request.Pipeline.Name, jobPtr, col.DefaultOptions(), func(jobID string) error {
 		eg.Go(func() error {
 			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: client.NewJob(jobID)})
 			if isNotFoundErr(err) || auth.IsErrNoRoleBinding(err) {

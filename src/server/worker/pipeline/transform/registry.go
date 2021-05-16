@@ -375,7 +375,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 			if err := pj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobPtr := &pps.StoredPipelineJobInfo{}
-				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(pj.pji.Job.ID, jobPtr); err != nil {
+				if err := pj.driver.PipelineJobs().ReadWrite(sqlTx).Get(pj.pji.Job.ID, jobPtr); err != nil {
 					return err
 				}
 				return pj.driver.DeleteJob(sqlTx, jobPtr)

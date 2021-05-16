@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -68,16 +69,17 @@ type PipelineCommitFinisher interface {
 // set of operations being performed in the Pachyderm API.  When a new
 // transaction is started, a context will be created for it containing these
 // objects, which will be threaded through to every API call:
-//   ctx: the client context which initiated the operations being performed
-//   pachClient: the APIClient associated with the client context ctx
-//   stm: the object that controls transactionality with etcd.  This is to ensure
-//     that all reads and writes are consistent until changes are committed.
-//   txnEnv: a struct containing references to each API server, it can be used
-//     to make calls to other API servers (e.g. checking auth permissions)
+//   ClientContext: the client context which initiated the operations being performed
+//   Client: the Pachyderm APIClient associated with the ClientContext ctx
+//   SqlTx: the object that controls transactionality with the database.  This
+//     is to ensure that all reads and writes are consistent until changes are
+//     committed.
 //   pfsPropagater: an interface for ensuring certain PFS cleanup tasks are performed
 //     properly (and deduped) at the end of the transaction.
 //   commitFinisher: an interface for ensuring certain PPS cleanup tasks are performed
 //     properly at the end of the transaction.
+//   txnEnv: a struct containing references to each API server, it can be used
+//     to make calls to other API servers (e.g. checking auth permissions)
 type TransactionContext struct {
 	ClientContext  context.Context
 	Client         *client.APIClient
@@ -165,7 +167,7 @@ type AuthTransactionServer interface {
 // PfsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
-	NewPropagater(*sqlx.Tx) PfsPropagater
+	NewPropagater(*sqlx.Tx, *pfs.Job) PfsPropagater
 	NewPipelineFinisher(*TransactionContext) PipelineCommitFinisher
 
 	CreateRepoInTransaction(*TransactionContext, *pfs.CreateRepoRequest) error
@@ -404,7 +406,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 			txnEnv:        env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
 			txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
 		}
 
@@ -430,7 +432,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 			txnEnv:         env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
 		}
 
 		err := cb(txnCtx)

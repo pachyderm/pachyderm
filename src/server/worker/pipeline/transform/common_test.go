@@ -66,8 +66,8 @@ type testDriver struct {
 	inner driver.Driver
 }
 
-func (td *testDriver) Jobs() col.PostgresCollection {
-	return td.inner.Jobs()
+func (td *testDriver) PipelineJobs() col.PostgresCollection {
+	return td.inner.PipelineJobs()
 }
 func (td *testDriver) Pipelines() col.PostgresCollection {
 	return td.inner.Pipelines()

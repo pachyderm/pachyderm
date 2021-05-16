@@ -364,8 +364,8 @@ func (h *handleJobsCtx) start() {
 		var watcher watch.Watcher
 		backoff.Retry(func() error {
 			var err error
-			watcher, err = h.s.apiServer.jobs.ReadOnly(context.Background()).WatchByIndex(
-				ppsdb.JobsPipelineIndex, h.s.pipelineInfo.Pipeline.Name)
+			watcher, err = h.s.apiServer.pipelineJobs.ReadOnly(context.Background()).WatchByIndex(
+				ppsdb.PipelineJobsPipelineIndex, h.s.pipelineInfo.Pipeline.Name)
 			if err != nil {
 				return errors.Wrapf(err, "error creating watch")
 			}
@@ -398,7 +398,7 @@ func (h *handleJobsCtx) end(ctx context.Context, cancel func(), jobID string) {
 		var watcher watch.Watcher
 		backoff.Retry(func() error {
 			var err error
-			watcher, err = h.s.apiServer.jobs.ReadOnly(ctx).WatchOne(jobID)
+			watcher, err = h.s.apiServer.pipelineJobs.ReadOnly(ctx).WatchOne(jobID)
 			if err != nil {
 				return errors.Wrapf(err, "error creating watch")
 			}

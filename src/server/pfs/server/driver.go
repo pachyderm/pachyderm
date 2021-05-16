@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -79,6 +80,7 @@ type driver struct {
 	commits     col.PostgresCollection
 	branches    col.PostgresCollection
 	openCommits col.PostgresCollection
+	jobs        col.PostgresCollection
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -101,6 +103,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	commits := pfsdb.Commits(env.GetDBClient(), env.GetPostgresListener())
 	branches := pfsdb.Branches(env.GetDBClient(), env.GetPostgresListener())
 	openCommits := pfsdb.OpenCommits(env.GetDBClient(), env.GetPostgresListener())
+	jobs := pfsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
 
 	// Setup driver struct.
 	d := &driver{
@@ -112,6 +115,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		commits:     commits,
 		branches:    branches,
 		openCommits: openCommits,
+		jobs:        jobs,
 		// TODO: set maxFanIn based on downward API.
 	}
 	// Setup tracker and chunk / fileset storage.
@@ -890,7 +894,8 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 // 'branches' are newly created (i.e. in CreatePipeline).
 //
 // The isNewCommit flag indicates whether propagateCommits was called during the creation of a new commit.
-func (d *driver) propagateCommits(sqlTx *sqlx.Tx, branches []*pfs.Branch, isNewCommit bool) error {
+func (d *driver) propagateCommits(sqlTx *sqlx.Tx, job *pfs.Job, branches []*pfs.Branch, isNewCommit bool) error {
+	jobInfo := &pfs.StoredJobInfo{Job: job}
 	// subvBIMap = ( ⋃{b.subvenance | b ∈ branches} ) ∪ branches
 	subvBIMap := map[string]*pfs.BranchInfo{}
 	for _, branch := range branches {
@@ -1102,7 +1107,9 @@ nextSubvBI:
 			return err
 		}
 	}
-	return nil
+
+	// Write out the job structure for this change
+	return d.jobs.ReadWrite(sqlTx).Create(jobInfo.Job.ID, jobInfo)
 }
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.

@@ -47,7 +47,7 @@ func workNamespace(pipelineInfo *pps.PipelineInfo) string {
 // interface can be used to mock out external calls to make unit-testing
 // simpler.
 type Driver interface {
-	Jobs() col.PostgresCollection
+	PipelineJobs() col.PostgresCollection
 	Pipelines() col.PostgresCollection
 
 	NewTaskWorker() *work.Worker
@@ -102,9 +102,8 @@ type driver struct {
 	pipelineInfo    *pps.PipelineInfo
 	activeDataMutex *sync.Mutex
 
-	jobs col.PostgresCollection
-
-	pipelines col.PostgresCollection
+	pipelineJobs col.PostgresCollection
+	pipelines    col.PostgresCollection
 
 	// User and group IDs used for running user code, determined in the constructor
 	uid *uint32
@@ -132,14 +131,14 @@ func NewDriver(
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	jobs := ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
+	pipelineJobs := ppsdb.PipelineJobs(env.GetDBClient(), env.GetPostgresListener())
 	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
 	result := &driver{
 		env:             env,
 		ctx:             env.Context(),
 		pipelineInfo:    pipelineInfo,
 		activeDataMutex: &sync.Mutex{},
-		jobs:            jobs,
+		pipelineJobs:    pipelineJobs,
 		pipelines:       pipelines,
 		rootDir:         rootPath,
 		inputDir:        pfsPath,
@@ -252,8 +251,8 @@ func (d *driver) WithContext(ctx context.Context) Driver {
 	return result
 }
 
-func (d *driver) Jobs() col.PostgresCollection {
-	return d.jobs
+func (d *driver) PipelineJobs() col.PostgresCollection {
+	return d.pipelineJobs
 }
 
 func (d *driver) Pipelines() col.PostgresCollection {
@@ -442,10 +441,10 @@ func (d *driver) RunUserErrorHandlingCode(
 func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string) error {
 	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 		jobPtr := &pps.StoredPipelineJobInfo{}
-		if err := d.Jobs().ReadWrite(sqlTx).Get(jobID, jobPtr); err != nil {
+		if err := d.PipelineJobs().ReadWrite(sqlTx).Get(jobID, jobPtr); err != nil {
 			return err
 		}
-		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobPtr, state, reason))
+		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.PipelineJobs().ReadWrite(sqlTx), jobPtr, state, reason))
 	})
 }
 
@@ -465,7 +464,7 @@ func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobPtr *pps.StoredPipelineJobInfo) er
 	}); err != nil {
 		return err
 	}
-	return d.Jobs().ReadWrite(sqlTx).Delete(jobPtr.Job.ID)
+	return d.PipelineJobs().ReadWrite(sqlTx).Delete(jobPtr.Job.ID)
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
