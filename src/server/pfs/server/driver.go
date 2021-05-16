@@ -896,6 +896,8 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 // The isNewCommit flag indicates whether propagateCommits was called during the creation of a new commit.
 func (d *driver) propagateCommits(sqlTx *sqlx.Tx, job *pfs.Job, branches []*pfs.Branch, isNewCommit bool) error {
 	jobInfo := &pfs.StoredJobInfo{Job: job}
+	jobProvMap := make(map[string]*pfs.Commit)
+
 	// subvBIMap = ( ⋃{b.subvenance | b ∈ branches} ) ∪ branches
 	subvBIMap := map[string]*pfs.BranchInfo{}
 	for _, branch := range branches {
@@ -961,6 +963,7 @@ nextSubvBI:
 			//   branches with a shared commit are both represented in the provenance
 			provCommit := client.NewCommit(provOfSubvB.Repo.Name, provOfSubvB.Name, provOfSubvBI.Head.ID)
 			newCommitProvMap[commitKey(provCommit)] = &pfs.CommitProvenance{Commit: provCommit}
+			jobProvMap[pfsdb.CommitKey(provCommit)] = provCommit
 			provOfSubvBHeadInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(provOfSubvBI.Head), provOfSubvBHeadInfo); err != nil {
 				return err
@@ -973,6 +976,7 @@ nextSubvBI:
 				}
 				provProv = newProvProv
 				newCommitProvMap[commitKey(provProv.Commit)] = provProv
+				jobProvMap[pfsdb.CommitKey(provProv.Commit)] = provProv.Commit
 			}
 		}
 		if len(newCommitProvMap) == 0 {
@@ -1106,6 +1110,12 @@ nextSubvBI:
 		if err := d.openCommits.ReadWrite(sqlTx).Put(newCommit.ID, newCommit); err != nil {
 			return err
 		}
+		jobProvMap[pfsdb.CommitKey(newCommit)] = newCommit
+	}
+
+	// TODO: do we need to sort these?  probably in some way
+	for _, commit := range jobProvMap {
+		jobInfo.Commits = append(jobInfo.Commits, commit)
 	}
 
 	// Write out the job structure for this change
