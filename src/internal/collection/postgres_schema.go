@@ -75,7 +75,7 @@ begin
 	base_channel := 'pwc_' || tg_table_name;
 
 	notify_channels := array[base_channel];
-	notify_payloads := array[payload_prefix || tg_op || ' key ' || encoded_key];
+	notify_payloads := array[payload_prefix || tg_op || ' key ' || encoded_key || ' '];
 	max_len := length(notify_payloads[1]);
 
 	if tg_argv is not null then
@@ -86,7 +86,7 @@ begin
 				notify_payloads = notify_payloads || payload;
 				notify_channels = notify_channels || (base_channel || '_' || md5(field || ' ' || value));
 				if length(payload) > max_len then
-					max_len := length(payload);
+					max_len = length(payload);
 				end if;
 			end if;
 
@@ -98,7 +98,7 @@ begin
 					notify_payloads = notify_payloads || payload;
 					notify_channels = notify_channels || (base_channel || '_' || md5(field || ' ' || old_value));
 					if length(payload) > max_len then
-						max_len := length(payload);
+						max_len = length(payload);
 					end if;
 				end if;
 			end if;
@@ -114,7 +114,6 @@ begin
 	end if;
 
 	for i in 1..array_length(notify_channels, 1) loop
-		raise WARNING 'notifying %', notify_channels[i];
 		perform pg_notify(notify_channels[i], notify_payloads[i] || payload_suffix);
 	end loop;
 
