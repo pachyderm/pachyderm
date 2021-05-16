@@ -367,7 +367,8 @@ func watchTests(
 		suite.Run("LargeRow", func(t *testing.T) {
 			t.Parallel()
 			reader, writer := newCollection(context.Background(), t)
-			row := makeProto(makeID(7), random.String(10000)) // payload limit should be 8KB
+			row := makeProto(makeID(7)) // payload limit should be 8KB
+			row.Data = random.String(10000)
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, row.ID))
 			tester.ExpectNoEvents()

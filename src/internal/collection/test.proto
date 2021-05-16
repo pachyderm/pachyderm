@@ -8,4 +8,5 @@ import "gogoproto/gogo.proto";
 message TestItem {
   string id = 1 [(gogoproto.customname) = "ID"];
   string value = 2;
+  string data = 3;
 }

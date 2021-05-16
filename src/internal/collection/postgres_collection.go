@@ -386,7 +386,7 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
-	watcher, err := c.listener.listen(c.tableWatchChannel(), c.template, nil, nil, options)
+	watcher, err := c.listener.listen(c.db, c.tableWatchChannel(), c.template, nil, nil, options)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +436,7 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
-	watcher, err := c.listener.listen(c.indexWatchChannel("key", key), c.template, nil, nil, options)
+	watcher, err := c.listener.listen(c.db, c.indexWatchChannel("key", key), c.template, nil, nil, options)
 	if err != nil {
 		return nil, err
 	}
@@ -486,7 +486,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 	options := watch.SumOptions(opts...)
 
 	channelName := c.indexWatchChannel(indexFieldName(index), indexVal)
-	watcher, err := c.listener.listen(channelName, c.template, nil, nil, options)
+	watcher, err := c.listener.listen(c.db, channelName, c.template, nil, nil, options)
 	if err != nil {
 		return nil, err
 	}
