@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"math"
 	"os"
 	"sort"
