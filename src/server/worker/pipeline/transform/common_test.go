@@ -109,7 +109,7 @@ func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.
 	return td.inner.RunUserErrorHandlingCode(ctx, logger, env)
 }
 func (td *testDriver) DeleteJob(sqlTx *sqlx.Tx, pji *pps.StoredPipelineJobInfo) error {
-	return td.inner.DeleteJob(sqlTx, ji)
+	return td.inner.DeleteJob(sqlTx, pji)
 }
 func (td *testDriver) UpdateJobState(job string, state pps.JobState, reason string) error {
 	return td.inner.UpdateJobState(job, state, reason)

@@ -83,14 +83,6 @@ func (c APIClient) GetTransaction() (*transaction.Transaction, error) {
 	return GetTransaction(c.Ctx())
 }
 
-// NewCommitResponse is a helper function to instantiate a TransactionResponse
-// for a transaction item that returns a Commit ID.
-func NewCommitResponse(commit *pfs.Commit) *transaction.TransactionResponse {
-	return &transaction.TransactionResponse{
-		Commit: commit,
-	}
-}
-
 // ListTransaction is an RPC that fetches a list of all open transactions in the
 // Pachyderm cluster.
 func (c APIClient) ListTransaction() ([]*transaction.TransactionInfo, error) {
@@ -322,8 +314,16 @@ func (c *pfsBuilderClient) DeleteBranch(ctx context.Context, req *pfs.DeleteBran
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{DeleteBranch: req})
 	return nil, nil
 }
+func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{StopJob: req})
+	return nil, nil
+}
 func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJobStateRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{UpdateJobState: req})
+	return nil, nil
+}
+func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreatePipeline: req})
 	return nil, nil
 }
 
@@ -417,9 +417,6 @@ func (c *ppsBuilderClient) FlushJob(ctx context.Context, req *pps.FlushJobReques
 func (c *ppsBuilderClient) DeleteJob(ctx context.Context, req *pps.DeleteJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteJob")
 }
-func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("StopJob")
-}
 func (c *ppsBuilderClient) InspectDatum(ctx context.Context, req *pps.InspectDatumRequest, opts ...grpc.CallOption) (*pps.DatumInfo, error) {
 	return nil, unsupportedError("InspectDatum")
 }
@@ -428,9 +425,6 @@ func (c *ppsBuilderClient) ListDatum(ctx context.Context, req *pps.ListDatumRequ
 }
 func (c *ppsBuilderClient) RestartDatum(ctx context.Context, req *pps.RestartDatumRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RestartDatum")
-}
-func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("CreatePipeline")
 }
 func (c *ppsBuilderClient) InspectPipeline(ctx context.Context, req *pps.InspectPipelineRequest, opts ...grpc.CallOption) (*pps.PipelineInfo, error) {
 	return nil, unsupportedError("InspectPipeline")

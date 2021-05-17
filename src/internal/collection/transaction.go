@@ -104,8 +104,13 @@ func runSTM(s STM, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) 
 		var out stmResponse
 		for {
 			s.reset()
-			if out.err = apply(s); out.err != nil {
-				break
+			if err := apply(s); err != nil {
+				if IsErrTransactionConflict(err) {
+					continue
+				} else {
+					out.err = err
+					break
+				}
 			}
 			if dryrun {
 				break

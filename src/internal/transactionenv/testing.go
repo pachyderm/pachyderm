@@ -110,6 +110,11 @@ func (mpts *MockPfsTransactionServer) DeleteBranchInTransaction(*TransactionCont
 	return unimplementedError("PfsTransactionServer.DeleteBranchInTransaction")
 }
 
+// AddFilesetInTransaction always errors
+func (mpts *MockPfsTransactionServer) AddFilesetInTransaction(*TransactionContext, *pfs.AddFilesetRequest) error {
+	return unimplementedError("PfsTransactionServer.AddFilesetInTransaction")
+}
+
 // MockPpsTransactionServer is a simple mock that can be used to satisfy the
 // PpsTransactionServer interface
 type MockPpsTransactionServer struct{}
@@ -119,12 +124,17 @@ func NewMockPpsTransactionServer() *MockPpsTransactionServer {
 	return &MockPpsTransactionServer{}
 }
 
+// StopJobInTransaction always errors
+func (mpts *MockPpsTransactionServer) StopJobInTransaction(*TransactionContext, *pps.StopJobRequest) error {
+	return unimplementedError("PpsTransactionServer.StopJobInTransaction")
+}
+
 // UpdateJobStateInTransaction always errors
 func (mpts *MockPpsTransactionServer) UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error {
 	return unimplementedError("PpsTransactionServer.UpdateJobStateInTransaction")
 }
 
 // CreatePipelineInTransaction always errors
-func (mpts *MockPpsTransactionServer) CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, **pfs.Commit) error {
-	return unimplementedError("PpsTransactionServer.UpdateJobStateInTransaction")
+func (mpts *MockPpsTransactionServer) CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error {
+	return unimplementedError("PpsTransactionServer.CreatePipelineInTransaction")
 }

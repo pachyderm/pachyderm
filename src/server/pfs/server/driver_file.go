@@ -420,15 +420,15 @@ func (d *driver) renewFileset(ctx context.Context, id fileset.ID, ttl time.Durat
 	return err
 }
 
-func (d *driver) addFileset(pachClient *client.APIClient, commit *pfs.Commit, filesetID fileset.ID) error {
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+func (d *driver) addFileset(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
+	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
 	}
 	if commitInfo.Finished != nil {
 		return pfsserver.ErrCommitFinished{commitInfo.Commit}
 	}
-	return d.commitStore.AddFileset(pachClient.Ctx(), commitInfo.Commit, filesetID)
+	return d.commitStore.AddFilesetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID)
 }
 
 func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*fileset.ID, error) {
@@ -436,9 +436,11 @@ func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*
 	if err != nil {
 		return nil, err
 	}
+	/* TODO: brendon: re-enable compaction
 	if commitInfo.Finished != nil {
 		return d.getOrComputeTotal(pachClient, commitInfo.Commit)
 	}
+	*/
 	var ids []fileset.ID
 	if commitInfo.ParentCommit != nil {
 		// ¯\_(ツ)_/¯

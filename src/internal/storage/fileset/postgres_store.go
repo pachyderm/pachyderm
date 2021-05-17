@@ -53,9 +53,9 @@ func (s *postgresStore) SetTx(tx *sqlx.Tx, id ID, md *Metadata) error {
 	return nil
 }
 
-func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
+func (s *postgresStore) get(ctx context.Context, q sqlx.QueryerContext, id ID) (*Metadata, error) {
 	var mdData []byte
-	if err := s.db.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
+	if err := sqlx.GetContext(ctx, q, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrFileSetNotExists
 		}
@@ -66,6 +66,14 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 		return nil, err
 	}
 	return md, nil
+}
+
+func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
+	return s.get(ctx, s.db, id)
+}
+
+func (s *postgresStore) GetTx(tx *sqlx.Tx, id ID) (*Metadata, error) {
+	return s.get(context.Background(), tx, id)
 }
 
 func (s *postgresStore) DeleteTx(tx *sqlx.Tx, id ID) error {

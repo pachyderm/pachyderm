@@ -20,6 +20,8 @@ const commitTrackerPrefix = "commit/"
 type commitStore interface {
 	// AddFileset appends a fileset to the diff.
 	AddFileset(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error
+	// AddFilesetTx is identical to AddFileset except it runs in the provided transaction.
+	AddFilesetTx(tx *sqlx.Tx, commit *pfs.Commit, filesetID fileset.ID) error
 	// SetTotalFileset sets the total fileset for the commit, overwriting whatever is there.
 	SetTotalFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
 	// GetTotalFileset returns the total fileset for a commit.
@@ -51,27 +53,32 @@ func newPostgresCommitStore(db *sqlx.DB, tr track.Tracker, s *fileset.Storage) *
 }
 
 func (cs *postgresCommitStore) AddFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
-	id2, err := cs.s.Clone(ctx, id, defaultTTL)
+	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
+		return cs.AddFilesetTx(tx, commit, id)
+	})
+}
+
+func (cs *postgresCommitStore) AddFilesetTx(tx *sqlx.Tx, commit *pfs.Commit, id fileset.ID) error {
+	id2, err := cs.s.CloneTx(tx, id, defaultTTL)
 	if err != nil {
 		return err
 	}
 	id = *id2
-	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		oid := commitDiffTrackerID(commit, id)
-		pointsTo := []string{id.TrackerID()}
-		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
-		VALUES ($1, $2)
-	`, commit.ID, id); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx,
-			`DELETE FROM pfs.commit_totals WHERE commit_id = $1
-			`, commit.ID); err != nil {
-			return err
-		}
-		return cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL)
-	})
+
+	oid := commitDiffTrackerID(commit, id)
+	pointsTo := []string{id.TrackerID()}
+	if _, err := tx.Exec(
+		`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
+	VALUES ($1, $2)
+`, commit.ID, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(
+		`DELETE FROM pfs.commit_totals WHERE commit_id = $1
+		`, commit.ID); err != nil {
+		return err
+	}
+	return cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL)
 }
 
 func (cs *postgresCommitStore) GetTotalFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
@@ -82,14 +89,15 @@ func (cs *postgresCommitStore) GetTotalFileset(ctx context.Context, commit *pfs.
 		if err != nil && err != sql.ErrNoRows {
 			return err
 		}
-		return nil
+		if id == nil {
+			return errNoTotalFileset
+		}
+		id, err = cs.s.CloneTx(tx, *id, defaultTTL)
+		return err
 	}); err != nil {
 		return nil, err
 	}
-	if id == nil {
-		return nil, errNoTotalFileset
-	}
-	return cs.s.Clone(ctx, *id, defaultTTL)
+	return id, nil
 }
 
 func (cs *postgresCommitStore) GetDiffFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
