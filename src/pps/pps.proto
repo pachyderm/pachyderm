@@ -54,7 +54,7 @@ message Egress {
   string URL = 1;
 }
 
-message Job {
+message PipelineJob {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
 
@@ -176,7 +176,7 @@ message InputFile {
 message Datum {
   // ID is the hash computed from all the files
   string id = 1 [(gogoproto.customname) = "ID"];
-  Job job = 2;
+  PipelineJob pipeline_job = 2;
 }
 
 enum DatumState {
@@ -263,10 +263,10 @@ message GPUSpec {
 // in the database during job execution. It contains fields which change over
 // the lifetime of the job but aren't used in the execution of the job.
 message StoredPipelineJobInfo {
-  Job job = 1;
+  PipelineJob pipeline_job = 1;
   Pipeline pipeline = 2;
   pfs.Commit output_commit = 3;
-  // Job restart count (e.g. due to datum failure)
+  // PipelineJob restart count (e.g. due to datum failure)
   uint64 restart = 4;
 
   // Counts of how many times we processed or skipped a datum
@@ -279,7 +279,6 @@ message StoredPipelineJobInfo {
   // Download/process/upload time and download/upload bytes
   ProcessStats stats = 9;
 
-  pfs.Commit stats_commit = 10;
   JobState state = 11;
   string reason = 12;
   google.protobuf.Timestamp started = 13;
@@ -288,14 +287,14 @@ message StoredPipelineJobInfo {
 
 message PipelineJobInfo {
   reserved 4, 5, 28, 34;
-  Job job = 1;
+  PipelineJob pipeline_job = 1;
   Transform transform = 2;                     // requires ListJobRequest.Full
   Pipeline pipeline = 3;
   uint64 pipeline_version = 13;                // requires ListJobRequest.Full
   pfs.Commit spec_commit = 47;
   ParallelismSpec parallelism_spec = 12;       // requires ListJobRequest.Full
   Egress egress = 15;                          // requires ListJobRequest.Full
-  Job parent_job = 6;
+  PipelineJob parent_job = 6;
   google.protobuf.Timestamp started = 7;
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
@@ -477,7 +476,6 @@ message CreateJobRequest {
   // Download/process/upload time and download/upload bytes
   ProcessStats stats = 32;
 
-  pfs.Commit stats_commit = 33;
   JobState state = 34;
   string reason = 35;
   google.protobuf.Timestamp started = 36;
@@ -485,8 +483,8 @@ message CreateJobRequest {
 }
 
 message InspectJobRequest {
-  // Callers should set either Job or OutputCommit, not both.
-  Job job = 1;
+  // Callers should set either PipelineJob or OutputCommit, not both.
+  PipelineJob pipeline_job = 1;
   pfs.Commit output_commit = 3;
   bool block_state = 2; // block until state is either JOB_STATE_FAILURE or JOB_STATE_SUCCESS
   bool full = 4;
@@ -523,16 +521,16 @@ message FlushJobRequest {
 }
 
 message DeleteJobRequest {
-  Job job = 1;
+  PipelineJob pipeline_job = 1;
 }
 
 message StopJobRequest {
-  Job job = 1;
+  PipelineJob pipeline_job = 1;
   pfs.Commit output_commit = 2;
 }
 
 message UpdateJobStateRequest {
-  Job job = 1;
+  PipelineJob pipeline_job = 1;
   JobState state = 2;
   string reason = 3;
   uint64 restart = 4;
@@ -552,7 +550,7 @@ message GetLogsRequest {
   Pipeline pipeline = 2;
 
   // The job from which we want to get logs.
-  Job job = 1;
+  PipelineJob pipeline_job = 1;
 
   // Names of input files from which we want processing logs. This may contain
   // multiple files, to query pipelines that contain multiple inputs. Each
@@ -605,7 +603,7 @@ message LogMessage {
 }
 
 message RestartDatumRequest {
-  Job job = 1;
+  PipelineJob pipeline_job = 1;
   repeated string data_filters = 2;
 }
 
@@ -614,10 +612,10 @@ message InspectDatumRequest {
 }
 
 message ListDatumRequest {
-  // Job and Input are two different ways to specify the datums you want.
+  // PipelineJob and Input are two different ways to specify the datums you want.
   // Only one can be set.
-  // Job is the job to list datums from.
-  Job job = 1;
+  // PipelineJob is the job to list datums from.
+  PipelineJob pipeline_job = 1;
   // Input is the input to list datums from.
   // The datums listed are the ones that would be run if a pipeline was created
   // with the provided input.
@@ -779,7 +777,7 @@ message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
 service API {
-  rpc CreateJob(CreateJobRequest) returns (Job) {}
+  rpc CreateJob(CreateJobRequest) returns (PipelineJob) {}
   rpc InspectJob(InspectJobRequest) returns (PipelineJobInfo) {}
   // ListJob returns information about current and past Pachyderm jobs.
   rpc ListJob(ListJobRequest) returns (stream PipelineJobInfo) {}
