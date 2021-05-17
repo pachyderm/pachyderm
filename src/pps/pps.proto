@@ -219,7 +219,7 @@ message AggregateProcessStats {
 
 message WorkerStatus {
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
-  string pipeline_job_id = 2 [(gogoproto.customname) = "JobID"];
+  string pipeline_job_id = 2 [(gogoproto.customname) = "PipelineJobID"];
   repeated pps.InputFile data = 3;
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
@@ -275,10 +275,11 @@ message StoredPipelineJobInfo {
   // Download/process/upload time and download/upload bytes
   ProcessStats stats = 10;
 
-  PipelineJobState state = 11;
-  string reason = 12;
-  google.protobuf.Timestamp started = 13;
-  google.protobuf.Timestamp finished = 14;
+  pfs.Commit stats_commit = 11;
+  PipelineJobState state = 12;
+  string reason = 13;
+  google.protobuf.Timestamp started = 14;
+  google.protobuf.Timestamp finished = 15;
 }
 
 message PipelineJobInfo {
@@ -469,10 +470,11 @@ message CreatePipelineJobRequest {
   // Download/process/upload time and download/upload bytes
   ProcessStats stats = 9;
 
-  PipelineJobState state = 10;
-  string reason = 11;
-  google.protobuf.Timestamp started = 12;
-  google.protobuf.Timestamp finished = 13;
+  pfs.Commit stats_commit = 10;
+  PipelineJobState state = 11;
+  string reason = 12;
+  google.protobuf.Timestamp started = 13;
+  google.protobuf.Timestamp finished = 14;
 }
 
 message InspectPipelineJobRequest {
@@ -578,7 +580,7 @@ message LogMessage {
   // The job and pipeline for which a PFS file is being processed (if the job
   // is an orphan job, pipeline name and ID will be unset)
   string pipeline_name = 1;
-  string pipeline_job_id = 2 [(gogoproto.customname) = "JobID"];
+  string pipeline_job_id = 2 [(gogoproto.customname) = "PipelineJobID"];
   string worker_id = 3 [(gogoproto.customname) = "WorkerID"];
   string datum_id = 4 [(gogoproto.customname) = "DatumID"];
   bool master = 5;
@@ -721,7 +723,7 @@ message StopPipelineRequest {
 message RunPipelineRequest {
   Pipeline pipeline = 1;
   repeated pfs.CommitProvenance provenance = 2;
-  string pipeline_job_id = 3 [(gogoproto.customname) = "JobID"];
+  string pipeline_job_id = 3 [(gogoproto.customname) = "PipelineJobID"];
 }
 
 message RunCronRequest {
