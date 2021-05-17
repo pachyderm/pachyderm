@@ -15,7 +15,7 @@ spec:
   ports:
   - name: client-port
     port: 5432
-    targetPort: 0
+    targetPort: client-port
   selector:
     app: postgres
   type: ClusterIP
