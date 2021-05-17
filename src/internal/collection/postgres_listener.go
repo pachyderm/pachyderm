@@ -174,10 +174,10 @@ func parsePostgresEpoch(s string) (time.Time, error) {
 	return time.Unix(sec, nsec).In(time.UTC), nil
 }
 
-// The payload format is [key, timestamp, operation, field, value, location, protobuf],
+
 func parsePostgresEvent(payload string) *postgresEvent {
 	// TODO: do this in a streaming manner rather than copying the string
-	parts := strings.Split(payload, " ") // index, type, date, data
+	parts := strings.Split(payload, " ")
 	if len(parts) != 7 {
 		return &postgresEvent{err: errors.Errorf("failed to parse notification payload, wrong number of parts: %d", len(parts))}
 	}
@@ -237,7 +237,6 @@ func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template p
 	}
 	if pe.protoData == nil && pe.storedID != "" {
 		// The proto data was too large to fit in the payload, read it from a temporary location.
-		// TODO: get a real context
 		if err := db.QueryRowContext(ctx, "select proto from collections.large_notifications where id = $1", pe.storedID).Scan(&pe.protoData); err != nil {
 			// If the row is gone, this watcher is lagging too much, error it out
 			return &watch.Event{Err: errors.Wrap(err, "failed to read notification data from large_notifications table, watcher latency may be too high"), Type: watch.EventError}
