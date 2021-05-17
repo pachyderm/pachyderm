@@ -7,6 +7,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 var _ Tracker = &postgresTracker{}
@@ -249,7 +251,7 @@ func removeDuplicates(xs []string) []string {
 // SetupPostgresTrackerV0 sets up the table for the postgres tracker
 func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, schema)
-	return err
+	return errors.EnsureStack(err)
 }
 
 var schema = `

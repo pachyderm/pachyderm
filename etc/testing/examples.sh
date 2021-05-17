@@ -2,11 +2,6 @@
 
 set -ex
 
-if [ -z "$RUN_BAD_TESTS" ]; then
-    echo "Skipping because RUN_BAD_TESTS is empty"
-    exit 0
-fi
-
 # Runs various examples to ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
 
@@ -60,8 +55,8 @@ pushd examples/shuffle
     fi
 
     # check that the files were made
-    files=$(pachctl list file "shuffle@master:*" --raw | jq '.file.path' -r)
-    expected_files=$(echo -e "/apple\n/apple/cost.json\n/apple/img.jpeg\n/mango\n/mango/cost.json\n/mango/img.jpeg")
+    files=$(pachctl glob file "shuffle@master:**" --raw | jq '.file.path' -r)
+    expected_files=$(echo -e "/apple/\n/apple/cost.json\n/apple/img.jpeg\n/mango/\n/mango/cost.json\n/mango/img.jpeg")
     if [ "$files" != "$expected_files" ]; then
         echo "Unexpected output files in shuffle repo: $files"
         exit 1
@@ -71,61 +66,64 @@ popd
 pachctl delete pipeline --all
 pachctl delete repo --all
 
-pushd examples/word_count
-    # note: we do not test reducing because it's slower
-    pachctl create repo urls
-    pachctl put file urls@master -f Wikipedia
-    pachctl create pipeline -f scraper.json
-    pachctl create pipeline -f map/map.json
+## TODO(2.0 optional): Add wikipedia file to CI? Also, this test will need to be rewritten
+## when the file part change PR is merged.
+##pushd examples/word_count
+##    # note: we do not test reducing because it's slower
+##    pachctl create repo urls
+##    pachctl put file urls@master -f Wikipedia
+##    pachctl create pipeline -f scraper.json
+##    pachctl create pipeline -f map/map.json
+##
+##    # wait for everything to finish
+##    commit_id=$(pachctl list commit urls -n 1 --raw | jq .commit.id -r)
+##    pachctl flush commit "urls@$commit_id"
+##
+##    # just make sure the count for the word 'wikipedia' is a valid and
+##    # positive int, since the specific count may vary over time
+##    wikipedia_count=$(pachctl get file map@master:wikipedia)
+##    if [ "$wikipedia_count" -le 0 ]; then
+##        echo "Unexpected count for the word 'wikipedia': $wikipedia_count"
+##        exit 1
+##    fi
+##popd
+##
+##pachctl delete pipeline --all
+##pachctl delete repo --all
 
-    # wait for everything to finish
-    commit_id=$(pachctl list commit urls -n 1 --raw | jq .commit.id -r)
-    pachctl flush commit "urls@$commit_id"
-
-    # just make sure the count for the word 'wikipedia' is a valid and
-    # positive int, since the specific count may vary over time
-    wikipedia_count=$(pachctl get file map@master:wikipedia)
-    if [ "$wikipedia_count" -le 0 ]; then
-        echo "Unexpected count for the word 'wikipedia': $wikipedia_count"
-        exit 1
-    fi
-popd
-
-pachctl delete pipeline --all
-pachctl delete repo --all
-
-pushd examples/ml/hyperparameter
-    pachctl create repo raw_data
-    pachctl create repo parameters
-    pachctl list repo
-
-    pushd data
-        pachctl put file raw_data@master:iris.csv -f noisy_iris.csv
-
-        pushd parameters
-            pachctl put file parameters@master -f c_parameters.txt --split line --target-file-datums 1 
-            pachctl put file parameters@master -f gamma_parameters.txt --split line --target-file-datums 1
-        popd
-    popd
-
-    pachctl create pipeline -f split.json 
-    pachctl create pipeline -f model.json
-    pachctl create pipeline -f test.json 
-    pachctl create pipeline -f select.json
-
-    commit_id=$(pachctl list commit raw_data -n 1 --raw | jq .commit.id -r)
-    pachctl flush job "raw_data@$commit_id"
-
-    # just make sure we outputted some files
-    selected_file_count=$(pachctl list file select@master | wc -l)
-    if [ "$selected_file_count" -le 2 ]; then
-        echo "Expected some files to be outputted in the select repo"
-        exit 1
-    fi
-popd
-
-pachctl delete pipeline --all
-pachctl delete repo --all
+## TODO(2.0 optional): Implement put file split.
+##pushd examples/ml/hyperparameter
+##    pachctl create repo raw_data
+##    pachctl create repo parameters
+##    pachctl list repo
+##
+##    pushd data
+##        pachctl put file raw_data@master:iris.csv -f noisy_iris.csv
+##
+##        pushd parameters
+##            pachctl put file parameters@master -f c_parameters.txt --split line --target-file-datums 1 
+##            pachctl put file parameters@master -f gamma_parameters.txt --split line --target-file-datums 1
+##        popd
+##    popd
+##
+##    pachctl create pipeline -f split.json 
+##    pachctl create pipeline -f model.json
+##    pachctl create pipeline -f test.json 
+##    pachctl create pipeline -f select.json
+##
+##    commit_id=$(pachctl list commit raw_data -n 1 --raw | jq .commit.id -r)
+##    pachctl flush job "raw_data@$commit_id"
+##
+##    # just make sure we outputted some files
+##    selected_file_count=$(pachctl list file select@master | wc -l)
+##    if [ "$selected_file_count" -le 2 ]; then
+##        echo "Expected some files to be outputted in the select repo"
+##        exit 1
+##    fi
+##popd
+##
+##pachctl delete pipeline --all
+##pachctl delete repo --all
 
 pushd examples/ml/iris
     pachctl create repo training

@@ -21,7 +21,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -31,14 +30,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/images"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/helm"
 	_metrics "github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	clientcmd "k8s.io/client-go/tools/clientcmd/api/v1"
 
-	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -52,32 +49,7 @@ var (
 const (
 	defaultDashImage   = "pachyderm/dash"
 	defaultDashVersion = "0.5.57"
-
-	defaultIDEHubImage  = "pachyderm/ide-hub"
-	defaultIDEUserImage = "pachyderm/ide-user"
-
-	defaultIDEVersion      = "2.0.0-a2"
-	defaultIDEChartVersion = "0.9.1" // see https://jupyterhub.github.io/helm-chart/
-
-	etcdNodePort = 32379
-
-	ideNotes = `
-Thanks for installing the Pachyderm IDE!
-
-It may take a few minutes for all of the pods to spin up. If you have kubectl
-access, you can check progress with:
-
-  kubectl get pod -l release=pachyderm-ide
-
-Once all of the pods are in the 'Ready' status, you can access the IDE
-by running 'pachctl port-forward' and visiting 'localhost:30659'
-
-For more information about the Pachyderm IDE, see these resources:
-
-* Our how-tos: https://docs.pachyderm.com/latest/how-tos/use-pachyderm-ide/
-* The Z2JH docs, which the IDE builds off of:
-  https://zero-to-jupyterhub.readthedocs.io/en/latest/
-`
+	etcdNodePort       = 32379
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
@@ -573,14 +545,14 @@ func standardDeployCmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(deployLocal, "deploy local"))
 
 	deployGoogle := &cobra.Command{
-		Use:   "{{alias}} <bucket-name> <disk-size> [<credentials-file>]",
+		Use:   "{{alias}} <disk-size> [<bucket-name>] [<credentials-file>]",
 		Short: "Deploy a Pachyderm cluster running on Google Cloud Platform.",
 		Long: `Deploy a Pachyderm cluster running on Google Cloud Platform.
-  <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
   <disk-size>: Size of Google Compute Engine persistent disks in GB (assumed to all be the same).
+  <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
   <credentials-file>: A file containing the private key for the account (downloaded from Google Compute Engine).`,
 		PreRun: deployPreRun,
-		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(1, 3, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -588,12 +560,21 @@ func standardDeployCmds() []*cobra.Command {
 				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 				finishMetricsWait()
 			}()
-			volumeSize, err := strconv.Atoi(args[1])
+			volumeSize, err := strconv.Atoi(args[0])
 			if err != nil {
 				return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			var buf bytes.Buffer
+			var bucket string
 			var cred string
+
+			// The enterprise server doesn't need a GCS bucket, but pachd deployments do
+			if len(args) > 1 {
+				bucket = strings.TrimPrefix(args[1], "gs://")
+			} else if !enterpriseServer {
+				return errors.New("bucket-name is required for pachd deployments")
+			}
+
 			if len(args) == 3 {
 				credBytes, err := ioutil.ReadFile(args[2])
 				if err != nil {
@@ -601,7 +582,6 @@ func standardDeployCmds() []*cobra.Command {
 				}
 				cred = string(credBytes)
 			}
-			bucket := strings.TrimPrefix(args[0], "gs://")
 			if err = assets.WriteGoogleAssets(
 				encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
 			); err != nil {
@@ -700,14 +680,14 @@ If <object store backend> is \"s3\", then the arguments are:
 	var iamRole string
 	var vault string
 	deployAmazon := &cobra.Command{
-		Use:   "{{alias}} <bucket-name> <region> <disk-size>",
+		Use:   "{{alias}} <region> <disk-size> [<bucket-name>]",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
 		Long: `Deploy a Pachyderm cluster running on AWS.
-  <bucket-name>: An S3 bucket where Pachyderm will store PFS data.
   <region>: The AWS region where Pachyderm is being deployed (e.g. us-west-1)
-  <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).`,
+  <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).
+  <bucket-name>: An S3 bucket where Pachyderm will store PFS data.`,
 		PreRun: deployPreRun,
-		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -715,7 +695,10 @@ If <object store backend> is \"s3\", then the arguments are:
 				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 				finishMetricsWait()
 			}()
-			if creds == "" && vault == "" && iamRole == "" {
+
+			// Require credentials to access S3 for pachd deployments.
+			// Enterprise server deployments don't require an S3 bucket, so they don't need credentials.
+			if creds == "" && vault == "" && iamRole == "" && !enterpriseServer {
 				return errors.Errorf("one of --credentials, --vault, or --iam-role needs to be provided")
 			}
 
@@ -765,9 +748,9 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 				opts.IAMRole = iamRole
 			}
-			volumeSize, err := strconv.Atoi(args[2])
+			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
-				return errors.Errorf("volume size needs to be an integer; instead got %v", args[2])
+				return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			if strings.TrimSpace(cloudfrontDistribution) != "" {
 				log.Warningf("you specified a cloudfront distribution; deploying on " +
@@ -775,7 +758,15 @@ If <object store backend> is \"s3\", then the arguments are:
 					"restrictions have been applied to cloudfront, making all data " +
 					"public (obscured but not secured)\n")
 			}
-			bucket, region := strings.TrimPrefix(args[0], "s3://"), args[1]
+
+			var bucket string
+			if len(args) == 3 {
+				bucket = strings.TrimPrefix(args[2], "s3://")
+			} else if !enterpriseServer {
+				return errors.New("expected 3 arguments (bucket-name is required for pachd deployments)")
+			}
+
+			region := args[0]
 			if !awsRegionRE.MatchString(region) {
 				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match %q)\n", awsRegionRE)
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
@@ -831,13 +822,13 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy aws"))
 
 	deployMicrosoft := &cobra.Command{
-		Use:   "{{alias}} <container> <account-name> <account-key> <disk-size>",
+		Use:   "{{alias}} <disk-size> [<container> <account-name> <account-key>]",
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Long: `Deploy a Pachyderm cluster running on Microsoft Azure.
-  <container>: An Azure container where Pachyderm will store PFS data.
-  <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).`,
+  <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).
+  <container>: An Azure container where Pachyderm will store PFS data.`,
 		PreRun: deployPreRun,
-		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(1, 4, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -845,7 +836,19 @@ If <object store backend> is \"s3\", then the arguments are:
 				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 				finishMetricsWait()
 			}()
-			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
+
+			var container, accountName, accountKey string
+			// The enterprise server doesn't need an object store, so these arguments aren't required
+			if !enterpriseServer {
+				if len(args) != 4 {
+					return errors.New("expected 4 arguments (container, account-name and account-key are required for pachd deployments)")
+				}
+
+				container = strings.TrimPrefix(args[1], "wasb://")
+				accountName, accountKey = args[2], args[3]
+			}
+
+			if _, err := base64.StdEncoding.DecodeString(args[3]); err != nil {
 				return errors.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
 			}
 			if opts.EtcdOpts.Volume != "" {
@@ -855,18 +858,17 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 				opts.EtcdOpts.Volume = tempURI.String()
 			}
-			volumeSize, err := strconv.Atoi(args[3])
+			volumeSize, err := strconv.Atoi(args[0])
 			if err != nil {
 				return errors.Errorf("volume size needs to be an integer; instead got %v", args[3])
 			}
 			var buf bytes.Buffer
-			container := strings.TrimPrefix(args[0], "wasb://")
-			accountName, accountKey := args[1], args[2]
 			if err = assets.WriteMicrosoftAssets(
 				encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
 			); err != nil {
 				return err
 			}
+
 			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
@@ -1040,174 +1042,7 @@ If <object store backend> is \"s3\", then the arguments are:
 // Cmds returns a list of cobra commands for deploying Pachyderm clusters.
 func Cmds() []*cobra.Command {
 	commands := standardDeployCmds()
-
-	var lbTLSHost string
-	var lbTLSEmail string
-	var dryRun bool
-	var outputFormat string
-	var jupyterhubChartVersion string
-	var hubImage string
-	var userImage string
-	var clientID string
-	var internalIDAddr, idAddr, ideAddr string
-	deployIDE := &cobra.Command{
-		Short: "Deploy the Pachyderm IDE.",
-		Long:  "Deploy a JupyterHub-based IDE alongside the Pachyderm cluster.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfg, err := config.Read(false, false)
-			if err != nil {
-				return err
-			}
-			_, activeContext, err := cfg.ActiveContext(true)
-			if err != nil {
-				return err
-			}
-
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "error constructing pachyderm client")
-			}
-			defer c.Close()
-
-			enterpriseResp, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
-			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get Enterprise status")
-			}
-
-			if enterpriseResp.State != enterprise.State_ACTIVE {
-				return errors.New("Pachyderm Enterprise must be enabled to use this feature")
-			}
-
-			authActive, err := c.IsAuthActive()
-			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not check whether auth is active")
-			}
-			if !authActive {
-				return errors.New("Pachyderm auth must be enabled to use this feature")
-			}
-
-			whoamiResp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get the current logged in user")
-			}
-
-			if jupyterhubChartVersion == "" {
-				jupyterhubChartVersion = getCompatibleVersion("jupyterhub", "/jupyterhub", defaultIDEChartVersion)
-			}
-			if hubImage == "" || userImage == "" {
-				ideVersion := getCompatibleVersion("ide", "/ide", defaultIDEVersion)
-				if hubImage == "" {
-					hubImage = fmt.Sprintf("%s:%s", defaultIDEHubImage, ideVersion)
-				}
-				if userImage == "" {
-					userImage = fmt.Sprintf("%s:%s", defaultIDEUserImage, ideVersion)
-				}
-			}
-
-			pachdClientID, clientSecret, err := addOIDCClient(c, clientID, ideAddr+"/hub/oauth_callback")
-			if err != nil {
-				return err
-			}
-
-			hubImageName, hubImageTag := docker.ParseRepositoryTag(hubImage)
-			userImageName, userImageTag := docker.ParseRepositoryTag(userImage)
-
-			values := map[string]interface{}{
-				"hub": map[string]interface{}{
-					"image": map[string]interface{}{
-						"name": hubImageName,
-						"tag":  hubImageTag,
-					},
-					"extraEnv": map[string]interface{}{
-						"OAUTH2_AUTHORIZE_URL": idAddr + "/auth",
-						"OAUTH2_TOKEN_URL":     internalIDAddr + "/token",
-						"OAUTH_CALLBACK_URL":   ideAddr + "/hub/oauth_callback",
-					},
-				},
-				"singleuser": map[string]interface{}{
-					"image": map[string]interface{}{
-						"name": userImageName,
-						"tag":  userImageTag,
-					},
-					"defaultUrl": "/lab",
-				},
-				"proxy": map[string]interface{}{
-					"labels": map[string]interface{}{
-						"suite": "pachyderm",
-					},
-					"secretToken": generateSecureToken(16),
-				},
-				"auth": map[string]interface{}{
-					"state": map[string]interface{}{
-						"enabled":   true,
-						"cryptoKey": generateSecureToken(16),
-					},
-					"type": "custom",
-					"custom": map[string]interface{}{
-						"className": "pachyderm_authenticator.PachydermAuthenticator",
-						"config": map[string]interface{}{
-							"enable_auth_state": true,
-							"client_id":         clientID,
-							"client_secret":     clientSecret,
-							"token_url":         internalIDAddr + "/token",
-							"userdata_url":      internalIDAddr + "/userinfo",
-							"scope":             []string{"openid", "email", "audience:server:client_id:" + pachdClientID},
-							"username_key":      "email",
-						},
-					},
-					"admin": map[string]interface{}{
-						"users": []string{whoamiResp.Username},
-					},
-				},
-			}
-
-			if lbTLSHost != "" && lbTLSEmail != "" {
-				values["https"] = map[string]interface{}{
-					"hosts": []string{lbTLSHost},
-					"letsencrypt": map[string]interface{}{
-						"contactEmail": lbTLSEmail,
-					},
-				}
-			}
-
-			if dryRun {
-				var buf bytes.Buffer
-				enc := encoder(outputFormat, &buf)
-				if err = enc.Encode(values); err != nil {
-					return err
-				}
-				_, err = os.Stdout.Write(buf.Bytes())
-				return err
-			}
-
-			_, err = helm.Deploy(
-				activeContext,
-				"jupyterhub",
-				"https://jupyterhub.github.io/helm-chart/",
-				"pachyderm-ide",
-				"jupyterhub/jupyterhub",
-				jupyterhubChartVersion,
-				values,
-			)
-			if err != nil {
-				return errors.Wrapf(err, "failed to deploy Pachyderm IDE")
-			}
-
-			fmt.Println(ideNotes)
-			return nil
-		}),
-	}
-	deployIDE.Flags().StringVar(&lbTLSHost, "lb-tls-host", "", "Hostname for minting a Let's Encrypt TLS cert on the load balancer")
-	deployIDE.Flags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the load balancer")
-	deployIDE.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy, instead just print the Helm config.")
-	deployIDE.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
-	deployIDE.Flags().StringVar(&jupyterhubChartVersion, "jupyterhub-chart-version", "", "Version of the underlying Zero to JupyterHub with Kubernetes helm chart to use. By default this value is automatically derived.")
-	deployIDE.Flags().StringVar(&hubImage, "hub-image", "", "Image for IDE hub. By default this value is automatically derived.")
-	deployIDE.Flags().StringVar(&userImage, "user-image", "", "Image for IDE user environments. By default this value is automatically derived.")
-	deployIDE.Flags().StringVar(&clientID, "client-id", "ide", "The OIDC client ID for the IDE.")
-	deployIDE.Flags().StringVar(&internalIDAddr, "internal-id-server", "http://pachd:658", "The web address where the identity server can be reached from within the cluster.")
-	deployIDE.Flags().StringVar(&idAddr, "id-server", "http://localhost:30658", "The web address where the identity server can be reached from the client machine.")
-	deployIDE.Flags().StringVar(&ideAddr, "ide-address", "http://localhost:30659", "The web address where the IDE can be reached from the client machine.")
+	deployIDE := createDeployIDECmd()
 	commands = append(commands, cmdutil.CreateAlias(deployIDE, "deploy ide"))
 
 	deploy := &cobra.Command{
@@ -1216,144 +1051,8 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(deploy, "deploy"))
 
-	var all bool
-	var includingMetadata bool
-	var includingIDE bool
-	var namespace string
-	undeploy := &cobra.Command{
-		Short: "Tear down a deployed Pachyderm cluster.",
-		Long:  "Tear down a deployed Pachyderm cluster.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			// TODO(ys): remove the `--namespace` flag here eventually
-			if namespace != "" {
-				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
-			}
-			// TODO(ys): remove the `--all` flag here eventually
-			if all {
-				fmt.Printf("WARNING: The `--all` flag is deprecated and will be removed in a future version. Please use `--metadata` instead.\n")
-				includingMetadata = true
-			}
-
-			if includingMetadata {
-				fmt.Fprintf(os.Stderr, `
-You are going to delete persistent volumes where metadata is stored. If your
-persistent volumes were dynamically provisioned (i.e. if you used the
-"--dynamic-etcd-nodes" flag), the underlying volumes will be removed, making
-metadata such as repos, commits, pipelines, and jobs unrecoverable. If your
-persistent volume was manually provisioned (i.e. if you used the
-"--static-etcd-volume" flag), the underlying volume will not be removed.
-`)
-			}
-
-			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
-				return err
-			} else if !ok {
-				return nil
-			}
-
-			cfg, err := config.Read(false, false)
-			if err != nil {
-				return err
-			}
-			_, activeContext, err := cfg.ActiveContext(true)
-			if err != nil {
-				return err
-			}
-
-			if namespace == "" {
-				namespace = activeContext.Namespace
-			}
-
-			assets := []string{
-				"service",
-				"replicationcontroller",
-				"deployment",
-				"serviceaccount",
-				"secret",
-				"statefulset",
-				"clusterrole",
-				"clusterrolebinding",
-				"configmap",
-			}
-			if includingMetadata {
-				assets = append(assets, []string{
-					"storageclass",
-					"persistentvolumeclaim",
-					"persistentvolume",
-				}...)
-			}
-			if err := kubectl(nil, activeContext, "delete", strings.Join(assets, ","), "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
-				return err
-			}
-
-			if includingIDE {
-				// remove IDE
-				if err = helm.Destroy(activeContext, "pachyderm-ide", namespace); err != nil {
-					log.Errorf("failed to delete helm installation: %v", err)
-				}
-				ideAssets := []string{
-					"replicaset",
-					"deployment",
-					"service",
-					"pod",
-				}
-				if err = kubectl(nil, activeContext, "delete", strings.Join(ideAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
-					return err
-				}
-			}
-
-			// remove the context from the config
-			kubeConfig, err := config.RawKubeConfig()
-			if err != nil {
-				return err
-			}
-			kubeContext := kubeConfig.Contexts[kubeConfig.CurrentContext]
-			if kubeContext != nil {
-				cfg, err := config.Read(true, false)
-				if err != nil {
-					return err
-				}
-				ctx := &config.Context{
-					ClusterName: kubeContext.Cluster,
-					AuthInfo:    kubeContext.AuthInfo,
-					Namespace:   namespace,
-				}
-
-				// remove _all_ contexts associated with this
-				// deployment
-				configUpdated := false
-				for {
-					contextName, _ := findEquivalentContext(cfg, ctx)
-					if contextName == "" {
-						break
-					}
-					configUpdated = true
-					delete(cfg.V2.Contexts, contextName)
-					if contextName == cfg.V2.ActiveContext {
-						cfg.V2.ActiveContext = ""
-					}
-				}
-				if configUpdated {
-					if err = cfg.Write(); err != nil {
-						return err
-					}
-				}
-			}
-
-			return nil
-		}),
-	}
-	undeploy.Flags().BoolVarP(&all, "all", "a", false, "DEPRECATED: Use \"--metadata\" instead.")
-	undeploy.Flags().BoolVarP(&includingMetadata, "metadata", "", false, `
-Delete persistent volumes where metadata is stored. If your persistent volumes
-were dynamically provisioned (i.e. if you used the "--dynamic-etcd-nodes"
-flag), the underlying volumes will be removed, making metadata such as repos,
-commits, pipelines, and jobs unrecoverable. If your persistent volume was
-manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
-underlying volume will not be removed.`)
-	undeploy.Flags().BoolVarP(&includingIDE, "ide", "", false, "Delete the Pachyderm IDE deployment if it exists.")
-	undeploy.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to undeploy Pachyderm from.")
-	commands = append(commands, cmdutil.CreateAlias(undeploy, "undeploy"))
+	undeployCmd := makeUndeployCmd()
+	commands = append(commands, cmdutil.CreateAlias(undeployCmd, "undeploy"))
 
 	var updateDashDryRun bool
 	var updateDashOutputFormat string

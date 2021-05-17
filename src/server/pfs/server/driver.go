@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"math"
 	"os"
 	"path"
@@ -29,7 +28,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -69,7 +67,7 @@ type CommitStream interface {
 	Close()
 }
 
-type collectionFactory func(string) col.Collection
+type collectionFactory func(string) col.EtcdCollection
 
 type driver struct {
 	env serviceenv.ServiceEnv
@@ -79,20 +77,27 @@ type driver struct {
 	prefix     string
 
 	// collections
-	repos       col.Collection
+	repos       col.EtcdCollection
 	commits     collectionFactory
 	branches    collectionFactory
-	openCommits col.Collection
+	openCommits col.EtcdCollection
 
-	storage         *fileset.Storage
-	commitStore     commitStore
-	compactionQueue *work.TaskQueue
+	storage     *fileset.Storage
+	commitStore commitStore
+	compactor   *compactor
+}
+
+func commitKey(commit *pfs.Commit) string {
+	return path.Join(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+}
+
+func branchKey(branch *pfs.Branch) string {
+	return path.Join(branch.Repo.Name, branch.Name)
 }
 
 func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
 	// Setup etcd, object storage, and database clients.
 	etcdClient := env.GetEtcdClient()
-	fmt.Printf("making client: %s, %s\n", env.Config().StorageBackend, env.Config().StorageRoot)
 	objClient, err := obj.NewClient(env.Config().StorageBackend, env.Config().StorageRoot)
 	if err != nil {
 		return nil, err
@@ -104,10 +109,10 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		etcdClient: etcdClient,
 		prefix:     etcdPrefix,
 		repos:      pfsdb.Repos(etcdClient, etcdPrefix),
-		commits: func(repo string) col.Collection {
+		commits: func(repo string) col.EtcdCollection {
 			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
 		},
-		branches: func(repo string) col.Collection {
+		branches: func(repo string) col.EtcdCollection {
 			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
 		},
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
@@ -129,7 +134,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.GetDBClient(), tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, fileset.StorageOptions(env.Config())...)
 	// Setup compaction queue and worker.
-	d.compactionQueue, err = work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)
+	d.compactor, err = newCompactor(env.Context(), d.storage, etcdClient, etcdPrefix, env.Config().StorageCompactionMaxFanIn)
 	if err != nil {
 		return nil, err
 	}
@@ -147,15 +152,14 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		return nil, err
 	}
 	// Setup PFS master
-	go d.master(env)
-	go d.compactionWorker()
+	go d.master(env.Context())
 	return d, nil
 }
 
 func (d *driver) activateAuth(txnCtx *txnenv.TransactionContext) error {
 	repos := d.repos.ReadOnly(txnCtx.ClientContext)
 	repoInfo := &pfs.RepoInfo{}
-	return repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
+	return repos.List(repoInfo, col.DefaultOptions(), func(string) error {
 		err := txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 			Type: auth.ResourceType_REPO,
 			Name: repoInfo.Repo.Name,
@@ -245,7 +249,7 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 		return nil, err
 	}
 	if includeAuth {
-		permissions, roles, err := d.getPermissions(txnCtx.Client, repo)
+		permissions, roles, err := d.getPermissions(txnCtx.ClientContext, repo)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return result, nil
@@ -257,10 +261,9 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 	return result, nil
 }
 
-func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([]auth.Permission, []string, error) {
-	ctx := pachClient.Ctx()
-
-	resp, err := pachClient.AuthAPIClient.GetPermissions(ctx, &auth.GetPermissionsRequest{
+func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
+	pachClient := d.env.GetPachClient(ctx)
+	resp, err := pachClient.AuthAPIClient.GetPermissions(pachClient.Ctx(), &auth.GetPermissionsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
 	})
 	if err != nil {
@@ -270,24 +273,23 @@ func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.ListRepoResponse, error) {
-	ctx := pachClient.Ctx()
+func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoResponse, error) {
 	repos := d.repos.ReadOnly(ctx)
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
-		if repoName == ppsconsts.SpecRepo {
+	if err := repos.List(repoInfo, col.DefaultOptions(), func(string) error {
+		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
 			return nil
 		}
 		if includeAuth && authSeemsActive {
-			permissions, roles, err := d.getPermissions(pachClient, repoInfo.Repo)
+			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err == nil {
 				repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repoName)
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repoInfo.Repo.Name)
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, proto.Clone(repoInfo).(*pfs.RepoInfo))
@@ -334,8 +336,8 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	commits := d.commits(repo.Name).ReadOnly(txnCtx.ClientContext)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
-	if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
-		commitInfos[commitID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+	if err := commits.List(commitInfo, col.DefaultOptions(), func(string) error {
+		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
 		return err
@@ -348,14 +350,14 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 		for _, prov := range ci.Provenance {
 			// Check if we've fixed prov already (or if it's in this repo and
 			// doesn't need to be fixed
-			if visited[prov.Commit.ID] || prov.Commit.Repo.Name == repo.Name {
+			if visited[prov.Commit.ID] || prov.Commit.Branch.Repo.Name == repo.Name {
 				continue
 			}
 			// or if the repo has already been deleted
 			ri := new(pfs.RepoInfo)
-			if err := repos.Get(prov.Commit.Repo.Name, ri); err != nil {
+			if err := repos.Get(prov.Commit.Branch.Repo.Name, ri); err != nil {
 				if !col.IsErrNotFound(err) {
-					return errors.Wrapf(err, "repo %v was not found", prov.Commit.Repo.Name)
+					return errors.Wrapf(err, "repo %v was not found", prov.Commit.Branch.Repo.Name)
 				}
 				continue
 			}
@@ -363,10 +365,10 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 
 			// fix prov's subvenance
 			provCI := &pfs.CommitInfo{}
-			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
+			if err := d.commits(prov.Commit.Branch.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
 				subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
 				for subvFrom, subv := range provCI.Subvenance {
-					if subv.Upper.Repo.Name == repo.Name {
+					if subv.Upper.Branch.Repo.Name == repo.Name {
 						continue
 					}
 					provCI.Subvenance[subvTo] = provCI.Subvenance[subvFrom]
@@ -375,7 +377,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 				provCI.Subvenance = provCI.Subvenance[:subvTo]
 				return nil
 			}); err != nil {
-				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s/%s", prov.Commit.Repo.Name, prov.Commit.ID)
+				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s@%s", prov.Commit.Branch.Repo.Name, prov.Commit.ID)
 			}
 		}
 		// TODO: use DropFilesetsTx
@@ -424,28 +426,21 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
-func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
+func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch *pfs.Branch, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
 	return d.makeCommit(txnCtx, ID, parent, branch, nil, provenance, description, time.Time{}, time.Time{}, 0)
 }
 
 // make commit makes a new commit in 'branch', with the parent 'parent' and the
 // direct provenance 'provenance'. Note that
-// - 'parent' must not be nil, but the only required field is 'parent.Repo'.
-// - 'parent.ID' may be set to "", in which case the parent commit is inferred
-//   from 'parent.Repo' and 'branch'.
-// - If both 'parent.ID' and 'branch' are set, 'parent.ID' determines the parent
-//   commit, but 'branch' is still moved to point at the new commit
-// - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
-//   parent
-// - If only 'parent.ID' is set, and it contains a branch, then the new commit's
-//   parent will be the HEAD of that branch, but the branch will not be moved
-// TODO: Remove the v1 storage data structures from this function, they are not
-// used for now.
+// - 'parent' may be omitted, in which case the parent commit is inferred
+//   from 'branch'.
+// - If 'parent' is set, it determines the parent commit, but 'branch' is
+//   still moved to point at the new commit
 func (d *driver) makeCommit(
 	txnCtx *txnenv.TransactionContext,
 	ID string,
 	parent *pfs.Commit,
-	branch string,
+	branch *pfs.Branch,
 	origin *pfs.CommitOrigin,
 	provenance []*pfs.CommitProvenance,
 	description string,
@@ -454,18 +449,18 @@ func (d *driver) makeCommit(
 	sizeBytes uint64,
 ) (*pfs.Commit, error) {
 	// Validate arguments:
-	if parent == nil {
-		return nil, errors.Errorf("parent cannot be nil")
+	if branch == nil || branch.Name == "" {
+		return nil, errors.Errorf("branch must be specified")
 	}
 	// Check that caller is authorized
-	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, parent.Repo.Name, auth.Permission_REPO_WRITE); err != nil {
+	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo.Name, auth.Permission_REPO_WRITE); err != nil {
 		return nil, err
 	}
 
 	// New commit and commitInfo
 	newCommit := &pfs.Commit{
-		Repo: parent.Repo,
-		ID:   ID,
+		Branch: branch,
+		ID:     ID,
 	}
 	if newCommit.ID == "" {
 		newCommit.ID = uuid.NewWithoutDashes()
@@ -478,10 +473,8 @@ func (d *driver) makeCommit(
 		Origin:      origin,
 		Description: description,
 	}
-	if branch != "" {
-		if err := ancestry.ValidateName(branch); err != nil {
-			return nil, err
-		}
+	if err := ancestry.ValidateName(branch.Name); err != nil {
+		return nil, err
 	}
 
 	// check if this is happening in a spout pipeline, and append the correct provenance
@@ -526,79 +519,68 @@ func (d *driver) makeCommit(
 	}
 
 	// create the actual commit in etcd and update the branch + parent/child
-	// Clone the parent, as this stm modifies it and might wind up getting
-	// run more than once (if there's a conflict.)
-	parent = proto.Clone(parent).(*pfs.Commit)
 	repos := d.repos.ReadWrite(txnCtx.Stm)
-	commits := d.commits(parent.Repo.Name).ReadWrite(txnCtx.Stm)
-	branches := d.branches(parent.Repo.Name).ReadWrite(txnCtx.Stm)
+	commits := d.commits(branch.Repo.Name).ReadWrite(txnCtx.Stm)
+	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm)
 
 	// Check if repo exists
-	repoInfo := new(pfs.RepoInfo)
-	if err := repos.Get(parent.Repo.Name, repoInfo); err != nil {
+	if err := repos.Get(branch.Repo.Name, &pfs.RepoInfo{}); err != nil {
 		return nil, err
 	}
 
-	// create/update 'branch' (if it was set) and set parent.ID (if, in
-	// addition, 'parent.ID' was not set)
-	key := path.Join
+	// create/update 'branch' (which must always be set) and set parent.ID (if
+	// 'parent' was not set)
 	branchProvMap := make(map[string]bool)
-	if branch != "" {
-		branchInfo := &pfs.BranchInfo{}
-		if err := branches.Upsert(branch, branchInfo, func() error {
-			// validate branch
-			if parent.ID == "" && branchInfo.Head != nil {
-				parent.ID = branchInfo.Head.ID
-			}
-			// include the branch and its provenance in the branch provenance map
-			branchProvMap[key(newCommit.Repo.Name, branch)] = true
-			for _, b := range branchInfo.Provenance {
-				branchProvMap[key(b.Repo.Name, b.Name)] = true
-			}
-			if branchInfo.Head != nil {
-				headCommitInfo := &pfs.CommitInfo{}
-				if err := commits.Get(branchInfo.Head.ID, headCommitInfo); err != nil {
-					return err
-				}
-				for _, prov := range headCommitInfo.Provenance {
-					branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
-				}
-			}
-			// Don't count the __spec__ repo towards the provenance count
-			// since spouts will have __spec__ as provenance, but need to accept commits
-			provenanceCount := len(branchInfo.Provenance)
-			for _, p := range branchInfo.Provenance {
-				if p.Repo.Name == ppsconsts.SpecRepo {
-					provenanceCount--
-					break
-				}
-			}
-
-			// if 'provenance' includes a spec commit, (note the difference from the
-			// prev condition) then it was created by pps and is allowed to be in an
-			// output branch
-			hasSpec := false
+	branchInfo := &pfs.BranchInfo{}
+	if err := branches.Get(branch.Name, branchInfo); err != nil {
+		if col.IsErrNotFound(err) {
+			// This is a new branch, instantiate it based off of the given provenance
+			provenanceBranches := []*pfs.Branch{}
 			for _, prov := range provenance {
-				if prov.Commit.Repo.Name == ppsconsts.SpecRepo {
-					hasSpec = true
-				}
+				provenanceBranches = append(provenanceBranches, prov.Commit.Branch)
 			}
-
-			if provenanceCount > 0 && !hasSpec {
-				return errors.Errorf("cannot start a commit on an output branch")
+			if err := d.createBranch(txnCtx, branch, nil, provenanceBranches, nil); err != nil {
+				return nil, err
 			}
-			// Point 'branch' at the new commit
-			branchInfo.Name = branch // set in case 'branch' is new
-			branchInfo.Head = newCommit
-			branchInfo.Branch = client.NewBranch(newCommit.Repo.Name, branch)
-			return nil
-		}); err != nil {
+		} else {
 			return nil, err
 		}
-		// Add branch to repo (see "Update repoInfo" below)
-		add(&repoInfo.Branches, branchInfo.Branch)
-		// and add the branch to the commit info
-		newCommitInfo.Branch = branchInfo.Branch
+	}
+
+	if err := branches.Update(branch.Name, branchInfo, func() error {
+		// validate branch
+		if parent == nil && branchInfo.Head != nil {
+			parent = branchInfo.Head
+		}
+		// include the branch and its provenance in the branch provenance map
+		branchProvMap[branchKey(branch)] = true
+		for _, b := range branchInfo.Provenance {
+			branchProvMap[branchKey(b)] = true
+		}
+		if branchInfo.Head != nil {
+			headCommitInfo := &pfs.CommitInfo{}
+			if err := commits.Get(branchInfo.Head.ID, headCommitInfo); err != nil {
+				return err
+			}
+			for _, prov := range headCommitInfo.Provenance {
+				branchProvMap[branchKey(prov.Commit.Branch)] = true
+			}
+		}
+		// Don't count the __spec__ repo towards the provenance count
+		// since spouts will have __spec__ as provenance, but need to accept commits
+		provenanceCount := len(branchInfo.Provenance)
+		for _, p := range branchInfo.Provenance {
+			if p.Repo.Name == ppsconsts.SpecRepo {
+				provenanceCount--
+				break
+			}
+		}
+
+		// Point 'branch' at the new commit
+		branchInfo.Head = newCommit
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	if err := d.openCommits.ReadWrite(txnCtx.Stm).Put(newCommit.ID, newCommit); err != nil {
@@ -606,30 +588,32 @@ func (d *driver) makeCommit(
 	}
 
 	// Update repoInfo (potentially with new branch and new size)
-	if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
+	repoInfo := &pfs.RepoInfo{}
+	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
+		add(&repoInfo.Branches, branchInfo.Branch)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
-	// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
+	// Set newCommit.ParentCommit (if 'parent' has been determined) and add
 	// newCommit to parent's ChildCommits
-	if parent.ID != "" {
-		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
+	if parent != nil {
+		// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 		// happen if 'branch' is new and diverges from the existing branch in
-		// 'parent.ID')
+		// 'parent').
+		// Clone the parent proto because resolveCommit will modify it.
+		parent = proto.Clone(parent).(*pfs.Commit)
 		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parent commit not found")
 		}
 		// fail if the parent commit has not been finished
 		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Repo.Name, parent.ID)
+			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Branch.Repo.Name, parent.ID)
 		}
-		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
-			newCommitInfo.ParentCommit = parent
-			// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
-			if newCommitInfo.Branch == nil {
-				newCommitInfo.Branch = parentCommitInfo.Branch
-			}
+		if err := commits.Update(parentCommitInfo.Commit.ID, parentCommitInfo, func() error {
+			newCommitInfo.ParentCommit = parentCommitInfo.Commit
 			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
 			return nil
 		}); err != nil {
@@ -646,28 +630,18 @@ func (d *driver) makeCommit(
 
 	// keep track of which branches are represented in the commit provenance
 	provBranches := make(map[string]bool)
-	for _, prov := range provenance {
-		// resolve the provenance
-		var err error
-		prov, err = d.resolveCommitProvenance(txnCtx.Stm, prov)
-		if err != nil {
-			return nil, err
-		}
-		provBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
-	}
-
 	newCommitProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range provenance {
-		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, prov.Commit)
+		prov, provCommitInfo, err := d.resolveCommitProvenance(txnCtx.Stm, prov)
 		if err != nil {
 			return nil, err
 		}
 		newCommitProv[prov.Commit.ID] = prov
-		provBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
+		provBranches[branchKey(prov.Commit.Branch)] = true
 		for _, provProv := range provCommitInfo.Provenance {
-			if _, ok := provBranches[key(provProv.Branch.Repo.Name, provProv.Branch.Name)]; !ok {
+			if _, ok := provBranches[branchKey(provProv.Commit.Branch)]; !ok {
 				newCommitProv[provProv.Commit.ID] = provProv
-				provBranches[key(provProv.Branch.Repo.Name, provProv.Branch.Name)] = true
+				provBranches[branchKey(provProv.Commit.Branch)] = true
 			}
 		}
 	}
@@ -676,29 +650,23 @@ func (d *driver) makeCommit(
 	provenantBranches := make(map[string]bool)
 	// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
 	for _, prov := range newCommitProv {
-		// resolve the provenance
-		var err error
-		prov, err = d.resolveCommitProvenance(txnCtx.Stm, prov)
-		if err != nil {
-			return nil, err
-		}
 		// there should only be one representative of each branch in the commit provenance
-		if _, ok := provenantBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)]; ok {
+		if _, ok := provenantBranches[branchKey(prov.Commit.Branch)]; ok {
 			return nil, errors.Errorf("the commit provenance contains multiple commits from the same branch")
 		}
-		provenantBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
+		provenantBranches[branchKey(prov.Commit.Branch)] = true
 
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
 			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
-			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Branch.Name != "" && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
-				return nil, errors.Errorf("the commit provenance contains a branch which the branch is not provenant on")
+			if prov.Commit.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Commit.Branch.Name != "" && !branchProvMap[branchKey(prov.Commit.Branch)] {
+				return nil, errors.Errorf("the commit provenance contains a branch which the branch is not provenant on: %s@%s", prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)
 			}
 		}
 
 		newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 		provCommitInfo := &pfs.CommitInfo{}
-		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCommitInfo, func() error {
+		if err := d.commits(prov.Commit.Branch.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCommitInfo, func() error {
 			d.appendSubvenance(provCommitInfo, newCommitInfo)
 			return nil
 		}); err != nil {
@@ -712,10 +680,10 @@ func (d *driver) makeCommit(
 	sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
 		// to make sure the parent relationship is respected during sort, we need to make sure that we organize
 		// the provenance by repo name and branch name
-		if newCommitInfo.Provenance[i].Commit.Repo.Name != newCommitInfo.Provenance[j].Commit.Repo.Name {
-			return newCommitInfo.Provenance[i].Commit.Repo.Name < newCommitInfo.Provenance[j].Commit.Repo.Name
-		} else if newCommitInfo.Provenance[i].Branch.Name != newCommitInfo.Provenance[j].Branch.Name {
-			return newCommitInfo.Provenance[i].Branch.Name < newCommitInfo.Provenance[j].Branch.Name
+		if newCommitInfo.Provenance[i].Commit.Branch.Repo.Name != newCommitInfo.Provenance[j].Commit.Branch.Repo.Name {
+			return newCommitInfo.Provenance[i].Commit.Branch.Repo.Name < newCommitInfo.Provenance[j].Commit.Branch.Repo.Name
+		} else if newCommitInfo.Provenance[i].Commit.Branch.Name != newCommitInfo.Provenance[j].Commit.Branch.Name {
+			return newCommitInfo.Provenance[i].Commit.Branch.Name < newCommitInfo.Provenance[j].Commit.Branch.Name
 		}
 
 		// we need to check the commit info of the 'j' provenance commit to get the parent
@@ -743,18 +711,16 @@ func (d *driver) makeCommit(
 	}
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
-	if branch != "" {
-		var triggeredBranches []*pfs.Branch
-		if newCommitInfo.Finished != nil {
-			triggeredBranches, err = d.triggerCommit(txnCtx, newCommit)
-			if err != nil {
-				return nil, err
-			}
+	var triggeredBranches []*pfs.Branch
+	if newCommitInfo.Finished != nil {
+		triggeredBranches, err = d.triggerCommit(txnCtx, newCommit)
+		if err != nil {
+			return nil, err
 		}
-		for _, b := range append(triggeredBranches, client.NewBranch(newCommit.Repo.Name, branch)) {
-			if err := txnCtx.PropagateCommit(b, true); err != nil {
-				return nil, err
-			}
+	}
+	for _, b := range append(triggeredBranches, client.NewBranch(branch.Repo.Name, branch.Name)) {
+		if err := txnCtx.PropagateCommit(b, true); err != nil {
+			return nil, err
 		}
 	}
 	return newCommit, nil
@@ -765,34 +731,28 @@ func (d *driver) makeCommit(
 // If a complete commit provenance is passed in it just uses that.
 // It accepts an STM so that it can be used in a transaction and avoids an
 // inconsistent call to d.inspectCommit()
-func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.CommitProvenance) (*pfs.CommitProvenance, error) {
+func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.CommitProvenance) (*pfs.CommitProvenance, *pfs.CommitInfo, error) {
 	if userCommitProvenance == nil {
-		return nil, errors.Errorf("cannot resolve nil commit provenance")
+		return nil, nil, errors.Errorf("cannot resolve nil commit provenance")
 	}
-	// resolve the commit in case the commit is actually a branch name
-	userCommitProvInfo, err := d.resolveCommit(stm, userCommitProvenance.Commit)
-	if err != nil {
-		return nil, err
-	}
-	if userCommitProvenance.Branch == nil || userCommitProvenance.Branch.Name == "" {
-		// if the branch isn't specified, default to using the commit's branch (as long as that isn't nil too)
-		if userCommitProvInfo.Branch != nil {
-			userCommitProvenance.Branch = userCommitProvInfo.Branch
-		}
+	// if specified, the provenance's branch name should override the commit's branch name
+	specifiedBranch := userCommitProvenance.Commit.Branch.Name
 
-		// but if the original "commit id" was a branch name, use that as the branch instead
-		if userCommitProvInfo.Commit.ID != userCommitProvenance.Commit.ID {
-			userCommitProvenance.Branch.Name = userCommitProvenance.Commit.ID
-			userCommitProvenance.Commit = userCommitProvInfo.Commit
-		}
+	// resolve the commit in case the commit is actually a branch name
+	commitInfo, err := d.resolveCommit(stm, userCommitProvenance.Commit)
+	if err != nil {
+		return nil, nil, err
 	}
-	return userCommitProvenance, nil
+	userCommitProvenance.Commit = commitInfo.Commit
+	if specifiedBranch != "" {
+		userCommitProvenance.Commit.Branch.Name = specifiedBranch
+	}
+	return userCommitProvenance, commitInfo, nil
 }
 
 // TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
 // We are going to want to move the compaction to the read side, and just mark the commit as finished here.
 func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
-	ctx := txnCtx.Client.Ctx()
 	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
@@ -804,31 +764,6 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if description != "" {
 		commitInfo.Description = description
 	}
-	var ids []fileset.ID
-	if commitInfo.ParentCommit != nil {
-		id, err := d.commitStore.GetTotalFileset(ctx, commitInfo.ParentCommit)
-		if err != nil {
-			return err
-		}
-		ids = append(ids, *id)
-	}
-	id, err := d.commitStore.GetDiffFileset(ctx, commit)
-	if err != nil {
-		return err
-	}
-	ids = append(ids, *id)
-	compactedID, err := d.compact(ctx, ids)
-	if err != nil {
-		return err
-	}
-	if err := d.commitStore.SetTotalFileset(ctx, commit, *compactedID); err != nil {
-		return err
-	}
-	outputSize, err := d.storage.SizeOf(ctx, *compactedID)
-	if err != nil {
-		return err
-	}
-	commitInfo.SizeBytes = uint64(outputSize)
 	commitInfo.Finished = types.TimestampNow()
 	empty := strings.Contains(commitInfo.Description, pfs.EmptyStr)
 	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
@@ -855,7 +790,7 @@ func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, suc
 	}
 	for _, provC := range ci.Provenance {
 		provCi := &pfs.CommitInfo{}
-		if err := d.commits(provC.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(provC.Commit.ID, provCi, func() error {
+		if err := d.commits(provC.Commit.Branch.Repo.Name).ReadWrite(txnCtx.Stm).Update(provC.Commit.ID, provCi, func() error {
 			if success {
 				provCi.SubvenantCommitsSuccess++
 			} else {
@@ -874,7 +809,7 @@ func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, suc
 //    removes it from the open commits)
 // 2) if the commit is the new HEAD of master, it updates the repo size
 func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo *pfs.CommitInfo) error {
-	commits := d.commits(commit.Repo.Name).ReadWrite(stm)
+	commits := d.commits(commit.Branch.Repo.Name).ReadWrite(stm)
 	if err := commits.Put(commit.ID, commitInfo); err != nil {
 		return err
 	}
@@ -884,20 +819,20 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 	// update the repo size if this is the head of master
 	repos := d.repos.ReadWrite(stm)
 	repoInfo := new(pfs.RepoInfo)
-	if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+	if err := repos.Get(commit.Branch.Repo.Name, repoInfo); err != nil {
 		return err
 	}
 	for _, branch := range repoInfo.Branches {
 		if branch.Name == "master" {
 			branchInfo := &pfs.BranchInfo{}
-			if err := d.branches(commit.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
+			if err := d.branches(commit.Branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
 				return err
 			}
 			// If the head commit of master has been deleted, we could get here if another branch
 			// had shared its head commit with master, and then we created a new commit on that branch
 			if branchInfo.Head != nil && branchInfo.Head.ID == commit.ID {
 				repoInfo.SizeBytes = commitInfo.SizeBytes
-				if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
+				if err := repos.Put(commit.Branch.Repo.Name, repoInfo); err != nil {
 					return err
 				}
 			}
@@ -926,26 +861,25 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 //
 // The isNewCommit flag indicates whether propagateCommits was called during the creation of a new commit.
 func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch, isNewCommit bool) error {
-	key := path.Join
 	// subvBIMap = ( ⋃{b.subvenance | b ∈ branches} ) ∪ branches
 	subvBIMap := map[string]*pfs.BranchInfo{}
 	for _, branch := range branches {
-		branchInfo, ok := subvBIMap[key(branch.Repo.Name, branch.Name)]
+		branchInfo, ok := subvBIMap[branchKey(branch)]
 		if !ok {
 			branchInfo = &pfs.BranchInfo{}
 			if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
 				return err
 			}
-			subvBIMap[key(branch.Repo.Name, branch.Name)] = branchInfo
+			subvBIMap[branchKey(branch)] = branchInfo
 		}
 		for _, subvBranch := range branchInfo.Subvenance {
-			_, ok := subvBIMap[key(subvBranch.Repo.Name, subvBranch.Name)]
+			_, ok := subvBIMap[branchKey(subvBranch)]
 			if !ok {
 				subvInfo := &pfs.BranchInfo{}
 				if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvInfo); err != nil {
 					return err
 				}
-				subvBIMap[key(subvBranch.Repo.Name, subvBranch.Name)] = subvInfo
+				subvBIMap[branchKey(subvBranch)] = subvInfo
 			}
 		}
 	}
@@ -977,7 +911,7 @@ nextSubvBI:
 			// get the branch info from the provenance branch
 			provOfSubvBI := &pfs.BranchInfo{}
 			if err := d.branches(provOfSubvB.Repo.Name).ReadWrite(stm).Get(provOfSubvB.Name, provOfSubvBI); err != nil && !col.IsErrNotFound(err) {
-				return errors.Wrapf(err, "could not read branch %s/%s", provOfSubvB.Repo.Name, provOfSubvB.Name)
+				return errors.Wrapf(err, "could not read branch %s@%s", provOfSubvB.Repo.Name, provOfSubvB.Name)
 			}
 			// if provOfSubvB has no head commit, then it doesn't contribute to newCommit
 			if provOfSubvBI.Head == nil {
@@ -992,22 +926,20 @@ nextSubvBI:
 			//     its head commit has commit provenance.
 			// - We need to key on both the commit id and the branch name, so that
 			//   branches with a shared commit are both represented in the provenance
-			newCommitProvMap[key(provOfSubvBI.Head.ID, provOfSubvB.Name)] = &pfs.CommitProvenance{
-				Commit: provOfSubvBI.Head,
-				Branch: provOfSubvB,
-			}
+			provCommit := client.NewCommit(provOfSubvB.Repo.Name, provOfSubvB.Name, provOfSubvBI.Head.ID)
+			newCommitProvMap[commitKey(provCommit)] = &pfs.CommitProvenance{Commit: provCommit}
 			provOfSubvBHeadInfo := &pfs.CommitInfo{}
 			if err := d.commits(provOfSubvB.Repo.Name).ReadWrite(stm).Get(provOfSubvBI.Head.ID, provOfSubvBHeadInfo); err != nil {
 				return err
 			}
 			for _, provProv := range provOfSubvBHeadInfo.Provenance {
-				newProvProv, err := d.resolveCommitProvenance(stm, provProv)
+				newProvProv, _, err := d.resolveCommitProvenance(stm, provProv)
 				if err != nil {
 					return errors.Wrapf(err, "could not resolve provenant commit %s@%s (%s)",
-						provProv.Commit.Repo.Name, provProv.Commit.ID, provProv.Branch.Name)
+						provProv.Commit.Branch.Repo.Name, provProv.Commit.Branch.Name, provProv.Commit.ID)
 				}
 				provProv = newProvProv
-				newCommitProvMap[key(provProv.Commit.ID, provProv.Branch.Name)] = provProv
+				newCommitProvMap[commitKey(provProv.Commit)] = provProv
 			}
 		}
 		if len(newCommitProvMap) == 0 {
@@ -1027,8 +959,8 @@ nextSubvBI:
 			}
 			provIntersection := make(map[string]struct{})
 			for _, p := range subvBHeadInfo.Provenance {
-				if _, ok := newCommitProvMap[key(p.Commit.ID, p.Branch.Name)]; ok {
-					provIntersection[key(p.Commit.ID, p.Branch.Name)] = struct{}{}
+				if _, ok := newCommitProvMap[commitKey(p.Commit)]; ok {
+					provIntersection[commitKey(p.Commit)] = struct{}{}
 				}
 			}
 			if len(newCommitProvMap) == len(provIntersection) {
@@ -1043,7 +975,7 @@ nextSubvBI:
 		// output commit
 		allSpec := true
 		for _, p := range newCommitProvMap {
-			if p.Branch.Repo.Name != ppsconsts.SpecRepo {
+			if p.Commit.Branch.Repo.Name != ppsconsts.SpecRepo {
 				allSpec = false
 				break
 			}
@@ -1062,8 +994,8 @@ nextSubvBI:
 
 		// *All checks passed* start a new output commit in 'subvB'
 		newCommit := &pfs.Commit{
-			Repo: subvB.Repo,
-			ID:   uuid.NewWithoutDashes(),
+			Branch: subvB,
+			ID:     uuid.NewWithoutDashes(),
 		}
 		newCommitInfo := &pfs.CommitInfo{
 			Commit:  newCommit,
@@ -1083,7 +1015,6 @@ nextSubvBI:
 			}
 		}
 		subvBI.Head = newCommit
-		newCommitInfo.Branch = subvB
 		if err := stmBranches.Put(subvB.Name, subvBI); err != nil {
 			return err
 		}
@@ -1096,7 +1027,7 @@ nextSubvBI:
 
 			// update subvenance of 'prov'
 			provCommitInfo := &pfs.CommitInfo{}
-			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(stm).Update(prov.Commit.ID, provCommitInfo, func() error {
+			if err := d.commits(prov.Commit.Branch.Repo.Name).ReadWrite(stm).Update(prov.Commit.ID, provCommitInfo, func() error {
 				d.appendSubvenance(provCommitInfo, newCommitInfo)
 				return nil
 			}); err != nil {
@@ -1110,10 +1041,10 @@ nextSubvBI:
 		sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
 			// to make sure the parent relationship is respected during sort, we need to make sure that we organize
 			// the provenance by repo name and branch name
-			if newCommitInfo.Provenance[i].Commit.Repo.Name != newCommitInfo.Provenance[j].Commit.Repo.Name {
-				return newCommitInfo.Provenance[i].Commit.Repo.Name < newCommitInfo.Provenance[j].Commit.Repo.Name
-			} else if newCommitInfo.Provenance[i].Branch.Name != newCommitInfo.Provenance[j].Branch.Name {
-				return newCommitInfo.Provenance[i].Branch.Name < newCommitInfo.Provenance[j].Branch.Name
+			if newCommitInfo.Provenance[i].Commit.Branch.Repo.Name != newCommitInfo.Provenance[j].Commit.Branch.Repo.Name {
+				return newCommitInfo.Provenance[i].Commit.Branch.Repo.Name < newCommitInfo.Provenance[j].Commit.Branch.Repo.Name
+			} else if newCommitInfo.Provenance[i].Commit.Branch.Name != newCommitInfo.Provenance[j].Commit.Branch.Name {
+				return newCommitInfo.Provenance[i].Commit.Branch.Name < newCommitInfo.Provenance[j].Commit.Branch.Name
 			}
 
 			// we need to check the commit info of the 'j' provenance commit to get the parent
@@ -1150,8 +1081,8 @@ nextSubvBI:
 //
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
-func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
-	if commit.GetRepo().GetName() == fileSetsRepo {
+func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+	if commit.Branch.Repo.Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commit,
 			Description: "FileSet - Virtual Commit",
@@ -1159,15 +1090,15 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 		}
 		return cinfo, nil
 	}
-	ctx := pachClient.Ctx()
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
 	}
-	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+	pachClient := d.env.GetPachClient(ctx)
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Branch.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, err
 	}
 
-	// Check if the commitID is a branch name
+	// Resolve the commit in case it specifies a branch head or commit ancestry
 	var commitInfo *pfs.CommitInfo
 	if err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		var err error
@@ -1177,11 +1108,11 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 		return nil, err
 	}
 
-	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
+	commits := d.commits(commit.Branch.Repo.Name).ReadOnly(ctx)
 	if blockState == pfs.CommitState_READY {
 		// Wait for each provenant commit to be finished
 		for _, p := range commitInfo.Provenance {
-			d.inspectCommit(pachClient, p.Commit, pfs.CommitState_FINISHED)
+			d.inspectCommit(ctx, p.Commit, pfs.CommitState_FINISHED)
 		}
 	}
 	if blockState == pfs.CommitState_FINISHED {
@@ -1227,10 +1158,13 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	if userCommit == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
 	}
-	if userCommit.Repo == nil {
+	if userCommit.Branch == nil {
+		return nil, errors.Errorf("cannot resolve commit with no branch")
+	}
+	if userCommit.Branch.Repo == nil {
 		return nil, errors.Errorf("cannot resolve commit with no repo")
 	}
-	if userCommit.ID == "" {
+	if userCommit.ID == "" && userCommit.Branch.Name == "" {
 		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
 	}
 	commit := proto.Clone(userCommit).(*pfs.Commit) // back up user commit, for error reporting
@@ -1242,25 +1176,30 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		return nil, err
 	}
 
-	// Keep track of the commit branch, in case it isn't set in the commitInfo already
-	var commitBranch *pfs.Branch
-	// Check if commit.ID is already a commit ID (i.e. a UUID).
-	if !uuid.IsUUIDWithoutDashes(commit.ID) {
-		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
+	// Now that ancestry has been parsed out, check if the ID is a branch name
+	if commit.ID != "" && !uuid.IsUUIDWithoutDashes(commit.ID) {
+		if commit.Branch.Name != "" {
+			return nil, errors.Errorf("invalid commit ID given with a branch (%s@%s): %s\n", commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+		}
+		commit.Branch.Name = commit.ID
+		commit.ID = ""
+	}
+
+	// If commit.ID is unspecified, get it from the branch head
+	if commit.ID == "" {
+		branches := d.branches(commit.Branch.Repo.Name).ReadWrite(stm)
 		branchInfo := &pfs.BranchInfo{}
-		// See if we are given a branch
-		if err := branches.Get(commit.ID, branchInfo); err != nil {
+		if err := branches.Get(commit.Branch.Name, branchInfo); err != nil {
 			return nil, err
 		}
 		if branchInfo.Head == nil {
 			return nil, pfsserver.ErrNoHead{branchInfo.Branch}
 		}
-		commitBranch = branchInfo.Branch
 		commit.ID = branchInfo.Head.ID
 	}
 
 	// Traverse commits' parents until you've reached the right ancestor
-	commits := d.commits(commit.Repo.Name).ReadWrite(stm)
+	commits := d.commits(commit.Branch.Repo.Name).ReadWrite(stm)
 	commitInfo := &pfs.CommitInfo{}
 	if ancestryLength >= 0 {
 		for i := 0; i <= ancestryLength; i++ {
@@ -1299,24 +1238,54 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 			commit = cis[i%len(cis)].ParentCommit
 		}
 	}
-	if commitInfo.Branch == nil {
-		commitInfo.Branch = commitBranch
-	}
+	userCommit.Branch = proto.Clone(commitInfo.Commit.Branch).(*pfs.Branch)
 	userCommit.ID = commitInfo.Commit.ID
 	return commitInfo, nil
 }
 
-func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, cb func(*pfs.CommitInfo) error) error {
+// getCommit is like inspectCommit, without the blocking.
+// It does not add the size to the CommitInfo
+func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	if commit.Branch.Repo.Name == fileSetsRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commit,
+			Description: "FileSet - Virtual Commit",
+			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return cinfo, nil
+	}
+	if commit == nil {
+		return nil, errors.Errorf("cannot inspect nil commit")
+	}
+
+	pachClient := d.env.GetPachClient(ctx)
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Branch.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		return nil, err
+	}
+
+	// Check if the commitID is a branch name
+	var commitInfo *pfs.CommitInfo
+	if err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		var err error
+		commitInfo, err = d.resolveCommit(stm, commit)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return commitInfo, nil
+}
+
+func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, cb func(*pfs.CommitInfo) error) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
 
-	ctx := pachClient.Ctx()
+	pachClient := d.env.GetPachClient(ctx)
 	if err := authserver.CheckRepoIsAuthorized(pachClient, repo.Name, auth.Permission_REPO_LIST_COMMIT); err != nil {
 		return err
 	}
-	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
+	if from != nil && from.Branch.Repo.Name != repo.Name || to != nil && to.Branch.Repo.Name != repo.Name {
 		return errors.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
 
@@ -1333,13 +1302,13 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		_, err := d.inspectCommit(pachClient, from, pfs.CommitState_STARTED)
+		_, err := d.inspectCommit(ctx, from, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		_, err := d.inspectCommit(pachClient, to, pfs.CommitState_STARTED)
+		_, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
 			if isNoHeadErr(err) {
 				return nil
@@ -1353,16 +1322,15 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		number = math.MaxUint64
 	}
 	commits := d.commits(repo.Name).ReadOnly(ctx)
-	ci := &pfs.CommitInfo{}
 
 	if from != nil && to == nil {
 		return errors.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp (or reversed if so requested.)
-		opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+		opts := col.DefaultOptions()
 		if reverse {
-			opts.Order = etcd.SortAscend
+			opts.Order = col.SortAscend
 		}
 		// we hold onto a revisions worth of cis so that we can sort them by provenance
 		var cis []*pfs.CommitInfo
@@ -1386,8 +1354,9 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 			cis = nil
 			return nil
 		}
+		ci := &pfs.CommitInfo{}
 		lastRev := int64(-1)
-		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
+		if err := commits.ListRev(ci, opts, func(key string, createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -1402,6 +1371,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		}); err != nil {
 			return err
 		}
+
 		// Call sendCis one last time to send whatever's pending in 'cis'
 		if err := sendCis(); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return err
@@ -1446,17 +1416,17 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// pfs.CommitRange.Lower, and is an ancestor of 'upper'
 	deleteCommit := func(lower, upper *pfs.Commit) error {
 		// Validate arguments
-		if lower.Repo.Name != upper.Repo.Name {
-			return errors.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
+		if lower.Branch.Repo.Name != upper.Branch.Repo.Name {
+			return errors.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Branch.Repo.Name, upper.Branch.Repo.Name)
 		}
-		affectedRepos[lower.Repo.Name] = struct{}{}
-		commits := d.commits(lower.Repo.Name).ReadWrite(txnCtx.Stm)
+		affectedRepos[lower.Branch.Repo.Name] = struct{}{}
+		commits := d.commits(lower.Branch.Repo.Name).ReadWrite(txnCtx.Stm)
 
 		// delete commits on path upper -> ... -> lower (traverse ParentCommits)
 		commit := upper
 		for {
 			if commit == nil {
-				return errors.Errorf("encountered nil parent commit in %s/%s...%s", lower.Repo.Name, lower.ID, upper.ID)
+				return errors.Errorf("encountered nil parent commit in %s@%s...%s", lower.Branch.Repo.Name, lower.ID, upper.ID)
 			}
 			// Store commitInfo in 'deleted' and remove commit from etcd
 			commitInfo := &pfs.CommitInfo{}
@@ -1485,7 +1455,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 
 	// 3) Validate the commit (check that it has no provenance) and delete it
 	if provenantOnInput(userCommitInfo.Provenance) {
-		return errors.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
+		return errors.Errorf("cannot delete the commit \"%s@%s\" because it has non-empty provenance", userCommit.Branch.Repo.Name, userCommit.ID)
 	}
 	deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)
 
@@ -1511,7 +1481,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 
 			// fix provCommit's subvenance
 			provCI := &pfs.CommitInfo{}
-			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
+			if err := d.commits(prov.Commit.Branch.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
 				subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
 			nextSubvRange:
 				for subvFrom, subv := range provCI.Subvenance {
@@ -1524,8 +1494,8 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 						curInfo, ok := deleted[cur]
 						if !ok {
 							curInfo = &pfs.CommitInfo{}
-							if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
-								return errors.Wrapf(err, "error reading commitInfo for subvenant \"%s/%s\"", subv.Lower.Repo.Name, cur)
+							if err := d.commits(subv.Lower.Branch.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
+								return errors.Wrapf(err, "error reading commitInfo for subvenant \"%s@%s\"", subv.Lower.Branch.Repo.Name, cur)
 							}
 						}
 						if curInfo.ParentCommit == nil {
@@ -1563,7 +1533,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				provCI.Subvenance = provCI.Subvenance[:subvTo]
 				return nil
 			}); err != nil {
-				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s/%s", prov.Commit.Repo.Name, prov.Commit.ID)
+				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s@%s", prov.Commit.Branch.Repo.Name, prov.Commit.ID)
 			}
 		}
 	}
@@ -1593,7 +1563,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 		// BFS upwards through graph for all non-deleted children
 		var next *pfs.Commit                            // next vertex to search
 		queue := []*pfs.Commit{lowestCommitInfo.Commit} // queue of vertices to explore
-		liveChildren := make(map[string]struct{})       // live children discovered so far
+		liveChildren := make(map[string]string)         // live children discovered so far
 		for len(queue) > 0 {
 			next, queue = queue[0], queue[1:]
 			if visited[next.ID] {
@@ -1602,7 +1572,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			visited[next.ID] = true
 			nextInfo, ok := deleted[next.ID]
 			if !ok {
-				liveChildren[next.ID] = struct{}{}
+				liveChildren[next.ID] = next.Branch.Name
 				continue
 			}
 			queue = append(queue, nextInfo.ChildCommits...)
@@ -1610,7 +1580,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 
 		// Point all non-deleted children at the first valid parent (or nil),
 		// and point first non-deleted parent at all non-deleted children
-		commits := d.commits(deletedInfo.Commit.Repo.Name).ReadWrite(txnCtx.Stm)
+		commits := d.commits(deletedInfo.Commit.Branch.Repo.Name).ReadWrite(txnCtx.Stm)
 		parent := lowestCommitInfo.ParentCommit
 		for child := range liveChildren {
 			commitInfo := &pfs.CommitInfo{}
@@ -1631,11 +1601,11 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 					if _, ok := deleted[child.ID]; ok {
 						continue
 					}
-					liveChildren[child.ID] = struct{}{}
+					liveChildren[child.ID] = child.Branch.Name
 				}
 				commitInfo.ChildCommits = make([]*pfs.Commit, 0, len(liveChildren))
-				for child := range liveChildren {
-					commitInfo.ChildCommits = append(commitInfo.ChildCommits, client.NewCommit(parent.Repo.Name, child))
+				for child, branchName := range liveChildren {
+					commitInfo.ChildCommits = append(commitInfo.ChildCommits, client.NewCommit(parent.Branch.Repo.Name, branchName, child))
 				}
 				return nil
 			}); err != nil {
@@ -1676,11 +1646,11 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			}); err != nil && !col.IsErrNotFound(err) {
 				// If err is NotFound, branch is in downstream provenance but
 				// doesn't exist yet--nothing to update
-				return errors.Wrapf(err, "error updating branch %v/%v", brokenBranch.Repo.Name, brokenBranch.Name)
+				return errors.Wrapf(err, "error updating branch %v@%v", brokenBranch.Repo.Name, brokenBranch.Name)
 			}
 
 			// Update repo size if this is the master branch
-			if branchInfo.Name == "master" {
+			if branchInfo.Branch.Name == "master" {
 				if branchInfo.Head != nil {
 					headCommitInfo, err := d.resolveCommit(txnCtx.Stm, branchInfo.Head)
 					if err != nil {
@@ -1716,7 +1686,7 @@ func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
 	provenanceCount := len(provenance)
 	for _, p := range provenance {
 		// in particular, we want to exclude provenance on the spec repo (used e.g. for spouts)
-		if p.Commit.Repo.Name == ppsconsts.SpecRepo {
+		if p.Commit.Branch.Repo.Name == ppsconsts.SpecRepo {
 			provenanceCount--
 			break
 		}
@@ -1724,17 +1694,17 @@ func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
 	return provenanceCount > 0
 }
 
-func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance, from *pfs.Commit, state pfs.CommitState, cb func(*pfs.CommitInfo) error) error {
+func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance, from *pfs.Commit, state pfs.CommitState, cb func(*pfs.CommitInfo) error) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
-	if from != nil && from.Repo.Name != repo.Name {
+	if from != nil && from.Branch.Repo.Name != repo.Name {
 		return errors.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
 
-	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
-	newCommitWatcher, err := commits.Watch(watch.WithSort(etcd.SortByCreateRevision, etcd.SortAscend))
+	commits := d.commits(repo.Name).ReadOnly(ctx)
+	newCommitWatcher, err := commits.Watch(watch.WithSort(col.SortByCreateRevision, col.SortAscend))
 	if err != nil {
 		return err
 	}
@@ -1772,23 +1742,20 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 				}
 			}
 
-			if commitInfo.Branch != nil {
-				// if branch is provided, make sure the commit was created on that branch
-				if branch != "" && commitInfo.Branch.Name != branch {
-					continue
-				}
-				// For now, we don't want stats branches to have jobs triggered on them
-				// and this is the simplest way to achieve that. Once we have labels,
-				// we'll use those instead for a more principled approach.
-				// TODO: Address this sooner rather than later...
-				if commitInfo.Branch.Name == "stats" {
-					continue
-				}
+			if branch != "" && commitInfo.Commit.Branch.Name != branch {
+				continue
+			}
+			// For now, we don't want stats branches to have jobs triggered on them
+			// and this is the simplest way to achieve that. Once we have labels,
+			// we'll use those instead for a more principled approach.
+			// TODO: Address this sooner rather than later... - should be obsolete once we have stats in a system repo
+			if commitInfo.Commit.Branch.Name == "stats" {
+				continue
 			}
 
 			// We don't want to include the `from` commit itself
 			if !(seen[commitID] || (from != nil && from.ID == commitID)) {
-				commitInfo, err := d.inspectCommit(pachClient, client.NewCommit(repo.Name, commitID), state)
+				commitInfo, err := d.inspectCommit(ctx, client.NewCommit(repo.Name, commitInfo.Commit.Branch.Name, commitID), state)
 				if err != nil {
 					return err
 				}
@@ -1803,7 +1770,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	}
 }
 
-func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, cb func(*pfs.CommitInfo) error) error {
+func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, cb func(*pfs.CommitInfo) error) error {
 	if len(fromCommits) == 0 {
 		return errors.Errorf("fromCommits cannot be empty")
 	}
@@ -1814,7 +1781,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	// processed so far
 	commitsToWatch := make(map[string]*pfs.Commit)
 	for i, commit := range fromCommits {
-		commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
@@ -1858,11 +1825,11 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			}
 			watchedCommits[key] = true
 			if len(toRepoMap) > 0 {
-				if _, ok := toRepoMap[commitToWatch.Repo.Name]; !ok {
+				if _, ok := toRepoMap[commitToWatch.Branch.Repo.Name]; !ok {
 					continue
 				}
 			}
-			finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
+			finishedCommitInfo, err := d.inspectCommit(ctx, commitToWatch, pfs.CommitState_FINISHED)
 			if err != nil {
 				if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 					continue // just skip this
@@ -1885,7 +1852,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	// Now wait for the root commits to finish. These are not passed to `f`
 	// because it's expecting to just get downstream commits.
 	for _, commit := range fromCommits {
-		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
+		_, err := d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
 		if err != nil {
 			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 				continue // just skip this
@@ -1897,9 +1864,8 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	return nil
 }
 
-func (d *driver) clearCommit(pachClient *client.APIClient, commit *pfs.Commit) error {
-	ctx := pachClient.Ctx()
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
+	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -1936,18 +1902,28 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	if err := ancestry.ValidateName(branch.Name); err != nil {
 		return err
 	}
+
+	var ci *pfs.CommitInfo
+	// resolve the given commit
+	if commit != nil {
+		ci, err = d.resolveCommit(txnCtx.Stm, commit)
+		if err != nil {
+			// possible that branch exists but has no head commit. This is fine, but
+			// branchInfo.Head must also be nil
+			if !isNoHeadErr(err) {
+				return errors.Wrapf(err, "unable to inspect %s@%s", commit.Branch.Repo.Name, commit.ID)
+			}
+			commit = nil
+		}
+	}
+
 	// The request must do exactly one of:
 	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
 	// 2) re-pointing 'branch' at a new commit
-	var ci *pfs.CommitInfo
 	if commit != nil {
 		// Determine if this is a provenance update
-		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
+		sameTarget := branch.Repo.Name == commit.Branch.Repo.Name && (branch.Name == commit.Branch.Name || branch.Name == commit.ID)
 		if !sameTarget && provenance != nil {
-			ci, err = d.resolveCommit(txnCtx.Stm, commit)
-			if err != nil {
-				return err
-			}
 			for _, provBranch := range provenance {
 				provBranchInfo := &pfs.BranchInfo{}
 				if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
@@ -1958,24 +1934,11 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 					return err
 				}
 				for _, provC := range ci.Provenance {
-					if proto.Equal(provBranch, provC.Branch) && !proto.Equal(provBranchInfo.Head, provC.Commit) {
-						return errors.Errorf("cannot create branch %q with commit %q as head because commit has \"%s/%s\" as provenance but that commit is not the head of branch \"%s/%s\"", branch.Name, commit.ID, provC.Commit.Repo.Name, provC.Commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
+					if proto.Equal(provBranch, provC.Commit.Branch) && !proto.Equal(provBranchInfo.Head, provC.Commit) {
+						return errors.Errorf("cannot create branch %q with commit %q as head because commit has \"%s@%s\" as provenance but that commit is not the head of branch \"%s@%s\"", branch.Name, commit.ID, provC.Commit.Branch.Repo.Name, provC.Commit.ID, provC.Commit.Branch.Repo.Name, provC.Commit.Branch.Name)
 					}
 				}
 			}
-		}
-	}
-
-	// if 'commit' is a branch, resolve it
-	if commit != nil {
-		_, err = d.resolveCommit(txnCtx.Stm, commit) // if 'commit' is a branch, resolve it
-		if err != nil {
-			// possible that branch exists but has no head commit. This is fine, but
-			// branchInfo.Head must also be nil
-			if !isNoHeadErr(err) {
-				return errors.Wrapf(err, "unable to inspect %s@%s", commit.Repo.Name, commit.ID)
-			}
-			commit = nil
 		}
 	}
 
@@ -1983,7 +1946,6 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm)
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Upsert(branch.Name, branchInfo, func() error {
-		branchInfo.Name = branch.Name // set in case 'branch' is new
 		branchInfo.Branch = branch
 		branchInfo.Head = commit
 		branchInfo.DirectProvenance = nil
@@ -2004,11 +1966,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
-		if branch.Name == "master" && commit != nil {
-			ci, err := d.resolveCommit(txnCtx.Stm, commit)
-			if err != nil {
-				return err
-			}
+		if branch.Name == "master" && ci != nil {
 			repoInfo.SizeBytes = ci.SizeBytes
 		}
 		return nil
@@ -2056,7 +2014,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		// If we have a commit use it to set head of this branch info
 		if ci != nil {
 			for _, provC := range ci.Provenance {
-				if proto.Equal(provC.Branch, branchInfo.Branch) {
+				if proto.Equal(provC.Commit.Branch, branchInfo.Branch) {
 					branchInfo.Head = provC.Commit
 				}
 			}
@@ -2084,12 +2042,6 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// current HEAD commit has old provenance
 	var triggeredBranches []*pfs.Branch
 	if commit != nil {
-		if ci == nil {
-			ci, err = d.resolveCommit(txnCtx.Stm, commit)
-			if err != nil {
-				return err
-			}
-		}
 		if ci.Finished != nil {
 			triggeredBranches, err = d.triggerCommit(txnCtx, ci.Commit)
 			if err != nil {
@@ -2128,19 +2080,20 @@ func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Br
 	return result, nil
 }
 
-func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, reverse bool) ([]*pfs.BranchInfo, error) {
+func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo, reverse bool) ([]*pfs.BranchInfo, error) {
 	// Validate arguments
 	if repo == nil {
 		return nil, errors.New("repo cannot be nil")
 	}
 
+	pachClient := d.env.GetPachClient(ctx)
 	if err := authserver.CheckRepoIsAuthorized(pachClient, repo.Name, auth.Permission_REPO_LIST_BRANCH); err != nil {
 		return nil, err
 	}
 
 	// Make sure that the repo exists
 	if repo.Name != "" {
-		err := d.txnEnv.WithReadContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
+		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 			_, err := d.inspectRepo(txnCtx, repo, !includeAuth)
 			return err
 		})
@@ -2150,11 +2103,9 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	}
 
 	var result []*pfs.BranchInfo
-	branchInfo := &pfs.BranchInfo{}
-	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
-	opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+	opts := col.DefaultOptions()
 	if reverse {
-		opts.Order = etcd.SortAscend
+		opts.Order = col.SortAscend
 	}
 	var bis []*pfs.BranchInfo
 	sendBis := func() {
@@ -2167,7 +2118,9 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 		bis = nil
 	}
 	lastRev := int64(-1)
-	if err := branches.ListRev(branchInfo, &opts, func(branch string, createRev int64) error {
+	branchInfo := &pfs.BranchInfo{}
+	branches := d.branches(repo.Name).ReadOnly(ctx)
+	if err := branches.ListRev(branchInfo, opts, func(key string, createRev int64) error {
 		if createRev != lastRev {
 			sendBis()
 			lastRev = createRev
@@ -2240,23 +2193,14 @@ func isNoHeadErr(err error) bool {
 	return errors.As(err, &pfsserver.ErrNoHead{})
 }
 
-func commitKey(commit *pfs.Commit) string {
-	return fmt.Sprintf("%s/%s", commit.Repo.Name, commit.ID)
-}
-
-func branchKey(branch *pfs.Branch) string {
-	return fmt.Sprintf("%s/%s", branch.Repo.Name, branch.Name)
-}
-
 func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, stm col.STM) error {
 	if provBranch.Repo.Name == branchInfo.Branch.Repo.Name && provBranch.Name == branchInfo.Branch.Name {
-		return errors.Errorf("provenance loop, branch %s/%s cannot be provenance for itself", provBranch.Repo.Name, provBranch.Name)
+		return errors.Errorf("provenance loop, branch %s@%s cannot be provenant on itself", provBranch.Repo.Name, provBranch.Name)
 	}
 	add(&branchInfo.Provenance, provBranch)
 	provBranchInfo := &pfs.BranchInfo{}
 	if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
 		// Set provBranch, we may be creating this branch for the first time
-		provBranchInfo.Name = provBranch.Name
 		provBranchInfo.Branch = provBranch
 		add(&provBranchInfo.Subvenance, branchInfo.Branch)
 		return nil
@@ -2291,7 +2235,7 @@ func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pf
 func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth)
+	repoInfos, err := d.listRepo(txnCtx.ClientContext, !includeAuth)
 	if err != nil {
 		return err
 	}

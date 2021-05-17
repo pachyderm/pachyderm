@@ -26,18 +26,18 @@ func requireCommitResponse(t *testing.T, response *transaction.TransactionRespon
 // Helper functions for tests below
 func provStr(i interface{}) interface{} {
 	cp := i.(*pfs.CommitProvenance)
-	return fmt.Sprintf("%s@%s (%s)", cp.Commit.Repo.Name, cp.Commit.ID, cp.Branch.Name)
+	return fmt.Sprintf("%s@%s=%s", cp.Commit.Branch.Repo.Name, cp.Commit.Branch.Name, cp.Commit.ID)
 }
 
 func subvStr(i interface{}) interface{} {
 	cr := i.(*pfs.CommitRange)
-	return fmt.Sprintf("%s@%s:%s@%s", cr.Lower.Repo.Name, cr.Lower.ID, cr.Upper.Repo.Name, cr.Upper.ID)
+	return fmt.Sprintf("%s@%s=%s:%s@%s=%s", cr.Lower.Branch.Repo.Name, cr.Lower.Branch.Name, cr.Lower.ID, cr.Upper.Branch.Repo.Name, cr.Upper.Branch.Name, cr.Upper.ID)
 }
 
 func expectProv(commits ...*pfs.Commit) []interface{} {
 	result := []interface{}{}
 	for _, commit := range commits {
-		result = append(result, provStr(client.NewCommitProvenance(commit.Repo.Name, "master", commit.ID)))
+		result = append(result, provStr(client.NewCommitProvenance(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)))
 	}
 	return result
 }
@@ -163,13 +163,12 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, err)
 
 		commit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
-			Branch: "master",
-			Parent: client.NewCommit("foo", ""),
+			Branch: client.NewBranch("foo", "master"),
 		})
 		require.NoError(t, err)
 
 		_, err = txnClient.PfsAPIClient.FinishCommit(txnClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: client.NewCommit("foo", "master"),
+			Commit: client.NewCommit("foo", "master", ""),
 		})
 		require.NoError(t, err)
 
@@ -216,13 +215,13 @@ func TestTransactions(suite *testing.T) {
 		branchB := "bar"
 
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		require.NoError(t, env.PachClient.CreateBranch(repo, branchA, "", nil))
-		require.NoError(t, env.PachClient.CreateBranch(repo, branchB, "", nil))
+		require.NoError(t, env.PachClient.CreateBranch(repo, branchA, "", "", nil))
+		require.NoError(t, env.PachClient.CreateBranch(repo, branchB, "", "", nil))
 
 		txnClient := env.PachClient.WithTransaction(txn)
 		commit, err := txnClient.StartCommit(repo, branchB)
 		require.NoError(t, err)
-		require.NoError(t, txnClient.CreateBranch(repo, branchA, branchB, nil))
+		require.NoError(t, txnClient.CreateBranch(repo, branchA, branchB, "", nil))
 
 		info, err := txnClient.FinishTransaction(txn)
 		require.NoError(t, err)
@@ -231,11 +230,11 @@ func TestTransactions(suite *testing.T) {
 		requireCommitResponse(t, info.Responses[0], commit)
 		requireEmptyResponse(t, info.Responses[1])
 
-		commitInfo, err := env.PachClient.InspectCommit(repo, branchA)
+		commitInfo, err := env.PachClient.InspectCommit(repo, branchA, "")
 		require.NoError(t, err)
 		require.Equal(t, commitInfo.Commit.ID, commit.ID)
 
-		commitInfo, err = env.PachClient.InspectCommit(repo, branchB)
+		commitInfo, err = env.PachClient.InspectCommit(repo, branchB, "")
 		require.NoError(t, err)
 		require.Equal(t, commitInfo.Commit.ID, commit.ID)
 	})
@@ -276,12 +275,12 @@ func TestTransactions(suite *testing.T) {
 
 		commit1, err := txnClient.StartCommit("foo", "master")
 		require.NoError(t, err)
-		err = txnClient.FinishCommit("foo", "master")
+		err = txnClient.FinishCommit("foo", "master", "")
 		require.NoError(t, err)
 
 		commit2, err := txnClient.StartCommit("foo", "master")
 		require.NoError(t, err)
-		err = txnClient.FinishCommit("foo", "master")
+		err = txnClient.FinishCommit("foo", "master", "")
 		require.NoError(t, err)
 
 		require.NotEqual(t, commit1, commit2)
@@ -313,9 +312,9 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo("D"))
 		require.NoError(t, env.PachClient.CreateRepo("E"))
 
-		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{client.NewBranch("A", "master")}))
-		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", []*pfs.Branch{client.NewBranch("B", "master"), client.NewBranch("E", "master")}))
-		require.NoError(t, env.PachClient.CreateBranch("D", "master", "", []*pfs.Branch{client.NewBranch("C", "master")}))
+		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewBranch("A", "master")}))
+		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewBranch("B", "master"), client.NewBranch("E", "master")}))
+		require.NoError(t, env.PachClient.CreateBranch("D", "master", "", "", []*pfs.Branch{client.NewBranch("C", "master")}))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -324,10 +323,10 @@ func TestTransactions(suite *testing.T) {
 
 		commitA, err := txnClient.StartCommit("A", "master")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishCommit("A", "master"))
+		require.NoError(t, txnClient.FinishCommit("A", "master", ""))
 		commitE, err := txnClient.StartCommit("E", "master")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishCommit("E", "master"))
+		require.NoError(t, txnClient.FinishCommit("E", "master", ""))
 
 		info, err := txnClient.FinishTransaction(txn)
 		require.NoError(t, err)
@@ -338,27 +337,27 @@ func TestTransactions(suite *testing.T) {
 		requireCommitResponse(t, info.Responses[2], commitE)
 		requireEmptyResponse(t, info.Responses[3])
 
-		commitInfos, err := env.PachClient.ListCommit("A", "", "", 0)
+		commitInfos, err := env.PachClient.ListCommit("A", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoA := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("B", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommit("B", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoB := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("C", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommit("C", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoC := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("D", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommit("D", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoD := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("E", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommit("E", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoE := commitInfos[0]
@@ -402,16 +401,16 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, txnClient.CreateRepo("D"))
 		require.NoError(t, txnClient.CreateRepo("E"))
 
-		require.NoError(t, txnClient.CreateBranch("B", "master", "", []*pfs.Branch{client.NewBranch("A", "master")}))
-		require.NoError(t, txnClient.CreateBranch("C", "master", "", []*pfs.Branch{client.NewBranch("B", "master"), client.NewBranch("E", "master")}))
-		require.NoError(t, txnClient.CreateBranch("D", "master", "", []*pfs.Branch{client.NewBranch("C", "master")}))
+		require.NoError(t, txnClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewBranch("A", "master")}))
+		require.NoError(t, txnClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewBranch("B", "master"), client.NewBranch("E", "master")}))
+		require.NoError(t, txnClient.CreateBranch("D", "master", "", "", []*pfs.Branch{client.NewBranch("C", "master")}))
 
 		commitA, err := txnClient.StartCommit("A", "master")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishCommit("A", "master"))
+		require.NoError(t, txnClient.FinishCommit("A", "master", ""))
 		commitE, err := txnClient.StartCommit("E", "master")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishCommit("E", "master"))
+		require.NoError(t, txnClient.FinishCommit("E", "master", ""))
 
 		info, err := txnClient.FinishTransaction(txn)
 		require.NoError(t, err)
@@ -422,27 +421,27 @@ func TestTransactions(suite *testing.T) {
 		requireCommitResponse(t, info.Responses[10], commitE)
 		requireEmptyResponse(t, info.Responses[11])
 
-		commitInfos, err := env.PachClient.ListCommit("A", "", "", 0)
+		commitInfos, err := env.PachClient.ListCommit("A", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoA := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("B", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommit("B", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoB := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("C", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommit("C", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoC := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("D", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommit("D", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoD := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("E", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommit("E", "", "", "", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoE := commitInfos[0]
@@ -473,13 +472,13 @@ func TestTransactions(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 
-		var branches []*pfs.BranchInfo
+		var branchInfos []*pfs.BranchInfo
 		var info *transaction.TransactionInfo
 		var err error
 
-		getBranchNames := func(branches []*pfs.BranchInfo) (result []string) {
-			for _, branch := range branches {
-				result = append(result, branch.Name)
+		getBranchNames := func(branchInfos []*pfs.BranchInfo) (result []string) {
+			for _, branchInfo := range branchInfos {
+				result = append(result, branchInfo.Branch.Name)
 			}
 			return result
 		}
@@ -505,8 +504,8 @@ func TestTransactions(suite *testing.T) {
 
 		// Two independent operations
 		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-			require.NoError(t, builder.CreateBranch("repoA", "master", "", []*pfs.Branch{}))
-			require.NoError(t, builder.CreateBranch("repoA", "branchA", "master", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateBranch("repoA", "master", "", "", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateBranch("repoA", "branchA", "master", "", []*pfs.Branch{}))
 			return nil
 		})
 		require.NoError(t, err)
@@ -514,18 +513,18 @@ func TestTransactions(suite *testing.T) {
 		require.Equal(t, 2, len(info.Requests))
 		require.Equal(t, 2, len(info.Responses))
 
-		branches, err = env.PachClient.ListBranch("repoA")
+		branchInfos, err = env.PachClient.ListBranch("repoA")
 		require.NoError(t, err)
 
-		require.ElementsEqual(t, []string{"master", "branchA"}, getBranchNames(branches))
+		require.ElementsEqual(t, []string{"master", "branchA"}, getBranchNames(branchInfos))
 
 		// Some dependent operations
 		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 			require.NoError(t, builder.CreateRepo("repoB"))
 			_, err := builder.StartCommit("repoB", "master")
 			require.NoError(t, err)
-			require.NoError(t, builder.CreateBranch("repoB", "branchA", "master", []*pfs.Branch{}))
-			require.NoError(t, builder.CreateBranch("repoB", "branchB", "branchA", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateBranch("repoB", "branchA", "master", "", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateBranch("repoB", "branchB", "branchA", "", []*pfs.Branch{}))
 			return nil
 		})
 		require.NoError(t, err)
@@ -533,14 +532,14 @@ func TestTransactions(suite *testing.T) {
 		require.Equal(t, 4, len(info.Requests))
 		require.Equal(t, 4, len(info.Responses))
 
-		branches, err = env.PachClient.ListBranch("repoB")
+		branchInfos, err = env.PachClient.ListBranch("repoB")
 		require.NoError(t, err)
 
-		require.ElementsEqual(t, []string{"master", "branchA", "branchB"}, getBranchNames(branches))
+		require.ElementsEqual(t, []string{"master", "branchA", "branchB"}, getBranchNames(branchInfos))
 
-		for _, x := range branches {
-			if x.Name == "master" {
-				require.Equal(t, x.Head, info.Responses[1].Commit)
+		for _, branchInfo := range branchInfos {
+			if branchInfo.Branch.Name == "master" {
+				require.Equal(t, branchInfo.Head, info.Responses[1].Commit)
 			}
 		}
 	})
@@ -567,12 +566,12 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	c.PutFile(repo, "master", "foo", strings.NewReader("bar"))
-	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	c.PutFile(repo, "master", "", "foo", strings.NewReader("bar"))
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repo, "master", "")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "foo", &buf))
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Branch.Repo.Name, commitInfos[0].Commit.Branch.Name, commitInfos[0].Commit.ID, "foo", &buf))
 	require.Equal(t, "bar", buf.String())
 }

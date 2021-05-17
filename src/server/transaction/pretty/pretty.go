@@ -78,11 +78,11 @@ func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.Tr
 	} else {
 		commit = response.Commit.ID
 	}
-	return fmt.Sprintf("start commit %s@%s (%s)", request.Parent.Repo.Name, request.Branch, commit)
+	return fmt.Sprintf("start commit %s@%s (%s)", request.Branch.Repo.Name, request.Branch.Name, commit)
 }
 
 func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
-	return fmt.Sprintf("finish commit %s@%s", request.Commit.Repo.Name, request.Commit.ID)
+	return fmt.Sprintf("finish commit %s@%s", request.Commit.Branch.Repo.Name, request.Commit.ID)
 }
 
 // func sprintSquashCommit(request *pfs.SquashCommitRequest) string {

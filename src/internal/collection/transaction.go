@@ -37,8 +37,6 @@ type STM interface {
 	Get(key string) (string, error)
 	// Put adds a value for a key to the write set.
 	Put(key, val string, ttl int64, ptr uintptr) error
-	// Rev returns the revision of a key in the read set.
-	Rev(key string) int64
 	// Del deletes a key.
 	Del(key string)
 	// TTL returns the remaining time to live for 'key', or 0 if 'key' has no TTL
@@ -281,7 +279,7 @@ func (s *stm) commit() *v3.TxnResponse {
 				err, len(cmps), len(writes)),
 		})
 	} else if err != nil {
-		panic(stmError{err})
+		panic(stmError{errors.EnsureStack(err)})
 	}
 	if txnresp.Succeeded {
 		return txnresp
@@ -307,7 +305,7 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 	defer tracing.FinishAnySpan(span)
 	resp, err := s.client.Get(ctx, key, s.getOpts...)
 	if err != nil {
-		panic(stmError{err})
+		panic(stmError{errors.EnsureStack(err)})
 	}
 	s.rset[key] = resp
 	return resp
@@ -396,11 +394,6 @@ func (s *stmSerializable) fetch(key string) *v3.GetResponse {
 		}
 	}
 	return resp
-}
-
-func (s *stmSerializable) Rev(key string) int64 {
-	s.Get(key)
-	return s.stm.Rev(key)
 }
 
 func (s *stmSerializable) gets() ([]string, []v3.Op) {
@@ -504,7 +497,7 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 	defer tracing.FinishAnySpan(span)
 	leaseResp, err := s.client.TimeToLive(ctx, leaseID)
 	if err != nil {
-		panic(stmError{err})
+		panic(stmError{errors.EnsureStack(err)})
 	}
 	s.ttlset[key] = leaseResp.TTL
 	for _, key := range leaseResp.Keys {

@@ -68,10 +68,10 @@ func TestPrometheusStats(t *testing.T) {
 		// We want several datums per job so that we have multiple data points
 		// per job time series
 		for j := 0; j < numDatums; j++ {
-			require.NoError(t, c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file%v", j), strings.NewReader("bar")))
+			require.NoError(t, c.PutFile(dataRepo, commit.Branch.Name, commit.ID, fmt.Sprintf("file%v", j), strings.NewReader("bar")))
 		}
 		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+		require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 		// Prometheus scrapes every 10s
 		// We run a new job outside this window so that we see a more organic
 		// time series
@@ -80,8 +80,8 @@ func TestPrometheusStats(t *testing.T) {
 	// Now write data that'll make the job fail
 	commit, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(dataRepo, commit.ID, "test", strings.NewReader("fail")))
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	require.NoError(t, c.PutFile(dataRepo, commit.Branch.Name, commit.ID, "test", strings.NewReader("fail")))
+	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
 	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
@@ -259,7 +259,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
 	// If the error exists, the stats commit will never close, and this will
 	// timeout

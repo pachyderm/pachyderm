@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -37,6 +38,7 @@ type ServiceEnv interface {
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
+	GetPostgresListener() *col.PostgresListener
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
 	Context() context.Context
@@ -94,6 +96,11 @@ type NonblockingServiceEnv struct {
 	// dbEg coordinates the initialization of dbClient (see pachdEg)
 	dbEg errgroup.Group
 
+	// listener is a special database client for listening for changes
+	listener *col.PostgresListener
+	// listenerEg coordinates the initialization of listener (see pachdEg)
+	listenerEg errgroup.Group
+
 	// ctx is the background context for the environment that will be canceled
 	// when the ServiceEnv is closed - this typically only happens for orderly
 	// shutdown in tests
@@ -127,6 +134,7 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env.etcdEg.Go(env.initEtcdClient)
 	env.clusterIdEg.Go(env.initClusterID)
 	env.dbEg.Go(env.initDBClient)
+	env.listenerEg.Go(env.initListener)
 	if env.config.LokiHost != "" && env.config.LokiPort != "" {
 		env.lokiClient = &loki.Client{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.config.LokiHost, env.config.LokiPort)),
@@ -255,6 +263,20 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
+func (env *NonblockingServiceEnv) initListener() error {
+	dsn := dbutil.GetDSN(
+		dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
+		dbutil.WithDBName(env.config.PostgresDBName),
+	)
+	return backoff.Retry(func() error {
+		// The PostgresListener is lazily initialized to avoid consuming too many
+		// postgres resources by having idle client connections, so construction
+		// can't fail
+		env.listener = col.NewPostgresListener(dsn)
+		return nil
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
 // GetPachClient returns a pachd client with the same authentication
 // credentials and cancellation as 'ctx' (ensuring that auth credentials are
 // propagated through downstream RPCs).
@@ -315,6 +337,19 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 	return env.dbClient
 }
 
+// GetPostgresListener returns the already constructed database client dedicated
+// for listen operations without modification. Note that this listener lazily
+// connects to the database on the first listen operation.
+func (env *NonblockingServiceEnv) GetPostgresListener() *col.PostgresListener {
+	if err := env.listenerEg.Wait(); err != nil {
+		panic(err)
+	}
+	if env.listener == nil {
+		panic("service env never constructed a postgres listener")
+	}
+	return env.listener
+}
+
 func (env *NonblockingServiceEnv) GetDexDB() dex_storage.Storage {
 	if err := env.dexDBEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
@@ -348,15 +383,9 @@ func (env *NonblockingServiceEnv) Close() error {
 	// Close all of the clients and return the first error.
 	// Loki client and kube client do not have a Close method.
 	eg := &errgroup.Group{}
-
-	// There is a race condition here, although not too serious because this only
-	// happens in tests and the errors should not propagate back to the clients -
-	// ideally we would close the client connection first and wait for the server
-	// RPCs to end before closing the underlying service connections (like
-	// postgres and etcd), so we don't get spurious errors. Instead, some RPCs may
-	// fail because of losing the database connection.
 	eg.Go(env.GetPachClient(context.Background()).Close)
 	eg.Go(env.GetEtcdClient().Close)
 	eg.Go(env.GetDBClient().Close)
+	eg.Go(env.GetPostgresListener().Close)
 	return eg.Wait()
 }

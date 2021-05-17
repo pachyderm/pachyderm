@@ -1,6 +1,6 @@
 package pfssync
 
-// TODO: Rewrite these tests to work with the new sync package in V2.
+// TODO(2.0 optional): Rewrite these tests to work with the new sync package in V2.
 //suite.Run("SyncPullPush", func(t *testing.T) {
 //	t.Parallel()
 //  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -76,9 +76,6 @@ package pfssync
 //})
 //
 //suite.Run("SyncFile", func(t *testing.T) {
-//	if os.Getenv("RUN_BAD_TESTS") == "" {
-//		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-//	}
 //	t.Parallel()
 //  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 //

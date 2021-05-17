@@ -1,4 +1,4 @@
-FROM golang:latest
+FROM golang:1.16.4
 
 WORKDIR /go/src/app
 COPY src/map.go .

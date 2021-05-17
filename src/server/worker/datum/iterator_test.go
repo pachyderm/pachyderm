@@ -23,9 +23,9 @@ func TestIterators(t *testing.T) {
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < 50; i++ {
-		require.NoError(t, c.PutFile(dataRepo, commit.ID, fmt.Sprintf("/foo%v", i), strings.NewReader("input")))
+		require.NoError(t, c.PutFile(dataRepo, commit.Branch.Name, commit.ID, fmt.Sprintf("/foo%v", i), strings.NewReader("input")))
 	}
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 	// Zero datums.
 	in0 := client.NewPFSInput(dataRepo, "!(**)")
 	in0.Pfs.Commit = commit.ID

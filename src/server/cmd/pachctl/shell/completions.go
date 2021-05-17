@@ -96,7 +96,7 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 	case repoPart:
 		return RepoCompletion(flag, text, maxCompletions)
 	case commitOrBranchPart:
-		bis, err := c.ListBranch(partialFile.Commit.Repo.Name)
+		bis, err := c.ListBranch(partialFile.Commit.Branch.Repo.Name)
 		if err != nil {
 			return nil, CacheNone
 		}
@@ -106,14 +106,14 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 				head = bi.Head.ID
 			}
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo.Name, bi.Branch.Name),
+				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Branch.Repo.Name, bi.Branch.Name),
 				Description: fmt.Sprintf("(%s)", head),
 			})
 		}
 		if len(result) == 0 {
 			// Master should show up even if it doesn't exist yet
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Repo.Name),
+				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Branch.Repo.Name),
 				Description: "(nil)",
 			})
 		}
@@ -146,14 +146,14 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 	case commitOrBranchPart:
 		return BranchCompletion(flag, text, maxCompletions)
 	case filePart:
-		if err := c.GlobFile(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
+		if err := c.GlobFile(partialFile.Commit.Branch.Repo.Name, partialFile.Commit.Branch.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
 				maxCompletions--
 			} else {
 				return errutil.ErrBreak
 			}
 			result = append(result, prompt.Suggest{
-				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Repo.Name, partialFile.Commit.ID, fi.File.Path),
+				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Branch.Repo.Name, partialFile.Commit.ID, fi.File.Path),
 			})
 			return nil
 		}); err != nil {

@@ -79,15 +79,15 @@ type apiServer struct {
 	clusterRoleBindingCache *keycache.Cache
 
 	// roleBindings is a collection of resource name -> role binding mappings.
-	roleBindings col.Collection
+	roleBindings col.EtcdCollection
 	// members is a collection of username -> groups mappings.
-	members col.Collection
+	members col.EtcdCollection
 	// groups is a collection of group -> usernames mappings.
-	groups col.Collection
+	groups col.EtcdCollection
 	// collection containing the auth config (under the key configKey)
-	authConfig col.Collection
+	authConfig col.EtcdCollection
 	// oidcStates  contains the set of OIDC nonces for requests that are in progress
-	oidcStates col.Collection
+	oidcStates col.EtcdCollection
 
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
@@ -141,7 +141,7 @@ func NewAuthServer(
 	watchesEnabled bool,
 ) (APIServer, error) {
 
-	authConfig := col.NewCollection(
+	authConfig := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(etcdPrefix, configKey),
 		nil,
@@ -149,7 +149,7 @@ func NewAuthServer(
 		nil,
 		nil,
 	)
-	roleBindings := col.NewCollection(
+	roleBindings := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(etcdPrefix, roleBindingsPrefix),
 		nil,
@@ -161,7 +161,7 @@ func NewAuthServer(
 		env:        env,
 		txnEnv:     txnEnv,
 		pachLogger: log.NewLogger("auth.API", env.Logger()),
-		members: col.NewCollection(
+		members: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),
 			nil,
@@ -169,7 +169,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		groups: col.NewCollection(
+		groups: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, groupsPrefix),
 			nil,
@@ -177,7 +177,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		oidcStates: col.NewCollection(
+		oidcStates: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(oidcAuthnPrefix),
 			nil,
@@ -198,8 +198,8 @@ func NewAuthServer(
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(env.Context(), authConfig, configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(env.Context(), roleBindings, clusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(env.Context(), authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(env.Context(), roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch()
@@ -265,7 +265,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	b.MaxInterval = 5 * time.Second
 	if err := backoff.Retry(func() error {
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
+			superUserTokenCol := col.NewEtcdCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
 			// TODO(msteffen): Don't use an empty key, as it will not be erased by
 			// superUserTokenCol.DeleteAll()
 			err := superUserTokenCol.Get("", &tokenProto)
@@ -299,6 +299,58 @@ func (a *apiServer) getEnterpriseTokenState(ctx context.Context) (enterpriseclie
 		return 0, errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get Enterprise status")
 	}
 	return resp.State, nil
+}
+
+// expiredEnterpriseCheck enforces that if the cluster's enterprise token is
+// expired, users cannot log in. The root token can be used to access the cluster.
+func (a *apiServer) expiredEnterpriseCheck(ctx context.Context, username string) error {
+	state, err := a.getEnterpriseTokenState(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
+	}
+
+	if state == enterpriseclient.State_ACTIVE {
+		return nil
+	}
+
+	if err = a.userHasExpiredClusterAccessCheck(ctx, username); err != nil {
+		return errors.Wrapf(err, "Pachyderm Enterprise is not active in this "+
+			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm "+
+			"auth is deactivated, only cluster admins can perform any operations)")
+	}
+	return nil
+}
+
+func (a *apiServer) userHasExpiredClusterAccessCheck(ctx context.Context, username string) error {
+	// Root User, PPS Master, and any Pipeline keep cluster access
+	if username == auth.RootUser || username == auth.PpsUser || strings.HasPrefix(username, auth.PipelinePrefix) {
+		return nil
+	}
+
+	// Any User with the Cluster Admin Role keeps cluster access
+	isAdmin, err := a.hasClusterRole(ctx, username, auth.ClusterAdminRole)
+	if err != nil {
+		return err
+	}
+	if !isAdmin {
+		return errors.Errorf("user: %v, is not priviledged to operate while Enterprise License is disabled", username)
+	}
+	return nil
+}
+
+func (a *apiServer) hasClusterRole(ctx context.Context, username string, role string) (bool, error) {
+	bindings, err := a.getClusterRoleBinding(ctx)
+	if err != nil {
+		return false, err
+	}
+	if roles, ok := bindings.Entries[username]; ok {
+		for r := range roles.Roles {
+			if r == role {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 // Activate implements the protobuf auth.Activate RPC
@@ -424,32 +476,6 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	return &auth.DeactivateResponse{}, nil
 }
 
-// expiredEnterpriseCheck enforces that if the cluster's enterprise token is
-// expired, users cannot log in. The root token can be used to access the cluster.
-func (a *apiServer) expiredEnterpriseCheck(ctx context.Context) error {
-	state, err := a.getEnterpriseTokenState(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
-	}
-
-	if state == enterpriseclient.State_ACTIVE {
-		return nil
-	}
-
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return err
-	}
-
-	if callerInfo.Subject == auth.RootUser || callerInfo.Subject == auth.PpsUser {
-		return nil
-	}
-
-	return errors.New("Pachyderm Enterprise is not active in this " +
-		"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
-		"auth is deactivated, users cannot log in)")
-}
-
 // Authenticate implements the protobuf auth.Authenticate RPC
 func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, retErr error) {
 	if err := a.isActive(ctx); err != nil {
@@ -459,11 +485,6 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-
-	// If the cluster's enterprise token is expired, login is disabled
-	if err := a.expiredEnterpriseCheck(ctx); err != nil {
-		return nil, err
-	}
 
 	// verify whatever credential the user has presented, and write a new
 	// Pachyderm token for the user that their credential belongs to
@@ -477,6 +498,10 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		username := auth.UserPrefix + email
+
+		if err := a.expiredEnterpriseCheck(ctx, username); err != nil {
+			return nil, err
+		}
 
 		// Generate a new Pachyderm token and write it
 		token, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
@@ -493,6 +518,10 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		username := auth.UserPrefix + claims.Email
+
+		if err := a.expiredEnterpriseCheck(ctx, username); err != nil {
+			return nil, err
+		}
 
 		// Sync the user's group membership from the groups claim
 		if err := a.syncGroupMembership(ctx, claims); err != nil {
@@ -1223,7 +1252,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	membersCol := a.members.ReadOnly(ctx)
 	groups := &auth.Groups{}
 	var users []string
-	if err := membersCol.List(groups, col.DefaultOptions, func(user string) error {
+	if err := membersCol.List(groups, col.DefaultOptions(), func(user string) error {
 		users = append(users, user)
 		return nil
 	}); err != nil {
@@ -1278,6 +1307,11 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		}
 		return nil, lookupErr
 	}
+
+	if err := a.expiredEnterpriseCheck(ctx, tokenInfo.Subject); err != nil {
+		return nil, err
+	}
+
 	// verify token hasn't expired
 	if tokenInfo.Expiration != nil {
 		if time.Now().After(*tokenInfo.Expiration) {
@@ -1323,8 +1357,16 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 
 // GetConfiguration implements the protobuf auth.GetConfiguration RPC.
 func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (resp *auth.GetConfigurationResponse, retErr error) {
+	removeSecret := func(r *auth.GetConfigurationResponse) *auth.GetConfigurationResponse {
+		if r.Configuration == nil {
+			return r
+		}
+		copyResp := proto.Clone(r).(*auth.GetConfigurationResponse)
+		copyResp.Configuration.ClientSecret = ""
+		return copyResp
+	}
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	if !a.watchesEnabled {
 		return nil, errors.New("watches are not enabled, unable to get current config")
@@ -1342,8 +1384,16 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 
 // SetConfiguration implements the protobuf auth.SetConfiguration RPC
 func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest) (resp *auth.SetConfigurationResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeSecret := func(r *auth.SetConfigurationRequest) *auth.SetConfigurationRequest {
+		if r.Configuration == nil {
+			return r
+		}
+		copyReq := proto.Clone(r).(*auth.SetConfigurationRequest)
+		copyReq.Configuration.ClientSecret = ""
+		return copyReq
+	}
+	a.LogReq(removeSecret(req))
+	defer func(start time.Time) { a.LogResp(removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	if !a.watchesEnabled {
 		return nil, errors.New("watches are not enabled, unable to set config")

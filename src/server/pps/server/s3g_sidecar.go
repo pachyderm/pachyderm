@@ -60,9 +60,9 @@ func (a *apiServer) ServeSidecarS3G() {
 	if err := backoff.RetryNotify(func() error {
 		retryCtx, retryCancel := context.WithCancel(context.Background())
 		defer retryCancel()
-		if err := a.sudo(s.pachClient.WithCtx(retryCtx), func(superUserClient *client.APIClient) error {
+		if err := a.sudo(retryCtx, func(superUserClient *client.APIClient) error {
 			buf := bytes.Buffer{}
-			if err := superUserClient.GetFile(ppsconsts.SpecRepo, specCommit, ppsconsts.SpecFile, &buf); err != nil {
+			if err := superUserClient.GetFile(ppsconsts.SpecRepo, "", specCommit, ppsconsts.SpecFile, &buf); err != nil {
 				return errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
 			}
 			if err := proto.Unmarshal(buf.Bytes(), s.pipelineInfo); err != nil {
@@ -190,6 +190,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, pipelineJob
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
 				Repo:   in.Pfs.Repo,
+				Branch: in.Pfs.Branch,
 				Commit: in.Pfs.Commit,
 				Name:   in.Pfs.Name,
 			})
@@ -198,7 +199,8 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, pipelineJob
 	var outputBucket *s3.Bucket
 	if s.s.pipelineInfo.S3Out {
 		outputBucket = &s3.Bucket{
-			Repo:   pipelineJobInfo.OutputCommit.Repo.Name,
+			Repo:   pipelineJobInfo.OutputCommit.Branch.Repo.Name,
+			Branch: pipelineJobInfo.OutputCommit.Branch.Name,
 			Commit: pipelineJobInfo.OutputCommit.ID,
 			Name:   "out",
 		}
@@ -363,7 +365,7 @@ func (h *handleJobsCtx) start() {
 		backoff.Retry(func() error {
 			var err error
 			watcher, err = h.s.apiServer.jobs.ReadOnly(context.Background()).WatchByIndex(
-				ppsdb.JobsPipelineIndex, h.s.pipelineInfo.Pipeline)
+				ppsdb.JobsPipelineIndex, h.s.pipelineInfo.Pipeline.Name)
 			if err != nil {
 				return errors.Wrapf(err, "error creating watch")
 			}

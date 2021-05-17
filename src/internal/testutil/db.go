@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -33,7 +34,7 @@ var maxOpenConnsPerPool = postgresMaxConnections / runtime.GOMAXPROCS(0)
 // TestDatabaseDeployment represents a deployment of postgres, and databases may
 // be created for individual tests.
 type TestDatabaseDeployment interface {
-	NewDatabase(t testing.TB) *sqlx.DB
+	NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener)
 	NewDatabaseConfig(t testing.TB) serviceenv.ConfigOption
 }
 
@@ -43,7 +44,7 @@ type postgresDeployment struct {
 	port    int
 }
 
-// NewPostgresDeployment creates a kubernetes namespaces containing a postgres
+// NewPostgresDeployment creates a kubernetes namespace containing a postgres
 // instance. The namespace will be destroyed at the end of the test or test
 // suite that called this.
 func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
@@ -65,7 +66,6 @@ func NewPostgresDeployment(t testing.TB) TestDatabaseDeployment {
 	require.NoError(t, encoder.Encode(configMap))
 
 	storageClass := assets.PostgresStorageClass(assetOpts, assets.LocalBackend)
-	require.NoError(t, err)
 	require.NoError(t, encoder.Encode(storageClass))
 
 	headlessService := assets.PostgresHeadlessService(assetOpts)
@@ -174,7 +174,7 @@ func (pd *postgresDeployment) NewDatabaseConfig(t testing.TB) serviceenv.ConfigO
 	}
 }
 
-func (pd *postgresDeployment) NewDatabase(t testing.TB) *sqlx.DB {
+func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener) {
 	dbName := pd.newDatabase(t)
 	options := []dbutil.Option{
 		dbutil.WithHostPort(pd.address, pd.port),
@@ -188,20 +188,27 @@ func (pd *postgresDeployment) NewDatabase(t testing.TB) *sqlx.DB {
 		require.NoError(t, db.Close())
 	})
 
-	return db
+	listener := col.NewPostgresListener(dbutil.GetDSN(options...))
+	t.Cleanup(func() {
+		require.NoError(t, listener.Close())
+	})
+
+	return db, listener
 }
 
 func newDatabase(t testing.TB) string {
 	dbName := ephemeralDBName(t)
 	require.NoError(t, withDB(func(db *sqlx.DB) error {
-		db.MustExec("CREATE DATABASE " + dbName)
+		_, err := db.Exec("CREATE DATABASE " + dbName)
+		require.NoError(t, err)
 		t.Log("database", dbName, "successfully created")
 		return nil
 	}, dbutil.WithHostPort(dbHost(), dbPort())))
 	if cleanup {
 		t.Cleanup(func() {
 			require.NoError(t, withDB(func(db *sqlx.DB) error {
-				db.MustExec("DROP DATABASE " + dbName)
+				_, err := db.Exec("DROP DATABASE " + dbName)
+				require.NoError(t, err)
 				t.Log("database", dbName, "successfully deleted")
 				return nil
 			}, dbutil.WithHostPort(dbHost(), dbPort())))

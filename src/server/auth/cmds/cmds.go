@@ -58,7 +58,12 @@ func printRoleBinding(b *auth.RoleBinding) {
 
 func newClient(enterprise bool) (*client.APIClient, error) {
 	if enterprise {
-		return client.NewEnterpriseClientOnUserMachine("user")
+		c, err := client.NewEnterpriseClientOnUserMachine("user")
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+		return c, nil
 	}
 	return client.NewOnUserMachine("user")
 }
@@ -177,12 +182,12 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get enterprise server client")
 				}
-				idCfg, err := ec.GetIdentityServerConfig(c.Ctx(), &identity.GetIdentityServerConfigRequest{})
+				idCfg, err := ec.GetIdentityServerConfig(ec.Ctx(), &identity.GetIdentityServerConfigRequest{})
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get identity server issuer")
 				}
 
-				oidcClient, err := ec.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{
+				oidcClient, err := ec.CreateOIDCClient(ec.Ctx(), &identity.CreateOIDCClientRequest{
 					Client: &identity.OIDCClient{
 						Id:           clientId,
 						Name:         clientId,
