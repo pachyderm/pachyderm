@@ -10,7 +10,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -77,11 +76,9 @@ type ppsMaster struct {
 	// The PPS APIServer that owns this struct
 	a *apiServer
 
-	// masterClient is a pachyderm client containing a context that is cancelled if
+	// masterCtx is a context that is cancelled if
 	// the current pps master loses its master status
-	// Note: 'masterClient' is unauthenticated.  This uses the PPS token (via
-	// a.sudo()) to authenticate requests as needed.
-	masterClient *client.APIClient
+	masterCtx context.Context
 
 	// fields for monitorPipeline goros, monitorCrashingPipeline goros, etc.
 	monitorCancelsMu       sync.Mutex
@@ -119,7 +116,7 @@ func (a *apiServer) master() {
 		defer masterLock.Unlock(ctx)
 
 		log.Infof("PPS master: launching master process")
-		m.masterClient = a.env.GetPachClient(ctx)
+		m.masterCtx = ctx
 		m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -152,14 +149,13 @@ func (m *ppsMaster) run() {
 	m.startPipelineEtcdPoller()
 	defer m.cancelPipelineEtcdPoller()
 
-	masterCtx := m.masterClient.Ctx()
 eventLoop:
 	for {
 		select {
 		case e := <-m.eventCh:
 			switch e.eventType {
 			case writeEv:
-				if err := m.attemptStep(masterCtx, e); err != nil {
+				if err := m.attemptStep(m.masterCtx, e); err != nil {
 					log.Errorf("PPS master: %v", err)
 				}
 			case deleteEv:
@@ -169,7 +165,7 @@ eventLoop:
 						e.pipeline, err)
 				}
 			}
-		case <-masterCtx.Done():
+		case <-m.masterCtx.Done():
 			break eventLoop
 		}
 	}
@@ -213,7 +209,7 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 
 func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", pipelineName)
-	span, ctx := tracing.AddSpanToAnyExisting(m.masterClient.Ctx(),
+	span, ctx := tracing.AddSpanToAnyExisting(m.masterCtx,
 		"/pps.Master/DeletePipelineResources", "pipeline", pipelineName)
 	defer func() {
 		tracing.TagAnySpan(ctx, "err", retErr)

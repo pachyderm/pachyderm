@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -9,7 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -77,8 +77,7 @@ func (m *ppsMaster) cancelPipelineEtcdPoller() {
 // pipeline and sends them to ppsMaster.Run(). By scanning etcd and k8s
 // regularly and generating events for them, it prevents pipelines from
 // getting orphaned.
-func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
-	ctx := pollClient.Ctx()
+func (m *ppsMaster) pollPipelines(ctx context.Context) {
 	etcdPipelines := map[string]bool{}
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		if len(etcdPipelines) == 0 {
@@ -102,7 +101,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 
 			// 2. Replenish 'etcdPipelines' with the set of pipelines currently in
 			// etcd. Note that there may be zero, and etcdPipelines may be empty
-			if err := m.a.listPipelinePtr(pollClient, nil, 0,
+			if err := m.a.listPipelinePtr(ctx, nil, 0,
 				func(ptr *pps.StoredPipelineInfo) error {
 					etcdPipelines[ptr.Pipeline.Name] = true
 					return nil
@@ -171,8 +170,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 //   3) Checks if the Pod is failing
 // If all three conditions are met, then the pipline (in 'pipelineName') is set
 // to CRASHING
-func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
-	ctx := pollClient.Ctx()
+func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		kubePipelineWatch, err := m.a.env.GetKubeClient().CoreV1().Pods(m.a.namespace).Watch(
 			metav1.ListOptions{
@@ -243,8 +241,7 @@ func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 // most of the other poll/monitor goroutines actually go through
 // pollPipelinesEtcd (by writing to etcd, which is then observed by the etcd
 // watch below)
-func (m *ppsMaster) pollPipelinesEtcd(pollClient *client.APIClient) {
-	ctx := pollClient.Ctx()
+func (m *ppsMaster) pollPipelinesEtcd(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
