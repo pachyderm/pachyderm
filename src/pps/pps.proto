@@ -445,6 +445,10 @@ message PipelineInfo {
   bool s3_out = 38;
   Metadata metadata = 39;
   string reprocess_spec = 40;
+  // Set at call time, not stored in etcd
+  int64 unclaimed_tasks = 41;
+  string worker_rc = 42;
+  bool autoscaling = 43;
 }
 
 message PipelineInfos {
@@ -676,6 +680,7 @@ message CreatePipelineRequest {
   pfs.Commit spec_commit = 29;
   Metadata metadata = 30;
   string reprocess_spec = 31;
+  bool autoscaling = 32;
 }
 
 message InspectPipelineRequest {
