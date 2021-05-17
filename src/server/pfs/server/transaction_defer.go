@@ -83,7 +83,7 @@ func (f *PipelineFinisher) Run() error {
 		// made that can't be found in the transaction (hopefully this causes a
 		// transaction conflict, though)
 		if err := f.d.listCommit(
-			f.txnCtx.Client,
+			f.txnCtx.ClientContext,
 			branch.Repo,
 			client.NewCommit(branch.Repo.Name, branch.Name, ""), // to
 			nil,   // from

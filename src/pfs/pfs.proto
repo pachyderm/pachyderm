@@ -30,12 +30,11 @@ message File {
 
 // RepoInfo is the main data structure representing a Repo in etcd
 message RepoInfo {
-  reserved 4;
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
   uint64 size_bytes = 3;
-  string description = 5;
-  repeated Branch branches = 7;
+  string description = 4;
+  repeated Branch branches = 5;
 
   // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
   // not stored in etcd. To set a user's auth scope for a repo, use the
@@ -59,13 +58,12 @@ message RepoAuthInfo {
 }
 
 message BranchInfo {
-  reserved 1;
-  Branch branch = 4;
+  Branch branch = 1;
   Commit head = 2;
   repeated Branch provenance = 3;
-  repeated Branch subvenance = 5;
-  repeated Branch direct_provenance = 6;
-  Trigger trigger = 7;
+  repeated Branch subvenance = 4;
+  repeated Branch direct_provenance = 5;
+  Trigger trigger = 6;
 }
 
 message BranchInfos {
@@ -103,9 +101,8 @@ message CommitOrigin {
 // collection of currently-open commits in etcd are collections of Commit
 // protos)
 message Commit {
-  reserved 1;
-  string id = 2 [(gogoproto.customname) = "ID"];
-  Branch branch = 3;
+  string id = 1 [(gogoproto.customname) = "ID"];
+  Branch branch = 2;
 }
 
 // CommitRange represents chain of commits with Lower being an ancestor of
@@ -119,36 +116,34 @@ message CommitRange {
 // originated from. A commit's provenance consists of the commits of
 // the commits which are in its causal history.
 message CommitProvenance {
-  reserved 2;
   Commit commit = 1;
 }
 
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
-  reserved 6, 10, 15;
   Commit commit = 1;
-  CommitOrigin origin = 17;
+  CommitOrigin origin = 2;
   // description is a user-provided script describing this commit
-  string description = 8;
-  Commit parent_commit = 2;
-  repeated Commit child_commits = 11;
-  google.protobuf.Timestamp started = 3;
-  google.protobuf.Timestamp finished = 4;
-  uint64 size_bytes = 5;
+  string description = 3;
+  Commit parent_commit = 4;
+  repeated Commit child_commits = 5;
+  google.protobuf.Timestamp started = 6;
+  google.protobuf.Timestamp finished = 7;
+  uint64 size_bytes = 8;
 
   // the commits and their original branches on which this commit is provenant
-  repeated CommitProvenance provenance = 16;
+  repeated CommitProvenance provenance = 9;
 
   // ReadyProvenance is the number of provenant commits which have been
   // finished, if ReadyProvenance == len(Provenance) then the commit is ready
   // to be processed by pps.
-  int64 ready_provenance = 12;
+  int64 ready_provenance = 10;
 
-  repeated CommitRange subvenance = 9;
+  repeated CommitRange subvenance = 11;
 
-  int64 subvenant_commits_success = 18;
-  int64 subvenant_commits_failure = 19;
-  int64 subvenant_commits_total = 20;
+  int64 subvenant_commits_success = 12;
+  int64 subvenant_commits_failure = 13;
+  int64 subvenant_commits_total = 14;
 }
 
 enum FileType {
@@ -161,17 +156,16 @@ message FileInfo {
   File file = 1;
   FileType file_type = 2;
   uint64 size_bytes = 3;
-  google.protobuf.Timestamp committed = 10;
-  bytes hash = 7;
+  google.protobuf.Timestamp committed = 4;
+  bytes hash = 5;
 }
 
 // PFS API
 
 message CreateRepoRequest {
-  reserved 2;
   Repo repo = 1;
-  string description = 3;
-  bool update = 4;
+  string description = 2;
+  bool update = 3;
 }
 
 message InspectRepoRequest {
@@ -179,10 +173,9 @@ message InspectRepoRequest {
 }
 
 message ListRepoRequest {
-  reserved 1;
   // type is the type of (system) repos that should be returned
   // an empty string requests all repos
-  string type = 2;
+  string type = 1;
 }
 
 message ListRepoResponse {
@@ -204,14 +197,13 @@ enum CommitState {
 }
 
 message StartCommitRequest {
-  reserved 2;
   // parent may be empty in which case the commit that Branch points to will be used as the parent.
   // If the branch does not exist, the commit will have no parent.
   Commit parent = 1;
   // description is a user-provided string describing this commit
-  string description = 4;
+  string description = 2;
   Branch branch = 3;
-  repeated CommitProvenance provenance = 5;
+  repeated CommitProvenance provenance = 4;
 }
 
 message FinishCommitRequest {
@@ -219,7 +211,7 @@ message FinishCommitRequest {
   // description is a user-provided string describing this commit. Setting this
   // will overwrite the description set in StartCommit
   string description = 2;
-  uint64 size_bytes = 6;
+  uint64 size_bytes = 3;
   // If set, 'commit' will be closed (its 'finished' field will be set to the
   // current time) but its 'tree' will be left nil.
   bool empty = 4;
@@ -255,11 +247,11 @@ message FlushCommitRequest {
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
-  CommitProvenance prov = 5;
+  CommitProvenance prov = 3;
   // only commits created since this commit are returned
-  Commit from = 3;
+  Commit from = 4;
   // Don't return commits until they're in (at least) the desired state.
-  CommitState state = 4;
+  CommitState state = 5;
 }
 
 message ClearCommitRequest {
@@ -267,11 +259,10 @@ message ClearCommitRequest {
 }
 
 message CreateBranchRequest {
-  reserved 2;
   Commit head = 1;
-  Branch branch = 3;
-  repeated Branch provenance = 4;
-  Trigger trigger = 5;
+  Branch branch = 2;
+  repeated Branch provenance = 3;
+  Trigger trigger = 4;
 }
 
 message InspectBranchRequest {

@@ -46,26 +46,22 @@ func TestClientCRUD(t *testing.T) {
 	tu.ActivateAuth(t)
 	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
-		pachctl idp create-client --id {{.id}} --name 'testclient' --secret 'a secret' --redirectUris https://localhost:1234 \
+		echo '{"id": "{{.id}}", "name": "testclient", "secret": "a secret", "redirect_uris": ["https://localhost:1234"]}' | pachctl idp create-client  \
 		  | match 'secret: "a secret"'
 		pachctl idp list-client | match '{{.id}}'
 		pachctl idp get-client {{.id}} \
 		  | match 'name: testclient' \
 		  | match 'secret: a secret' \
-		  | match 'redirect URIs: https://localhost:1234' \
-		  | match 'trusted peers: ' 
-		pachctl idp update-client {{.id}} --name 'newname' --redirectUris https://localhost:1234,https://localhost:5678 --trustedPeers x,y,z
+		  | match '  - https://localhost:1234'
+		echo '{"id": "{{.id}}", "name": "newname", "secret": "a secret", "redirect_uris": ["https://localhost:1234", "https://localhost:5678"], "trusted_peers": ["x", "y", "z"]}' | pachctl idp update-client
 		pachctl idp get-client {{.id}} \
 		  | match 'name: newname' \
 		  | match 'secret: a secret' \
-		  | match 'redirect URIs: https://localhost:1234, https://localhost:5678' \
-		  | match 'trusted peers: x, y, z' 
-		pachctl idp update-client {{.id}} --name 'newname2'
-		pachctl idp get-client {{.id}} \
-	  	  | match 'name: newname2' \
-		  | match 'secret: a secret' \
-		  | match 'redirect URIs: https://localhost:1234, https://localhost:5678' \
-		  | match 'trusted peers: x, y, z' 
+		  | match '  - https://localhost:1234' \
+                  | match '  - https://localhost:5678' \
+		  | match '  - x' \
+		  | match '  - y' \
+		  | match '  - z' 
 		pachctl idp delete-client {{.id}}
 		`,
 		"id", tu.UniqueString("client"),
@@ -79,8 +75,8 @@ func TestGetSetConfig(t *testing.T) {
 	tu.ActivateAuth(t)
 	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
-		pachctl idp set-config --issuer 'http://example.com:1234'
-		pachctl idp get-config | match 'issuer: "http://example.com:1234"' 
+		echo '{"issuer": "http://example.com:1234"}' | pachctl idp set-config 
+		pachctl idp get-config | match 'issuer: http://example.com:1234' 
 		`,
 		"id", tu.UniqueString("connector"),
 	).Run())

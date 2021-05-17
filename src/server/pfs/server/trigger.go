@@ -151,7 +151,7 @@ func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, 
 			commits++
 			if ci.ParentCommit != nil && (oldHead == nil || oldHead.Commit.ID != ci.ParentCommit.ID) {
 				var err error
-				ci, err = d.inspectCommit(txnCtx.Client, ci.ParentCommit, pfs.CommitState_STARTED)
+				ci, err = d.inspectCommit(txnCtx.ClientContext, ci.ParentCommit, pfs.CommitState_STARTED)
 				if err != nil {
 					return false, err
 				}
@@ -181,7 +181,7 @@ func (d *driver) validateTrigger(txnCtx *txnenv.TransactionContext, branch *pfs.
 	if trigger.Commits < 0 {
 		return errors.Errorf("can't trigger on a negative number of commits")
 	}
-	bis, err := d.listBranch(txnCtx.Client, branch.Repo, false)
+	bis, err := d.listBranch(txnCtx.ClientContext, branch.Repo, false)
 	if err != nil {
 		return err
 	}
