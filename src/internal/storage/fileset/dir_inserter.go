@@ -64,6 +64,7 @@ type dirFile struct {
 func (d dirFile) Index() *index.Index {
 	return &index.Index{
 		Path: d.path,
+		File: &index.File{},
 	}
 }
 

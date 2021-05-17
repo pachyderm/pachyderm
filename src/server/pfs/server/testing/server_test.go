@@ -5975,6 +5975,27 @@ func TestPFS(suite *testing.T) {
 		_, err = c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{})
 		requireNoPanic(err)
 	})
+
+	suite.Run("DuplicateFileDifferentTag", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.WithModifyFileClient(repo, "master", func(mf pclient.ModifyFile) error {
+			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), pclient.WithTagPutFile("tag1")))
+			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), pclient.WithTagPutFile("tag2")))
+			require.NoError(t, mf.PutFile("bar", strings.NewReader("bar\n")))
+			return nil
+		}))
+		expected := []*pfs.File{pclient.NewFile(repo, "master", "/bar"), pclient.NewFile(repo, "master", "/foo", "tag1"), pclient.NewFile(repo, "master", "/foo", "tag2")}
+		require.NoError(t, env.PachClient.ListFile(repo, "master", "", func(fi *pfs.FileInfo) error {
+			require.Equal(t, expected[0].Path, fi.File.Path)
+			require.Equal(t, expected[0].Tag, fi.File.Tag)
+			expected = expected[1:]
+			return nil
+		}))
+		require.Equal(t, 0, len(expected))
+	})
 }
 
 var testLoad = ` 

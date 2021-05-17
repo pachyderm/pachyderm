@@ -22,6 +22,13 @@ func WithTagPutFile(tag string) PutFileOption {
 // DeleteFileOption configures a DeleteFile call.
 type DeleteFileOption func(*pfs.DeleteFile)
 
+// WithTagDeleteFile configures the DeleteFile call to apply to a particular tag.
+func WithTagDeleteFile(tag string) DeleteFileOption {
+	return func(df *pfs.DeleteFile) {
+		df.Tag = tag
+	}
+}
+
 // CopyFileOption configures a CopyFile call.
 type CopyFileOption func(*pfs.CopyFile)
 

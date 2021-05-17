@@ -5,6 +5,7 @@ import (
 	"io"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/cevaris/ordered_map"
 	"github.com/gogo/protobuf/jsonpb"
@@ -398,7 +399,7 @@ func Merge(dits []Iterator, cb func([]*Meta) error) error {
 		ss = append(ss, newDatumStream(dit, len(ss)))
 	}
 	pq := stream.NewPriorityQueue(ss)
-	return pq.Iterate(func(ss []stream.Stream, _ ...string) error {
+	return pq.Iterate(func(ss []stream.Stream) error {
 		var metas []*Meta
 		for _, s := range ss {
 			metas = append(metas, s.(*datumStream).meta)
@@ -409,9 +410,9 @@ func Merge(dits []Iterator, cb func([]*Meta) error) error {
 
 type datumStream struct {
 	meta     *Meta
+	id       string
 	metaChan chan *Meta
 	errChan  chan error
-	priority int
 }
 
 func newDatumStream(dit Iterator, priority int) *datumStream {
@@ -430,7 +431,6 @@ func newDatumStream(dit Iterator, priority int) *datumStream {
 	return &datumStream{
 		metaChan: metaChan,
 		errChan:  errChan,
-		priority: priority,
 	}
 }
 
@@ -441,18 +441,15 @@ func (ds *datumStream) Next() error {
 			return io.EOF
 		}
 		ds.meta = meta
+		ds.id = common.DatumID(meta.Inputs)
 		return nil
 	case err := <-ds.errChan:
 		return err
 	}
 }
 
-func (ds *datumStream) Key() string {
-	return common.DatumID(ds.meta.Inputs)
-}
-
-func (ds *datumStream) Priority() int {
-	return ds.priority
+func (ds *datumStream) Compare(s stream.Stream) int {
+	return strings.Compare(ds.id, s.(*datumStream).id)
 }
 
 // NewIterator creates a new datum iterator.

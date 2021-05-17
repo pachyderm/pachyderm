@@ -27,7 +27,7 @@ type Writer struct {
 	sizeBytes          int64
 	cw                 *chunk.Writer
 	idx                *index.Index
-	deletePath         string
+	deleteIdx          *index.Index
 	lastIdx            *index.Index
 	noUpload           bool
 	indexFunc          func(*index.Index) error
@@ -53,13 +53,12 @@ func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chu
 	return w
 }
 
-func (w *Writer) Add(path string, r io.Reader, tag ...string) error {
+func (w *Writer) Add(path, tag string, r io.Reader) error {
 	idx := &index.Index{
 		Path: path,
-		File: &index.File{},
-	}
-	if len(tag) > 0 {
-		idx.File.Tag = tag[0]
+		File: &index.File{
+			Tag: tag,
+		},
 	}
 	if err := w.nextIdx(idx); err != nil {
 		return err
@@ -70,10 +69,8 @@ func (w *Writer) Add(path string, r io.Reader, tag ...string) error {
 }
 
 func (w *Writer) nextIdx(idx *index.Index) error {
-	if w.idx != nil {
-		if err := w.checkPath(w.idx.Path, idx.Path); err != nil {
-			return err
-		}
+	if err := w.checkPath(w.idx, idx); err != nil {
+		return err
 	}
 	w.idx = idx
 	return w.cw.Annotate(&chunk.Annotation{
@@ -82,39 +79,41 @@ func (w *Writer) nextIdx(idx *index.Index) error {
 }
 
 // Delete creates a delete operation for a file.
-func (w *Writer) Delete(path string) error {
-	if w.deletePath != "" {
-		if err := w.checkPath(w.deletePath, path); err != nil {
-			return err
-		}
-	}
-	w.deletePath = path
+func (w *Writer) Delete(path, tag string) error {
 	idx := &index.Index{
 		Path: path,
-		File: &index.File{},
+		File: &index.File{
+			Tag: tag,
+		},
 	}
+	if err := w.checkPath(w.deleteIdx, idx); err != nil {
+		return err
+	}
+	w.deleteIdx = idx
 	return w.deletive.WriteIndex(idx)
 }
 
-func (w *Writer) checkPath(prev, p string) error {
-	if prev == p {
-		return errors.Errorf("cannot write same path (%s) twice", p)
+func (w *Writer) checkPath(prevIdx, idx *index.Index) error {
+	if prevIdx == nil {
+		return nil
 	}
-	if prev > p {
-		return errors.Errorf("cannot write path (%s) after (%s)", p, prev)
+	if prevIdx.Path == idx.Path && prevIdx.File.Tag == idx.File.Tag {
+		return errors.Errorf("cannot write same path (%s) and tag (%s) twice", idx.Path, idx.File.Tag)
+	}
+	if prevIdx.Path > idx.Path {
+		return errors.Errorf("cannot write path (%s) after (%s)", idx.Path, prevIdx.Path)
 	}
 	return nil
 }
 
 // Copy copies a file to the file set writer.
-func (w *Writer) Copy(file File, tag ...string) error {
+func (w *Writer) Copy(file File, tag string) error {
 	idx := file.Index()
 	copyIdx := &index.Index{
 		Path: idx.Path,
-		File: &index.File{},
-	}
-	if len(tag) > 0 {
-		copyIdx.File.Tag = tag[0]
+		File: &index.File{
+			Tag: tag,
+		},
 	}
 	if err := w.nextIdx(copyIdx); err != nil {
 		return err
@@ -135,7 +134,7 @@ func (w *Writer) callback(annotations []*chunk.Annotation) error {
 		if w.lastIdx == nil {
 			w.lastIdx = idx
 		}
-		if idx.Path != w.lastIdx.Path {
+		if idx.Path != w.lastIdx.Path || idx.File.Tag != w.lastIdx.File.Tag {
 			if !w.noUpload {
 				if err := w.additive.WriteIndex(w.lastIdx); err != nil {
 					return err

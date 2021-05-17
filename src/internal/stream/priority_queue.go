@@ -2,6 +2,7 @@ package stream
 
 import (
 	"io"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -9,54 +10,73 @@ import (
 // Stream is the standard interface for a sorted stream that can be used in a PriorityQueue.
 type Stream interface {
 	Next() error
-	Key() string
-	Priority() int
+	Compare(Stream) int
+}
+
+type stream struct {
+	stream   Stream
+	priority int
 }
 
 // PriorityQueue implements a priority queue that operates on streams.
 type PriorityQueue struct {
-	queue []Stream
+	queue []*stream
 	size  int
-	ss    []Stream
+	ss    []*stream
 }
 
 // NewPriorityQueue creates a new priority queue.
 func NewPriorityQueue(ss []Stream) *PriorityQueue {
+	var streams []*stream
+	for _, s := range ss {
+		streams = append(streams, &stream{
+			stream:   s,
+			priority: len(streams),
+		})
+	}
 	return &PriorityQueue{
-		queue: make([]Stream, len(ss)+1),
-		ss:    ss,
+		queue: make([]*stream, len(ss)+1),
+		ss:    streams,
 	}
 }
 
 // Iterate iterates through the priority queue.
-func (pq *PriorityQueue) Iterate(cb func([]Stream, ...string) error) error {
+func (pq *PriorityQueue) Iterate(cb func([]Stream) error) error {
 	for {
-		ss, err := pq.Next()
+		ss, err := pq.next()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
 		}
-		if err := cb(ss, pq.Peek()...); err != nil {
+		if err := cb(collectStreams(ss)); err != nil {
 			return err
 		}
 	}
 }
 
-func (pq *PriorityQueue) isHigherPriority(i, j int) bool {
+func collectStreams(ss []*stream) []Stream {
+	var streams []Stream
+	for _, s := range ss {
+		streams = append(streams, s.stream)
+	}
+	return streams
+}
+
+func (pq *PriorityQueue) compare(i, j int) int {
 	si := pq.queue[i]
 	sj := pq.queue[j]
-	return si.Key() < sj.Key() || (si.Key() == sj.Key() && si.Priority() > sj.Priority())
+	return si.stream.Compare(sj.stream)
 }
 
 func (pq *PriorityQueue) empty() bool {
 	return len(pq.queue) == 1 || pq.queue[1] == nil
 }
 
-func (pq *PriorityQueue) insert(s Stream) error {
+func (pq *PriorityQueue) insert(s *stream) error {
 	// Get next in stream and insert it.
-	if err := s.Next(); err != nil {
+	if err := s.stream.Next(); err != nil {
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
@@ -67,7 +87,7 @@ func (pq *PriorityQueue) insert(s Stream) error {
 	// Propagate insert up the queue
 	i := pq.size
 	for i > 1 {
-		if pq.isHigherPriority(i/2, i) {
+		if pq.compare(i/2, i) < 0 {
 			break
 		}
 		pq.swap(i/2, i)
@@ -76,8 +96,7 @@ func (pq *PriorityQueue) insert(s Stream) error {
 	return nil
 }
 
-// Next gets the next set of streams in the priority queue.
-func (pq *PriorityQueue) Next() ([]Stream, error) {
+func (pq *PriorityQueue) next() ([]*stream, error) {
 	// Re-insert streams
 	if pq.ss != nil {
 		for _, s := range pq.ss {
@@ -89,23 +108,18 @@ func (pq *PriorityQueue) Next() ([]Stream, error) {
 	if pq.empty() {
 		return nil, io.EOF
 	}
-	ss := []Stream{pq.queue[1]}
+	ss := []*stream{pq.queue[1]}
 	pq.fill()
-	// Keep popping streams off the queue if they have the same key.
-	for pq.queue[1] != nil && pq.queue[1].Key() == ss[0].Key() {
+	// Keep popping streams off the queue if they are equal.
+	for pq.queue[1] != nil && pq.queue[1].stream.Compare(ss[0].stream) == 0 {
 		ss = append(ss, pq.queue[1])
 		pq.fill()
 	}
+	sort.SliceStable(ss, func(i, j int) bool {
+		return ss[i].priority < ss[j].priority
+	})
 	pq.ss = ss
 	return ss, nil
-}
-
-// Peek peeks the next key in the priority queue.
-func (pq *PriorityQueue) Peek() []string {
-	if pq.empty() {
-		return nil
-	}
-	return []string{pq.queue[1].Key()}
 }
 
 func (pq *PriorityQueue) fill() {
@@ -120,12 +134,12 @@ func (pq *PriorityQueue) fill() {
 		left, right := i*2, i*2+1
 		if left > pq.size {
 			break
-		} else if right > pq.size || pq.isHigherPriority(left, right) {
+		} else if right > pq.size || pq.compare(left, right) < 0 {
 			next = left
 		} else {
 			next = right
 		}
-		if pq.isHigherPriority(i, next) {
+		if pq.compare(i, next) < 0 {
 			break
 		}
 		pq.swap(i, next)

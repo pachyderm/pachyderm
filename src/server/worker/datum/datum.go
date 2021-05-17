@@ -421,13 +421,13 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 			}
 			return err
 		}
-		// Remove the output directory prefix.
 		for i := range files {
+			// Remove the output directory prefix.
 			file, err := filepath.Rel(outputDir, files[i])
 			if err != nil {
 				return err
 			}
-			if err := pfsOutputClient.DeleteFile(file); err != nil {
+			if err := pfsOutputClient.DeleteFile(file, client.WithTagDeleteFile(ID)); err != nil {
 				return err
 			}
 		}

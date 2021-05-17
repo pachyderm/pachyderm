@@ -817,15 +817,6 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		return err
 	}
 	ids = append(ids, *id)
-	// Error if any duplicate file paths are found in the filesets.
-	fs, err := d.storage.Open(ctx, ids)
-	if err != nil {
-		return err
-	}
-	fs = fileset.NewErrOnDuplicate(fs)
-	if err := fs.Iterate(ctx, func(_ fileset.File) error { return nil }); err != nil {
-		return err
-	}
 	compactedID, err := d.compact(ctx, ids)
 	if err != nil {
 		return err

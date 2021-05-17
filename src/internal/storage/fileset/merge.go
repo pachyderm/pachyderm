@@ -3,7 +3,7 @@ package fileset
 import (
 	"context"
 	"io"
-	"sort"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -39,16 +39,14 @@ func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 	for _, fs := range mr.fileSets {
 		ss = append(ss, &fileStream{
 			iterator: NewIterator(ctx, fs, true),
-			priority: len(ss),
 			deletive: true,
 		})
 		ss = append(ss, &fileStream{
 			iterator: NewIterator(ctx, fs),
-			priority: len(ss),
 		})
 	}
 	pq := stream.NewPriorityQueue(ss)
-	return pq.Iterate(func(ss []stream.Stream, _ ...string) error {
+	return pq.Iterate(func(ss []stream.Stream) error {
 		var fss []*fileStream
 		for _, s := range ss {
 			fss = append(fss, s.(*fileStream))
@@ -59,49 +57,23 @@ func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 			}
 			return cb(newFileReader(ctx, mr.chunks, fss[0].file.Index()))
 		}
-		idxs := mergeFile(fss)
-		for _, idx := range sortIndexes(idxs) {
-			if err := cb(newMergeFileReader(ctx, mr.chunks, idx)); err != nil {
-				return err
+		var dataRefs []*chunk.DataRef
+		for i, fs := range fss {
+			if fs.deletive {
+				if i == len(fss)-1 {
+					return nil
+				}
+				dataRefs = nil
+				continue
 			}
+			idx := fs.file.Index()
+			dataRefs = append(dataRefs, idx.File.DataRefs...)
 		}
-		return nil
-	})
-}
+		mergeIdx := fss[0].file.Index()
+		mergeIdx.File.DataRefs = dataRefs
+		return cb(newMergeFileReader(ctx, mr.chunks, mergeIdx))
 
-func mergeFile(fss []*fileStream) map[string]*index.Index {
-	idxs := make(map[string]*index.Index)
-	// TODO: Might as well just swap the priority in the priority queue from lowest to highest during set up.
-	// That lines up more with how we lay out the filesets.
-	for i := len(fss) - 1; i >= 0; i-- {
-		idx := fss[i].file.Index()
-		if fss[i].deletive {
-			idxs = make(map[string]*index.Index)
-			continue
-		}
-		if _, ok := idxs[idx.File.Tag]; !ok {
-			idxs[idx.File.Tag] = &index.Index{
-				Path: idx.Path,
-				File: &index.File{
-					Tag: idx.File.Tag,
-				},
-			}
-		}
-		mergeIdx := idxs[idx.File.Tag]
-		mergeIdx.File.DataRefs = append(mergeIdx.File.DataRefs, idx.File.DataRefs...)
-	}
-	return idxs
-}
-
-func sortIndexes(idxs map[string]*index.Index) []*index.Index {
-	var result []*index.Index
-	for _, idx := range idxs {
-		result = append(result, idx)
-	}
-	sort.SliceStable(result, func(i, j int) bool {
-		return result[i].File.Tag < result[j].File.Tag
 	})
-	return result
 }
 
 func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error) error {
@@ -109,15 +81,15 @@ func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error)
 	for _, fs := range mr.fileSets {
 		ss = append(ss, &fileStream{
 			iterator: NewIterator(ctx, fs, true),
-			priority: len(ss),
 		})
 	}
 	pq := stream.NewPriorityQueue(ss)
-	return pq.Iterate(func(ss []stream.Stream, _ ...string) error {
-		idx := ss[0].(*fileStream).file.Index()
-		return cb(newFileReader(ctx, mr.chunks, &index.Index{
-			Path: idx.Path,
-		}))
+	return pq.Iterate(func(ss []stream.Stream) error {
+		var fss []*fileStream
+		for _, s := range ss {
+			fss = append(fss, s.(*fileStream))
+		}
+		return cb(newFileReader(ctx, mr.chunks, fss[0].file.Index()))
 	})
 }
 
@@ -152,7 +124,6 @@ func (mfr *MergeFileReader) Content(w io.Writer) error {
 type fileStream struct {
 	iterator *Iterator
 	file     File
-	priority int
 	deletive bool
 }
 
@@ -162,10 +133,12 @@ func (fs *fileStream) Next() error {
 	return err
 }
 
-func (fs *fileStream) Key() string {
-	return fs.file.Index().Path
-}
-
-func (fs *fileStream) Priority() int {
-	return fs.priority
+func (fs *fileStream) Compare(s stream.Stream) int {
+	idx := fs.file.Index()
+	fsCheck := s.(*fileStream)
+	idxCheck := fsCheck.file.Index()
+	if idx.Path == idxCheck.Path {
+		return strings.Compare(idx.File.Tag, idxCheck.File.Tag)
+	}
+	return strings.Compare(idx.Path, idxCheck.Path)
 }

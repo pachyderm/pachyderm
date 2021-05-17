@@ -151,7 +151,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, uw *fileset.UnorderedWri
 		}
 		return path.Join(dstPath, relPath)
 	}
-	_, fs, err := d.openCommit(pachClient, srcCommit, index.WithPrefix(srcPath))
+	_, fs, err := d.openCommit(pachClient, srcCommit, index.WithPrefix(srcPath), index.WithTag(src.Tag))
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, uw *fileset.UnorderedWri
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File) (Source, error) {
 	commit := file.Commit
 	glob := cleanPath(file.Path)
-	commitInfo, fs, err := d.openCommit(pachClient, commit, index.WithPrefix(globLiteralPrefix(glob)))
+	commitInfo, fs, err := d.openCommit(pachClient, commit, index.WithPrefix(globLiteralPrefix(glob)), index.WithTag(file.Tag))
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs
 	if p == "/" {
 		p = ""
 	}
-	commitInfo, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p))
+	commitInfo, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p), index.WithTag(file.Tag))
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs
 func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, cb func(*pfs.FileInfo) error) error {
 	ctx := pachClient.Ctx()
 	name := cleanPath(file.Path)
-	commitInfo, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(name))
+	commitInfo, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(name), index.WithTag(file.Tag))
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(
 	if p == "/" {
 		p = ""
 	}
-	commitInfo, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p))
+	commitInfo, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p), index.WithTag(file.Tag))
 	if err != nil {
 		return err
 	}
@@ -351,7 +351,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 	}
 	var old Source = emptySource{}
 	if oldCommit != nil {
-		oldCommitInfo, fs, err := d.openCommit(pachClient, oldCommit, index.WithPrefix(oldName))
+		oldCommitInfo, fs, err := d.openCommit(pachClient, oldCommit, index.WithPrefix(oldName), index.WithTag(oldFile.Tag))
 		if err != nil {
 			return err
 		}
@@ -365,7 +365,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 		}
 		old = NewSource(d.storage, oldCommitInfo, fs, opts...)
 	}
-	newCommitInfo, fs, err := d.openCommit(pachClient, newCommit, index.WithPrefix(newName))
+	newCommitInfo, fs, err := d.openCommit(pachClient, newCommit, index.WithPrefix(newName), index.WithTag(newFile.Tag))
 	if err != nil {
 		return err
 	}

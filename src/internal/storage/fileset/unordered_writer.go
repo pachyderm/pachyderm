@@ -46,7 +46,7 @@ func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, tag ...st
 		return err
 	}
 	if !appendFile {
-		uw.buffer.Delete(p)
+		uw.buffer.Delete(p, tag...)
 	}
 	w := uw.buffer.Add(p, tag...)
 	for {
@@ -74,13 +74,13 @@ func (uw *UnorderedWriter) serialize() error {
 		return nil
 	}
 	return uw.withWriter(func(w *Writer) error {
-		if err := uw.buffer.WalkAdditive(func(path string, r io.Reader, tag ...string) error {
-			return w.Add(path, r, tag...)
+		if err := uw.buffer.WalkAdditive(func(path, tag string, r io.Reader) error {
+			return w.Add(path, tag, r)
 		}); err != nil {
 			return err
 		}
-		return uw.buffer.WalkDeletive(func(path string) error {
-			return w.Delete(path)
+		return uw.buffer.WalkDeletive(func(path, tag string) error {
+			return w.Delete(path, tag)
 		})
 	})
 }
@@ -111,7 +111,7 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 }
 
 // Delete deletes a file from the file set.
-func (uw *UnorderedWriter) Delete(p string) error {
+func (uw *UnorderedWriter) Delete(p string, tag ...string) error {
 	if err := Validate(p); err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (uw *UnorderedWriter) Delete(p string) error {
 			return uw.Delete(f.Index().Path)
 		})
 	}
-	uw.buffer.Delete(p)
+	uw.buffer.Delete(p, tag...)
 	return nil
 }
 
@@ -138,14 +138,18 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, appendFile bool
 	if err := uw.serialize(); err != nil {
 		return err
 	}
+	var fileTag string
+	if len(tag) > 0 {
+		fileTag = tag[0]
+	}
 	return uw.withWriter(func(w *Writer) error {
 		return fs.Iterate(ctx, func(f File) error {
 			if !appendFile {
-				if err := w.Delete(f.Index().Path); err != nil {
+				if err := w.Delete(f.Index().Path, fileTag); err != nil {
 					return err
 				}
 			}
-			return w.Copy(f, tag...)
+			return w.Copy(f, fileTag)
 		})
 	})
 }

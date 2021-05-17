@@ -522,7 +522,7 @@ func (rfsr *rawFileSourceReader) Read(data []byte) (int, error) {
 }
 
 func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
-	uw.Delete(request.File)
+	uw.Delete(request.File, request.Tag)
 	return nil
 }
 

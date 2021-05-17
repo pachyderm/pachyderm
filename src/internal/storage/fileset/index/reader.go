@@ -16,6 +16,7 @@ type Reader struct {
 	chunks *chunk.Storage
 	filter *pathFilter
 	topIdx *Index
+	tag    string
 }
 
 type pathFilter struct {
@@ -62,8 +63,10 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			if !r.atStart(idx.Path) {
 				continue
 			}
-			if err := cb(idx); err != nil {
-				return err
+			if r.tag == "" || r.tag == idx.File.Tag {
+				if err := cb(idx); err != nil {
+					return err
+				}
 			}
 			continue
 		}
