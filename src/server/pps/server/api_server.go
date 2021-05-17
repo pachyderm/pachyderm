@@ -423,11 +423,14 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 		// Check that the user is authorized to read all input repos, and write to the
 		// output repo (which the pipeline needs to be able to do on the user's
 		// behalf)
-		var eg errgroup.Group
 		done := make(map[string]struct{}) // don't double-authorize repos
+		err = nil
 		pps.VisitInput(input, func(in *pps.Input) {
-			var repo string
+			if err != nil {
+				return
+			}
 
+			var repo string
 			if in.Pfs != nil {
 				repo = in.Pfs.Repo
 			} else {
@@ -438,14 +441,9 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 				return
 			}
 			done[repo] = struct{}{}
-			eg.Go(func() error {
-				if err := authServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ); err != nil {
-					return err
-				}
-				return nil
-			})
+			err = authServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ)
 		})
-		if err := eg.Wait(); err != nil {
+		if err != nil {
 			return err
 		}
 	}
