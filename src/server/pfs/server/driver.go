@@ -1729,7 +1729,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	// Note that this watch may leave events unread for a long amount of time
 	// while waiting for the commit state - if the watch channel fills up, it will
 	// error out.
-	return d.commits.ReadOnly(pachClient.Ctx()).WatchByIndexF(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), func(ev *watch.Event) error {
+	return d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), func(ev *watch.Event) error {
 		var key string
 		commitInfo := &pfs.CommitInfo{}
 		if err := ev.Unmarshal(&key, commitInfo); err != nil {
@@ -1762,7 +1762,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		// We don't want to include the `from` commit itself
 		if !(seen[commitInfo.Commit.ID] || (from != nil && from.ID == commitInfo.Commit.ID)) {
 			// Wait for the commit to enter the right state
-			commitInfo, err := d.inspectCommit(pachClient, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
+			commitInfo, err := d.inspectCommit(ctx, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
 			if err != nil {
 				return err
 			}
