@@ -1,3 +1,7 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
 {{- if .Values.dash.url -}}
 apiVersion: "networking.k8s.io/v1beta1"
 kind: "Ingress"
@@ -25,4 +29,12 @@ spec:
             backend:
               serviceName: "dash"
               servicePort: "grpc-proxy-http"
+          - path: "/dex"
+            backend:
+              serviceName: "pachd"
+              servicePort: "identity-port"
+          - path: "/authorization-code/callback"
+            backend:
+              serviceName: "pachd"
+              servicePort: "oidc-port"
 {{ end -}}

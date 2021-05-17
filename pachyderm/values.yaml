@@ -23,7 +23,7 @@ dash:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
-    tag: "0.5.57"
+    tag: "0.5.58"
   # resources specifies the resource request and limits.
   resources: {}
     #limits:
@@ -49,8 +49,6 @@ dash:
   # url specifies the URL of the dash ingress, used as the host value
   # of a rule.
   url: ""
-  
-
 
 etcd:
   # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
@@ -105,7 +103,7 @@ pachd:
   image:
     repository: "pachyderm/pachd"
     pullPolicy: "IfNotPresent"
-    tag: "1.13.0"
+    tag: "2.0.0-alpha.15"
   logLevel: "info"
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
@@ -217,7 +215,7 @@ pachd:
       # the command line is with the set-file flag, e.g.:
       #
       #  helm install pachd -f my-values.yaml --set-file storage.google.cred=creds.json pachyderm/pachyderm
-      cred: "" 
+      cred: ""
       # Example:
       # cred: |
       #  {
