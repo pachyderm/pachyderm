@@ -18,7 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/workload"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -30,9 +30,9 @@ const (
 func TestBasic(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	err := env.PachClient.PutFile("repo", "master", "dir/file1", strings.NewReader("foo"))
+	err := env.PachClient.PutFile("repo", "master", "", "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
-	err = env.PachClient.PutFile("repo", "master", "dir/file2", strings.NewReader("foo"))
+	err = env.PachClient.PutFile("repo", "master", "", "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -60,7 +60,7 @@ func TestBasic(t *testing.T) {
 func TestChunkSize(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	err := env.PachClient.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
+	err := env.PachClient.PutFile("repo", "master", "", "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
@@ -72,8 +72,9 @@ func TestChunkSize(t *testing.T) {
 func TestLargeFile(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	src := workload.RandString(rand.New(rand.NewSource(123)), GB+17)
-	err := env.PachClient.PutFile("repo", "master", "file", strings.NewReader(src))
+	random.SeedRand(123)
+	src := random.String(GB + 17)
+	err := env.PachClient.PutFile("repo", "master", "", "file", strings.NewReader(src))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
@@ -85,8 +86,9 @@ func TestLargeFile(t *testing.T) {
 func BenchmarkLargeFile(b *testing.B) {
 	env := testpachd.NewRealEnv(b, testutil.NewTestDBConfig(b))
 	require.NoError(b, env.PachClient.CreateRepo("repo"))
-	src := workload.RandString(rand.New(rand.NewSource(123)), GB)
-	err := env.PachClient.PutFile("repo", "master", "file", strings.NewReader(src))
+	random.SeedRand(123)
+	src := random.String(GB)
+	err := env.PachClient.PutFile("repo", "master", "", "file", strings.NewReader(src))
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -103,7 +105,7 @@ func TestSeek(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	data := strings.Repeat("foo", MB)
-	err := env.PachClient.PutFile("repo", "master", "file", strings.NewReader(data))
+	err := env.PachClient.PutFile("repo", "master", "", "file", strings.NewReader(data))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		f, err := os.Open(filepath.Join(mountPoint, "repo", "file"))
@@ -130,7 +132,7 @@ func TestSeek(t *testing.T) {
 func TestHeadlessBranch(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", nil))
+	require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", "", nil))
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		fis, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
@@ -169,7 +171,7 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "dir", "foo"), []byte("foo\n"), 0644))
 	})
 	var b bytes.Buffer
-	require.NoError(t, env.PachClient.GetFile("repo", "master", "dir/foo", &b))
+	require.NoError(t, env.PachClient.GetFile("repo", "master", "", "dir/foo", &b))
 	require.Equal(t, "foo\n", b.String())
 
 	// Now append to the file
@@ -195,7 +197,7 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, err)
 	})
 	b.Reset()
-	require.NoError(t, env.PachClient.GetFile("repo", "master", "dir/foo", &b))
+	require.NoError(t, env.PachClient.GetFile("repo", "master", "", "dir/foo", &b))
 	require.Equal(t, "foo\nfoo\n", b.String())
 
 	// Now overwrite that file
@@ -211,7 +213,7 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "dir", "foo"), []byte("bar\n"), 0644))
 	})
 	b.Reset()
-	require.NoError(t, env.PachClient.GetFile("repo", "master", "dir/foo", &b))
+	require.NoError(t, env.PachClient.GetFile("repo", "master", "", "dir/foo", &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now link it to another location
@@ -227,10 +229,10 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, os.Symlink(filepath.Join(mountPoint, "repo", "dir", "foo"), filepath.Join(mountPoint, "repo", "dir", "buzz")))
 	})
 	b.Reset()
-	require.NoError(t, env.PachClient.GetFile("repo", "master", "dir/bar", &b))
+	require.NoError(t, env.PachClient.GetFile("repo", "master", "", "dir/bar", &b))
 	require.Equal(t, "bar\n", b.String())
 	b.Reset()
-	require.NoError(t, env.PachClient.GetFile("repo", "master", "dir/buzz", &b))
+	require.NoError(t, env.PachClient.GetFile("repo", "master", "", "dir/buzz", &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now delete it
@@ -245,7 +247,7 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "dir", "foo")))
 	})
 	b.Reset()
-	require.YesError(t, env.PachClient.GetFile("repo", "master", "dir/foo", &b))
+	require.YesError(t, env.PachClient.GetFile("repo", "master", "", "dir/foo", &b))
 
 	// Try writing to two repos at once
 	require.NoError(t, env.PachClient.CreateRepo("repo2"))
@@ -267,7 +269,7 @@ func TestRepoOpts(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateRepo("repo1"))
 	require.NoError(t, env.PachClient.CreateRepo("repo2"))
 	require.NoError(t, env.PachClient.CreateRepo("repo3"))
-	err := env.PachClient.PutFile("repo1", "master", "foo", strings.NewReader("foo\n"))
+	err := env.PachClient.PutFile("repo1", "master", "", "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
 		Fuse: &fs.Options{
@@ -306,7 +308,7 @@ func TestRepoOpts(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "bar"), []byte("bar\n"), 0644))
 	})
 
-	err = env.PachClient.PutFile("repo1", "staging", "buzz", strings.NewReader("buzz\n"))
+	err = env.PachClient.PutFile("repo1", "staging", "", "buzz", strings.NewReader("buzz\n"))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
 		Fuse: &fs.Options{
@@ -329,7 +331,7 @@ func TestRepoOpts(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "fizz"), []byte("fizz\n"), 0644))
 	})
 	var b bytes.Buffer
-	require.NoError(t, env.PachClient.GetFile("repo1", "staging", "fizz", &b))
+	require.NoError(t, env.PachClient.GetFile("repo1", "staging", "", "fizz", &b))
 	require.Equal(t, "fizz\n", b.String())
 }
 
@@ -337,7 +339,7 @@ func TestOpenCommit(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("in"))
 	require.NoError(t, env.PachClient.CreateRepo("out"))
-	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{client.NewBranch("in", "master")}))
+	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewBranch("in", "master")}))
 	_, err := env.PachClient.StartCommit("in", "master")
 	require.NoError(t, err)
 

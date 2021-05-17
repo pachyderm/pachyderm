@@ -31,7 +31,7 @@ func workerListBuckets(t *testing.T, s *workerTestState) {
 	// driver
 	repo := tu.UniqueString("testlistbuckets1")
 	require.NoError(t, s.pachClient.CreateRepo(repo))
-	require.NoError(t, s.pachClient.CreateBranch(repo, "master", "", nil))
+	require.NoError(t, s.pachClient.CreateBranch(repo, "master", "", "", nil))
 
 	buckets, err := s.minioClient.ListBuckets()
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 }
 
 func workerRemoveObject(t *testing.T, s *workerTestState) {
-	require.NoError(t, s.pachClient.PutFile(s.outputRepo, s.outputBranch, "file", strings.NewReader("content")))
+	require.NoError(t, s.pachClient.PutFile(s.outputRepo, s.outputBranch, "", "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
 	require.NoError(t, s.minioClient.RemoveObject("out", "file"))
@@ -162,7 +162,7 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	// Request that will list all files in root
 	ch := s.minioClient.ListObjects("in2", "", false, make(chan struct{}))
 	expectedFiles := []string{}
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 100; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
 	}
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
@@ -171,7 +171,7 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	// the same as "", e.g. rust-s3 client)
 	ch = s.minioClient.ListObjects("in2", "/", false, make(chan struct{}))
 	expectedFiles = []string{}
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 100; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
 	}
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
@@ -179,7 +179,7 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	// Request that will list all files starting with 1
 	ch = s.minioClient.ListObjects("in2", "1", false, make(chan struct{}))
 	expectedFiles = []string{}
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 100; i++ {
 		file := fmt.Sprintf("%d", i)
 		if strings.HasPrefix(file, "1") {
 			expectedFiles = append(expectedFiles, file)
@@ -242,39 +242,41 @@ func TestWorkerDriver(t *testing.T) {
 	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "", 0)
 	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/", 1)
 	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/subdir/", 2)
-	require.NoError(t, pachClient.FinishCommit(inputRepo, inputMasterCommit.ID))
+	require.NoError(t, pachClient.FinishCommit(inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.ID))
 
 	// create a develop branch on the input repo
 	inputDevelopCommit, err := pachClient.StartCommit(inputRepo, "develop")
 	require.NoError(t, err)
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 100; i++ {
 		putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "", i)
 	}
 	for i := 0; i < 10; i++ {
 		putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "dir/", i)
 	}
-	require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.ID))
+	require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.Branch.Name, inputDevelopCommit.ID))
 
 	// create the output branch
 	outputBranch := "master"
-	require.NoError(t, pachClient.CreateBranch(outputRepo, outputBranch, "", nil))
+	require.NoError(t, pachClient.CreateBranch(outputRepo, outputBranch, "", "", nil))
 
 	driver := NewWorkerDriver(
 		[]*Bucket{
 			&Bucket{
 				Repo:   inputRepo,
+				Branch: inputMasterCommit.Branch.Name,
 				Commit: inputMasterCommit.ID,
 				Name:   "in1",
 			},
 			&Bucket{
 				Repo:   inputRepo,
+				Branch: inputDevelopCommit.Branch.Name,
 				Commit: inputDevelopCommit.ID,
 				Name:   "in2",
 			},
 		},
 		&Bucket{
 			Repo:   outputRepo,
-			Commit: outputBranch,
+			Branch: outputBranch,
 			Name:   "out",
 		},
 	)

@@ -22,10 +22,10 @@ func (d *driver) triggerCommit(
 	commit *pfs.Commit,
 ) ([]*pfs.Branch, error) {
 	repos := d.repos.ReadWrite(txnCtx.Stm)
-	branches := d.branches(commit.Repo.Name).ReadWrite(txnCtx.Stm)
-	commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
+	branches := d.branches(commit.Branch.Repo.Name).ReadWrite(txnCtx.Stm)
+	commits := d.commits(commit.Branch.Repo.Name).ReadWrite(txnCtx.Stm)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+	if err := repos.Get(commit.Branch.Repo.Name, repoInfo); err != nil {
 		return nil, err
 	}
 	newHead := &pfs.CommitInfo{}
@@ -34,15 +34,13 @@ func (d *driver) triggerCommit(
 	}
 	// find which branches this commit is the head of
 	headBranches := make(map[string]bool)
-	if newHead.Branch != nil {
-		// If the commit was made as part of a branch, then it _was_ the branch head
-		// at some point in time, although it is not guaranteed to still be the
-		// branch head. This can happen on a downstream pipeline with triggers - the
-		// upstream pipeline may have multiple unfinished commits in its output
-		// branch that will be finished one at a time. Without this code, only
-		// finishing the _last_ commit would have a chance of triggering.
-		headBranches[newHead.Branch.Name] = true
-	}
+	// The commit _was_ the branch head at some point in time, although it is
+	// not guaranteed to still be the branch head. This can happen on a
+	// downstream pipeline with triggers - the upstream pipeline may have
+	// multiple unfinished commits in its output branch that will be finished
+	// one at a time. Without this code, only finishing the _last_ commit would
+	// have a chance of triggering.
+	headBranches[newHead.Commit.Branch.Name] = true
 	for _, b := range repoInfo.Branches {
 		bi := &pfs.BranchInfo{}
 		if err := branches.Get(b.Name, bi); err != nil {
@@ -81,13 +79,13 @@ func (d *driver) triggerCommit(
 					return err
 				}
 				if triggered {
-					if err := branches.Update(bi.Name, bi, func() error {
+					if err := branches.Update(bi.Branch.Name, bi, func() error {
 						bi.Head = newHead.Commit
 						return nil
 					}); err != nil {
 						return err
 					}
-					result = append(result, client.NewBranch(commit.Repo.Name, branch))
+					result = append(result, client.NewBranch(commit.Branch.Repo.Name, branch))
 					headBranches[bi.Branch.Name] = true
 				}
 			}

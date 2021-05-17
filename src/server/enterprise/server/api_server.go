@@ -40,10 +40,10 @@ type apiServer struct {
 	enterpriseTokenCache *keycache.Cache
 
 	// enterpriseTokenCol is a collection containing the enterprise license state
-	enterpriseTokenCol col.Collection
+	enterpriseTokenCol col.EtcdCollection
 
 	// configCol is a collection containing the license server configuration
-	configCol col.Collection
+	configCol col.EtcdCollection
 }
 
 func (a *apiServer) LogReq(request interface{}) {
@@ -53,7 +53,7 @@ func (a *apiServer) LogReq(request interface{}) {
 // NewEnterpriseServer returns an implementation of ec.APIServer.
 func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
-	enterpriseTokenCol := col.NewCollection(
+	enterpriseTokenCol := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		etcdPrefix,
 		nil,
@@ -65,9 +65,9 @@ func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APISe
 	s := &apiServer{
 		pachLogger:           log.NewLogger("enterprise.API", env.Logger()),
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(env.Context(), enterpriseTokenCol, enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseTokenCache: keycache.NewCache(env.Context(), enterpriseTokenCol.ReadOnly(env.Context()), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
-		configCol:            col.NewCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
+		configCol:            col.NewEtcdCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
 	}
 	go s.enterpriseTokenCache.Watch()
 	go s.heartbeatRoutine()
@@ -171,8 +171,15 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (re
 
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp *ec.ActivateResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	// Redact the secret from the request when logging
+	removeSecret := func(r *ec.ActivateRequest) *ec.ActivateRequest {
+		copyReq := proto.Clone(r).(*ec.ActivateRequest)
+		copyReq.Secret = ""
+		return copyReq
+	}
+
+	a.LogReq(removeSecret(req))
+	defer func(start time.Time) { a.pachLogger.Log(removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	// Try to heartbeat before persisting the configuration
 	heartbeatResp, err := a.heartbeatToServer(ctx, req.LicenseServer, req.Id, req.Secret)
@@ -247,8 +254,15 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 
 // GetActivationCode returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), including the enterprise activation code
 func (a *apiServer) GetActivationCode(ctx context.Context, req *ec.GetActivationCodeRequest) (resp *ec.GetActivationCodeResponse, retErr error) {
+	// Redact the activation code from the response
+	removeSecret := func(r *ec.GetActivationCodeResponse) *ec.GetActivationCodeResponse {
+		copyResp := proto.Clone(r).(*ec.GetActivationCodeResponse)
+		copyResp.ActivationCode = ""
+		return copyResp
+	}
+
 	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.pachLogger.Log(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 	return a.getEnterpriseRecord()
 }
 

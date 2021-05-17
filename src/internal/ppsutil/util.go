@@ -112,10 +112,10 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 // or a sparsely-populated PipelineInfo if the spec data cannot be found in PPS
 // (e.g. due to corruption or a missing block). It does the PFS
 // read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
+func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
-	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, &buf); err != nil {
+	if err := pachClient.GetFile(ptr.SpecCommit.Branch.Repo.Name, ptr.SpecCommit.Branch.Name, ptr.SpecCommit.ID, ppsconsts.SpecFile, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
 	} else {
 		if err := result.Unmarshal(buf.Bytes()); err != nil {
@@ -124,9 +124,7 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, p
 	}
 
 	if result.Pipeline == nil {
-		result.Pipeline = &pps.Pipeline{
-			Name: name,
-		}
+		result.Pipeline = ptr.Pipeline
 	}
 	result.State = ptr.State
 	result.Reason = ptr.Reason
@@ -138,8 +136,8 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, p
 
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
-	result, err := GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
+	result, err := GetPipelineInfoAllowIncomplete(pachClient, ptr)
 	if err == nil && result.Transform == nil {
 		return nil, errors.Errorf("could not retrieve pipeline spec file from PFS for pipeline '%s', there may be a problem reaching object storage, or the pipeline may need to be deleted and recreated", result.Pipeline.Name)
 	}
@@ -147,13 +145,13 @@ func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.StoredP
 }
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
-func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
+func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.EtcdCollection, pipelineName string, reason string) error {
 	return SetPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName,
 		nil, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
 
 // CrashingPipeline updates the pipeline's state to crashing and sets the reason
-func CrashingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
+func CrashingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.EtcdCollection, pipelineName string, reason string) error {
 	return SetPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName,
 		nil, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
@@ -212,7 +210,7 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 //
 // This function logs a lot for a library function, but it's mostly (maybe
 // exclusively?) called by the PPS master
-func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.EtcdCollection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	logSetPipelineState(pipeline, from, to, reason)
 	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
 		pipelines := pipelinesCollection.ReadWrite(stm)
@@ -274,7 +272,7 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 	// for a given branch, the commit assigned to it will be the latest commit on that branch
 	// this is ensured by the way we sort the commit provenance when creating the outputCommit
 	for _, prov := range outputCommitInfo.Provenance {
-		branchToCommit[key(prov.Commit.Repo.Name, prov.Branch.Name)] = prov.Commit
+		branchToCommit[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)] = prov.Commit
 	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) {
@@ -425,7 +423,7 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 
 func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
 	for _, commitRange := range commitInfo.Subvenance {
-		if commitRange.Lower.Repo.Name == commitInfo.Commit.Repo.Name {
+		if commitRange.Lower.Branch.Repo.Name == commitInfo.Commit.Branch.Repo.Name {
 			return commitRange.Lower
 		}
 	}

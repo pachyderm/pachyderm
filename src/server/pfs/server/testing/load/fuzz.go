@@ -9,13 +9,13 @@ type FuzzOperationSpec struct {
 	Prob          float64        `yaml:"prob,omitempty"`
 }
 
-func FuzzOperation(env *Env, repo, commit string, specs []*FuzzOperationSpec) error {
+func FuzzOperation(env *Env, repo, branch, commit string, specs []*FuzzOperationSpec) error {
 	var totalProb float64
 	prob := rand.Float64()
 	for _, spec := range specs {
 		totalProb += spec.Prob
 		if prob <= totalProb {
-			return Operation(env, repo, commit, spec.OperationSpec)
+			return Operation(env, repo, branch, commit, spec.OperationSpec)
 		}
 	}
 	// TODO: Should not reach here, need to validate fuzzing probabilities (this applies to other fuzzers as well).

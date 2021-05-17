@@ -5,8 +5,10 @@ import (
 	"path"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -17,19 +19,25 @@ const (
 
 var (
 	// JobsPipelineIndex maps pipeline to jobs started by the pipeline
-	JobsPipelineIndex = &col.Index{Field: "Pipeline", Multi: false}
-
-	// JobsInputIndex maps job inputs (repos + pipeline version) to output
-	// commit. This is how we know if we need to start a job.
-	JobsInputIndex = &col.Index{Field: "Input", Multi: false}
+	JobsPipelineIndex = &col.Index{
+		Name: "Pipeline",
+		Extract: func(val proto.Message) string {
+			return val.(*pps.StoredPipelineJobInfo).Pipeline.Name
+		},
+	}
 
 	// JobsOutputIndex maps job outputs to the job that create them.
-	JobsOutputIndex = &col.Index{Field: "OutputCommit", Multi: false}
+	JobsOutputIndex = &col.Index{
+		Name: "OutputCommit",
+		Extract: func(val proto.Message) string {
+			return pfsdb.CommitKey(val.(*pps.StoredPipelineJobInfo).OutputCommit)
+		},
+	}
 )
 
-// Pipelines returns a Collection of pipelines
-func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
+// Pipelines returns an EtcdCollection of pipelines
+func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, pipelinesPrefix),
 		nil,
@@ -39,9 +47,9 @@ func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	)
 }
 
-// Jobs returns a Collection of jobs
-func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
+// Jobs returns an EtcdCollection of jobs
+func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, jobsPrefix),
 		[]*col.Index{JobsPipelineIndex, JobsOutputIndex},

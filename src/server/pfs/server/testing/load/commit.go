@@ -21,16 +21,16 @@ func Commits(pachClient *client.APIClient, repo, branch string, spec *CommitsSpe
 			return err
 		}
 		for _, operationsSpec := range spec.OperationsSpecs {
-			if err := Operations(env, repo, commit.ID, operationsSpec); err != nil {
+			if err := Operations(env, repo, branch, commit.ID, operationsSpec); err != nil {
 				return err
 			}
 		}
-		if err := pachClient.FinishCommit(repo, commit.ID); err != nil {
+		if err := pachClient.FinishCommit(repo, branch, commit.ID); err != nil {
 			return err
 		}
 		validator := env.Validator()
 		if validator != nil {
-			if err := validator.Validate(env.Client(), repo, commit.ID); err != nil {
+			if err := validator.Validate(env.Client(), repo, branch, commit.ID); err != nil {
 				return err
 			}
 		}

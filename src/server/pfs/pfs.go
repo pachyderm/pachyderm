@@ -73,7 +73,7 @@ type ErrCommitNotFinished struct {
 }
 
 func (e ErrFileNotFound) Error() string {
-	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Repo.Name, e.File.Commit.ID)
+	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo.Name, e.File.Commit.ID)
 }
 
 func (e ErrRepoNotFound) Error() string {
@@ -89,7 +89,7 @@ func (e ErrRepoDeleted) Error() string {
 }
 
 func (e ErrCommitNotFound) Error() string {
-	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Repo.Name)
+	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
 }
 
 func (e ErrNoHead) Error() string {
@@ -98,19 +98,19 @@ func (e ErrNoHead) Error() string {
 }
 
 func (e ErrCommitExists) Error() string {
-	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, e.Commit.Repo.Name)
+	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
 }
 
 func (e ErrCommitFinished) Error() string {
-	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Repo.Name)
+	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Branch.Repo.Name)
 }
 
 func (e ErrCommitDeleted) Error() string {
-	return fmt.Sprintf("commit %v/%v was deleted", e.Commit.Repo.Name, e.Commit.ID)
+	return fmt.Sprintf("commit %v@%v was deleted", e.Commit.Branch.Repo.Name, e.Commit.ID)
 }
 
 func (e ErrParentCommitNotFound) Error() string {
-	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Repo.Name)
+	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
 }
 
 func (e ErrOutputCommitNotFinished) Error() string {

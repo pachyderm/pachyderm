@@ -3,11 +3,8 @@ package collection
 import (
 	"context"
 	"fmt"
-	"log"
 	"path"
-	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -37,7 +34,7 @@ var (
 	ttl           = int64(30)
 )
 
-type collection struct {
+type etcdCollection struct {
 	etcdClient *etcd.Client
 	prefix     string
 	indexes    []*Index
@@ -58,8 +55,8 @@ type collection struct {
 	valCheck func(proto.Message) error
 }
 
-// NewCollection creates a new collection.
-func NewCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
+// NewEtcdCollection creates a new collection backed by etcd.
+func NewEtcdCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) EtcdCollection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -68,7 +65,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, tem
 		prefix = prefix + "/"
 	}
 
-	return &collection{
+	return &etcdCollection{
 		prefix:     prefix,
 		etcdClient: etcdClient,
 		indexes:    indexes,
@@ -79,28 +76,21 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, tem
 	}
 }
 
-func (c *collection) ReadWrite(stm STM) ReadWriteCollection {
-	return &readWriteCollection{
-		collection: c,
-		stm:        stm,
+func (c *etcdCollection) ReadWrite(stm STM) EtcdReadWriteCollection {
+	return &etcdReadWriteCollection{
+		etcdCollection: c,
+		stm:            stm.(STM),
 	}
 }
 
-func (c *collection) ReadWriteInt(stm STM) ReadWriteIntCollection {
-	return &readWriteIntCollection{
-		collection: c,
-		stm:        stm,
+func (c *etcdCollection) ReadOnly(ctx context.Context) EtcdReadOnlyCollection {
+	return &etcdReadOnlyCollection{
+		etcdCollection: c,
+		ctx:            ctx,
 	}
 }
 
-func (c *collection) ReadOnly(ctx context.Context) ReadonlyCollection {
-	return &readonlyCollection{
-		collection: c,
-		ctx:        ctx,
-	}
-}
-
-func (c *collection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
+func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
 	var claimed bool
 	if _, err := NewSTM(ctx, c.etcdClient, func(stm STM) error {
 		readWriteC := c.ReadWrite(stm)
@@ -145,47 +135,33 @@ func (c *collection) Claim(ctx context.Context, key string, val proto.Message, f
 	return f(claimCtx)
 }
 
-// Path returns the full path of a key in the etcd namespace
-func (c *collection) Path(key string) string {
+// path returns the full path of a key in the etcd namespace
+func (c *etcdCollection) path(key string) string {
 	return path.Join(c.prefix, key)
 }
 
-func (c *collection) indexRoot(index *Index) string {
+func (c *etcdCollection) indexRoot(index *Index) string {
 	// remove trailing slash from c.prefix
 	return fmt.Sprintf("%s%s%s/",
-		strings.TrimRight(c.prefix, "/"), indexIdentifier, index.Field)
+		strings.TrimRight(c.prefix, "/"), indexIdentifier, index.Name)
 }
 
 // See the documentation for `Index` for details.
-func (c *collection) indexDir(index *Index, indexVal interface{}) string {
-	var indexValStr string
-	if marshaller, ok := indexVal.(proto.Marshaler); ok {
-		if indexValBytes, err := marshaller.Marshal(); err == nil {
-			// use marshalled proto as index. This way we can rename fields without
-			// breaking our index.
-			indexValStr = string(indexValBytes)
-		} else {
-			// log error but keep going (this used to be the only codepath)
-			log.Printf("ERROR trying to marshal index value: %v", err)
-			indexValStr = fmt.Sprintf("%v", indexVal)
-		}
-	} else {
-		indexValStr = fmt.Sprintf("%v", indexVal)
-	}
-	return path.Join(c.indexRoot(index), indexValStr)
+func (c *etcdCollection) indexDir(index *Index, indexVal string) string {
+	return path.Join(c.indexRoot(index), indexVal)
 }
 
 // See the documentation for `Index` for details.
-func (c *collection) indexPath(index *Index, indexVal interface{}, key string) string {
+func (c *etcdCollection) indexPath(index *Index, indexVal string, key string) string {
 	return path.Join(c.indexDir(index, indexVal), key)
 }
 
-type readWriteCollection struct {
-	*collection
+type etcdReadWriteCollection struct {
+	*etcdCollection
 	stm STM
 }
 
-func (c *readWriteCollection) Get(key string, val proto.Message) (retErr error) {
+func (c *etcdReadWriteCollection) Get(key string, val proto.Message) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(c.stm.Context(), "/etcd.RW/Get",
 		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
 	defer func() {
@@ -195,14 +171,14 @@ func (c *readWriteCollection) Get(key string, val proto.Message) (retErr error) 
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	valStr, err := c.stm.Get(c.Path(key))
+	valStr, err := c.stm.Get(c.path(key))
 	if err != nil {
 		if IsErrNotFound(err) {
 			return ErrNotFound{c.prefix, key}
 		}
 		return err
 	}
-	c.stm.SetSafePutCheck(c.Path(key), reflect.ValueOf(val).Pointer())
+	c.stm.SetSafePutCheck(c.path(key), reflect.ValueOf(val).Pointer())
 	return proto.Unmarshal([]byte(valStr), val)
 }
 
@@ -216,36 +192,23 @@ func cloneProtoMsg(original proto.Message) proto.Message {
 
 // Giving a value, an index, and the key of the item, return the path
 // under which the new index item should be stored.
-func (c *readWriteCollection) getIndexPath(val interface{}, index *Index, key string) string {
-	reflVal := reflect.ValueOf(val)
-	field := reflect.Indirect(reflVal).FieldByName(index.Field).Interface()
-	return c.indexPath(index, field, key)
+func (c *etcdReadWriteCollection) getIndexPath(val proto.Message, index *Index, key string) string {
+	return c.indexPath(index, index.Extract(val), key)
 }
 
-// Giving a value, a multi-index, and the key of the item, return the
-// paths under which the multi-index items should be stored.
-func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index *Index, key string) []string {
-	var indexPaths []string
-	field := reflect.Indirect(reflect.ValueOf(val)).FieldByName(index.Field)
-	for i := 0; i < field.Len(); i++ {
-		indexPaths = append(indexPaths, c.indexPath(index, field.Index(i).Interface(), key))
-	}
-	return indexPaths
-}
-
-func (c *readWriteCollection) Put(key string, val proto.Message) error {
+func (c *etcdReadWriteCollection) Put(key string, val proto.Message) error {
 	return c.PutTTL(key, val, 0)
 }
 
-func (c *readWriteCollection) TTL(key string) (int64, error) {
-	ttl, err := c.stm.TTL(c.Path(key))
+func (c *etcdReadWriteCollection) TTL(key string) (int64, error) {
+	ttl, err := c.stm.TTL(c.path(key))
 	if IsErrNotFound(err) {
 		return ttl, ErrNotFound{c.prefix, key}
 	}
 	return ttl, err
 }
 
-func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
+func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
 	if strings.Contains(key, indexIdentifier) {
 		return errors.Errorf("cannot put key %q which contains reserved string %q", key, indexIdentifier)
 	}
@@ -253,20 +216,20 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 		return err
 	}
 
-	if c.collection.keyCheck != nil {
-		if err := c.collection.keyCheck(key); err != nil {
+	if c.keyCheck != nil {
+		if err := c.keyCheck(key); err != nil {
 			return err
 		}
 	}
 
-	if c.collection.valCheck != nil {
-		if err := c.collection.valCheck(val); err != nil {
+	if c.valCheck != nil {
+		if err := c.valCheck(val); err != nil {
 			return err
 		}
 	}
 
 	ptr := reflect.ValueOf(val).Pointer()
-	if !c.stm.IsSafePut(c.Path(key), ptr) {
+	if !c.stm.IsSafePut(c.path(key), ptr) {
 		return errors.Errorf("unsafe put for key %v (passed ptr did not receive updated value)", key)
 	}
 
@@ -275,49 +238,18 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 
 		// Put the appropriate record in any of c's secondary indexes
 		for _, index := range c.indexes {
-			if index.Multi {
-				indexPaths := c.getMultiIndexPaths(val, index, key)
-				for _, indexPath := range indexPaths {
-					// Only put the index if it doesn't already exist; otherwise
-					// we might trigger an unnecessary event if someone is
-					// watching the index
-					if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
-						if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
-							return err
-						}
-					}
+			indexPath := c.getIndexPath(val, index, key)
+			// If we can get the original value, we remove the original indexes
+			if err := c.Get(key, clone); err == nil {
+				originalIndexPath := c.getIndexPath(clone, index, key)
+				if originalIndexPath != indexPath {
+					c.stm.Del(originalIndexPath)
 				}
-				// If we can get the original value, we remove the original indexes
-				if err := c.Get(key, clone); err == nil {
-					for _, originalIndexPath := range c.getMultiIndexPaths(clone, index, key) {
-						var found bool
-						for _, indexPath := range indexPaths {
-							if originalIndexPath == indexPath {
-								found = true
-							}
-						}
-						if !found {
-							c.stm.Del(originalIndexPath)
-						}
-					}
-				}
-			} else {
-				indexPath := c.getIndexPath(val, index, key)
-				// If we can get the original value, we remove the original indexes
-				if err := c.Get(key, clone); err == nil {
-					originalIndexPath := c.getIndexPath(clone, index, key)
-					if originalIndexPath != indexPath {
-						c.stm.Del(originalIndexPath)
-					}
-				}
-				// Only put the index if it doesn't already exist; otherwise
-				// we might trigger an unnecessary event if someone is
-				// watching the index
-				if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
-					if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
-						return err
-					}
-				}
+			}
+			// Put the index even if it already exists, so that watchers may be
+			// notified that the value has been updated.
+			if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
+				return err
 			}
 		}
 	}
@@ -325,13 +257,13 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 	if err != nil {
 		return err
 	}
-	return c.stm.Put(c.Path(key), string(bytes), ttl, ptr)
+	return c.stm.Put(c.path(key), string(bytes), ttl, ptr)
 }
 
 // Update reads the current value associated with 'key', calls 'f' to update
 // the value, and writes the new value back to the collection. 'key' must be
 // present in the collection, or a 'Not Found' error is returned
-func (c *readWriteCollection) Update(key string, val proto.Message, f func() error) error {
+func (c *etcdReadWriteCollection) Update(key string, val proto.Message, f func() error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -348,7 +280,7 @@ func (c *readWriteCollection) Update(key string, val proto.Message, f func() err
 }
 
 // Upsert is like Update but 'key' is not required to be present
-func (c *readWriteCollection) Upsert(key string, val proto.Message, f func() error) error {
+func (c *etcdReadWriteCollection) Upsert(key string, val proto.Message, f func() error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -361,11 +293,11 @@ func (c *readWriteCollection) Upsert(key string, val proto.Message, f func() err
 	return c.Put(key, val)
 }
 
-func (c *readWriteCollection) Create(key string, val proto.Message) error {
+func (c *etcdReadWriteCollection) Create(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	fullKey := c.Path(key)
+	fullKey := c.path(key)
 	_, err := c.stm.Get(fullKey)
 	if err != nil && !IsErrNotFound(err) {
 		return err
@@ -376,8 +308,8 @@ func (c *readWriteCollection) Create(key string, val proto.Message) error {
 	return c.Put(key, val)
 }
 
-func (c *readWriteCollection) Delete(key string) error {
-	fullKey := c.Path(key)
+func (c *etcdReadWriteCollection) Delete(key string) error {
+	fullKey := c.path(key)
 	if _, err := c.stm.Get(fullKey); err != nil {
 		return err
 	}
@@ -385,15 +317,8 @@ func (c *readWriteCollection) Delete(key string) error {
 		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
 			if err := c.Get(key, val.(proto.Message)); err == nil {
-				if index.Multi {
-					indexPaths := c.getMultiIndexPaths(val, index, key)
-					for _, indexPath := range indexPaths {
-						c.stm.Del(indexPath)
-					}
-				} else {
-					indexPath := c.getIndexPath(val, index, key)
-					c.stm.Del(indexPath)
-				}
+				indexPath := c.getIndexPath(val, index, key)
+				c.stm.Del(indexPath)
 			}
 		}
 	}
@@ -401,94 +326,28 @@ func (c *readWriteCollection) Delete(key string) error {
 	return nil
 }
 
-func (c *readWriteCollection) DeleteAll() {
+func (c *etcdReadWriteCollection) DeleteAll() error {
 	// Delete indexes
 	for _, index := range c.indexes {
 		c.stm.DelAll(c.indexRoot(index))
 	}
 	c.stm.DelAll(c.prefix)
-}
-
-func (c *readWriteCollection) DeleteAllPrefix(prefix string) {
-	c.stm.DelAll(path.Join(c.prefix, prefix) + "/")
-}
-
-type readWriteIntCollection struct {
-	*collection
-	stm STM
-}
-
-func (c *readWriteIntCollection) Create(key string, val int) error {
-	fullKey := c.Path(key)
-	_, err := c.stm.Get(fullKey)
-	if err != nil && !IsErrNotFound(err) {
-		return err
-	}
-	if err == nil {
-		return ErrExists{c.prefix, key}
-	}
-	return c.stm.Put(fullKey, strconv.Itoa(val), 0, 0)
-}
-
-func (c *readWriteIntCollection) Get(key string) (int, error) {
-	valStr, err := c.stm.Get(c.Path(key))
-	if err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(valStr)
-}
-
-func (c *readWriteIntCollection) Increment(key string) error {
-	return c.IncrementBy(key, 1)
-}
-
-func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
-	fullKey := c.Path(key)
-	valStr, err := c.stm.Get(fullKey)
-	if err != nil {
-		return err
-	}
-	val, err := strconv.Atoi(valStr)
-	if err != nil {
-		return ErrMalformedValue{c.prefix, key, valStr}
-	}
-	return c.stm.Put(fullKey, strconv.Itoa(val+n), 0, 0)
-}
-
-func (c *readWriteIntCollection) Decrement(key string) error {
-	return c.DecrementBy(key, 1)
-}
-
-func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
-	fullKey := c.Path(key)
-	valStr, err := c.stm.Get(fullKey)
-	if err != nil {
-		return err
-	}
-	val, err := strconv.Atoi(valStr)
-	if err != nil {
-		return ErrMalformedValue{c.prefix, key, valStr}
-	}
-	return c.stm.Put(fullKey, strconv.Itoa(val-n), 0, 0)
-}
-
-func (c *readWriteIntCollection) Delete(key string) error {
-	fullKey := c.Path(key)
-	if _, err := c.stm.Get(fullKey); err != nil {
-		return err
-	}
-	c.stm.Del(fullKey)
 	return nil
 }
 
-type readonlyCollection struct {
-	*collection
+func (c *etcdReadWriteCollection) DeleteAllPrefix(prefix string) error {
+	c.stm.DelAll(path.Join(c.prefix, prefix) + "/")
+	return nil
+}
+
+type etcdReadOnlyCollection struct {
+	*etcdCollection
 	ctx context.Context
 }
 
 // get is an internal wrapper around etcdClient.Get that wraps the call in a
 // trace
-func (c *readonlyCollection) get(key string, opts ...etcd.OpOption) (resp *etcd.GetResponse, retErr error) {
+func (c *etcdReadOnlyCollection) get(key string, opts ...etcd.OpOption) (resp *etcd.GetResponse, retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/Get",
 		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
 	defer func() {
@@ -496,14 +355,14 @@ func (c *readonlyCollection) get(key string, opts ...etcd.OpOption) (resp *etcd.
 		tracing.FinishAnySpan(span)
 	}()
 	resp, err := c.etcdClient.Get(ctx, key, opts...)
-	return resp, err
+	return resp, errors.EnsureStack(err)
 }
 
-func (c *readonlyCollection) Get(key string, val proto.Message) error {
+func (c *etcdReadOnlyCollection) Get(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	resp, err := c.get(c.Path(key))
+	resp, err := c.get(c.path(key))
 	if err != nil {
 		return err
 	}
@@ -515,7 +374,7 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-func (c *readonlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error {
+func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(key string) error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetByIndex", "col", c.prefix, "index", index, "indexVal", indexVal)
 	defer tracing.FinishAnySpan(span)
 	if atomic.LoadInt64(&index.limit) == 0 {
@@ -536,27 +395,8 @@ func (c *readonlyCollection) GetByIndex(index *Index, indexVal interface{}, val 
 	})
 }
 
-func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
-	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetBlock",
-		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
-	defer tracing.FinishAnySpan(span)
-	if err := watch.CheckType(c.template, val); err != nil {
-		return err
-	}
-	watcher, err := watch.NewWatcher(ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
-	if err != nil {
-		return err
-	}
-	defer watcher.Close()
-	e := <-watcher.Watch()
-	if e.Err != nil {
-		return e.Err
-	}
-	return e.Unmarshal(&key, val)
-}
-
-func (c *readonlyCollection) TTL(key string) (int64, error) {
-	resp, err := c.get(c.Path(key))
+func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
+	resp, err := c.get(c.path(key))
 	if err != nil {
 		return 0, err
 	}
@@ -574,31 +414,12 @@ func (c *readonlyCollection) TTL(key string) (int64, error) {
 	return leaseTTLResp.TTL, nil
 }
 
-// ListPrefix returns keys (and values) that begin with prefix, f will be
-// called with each key, val will contain the value for the key.
+// List returns objects sorted based on the options passed in. f will be called
+// for each item, val will contain the corresponding value. Val is not an
+// argument to f because that would require f to perform a cast before it could
+// be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error {
-	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/ListPrefix", "col", c.prefix, "prefix", prefix)
-	defer tracing.FinishAnySpan(span)
-	queryPrefix := c.prefix
-	if prefix != "" {
-		// If we always call join, we'll get rid of the trailing slash we need
-		// on the root c.prefix
-		queryPrefix = filepath.Join(c.prefix, prefix)
-	}
-	return c.list(queryPrefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
-		if err := proto.Unmarshal(kv.Value, val); err != nil {
-			return err
-		}
-		return f(strings.TrimPrefix(string(kv.Key), queryPrefix))
-	})
-}
-
-// List returns objects sorted based on the options passed in. f will be called with each key, val will contain the
-// corresponding value. Val is not an argument to f because that would require
-// f to perform a cast before it could be used.
-// You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
+func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
 	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
@@ -617,7 +438,7 @@ func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(key s
 // corresponding value. Val is not an argument to f because that would require
 // f to perform a cast before it could be used.  You can break out of iteration
 // by returning errutil.ErrBreak.
-func (c *readonlyCollection) ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error {
+func (c *etcdReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
 	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
@@ -631,15 +452,11 @@ func (c *readonlyCollection) ListRev(val proto.Message, opts *Options, f func(ke
 	})
 }
 
-func (c *readonlyCollection) list(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
-	if opts.SelfSort {
-		return listSelfSortRevision(c, prefix, limitPtr, opts, f)
-	}
-
+func (c *etcdReadOnlyCollection) list(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
 	return listRevision(c, prefix, limitPtr, opts, f)
 }
 
-func (c *readonlyCollection) Count() (int64, error) {
+func (c *etcdReadOnlyCollection) Count() (int64, error) {
 	resp, err := c.get(c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
 	if err != nil {
 		return 0, err
@@ -649,21 +466,21 @@ func (c *readonlyCollection) Count() (int64, error) {
 
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
-func (c *readonlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template, opts...)
+func (c *etcdReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
+	return watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template, opts...)
 }
 
 // WatchF watches a collection and executes a callback function each time an event occurs.
-func (c *readonlyCollection) WatchF(f func(e *watch.Event) error, opts ...watch.OpOption) error {
+func (c *etcdReadOnlyCollection) WatchF(f func(e *watch.Event) error, opts ...watch.Option) error {
 	watcher, err := c.Watch(opts...)
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
-	return c.watchF(watcher, f)
+	return watchF(c.ctx, watcher, f)
 }
 
-func (c *readonlyCollection) watchF(watcher watch.Watcher, f func(e *watch.Event) error) error {
+func watchF(ctx context.Context, watcher watch.Watcher, f func(e *watch.Event) error) error {
 	for {
 		select {
 		case e, ok := <-watcher.Watch():
@@ -679,17 +496,17 @@ func (c *readonlyCollection) watchF(watcher watch.Watcher, f func(e *watch.Event
 				}
 				return err
 			}
-		case <-c.ctx.Done():
-			return c.ctx.Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
 
 // WatchByIndex watches items in a collection that match a particular index
-func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.Watcher, error) {
+func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string, opts ...watch.Option) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template)
+	watcher, err := watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -724,7 +541,7 @@ func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.
 				// pass along the error
 				return ev.Err
 			case watch.EventPut:
-				resp, err := c.get(c.Path(path.Base(string(ev.Key))))
+				resp, err := c.get(c.path(path.Base(string(ev.Key))))
 				if err != nil {
 					return err
 				}
@@ -749,22 +566,31 @@ func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.
 			eventCh <- directEv
 		}
 	}()
-	return watch.MakeWatcher(eventCh, done), nil
+	return watch.MakeEtcdWatcher(eventCh, done), nil
 }
 
-// WatchOne watches a given item.  The first value returned from the watch
-// will be the current value of the item.
-func (c *readonlyCollection) WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template, opts...)
-}
-
-// WatchOneF watches a given item and executes a callback function each time an event occurs.
-// The first value returned from the watch will be the current value of the item.
-func (c *readonlyCollection) WatchOneF(key string, f func(e *watch.Event) error, opts ...watch.OpOption) error {
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template, opts...)
+func (c *etcdReadOnlyCollection) WatchByIndexF(index *Index, indexVal string, f func(e *watch.Event) error, opts ...watch.Option) error {
+	watcher, err := c.WatchByIndex(index, indexVal, opts...)
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
-	return c.watchF(watcher, f)
+	return watchF(c.ctx, watcher, f)
+}
+
+// WatchOne watches a given item.  The first value returned from the watch
+// will be the current value of the item.
+func (c *etcdReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
+	return watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.path(key), c.template, opts...)
+}
+
+// WatchOneF watches a given item and executes a callback function each time an event occurs.
+// The first value returned from the watch will be the current value of the item.
+func (c *etcdReadOnlyCollection) WatchOneF(key string, f func(e *watch.Event) error, opts ...watch.Option) error {
+	watcher, err := watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.path(key), c.template, opts...)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	return watchF(c.ctx, watcher, f)
 }

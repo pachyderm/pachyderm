@@ -14,6 +14,8 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
+const enterpriseRootToken = "iamenterprise"
+
 func resetClusterState(t *testing.T) {
 	ec, err := client.NewEnterpriseClientForTest()
 	require.NoError(t, err)
@@ -23,7 +25,7 @@ func resetClusterState(t *testing.T) {
 
 	// Set the root token, in case a previous test failed
 	c.SetAuthToken(tu.RootToken)
-	ec.SetAuthToken(tu.RootToken)
+	ec.SetAuthToken(enterpriseRootToken)
 
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, ec.DeleteAllEnterprise())
@@ -55,7 +57,7 @@ func TestRegisterAuthenticated(t *testing.T) {
 	cluster := tu.UniqueString("cluster")
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
-		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 
 		pachctl enterprise get-state | match ACTIVE
@@ -67,7 +69,7 @@ func TestRegisterAuthenticated(t *testing.T) {
 	`,
 		"id", cluster,
 		"license", tu.GetTestEnterpriseCode(t),
-		"token", tu.RootToken,
+		"enterprise_token", enterpriseRootToken,
 	).Run())
 }
 
@@ -78,7 +80,7 @@ func TestEnterpriseRoleBindings(t *testing.T) {
 
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
-		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		pachctl auth set enterprise clusterAdmin robot:test1
@@ -87,6 +89,7 @@ func TestEnterpriseRoleBindings(t *testing.T) {
 		`,
 		"id", tu.UniqueString("cluster"),
 		"license", tu.GetTestEnterpriseCode(t),
+		"enterprise_token", enterpriseRootToken,
 		"token", tu.RootToken,
 	).Run())
 }
@@ -98,10 +101,10 @@ func TestGetAndUseRobotToken(t *testing.T) {
 
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
-		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
-		pachctl auth get-robot-token --enterprise -q {{.alice}} | pachctl auth use-auth-token --enterprise
+		pachctl auth get-robot-token --enterprise -q {{.alice}} | tail -1 | pachctl auth use-auth-token --enterprise
 		pachctl auth get-robot-token -q {{.bob}} | pachctl auth use-auth-token
 		pachctl auth whoami --enterprise | match {{.alice}}
 		pachctl auth whoami | match {{.bob}}
@@ -109,6 +112,7 @@ func TestGetAndUseRobotToken(t *testing.T) {
 		"id", tu.UniqueString("cluster"),
 		"license", tu.GetTestEnterpriseCode(t),
 		"token", tu.RootToken,
+		"enterprise_token", enterpriseRootToken,
 		"alice", tu.UniqueString("alice"),
 		"bob", tu.UniqueString("bob"),
 	).Run())
@@ -121,12 +125,13 @@ func TestConfig(t *testing.T) {
 
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
-		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 			`,
 		"id", tu.UniqueString("cluster"),
 		"token", tu.RootToken,
+		"enterprise_token", enterpriseRootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 	).Run())
 
@@ -161,13 +166,14 @@ func TestLoginEnterprise(t *testing.T) {
 
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
-		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		echo '{"id": "test", "name": "test", "type": "mockPassword", "config": {"username": "admin", "password": "password"}}' | pachctl idp create-connector
 		`,
 		"id", tu.UniqueString("cluster"),
 		"token", tu.RootToken,
+		"enterprise_token", enterpriseRootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 	).Run())
 
@@ -205,13 +211,14 @@ func TestLoginPachd(t *testing.T) {
 
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
-		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		echo '{"id": "test", "name": "test", "type": "mockPassword", "config": {"username": "admin", "password": "password"}}' | pachctl idp create-connector
 		`,
 		"id", tu.UniqueString("cluster"),
 		"token", tu.RootToken,
+		"enterprise_token", enterpriseRootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 	).Run())
 
@@ -247,11 +254,12 @@ func TestSyncContexts(t *testing.T) {
 	// register a new cluster
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
-		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650 --pachd-user-address grpc://pachd.default:655 --cluster-deployment-id {{.clusterId}} 
 		`,
 		"id", id,
 		"token", tu.RootToken,
+		"enterprise_token", enterpriseRootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 		"clusterId", clusterId,
 	).Run())
@@ -283,7 +291,6 @@ func TestSyncContexts(t *testing.T) {
 		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\"" 
 		`,
 		"id", id,
-		"token", tu.RootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 		"clusterId", clusterId,
 		"userAddress", "grpc://pachd.default:700",
@@ -300,7 +307,6 @@ func TestSyncContexts(t *testing.T) {
 		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\"" 
 		`,
 		"id", id,
-		"token", tu.RootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 		"clusterId", newClusterId,
 		"userAddress", "grpc://pachd.default:700",
@@ -330,7 +336,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 	// register a new cluster
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl enterprise activate
-		echo {{.token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
 
 		pachctl enterprise sync-contexts
@@ -341,7 +347,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
 		"id", id,
-		"token", tu.RootToken,
+		"enterprise_token", enterpriseRootToken,
 		"license", tu.GetTestEnterpriseCode(t),
 		"clusterId", clusterId,
 		"pachdAddress", "grpc://"+host+":30650", // assert that a localhost address is registered

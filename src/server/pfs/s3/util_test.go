@@ -86,6 +86,7 @@ func putListFileTestObject(t *testing.T, pachClient *client.APIClient, repo stri
 	t.Helper()
 	require.NoError(t, pachClient.PutFile(
 		repo,
+		"",
 		commitID,
 		fmt.Sprintf("%s%d", dir, i),
 		strings.NewReader(fmt.Sprintf("%d\n", i)),

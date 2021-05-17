@@ -58,7 +58,12 @@ func printRoleBinding(b *auth.RoleBinding) {
 
 func newClient(enterprise bool) (*client.APIClient, error) {
 	if enterprise {
-		return client.NewEnterpriseClientOnUserMachine("user")
+		c, err := client.NewEnterpriseClientOnUserMachine("user")
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+		return c, nil
 	}
 	return client.NewOnUserMachine("user")
 }
@@ -177,12 +182,12 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get enterprise server client")
 				}
-				idCfg, err := ec.GetIdentityServerConfig(c.Ctx(), &identity.GetIdentityServerConfigRequest{})
+				idCfg, err := ec.GetIdentityServerConfig(ec.Ctx(), &identity.GetIdentityServerConfigRequest{})
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get identity server issuer")
 				}
 
-				oidcClient, err := ec.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{
+				oidcClient, err := ec.CreateOIDCClient(ec.Ctx(), &identity.CreateOIDCClientRequest{
 					Client: &identity.OIDCClient{
 						Id:           clientId,
 						Name:         clientId,
@@ -681,6 +686,39 @@ func GetEnterpriseRoleBindingCmd() *cobra.Command {
 	return cmdutil.CreateAlias(get, "auth get enterprise")
 }
 
+// RotateRootToken returns a cobra command that rotates the auth token for the Root User
+func RotateRootToken() *cobra.Command {
+	var rootToken string
+	rotateRootToken := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Rotate the root user's auth token",
+		Long:  "Rotate the root user's auth token",
+		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
+			c, err := newClient(false)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			req := &auth.RotateRootTokenRequest{
+				RootToken: rootToken,
+			}
+			resp, err := c.RotateRootToken(c.Ctx(), req)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("WARNING: DO NOT LOSE THE AUTH TOKEN BELOW. STORE IT SECURELY FOR THE LIFE OF THE CLUSTER." +
+				"THIS TOKEN WILL ALWAYS HAVE ADMIN ACCESS TO FIX THE CLUSTER CONFIGURATION.")
+			fmt.Printf("Pachyderm auth token:\n%s\n", resp.RootToken)
+			return nil
+		}),
+	}
+	rotateRootToken.PersistentFlags().StringVar(&rootToken, "supply-token", "", "An auth token to rotate to. If left blank, one will be auto-generated.")
+
+	return cmdutil.CreateAlias(rotateRootToken, "auth rotate-root-token")
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -727,5 +765,6 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, SetClusterRoleBindingCmd())
 	commands = append(commands, GetEnterpriseRoleBindingCmd())
 	commands = append(commands, SetEnterpriseRoleBindingCmd())
+	commands = append(commands, RotateRootToken())
 	return commands
 }

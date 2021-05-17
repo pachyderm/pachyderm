@@ -1,6 +1,11 @@
 
 # Changelog
 
+## 1.13.2
+- Fixes a bug that causes pipeline master to block after losing connection to etcd (#6042)
+- Fixes a bug that failed initialization if pachd was not run as root (#6065)
+- Fixes a bug that failed to run pipelines after few hours of operation (#6083)
+
 ## 1.13.1
 - Fixes a bug that would fail enterprise check when autoscaling is enabled (#6008)
 - Changes to increase the maximum size of an object that can be uploaded in a single request to the s3 gateway. This is the recommended workaround for issues with multipart uploads to output repos (#6005)
