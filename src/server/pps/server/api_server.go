@@ -424,9 +424,13 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 		// output repo (which the pipeline needs to be able to do on the user's
 		// behalf)
 		done := make(map[string]struct{}) // don't double-authorize repos
+		err = nil
 		pps.VisitInput(input, func(in *pps.Input) {
-			var repo string
+			if err != nil {
+				return
+			}
 
+			var repo string
 			if in.Pfs != nil {
 				repo = in.Pfs.Repo
 			} else {
