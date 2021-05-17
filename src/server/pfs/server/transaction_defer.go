@@ -76,7 +76,7 @@ func (f *PipelineFinisher) FinishPipelineCommits(branch *pfs.Branch) error {
 func (f *PipelineFinisher) Run() error {
 	for _, branch := range f.branches {
 		if err := f.d.listCommit(
-			f.txnCtx.Client,
+			f.txnCtx.ClientContext,
 			branch.Repo,
 			client.NewCommit(branch.Repo.Name, branch.Name, ""), // to
 			nil,   // from
