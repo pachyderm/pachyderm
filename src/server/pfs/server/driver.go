@@ -249,7 +249,7 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 		return nil, err
 	}
 	if includeAuth {
-		permissions, roles, err := d.getPermissions(txnCtx.Client, repo)
+		permissions, roles, err := d.getPermissions(txnCtx.ClientContext, repo)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return result, nil
@@ -261,9 +261,8 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 	return result, nil
 }
 
-func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([]auth.Permission, []string, error) {
-	ctx := pachClient.Ctx()
-
+func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
+	pachClient := d.env.GetPachClient(ctx)
 	resp, err := pachClient.AuthAPIClient.GetPermissions(ctx, &auth.GetPermissionsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
 	})
@@ -274,8 +273,7 @@ func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.ListRepoResponse, error) {
-	ctx := pachClient.Ctx()
+func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoResponse, error) {
 	repos := d.repos.ReadOnly(ctx)
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
@@ -285,7 +283,7 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 			return nil
 		}
 		if includeAuth && authSeemsActive {
-			permissions, roles, err := d.getPermissions(pachClient, repoInfo.Repo)
+			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err == nil {
 				repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
 			} else if auth.IsErrNotActivated(err) {
@@ -1083,7 +1081,7 @@ nextSubvBI:
 //
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
-func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
 	if commit.Branch.Repo.Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commit,
@@ -1092,10 +1090,10 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 		}
 		return cinfo, nil
 	}
-	ctx := pachClient.Ctx()
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
 	}
+	pachClient := d.env.GetPachClient(ctx)
 	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Branch.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, err
 	}
@@ -1114,7 +1112,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 	if blockState == pfs.CommitState_READY {
 		// Wait for each provenant commit to be finished
 		for _, p := range commitInfo.Provenance {
-			d.inspectCommit(pachClient, p.Commit, pfs.CommitState_FINISHED)
+			d.inspectCommit(ctx, p.Commit, pfs.CommitState_FINISHED)
 		}
 	}
 	if blockState == pfs.CommitState_FINISHED {
@@ -1247,7 +1245,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 
 // getCommit is like inspectCommit, without the blocking.
 // It does not add the size to the CommitInfo
-func (d *driver) getCommit(pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if commit.Branch.Repo.Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commit,
@@ -1256,10 +1254,11 @@ func (d *driver) getCommit(pachClient *client.APIClient, commit *pfs.Commit) (*p
 		}
 		return cinfo, nil
 	}
-	ctx := pachClient.Ctx()
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
 	}
+
+	pachClient := d.env.GetPachClient(ctx)
 	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Branch.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, err
 	}
@@ -1276,13 +1275,13 @@ func (d *driver) getCommit(pachClient *client.APIClient, commit *pfs.Commit) (*p
 	return commitInfo, nil
 }
 
-func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, cb func(*pfs.CommitInfo) error) error {
+func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, cb func(*pfs.CommitInfo) error) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
 
-	ctx := pachClient.Ctx()
+	pachClient := d.env.GetPachClient(ctx)
 	if err := authserver.CheckRepoIsAuthorized(pachClient, repo.Name, auth.Permission_REPO_LIST_COMMIT); err != nil {
 		return err
 	}
@@ -1303,13 +1302,13 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		_, err := d.inspectCommit(pachClient, from, pfs.CommitState_STARTED)
+		_, err := d.inspectCommit(ctx, from, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		_, err := d.inspectCommit(pachClient, to, pfs.CommitState_STARTED)
+		_, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
 			if isNoHeadErr(err) {
 				return nil
@@ -1695,7 +1694,7 @@ func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
 	return provenanceCount > 0
 }
 
-func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance, from *pfs.Commit, state pfs.CommitState, cb func(*pfs.CommitInfo) error) error {
+func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance, from *pfs.Commit, state pfs.CommitState, cb func(*pfs.CommitInfo) error) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
@@ -1704,7 +1703,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 		return errors.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
 
-	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
+	commits := d.commits(repo.Name).ReadOnly(ctx)
 	newCommitWatcher, err := commits.Watch(watch.WithSort(col.SortByCreateRevision, col.SortAscend))
 	if err != nil {
 		return err
@@ -1756,7 +1755,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 
 			// We don't want to include the `from` commit itself
 			if !(seen[commitID] || (from != nil && from.ID == commitID)) {
-				commitInfo, err := d.inspectCommit(pachClient, client.NewCommit(repo.Name, commitInfo.Commit.Branch.Name, commitID), state)
+				commitInfo, err := d.inspectCommit(ctx, client.NewCommit(repo.Name, commitInfo.Commit.Branch.Name, commitID), state)
 				if err != nil {
 					return err
 				}
@@ -1771,7 +1770,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	}
 }
 
-func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, cb func(*pfs.CommitInfo) error) error {
+func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, cb func(*pfs.CommitInfo) error) error {
 	if len(fromCommits) == 0 {
 		return errors.Errorf("fromCommits cannot be empty")
 	}
@@ -1782,7 +1781,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	// processed so far
 	commitsToWatch := make(map[string]*pfs.Commit)
 	for i, commit := range fromCommits {
-		commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
@@ -1830,7 +1829,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 					continue
 				}
 			}
-			finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
+			finishedCommitInfo, err := d.inspectCommit(ctx, commitToWatch, pfs.CommitState_FINISHED)
 			if err != nil {
 				if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 					continue // just skip this
@@ -1853,7 +1852,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	// Now wait for the root commits to finish. These are not passed to `f`
 	// because it's expecting to just get downstream commits.
 	for _, commit := range fromCommits {
-		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
+		_, err := d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
 		if err != nil {
 			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 				continue // just skip this
@@ -1865,9 +1864,8 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	return nil
 }
 
-func (d *driver) clearCommit(pachClient *client.APIClient, commit *pfs.Commit) error {
-	ctx := pachClient.Ctx()
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
+	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -2082,19 +2080,20 @@ func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Br
 	return result, nil
 }
 
-func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, reverse bool) ([]*pfs.BranchInfo, error) {
+func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo, reverse bool) ([]*pfs.BranchInfo, error) {
 	// Validate arguments
 	if repo == nil {
 		return nil, errors.New("repo cannot be nil")
 	}
 
+	pachClient := d.env.GetPachClient(ctx)
 	if err := authserver.CheckRepoIsAuthorized(pachClient, repo.Name, auth.Permission_REPO_LIST_BRANCH); err != nil {
 		return nil, err
 	}
 
 	// Make sure that the repo exists
 	if repo.Name != "" {
-		err := d.txnEnv.WithReadContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
+		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 			_, err := d.inspectRepo(txnCtx, repo, !includeAuth)
 			return err
 		})
@@ -2120,7 +2119,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	}
 	lastRev := int64(-1)
 	branchInfo := &pfs.BranchInfo{}
-	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
+	branches := d.branches(repo.Name).ReadOnly(ctx)
 	if err := branches.ListRev(branchInfo, opts, func(key string, createRev int64) error {
 		if createRev != lastRev {
 			sendBis()
@@ -2236,7 +2235,7 @@ func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pf
 func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth)
+	repoInfos, err := d.listRepo(txnCtx.ClientContext, !includeAuth)
 	if err != nil {
 		return err
 	}

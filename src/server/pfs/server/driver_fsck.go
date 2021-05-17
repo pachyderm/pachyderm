@@ -1,13 +1,13 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -230,16 +230,15 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 // 3. Commit provenance is transitive
 // 4. Commit provenance and commit subvenance are dual relations
 // If fix is true it will attempt to fix as many of these issues as it can.
-func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckResponse) error) error {
+func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) error) error {
 	// Check that the user is logged in (user doesn't need any access level to
 	// fsck, but they must be authenticated if auth is active)
-	if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err != nil {
+	pachClient := d.env.GetPachClient(ctx)
+	if _, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil {
 		if !auth.IsErrNotActivated(err) {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to run fsck)")
 		}
 	}
-
-	ctx := pachClient.Ctx()
 
 	repos := d.repos.ReadOnly(ctx)
 
