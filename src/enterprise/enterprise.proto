@@ -62,11 +62,9 @@ message TokenInfo {
 //// Enterprise Activation API
 
 message ActivateRequest {
-  reserved 1,2;
-
-  string license_server = 3;
-  string id = 4;
-  string secret = 5;
+  string license_server = 1;
+  string id = 2;
+  string secret = 3;
 }
 message ActivateResponse {}
 
