@@ -51,10 +51,9 @@ func idRange(start int, end int) []string {
 	return result
 }
 
-func putItem(id string, value ...string) func(rw col.ReadWriteCollection) error {
+func putItem(item *col.TestItem) func(rw col.ReadWriteCollection) error {
 	return func(rw col.ReadWriteCollection) error {
-		testProto := makeProto(id, value...)
-		return rw.Put(testProto.ID, testProto)
+		return rw.Put(item.ID, item)
 	}
 }
 
@@ -69,7 +68,7 @@ func canceledContext() context.Context {
 // individual tests.
 func populateCollection(rw col.ReadWriteCollection) error {
 	for _, id := range idRange(0, defaultCollectionSize) {
-		if err := putItem(id, originalValue)(rw); err != nil {
+		if err := putItem(makeProto(id, originalValue))(rw); err != nil {
 			return err
 		}
 	}

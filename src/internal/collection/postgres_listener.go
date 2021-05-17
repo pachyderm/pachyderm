@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
@@ -24,6 +25,7 @@ const (
 )
 
 type postgresWatcher struct {
+	db         *sqlx.DB
 	listener   *PostgresListener
 	c          chan *watch.Event
 	buf        chan *postgresEvent // buffer for messages before the initial table list is complete
@@ -39,6 +41,7 @@ type postgresWatcher struct {
 }
 
 func newPostgresWatch(
+	db *sqlx.DB,
 	listener *PostgresListener,
 	sqlChannel string,
 	template proto.Message,
@@ -47,6 +50,7 @@ func newPostgresWatch(
 	opts watch.WatchOptions,
 ) *postgresWatcher {
 	return &postgresWatcher{
+		db:         db,
 		listener:   listener,
 		c:          make(chan *watch.Event),
 		buf:        make(chan *postgresEvent, channelBufferSize),
@@ -85,7 +89,7 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context, startTime t
 		case eventData := <-pw.buf:
 			if !eventData.time.Before(startTime) || eventData.err != nil {
 				// This may block, but that is fine, it will put back pressure on the 'buf' channel
-				pw.c <- eventData.WatchEvent(pw.template)
+				pw.c <- eventData.WatchEvent(ctx, pw.db, pw.template)
 			}
 		case <-pw.done:
 			// watcher has been closed, safe to abort
@@ -146,7 +150,8 @@ type postgresEvent struct {
 	key       string          // the primary key of the notified row
 	eventType watch.EventType // the type of operation that generated the event
 	time      time.Time       // the time that this event was created in postgres
-	protoData []byte          // the serialized protobuf of the row data
+	protoData []byte          // the serialized protobuf of the row data (exclusive with storedID)
+	storedID  string          // the ID of a temporary row in the large_notifications table
 	err       error           // any error that occurred in parsing
 }
 
@@ -169,61 +174,74 @@ func parsePostgresEpoch(s string) (time.Time, error) {
 	return time.Unix(sec, nsec).In(time.UTC), nil
 }
 
+
 func parsePostgresEvent(payload string) *postgresEvent {
 	// TODO: do this in a streaming manner rather than copying the string
-	parts := strings.Split(payload, " ") // index, type, date, data
-	if len(parts) != 6 {
+	parts := strings.Split(payload, " ")
+	if len(parts) != 7 {
 		return &postgresEvent{err: errors.Errorf("failed to parse notification payload, wrong number of parts: %d", len(parts))}
 	}
 
-	value, err := base64.StdEncoding.DecodeString(parts[1])
+	value, err := base64.StdEncoding.DecodeString(parts[4])
 	if err != nil {
 		return &postgresEvent{err: errors.Wrap(err, "failed to decode notification payload index value base64")}
 	}
 
-	key, err := base64.StdEncoding.DecodeString(parts[2])
+	key, err := base64.StdEncoding.DecodeString(parts[0])
 	if err != nil {
 		return &postgresEvent{err: errors.Wrap(err, "failed to decode notification payload key base64")}
 	}
 
-	eventType := watch.EventError
-	switch parts[3] {
-	case "INSERT", "UPDATE":
-		eventType = watch.EventPut
-	case "DELETE":
-		eventType = watch.EventDelete
+	result := &postgresEvent{
+		index:     parts[3],
+		value:     string(value),
+		key:       string(key),
+		eventType: watch.EventError,
 	}
-	if eventType == watch.EventError {
+
+	switch parts[2] {
+	case "INSERT", "UPDATE":
+		result.eventType = watch.EventPut
+	case "DELETE":
+		result.eventType = watch.EventDelete
+	}
+	if result.eventType == watch.EventError {
 		return &postgresEvent{err: errors.Errorf("failed to decode notification payload operation type: %s", parts[3])}
 	}
 
-	eventTime, err := parsePostgresEpoch(parts[4])
+	result.time, err = parsePostgresEpoch(parts[1])
 	if err != nil {
 		return &postgresEvent{err: errors.Wrapf(err, "failed to decode notification payload timestamp: %s", parts[4])}
 	}
 
-	protoData, err := base64.StdEncoding.DecodeString(parts[5])
-	if err != nil {
-		return &postgresEvent{err: errors.Wrap(err, "failed to decode notification payload proto base64")}
+	switch parts[5] {
+	case "inline":
+		result.protoData, err = base64.StdEncoding.DecodeString(parts[6])
+		if err != nil {
+			return &postgresEvent{err: errors.Wrap(err, "failed to decode notification payload proto base64")}
+		}
+	case "stored":
+		result.storedID = parts[6]
 	}
 
-	return &postgresEvent{
-		index:     parts[0],
-		value:     string(value),
-		key:       string(key),
-		eventType: eventType,
-		time:      eventTime,
-		protoData: protoData,
-	}
+	return result
 }
 
-func (pe *postgresEvent) WatchEvent(template proto.Message) *watch.Event {
+func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template proto.Message) *watch.Event {
 	if pe.err != nil {
 		return &watch.Event{Err: pe.err, Type: watch.EventError}
 	}
 	if pe.eventType == watch.EventDelete {
 		// Etcd doesn't return deleted row values - we could, but let's maintain parity
 		return &watch.Event{Key: []byte(pe.key), Type: pe.eventType, Template: template}
+	}
+	if pe.protoData == nil && pe.storedID != "" {
+		// The proto data was too large to fit in the payload, read it from a temporary location.
+		if err := db.QueryRowContext(ctx, "select proto from collections.large_notifications where id = $1", pe.storedID).Scan(&pe.protoData); err != nil {
+			// If the row is gone, this watcher is lagging too much, error it out
+			return &watch.Event{Err: errors.Wrap(err, "failed to read notification data from large_notifications table, watcher latency may be too high"), Type: watch.EventError}
+		}
+
 	}
 	return &watch.Event{
 		Key:      []byte(pe.key),
@@ -309,7 +327,7 @@ func (l *PostgresListener) reset(err error) {
 	}
 }
 
-func (l *PostgresListener) listen(sqlChannel string, template proto.Message, index *string, value *string, opts watch.WatchOptions) (*postgresWatcher, error) {
+func (l *PostgresListener) listen(db *sqlx.DB, sqlChannel string, template proto.Message, index *string, value *string, opts watch.WatchOptions) (*postgresWatcher, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -317,7 +335,7 @@ func (l *PostgresListener) listen(sqlChannel string, template proto.Message, ind
 		return nil, errors.New("PostgresListener has been closed")
 	}
 
-	pw := newPostgresWatch(l, sqlChannel, template, index, value, opts)
+	pw := newPostgresWatch(db, l, sqlChannel, template, index, value, opts)
 
 	// Subscribe the watch to the given channel
 	watchers, ok := l.channels[sqlChannel]
