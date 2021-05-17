@@ -35,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 )
 
 // PipelineRepo creates a pfs repo for a given pipeline.
@@ -345,7 +346,7 @@ func IsTerminal(state pps.JobState) bool {
 // UpdateJobState performs the operations involved with a job state transition.
 func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.StoredPipelineJobInfo, state pps.JobState, reason string) error {
 	if IsTerminal(jobPtr.State) {
-		return errors.Errorf("cannot put %q in state %s as it's already in a terminal state (%s)", jobPtr.Job.ID, state.String(), jobPtr.State.String())
+		return ppsServer.ErrJobFinished{jobPtr.Job}
 	}
 
 	// Update pipeline

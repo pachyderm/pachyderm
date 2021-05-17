@@ -15,26 +15,26 @@ message SecretMount {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
   // Key of the secret to load into env_var, this field only has meaning if EnvVar != "".
-  string key = 4;
-  string mount_path = 2;
-  string env_var = 3;
+  string key = 2;
+  string mount_path = 3;
+  string env_var = 4;
 }
 
 message Transform {
   string image = 1;
   repeated string cmd = 2;
-  repeated string err_cmd = 13;
-  map<string, string> env = 3;
-  repeated SecretMount secrets = 4;
-  repeated string image_pull_secrets = 9;
-  repeated string stdin = 5;
-  repeated string err_stdin = 14;
-  repeated int64 accept_return_code = 6;
-  bool debug = 7;
-  string user = 10;
-  string working_dir = 11;
-  string dockerfile = 12;
-  BuildSpec build = 15;
+  repeated string err_cmd = 3;
+  map<string, string> env = 4;
+  repeated SecretMount secrets = 5;
+  repeated string image_pull_secrets = 6;
+  repeated string stdin = 7;
+  repeated string err_stdin = 8;
+  repeated int64 accept_return_code = 9;
+  bool debug = 10;
+  string user = 11;
+  string working_dir = 12;
+  string dockerfile = 13;
+  BuildSpec build = 14;
 }
 
 message BuildSpec {
@@ -64,7 +64,7 @@ enum JobState {
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
   JOB_KILLED = 4;
-  JOB_EGRESSING = 6;
+  JOB_EGRESSING = 5;
 }
 
 message Metadata {
@@ -90,23 +90,23 @@ message PFSInput {
   string branch = 3;
   string commit = 4;
   string glob = 5;
-  string join_on = 8;
-  bool outer_join = 12;
-  string group_by = 11;
-  bool lazy = 6;
+  string join_on = 6;
+  bool outer_join = 7;
+  string group_by = 8;
+  bool lazy = 9;
   // EmptyFiles, if true, will cause files from this PFS input to be
   // presented as empty files. This is useful in shuffle pipelines where you
   // want to read the names of files and reorganize them using symlinks.
-  bool empty_files = 7;
+  bool empty_files = 10;
   // S3, if true, will cause the worker to NOT download or link files from this
   // input into the /pfs directory. Instead, an instance of our S3 gateway
   // service will run on each of the sidecars, and data can be retrieved from
   // this input by querying
   // http://<pipeline>-s3.<namespace>/<job id>.<input>/my/file
-  bool s3 = 9;
+  bool s3 = 11;
   // Trigger defines when this input is processed by the pipeline, if it's nil
   // the input is processed anytime something is committed to the input branch.
-  pfs.Trigger trigger = 10;
+  pfs.Trigger trigger = 12;
 }
 
 message CronInput {
@@ -117,8 +117,8 @@ message CronInput {
   string spec = 4;
   // Overwrite, if true, will expose a single datum that gets overwritten each
   // tick. If false, it will create a new datum for each tick.
-  bool overwrite = 6;
-  google.protobuf.Timestamp start = 5;
+  bool overwrite = 5;
+  google.protobuf.Timestamp start = 6;
 }
 
 message GitInput {
@@ -129,30 +129,28 @@ message GitInput {
 }
 
 message Input {
-  PFSInput pfs = 6;
-  repeated Input join = 7;
-  repeated Input group = 8;
-  repeated Input cross = 2;
-  repeated Input union = 3;
-  CronInput cron = 4;
-  GitInput git = 5;
+  PFSInput pfs = 1;
+  repeated Input join = 2;
+  repeated Input group = 3;
+  repeated Input cross = 4;
+  repeated Input union = 5;
+  CronInput cron = 6;
+  GitInput git = 7;
 }
 
 message JobInput {
-  string name = 4;
-  pfs.Commit commit = 1;
-  string glob = 2;
-  bool lazy = 3;
+  string name = 1;
+  pfs.Commit commit = 2;
+  string glob = 3;
+  bool lazy = 4;
 }
 
 message ParallelismSpec {
-  reserved 1;
-
   // Starts the pipeline/job with a 'constant' workers, unless 'constant' is
   // zero. If 'constant' is zero (which is the zero value of ParallelismSpec),
   // then Pachyderm will choose the number of workers that is started,
   // (currently it chooses the number of workers in the cluster)
-  uint64 constant = 2;
+  uint64 constant = 1;
 
   // Starts the pipeline/job with number of workers equal to 'coefficient' * N,
   // where N is the number of nodes in the kubernetes cluster.
@@ -162,15 +160,15 @@ message ParallelismSpec {
   // Kubernetes node, and each Pachyderm worker gets one CPU. If you want to
   // reserve half the nodes in your cluster for other tasks, you might set
   // 'coefficient' to 0.5.
-  double coefficient = 3;
+  double coefficient = 2;
 }
 
 message InputFile {
   // This file's absolute path within its pfs repo.
-  string path = 4;
+  string path = 1;
 
   // This file's hash
-  bytes hash = 5;
+  bytes hash = 2;
 }
 
 message Datum {
@@ -234,8 +232,6 @@ message WorkerStatus {
 // ResourceSpec describes the amount of resources that pipeline pods should
 // request from kubernetes, for scheduling.
 message ResourceSpec {
-  reserved 3;
-
   // The number of CPUs each worker needs (partial values are allowed, and
   // encouraged)
   float cpu = 1;
@@ -245,7 +241,7 @@ message ResourceSpec {
   string memory = 2;
 
   // The spec for GPU resources.
-  GPUSpec gpu = 5;
+  GPUSpec gpu = 3;
 
   // The amount of ephemeral storage each worker needs (in bytes, with allowed
   // SI suffixes (M, K, G, Mi, Ki, Gi, etc).
@@ -274,10 +270,10 @@ message StoredPipelineJobInfo {
   int64 data_skipped = 6;
   int64 data_total = 7;
   int64 data_failed = 8;
-  int64 data_recovered = 15;
+  int64 data_recovered = 9;
 
   // Download/process/upload time and download/upload bytes
-  ProcessStats stats = 9;
+  ProcessStats stats = 10;
 
   JobState state = 11;
   string reason = 12;
@@ -286,47 +282,46 @@ message StoredPipelineJobInfo {
 }
 
 message PipelineJobInfo {
-  reserved 4, 5, 28, 34;
   PipelineJob pipeline_job = 1;
   Transform transform = 2;                     // requires ListJobRequest.Full
   Pipeline pipeline = 3;
-  uint64 pipeline_version = 13;                // requires ListJobRequest.Full
-  pfs.Commit spec_commit = 47;
-  ParallelismSpec parallelism_spec = 12;       // requires ListJobRequest.Full
-  Egress egress = 15;                          // requires ListJobRequest.Full
-  PipelineJob parent_job = 6;
-  google.protobuf.Timestamp started = 7;
-  google.protobuf.Timestamp finished = 8;
-  pfs.Commit output_commit = 9;
-  JobState state = 10;
-  string reason = 35;  // reason explains why the job is in the current state
+  uint64 pipeline_version = 4;                // requires ListJobRequest.Full
+  pfs.Commit spec_commit = 5;
+  ParallelismSpec parallelism_spec = 6;       // requires ListJobRequest.Full
+  Egress egress = 7;                          // requires ListJobRequest.Full
+  PipelineJob parent_job = 8;
+  google.protobuf.Timestamp started = 9;
+  google.protobuf.Timestamp finished = 10;
+  pfs.Commit output_commit = 11;
+  JobState state = 12;
+  string reason = 13;  // reason explains why the job is in the current state
   Service service = 14;                        // requires ListJobRequest.Full
-  Spout spout = 45;                            // requires ListJobRequest.Full
-  pfs.Repo output_repo = 18;
+  Spout spout = 15;                            // requires ListJobRequest.Full
+  pfs.Repo output_repo = 16;
   string output_branch = 17;                   // requires ListJobRequest.Full
-  uint64 restart = 20;
-  int64 data_processed = 22;
-  int64 data_skipped = 30;
-  int64 data_failed = 40;
-  int64 data_recovered = 46;
+  uint64 restart = 18;
+  int64 data_processed = 19;
+  int64 data_skipped = 20;
+  int64 data_failed = 21;
+  int64 data_recovered = 22;
   int64 data_total = 23;
-  ProcessStats stats = 31;
-  repeated WorkerStatus worker_status = 24;
-  ResourceSpec resource_requests = 25;         // requires ListJobRequest.Full
-  ResourceSpec resource_limits = 36;           // requires ListJobRequest.Full
-  ResourceSpec sidecar_resource_limits = 48;  // requires ListJobRequest.Full
-  Input input = 26;                            // requires ListJobRequest.Full
-  pfs.BranchInfo new_branch = 27;
-  pfs.Commit stats_commit = 29;
+  ProcessStats stats = 24;
+  repeated WorkerStatus worker_status = 25;
+  ResourceSpec resource_requests = 26;         // requires ListJobRequest.Full
+  ResourceSpec resource_limits = 27;           // requires ListJobRequest.Full
+  ResourceSpec sidecar_resource_limits = 28;   // requires ListJobRequest.Full
+  Input input = 29;                            // requires ListJobRequest.Full
+  pfs.BranchInfo new_branch = 30;
+  pfs.Commit stats_commit = 31;
   bool enable_stats = 32;                      // requires ListJobRequest.Full
   string salt = 33;                            // requires ListJobRequest.Full
-  ChunkSpec chunk_spec = 37;                   // requires ListJobRequest.Full
-  google.protobuf.Duration datum_timeout = 38; // requires ListJobRequest.Full
-  google.protobuf.Duration job_timeout = 39;   // requires ListJobRequest.Full
-  int64 datum_tries = 41;                      // requires ListJobRequest.Full
-  SchedulingSpec scheduling_spec = 42;         // requires ListJobRequest.Full
-  string pod_spec = 43;                        // requires ListJobRequest.Full
-  string pod_patch = 44;                       // requires ListJobRequest.Full
+  ChunkSpec chunk_spec = 34;                   // requires ListJobRequest.Full
+  google.protobuf.Duration datum_timeout = 35; // requires ListJobRequest.Full
+  google.protobuf.Duration job_timeout = 36;   // requires ListJobRequest.Full
+  int64 datum_tries = 37;                      // requires ListJobRequest.Full
+  SchedulingSpec scheduling_spec = 38;         // requires ListJobRequest.Full
+  string pod_spec = 39;                        // requires ListJobRequest.Full
+  string pod_patch = 40;                       // requires ListJobRequest.Full
 }
 
 enum WorkerState {
@@ -376,9 +371,9 @@ enum PipelineState {
 // version)
 message StoredPipelineInfo {
   PipelineState state = 1;
-  string reason = 4;
-  pfs.Commit spec_commit = 2;
-  map<int32, int32> job_counts = 3;
+  string reason = 2;
+  pfs.Commit spec_commit = 3;
+  map<int32, int32> job_counts = 4;
   string auth_token = 5;
   JobState last_job_state = 6;
 
@@ -394,64 +389,63 @@ message StoredPipelineInfo {
 }
 
 message PipelineInfo {
-  reserved 3, 4, 22, 26, 27, 18, 52, 17;
   Pipeline pipeline = 1;
-  uint64 version = 11;
-  Transform transform = 2;
+  uint64 version = 2;
+  Transform transform = 3;
   // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
   // when running in a kubernetes cluster on which kubeflow has been installed.
   // Exactly one of 'tf_job' and 'transform' should be set
-  TFJob tf_job = 46 [(gogoproto.customname) = "TFJob"];
-  ParallelismSpec parallelism_spec = 10;
-  Egress egress = 15;
-  google.protobuf.Timestamp created_at = 6;
+  TFJob tf_job = 4 [(gogoproto.customname) = "TFJob"];
+  ParallelismSpec parallelism_spec = 5;
+  Egress egress = 6;
+  google.protobuf.Timestamp created_at = 7;
 
   // state indicates the current state of the pipeline. This is not stored in
   // PFS along with the rest of this data structure--PPS.InspectPipeline fills
   // it in
-  PipelineState state = 7;
+  PipelineState state = 8;
   // same for stopped field
-  bool stopped = 38;
-  string recent_error = 8;
+  bool stopped = 9;
+  string recent_error = 10;
 
-  int64 workers_requested = 49;
-  int64 workers_available = 50;
+  int64 workers_requested = 11;
+  int64 workers_available = 12;
 
   // job_counts and last_job_state indicates the number of jobs within this
   // pipeline in a given state and the state of the most recently created job,
   // respectively. This is not stored in PFS along with the rest of this data
   // structure--PPS.InspectPipeline fills it in from the StoredPipelineInfo.
-  map<int32, int32> job_counts = 9;
-  JobState last_job_state = 43;
+  map<int32, int32> job_counts = 13;
+  JobState last_job_state = 14;
 
-  string output_branch = 16;
-  ResourceSpec resource_requests = 19;
-  ResourceSpec resource_limits = 31;
-  ResourceSpec sidecar_resource_limits = 51;
-  Input input = 20;
-  string description = 21;
-  string cache_size = 23;
-  bool enable_stats = 24;
-  string salt = 25;
+  string output_branch = 15;
+  ResourceSpec resource_requests = 16;
+  ResourceSpec resource_limits = 17;
+  ResourceSpec sidecar_resource_limits = 18;
+  Input input = 19;
+  string description = 20;
+  string cache_size = 21;
+  bool enable_stats = 22;
+  string salt = 23;
 
   // reason includes any error messages associated with a failed pipeline
-  string reason = 28;
-  int64 max_queue_size = 29;
-  Service service = 30;
-  Spout spout = 45;
-  ChunkSpec chunk_spec = 32;
-  google.protobuf.Duration datum_timeout = 33;
-  google.protobuf.Duration job_timeout = 34;
-  string githook_url = 35 [(gogoproto.customname) = "GithookURL"];
-  pfs.Commit spec_commit = 36;
-  bool standby = 37;
-  int64 datum_tries = 39;
-  SchedulingSpec scheduling_spec = 40;
-  string pod_spec = 41;
-  string pod_patch = 44;
-  bool s3_out = 47;
-  Metadata metadata = 48;
-  string reprocess_spec = 53;
+  string reason = 24;
+  int64 max_queue_size = 25;
+  Service service = 26;
+  Spout spout = 27;
+  ChunkSpec chunk_spec = 28;
+  google.protobuf.Duration datum_timeout = 29;
+  google.protobuf.Duration job_timeout = 30;
+  string githook_url = 31 [(gogoproto.customname) = "GithookURL"];
+  pfs.Commit spec_commit = 32;
+  bool standby = 33;
+  int64 datum_tries = 34;
+  SchedulingSpec scheduling_spec = 35;
+  string pod_spec = 36;
+  string pod_patch = 37;
+  bool s3_out = 38;
+  Metadata metadata = 39;
+  string reprocess_spec = 40;
 }
 
 message PipelineInfos {
@@ -459,34 +453,33 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
-  reserved 3, 4, 1, 10, 7, 9, 8, 12, 11, 13, 14, 21, 15, 16, 17, 18, 19, 20, 22, 23, 24;
-  Pipeline pipeline = 2;
-  pfs.Commit output_commit = 25;
+  Pipeline pipeline = 1;
+  pfs.Commit output_commit = 2;
 
   // Fields below should only be set when restoring an extracted job.
-  uint64 restart = 26;
+  uint64 restart = 3;
 
   // Counts of how many times we processed or skipped a datum
-  int64 data_processed = 27;
-  int64 data_skipped = 28;
-  int64 data_total = 29;
-  int64 data_failed = 30;
-  int64 data_recovered = 31;
+  int64 data_processed = 4;
+  int64 data_skipped = 5;
+  int64 data_total = 6;
+  int64 data_failed = 7;
+  int64 data_recovered = 8;
 
   // Download/process/upload time and download/upload bytes
-  ProcessStats stats = 32;
+  ProcessStats stats = 9;
 
-  JobState state = 34;
-  string reason = 35;
-  google.protobuf.Timestamp started = 36;
-  google.protobuf.Timestamp finished = 37;
+  JobState state = 10;
+  string reason = 11;
+  google.protobuf.Timestamp started = 12;
+  google.protobuf.Timestamp finished = 13;
 }
 
 message InspectJobRequest {
   // Callers should set either PipelineJob or OutputCommit, not both.
   PipelineJob pipeline_job = 1;
-  pfs.Commit output_commit = 3;
-  bool block_state = 2; // block until state is either JOB_STATE_FAILURE or JOB_STATE_SUCCESS
+  pfs.Commit output_commit = 2;
+  bool block_state = 3; // block until state is either JOB_STATE_FAILURE or JOB_STATE_SUCCESS
   bool full = 4;
 }
 
@@ -543,14 +536,13 @@ message UpdateJobStateRequest {
 }
 
 message GetLogsRequest {
-  reserved 4;
   // The pipeline from which we want to get logs (required if the job in 'job'
   // was created as part of a pipeline. To get logs from a non-orphan job
   // without the pipeline that created it, you need to use ElasticSearch).
-  Pipeline pipeline = 2;
+  Pipeline pipeline = 1;
 
   // The job from which we want to get logs.
-  PipelineJob pipeline_job = 1;
+  PipelineJob pipeline_job = 2;
 
   // Names of input files from which we want processing logs. This may contain
   // multiple files, to query pipelines that contain multiple inputs. Each
@@ -558,26 +550,26 @@ message GetLogsRequest {
   // a hash for that file (to search for files at specific versions)
   repeated string data_filters = 3;
 
-  Datum datum = 6;
+  Datum datum = 4;
 
   // If true get logs from the master process
   bool master = 5;
 
   // Continue to follow new logs as they become available.
-  bool follow = 7;
+  bool follow = 6;
 
   // If nonzero, the number of lines from the end of the logs to return.  Note:
   // tail applies per container, so you will get tail * <number of pods> total
   // lines back.
-  int64 tail = 8;
+  int64 tail = 7;
 
   // UseLokiBackend causes the logs request to go through the loki backend
   // rather than through kubernetes. This behavior can also be achieved by
   // setting the LOKI_LOGGING feature flag.
-  bool use_loki_backend = 9;
+  bool use_loki_backend = 8;
 
   // Since specifies how far in the past to return logs from. It defaults to 24 hours.
-  google.protobuf.Duration since = 10;
+  google.protobuf.Duration since = 9;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
@@ -586,20 +578,20 @@ message LogMessage {
   // The job and pipeline for which a PFS file is being processed (if the job
   // is an orphan job, pipeline name and ID will be unset)
   string pipeline_name = 1;
-  string job_id = 3 [(gogoproto.customname) = "JobID"];
-  string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
-  string datum_id = 9 [(gogoproto.customname) = "DatumID"];
-  bool master = 10;
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  string worker_id = 3 [(gogoproto.customname) = "WorkerID"];
+  string datum_id = 4 [(gogoproto.customname) = "DatumID"];
+  bool master = 5;
 
   // The PFS files being processed (one per pipeline/job input)
-  repeated InputFile data = 4;
+  repeated InputFile data = 6;
 
   // User is true if log message comes from the users code.
-  bool user = 8;
+  bool user = 7;
 
   // The message logged, and the time at which it was logged
-  google.protobuf.Timestamp ts = 5;
-  string message = 6;
+  google.protobuf.Timestamp ts = 8;
+  string message = 9;
 }
 
 message RestartDatumRequest {
@@ -643,48 +635,47 @@ message SchedulingSpec {
 }
 
 message CreatePipelineRequest {
-  reserved 3, 4, 11, 15, 19, 48;
   Pipeline pipeline = 1;
   // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
   // when running in a kubernetes cluster on which kubeflow has been installed.
   // Exactly one of 'tf_job' and 'transform' should be set
-  TFJob tf_job = 35 [(gogoproto.customname) = "TFJob"];
-  Transform transform = 2;
-  ParallelismSpec parallelism_spec = 7;
-  Egress egress = 9;
-  bool update = 5;
-  string output_branch = 10;
+  TFJob tf_job = 2 [(gogoproto.customname) = "TFJob"];
+  Transform transform = 3;
+  ParallelismSpec parallelism_spec = 4;
+  Egress egress = 5;
+  bool update = 6;
+  string output_branch = 7;
   // s3_out, if set, requires a pipeline's user to write to its output repo
   // via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3
   // gateway API at http://<pipeline>-s3.<namespace>/<job id>.out/my/file).
   // In this mode /pfs/out won't be walked or uploaded, and the s3 gateway
   // service in the workers will allow writes to the job's output commit
-  bool s3_out = 36;
-  ResourceSpec resource_requests = 12;
-  ResourceSpec resource_limits = 22;
-  ResourceSpec sidecar_resource_limits = 47;
-  Input input = 13;
-  string description = 14;
-  string cache_size = 16;
-  bool enable_stats = 17;
+  bool s3_out = 8;
+  ResourceSpec resource_requests = 9;
+  ResourceSpec resource_limits = 10;
+  ResourceSpec sidecar_resource_limits = 11;
+  Input input = 12;
+  string description = 13;
+  string cache_size = 14;
+  bool enable_stats = 15;
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
-  bool reprocess = 18;
-  int64 max_queue_size = 20;
-  Service service = 21;
-  Spout spout = 33;
-  ChunkSpec chunk_spec = 23;
-  google.protobuf.Duration datum_timeout = 24;
-  google.protobuf.Duration job_timeout = 25;
-  string salt = 26;
-  bool standby = 27;
-  int64 datum_tries = 28;
-  SchedulingSpec scheduling_spec = 29;
-  string pod_spec = 30; // deprecated, use pod_patch below
-  string pod_patch = 32; // a json patch will be applied to the pipeline's pod_spec before it's created;
-  pfs.Commit spec_commit = 34;
-  Metadata metadata = 46;
-  string reprocess_spec = 49;
+  bool reprocess = 16;
+  int64 max_queue_size = 17;
+  Service service = 18;
+  Spout spout = 19;
+  ChunkSpec chunk_spec = 20;
+  google.protobuf.Duration datum_timeout = 21;
+  google.protobuf.Duration job_timeout = 22;
+  string salt = 23;
+  bool standby = 24;
+  int64 datum_tries = 25;
+  SchedulingSpec scheduling_spec = 26;
+  string pod_spec = 27; // deprecated, use pod_patch below
+  string pod_patch = 28; // a json patch will be applied to the pipeline's pod_spec before it's created;
+  pfs.Commit spec_commit = 29;
+  Metadata metadata = 30;
+  string reprocess_spec = 31;
 }
 
 message InspectPipelineRequest {
@@ -713,11 +704,10 @@ message ListPipelineRequest {
 }
 
 message DeletePipelineRequest {
-  reserved 2, 3;
   Pipeline pipeline = 1;
-  bool all = 4;
-  bool force = 5;
-  bool keep_repo = 6;
+  bool all = 2;
+  bool force = 3;
+  bool keep_repo = 4;
 }
 
 message StartPipelineRequest {
@@ -729,10 +719,9 @@ message StopPipelineRequest {
 }
 
 message RunPipelineRequest {
-  reserved 3;
   Pipeline pipeline = 1;
   repeated pfs.CommitProvenance provenance = 2;
-  string job_id = 4 [(gogoproto.customname) = "JobID"];
+  string job_id = 3 [(gogoproto.customname) = "JobID"];
 }
 
 message RunCronRequest {
@@ -744,7 +733,7 @@ message CreateSecretRequest {
 }
 
 message DeleteSecretRequest {
-  Secret secret  = 1;
+  Secret secret = 1;
 }
 
 message InspectSecretRequest {

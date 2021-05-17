@@ -59,6 +59,9 @@ function test_bucket {
     echo "Running bucket $bucket_num of $num_buckets"
     # shellcheck disable=SC2207
     tests=( $(go test -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+    # Add anchors for the regex so we don't run collateral tests
+    tests=( "${tests[@]/#/^}" )
+    tests=( "${tests[@]/%/\$\$}" )
     total_tests="${#tests[@]}"
     # Determine the offset and length of the sub-array of tests we want to run
     # The last bucket may have a few extra tests, to accommodate rounding
@@ -68,7 +71,7 @@ function test_bucket {
         "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
     test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
     echo "Running ${bucket_size} tests of ${total_tests} total tests"
-    make RUN="-run=\"${test_regex}\"" "${target}"
+    make RUN="-run='${test_regex}'" "${target}"
 }
 
 # Clean cached test results

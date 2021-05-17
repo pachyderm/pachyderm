@@ -93,7 +93,7 @@ func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection 
 // back.  This will reattempt the transaction forever.
 func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
 	attemptTx := func() error {
-		tx, err := db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
+		tx, err := db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -104,11 +104,7 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 			return err
 		}
 
-		err = errors.EnsureStack(tx.Commit())
-		if err != nil {
-			return err
-		}
-		return nil
+		return errors.EnsureStack(tx.Commit())
 	}
 
 	for {
@@ -125,17 +121,23 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
 func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return errors.EnsureStack(err)
+	attemptTx := func() error {
+		tx, err := db.BeginTxx(ctx, nil)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		defer tx.Rollback()
+		return apply(tx)
 	}
-	defer tx.Rollback()
-
-	err = apply(tx)
-	if err != nil {
-		return err
+	for {
+		if err := attemptTx(); err != nil {
+			if !isTransactionError(err) {
+				return err
+			}
+		} else {
+			return nil
+		}
 	}
-	return nil
 }
 
 func (c *postgresCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
@@ -147,7 +149,7 @@ func isTransactionError(err error) bool {
 	if errors.As(err, pqerr) {
 		return pgerrcode.IsTransactionRollback(string(pqerr.Code))
 	}
-	return false
+	return IsErrTransactionConflict(err)
 }
 
 func isDuplicateKeyError(err error) bool {
@@ -386,7 +388,7 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
-	watcher, err := c.listener.listen(c.tableWatchChannel(), c.template, nil, nil, options)
+	watcher, err := c.listener.listen(c.db, c.tableWatchChannel(), c.template, nil, nil, options)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +438,7 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
-	watcher, err := c.listener.listen(c.indexWatchChannel("key", key), c.template, nil, nil, options)
+	watcher, err := c.listener.listen(c.db, c.indexWatchChannel("key", key), c.template, nil, nil, options)
 	if err != nil {
 		return nil, err
 	}
@@ -486,7 +488,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 	options := watch.SumOptions(opts...)
 
 	channelName := c.indexWatchChannel(indexFieldName(index), indexVal)
-	watcher, err := c.listener.listen(channelName, c.template, nil, nil, options)
+	watcher, err := c.listener.listen(c.db, channelName, c.template, nil, nil, options)
 	if err != nil {
 		return nil, err
 	}

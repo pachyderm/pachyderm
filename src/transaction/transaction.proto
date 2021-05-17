@@ -23,14 +23,21 @@ message TransactionRequest {
   pfs.SquashCommitRequest squash_commit = 5;
   pfs.CreateBranchRequest create_branch = 6;
   pfs.DeleteBranchRequest delete_branch = 7;
-  pps.UpdateJobStateRequest update_job_state = 11;
-  pps.CreatePipelineRequest create_pipeline = 12;
-  DeleteAllRequest delete_all = 10;
+  pps.UpdateJobStateRequest update_job_state = 8;
+  pps.CreatePipelineRequest create_pipeline = 9;
+  pps.StopJobRequest stop_job = 10;
+  DeleteAllRequest delete_all = 11;
 }
 
 message TransactionResponse {
   // At most, one of these fields should be set (most responses are empty)
-  pfs.Commit commit = 2; // Only used for StartCommit - any way we can deterministically provide this before finishing the transaction?
+  pfs.Commit commit = 1; // Only used for StartCommit - any way we can deterministically provide this before finishing the transaction?
+  CreatePipelineTransactionResponse create_pipeline_response = 2; // Only used for CreatePipeline
+}
+
+message CreatePipelineTransactionResponse {
+  string fileset_id = 1; // The fileset ID that the pipeline info was written to outside of the transaction
+  pfs.Commit prev_spec_commit = 2; // The commit of the pipeline spec that the fileset was based off of
 }
 
 message Transaction {
