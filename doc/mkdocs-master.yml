@@ -8,7 +8,7 @@ site_dir: site/master/
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
 repo_branch: master
-repo_docs_dir: doc/docs/2.0.x
+repo_docs_dir: doc/docs/master
 edit_uri: ""
 
 # Copyright
