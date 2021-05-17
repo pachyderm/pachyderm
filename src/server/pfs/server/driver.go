@@ -263,7 +263,7 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 
 func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
 	pachClient := d.env.GetPachClient(ctx)
-	resp, err := pachClient.AuthAPIClient.GetPermissions(ctx, &auth.GetPermissionsRequest{
+	resp, err := pachClient.AuthAPIClient.GetPermissions(pachClient.Ctx(), &auth.GetPermissionsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
 	})
 	if err != nil {
