@@ -5,7 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/context"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -23,7 +23,7 @@ type Propagater struct {
 	isNewCommit bool
 }
 
-func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx, job *pfs.Job) txnenv.PfsPropagater {
+func (a *apiServer) NewPropagater(stm col.STM) txncontext.PfsPropagater {
 	return &Propagater{
 		d:     a.driver,
 		sqlTx: sqlTx,
@@ -53,13 +53,13 @@ func (t *Propagater) Run() error {
 // The Run method is called at the end of any transaction
 type PipelineFinisher struct {
 	d      *driver
-	txnCtx *txnenv.TransactionContext
+	txnCtx *txncontext.TransactionContext
 
 	// pipeline output branches to finish commits on
 	branches []*pfs.Branch
 }
 
-func (a *apiServer) NewPipelineFinisher(txnCtx *txnenv.TransactionContext) txnenv.PipelineCommitFinisher {
+func (a *apiServer) NewPipelineFinisher(txnCtx *txncontext.TransactionContext) txncontext.PipelineCommitFinisher {
 	return &PipelineFinisher{
 		d:      a.driver,
 		txnCtx: txnCtx,
@@ -92,7 +92,7 @@ func (f *PipelineFinisher) Run() error {
 			0,     // number
 			false, // reverse
 			func(commitInfo *pfs.CommitInfo) error {
-				return f.txnCtx.Pps().StopPipelineJobInTransaction(f.txnCtx, &pps.StopPipelineJobRequest{
+				return f.d.env.PpsServer().StopPipelineJobInTransaction(f.txnCtx, &pps.StopPipelineJobRequest{
 					OutputCommit: commitInfo.Commit,
 				})
 			}); err != nil && !isNotFoundErr(err) {

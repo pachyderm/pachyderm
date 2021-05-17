@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/context"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	"github.com/gogo/protobuf/proto"
@@ -57,12 +58,6 @@ const (
 
 // DefaultOIDCConfig is the default config for the auth API server
 var DefaultOIDCConfig = auth.OIDCConfig{}
-
-// APIServer represents an auth api server
-type APIServer interface {
-	auth.APIServer
-	txnenv.AuthTransactionServer
-}
 
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
@@ -134,9 +129,8 @@ func NewAuthServer(
 	public bool,
 	requireNoncriticalServers bool,
 	watchesEnabled bool,
-) (APIServer, error) {
-
-	oidcStates := col.NewEtcdCollection(
+) (*apiServer, error) {
+	authConfig := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(oidcAuthnPrefix),
 		nil,
@@ -527,7 +521,7 @@ func resourceKey(r *auth.Resource) string {
 	return fmt.Sprintf("%s:%s", r.Type, r.Name)
 }
 
-func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, principal string, resource *auth.Resource, permissions map[auth.Permission]bool) (*authorizeRequest, error) {
+func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, principal string, resource *auth.Resource, permissions map[auth.Permission]bool) (*authorizeRequest, error) {
 	binding, err := a.getClusterRoleBinding(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
@@ -564,7 +558,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txnenv.TransactionC
 // AuthorizeInTransaction is identical to Authorize except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) AuthorizeInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.AuthorizeRequest,
 ) (resp *auth.AuthorizeResponse, retErr error) {
 	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
@@ -599,7 +593,7 @@ func (a *apiServer) Authorize(
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.AuthorizeResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.AuthorizeInTransaction(txnCtx, req)
 		return err
@@ -619,7 +613,7 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 	}
 
 	var request *authorizeRequest
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		request, err = a.evaluateRoleBindingInTransaction(txnCtx, req.Principal, req.Resource, permissions)
 		return err
@@ -670,7 +664,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 // DeleteRoleBindingInTransaction is used to remove role bindings for resources when they're deleted in other services.
 // It doesn't do any auth checks itself - the calling method should ensure the user is allowed to delete this resource.
 // This is not an RPC, this is only called in-process.
-func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource) error {
+func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource) error {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return err
 	}
@@ -711,7 +705,7 @@ func rolesFromRoleSlice(rs []string) (*auth.Roles, error) {
 // CreateRoleBindingInTransaction is an internal-only API to create a role binding for a new resource.
 // It doesn't do any authorization checks itself - the calling method should ensure the user is allowed
 // to create the resource. This is not an RPC.
-func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error {
+func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error {
 	bindings := &auth.RoleBinding{
 		Entries: make(map[string]*auth.Roles),
 	}
@@ -744,8 +738,8 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionCon
 // This is distinct from ModifyRoleBinding because AddPipelineReader is a less expansive permission
 // that is included in the repoReader role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
-func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, sourceRepo, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
+func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, sourceRepo, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
 		return err
 	}
 
@@ -756,9 +750,9 @@ func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.Transact
 // This is distinct from ModifyRoleBinding because AddPipelineWriter is a less expansive permission
 // that is included in the repoWriter role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
-func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) error {
+func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) error {
 	// Check that the user is allowed to add a pipeline to write to the output repo.
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
 		return err
 	}
 
@@ -769,11 +763,11 @@ func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txnenv.Transact
 // This is distinct from ModifyRoleBinding because RemovePipelineReader is a less expansive permission
 // that is included in the repoWriter role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
-func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
 	// Check that the user is allowed to remove input repos from the pipeline repo - this check is on the pipeline itself
 	// and not sourceRepo because otherwise users could break piplines they don't have access to by revoking them from the
 	// input repo.
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return err
 	}
 
@@ -783,7 +777,7 @@ func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.Tra
 // ModifyRoleBindingInTransaction is identical to ModifyRoleBinding except that it can run inside
 // an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) ModifyRoleBindingInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.ModifyRoleBindingRequest,
 ) (*auth.ModifyRoleBindingResponse, error) {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
@@ -802,11 +796,11 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	// and the permission required depends on the type of resource.
 	switch req.Resource.Type {
 	case auth.ResourceType_CLUSTER:
-		if err := CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
+		if err := a.CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
 			return nil, err
 		}
 	case auth.ResourceType_REPO:
-		if err := CheckRepoIsAuthorizedInTransaction(txnCtx, req.Resource.Name, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
+		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, req.Resource.Name, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
 			return nil, err
 		}
 	default:
@@ -820,7 +814,7 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	return &auth.ModifyRoleBindingResponse{}, nil
 }
 
-func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource, principal string, roleSlice []string) error {
+func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource, principal string, roleSlice []string) error {
 	roles, err := rolesFromRoleSlice(roleSlice)
 	if err != nil {
 		return err
@@ -888,7 +882,7 @@ func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleB
 // GetRoleBindingInTransaction is identical to GetRoleBinding except that it can run inside
 // an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) GetRoleBindingInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.GetRoleBindingRequest,
 ) (*auth.GetRoleBindingResponse, error) {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
@@ -914,7 +908,7 @@ func (a *apiServer) GetRoleBinding(ctx context.Context, req *auth.GetRoleBinding
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.GetRoleBindingResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.GetRoleBindingInTransaction(txnCtx, req)
 		return err
@@ -955,7 +949,7 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 
 // GetPipelineAuthTokenInTransaction is an internal API used to create a pipeline token for a given pipeline.
 // Not an RPC.
-func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) (string, error) {
+func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) (string, error) {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return "", err
 	}
@@ -989,14 +983,14 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
 	})
 	return resp, retErr
 }
 
-func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
+func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txncontext.TransactionContext, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
