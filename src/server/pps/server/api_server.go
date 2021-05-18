@@ -948,7 +948,11 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 // StopJobInTransaction is identical to StopJob except that it can run inside an
 // existing postgres transaction.  This is not an RPC.
 func (a *apiServer) StopJobInTransaction(txnCtx *txnenv.TransactionContext, request *pps.StopJobRequest) error {
-	return a.stopJob(txnCtx, request.Job, request.OutputCommit, "job stopped")
+	reason := request.Reason
+	if reason == "" {
+		reason = "job stopped"
+	}
+	return a.stopJob(txnCtx, request.Job, request.OutputCommit, reason)
 }
 
 func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
