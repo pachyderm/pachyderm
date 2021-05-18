@@ -95,7 +95,6 @@ func do(config interface{}) error {
 
 	workerserver.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	// TODO: why do we pass down the pachClient here?  shouldn't we let it use the one from env that will inherit credentials from any RPCs?
 	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient))
 
 	// Put our IP address into etcd, so pachd can discover us
