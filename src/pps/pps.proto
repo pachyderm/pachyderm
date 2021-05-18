@@ -522,6 +522,7 @@ message DeletePipelineJobRequest {
 message StopPipelineJobRequest {
   PipelineJob pipeline_job = 1;
   pfs.Commit output_commit = 2;
+  string reason = 3;
 }
 
 message UpdatePipelineJobStateRequest {
