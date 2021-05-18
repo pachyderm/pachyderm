@@ -432,11 +432,9 @@ func (d *driver) getFileset(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	if err != nil {
 		return nil, err
 	}
-	/* TODO: brendon: re-enable compaction
 	if commitInfo.Finished != nil {
 		return d.getOrComputeTotal(ctx, commitInfo.Commit)
 	}
-	*/
 	var ids []fileset.ID
 	if commitInfo.ParentCommit != nil {
 		// ¯\_(ツ)_/¯
