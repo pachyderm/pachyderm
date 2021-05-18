@@ -948,7 +948,11 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 // StopJobInTransaction is identical to StopJob except that it can run inside an
 // existing postgres transaction.  This is not an RPC.
 func (a *apiServer) StopJobInTransaction(txnCtx *txnenv.TransactionContext, request *pps.StopJobRequest) error {
-	return a.stopJob(txnCtx, request.Job, request.OutputCommit, "job stopped")
+	reason := request.Reason
+	if reason == "" {
+		reason = "job stopped"
+	}
+	return a.stopJob(txnCtx, request.Job, request.OutputCommit, reason)
 }
 
 func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
@@ -990,10 +994,10 @@ func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, out
 	handleJob := func(pji *pps.StoredPipelineJobInfo) error {
 		// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
 		// more comprehensive solution to this with global ids.
-		if ppsutil.IsTerminal(pji.State) {
-			return nil
+		if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, pji, pps.JobState_JOB_KILLED, reason); err != nil && !ppsServer.IsJobFinishedErr(err) {
+			return err
 		}
-		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, pji, pps.JobState_JOB_KILLED, reason)
+		return nil
 	}
 
 	if job != nil {
