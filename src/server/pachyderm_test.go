@@ -3000,6 +3000,8 @@ func TestStandby(t *testing.T) {
 
 	c := tu.GetPachClient(t)
 	t.Run("ChainOf10", func(t *testing.T) {
+		// TODO(2.0 required): This test is flaky (maybe just slow?)
+		t.Skip("flaky test")
 		require.NoError(t, c.DeleteAll())
 
 		dataRepo := tu.UniqueString("TestStandby_data")
