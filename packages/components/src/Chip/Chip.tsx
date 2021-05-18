@@ -1,30 +1,52 @@
 import classNames from 'classnames';
-import React, {ButtonHTMLAttributes, InputHTMLAttributes} from 'react';
+import noop from 'lodash/noop';
+import React, {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  useCallback,
+} from 'react';
 import {useFormContext} from 'react-hook-form';
 
 import useRHFInputProps from 'hooks/useRHFInputProps';
 
 import styles from './Chip.module.css';
-
 export interface ChipInputProps extends InputHTMLAttributes<HTMLInputElement> {
   name: string;
 }
 
-export interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ChipProps<T = unknown>
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> {
   selected?: boolean;
+  onClick?: (value?: T) => void;
+  onClickValue?: T;
 }
 
-export const Chip: React.FC<ChipProps> = ({
+export const Chip = <T,>({
   className,
   children,
   selected,
+  onClick = noop,
+  onClickValue,
   ...rest
-}) => {
+}: React.PropsWithChildren<ChipProps<T>>) => {
   const classes = classNames(styles.base, className, {
     [styles.selected]: selected,
   });
+
+  const onClickCallback = useCallback(
+    (value?: T) => {
+      onClick(value);
+    },
+    [onClick],
+  );
+
   return (
-    <button className={classes} aria-pressed={selected} {...rest}>
+    <button
+      className={classes}
+      aria-pressed={selected}
+      onClick={() => onClickCallback(onClickValue)}
+      {...rest}
+    >
       {children}
     </button>
   );
