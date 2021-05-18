@@ -56,7 +56,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		fi := &pfs.FileInfo{
-			File:      client.NewFile(s.commitInfo.Commit.Branch.Repo.Name, s.commitInfo.Commit.Branch.Name, s.commitInfo.Commit.ID, idx.Path),
+			File:      client.NewFile(s.commitInfo.Commit, idx.Path),
 			FileType:  pfs.FileType_FILE,
 			Committed: s.commitInfo.Finished,
 		}

@@ -40,3 +40,17 @@ func EncodeHash(bytes []byte) string {
 func DecodeHash(hash string) ([]byte, error) {
 	return hex.DecodeString(hash)
 }
+
+func (r *Repo) NewBranch(name string) *Branch {
+	return &Branch{
+		Repo: r,
+		Name: name,
+	}
+}
+
+func (r *Repo) NewCommit(branch, id string) *Commit {
+	return &Commit{
+		ID:     id,
+		Branch: r.NewBranch(branch),
+	}
+}

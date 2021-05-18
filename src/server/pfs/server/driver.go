@@ -518,7 +518,7 @@ func (d *driver) makeCommit(
 	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
 	if ok1 && ok2 {
 		log.Infof("Appending provenance for spout: %v %v", spoutName, spoutCommit)
-		provenance = append(provenance, client.NewCommitProvenance(ppsconsts.SpecRepo, spoutName, spoutCommit))
+		provenance = append(provenance, client.NewCommitProvenance(client.NewCommit(ppsconsts.SpecRepo, spoutName, spoutCommit)))
 	}
 
 	// Set newCommitInfo.Started and possibly newCommitInfo.Finished. Enforce:

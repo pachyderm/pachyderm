@@ -76,14 +76,14 @@ func (ppj *pendingPipelineJob) withDeleter(pachClient *client.APIClient, cb func
 	defer ppj.jdit.SetDeleter(nil)
 	// Setup file operation client for output Meta commit.
 	metaCommit := ppj.metaCommitInfo.Commit
-	return pachClient.WithModifyFileClient(metaCommit.Branch.Repo.Name, metaCommit.Branch.Name, metaCommit.ID, func(mfMeta client.ModifyFile) error {
+	return pachClient.WithModifyFileClient(metaCommit, func(mfMeta client.ModifyFile) error {
 		// Setup file operation client for output PFS commit.
 		outputCommit := ppj.commitInfo.Commit
-		return pachClient.WithModifyFileClient(outputCommit.Branch.Repo.Name, outputCommit.Branch.Name, outputCommit.ID, func(mfPFS client.ModifyFile) error {
+		return pachClient.WithModifyFileClient(outputCommit, func(mfPFS client.ModifyFile) error {
 			parentMetaCommit := ppj.metaCommitInfo.ParentCommit
 			metaFileWalker := func(path string) ([]string, error) {
 				var files []string
-				if err := pachClient.WalkFile(parentMetaCommit.Branch.Repo.Name, parentMetaCommit.Branch.Name, parentMetaCommit.ID, path, func(fi *pfs.FileInfo) error {
+				if err := pachClient.WalkFile(parentMetaCommit, path, func(fi *pfs.FileInfo) error {
 					if fi.FileType == pfs.FileType_FILE {
 						files = append(files, fi.File.Path)
 					}
@@ -445,7 +445,7 @@ func (reg *registry) processJobRunning(ppj *pendingPipelineJob) error {
 	// If we had a way to map the output added through the S3 gateway back to the datums, and stored this in the appropriate place in the stats commit, then we would be able
 	// handle datums the same way we handle normal pipelines.
 	if ppj.driver.PipelineInfo().S3Out {
-		if err := pachClient.DeleteFile(ppj.commitInfo.Commit.Branch.Repo.Name, ppj.commitInfo.Commit.Branch.Name, ppj.commitInfo.Commit.ID, "/"); err != nil {
+		if err := pachClient.DeleteFile(ppj.commitInfo.Commit, "/"); err != nil {
 			return err
 		}
 	}
@@ -589,11 +589,8 @@ func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 }
 
 func (reg *registry) processJobEgressing(ppj *pendingPipelineJob) error {
-	repo := ppj.commitInfo.Commit.Branch.Repo.Name
-	branch := ppj.commitInfo.Commit.Branch.Name
-	commit := ppj.commitInfo.Commit.ID
 	url := ppj.pji.Egress.URL
-	if err := ppj.driver.PachClient().GetFileURL(repo, branch, commit, "/", url); err != nil {
+	if err := ppj.driver.PachClient().GetFileURL(ppj.commitInfo.Commit, "/", url); err != nil {
 		return err
 	}
 	return reg.succeedPipelineJob(ppj)

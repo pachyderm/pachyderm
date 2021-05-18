@@ -163,16 +163,7 @@ func parseFile(arg string) (*pfs.File, int, error) {
 			commit = parts[1]
 		}
 	}
-	return &pfs.File{
-		Commit: &pfs.Commit{
-			Branch: &pfs.Branch{
-				Repo: repoFromString(repo),
-				Name: branch,
-			},
-			ID: commit,
-		},
-		Path: path,
-	}, numFields, nil
+	return client.NewFile(repoFromString(repo).NewCommit(branch, commit), path), numFields, nil
 }
 
 // ParseCommit takes an argument of the form "repo[@branch-or-commit]" and
@@ -273,7 +264,7 @@ func ParsePartialFile(arg string) *pfs.File {
 	if err == nil {
 		return file
 	}
-	return client.NewFile(arg, "", "", "")
+	return client.NewFile(client.NewCommit(arg, "", ""), "")
 }
 
 // ParseFiles converts all arguments to *pfs.Commit structs using the
