@@ -20,8 +20,6 @@ necessary.
 This allows us to retrieve the latest dash image a user can use with their version of pachctl, enabling:
 
 ```shell
-# Easy upgrades
-pachctl update-dash
 # Implicit upgrades each time deploy is used
 pachctl deploy ...
 ```
