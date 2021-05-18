@@ -1,10 +1,14 @@
 import {Node, NodeType} from '@graphqlTypes';
 
-const deriveRouteParamFromNode = (n: Node) => {
-  if (n.type === NodeType.REPO) {
-    return n.name.replace('_repo', '');
+export const deriveNameFromNodeNameAndType = (name: string, type: NodeType) => {
+  if (type === NodeType.REPO) {
+    return name.replace('_repo', '');
   }
-  return n.name;
+  return name;
 };
 
-export default deriveRouteParamFromNode;
+const deriveRepoNameFromNode = (n: Node) => {
+  return deriveNameFromNodeNameAndType(n.name, n.type);
+};
+
+export default deriveRepoNameFromNode;

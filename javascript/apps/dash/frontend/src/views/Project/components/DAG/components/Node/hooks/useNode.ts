@@ -1,15 +1,21 @@
+import {useClipboardCopy} from '@pachyderm/components';
 import {select} from 'd3-selection';
-import {useCallback, useMemo} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {Node, NodeType} from '@graphqlTypes';
 
 import useRouteController from '../../../hooks/useRouteController';
 import convertNodeStateToDagState from '../../../utils/convertNodeStateToDagState';
+import deriveRepoNameFromNode from '../../../utils/deriveRepoNameFromNode';
 
 const useNode = (node: Node, isInteractive: boolean) => {
   const {navigateToNode, selectedNode} = useRouteController();
   const {hoveredNode, setHoveredNode} = useHoveredNode();
+  const [showSuccess, setShowSuccess] = useState(false);
+  const {copy, supported, copied, reset} = useClipboardCopy(node.name);
+
+  const isEgress = node.type === NodeType.EGRESS;
 
   const groupName = useMemo(() => {
     let nodeName = node.name;
@@ -25,8 +31,9 @@ const useNode = (node: Node, isInteractive: boolean) => {
   }, [node]);
 
   const onClick = useCallback(() => {
-    if (isInteractive) navigateToNode(node);
-  }, [node, isInteractive, navigateToNode]);
+    if (isInteractive && !isEgress) navigateToNode(node);
+    if (isEgress && supported) copy();
+  }, [node, isInteractive, navigateToNode, isEgress, supported, copy]);
 
   const onMouseOver = useCallback(() => {
     if (isInteractive) {
@@ -39,7 +46,26 @@ const useNode = (node: Node, isInteractive: boolean) => {
     if (isInteractive) setHoveredNode('');
   }, [isInteractive, setHoveredNode]);
 
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+
+    if (copied) {
+      setShowSuccess(true);
+
+      timeout = setTimeout(() => {
+        setShowSuccess(false);
+        reset();
+      }, 5000);
+    }
+
+    return () => {
+      timeout && clearTimeout(timeout);
+    };
+  }, [copied, reset]);
+
   const state = convertNodeStateToDagState(node.state);
+
+  const normalizedNodeName = deriveRepoNameFromNode(node);
 
   return {
     hoveredNode,
@@ -49,6 +75,9 @@ const useNode = (node: Node, isInteractive: boolean) => {
     selectedNode,
     state,
     groupName,
+    isEgress,
+    normalizedNodeName,
+    showSuccess,
   };
 };
 

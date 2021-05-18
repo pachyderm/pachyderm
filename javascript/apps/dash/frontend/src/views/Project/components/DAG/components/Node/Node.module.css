@@ -13,18 +13,25 @@
   border: solid 1px var(--line-grey);
 }
 
-.nodeGroup.interactive:hover .node .label,
-.nodeGroup.interactive.selected .node .label {
+.node .label.egress {
+  border: none;
+  box-shadow: none;
+  fill: none;
+  opacity: 0;
+}
+
+.nodeGroup.interactive:hover .node .label:not(.egress),
+.nodeGroup.interactive.selected .node .label:not(.egress) {
   background-color: var(--background-blue);
 }
 
-.nodeGroup.interactive.error:hover .node .label,
-.nodeGroup.interactive.selected.error .node .label {
+.nodeGroup.interactive.error:hover .node .label:not(.egress),
+.nodeGroup.interactive.selected.error .node .label:not(.egress) {
   background-color: var(--background-pink);
 }
 
-.nodeGroup.interactive.busy:hover .label,
-.nodeGroup.interactive.selected.busy .label,
+.nodeGroup.interactive.busy:hover .label:not(.egress),
+.nodeGroup.interactive.selected.busy .label:not(.egress),
 .nodeGroup.interactive.busy:hover use,
 .nodeGroup.interactive.selected.busy use {
   opacity: #f4f9fa;
@@ -49,34 +56,6 @@
   -webkit-box-orient: vertical;
 }
 
-.nodeTooltip {
-  pointer-events: none;
-}
-
-.nodeTooltip .tooltipText {
-  box-shadow: 0 1px 2px 0 var(--border-grey);
-  border-radius: 2px;
-  font-size: var(--font-size-body-small);
-  text-transform: capitalize;
-  background-color: var(--pachyderm-black);
-  color: var(--white);
-  padding: 0.75rem;
-  opacity: 0;
-}
-
-.nodeTooltip .tooltipText:after {
-  width: 5px;
-  height: 20px;
-  margin-left: calc(50% - 20px);
-  content: "";
-  display: block;
-  position: fixed;
-  bottom: -11px;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid var(--pachyderm-black);
-}
-
-.nodeGroup.interactive:hover .nodeTooltip .tooltipText {
+.nodeGroup.interactive:hover .tooltipText {
   opacity: 1;
 }

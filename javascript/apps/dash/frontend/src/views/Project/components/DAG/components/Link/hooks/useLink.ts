@@ -2,7 +2,7 @@ import {line} from 'd3';
 import {useMemo} from 'react';
 
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
-import {JobState, Link, PointCoordinates} from '@graphqlTypes';
+import {Link, PointCoordinates} from '@graphqlTypes';
 
 import useRouteController from '../../../hooks/useRouteController';
 
@@ -33,16 +33,11 @@ const useLink = (link: Link) => {
     [link.startPoint, link.endPoint, link.bendPoints],
   );
 
-  const transferring = useMemo(
-    () => link.state === JobState.JOB_RUNNING,
-    [link.state],
-  );
-
   return {
     d,
     hoveredNode,
     selectedNode,
-    transferring,
+    transferring: link.transferring,
   };
 };
 

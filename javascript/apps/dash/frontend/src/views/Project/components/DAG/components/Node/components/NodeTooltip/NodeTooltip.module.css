@@ -1,0 +1,31 @@
+.base {
+  pointer-events: none;
+}
+
+.base .text {
+  box-shadow: 0 1px 2px 0 var(--border-grey);
+  border-radius: 2px;
+  font-size: var(--font-size-body-small);
+  text-transform: capitalize;
+  background-color: var(--pachyderm-black);
+  color: var(--white);
+  padding: 0.75rem;
+  opacity: 0;
+}
+
+.base .text.egress {
+  text-transform: none;
+}
+
+.base .text:after {
+  width: 5px;
+  height: 20px;
+  margin-left: calc(50% - 20px);
+  content: "";
+  display: block;
+  position: fixed;
+  bottom: -11px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--pachyderm-black);
+}
