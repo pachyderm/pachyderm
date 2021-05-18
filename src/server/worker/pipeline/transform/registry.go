@@ -148,7 +148,14 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 	pj.logger.Logf("killing job with reason: %s", reason)
 	defer pj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return ppsutil.FinishJob(reg.driver.PachClient(), pj.pji, pps.JobState_JOB_KILLED, reason)
+	_, err := reg.driver.PachClient().PpsAPIClient.StopJob(
+		reg.driver.PachClient().Ctx(),
+		&pps.StopJobRequest{
+			Job:    pj.pji.Job,
+			Reason: reason,
+		},
+	)
+	return err
 }
 
 func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
