@@ -92,7 +92,7 @@ func (f *PipelineFinisher) Run() error {
 			0,     // number
 			false, // reverse
 			func(commitInfo *pfs.CommitInfo) error {
-				return f.txnCtx.Pps().StopJobInTransaction(f.txnCtx, &pps.StopJobRequest{
+				return f.txnCtx.Pps().StopPipelineJobInTransaction(f.txnCtx, &pps.StopPipelineJobRequest{
 					OutputCommit: commitInfo.Commit,
 				})
 			}); err != nil && !isNotFoundErr(err) {

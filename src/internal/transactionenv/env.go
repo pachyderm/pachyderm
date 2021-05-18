@@ -37,8 +37,8 @@ type PfsWrites interface {
 // directly run the request through PPS or append it to the active transaction,
 // depending on if there is an active transaction in the client context.
 type PpsWrites interface {
-	StopJob(*pps.StopJobRequest) error
-	UpdateJobState(*pps.UpdateJobStateRequest) error
+	StopPipelineJob(*pps.StopPipelineJobRequest) error
+	UpdatePipelineJobState(*pps.UpdatePipelineJobStateRequest) error
 	CreatePipeline(*pps.CreatePipelineRequest, *string, **pfs.Commit) error
 }
 
@@ -197,8 +197,8 @@ type PfsTransactionServer interface {
 // PpsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PPS server.
 type PpsTransactionServer interface {
-	StopJobInTransaction(*TransactionContext, *pps.StopJobRequest) error
-	UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error
+	StopPipelineJobInTransaction(*TransactionContext, *pps.StopPipelineJobRequest) error
+	UpdatePipelineJobStateInTransaction(*TransactionContext, *pps.UpdatePipelineJobStateRequest) error
 	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error
 }
 
@@ -292,14 +292,14 @@ func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) erro
 	return t.txnCtx.txnEnv.pfsServer.DeleteBranchInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) StopJob(original *pps.StopJobRequest) error {
-	req := proto.Clone(original).(*pps.StopJobRequest)
-	return t.txnCtx.txnEnv.ppsServer.StopJobInTransaction(t.txnCtx, req)
+func (t *directTransaction) StopPipelineJob(original *pps.StopPipelineJobRequest) error {
+	req := proto.Clone(original).(*pps.StopPipelineJobRequest)
+	return t.txnCtx.txnEnv.ppsServer.StopPipelineJobInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) error {
-	req := proto.Clone(original).(*pps.UpdateJobStateRequest)
-	return t.txnCtx.txnEnv.ppsServer.UpdateJobStateInTransaction(t.txnCtx, req)
+func (t *directTransaction) UpdatePipelineJobState(original *pps.UpdatePipelineJobStateRequest) error {
+	req := proto.Clone(original).(*pps.UpdatePipelineJobStateRequest)
+	return t.txnCtx.txnEnv.ppsServer.UpdatePipelineJobStateInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
@@ -369,13 +369,13 @@ func (t *appendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
 	return err
 }
 
-func (t *appendTransaction) StopJob(req *pps.StopJobRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StopJob: req})
+func (t *appendTransaction) StopPipelineJob(req *pps.StopPipelineJobRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StopPipelineJob: req})
 	return err
 }
 
-func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{UpdateJobState: req})
+func (t *appendTransaction) UpdatePipelineJobState(req *pps.UpdatePipelineJobStateRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{UpdatePipelineJobState: req})
 	return err
 }
 

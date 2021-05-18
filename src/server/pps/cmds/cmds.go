@@ -116,9 +116,9 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			pipelineJobInfo, err := client.InspectJob(args[0], block, true)
+			pipelineJobInfo, err := client.InspectPipelineJob(args[0], block, true)
 			if err != nil {
-				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
+				cmdutil.ErrorAndExit("error from InspectPipelineJob: %s", err.Error())
 			}
 			if pipelineJobInfo == nil {
 				cmdutil.ErrorAndExit("job %s not found.", args[0])
@@ -197,14 +197,14 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(pji *ppsclient.PipelineJobInfo) error {
+					return client.ListPipelineJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(pji *ppsclient.PipelineJobInfo) error {
 						return e.EncodeProto(pji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(pji *ppsclient.PipelineJobInfo) error {
+				if err := client.ListPipelineJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(pji *ppsclient.PipelineJobInfo) error {
 					pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
 					return nil
 				}); err != nil {
@@ -265,7 +265,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			}
 			e := encoder(output)
-			if err := c.FlushJob(commits, pipelines, func(pji *ppsclient.PipelineJobInfo) error {
+			if err := c.FlushPipelineJob(commits, pipelines, func(pji *ppsclient.PipelineJobInfo) error {
 				if raw {
 					if err := e.EncodeProto(pji); err != nil {
 						return err
@@ -308,8 +308,8 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				return err
 			}
 			defer client.Close()
-			if err := client.DeleteJob(args[0]); err != nil {
-				cmdutil.ErrorAndExit("error from DeleteJob: %s", err.Error())
+			if err := client.DeletePipelineJob(args[0]); err != nil {
+				cmdutil.ErrorAndExit("error from DeletePipelineJob: %s", err.Error())
 			}
 			return nil
 		}),
@@ -327,8 +327,8 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				return err
 			}
 			defer client.Close()
-			if err := client.StopJob(args[0]); err != nil {
-				cmdutil.ErrorAndExit("error from StopJob: %s", err.Error())
+			if err := client.StopPipelineJob(args[0]); err != nil {
+				cmdutil.ErrorAndExit("error from StopPipelineJob: %s", err.Error())
 			}
 			return nil
 		}),
@@ -1391,7 +1391,7 @@ func validateJQConditionString(filter string) (string, error) {
 func ParseJobStates(stateStrs []string) (string, error) {
 	var conditions []string
 	for _, stateStr := range stateStrs {
-		if state, err := ppsclient.JobStateFromName(stateStr); err == nil {
+		if state, err := ppsclient.PipelineJobStateFromName(stateStr); err == nil {
 			conditions = append(conditions, fmt.Sprintf(".state == \"%s\"", state))
 		} else {
 			return "", err

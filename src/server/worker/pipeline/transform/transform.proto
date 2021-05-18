@@ -10,7 +10,7 @@ import "server/worker/datum/datum.proto";
 
 message DatumSet {
   // Inputs
-  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  string pipeline_job_id = 1 [(gogoproto.customname) = "PipelineJobID"];
   string fileset_id = 2;
   pfs.Commit output_commit = 3;
 

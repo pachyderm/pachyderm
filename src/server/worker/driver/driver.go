@@ -86,10 +86,10 @@ type Driver interface {
 
 	RunUserErrorHandlingCode(context.Context, logs.TaggedLogger, []string) error
 
-	// TODO: provide a more generic interface for modifying jobs, and
+	// TODO: provide a more generic interface for modifying pipeline jobs, and
 	// some quality-of-life functions for common operations.
-	DeleteJob(*sqlx.Tx, *pps.StoredPipelineJobInfo) error
-	UpdateJobState(string, pps.JobState, string) error
+	DeletePipelineJob(*sqlx.Tx, *pps.StoredPipelineJobInfo) error
+	UpdatePipelineJobState(string, pps.PipelineJobState, string) error
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
@@ -438,33 +438,33 @@ func (d *driver) RunUserErrorHandlingCode(
 	return nil
 }
 
-func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string) error {
+func (d *driver) UpdatePipelineJobState(pipelineJobID string, state pps.PipelineJobState, reason string) error {
 	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
-		jobPtr := &pps.StoredPipelineJobInfo{}
-		if err := d.PipelineJobs().ReadWrite(sqlTx).Get(jobID, jobPtr); err != nil {
+		pipelineJobPtr := &pps.StoredPipelineJobInfo{}
+		if err := d.PipelineJobs().ReadWrite(sqlTx).Get(pipelineJobID, pipelineJobPtr); err != nil {
 			return err
 		}
-		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.PipelineJobs().ReadWrite(sqlTx), jobPtr, state, reason))
+		return errors.EnsureStack(ppsutil.UpdatePipelineJobState(d.Pipelines().ReadWrite(sqlTx), d.PipelineJobs().ReadWrite(sqlTx), pipelineJobPtr, state, reason))
 	})
 }
 
-// DeleteJob is identical to updateJobState, except that jobPtr points to a job
-// that should be deleted rather than marked failed. Jobs may be deleted if
-// their output commit is deleted.
-func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobPtr *pps.StoredPipelineJobInfo) error {
+// DeletePipelineJob is identical to updateJobState, except that pipelineJobPtr
+// points to a pipeline job that should be deleted rather than marked failed.
+// PipelineJobs may be deleted if their output commit is deleted.
+func (d *driver) DeletePipelineJob(sqlTx *sqlx.Tx, pipelineJobPtr *pps.StoredPipelineJobInfo) error {
 	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := d.Pipelines().ReadWrite(sqlTx).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
+	if err := d.Pipelines().ReadWrite(sqlTx).Update(pipelineJobPtr.Pipeline.Name, pipelinePtr, func() error {
 		if pipelinePtr.JobCounts == nil {
 			pipelinePtr.JobCounts = make(map[int32]int32)
 		}
-		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobPtr.State)]--
+		if pipelinePtr.JobCounts[int32(pipelineJobPtr.State)] != 0 {
+			pipelinePtr.JobCounts[int32(pipelineJobPtr.State)]--
 		}
 		return nil
 	}); err != nil {
 		return err
 	}
-	return d.PipelineJobs().ReadWrite(sqlTx).Delete(jobPtr.Job.ID)
+	return d.PipelineJobs().ReadWrite(sqlTx).Delete(pipelineJobPtr.PipelineJob.ID)
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
@@ -484,7 +484,7 @@ func (d *driver) unlinkData(inputs []*common.Input) error {
 }
 
 func (d *driver) UserCodeEnv(
-	jobID string,
+	pipelineJobID string,
 	outputCommit *pfs.Commit,
 	inputs []*common.Input,
 ) []string {
@@ -495,8 +495,8 @@ func (d *driver) UserCodeEnv(
 		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 	}
 
-	if jobID != "" {
-		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
+	if pipelineJobID != "" {
+		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, pipelineJobID))
 		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Input) || d.PipelineInfo().S3Out {
 			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
 			// should pass its ServiceEnv to worker.NewAPIServer, which should store it
@@ -509,7 +509,7 @@ func (d *driver) UserCodeEnv(
 			result = append(
 				result,
 				fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
-					ppsutil.SidecarS3GatewayService(jobID),
+					ppsutil.SidecarS3GatewayService(pipelineJobID),
 					d.Namespace(),
 					os.Getenv("S3GATEWAY_PORT"),
 				),
