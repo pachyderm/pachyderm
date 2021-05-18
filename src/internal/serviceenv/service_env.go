@@ -12,9 +12,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -187,19 +185,6 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 		pachClient, err := client.NewFromURI(env.pachAddress)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
-		}
-		if config := env.Config().WorkerSpecificConfiguration; config != nil {
-			// This is running in a pipeline, load the auth token from the
-			// PipelineInfo and set the client auth.
-			// Add a timeout in case fetching the StoredPipelineInfo hangs
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
-			storedPipelineInfo := &pps.StoredPipelineInfo{}
-			if err := pipelines.ReadOnly(ctx).Get(config.PPSPipelineName, storedPipelineInfo); err != nil {
-				return err
-			}
-			pachClient.SetAuthToken(storedPipelineInfo.AuthToken)
 		}
 		env.pachClient = pachClient
 		return nil

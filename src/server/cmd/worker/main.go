@@ -59,6 +59,7 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelinePtr); err != nil {
 		return nil, err
 	}
+	pachClient.SetAuthToken(pipelinePtr.AuthToken)
 	// Notice we use the SpecCommitID from our env, not from etcd. This is
 	// because the value in etcd might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
@@ -74,14 +75,14 @@ func do(config interface{}) error {
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())
-	pipelineInfo, err := getPipelineInfo(pachClient, env)
+	pipelineInfo, err := getPipelineInfo(pachClient, env) // get pipeline creds for pachClient
 	if err != nil {
 		return errors.Wrapf(err, "error getting pipelineInfo")
 	}
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	workerInstance, err := worker.NewWorker(env, pipelineInfo, "/")
+	workerInstance, err := worker.NewWorker(env, pachClient, pipelineInfo, "/")
 	if err != nil {
 		return err
 	}
@@ -94,6 +95,7 @@ func do(config interface{}) error {
 
 	workerserver.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+	// TODO: why do we pass down the pachClient here?  shouldn't we let it use the one from env that will inherit credentials from any RPCs?
 	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient))
 
 	// Put our IP address into etcd, so pachd can discover us

@@ -129,6 +129,7 @@ func newTestEnv(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pp
 	workerDir := filepath.Join(realEnv.Directory, "worker")
 	driver, err := driver.NewDriver(
 		realEnv.ServiceEnv,
+		realEnv.PachClient,
 		pipelineInfo,
 		workerDir,
 	)
