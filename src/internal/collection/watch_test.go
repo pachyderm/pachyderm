@@ -368,13 +368,17 @@ func watchTests(
 			t.Parallel()
 			reader, writer := newCollection(context.Background(), t)
 			row := makeProto(makeID(7))
-			row.Data = random.String(10000) // postgres payload limit should be 8KB
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, row.ID))
 			tester.ExpectNoEvents()
-			tester.Write(row)
-			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
-			tester.ExpectNoEvents()
+			// postgres payload limit is 8KB, but it is base64-encoded, so a data
+			// length of 3/4 * 8000 should be sufficient.
+			for i := 5800; i < 6000; i += 5 {
+				row.Data = random.String(i)
+				tester.Write(row)
+				tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
+				tester.ExpectNoEvents()
+			}
 			tester.Delete(row.ID)
 			tester.ExpectEvent(TestEvent{watch.EventDelete, row.ID, nil})
 			tester.ExpectNoEvents()

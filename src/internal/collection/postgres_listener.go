@@ -174,7 +174,6 @@ func parsePostgresEpoch(s string) (time.Time, error) {
 	return time.Unix(sec, nsec).In(time.UTC), nil
 }
 
-
 func parsePostgresEvent(payload string) *postgresEvent {
 	// TODO: do this in a streaming manner rather than copying the string
 	parts := strings.Split(payload, " ")
