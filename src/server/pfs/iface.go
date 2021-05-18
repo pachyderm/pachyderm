@@ -1,7 +1,8 @@
 package pfs
 
 import (
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/context"
 	pfs_client "github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -12,7 +13,7 @@ import (
 type APIServer interface {
 	pfs_client.APIServer
 
-	NewPropagater(col.STM) txncontext.PfsPropagater
+	NewPropagater(*sqlx.Tx, *pfs_client.Job) txncontext.PfsPropagater
 	NewPipelineFinisher(*txncontext.TransactionContext) txncontext.PipelineCommitFinisher
 
 	CreateRepoInTransaction(*txncontext.TransactionContext, *pfs_client.CreateRepoRequest) error
@@ -27,4 +28,6 @@ type APIServer interface {
 	CreateBranchInTransaction(*txncontext.TransactionContext, *pfs_client.CreateBranchRequest) error
 	InspectBranchInTransaction(*txncontext.TransactionContext, *pfs_client.InspectBranchRequest) (*pfs_client.BranchInfo, error)
 	DeleteBranchInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteBranchRequest) error
+
+	AddFilesetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFilesetRequest) error
 }

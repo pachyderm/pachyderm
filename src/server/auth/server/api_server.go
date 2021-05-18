@@ -130,7 +130,7 @@ func NewAuthServer(
 	requireNoncriticalServers bool,
 	watchesEnabled bool,
 ) (*apiServer, error) {
-	authConfig := col.NewEtcdCollection(
+	oidcStates := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(oidcAuthnPrefix),
 		nil,
@@ -348,7 +348,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 
 	// Store a new Pachyderm token (as the caller is authenticating) and
 	// initialize the root user as a cluster admin
-	if err := a.txnEnv.WithWriteContext(ctx, func(txCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		roleBindings := a.roleBindings.ReadWrite(txCtx.SqlTx)
 		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
@@ -383,7 +383,7 @@ func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTok
 
 	// TODO(acohen4): Merge with postgres-integration library changes
 	var rootToken string
-	if err := a.txnEnv.WithWriteContext(ctx, func(txCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		// First revoke root's existing auth token
 		if err := a.deleteAuthTokensForSubjectInTransaction(txCtx.SqlTx, auth.RootUser); err != nil {
 			return err
@@ -1520,13 +1520,13 @@ func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subje
 
 // TODO(acohen4): replace this function with what's implemented in postgres-integration once it lands
 func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
-	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		err := a.insertAuthTokenNoTTLInTransaction(txnCtx, tokenHash, subject)
 		return err
 	})
 }
 
-func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txnenv.TransactionContext, tokenHash string, subject string) error {
+func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txncontext.TransactionContext, tokenHash string, subject string) error {
 	if _, err := txnCtx.SqlTx.ExecContext(txnCtx.ClientContext,
 		`INSERT INTO auth.auth_tokens (token_hash, subject) 
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {

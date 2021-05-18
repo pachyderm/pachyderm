@@ -184,14 +184,17 @@ func (a *InactiveAPIServer) RotateRootToken(context.Context, *auth.RotateRootTok
 	return nil, auth.ErrNotActivated
 }
 
+// CheckRepoIsAuthorized returns nil when auth is not activated
 func (a *InactiveAPIServer) CheckRepoIsAuthorized(context.Context, string, ...auth.Permission) error {
-	return auth.ErrNotActivated
+	return nil
 }
 
+// CheckClusterIsAuthorizedInTransaction returns nil when auth is not activated
 func (a *InactiveAPIServer) CheckClusterIsAuthorizedInTransaction(*txncontext.TransactionContext, ...auth.Permission) error {
-	return auth.ErrNotActivated
+	return nil
 }
 
+// CheckRepoIsAuthorizedInTransaction returns nil when auth is not activated
 func (a *InactiveAPIServer) CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, string, ...auth.Permission) error {
-	return auth.ErrNotActivated
+	return nil
 }

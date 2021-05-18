@@ -68,16 +68,16 @@ type TransactionServer interface {
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
-	env       serviceenv.ServiceEnv
-	txnServer TransactionServer
+	serviceEnv serviceenv.ServiceEnv
+	txnServer  TransactionServer
 }
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (tnxEnv *TransactionEnv) Initialize(
-	env serviceenv.ServiceEnv,
+	serviceEnv serviceenv.ServiceEnv,
 	txnServer TransactionServer,
 ) {
-	tnxEnv.env = env
+	tnxEnv.serviceEnv = serviceEnv
 	tnxEnv.txnServer = txnServer
 }
 
@@ -115,62 +115,62 @@ func NewDirectTransaction(txnEnv *TransactionEnv, txnCtx *txncontext.Transaction
 
 func (t *directTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
 	req := proto.Clone(original).(*pfs.CreateRepoRequest)
-	return t.txnEnv.env.PfsServer().CreateRepoInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.PfsServer().CreateRepoInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteRepoRequest)
-	return t.txnEnv.env.PfsServer().DeleteRepoInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
 	req := proto.Clone(original).(*pfs.StartCommitRequest)
-	return t.txnEnv.env.PfsServer().StartCommitInTransaction(t.txnCtx, req, commit)
+	return t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req, commit)
 }
 
 func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) error {
 	req := proto.Clone(original).(*pfs.FinishCommitRequest)
-	return t.txnEnv.env.PfsServer().FinishCommitInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) SquashCommit(original *pfs.SquashCommitRequest) error {
 	req := proto.Clone(original).(*pfs.SquashCommitRequest)
-	return t.txnEnv.env.PfsServer().SquashCommitInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.PfsServer().SquashCommitInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
 	req := proto.Clone(original).(*pfs.CreateBranchRequest)
-	return t.txnEnv.env.PfsServer().CreateBranchInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.PfsServer().CreateBranchInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteBranchRequest)
-	return t.txnEnv.env.PfsServer().DeleteBranchInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.PfsServer().DeleteBranchInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) StopPipelineJob(original *pps.StopPipelineJobRequest) error {
 	req := proto.Clone(original).(*pps.StopPipelineJobRequest)
-	return t.txnCtx.env.PpsServer().StopPipelineJobInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.PpsServer().StopPipelineJobInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) UpdatePipelineJobState(original *pps.UpdatePipelineJobStateRequest) error {
 	req := proto.Clone(original).(*pps.UpdatePipelineJobStateRequest)
-	return t.txnCtx.env.PpsServer().UpdatePipelineJobStateInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.PpsServer().UpdatePipelineJobStateInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
 	req := proto.Clone(original).(*auth.ModifyRoleBindingRequest)
-	return t.txnEnv.env.AuthServer().ModifyRoleBindingInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.AuthServer().ModifyRoleBindingInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, filesetID *string, prevSpecCommit **pfs.Commit) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return t.txnCtx.txnEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevSpecCommit)
+	return t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevSpecCommit)
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
 	req := proto.Clone(original).(*auth.Resource)
-	return t.txnEnv.env.AuthServer().DeleteRoleBindingInTransaction(t.txnCtx, req)
+	return t.txnEnv.serviceEnv.AuthServer().DeleteRoleBindingInTransaction(t.txnCtx, req)
 }
 
 type appendTransaction struct {
@@ -273,16 +273,15 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 
 // WithWriteContext will call the given callback with a txncontext.TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
-func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*TransactionContext) error) error {
+func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
 	return col.NewSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		txnCtx := &TransactionContext{
+		txnCtx := &txncontext.TransactionContext{
 			ClientContext: ctx,
 			SqlTx:         sqlTx,
-			txnEnv:        env,
 		}
-		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.env.PfsServer().NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
-			txnCtx.commitFinisher = env.env.PssServer().NewPipelineFinisher(txnCtx)
+		if env.serviceEnv.PfsServer() != nil {
+			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
+			txnCtx.CommitFinisher = env.serviceEnv.PfsServer().NewPipelineFinisher(txnCtx)
 		}
 
 		err := cb(txnCtx)
@@ -296,17 +295,15 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 // WithReadContext will call the given callback with a txncontext.TransactionContext
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
-func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*TransactionContext) error) error {
+func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
 	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		pachClient := env.serviceEnv.GetPachClient(ctx)
-		txnCtx := &TransactionContext{
-			ctx:            ctx,
+		txnCtx := &txncontext.TransactionContext{
+			ClientContext:  ctx,
 			SqlTx:          sqlTx,
-			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
-			txnEnv:         env,
+			CommitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 		}
-		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.env.PfsServer().NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
+		if env.serviceEnv.PfsServer() != nil {
+			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
 		}
 
 		err := cb(txnCtx)

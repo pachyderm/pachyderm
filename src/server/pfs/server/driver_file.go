@@ -413,7 +413,7 @@ func (d *driver) renewFileset(ctx context.Context, id fileset.ID, ttl time.Durat
 	return err
 }
 
-func (d *driver) addFileset(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
+func (d *driver) addFileset(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
 	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err

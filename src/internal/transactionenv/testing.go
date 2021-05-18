@@ -112,7 +112,7 @@ func (mpts *MockPfsTransactionServer) DeleteBranchInTransaction(*txncontext.Tran
 }
 
 // AddFilesetInTransaction always errors
-func (mpts *MockPfsTransactionServer) AddFilesetInTransaction(*TransactionContext, *pfs.AddFilesetRequest) error {
+func (mpts *MockPfsTransactionServer) AddFilesetInTransaction(*txncontext.TransactionContext, *pfs.AddFilesetRequest) error {
 	return unimplementedError("PfsTransactionServer.AddFilesetInTransaction")
 }
 

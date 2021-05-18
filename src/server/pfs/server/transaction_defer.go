@@ -23,7 +23,7 @@ type Propagater struct {
 	isNewCommit bool
 }
 
-func (a *apiServer) NewPropagater(stm col.STM) txncontext.PfsPropagater {
+func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx, job *pfs.Job) txncontext.PfsPropagater {
 	return &Propagater{
 		d:     a.driver,
 		sqlTx: sqlTx,

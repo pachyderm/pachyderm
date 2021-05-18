@@ -3,7 +3,8 @@ package txncontext
 import (
 	"context"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -12,19 +13,13 @@ import (
 // transaction is started, a context will be created for it containing these
 // objects, which will be threaded through to every API call:
 type TransactionContext struct {
-<<<<<<< HEAD
-	ClientContext  context.Context
-	SqlTx          *sqlx.Tx
-	PfsPropagater  PfsPropagater
-=======
 	// ClientContext is the incoming context.Context for the request.
 	ClientContext context.Context
-	// Stm is the ongoing database transaction.
-	Stm col.STM
+	// SqlTx is the ongoing database transaction.
+	SqlTx *sqlx.Tx
 	// PfsPropagater applies commits at the end of the transaction.
 	PfsPropagater PfsPropagater
 	// CommitFinisher finishes commits for a pipeline at the end of a transaction
->>>>>>> 2eca60adc (Fix nil txnenv in directTransaction)
 	CommitFinisher PipelineCommitFinisher
 }
 

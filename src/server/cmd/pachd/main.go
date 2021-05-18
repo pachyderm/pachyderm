@@ -448,7 +448,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("Enterprise API", func() error {
-		enterpriseAPIServer, err = eprsserver.NewEnterpriseServer(
+		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 			env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), false)
 		if err != nil {
 			return err
@@ -608,7 +608,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
+			authAPIServer, err := authserver.NewAuthServer(
 				env, txnEnv, true, requireNoncriticalServers, true)
 			if err != nil {
 				return err

@@ -175,7 +175,7 @@ func RunLocal() (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
+			authAPIServer, err := authserver.NewAuthServer(
 				env, txnEnv, true, requireNoncriticalServers, true)
 			if err != nil {
 				return err

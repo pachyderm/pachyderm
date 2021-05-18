@@ -142,7 +142,7 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
 	}
 
-	directTxn := txnenv.NewDirectTransaction(txnCtx)
+	directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
 	for i, request := range info.Requests {
 		var err error
 		response := result.Responses[i]

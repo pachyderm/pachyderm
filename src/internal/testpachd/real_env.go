@@ -98,11 +98,11 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
 
-	servEnv.SetAuthServer(realEnv.AuthServer)
-	servEnv.SetPfsServer(realEnv.PFSServer)
-	servEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.api)
+	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetAuthServer(realEnv.AuthServer)
+	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetPfsServer(realEnv.PFSServer)
+	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetPpsServer(&realEnv.MockPPSTransactionServer.api)
 
-	txnEnv.Initialize(servEnv, realEnv.TransactionServer)
+	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)

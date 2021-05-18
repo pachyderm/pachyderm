@@ -531,7 +531,7 @@ func (a *apiServer) CreatePipelineJob(ctx context.Context, request *pps.CreatePi
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var result *pps.PipelineJob
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+		commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
 			Commit: request.OutputCommit,
 		})
 		if err != nil {
@@ -929,7 +929,7 @@ func (a *apiServer) DeletePipelineJob(ctx context.Context, request *pps.DeletePi
 	if request.PipelineJob == nil {
 		return nil, errors.New("Job cannot be nil")
 	}
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		if err := a.stopPipelineJob(txnCtx, request.PipelineJob, nil, "job deleted"); err != nil {
 			return err
 		}
@@ -954,7 +954,7 @@ func (a *apiServer) StopPipelineJob(ctx context.Context, request *pps.StopPipeli
 
 // StopPipelineJobInTransaction is identical to StopPipelineJob except that it can run inside an
 // existing postgres transaction.  This is not an RPC.
-func (a *apiServer) StopPipelineJobInTransaction(txnCtx *txnenv.TransactionContext, request *pps.StopPipelineJobRequest) error {
+func (a *apiServer) StopPipelineJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.StopPipelineJobRequest) error {
 	reason := request.Reason
 	if reason == "" {
 		reason = "job stopped"
@@ -962,7 +962,7 @@ func (a *apiServer) StopPipelineJobInTransaction(txnCtx *txnenv.TransactionConte
 	return a.stopPipelineJob(txnCtx, request.PipelineJob, request.OutputCommit, reason)
 }
 
-func (a *apiServer) stopPipelineJob(txnCtx *txnenv.TransactionContext, pipelineJob *pps.PipelineJob, outputCommit *pfs.Commit, reason string) error {
+func (a *apiServer) stopPipelineJob(txnCtx *txncontext.TransactionContext, pipelineJob *pps.PipelineJob, outputCommit *pfs.Commit, reason string) error {
 	pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
 	if (pipelineJob == nil) == (outputCommit == nil) {
 		return errors.New("Exactly one of PipelineJob or OutputCommit must be specified")
@@ -976,7 +976,7 @@ func (a *apiServer) stopPipelineJob(txnCtx *txnenv.TransactionContext, pipelineJ
 		outputCommit = pipelineJobInfo.OutputCommit
 	}
 
-	commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+	commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
 		Commit: proto.Clone(outputCommit).(*pfs.Commit),
 	})
 	if err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
@@ -1664,7 +1664,7 @@ func (a *apiServer) writePipelineInfo(ctx context.Context, pipelineInfo *pps.Pip
 	}
 
 	var commit *pfs.Commit
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		commit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineInfo.Pipeline.Name, filesetID, pipelineInfo.SpecCommit)
 		return err
@@ -1692,15 +1692,15 @@ func (a *apiServer) writePipelineInfoToFileset(ctx context.Context, pipelineInfo
 }
 
 func (a *apiServer) commitPipelineInfoFromFileset(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	pipelineName string,
 	filesetID string,
 	prevSpecCommit *pfs.Commit,
 ) (*pfs.Commit, error) {
 	var commit *pfs.Commit
-	if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+	if err := a.sudoTransaction(txnCtx, func(superCtx *txncontext.TransactionContext) error {
 		var err error
-		commit, err = superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
+		commit, err = a.env.PfsServer().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
 			Parent: prevSpecCommit,
 			Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineName),
 		}, nil)
@@ -1708,14 +1708,14 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 			return err
 		}
 
-		if err := superCtx.Pfs().AddFilesetInTransaction(superCtx, &pfs.AddFilesetRequest{
+		if err := a.env.PfsServer().AddFilesetInTransaction(superCtx, &pfs.AddFilesetRequest{
 			Commit:    commit,
 			FilesetId: filesetID,
 		}); err != nil {
 			return err
 		}
 
-		return superCtx.Pfs().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
+		return a.env.PfsServer().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
 			Commit: commit,
 		})
 	}); err != nil {
@@ -1974,7 +1974,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 // latestPipelineInfo doesn't actually work transactionally because
 // ppsutil.GetPipelineInfo needs to use pfs.GetFile to read the spec commit,
 // which does not support transactions.
-func (a *apiServer) latestPipelineInfo(txnCtx *txnenv.TransactionContext, pipelineName string) (*pps.PipelineInfo, error) {
+func (a *apiServer) latestPipelineInfo(txnCtx *txncontext.TransactionContext, pipelineName string) (*pps.PipelineInfo, error) {
 	pipelinePtr := pps.StoredPipelineInfo{}
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(pipelineName, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
@@ -1983,10 +1983,10 @@ func (a *apiServer) latestPipelineInfo(txnCtx *txnenv.TransactionContext, pipeli
 		return nil, err
 	}
 	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
-	return ppsutil.GetPipelineInfo(txnCtx.Client, &pipelinePtr)
+	return ppsutil.GetPipelineInfo(a.env.GetPachClient(txnCtx.ClientContext), &pipelinePtr)
 }
 
-func (a *apiServer) pipelineInfosForUpdate(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest) (*pps.PipelineInfo, *pps.PipelineInfo, error) {
+func (a *apiServer) pipelineInfosForUpdate(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) (*pps.PipelineInfo, *pps.PipelineInfo, error) {
 	if request.Pipeline == nil {
 		return nil, nil, errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -2009,7 +2009,7 @@ func (a *apiServer) pipelineInfosForUpdate(txnCtx *txnenv.TransactionContext, re
 }
 
 func (a *apiServer) CreatePipelineInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pps.CreatePipelineRequest,
 	specFilesetID *string,
 	prevSpecCommit **pfs.Commit,
@@ -2022,7 +2022,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 
 	if *specFilesetID != "" {
 		// If we already have a fileset, try to renew it - if that fails, invalidate it
-		if err := txnCtx.Client.RenewFileSet(*specFilesetID, 600*time.Second); err != nil {
+		if err := a.env.GetPachClient(txnCtx.ClientContext).RenewFileSet(*specFilesetID, 600*time.Second); err != nil {
 			*specFilesetID = ""
 		}
 	}
@@ -2055,7 +2055,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	var visitErr error
 	pps.VisitInput(newPipelineInfo.Input, func(input *pps.Input) {
 		if input.Pfs != nil {
-			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx,
+			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx,
 				&pfs.InspectRepoRequest{
 					Repo: client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType),
 				},
@@ -2865,7 +2865,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 
 	// Get request.Pipeline's info
 	var pipelineInfo *pps.PipelineInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		pipelineInfo, err = a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
 		return err
@@ -2913,7 +2913,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	var pipelineInfo *pps.PipelineInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		pipelineInfo, err = a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
 		return err

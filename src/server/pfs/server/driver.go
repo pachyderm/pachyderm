@@ -154,7 +154,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	return d, nil
 }
 
-func (d *driver) activateAuth(txnCtx *txnenv.TransactionContext) error {
+func (d *driver) activateAuth(txnCtx *txncontext.TransactionContext) error {
 	repoInfo := &pfs.RepoInfo{}
 	return d.repos.ReadOnly(txnCtx.ClientContext).List(repoInfo, col.DefaultOptions(), func(string) error {
 		err := d.env.AuthServer().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
@@ -1140,7 +1140,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 
 	// Resolve the commit in case it specifies a branch head or commit ancestry
 	var commitInfo *pfs.CommitInfo
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		commitInfo, err = d.resolveCommit(txnCtx.SqlTx, commit)
 		return err
@@ -1290,7 +1290,7 @@ func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit
 
 	// Check if the commitID is a branch name
 	var commitInfo *pfs.CommitInfo
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		commitInfo, err = d.resolveCommit(txnCtx.SqlTx, commit)
 		return err
@@ -2141,11 +2141,11 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo, reverse bool) (
 		opts.Order = col.SortAscend
 	}
 	if repo.Name == "" {
-		if err := d.branches.ReadOnly(pachClient.Ctx()).ListRev(branchInfo, opts, listCallback); err != nil {
+		if err := d.branches.ReadOnly(ctx).ListRev(branchInfo, opts, listCallback); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := d.branches.ReadOnly(pachClient.Ctx()).GetRevByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo), branchInfo, opts, listCallback); err != nil {
+		if err := d.branches.ReadOnly(ctx).GetRevByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo), branchInfo, opts, listCallback); err != nil {
 			return nil, err
 		}
 	}
