@@ -99,6 +99,7 @@ type Driver interface {
 type driver struct {
 	env             serviceenv.ServiceEnv
 	ctx             context.Context
+	pachClient      *client.APIClient
 	pipelineInfo    *pps.PipelineInfo
 	activeDataMutex *sync.Mutex
 
@@ -125,6 +126,7 @@ type driver struct {
 // enterprise features are activated (for exporting stats).
 func NewDriver(
 	env serviceenv.ServiceEnv,
+	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	rootPath string,
 ) (Driver, error) {
@@ -137,6 +139,7 @@ func NewDriver(
 	result := &driver{
 		env:             env,
 		ctx:             env.Context(),
+		pachClient:      pachClient,
 		pipelineInfo:    pipelineInfo,
 		activeDataMutex: &sync.Mutex{},
 		jobs:            jobs,
@@ -293,7 +296,7 @@ func (d *driver) InputDir() string {
 }
 
 func (d *driver) PachClient() *client.APIClient {
-	return d.env.GetPachClient(d.ctx)
+	return d.pachClient
 }
 
 func (d *driver) NewSQLTx(cb func(*sqlx.Tx) error) error {

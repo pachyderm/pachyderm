@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -46,6 +47,7 @@ type Worker struct {
 //  4. a driver that provides common functionality between the above components
 func NewWorker(
 	env serviceenv.ServiceEnv,
+	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	rootPath string,
 ) (*Worker, error) {
@@ -58,6 +60,7 @@ func NewWorker(
 
 	driver, err := driver.NewDriver(
 		env,
+		pachClient,
 		pipelineInfo,
 		rootPath,
 	)
