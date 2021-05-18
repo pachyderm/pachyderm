@@ -32,9 +32,14 @@ type TestServiceEnv struct {
 	Log              *log.Logger
 	Ctx              context.Context
 
+	// Auth is the registered auth APIServer
 	Auth auth_server.APIServer
-	Pps  pps_server.APIServer
-	Pfs  pfs_server.APIServer
+
+	// Pps is the registered pps APIServer
+	Pps pps_server.APIServer
+
+	// Pfs is the registered pfs APIServer
+	Pfs pfs_server.APIServer
 
 	// Ready is a channel that blocks `GetPachClient` until it's closed.
 	// This avoids a race when we need to instantiate the server before
@@ -102,14 +107,17 @@ func (s *TestServiceEnv) Close() error {
 	return eg.Wait()
 }
 
+// AuthServer returns the registered PFS APIServer
 func (env *TestServiceEnv) AuthServer() auth_server.APIServer {
 	return env.Auth
 }
 
+// PpsServer returns the registered PPS APIServer
 func (env *TestServiceEnv) PpsServer() pps_server.APIServer {
 	return env.Pps
 }
 
+// PfsServer returns the registered PFS APIServer
 func (env *TestServiceEnv) PfsServer() pfs_server.APIServer {
 	return env.Pfs
 }

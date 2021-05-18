@@ -401,26 +401,32 @@ func (env *NonblockingServiceEnv) Close() error {
 	return eg.Wait()
 }
 
+// AuthServer returns the registered Auth APIServer
 func (env *NonblockingServiceEnv) AuthServer() auth_server.APIServer {
 	return env.authServer
 }
 
+// SetAuthServer registers an Auth APIServer with this service env
 func (env *NonblockingServiceEnv) SetAuthServer(s auth_server.APIServer) {
 	env.authServer = s
 }
 
+// PpsServer returns the registered PPS APIServer
 func (env *NonblockingServiceEnv) PpsServer() pps_server.APIServer {
 	return env.ppsServer
 }
 
+// SetPpsServer registers a Pps APIServer with this service env
 func (env *NonblockingServiceEnv) SetPpsServer(s pps_server.APIServer) {
 	env.ppsServer = s
 }
 
+// PfsServer returns the registered PFS APIServer
 func (env *NonblockingServiceEnv) PfsServer() pfs_server.APIServer {
 	return env.pfsServer
 }
 
+// SetPfsServer registers a Pfs APIServer with this service env
 func (env *NonblockingServiceEnv) SetPfsServer(s pfs_server.APIServer) {
 	env.pfsServer = s
 }

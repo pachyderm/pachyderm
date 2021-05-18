@@ -106,8 +106,11 @@ type directTransaction struct {
 // object.  It is exposed so that the transaction API server can run a direct
 // transaction even though there is an active transaction in the context (which
 // is why it cannot use `WithTransaction`).
-func NewDirectTransaction(txnCtx *txncontext.TransactionContext) Transaction {
-	return &directTransaction{txnCtx: txnCtx}
+func NewDirectTransaction(txnEnv *TransactionEnv, txnCtx *txncontext.TransactionContext) Transaction {
+	return &directTransaction{
+		txnEnv: txnEnv,
+		txnCtx: txnCtx,
+	}
 }
 
 func (t *directTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
@@ -263,7 +266,7 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 	}
 
 	return env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		directTxn := NewDirectTransaction(txnCtx)
+		directTxn := NewDirectTransaction(env, txnCtx)
 		return cb(directTxn)
 	})
 }

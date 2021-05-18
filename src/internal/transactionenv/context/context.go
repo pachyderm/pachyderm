@@ -11,18 +11,20 @@ import (
 // set of operations being performed in the Pachyderm API.  When a new
 // transaction is started, a context will be created for it containing these
 // objects, which will be threaded through to every API call:
-//   ctx: the client context which initiated the operations being performed
-//   pachClient: the APIClient associated with the client context ctx
-//   stm: the object that controls transactionality with etcd.  This is to ensure
-//     that all reads and writes are consistent until changes are committed.
-//   txnEnv: a struct containing references to each API server, it can be used
-//     to make calls to other API servers (e.g. checking auth permissions)
-//   pfsDefer: an interface for ensuring certain PFS cleanup tasks are performed
-//     properly (and deduped) at the end of the transaction.
 type TransactionContext struct {
+<<<<<<< HEAD
 	ClientContext  context.Context
 	SqlTx          *sqlx.Tx
 	PfsPropagater  PfsPropagater
+=======
+	// ClientContext is the incoming context.Context for the request.
+	ClientContext context.Context
+	// Stm is the ongoing database transaction.
+	Stm col.STM
+	// PfsPropagater applies commits at the end of the transaction.
+	PfsPropagater PfsPropagater
+	// CommitFinisher finishes commits for a pipeline at the end of a transaction
+>>>>>>> 2eca60adc (Fix nil txnenv in directTransaction)
 	CommitFinisher PipelineCommitFinisher
 }
 
@@ -33,6 +35,7 @@ func (t *TransactionContext) PropagateCommit(branch *pfs.Branch, isNewCommit boo
 	return t.PfsPropagater.PropagateCommit(branch, isNewCommit)
 }
 
+// Finish applies the commitFinisher and pfsPropagator, is set
 func (t *TransactionContext) Finish() error {
 	if t.CommitFinisher != nil {
 		if err := t.CommitFinisher.Run(); err != nil {

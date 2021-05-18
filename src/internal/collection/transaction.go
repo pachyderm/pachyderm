@@ -92,14 +92,14 @@ func runSTM(s STM, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) 
 	outc := make(chan stmResponse, 1)
 	go func() {
 		defer func() {
-			if r := recover(); r != nil {
+			/*if r := recover(); r != nil {
 				e, ok := r.(stmError)
 				if !ok {
 					// client apply panicked
 					panic(r)
 				}
 				outc <- stmResponse{nil, e.err}
-			}
+			}*/
 		}()
 		var out stmResponse
 		for {
