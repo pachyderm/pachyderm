@@ -64,7 +64,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// since the spout should be appending to that file on each commit
 		countBreakFunc := newCountBreakFunc(5)
 		var prevLength uint64
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestSpoutPachctl(t *testing.T) {
 
 		// get 5 succesive commits
 		countBreakFunc := newCountBreakFunc(5)
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
@@ -160,7 +160,7 @@ func TestSpoutPachctl(t *testing.T) {
 
 		// get 5 succesive commits
 		countBreakFunc = newCountBreakFunc(5)
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
@@ -224,7 +224,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// since the spout should be appending to that file on each commit
 		countBreakFunc := newCountBreakFunc(5)
 		var prevLength uint64
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
@@ -308,7 +308,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		countBreakFunc := newCountBreakFunc(5)
 		var count int
 		var prevLength uint64
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
@@ -364,7 +364,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// and we want to make sure that these commits all have the same provenance
 		provenanceID := ""
 		var count int
-		require.NoError(t, c.SubscribeCommit(pipeline, "", pipelineInfo.SpecCommit.NewProvenance(), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "", pipelineInfo.SpecCommit.NewProvenance(), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				require.Equal(t, 1, len(ci.Provenance))
 				provenance := ci.Provenance[0].Commit
@@ -404,7 +404,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, err)
 		countBreakFunc = newCountBreakFunc(3)
 		count = 0
-		require.NoError(t, c.SubscribeCommit(pipeline, "", pipelineInfo.SpecCommit.NewProvenance(), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "", pipelineInfo.SpecCommit.NewProvenance(), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				require.Equal(t, 1, len(ci.Provenance))
 				provenance := ci.Provenance[0].Commit
@@ -509,7 +509,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}, backoff.NewTestingBackOff())
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			files, err := c.ListFileAll(ci.Commit, "")
 			require.NoError(t, err)
 			require.Equal(t, 1, len(files))

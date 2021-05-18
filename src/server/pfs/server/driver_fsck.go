@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
 // fsckCommitKey is not pfsdb.CommitKey because it ignores the commit branch.  Until
@@ -22,7 +23,7 @@ import (
 // on a specific branch, which does not necessarily equal the branch that the
 // commit was initially created on and will confuse fsck if we include it.
 func fsckCommitKey(commit *pfs.Commit) string {
-	return path.Join(commit.Branch.Repo.Name, commit.ID)
+	return path.Join(commit.Branch.Repo.Name, commit.Branch.Repo.Type, commit.ID)
 }
 
 func equalBranches(a, b []*pfs.Branch) bool {
@@ -77,7 +78,7 @@ type ErrBranchProvenanceTransitivity struct {
 func (e ErrBranchProvenanceTransitivity) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: branch provenance was not transitive\n")
-	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + e.BranchInfo.Branch.Repo.Name + "\n")
+	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + pretty.CompactPrintRepo(e.BranchInfo.Branch.Repo) + "\n")
 	fullMap := make(map[string]*pfs.Branch)
 	provMap := make(map[string]*pfs.Branch)
 	for _, branch := range e.FullProvenance {
@@ -90,7 +91,7 @@ func (e ErrBranchProvenanceTransitivity) Error() string {
 	msg.WriteString("the following branches are missing from the provenance:\n")
 	for k, v := range fullMap {
 		if _, ok := provMap[k]; !ok {
-			msg.WriteString(v.Name + " in repo " + v.Repo.Name + "\n")
+			msg.WriteString(v.Name + " in repo " + pretty.CompactPrintRepo(v.Repo) + "\n")
 		}
 	}
 	return msg.String()
@@ -103,7 +104,7 @@ type ErrBranchInfoNotFound struct {
 }
 
 func (e ErrBranchInfoNotFound) Error() string {
-	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, e.Branch.Repo.Name)
+	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, pretty.CompactPrintRepo(e.Branch.Repo))
 }
 
 // ErrCommitInfoNotFound Commit info could not be found. Typically because of an incomplete deletion of a commit.
@@ -115,7 +116,7 @@ type ErrCommitInfoNotFound struct {
 
 func (e ErrCommitInfoNotFound) Error() string {
 	return fmt.Sprintf("consistency error: the commit %v in repo %v could not be found while checking %v",
-		e.Commit.ID, e.Commit.Branch.Repo.Name, e.Location)
+		e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo), e.Location)
 }
 
 // ErrInconsistentCommitProvenance Commit provenance somehow has a branch and commit from different repos.
@@ -126,7 +127,7 @@ type ErrInconsistentCommitProvenance struct {
 
 func (e ErrInconsistentCommitProvenance) Error() string {
 	return fmt.Sprintf("consistency error: the commit provenance has repo %v for the branch but repo %v for the commit",
-		e.CommitProvenance.Commit.Branch.Repo.Name, e.CommitProvenance.Commit.Branch.Repo.Name)
+		pretty.CompactPrintRepo(e.CommitProvenance.Commit.Branch.Repo), pretty.CompactPrintRepo(e.CommitProvenance.Commit.Branch.Repo))
 }
 
 // ErrHeadProvenanceInconsistentWithBranch The head provenance of a branch does not match the branch's provenance
@@ -140,10 +141,10 @@ type ErrHeadProvenanceInconsistentWithBranch struct {
 func (e ErrHeadProvenanceInconsistentWithBranch) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: head provenance is not consistent with branch provenance\n")
-	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + e.BranchInfo.Branch.Repo.Name + "\n")
+	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + pretty.CompactPrintRepo(e.BranchInfo.Branch.Repo) + "\n")
 	msg.WriteString("which has head commit " + e.HeadCommitInfo.Commit.ID + "\n")
 	msg.WriteString("this branch is provenant on the branch " +
-		e.ProvBranchInfo.Branch.Name + " in repo " + e.ProvBranchInfo.Branch.Repo.Name + "\n")
+		e.ProvBranchInfo.Branch.Name + " in repo " + pretty.CompactPrintRepo(e.ProvBranchInfo.Branch.Repo) + "\n")
 	msg.WriteString("which has head commit " + e.ProvBranchInfo.Head.ID + "\n")
 	msg.WriteString("but this commit is missing from the head commit provenance\n")
 	return msg.String()
@@ -159,7 +160,7 @@ type ErrProvenanceTransitivity struct {
 func (e ErrProvenanceTransitivity) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: commit provenance was not transitive\n")
-	msg.WriteString("on commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Branch.Repo.Name + "\n")
+	msg.WriteString("on commit " + e.CommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.CommitInfo.Commit.Branch.Repo) + "\n")
 	fullMap := make(map[string]*pfs.Commit)
 	provMap := make(map[string]*pfs.Commit)
 	for _, prov := range e.FullProvenance {
@@ -207,8 +208,8 @@ type ErrSubvenanceOfProvenance struct {
 func (e ErrSubvenanceOfProvenance) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: the commit was not in its provenance's subvenance\n")
-	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Branch.Repo.Name + "\n")
-	msg.WriteString("provenance commit " + e.ProvCommitInfo.Commit.ID + " in repo " + e.ProvCommitInfo.Commit.Branch.Repo.Name + "\n")
+	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.CommitInfo.Commit.Branch.Repo) + "\n")
+	msg.WriteString("provenance commit " + e.ProvCommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.ProvCommitInfo.Commit.Branch.Repo) + "\n")
 	return msg.String()
 }
 
@@ -222,8 +223,8 @@ type ErrProvenanceOfSubvenance struct {
 func (e ErrProvenanceOfSubvenance) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: the commit was not in its subvenance's provenance\n")
-	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Branch.Repo.Name + "\n")
-	msg.WriteString("subvenance commit " + e.SubvCommitInfo.Commit.ID + " in repo " + e.SubvCommitInfo.Commit.Branch.Repo.Name + "\n")
+	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.CommitInfo.Commit.Branch.Repo) + "\n")
+	msg.WriteString("subvenance commit " + e.SubvCommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.SubvCommitInfo.Commit.Branch.Repo) + "\n")
 	return msg.String()
 }
 
@@ -338,10 +339,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 					}
 					contains := false
 					for _, headProv := range headCommitInfo.Provenance {
-						if provBranchInfo.Head.Branch.Repo.Name == headProv.Commit.Branch.Repo.Name &&
-							provBranchInfo.Branch.Repo.Name == headProv.Commit.Branch.Repo.Name &&
-							provBranchInfo.Branch.Name == headProv.Commit.Branch.Name &&
-							provBranchInfo.Head.ID == headProv.Commit.ID {
+						if proto.Equal(provBranchInfo.Head, headProv.Commit) {
 							contains = true
 						}
 					}
@@ -542,7 +540,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 					contains = true
 				}
 				for _, subvProv := range subvCommitInfo.Provenance {
-					if ci.Commit.Branch.Repo.Name == subvProv.Commit.Branch.Repo.Name &&
+					if proto.Equal(ci.Commit.Branch.Repo, subvProv.Commit.Branch.Repo) &&
 						ci.Commit.ID == subvProv.Commit.ID {
 						contains = true
 					}

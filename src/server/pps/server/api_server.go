@@ -2230,9 +2230,9 @@ func (a *apiServer) CreatePipelineInTransaction(
 				Repo:        client.NewRepo(pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
 			}); err != nil && !isAlreadyExistsErr(err) {
-			return err
-		}
+			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
 
+		}
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
 		// auth token
 		pipelinePtr := &pps.StoredPipelineInfo{
@@ -2961,23 +2961,23 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		return nil, errors.Errorf("run pipeline needs a pipeline with existing data to run\nnew commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or to rerun an job")
 	}
 
-	key := path.Join
+	key := pfsdb.BranchKey
 	branchProvMap := make(map[string]bool)
 
 	// include the branch and its provenance in the branch provenance map
-	branchProvMap[key(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)] = true
+	branchProvMap[key(branchInfo.Branch)] = true
 	for _, b := range branchInfo.Provenance {
-		branchProvMap[key(b.Repo.Name, b.Name)] = true
+		branchProvMap[key(b)] = true
 	}
 	if branchInfo.Head != nil {
 		headCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: client.NewCommit(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, branchInfo.Head.ID),
+			Commit: branchInfo.Branch.NewCommit(branchInfo.Head.ID),
 		})
 		if err != nil {
 			return nil, err
 		}
 		for _, prov := range headCommitInfo.Provenance {
-			branchProvMap[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)] = true
+			branchProvMap[key(prov.Commit.Branch)] = true
 		}
 	}
 
@@ -3023,18 +3023,18 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		// ensure the commit provenance is consistent with the branch provenance
 		branch := prov.Commit.Branch
 		if len(branchProvMap) != 0 {
-			if branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(branch.Repo.Name, branch.Name)] {
+			if branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(branch)] {
 				return nil, errors.Errorf("the commit provenance contains a branch which the pipeline's branch is not provenant on")
 			}
 		}
-		provenanceMap[key(branch.Repo.Name, branch.Name)] = prov
+		provenanceMap[key(branch)] = prov
 	}
 
 	// fill in the provenance from branches in the provenance that weren't explicitly set in the request
 	for _, branchProv := range append(branchInfo.Provenance, branchInfo.Branch) {
-		if _, ok := provenanceMap[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
+		if _, ok := provenanceMap[key(branchProv)]; !ok {
 			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
-				Branch: client.NewBranch(branchProv.Repo.Name, branchProv.Name),
+				Branch: branchProv,
 			})
 			if err != nil {
 				return nil, err
@@ -3047,7 +3047,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 				return nil, err
 			}
 			for _, headProv := range headCommit.Provenance {
-				if _, ok := provenanceMap[key(headProv.Commit.Branch.Repo.Name, headProv.Commit.Branch.Name)]; !ok {
+				if _, ok := provenanceMap[key(headProv.Commit.Branch)]; !ok {
 					provenance = append(provenance, headProv)
 				}
 			}
@@ -3055,7 +3055,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := specCommit.Commit.NewProvenance()
-	if _, ok := provenanceMap[key(specProvenance.Commit.Branch.Repo.Name, specProvenance.Commit.Branch.Name)]; !ok {
+	if _, ok := provenanceMap[key(specProvenance.Commit.Branch)]; !ok {
 		provenance = append(provenance, specProvenance)
 	}
 	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
@@ -3392,9 +3392,14 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 
 func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit, error) {
 	pachClient := a.env.GetPachClient(ctx)
-	ci, err := pachClient.InspectCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+	ci, err := pachClient.PfsAPIClient.InspectCommit(
+		pachClient.Ctx(),
+		&pfs.InspectCommitRequest{
+			Commit:     commit,
+			BlockState: pfs.CommitState_STARTED,
+		})
 	if err != nil {
-		return nil, err
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return ci.Commit, nil
 }

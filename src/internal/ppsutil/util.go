@@ -274,22 +274,22 @@ func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.Comm
 	// for a given branch, the commit assigned to it will be the latest commit on that branch
 	// this is ensured by the way we sort the commit provenance when creating the outputCommit
 	for _, prov := range outputCommitInfo.Provenance {
-		branchToCommit[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)] = prov.Commit
+		branchToCommit[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Repo.Type, prov.Commit.Branch.Name)] = prov.Commit
 	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
-			if commit, ok := branchToCommit[key(input.Pfs.Repo, input.Pfs.Branch)]; ok {
+			if commit, ok := branchToCommit[key(input.Pfs.Repo, input.Pfs.RepoType, input.Pfs.Branch)]; ok {
 				input.Pfs.Commit = commit.ID
 			}
 		}
 		if input.Cron != nil {
-			if commit, ok := branchToCommit[key(input.Cron.Repo, "master")]; ok {
+			if commit, ok := branchToCommit[key(input.Cron.Repo, pfs.UserRepoType, "master")]; ok {
 				input.Cron.Commit = commit.ID
 			}
 		}
 		if input.Git != nil {
-			if commit, ok := branchToCommit[key(input.Git.Name, input.Git.Branch)]; ok {
+			if commit, ok := branchToCommit[key(input.Git.Name, pfs.UserRepoType, input.Git.Branch)]; ok {
 				input.Git.Commit = commit.ID
 			}
 		}
@@ -426,7 +426,7 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 
 func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
 	for _, commitRange := range commitInfo.Subvenance {
-		if commitRange.Lower.Branch.Repo.Name == commitInfo.Commit.Branch.Repo.Name {
+		if proto.Equal(commitRange.Lower.Branch.Repo, commitInfo.Commit.Branch.Repo) {
 			return commitRange.Lower
 		}
 	}

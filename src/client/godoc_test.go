@@ -284,7 +284,7 @@ func ExampleAPIClient_ListCommit() {
 		panic(err)
 	}
 
-	cis, err := c.ListCommit("test", "master", "", "", "", 0)
+	cis, err := c.ListCommit(testRepo, testCommit, nil, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -338,7 +338,7 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 		panic(err)
 	}
 
-	cis, err := c.ListCommit("test", "master", "", "", "", 0)
+	cis, err := c.ListCommit(testRepo, testCommit, nil, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -397,7 +397,7 @@ func ExampleAPIClient_ListCommitF() {
 	}
 
 	var nCommits int
-	if err := c.ListCommitF("test", "master", "", "", "", 0, false, func(ci *pfs.CommitInfo) error {
+	if err := c.ListCommitF(testRepo, testCommit, nil, 0, false, func(ci *pfs.CommitInfo) error {
 		fmt.Println(ci)
 		return nil
 	}); err != nil {

@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
@@ -22,7 +23,7 @@ func forEachCommit(driver driver.Driver, cb func(*pfs.CommitInfo) error) error {
 	pachClient := driver.PachClient()
 	pipelineInfo := driver.PipelineInfo()
 	return pachClient.SubscribeCommit(
-		pipelineInfo.Pipeline.Name,
+		client.NewRepo(pipelineInfo.Pipeline.Name),
 		"",
 		pipelineInfo.SpecCommit.NewProvenance(),
 		"",
