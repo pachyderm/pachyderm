@@ -208,7 +208,7 @@ func TestS3Input(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.PipelineJob.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -302,7 +302,7 @@ func TestS3Output(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pjis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master", "")}, nil)
+	pjis, err := c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(repo, "master", "")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pjis))
 	pipelineJobInfo := pjis[0]
@@ -336,7 +336,7 @@ func TestS3Output(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.PipelineJob.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -419,7 +419,7 @@ func TestFullS3(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.PipelineJob.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -563,7 +563,7 @@ func TestS3SkippedDatums(t *testing.T) {
 				svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
-					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pjis[j].Job.ID) {
+					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pjis[j].PipelineJob.ID) {
 						return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 					}
 				}
