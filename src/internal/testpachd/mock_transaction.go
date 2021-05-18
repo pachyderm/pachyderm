@@ -3,7 +3,7 @@ package testpachd
 import (
 	"fmt"
 
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/context"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -40,6 +40,7 @@ func (mock *mockCreatePipelineInTransaction) Use(cb createPipelineInTransactionF
 }
 
 type ppsTransactionAPI struct {
+	ppsServerAPI
 	mock *MockPPSTransactionServer
 }
 

@@ -15,8 +15,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authtesting "github.com/pachyderm/pachyderm/v2/src/server/auth/testing"
+	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 )
@@ -29,8 +30,8 @@ type RealEnv struct {
 	MockEnv
 
 	ServiceEnv               serviceenv.ServiceEnv
-	AuthServer               authserver.APIServer
-	PFSServer                pfsserver.APIServer
+	AuthServer               authapi.APIServer
+	PFSServer                pfsapi.APIServer
 	TransactionServer        txnserver.APIServer
 	MockPPSTransactionServer *MockPPSTransactionServer
 }
@@ -97,7 +98,11 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
 
-	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, &realEnv.MockPPSTransactionServer.api)
+	servEnv.SetAuthServer(realEnv.AuthServer)
+	servEnv.SetPfsServer(realEnv.PFSServer)
+	servEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.api)
+
+	txnEnv.Initialize(servEnv, realEnv.TransactionServer)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
