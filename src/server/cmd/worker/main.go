@@ -59,7 +59,6 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelinePtr); err != nil {
 		return nil, err
 	}
-	pachClient.SetAuthToken(pipelinePtr.AuthToken)
 	// Notice we use the SpecCommitID from our env, not from etcd. This is
 	// because the value in etcd might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
@@ -75,7 +74,7 @@ func do(config interface{}) error {
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())
-	pipelineInfo, err := getPipelineInfo(pachClient, env) // get pipeline creds for pachClient
+	pipelineInfo, err := getPipelineInfo(pachClient, env)
 	if err != nil {
 		return errors.Wrapf(err, "error getting pipelineInfo")
 	}
