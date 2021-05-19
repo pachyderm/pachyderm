@@ -92,6 +92,7 @@ enum OriginKind {
   USER = 0;
   AUTO = 1;
   FSCK = 2;
+  ALIAS = 3;
 }
 
 message CommitOrigin {
@@ -130,20 +131,6 @@ message CommitInfo {
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finished = 7;
   uint64 size_bytes = 8;
-
-  // the commits and their original branches on which this commit is provenant
-  repeated CommitProvenance provenance = 9;
-
-  // ReadyProvenance is the number of provenant commits which have been
-  // finished, if ReadyProvenance == len(Provenance) then the commit is ready
-  // to be processed by pps.
-  int64 ready_provenance = 10;
-
-  repeated CommitRange subvenance = 11;
-
-  int64 subvenant_commits_success = 12;
-  int64 subvenant_commits_failure = 13;
-  int64 subvenant_commits_total = 14;
 }
 
 message Job {
@@ -255,9 +242,9 @@ message SquashCommitRequest {
   Commit commit = 1;
 }
 
-message FlushCommitRequest {
-  repeated Commit commits = 1;
-  repeated Repo to_repos = 2;
+message FlushJobRequest {
+  Job job = 1;
+  repeated Branch to_branches = 2;
 }
 
 message SubscribeCommitRequest {
@@ -489,8 +476,8 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
   // SquashCommit squashes a commit into it's parent.
   rpc SquashCommit(SquashCommitRequest) returns (google.protobuf.Empty) {}
-  // FlushCommit waits for downstream commits to finish.
-  rpc FlushCommit(FlushCommitRequest) returns (stream CommitInfo) {}
+  // FlushJob waits for downstream commits to finish.
+  rpc FlushJob(FlushJobRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
   // ClearCommit removes all data from the commit.

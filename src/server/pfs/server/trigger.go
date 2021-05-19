@@ -22,14 +22,14 @@ import (
 func (d *driver) triggerCommit(
 	txnCtx *txnenv.TransactionContext,
 	commit *pfs.Commit,
-) ([]*pfs.Branch, error) {
+) error {
 	repoInfo := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
-		return nil, err
+		return err
 	}
 	newHead := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), newHead); err != nil {
-		return nil, err
+		return err
 	}
 	// find which branches this commit is the head of
 	headBranches := make(map[string]bool)
@@ -43,14 +43,13 @@ func (d *driver) triggerCommit(
 	for _, b := range repoInfo.Branches {
 		bi := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), bi); err != nil {
-			return nil, err
+			return err
 		}
 		if bi.Head != nil && bi.Head.ID == commit.ID {
 			headBranches[b.Name] = true
 		}
 	}
 	triggeredBranches := map[string]bool{}
-	var result []*pfs.Branch
 	var triggerBranch func(branch *pfs.Branch) error
 	triggerBranch = func(branch *pfs.Branch) error {
 		if triggeredBranches[branch.Name] {
@@ -78,13 +77,9 @@ func (d *driver) triggerCommit(
 					return err
 				}
 				if triggered {
-					if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(bi.Branch), bi, func() error {
-						bi.Head = newHead.Commit
-						return nil
-					}); err != nil {
+					if err := d.aliasCommit(newHead, bi.Branch, true); err != nil {
 						return err
 					}
-					result = append(result, proto.Clone(commit.Branch).(*pfs.Branch))
 					headBranches[bi.Branch.Name] = true
 				}
 			}
@@ -96,7 +91,7 @@ func (d *driver) triggerCommit(
 			return nil, err
 		}
 	}
-	return result, nil
+	return nil
 }
 
 // isTriggered checks to see if a branch should be updated from oldHead to

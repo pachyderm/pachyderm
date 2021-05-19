@@ -475,7 +475,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{commit},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -514,7 +514,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// make sure the pipeline still runs (i.e. it's not running as alice)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.FlushCommitAll(
+		_, err := rootClient.FlushJobAll(
 			[]*pfs.Commit{commit},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -560,7 +560,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{commit},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -601,7 +601,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, rootClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.FlushCommitAll(
+		_, err := rootClient.FlushJobAll(
 			[]*pfs.Commit{commit},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -1049,7 +1049,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{commit},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -1114,7 +1114,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 
 	// Wait for pipeline to process input commit & go into standby
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := c.FlushCommitAll(
+		_, err := c.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
 		return err
@@ -1138,7 +1138,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	err = c.PutFile(repo, "master", "", "/file.2", strings.NewReader("1"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := c.FlushCommitAll(
+		_, err := c.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
 		return err
@@ -1228,7 +1228,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		//   handling code)
 		// - packages depending on that code should be migrated
 		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if _, err := aliceClient.FlushCommitAll(
+		if _, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)}); err != nil {
 			return errors.Wrapf(err, "unexpected error value")
@@ -1236,7 +1236,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		return nil
 	})
 
-	// Create a new pipeline, make sure FlushCommit eventually returns, and check
+	// Create a new pipeline, make sure FlushJob eventually returns, and check
 	// pipeline output (i.e. the PPS master does not crashloop--pipeline2
 	// eventually starts successfully)
 	pipeline2 := tu.UniqueString("pipeline")
@@ -1251,7 +1251,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		false,
 	))
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline2)})
 		return err
@@ -1266,7 +1266,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 
 // TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
 // to its output repo while it's running, causing it to fail. Then it makes sure
-// that FlushCommit still works and that the pipeline's output commit was
+// that FlushJob still works and that the pipeline's output commit was
 // successfully finished (though as an empty commit)
 //
 // Note: This test actually doesn't use the admin client or admin privileges
@@ -1312,7 +1312,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	// make sure flush-commit returns (pipeline either
 	// fails or restarts RC & finishes)
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
 		return err

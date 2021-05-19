@@ -2484,7 +2484,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
 		require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
-		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{ACommit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{ACommit}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 	})
@@ -2514,11 +2514,11 @@ func TestPFS(suite *testing.T) {
 		}()
 
 		// Flush ACommit
-		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{ACommit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{ACommit}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 
-		commitInfos, err = env.PachClient.FlushCommitAll(
+		commitInfos, err = env.PachClient.FlushJobAll(
 			[]*pfs.Commit{ACommit},
 			[]*pfs.Repo{pclient.NewRepo("C")},
 		)
@@ -2557,7 +2557,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("B", BCommit.Branch.Name, BCommit.ID))
 		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 
-		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{BCommit, ACommit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{BCommit, ACommit}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -2572,12 +2572,12 @@ func TestPFS(suite *testing.T) {
 		ACommit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
-		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{ACommit, ACommit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{ACommit, ACommit}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
 	})
 
-	suite.Run("FlushCommitWithNoDownstreamRepos", func(t *testing.T) {
+	suite.Run("FlushJobWithNoDownstreamRepos", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2586,7 +2586,7 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
-		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{commit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{commit}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
 	})
@@ -2618,7 +2618,7 @@ func TestPFS(suite *testing.T) {
 		})
 
 		// Flush commit
-		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{commit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{commit}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 	})
@@ -2627,7 +2627,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.FlushCommitAll(nil, nil)
+		_, err := env.PachClient.FlushJobAll(nil, nil)
 		require.YesError(t, err)
 	})
 
@@ -2635,17 +2635,17 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-branch", "fake-commit")}, nil)
+		_, err := env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-branch", "fake-commit")}, nil)
 		require.YesError(t, err)
 		repo := "FlushNonExistentCommit"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		_, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, "fake-branch", "fake-commit")}, nil)
+		_, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit(repo, "fake-branch", "fake-commit")}, nil)
 		require.YesError(t, err)
-		_, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, "", "fake-commit")}, nil)
+		_, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit(repo, "", "fake-commit")}, nil)
 		require.YesError(t, err)
-		_, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, "fake-branch", "")}, nil)
+		_, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit(repo, "fake-branch", "")}, nil)
 		require.YesError(t, err)
-		_, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, "", "")}, nil)
+		_, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit(repo, "", "")}, nil)
 		require.YesError(t, err)
 	})
 
@@ -4843,19 +4843,19 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch("output2", "staging", "", "", []*pfs.Branch{pclient.NewBranch("output1", "master")}))
 		require.NoError(t, env.PachClient.PutFile("input", "staging", "", "file", strings.NewReader("foo")))
 
-		commits, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging", "")}, nil)
+		commits, err := env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit("input", "staging", "")}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commits))
 
 		require.NoError(t, env.PachClient.CreateBranch("input", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output1", "staging", ""))
-		commits, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging", "")}, nil)
+		commits, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit("input", "staging", "")}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commits))
 
 		require.NoError(t, env.PachClient.CreateBranch("output1", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output2", "staging", ""))
-		commits, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging", "")}, nil)
+		commits, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit("input", "staging", "")}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commits))
 	})
@@ -5966,7 +5966,7 @@ func TestPFS(suite *testing.T) {
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.SquashCommit(c.Ctx(), &pfs.SquashCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.FlushCommit(c.Ctx(), &pfs.FlushCommitRequest{})
+		_, err = c.PfsAPIClient.FlushJob(c.Ctx(), &pfs.FlushJobRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{})
 		requireNoPanic(err)

@@ -191,8 +191,7 @@ Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}
-Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Commit.Branch.Repo.Name}}@{{.Commit.ID}} ({{.Commit.Branch.Name}}) {{end}} {{end}}
+Size: {{prettySize .SizeBytes}}
 `)
 	if err != nil {
 		return err

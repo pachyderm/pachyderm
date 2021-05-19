@@ -557,7 +557,6 @@ func (a *apiServer) CreatePipelineJob(ctx context.Context, request *pps.CreatePi
 			DataTotal:     request.DataTotal,
 			DataFailed:    request.DataFailed,
 			DataRecovered: request.DataRecovered,
-			StatsCommit:   request.StatsCommit,
 			Started:       request.Started,
 			Finished:      request.Finished,
 		}
@@ -817,17 +816,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *
 		}
 		return nil, err
 	}
-	var specCommit *pfs.Commit
-	for _, prov := range commitInfo.Provenance {
-		if prov.Commit.Branch.Repo.Name == ppsconsts.SpecRepo && prov.Commit.Branch.Name == pipelineJobPtr.Pipeline.Name {
-			specCommit = prov.Commit
-			break
-		}
-	}
-	if specCommit == nil {
-		return nil, errors.Errorf("couldn't find spec commit for job %s, (this is likely a bug)", pipelineJobPtr.PipelineJob.ID)
-	}
-	result.SpecCommit = specCommit
+	result.specCommit = client.NewCommit(ppsconsts.SpecRepo, pipelineJobPtr.Pipeline.Name, commitInfo.Commit.ID)
 	pipelinePtr := &pps.StoredPipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).Get(pipelineJobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
@@ -835,7 +824,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *
 	// Override the SpecCommit for the pipeline to be what it was when this job
 	// was created, this prevents races between updating a pipeline and
 	// previous jobs running.
-	pipelinePtr.SpecCommit = specCommit
+	pipelinePtr.SpecCommit = result.SpecCommit
 	if full {
 		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 		if err != nil {
@@ -894,7 +883,7 @@ func (a *apiServer) FlushPipelineJob(request *pps.FlushPipelineJobRequest, resp 
 	}
 
 	pachClient := a.env.GetPachClient(resp.Context())
-	return pachClient.FlushCommit(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
+	return pachClient.FlushJob(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
 		var pjis []*pps.PipelineJobInfo
 		// FlushPipelineJob passes -1 for history because we don't know which version
 		// of the pipeline created the output commit.
@@ -985,6 +974,7 @@ func (a *apiServer) stopPipelineJob(txnCtx *txnenv.TransactionContext, pipelineJ
 	if err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
 		return err
 	}
+
 	if commitInfo != nil {
 		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: commitInfo.Commit,
@@ -994,7 +984,7 @@ func (a *apiServer) stopPipelineJob(txnCtx *txnenv.TransactionContext, pipelineJ
 		}
 
 		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-			Commit: ppsutil.GetStatsCommit(commitInfo),
+			Commit: client.NewCommit(outputCommit.Branch.Repo.Name, "stats", outputCommit.ID),
 			Empty:  true,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
@@ -2985,17 +2975,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	branchProvMap[key(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)] = true
 	for _, b := range branchInfo.Provenance {
 		branchProvMap[key(b.Repo.Name, b.Name)] = true
-	}
-	if branchInfo.Head != nil {
-		headCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: client.NewCommit(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, branchInfo.Head.ID),
-		})
-		if err != nil {
-			return nil, err
-		}
-		for _, prov := range headCommitInfo.Provenance {
-			branchProvMap[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)] = true
-		}
 	}
 
 	// we need to inspect the commit in order to resolve the commit ID, which may have an ancestry tag

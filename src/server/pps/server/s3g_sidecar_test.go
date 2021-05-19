@@ -575,7 +575,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		var buf bytes.Buffer
 		// Flush commit so that GetFile doesn't accidentally run after the job
 		// finishes but before the commit finishes
-		_, err = c.FlushCommitAll(
+		_, err = c.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(s3in, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
@@ -677,7 +677,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			// ------------
 			// Flush commit so that GetFile doesn't accidentally run after the job
 			// finishes but before the commit finishes
-			_, err = c.FlushCommitAll(
+			_, err = c.FlushJobAll(
 				[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 				[]*pfs.Repo{client.NewRepo(pipeline)})
 			require.NoError(t, err)

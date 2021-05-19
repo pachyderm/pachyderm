@@ -432,7 +432,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(dataRepo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -470,7 +470,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := bobClient.FlushCommitAll(
+		_, err := bobClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(dataRepo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(goodPipeline)},
 		)
@@ -544,7 +544,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := bobClient.FlushCommitAll(
+		_, err := bobClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(dataRepo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -787,7 +787,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// alice commits to the input repo, and the pipeline runs successfully
 	require.NoError(t, aliceClient.PutFile(repo, "master", "", "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := bobClient.FlushCommitAll(
+		_, err := bobClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -802,7 +802,7 @@ func TestPipelineRevoke(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
 	require.NoError(t, aliceClient.PutFile(repo, "master", "", "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -816,7 +816,7 @@ func TestPipelineRevoke(t *testing.T) {
 	doneCh := make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -843,7 +843,7 @@ func TestPipelineRevoke(t *testing.T) {
 	doneCh = make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -859,7 +859,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// pipeline runs successfully
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, pl(pipeline), []string{auth.RepoReaderRole}))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -1536,7 +1536,7 @@ func TestListDatum(t *testing.T) {
 		require.NoError(t, err)
 	}
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repoB, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -1623,7 +1623,7 @@ func TestListPipelineJob(t *testing.T) {
 	err = aliceClient.PutFile(repo, "master", "", "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -1702,7 +1702,7 @@ func TestInspectDatum(t *testing.T) {
 	err = aliceClient.PutFile(repo, "master", "", "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
@@ -1761,7 +1761,7 @@ func TestInspectDatum(t *testing.T) {
 //	// alice commits to the input repos, and the pipeline runs successfully
 //	err := aliceClient.PutFile(repo, "master", "/file1", strings.NewReader("test"))
 //	require.NoError(t, err)
-//	commitIter, err := aliceClient.FlushCommit(
+//	commitIter, err := aliceClient.FlushJob(
 //		[]*pfs.Commit{client.NewCommit(repo, "master")},
 //		[]*pfs.Repo{client.NewRepo(pipeline)},
 //	)
@@ -1861,7 +1861,7 @@ func TestInspectDatum(t *testing.T) {
 //	// alice commits to the input repo, and the pipeline runs successfully
 //	err = aliceClient.PutFile(repo, "master", "/file1", strings.NewReader("test"))
 //	require.NoError(t, err)
-//	commitItr, err := aliceClient.FlushCommit(
+//	commitItr, err := aliceClient.FlushJob(
 //		[]*pfs.Commit{client.NewCommit(repo, "master")},
 //		[]*pfs.Repo{client.NewRepo(pipeline)},
 //	)
@@ -1934,7 +1934,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, time.Minute, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo[0], "master", "")}, nil)
 		return err
 	})
@@ -1966,7 +1966,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// make sure the pipeline still runs
 	require.NoErrorWithinT(t, time.Minute, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo[2], "master", "")}, nil)
 		return err
 	})
@@ -2251,7 +2251,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	))
 
 	// Wait for pipeline to finish
-	_, err = aliceClient.FlushCommitAll(
+	_, err = aliceClient.FlushJobAll(
 		[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 		[]*pfs.Repo{client.NewRepo(pipeline)},
 	)
@@ -2349,10 +2349,10 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	))
 	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
 
-	// make sure FlushCommit eventually returns (i.e. pipeline failure doesn't
-	// block flushCommit indefinitely)
+	// make sure FlushJob eventually returns (i.e. pipeline failure doesn't
+	// block FlushJob indefinitely)
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
+		_, err := aliceClient.FlushJobAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
 		return err
@@ -2619,7 +2619,7 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
-	commitInfos, err := aliceClient.FlushCommitAll([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := aliceClient.FlushJobAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 6, len(commitInfos))
 

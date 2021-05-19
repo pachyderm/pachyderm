@@ -373,26 +373,26 @@ func (c APIClient) SquashCommit(repoName string, branchName string, commitID str
 	return grpcutil.ScrubGRPC(err)
 }
 
-// FlushCommit calls cb with commits that have the specified `commits` as
-// provenance. Note that it can block if jobs have not successfully
-// completed. This in effect waits for all of the jobs that are triggered by a
-// set of commits to complete.
+// FlushJob calls cb with commits that are part of the specified Job.  Note that
+// it can block if jobs have not successfully completed. This in effect waits
+// for all of the jobs that are triggered by a set of commits to complete.
 //
-// If toRepos is not nil then only the commits up to and including those repos
-// will be considered, otherwise all repos are considered.
+// If toBranches is not nil then only the commits up to and including those
+// branches will be considered, otherwise all branches affected by the job are
+// considered.
 //
-// Note that it's never necessary to call FlushCommit to run jobs, they'll run
-// no matter what, FlushCommitF just allows you to wait for them to complete and
+// Note that it's never necessary to call FlushJob to run PipelineJobs, they'll
+// run no matter what, FlushJob just allows you to wait for them to complete and
 // see their output once they do.
-func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo, cb func(*pfs.CommitInfo) error) (retErr error) {
+func (c APIClient) FlushJob(job *pfs.Job, toBranches []*pfs.Branch, cb func(*pfs.CommitInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	client, err := c.PfsAPIClient.FlushCommit(
+	client, err := c.PfsAPIClient.FlushJob(
 		c.Ctx(),
-		&pfs.FlushCommitRequest{
-			Commits: commits,
-			ToRepos: toRepos,
+		&pfs.FlushJobRequest{
+			Job:        job,
+			ToBranches: toBranches,
 		},
 	)
 	if err != nil {
@@ -415,7 +415,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo, cb fu
 	}
 }
 
-// FlushCommitAll returns commits that have the specified `commits` as
+// FlushJobAll returns commits that have the specified `commits` as
 // provenance. Note that it can block if jobs have not successfully
 // completed. This in effect waits for all of the jobs that are triggered by a
 // set of commits to complete.
@@ -423,22 +423,18 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo, cb fu
 // If toRepos is not nil then only the commits up to and including those repos
 // will be considered, otherwise all repos are considered.
 //
-// Note that it's never necessary to call FlushCommit to run jobs, they'll run
-// no matter what, FlushCommitAll just allows you to wait for them to complete and
+// Note that it's never necessary to call FlushJob to run jobs, they'll run
+// no matter what, FlushJobAll just allows you to wait for them to complete and
 // see their output once they do.
-func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+func (c APIClient) FlushJobAll(job *pfs.Job, toBranches []*pfs.Branch) ([]*pfs.CommitInfo, error) {
 	var cis []*pfs.CommitInfo
-	if err := c.FlushCommit(commits, toRepos, func(ci *pfs.CommitInfo) error {
+	if err := c.FlushJob(job, toBranches, func(ci *pfs.CommitInfo) error {
 		cis = append(cis, ci)
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	if len(cis) > 0 {
-		sort.Slice(cis, func(i, j int) bool {
-			return len(cis[i].Provenance) < len(cis[j].Provenance)
-		})
-	}
+	// TODO: make sure cis are sorted according to the jobinfo?
 	return cis, nil
 }
 

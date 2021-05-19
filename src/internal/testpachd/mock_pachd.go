@@ -405,7 +405,7 @@ type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Em
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
 type squashCommitFunc func(context.Context, *pfs.SquashCommitRequest) (*types.Empty, error)
-type flushCommitFunc func(*pfs.FlushCommitRequest, pfs.API_FlushCommitServer) error
+type flushJobFunc func(*pfs.FlushJobRequest, pfs.API_FlushJobServer) error
 type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeCommitServer) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
 type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Empty, error)
@@ -436,7 +436,7 @@ type mockFinishCommit struct{ handler finishCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
 type mockListCommit struct{ handler listCommitFunc }
 type mockSquashCommit struct{ handler squashCommitFunc }
-type mockFlushCommit struct{ handler flushCommitFunc }
+type mockFlushJob struct{ handler flushJobFunc }
 type mockSubscribeCommit struct{ handler subscribeCommitFunc }
 type mockClearCommit struct{ handler clearCommitFunc }
 type mockCreateBranch struct{ handler createBranchFunc }
@@ -467,7 +467,7 @@ func (mock *mockFinishCommit) Use(cb finishCommitFunc)       { mock.handler = cb
 func (mock *mockInspectCommit) Use(cb inspectCommitFunc)     { mock.handler = cb }
 func (mock *mockListCommit) Use(cb listCommitFunc)           { mock.handler = cb }
 func (mock *mockSquashCommit) Use(cb squashCommitFunc)       { mock.handler = cb }
-func (mock *mockFlushCommit) Use(cb flushCommitFunc)         { mock.handler = cb }
+func (mock *mockFlushJob) Use(cb flushJobFunc)               { mock.handler = cb }
 func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc) { mock.handler = cb }
 func (mock *mockClearCommit) Use(cb clearCommitFunc)         { mock.handler = cb }
 func (mock *mockCreateBranch) Use(cb createBranchFunc)       { mock.handler = cb }
@@ -504,7 +504,7 @@ type mockPFSServer struct {
 	InspectCommit   mockInspectCommit
 	ListCommit      mockListCommit
 	SquashCommit    mockSquashCommit
-	FlushCommit     mockFlushCommit
+	FlushJob        mockFlushJob
 	SubscribeCommit mockSubscribeCommit
 	ClearCommit     mockClearCommit
 	CreateBranch    mockCreateBranch
@@ -586,11 +586,11 @@ func (api *pfsServerAPI) SquashCommit(ctx context.Context, req *pfs.SquashCommit
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommit")
 }
-func (api *pfsServerAPI) FlushCommit(req *pfs.FlushCommitRequest, serv pfs.API_FlushCommitServer) error {
-	if api.mock.FlushCommit.handler != nil {
-		return api.mock.FlushCommit.handler(req, serv)
+func (api *pfsServerAPI) FlushJob(req *pfs.FlushJobRequest, serv pfs.API_FlushJobServer) error {
+	if api.mock.FlushJob.handler != nil {
+		return api.mock.FlushJob.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.FlushCommit")
+	return errors.Errorf("unhandled pachd mock pfs.FlushJob")
 }
 func (api *pfsServerAPI) SubscribeCommit(req *pfs.SubscribeCommitRequest, serv pfs.API_SubscribeCommitServer) error {
 	if api.mock.SubscribeCommit.handler != nil {

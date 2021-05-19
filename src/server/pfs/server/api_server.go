@@ -235,11 +235,11 @@ func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitR
 	return &types.Empty{}, nil
 }
 
-// FlushCommit implements the protobuf pfs.FlushCommit RPC
-func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
+// FlushJob implements the protobuf pfs.FlushJob RPC
+func (a *apiServer) FlushJob(request *pfs.FlushJobRequest, stream pfs.API_FlushJobServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.flushCommit(stream.Context(), request.Commits, request.ToRepos, stream.Send)
+	return a.driver.flushJob(stream.Context(), request.Job, request.ToBranches, stream.Send)
 }
 
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC

@@ -288,7 +288,7 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	require.NoError(t, err)
 
 	// Wait for the output commit
-	commitInfos, err := pachClient.FlushCommitAll([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := pachClient.FlushJobAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 

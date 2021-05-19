@@ -55,7 +55,7 @@ type AuthWrites interface {
 // PfsPropagater is the interface that PFS implements to propagate commits at
 // the end of a transaction.  It is defined here to avoid a circular dependency.
 type PfsPropagater interface {
-	PropagateCommit(branch *pfs.Branch, isNewCommit bool) error
+	PropagateBranch(branch *pfs.Branch) error
 	Run() error
 }
 
@@ -85,6 +85,7 @@ type TransactionContext struct {
 	ClientContext  context.Context
 	Client         *client.APIClient
 	SqlTx          *sqlx.Tx
+	Job            *pfs.Job
 	pfsPropagater  PfsPropagater
 	commitFinisher PipelineCommitFinisher
 	txnEnv         *TransactionEnv
@@ -111,11 +112,11 @@ func (t *TransactionContext) Pps() PpsTransactionServer {
 	return t.txnEnv.ppsServer
 }
 
-// PropagateCommit saves a branch to be propagated at the end of the transaction
+// PropagateBranch saves a branch to be propagated at the end of the transaction
 // (if all operations complete successfully).  This is used to batch together
-// propagations and dedupe downstream commits in PFS.
-func (t *TransactionContext) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error {
-	return t.pfsPropagater.PropagateCommit(branch, isNewCommit)
+// propagations and create the final Job structure in PFS for the change.
+func (t *TransactionContext) PropagateBranch(branch *pfs.Branch) error {
+	return t.pfsPropagater.PropagateBranch(branch)
 }
 
 func (t *TransactionContext) finish() error {
@@ -424,10 +425,11 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 			Client:        pachClient,
 			ClientContext: pachClient.Ctx(),
 			SqlTx:         sqlTx,
+			Job:           &pfs.Job{ID: uuid.NewWithoutDashes()},
 			txnEnv:        env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, txnCtx.Job)
 			txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
 		}
 
@@ -449,11 +451,12 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 			Client:         pachClient,
 			ClientContext:  pachClient.Ctx(),
 			SqlTx:          sqlTx,
+			Job:            &pfs.Job{ID: uuid.NewWithoutDashes()},
 			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 			txnEnv:         env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, txnCtx.Job)
 		}
 
 		err := cb(txnCtx)

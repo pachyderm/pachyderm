@@ -199,7 +199,8 @@ func (reg *registry) ensurePipelineJob(commitInfo *pfs.CommitInfo) (*pps.Pipelin
 	if err != nil {
 		// TODO: It would be better for this to be a structured error.
 		if strings.Contains(err.Error(), "not found") {
-			pipelineJob, err := pachClient.CreatePipelineJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, ppsutil.GetStatsCommit(commitInfo))
+			metaCommit := client.NewCommit(commitInfo.Commit.Branch.Repo.Name, "stats", commitInfo.Commit.ID)
+			job, err := pachClient.CreatePipelineJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, metaCommit)
 			if err != nil {
 				return nil, err
 			}

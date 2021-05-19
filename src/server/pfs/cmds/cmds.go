@@ -443,7 +443,7 @@ $ {{alias}} foo@master --from XXX`,
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
 	var repos cmdutil.RepeatedStringArg
-	flushCommit := &cobra.Command{
+	flushJob := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit> ...",
 		Short: "Wait for all commits caused by the specified commits to finish and return them.",
 		Long:  "Wait for all commits caused by the specified commits to finish and return them.",
@@ -476,7 +476,7 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 					retErr = err
 				}
 			}()
-			return c.FlushCommit(commits, toRepos, func(ci *pfsclient.CommitInfo) error {
+			return c.FlushJob(commits, toRepos, func(ci *pfsclient.CommitInfo) error {
 				if raw {
 					return marshaller.Marshal(os.Stdout, ci)
 				}
@@ -485,12 +485,12 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 			})
 		}),
 	}
-	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
-	flushCommit.MarkFlagCustom("repos", "__pachctl_get_repo")
-	flushCommit.Flags().AddFlagSet(rawFlags)
-	flushCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	shell.RegisterCompletionFunc(flushCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(flushCommit, "flush commit"))
+	flushJob.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
+	flushJob.MarkFlagCustom("repos", "__pachctl_get_repo")
+	flushJob.Flags().AddFlagSet(rawFlags)
+	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(flushJob, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
 
 	var newCommits bool
 	var pipeline string

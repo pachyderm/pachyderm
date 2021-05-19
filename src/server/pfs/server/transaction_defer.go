@@ -18,9 +18,8 @@ type Propagater struct {
 	sqlTx *sqlx.Tx
 	job   *pfs.Job
 
-	// Branches to propagate when the transaction completes
-	branches    []*pfs.Branch
-	isNewCommit bool
+	// Branches that were modified (new commits or head commit was moved to an old commit)
+	branches map[string]*pfs.Branch
 }
 
 func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx, job *pfs.Job) txnenv.PfsPropagater {
@@ -33,19 +32,22 @@ func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx, job *pfs.Job) txnenv.PfsPropag
 
 // PropagateCommit marks a branch as needing propagation once the transaction
 // successfully ends.  This will be performed by the Run function.
-func (t *Propagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error {
+func (t *Propagater) PropagateBranch(branch *pfs.Branch) error {
 	if branch == nil {
-		return errors.Errorf("cannot propagate nil branch")
+		return errors.New("cannot propagate nil branch")
 	}
-	t.branches = append(t.branches, branch)
-	t.isNewCommit = isNewCommit
+	t.branches[pfsdb.BranchKey(branch)] = branch
 	return nil
 }
 
 // Run performs any final tasks and cleanup tasks in the transaction, such as
 // propagating branches
 func (t *Propagater) Run() error {
-	return t.d.propagateCommits(t.sqlTx, t.job, t.branches, t.isNewCommit)
+	branches := make([]*pfs.Branch, 0, len(t.branches))
+	for _, branch := range t.branches {
+		branches = append(branches, branch)
+	}
+	return t.d.propagateCommits(t.sqlTx, t.job, branches)
 }
 
 // PipelineFinisher closes any open commits on a pipeline output branch,

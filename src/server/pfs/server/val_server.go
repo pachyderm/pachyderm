@@ -125,6 +125,14 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 	return a.APIServer.WalkFile(request, server)
 }
 
+// FlushJob implements the protobuf pfs.FlushJob RPC
+func (a *validatedpiServer) FlushJob(request *pfs.FlushJobRequest, server pfs.API_FlushJobServer) error {
+	if request.Job == nil {
+		return errors.New("job cannot be nil")
+	}
+	return a.APIServer.FlushJob(request, server)
+}
+
 // GlobFile implements the protobuf pfs.GlobFile RPC
 func (a *validatedAPIServer) GlobFile(request *pfs.GlobFileRequest, server pfs.API_GlobFileServer) (retErr error) {
 	commit := request.Commit
