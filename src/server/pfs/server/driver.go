@@ -79,6 +79,7 @@ type driver struct {
 	commits     col.PostgresCollection
 	branches    col.PostgresCollection
 	openCommits col.PostgresCollection
+	jobs        col.PostgresCollection
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -101,6 +102,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	commits := pfsdb.Commits(env.GetDBClient(), env.GetPostgresListener())
 	branches := pfsdb.Branches(env.GetDBClient(), env.GetPostgresListener())
 	openCommits := pfsdb.OpenCommits(env.GetDBClient(), env.GetPostgresListener())
+	jobs := pfsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
 
 	// Setup driver struct.
 	d := &driver{
@@ -112,6 +114,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		commits:     commits,
 		branches:    branches,
 		openCommits: openCommits,
+		jobs:        jobs,
 		// TODO: set maxFanIn based on downward API.
 	}
 	// Setup tracker and chunk / fileset storage.
@@ -888,7 +891,10 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 // 'branches' are newly created (i.e. in CreatePipeline).
 //
 // The isNewCommit flag indicates whether propagateCommits was called during the creation of a new commit.
-func (d *driver) propagateCommits(sqlTx *sqlx.Tx, branches []*pfs.Branch, isNewCommit bool) error {
+func (d *driver) propagateCommits(sqlTx *sqlx.Tx, job *pfs.Job, branches []*pfs.Branch, isNewCommit bool) error {
+	jobInfo := &pfs.StoredJobInfo{Job: job}
+	jobProvMap := make(map[string]*pfs.Commit)
+
 	// subvBIMap = ( ⋃{b.subvenance | b ∈ branches} ) ∪ branches
 	subvBIMap := map[string]*pfs.BranchInfo{}
 	for _, branch := range branches {
@@ -954,6 +960,7 @@ nextSubvBI:
 			//   branches with a shared commit are both represented in the provenance
 			provCommit := client.NewCommit(provOfSubvB.Repo.Name, provOfSubvB.Name, provOfSubvBI.Head.ID)
 			newCommitProvMap[commitKey(provCommit)] = &pfs.CommitProvenance{Commit: provCommit}
+			jobProvMap[pfsdb.CommitKey(provCommit)] = provCommit
 			provOfSubvBHeadInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(provOfSubvBI.Head), provOfSubvBHeadInfo); err != nil {
 				return err
@@ -966,6 +973,7 @@ nextSubvBI:
 				}
 				provProv = newProvProv
 				newCommitProvMap[commitKey(provProv.Commit)] = provProv
+				jobProvMap[pfsdb.CommitKey(provProv.Commit)] = provProv.Commit
 			}
 		}
 		if len(newCommitProvMap) == 0 {
@@ -1099,8 +1107,16 @@ nextSubvBI:
 		if err := d.openCommits.ReadWrite(sqlTx).Put(newCommit.ID, newCommit); err != nil {
 			return err
 		}
+		jobProvMap[pfsdb.CommitKey(newCommit)] = newCommit
 	}
-	return nil
+
+	// TODO: do we need to sort these?  probably in some way
+	for _, commit := range jobProvMap {
+		jobInfo.Commits = append(jobInfo.Commits, commit)
+	}
+
+	// Write out the job structure for this change
+	return d.jobs.ReadWrite(sqlTx).Create(jobInfo.Job.ID, jobInfo)
 }
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.

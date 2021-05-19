@@ -53,7 +53,7 @@ func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 // pipelineRcName is the name of the pipeline's RC and can be gotten with
 // ppsutil.PipelineRcName.
 func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
-	etcdPrefix string, workerGrpcPort uint16, jobID string, dataFilter []string) error {
+	etcdPrefix string, workerGrpcPort uint16, pipelineJobID string, dataFilter []string) error {
 	workerClients, err := Clients(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort)
 	if err != nil {
 		return err
@@ -61,8 +61,8 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 	success := false
 	for _, workerClient := range workerClients {
 		resp, err := workerClient.Cancel(ctx, &CancelRequest{
-			JobID:       jobID,
-			DataFilters: dataFilter,
+			PipelineJobID: pipelineJobID,
+			DataFilters:   dataFilter,
 		})
 		if err != nil {
 			return err
@@ -72,7 +72,7 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 		}
 	}
 	if !success {
-		return errors.Errorf("datum matching filter %+v could not be found for jobID %s", dataFilter, jobID)
+		return errors.Errorf("datum matching filter %+v could not be found for pipeline job ID %s", dataFilter, pipelineJobID)
 	}
 	return nil
 }

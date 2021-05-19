@@ -68,7 +68,7 @@ const (
 	// an image.
 	DefaultUserImage = "ubuntu:20.04"
 	// DefaultDatumTries is the default number of times a datum will be tried
-	// before we give up and consider the job failed.
+	// before we give up and consider the pipeline job failed.
 	DefaultDatumTries = 3
 
 	// DefaultLogsFrom is the default duration to return logs from, i.e. by
@@ -121,8 +121,8 @@ type apiServer struct {
 	peerPort              uint16
 	gcPercent             int
 	// collections
-	pipelines col.PostgresCollection
-	jobs      col.PostgresCollection
+	pipelines    col.PostgresCollection
+	pipelineJobs col.PostgresCollection
 }
 
 func merge(from, to map[string]bool) {
@@ -491,12 +491,12 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 	return nil
 }
 
-func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) UpdatePipelineJobState(ctx context.Context, request *pps.UpdatePipelineJobStateRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.UpdateJobState(request)
+		return txn.UpdatePipelineJobState(request)
 	}); err != nil {
 		return nil, err
 	}
@@ -504,33 +504,33 @@ func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobSt
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContext, request *pps.UpdateJobStateRequest) error {
-	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
+func (a *apiServer) UpdatePipelineJobStateInTransaction(txnCtx *txnenv.TransactionContext, request *pps.UpdatePipelineJobStateRequest) error {
+	pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
 
-	jobPtr := &pps.StoredPipelineJobInfo{}
-	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
+	pipelineJobPtr := &pps.StoredPipelineJobInfo{}
+	if err := pipelineJobs.Get(request.PipelineJob.ID, pipelineJobPtr); err != nil {
 		return err
 	}
-	if ppsutil.IsTerminal(jobPtr.State) {
-		return ppsServer.ErrJobFinished{jobPtr.Job}
+	if ppsutil.IsTerminal(pipelineJobPtr.State) {
+		return ppsServer.ErrPipelineJobFinished{pipelineJobPtr.PipelineJob}
 	}
 
-	jobPtr.Restart = request.Restart
-	jobPtr.DataProcessed = request.DataProcessed
-	jobPtr.DataSkipped = request.DataSkipped
-	jobPtr.DataFailed = request.DataFailed
-	jobPtr.DataRecovered = request.DataRecovered
-	jobPtr.DataTotal = request.DataTotal
-	jobPtr.Stats = request.Stats
+	pipelineJobPtr.Restart = request.Restart
+	pipelineJobPtr.DataProcessed = request.DataProcessed
+	pipelineJobPtr.DataSkipped = request.DataSkipped
+	pipelineJobPtr.DataFailed = request.DataFailed
+	pipelineJobPtr.DataRecovered = request.DataRecovered
+	pipelineJobPtr.DataTotal = request.DataTotal
+	pipelineJobPtr.Stats = request.Stats
 
-	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, jobPtr, request.State, request.Reason)
+	return ppsutil.UpdatePipelineJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), pipelineJobs, pipelineJobPtr, request.State, request.Reason)
 }
 
-// CreateJob implements the protobuf pps.CreateJob RPC
-func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
+// CreatePipelineJob implements the protobuf pps.CreatePipelineJob RPC
+func (a *apiServer) CreatePipelineJob(ctx context.Context, request *pps.CreatePipelineJobRequest) (response *pps.PipelineJob, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	var job *pps.Job
+	var result *pps.PipelineJob
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
 			Commit: request.OutputCommit,
@@ -545,10 +545,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			request.Stats = &pps.ProcessStats{}
 		}
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
-		jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
-		job = client.NewJob(uuid.NewWithoutDashes())
-		jobPtr := &pps.StoredPipelineJobInfo{
-			Job:           job,
+		pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
+		pipelineJobPtr := &pps.StoredPipelineJobInfo{
+			PipelineJob:   client.NewPipelineJob(uuid.NewWithoutDashes()),
 			OutputCommit:  request.OutputCommit,
 			Pipeline:      request.Pipeline,
 			Stats:         request.Stats,
@@ -562,45 +561,46 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Started:       request.Started,
 			Finished:      request.Finished,
 		}
-		return ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_STARTING, "")
+		result = pipelineJobPtr.PipelineJob
+		return ppsutil.UpdatePipelineJobState(pipelines, pipelineJobs, pipelineJobPtr, pps.PipelineJobState_JOB_STARTING, "")
 	}); err != nil {
 		return nil, err
 	}
-	return job, nil
+	return result, nil
 }
 
-// InspectJob implements the protobuf pps.InspectJob RPC
-func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.PipelineJobInfo, retErr error) {
+// InspectPipelineJob implements the protobuf pps.InspectPipelineJob RPC
+func (a *apiServer) InspectPipelineJob(ctx context.Context, request *pps.InspectPipelineJobRequest) (response *pps.PipelineJobInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if request.Job == nil && request.OutputCommit == nil {
-		return nil, errors.Errorf("must specify either a Job or an OutputCommit")
+	if request.PipelineJob == nil && request.OutputCommit == nil {
+		return nil, errors.Errorf("must specify either a PipelineJob or an OutputCommit")
 	}
-	jobs := a.jobs.ReadOnly(ctx)
+	pipelineJobs := a.pipelineJobs.ReadOnly(ctx)
 	if request.OutputCommit != nil {
-		if request.Job != nil {
-			return nil, errors.Errorf("can't set both Job and OutputCommit")
+		if request.PipelineJob != nil {
+			return nil, errors.Errorf("can't set both PipelineJob and OutputCommit")
 		}
 		pachClient := a.env.GetPachClient(ctx)
 		ci, err := pachClient.InspectCommit(request.OutputCommit.Branch.Repo.Name, request.OutputCommit.Branch.Name, request.OutputCommit.ID)
 		if err != nil {
 			return nil, err
 		}
-		if err := a.listJob(ctx, nil, ci.Commit, nil, -1, false, "", func(pji *pps.PipelineJobInfo) error {
-			if request.Job != nil {
-				return errors.Errorf("internal error, more than 1 Job has output commit: %v (this is likely a bug)", request.OutputCommit)
+		if err := a.listPipelineJob(ctx, nil, ci.Commit, nil, -1, false, "", func(pji *pps.PipelineJobInfo) error {
+			if request.PipelineJob != nil {
+				return errors.Errorf("internal error, more than 1 PipelineJob has output commit: %v (this is likely a bug)", request.OutputCommit)
 			}
-			request.Job = pji.Job
+			request.PipelineJob = pji.PipelineJob
 			return nil
 		}); err != nil {
 			return nil, err
 		}
-		if request.Job == nil {
-			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
+		if request.PipelineJob == nil {
+			return nil, errors.Errorf("pipeline job with output commit %s not found", request.OutputCommit.ID)
 		}
 	}
 	if request.BlockState {
-		watcher, err := jobs.WatchOne(request.Job.ID)
+		watcher, err := pipelineJobs.WatchOne(request.PipelineJob.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -609,37 +609,37 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		for {
 			ev, ok := <-watcher.Watch()
 			if !ok {
-				return nil, errors.Errorf("the stream for job updates closed unexpectedly")
+				return nil, errors.Errorf("the stream for pipeline job updates closed unexpectedly")
 			}
 			switch ev.Type {
 			case watch.EventError:
 				return nil, ev.Err
 			case watch.EventDelete:
-				return nil, errors.Errorf("job %s was deleted", request.Job.ID)
+				return nil, errors.Errorf("pipeline job %s was deleted", request.PipelineJob.ID)
 			case watch.EventPut:
-				var jobID string
-				jobPtr := &pps.StoredPipelineJobInfo{}
-				if err := ev.Unmarshal(&jobID, jobPtr); err != nil {
+				var pipelineJobID string
+				pipelineJobPtr := &pps.StoredPipelineJobInfo{}
+				if err := ev.Unmarshal(&pipelineJobID, pipelineJobPtr); err != nil {
 					return nil, err
 				}
-				if ppsutil.IsTerminal(jobPtr.State) {
-					return a.pipelineJobInfoFromPtr(ctx, jobPtr, true)
+				if ppsutil.IsTerminal(pipelineJobPtr.State) {
+					return a.pipelineJobInfoFromPtr(ctx, pipelineJobPtr, true)
 				}
 			}
 		}
 	}
-	jobPtr := &pps.StoredPipelineJobInfo{}
-	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
+	pipelineJobPtr := &pps.StoredPipelineJobInfo{}
+	if err := pipelineJobs.Get(request.PipelineJob.ID, pipelineJobPtr); err != nil {
 		return nil, err
 	}
-	pipelineJobInfo, err := a.pipelineJobInfoFromPtr(ctx, jobPtr, true)
+	pipelineJobInfo, err := a.pipelineJobInfoFromPtr(ctx, pipelineJobPtr, true)
 	if err != nil {
 		return nil, err
 	}
 	if request.Full {
-		// If the job is running we fill in WorkerStatus field, otherwise we just
-		// return the pipelineJobInfo.
-		if pipelineJobInfo.State != pps.JobState_JOB_RUNNING {
+		// If the pipeline job is running, we fill in WorkerStatus field, otherwise
+		// we just return the pipelineJobInfo.
+		if pipelineJobInfo.State != pps.PipelineJobState_JOB_RUNNING {
 			return pipelineJobInfo, nil
 		}
 		workerPoolID := ppsutil.PipelineRcName(pipelineJobInfo.Pipeline.Name, pipelineJobInfo.PipelineVersion)
@@ -651,7 +651,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			// jobs, we omit those since they're not part of the status for this
 			// job.
 			for _, status := range workerStatus {
-				if status.JobID == pipelineJobInfo.Job.ID {
+				if status.PipelineJobID == pipelineJobInfo.PipelineJob.ID {
 					pipelineJobInfo.WorkerStatus = append(pipelineJobInfo.WorkerStatus, status)
 					pipelineJobInfo.DataProcessed += status.DataProcessed
 				}
@@ -661,15 +661,22 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	return pipelineJobInfo, nil
 }
 
-// listJob is the internal implementation of ListJob shared between ListJob and
-// ListJobStream. When ListJob is removed, this should be inlined into
-// ListJobStream.
-func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline,
-	outputCommit *pfs.Commit, inputCommits []*pfs.Commit, history int64, full bool,
-	jqFilter string, f func(*pps.PipelineJobInfo) error) error {
+// listPipelineJob is the internal implementation of ListPipelineJob shared
+// between ListPipelineJob and ListPipelineJobStream. When ListPipelineJob is
+// removed, this should be inlined into ListPipelineJobStream.
+func (a *apiServer) listPipelineJob(
+	ctx context.Context,
+	pipeline *pps.Pipeline,
+	outputCommit *pfs.Commit,
+	inputCommits []*pfs.Commit,
+	history int64,
+	full bool,
+	jqFilter string,
+	f func(*pps.PipelineJobInfo) error,
+) error {
 	if pipeline != nil {
 		// If 'pipeline is set, check that caller has access to the pipeline's
-		// output repo; currently, that's all that's required for ListJob.
+		// output repo; currently, that's all that's required for ListPipelineJob.
 		//
 		// If 'pipeline' isn't set, then we don't return an error (otherwise, a
 		// caller without access to a single pipeline's output repo couldn't run
@@ -718,10 +725,10 @@ func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline,
 		}); err != nil {
 		return err
 	}
-	jobs := a.jobs.ReadOnly(ctx)
-	jobPtr := &pps.StoredPipelineJobInfo{}
+	pipelineJobs := a.pipelineJobs.ReadOnly(ctx)
+	pipelineJobPtr := &pps.StoredPipelineJobInfo{}
 	_f := func(string) error {
-		pipelineJobInfo, err := a.pipelineJobInfoFromPtr(ctx, jobPtr, len(inputCommits) > 0 || full)
+		pipelineJobInfo, err := a.pipelineJobInfoFromPtr(ctx, pipelineJobPtr, len(inputCommits) > 0 || full)
 		if err != nil {
 			if isNotFoundErr(err) {
 				// This can happen if a user deletes an upstream commit and thereby
@@ -769,60 +776,60 @@ func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline,
 		return f(pipelineJobInfo)
 	}
 	if pipeline != nil {
-		return jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline.Name, jobPtr, col.DefaultOptions(), _f)
+		return pipelineJobs.GetByIndex(ppsdb.PipelineJobsPipelineIndex, pipeline.Name, pipelineJobPtr, col.DefaultOptions(), _f)
 	} else if outputCommit != nil {
-		return jobs.GetByIndex(ppsdb.JobsOutputIndex, pfsdb.CommitKey(outputCommit), jobPtr, col.DefaultOptions(), _f)
+		return pipelineJobs.GetByIndex(ppsdb.PipelineJobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJobPtr, col.DefaultOptions(), _f)
 	} else {
-		return jobs.List(jobPtr, col.DefaultOptions(), _f)
+		return pipelineJobs.List(pipelineJobPtr, col.DefaultOptions(), _f)
 	}
 }
 
-func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, jobPtr *pps.StoredPipelineJobInfo, full bool) (*pps.PipelineJobInfo, error) {
+func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *pps.StoredPipelineJobInfo, full bool) (*pps.PipelineJobInfo, error) {
 	result := &pps.PipelineJobInfo{
-		Job:           jobPtr.Job,
-		Pipeline:      jobPtr.Pipeline,
-		OutputRepo:    client.NewRepo(jobPtr.Pipeline.Name),
-		OutputCommit:  jobPtr.OutputCommit,
-		Restart:       jobPtr.Restart,
-		DataProcessed: jobPtr.DataProcessed,
-		DataSkipped:   jobPtr.DataSkipped,
-		DataTotal:     jobPtr.DataTotal,
-		DataFailed:    jobPtr.DataFailed,
-		DataRecovered: jobPtr.DataRecovered,
-		Stats:         jobPtr.Stats,
-		StatsCommit:   jobPtr.StatsCommit,
-		State:         jobPtr.State,
-		Reason:        jobPtr.Reason,
-		Started:       jobPtr.Started,
-		Finished:      jobPtr.Finished,
+		PipelineJob:   pipelineJobPtr.PipelineJob,
+		Pipeline:      pipelineJobPtr.Pipeline,
+		OutputRepo:    client.NewRepo(pipelineJobPtr.Pipeline.Name),
+		OutputCommit:  pipelineJobPtr.OutputCommit,
+		Restart:       pipelineJobPtr.Restart,
+		DataProcessed: pipelineJobPtr.DataProcessed,
+		DataSkipped:   pipelineJobPtr.DataSkipped,
+		DataTotal:     pipelineJobPtr.DataTotal,
+		DataFailed:    pipelineJobPtr.DataFailed,
+		DataRecovered: pipelineJobPtr.DataRecovered,
+		Stats:         pipelineJobPtr.Stats,
+		StatsCommit:   pipelineJobPtr.StatsCommit,
+		State:         pipelineJobPtr.State,
+		Reason:        pipelineJobPtr.Reason,
+		Started:       pipelineJobPtr.Started,
+		Finished:      pipelineJobPtr.Finished,
 	}
 
 	pachClient := a.env.GetPachClient(ctx)
-	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Branch.Repo.Name, jobPtr.OutputCommit.Branch.Name, jobPtr.OutputCommit.ID)
+	commitInfo, err := pachClient.InspectCommit(pipelineJobPtr.OutputCommit.Branch.Repo.Name, pipelineJobPtr.OutputCommit.Branch.Name, pipelineJobPtr.OutputCommit.ID)
 	if err != nil {
 		if isNotFoundErr(err) {
 			if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-				return a.jobs.ReadWrite(sqlTx).Delete(jobPtr.Job.ID)
+				return a.pipelineJobs.ReadWrite(sqlTx).Delete(pipelineJobPtr.PipelineJob.ID)
 			}); err != nil {
 				return nil, err
 			}
-			return nil, errors.Errorf("job %s not found", jobPtr.Job.ID)
+			return nil, errors.Errorf("job %s not found", pipelineJobPtr.PipelineJob.ID)
 		}
 		return nil, err
 	}
 	var specCommit *pfs.Commit
 	for _, prov := range commitInfo.Provenance {
-		if prov.Commit.Branch.Repo.Name == ppsconsts.SpecRepo && prov.Commit.Branch.Name == jobPtr.Pipeline.Name {
+		if prov.Commit.Branch.Repo.Name == ppsconsts.SpecRepo && prov.Commit.Branch.Name == pipelineJobPtr.Pipeline.Name {
 			specCommit = prov.Commit
 			break
 		}
 	}
 	if specCommit == nil {
-		return nil, errors.Errorf("couldn't find spec commit for job %s, (this is likely a bug)", jobPtr.Job.ID)
+		return nil, errors.Errorf("couldn't find spec commit for job %s, (this is likely a bug)", pipelineJobPtr.PipelineJob.ID)
 	}
 	result.SpecCommit = specCommit
 	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+	if err := a.pipelines.ReadOnly(ctx).Get(pipelineJobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
 	}
 	// Override the SpecCommit for the pipeline to be what it was when this job
@@ -844,7 +851,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, jobPtr *pps.Stor
 		result.ResourceRequests = pipelineInfo.ResourceRequests
 		result.ResourceLimits = pipelineInfo.ResourceLimits
 		result.SidecarResourceLimits = pipelineInfo.SidecarResourceLimits
-		result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
+		result.Input = ppsutil.PipelineJobInput(pipelineInfo, commitInfo)
 		result.EnableStats = pipelineInfo.EnableStats
 		result.Salt = pipelineInfo.Salt
 		result.ChunkSpec = pipelineInfo.ChunkSpec
@@ -858,14 +865,14 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, jobPtr *pps.Stor
 	return result, nil
 }
 
-// ListJob implements the protobuf pps.ListJob RPC
-func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
+// ListPipelineJob implements the protobuf pps.ListPipelineJob RPC
+func (a *apiServer) ListPipelineJob(request *pps.ListPipelineJobRequest, resp pps.API_ListPipelineJobServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("stream containing %d PipelineJobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.listJob(resp.Context(), request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, request.JqFilter, func(pji *pps.PipelineJobInfo) error {
+	return a.listPipelineJob(resp.Context(), request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, request.JqFilter, func(pji *pps.PipelineJobInfo) error {
 		if err := resp.Send(pji); err != nil {
 			return err
 		}
@@ -874,8 +881,8 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	})
 }
 
-// FlushJob implements the protobuf pps.FlushJob RPC
-func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJobServer) (retErr error) {
+// FlushPipelineJob implements the protobuf pps.FlushPipelineJob RPC
+func (a *apiServer) FlushPipelineJob(request *pps.FlushPipelineJobRequest, resp pps.API_FlushPipelineJobServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
@@ -889,9 +896,9 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 	pachClient := a.env.GetPachClient(resp.Context())
 	return pachClient.FlushCommit(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
 		var pjis []*pps.PipelineJobInfo
-		// FlushJob passes -1 for history because we don't know which version
+		// FlushPipelineJob passes -1 for history because we don't know which version
 		// of the pipeline created the output commit.
-		if err := a.listJob(resp.Context(), nil, ci.Commit, nil, -1, false, "", func(pji *pps.PipelineJobInfo) error {
+		if err := a.listPipelineJob(resp.Context(), nil, ci.Commit, nil, -1, false, "", func(pji *pps.PipelineJobInfo) error {
 			pjis = append(pjis, pji)
 			return nil
 		}); err != nil {
@@ -910,7 +917,7 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		}
 		// Even though the commit has been finished the job isn't necessarily
 		// finished yet, so we block on its state as well.
-		pji, err := a.InspectJob(resp.Context(), &pps.InspectJobRequest{Job: pjis[0].Job, BlockState: true})
+		pji, err := a.InspectPipelineJob(resp.Context(), &pps.InspectPipelineJobRequest{PipelineJob: pjis[0].PipelineJob, BlockState: true})
 		if err != nil {
 			return err
 		}
@@ -918,55 +925,55 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 	})
 }
 
-// DeleteJob implements the protobuf pps.DeleteJob RPC
-func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
+// DeletePipelineJob implements the protobuf pps.DeletePipelineJob RPC
+func (a *apiServer) DeletePipelineJob(ctx context.Context, request *pps.DeletePipelineJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if request.Job == nil {
+	if request.PipelineJob == nil {
 		return nil, errors.New("Job cannot be nil")
 	}
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		if err := a.stopJob(txnCtx, request.Job, nil, "job deleted"); err != nil {
+		if err := a.stopPipelineJob(txnCtx, request.PipelineJob, nil, "job deleted"); err != nil {
 			return err
 		}
-		return a.jobs.ReadWrite(txnCtx.SqlTx).Delete(request.Job.ID)
+		return a.pipelineJobs.ReadWrite(txnCtx.SqlTx).Delete(request.PipelineJob.ID)
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-// StopJob implements the protobuf pps.StopJob RPC
-func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
+// StopPipelineJob implements the protobuf pps.StopPipelineJob RPC
+func (a *apiServer) StopPipelineJob(ctx context.Context, request *pps.StopPipelineJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.StopJob(request)
+		return txn.StopPipelineJob(request)
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-// StopJobInTransaction is identical to StopJob except that it can run inside an
+// StopPipelineJobInTransaction is identical to StopPipelineJob except that it can run inside an
 // existing postgres transaction.  This is not an RPC.
-func (a *apiServer) StopJobInTransaction(txnCtx *txnenv.TransactionContext, request *pps.StopJobRequest) error {
+func (a *apiServer) StopPipelineJobInTransaction(txnCtx *txnenv.TransactionContext, request *pps.StopPipelineJobRequest) error {
 	reason := request.Reason
 	if reason == "" {
 		reason = "job stopped"
 	}
-	return a.stopJob(txnCtx, request.Job, request.OutputCommit, reason)
+	return a.stopPipelineJob(txnCtx, request.PipelineJob, request.OutputCommit, reason)
 }
 
-func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
-	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
-	if (job == nil) == (outputCommit == nil) {
-		return errors.New("Exactly one of Job or OutputCommit must be specified")
+func (a *apiServer) stopPipelineJob(txnCtx *txnenv.TransactionContext, pipelineJob *pps.PipelineJob, outputCommit *pfs.Commit, reason string) error {
+	pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
+	if (pipelineJob == nil) == (outputCommit == nil) {
+		return errors.New("Exactly one of PipelineJob or OutputCommit must be specified")
 	}
 
 	pipelineJobInfo := &pps.StoredPipelineJobInfo{}
-	if job != nil {
-		if err := jobs.Get(job.ID, pipelineJobInfo); err != nil {
+	if pipelineJob != nil {
+		if err := pipelineJobs.Get(pipelineJob.ID, pipelineJobInfo); err != nil {
 			return err
 		}
 		outputCommit = pipelineJobInfo.OutputCommit
@@ -995,20 +1002,21 @@ func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, out
 	}
 
 	handleJob := func(pji *pps.StoredPipelineJobInfo) error {
-		// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
-		// more comprehensive solution to this with global ids.
-		if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, pji, pps.JobState_JOB_KILLED, reason); err != nil && !ppsServer.IsJobFinishedErr(err) {
+		// TODO: We can still not update a job's state if we fail here. This is
+		// probably fine for now since we are likely to have a more comprehensive
+		// solution to this with global ids.
+		if err := ppsutil.UpdatePipelineJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), pipelineJobs, pji, pps.PipelineJobState_JOB_KILLED, reason); err != nil && !ppsServer.IsPipelineJobFinishedErr(err) {
 			return err
 		}
 		return nil
 	}
 
-	if job != nil {
+	if pipelineJob != nil {
 		return handleJob(pipelineJobInfo)
 	}
 
-	// Continue on idempotently if we find multiple jobs or no jobs.
-	return jobs.GetByIndex(ppsdb.JobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJobInfo, col.DefaultOptions(), func(string) error {
+	// Continue on idempotently if we find multiple pipeline jobs or none.
+	return pipelineJobs.GetByIndex(ppsdb.PipelineJobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJobInfo, col.DefaultOptions(), func(string) error {
 		return handleJob(pipelineJobInfo)
 	})
 }
@@ -1017,14 +1025,14 @@ func (a *apiServer) stopJob(txnCtx *txnenv.TransactionContext, job *pps.Job, out
 func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pipelineJobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
-		Job: request.Job,
+	pipelineJobInfo, err := a.InspectPipelineJob(ctx, &pps.InspectPipelineJobRequest{
+		PipelineJob: request.PipelineJob,
 	})
 	if err != nil {
 		return nil, err
 	}
 	workerPoolID := ppsutil.PipelineRcName(pipelineJobInfo.Pipeline.Name, pipelineJobInfo.PipelineVersion)
-	if err := workerserver.Cancel(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerserver.Cancel(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort, request.PipelineJob.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1034,7 +1042,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	// TODO: Auth?
-	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta, pfsState *pfs.File) error {
+	if err := a.collectDatums(ctx, request.Datum.PipelineJob, func(meta *datum.Meta, pfsState *pfs.File) error {
 		if common.DatumID(meta.Inputs) == request.Datum.ID {
 			response = convertDatumMetaToInfo(meta)
 			response.PfsState = pfsState
@@ -1055,7 +1063,7 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 			return server.Send(convertDatumMetaToInfo(meta))
 		})
 	}
-	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+	return a.collectDatums(server.Context(), request.PipelineJob, func(meta *datum.Meta, _ *pfs.File) error {
 		return server.Send(convertDatumMetaToInfo(meta))
 	})
 }
@@ -1096,10 +1104,8 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
 	di := &pps.DatumInfo{
 		Datum: &pps.Datum{
-			Job: &pps.Job{
-				ID: meta.JobID,
-			},
-			ID: common.DatumID(meta.Inputs),
+			PipelineJob: client.NewPipelineJob(meta.PipelineJobID),
+			ID:          common.DatumID(meta.Inputs),
 		},
 		State: convertDatumState(meta.State),
 		Stats: meta.Stats,
@@ -1122,11 +1128,9 @@ func convertDatumState(state datum.State) pps.DatumState {
 	}
 }
 
-func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*datum.Meta, *pfs.File) error) error {
-	pipelineJobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
-		Job: &pps.Job{
-			ID: job.ID,
-		},
+func (a *apiServer) collectDatums(ctx context.Context, pipelineJob *pps.PipelineJob, cb func(*datum.Meta, *pfs.File) error) error {
+	pipelineJobInfo, err := a.InspectPipelineJob(ctx, &pps.InspectPipelineJobRequest{
+		PipelineJob: client.NewPipelineJob(pipelineJob.ID),
 	})
 	if err != nil {
 		return err
@@ -1166,9 +1170,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
 	var rcName, containerName string
-	if request.Pipeline == nil && request.Job == nil {
+	if request.Pipeline == nil && request.PipelineJob == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
-			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
+			return errors.Errorf("must specify the PipelineJob or Pipeline that the datum is from to get logs for it")
 		}
 		containerName, rcName = "pachd", "pachd"
 	} else {
@@ -1183,17 +1187,17 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			if err != nil {
 				return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
 			}
-		} else if request.Job != nil {
-			// If user provides a job, lookup the pipeline from the job info, and then
-			// get the pipeline RC
-			var jobPtr pps.StoredPipelineJobInfo
-			err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(request.Job.ID, &jobPtr)
+		} else if request.PipelineJob != nil {
+			// If user provides a pipeline job, lookup the pipeline from the
+			// PipelineJobInfo, and then get the pipeline RC
+			pipelineJobPtr := &pps.StoredPipelineJobInfo{}
+			err = a.pipelineJobs.ReadOnly(apiGetLogsServer.Context()).Get(request.PipelineJob.ID, pipelineJobPtr)
 			if err != nil {
-				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
+				return errors.Wrapf(err, "could not get pipeline job information for \"%s\"", request.PipelineJob.ID)
 			}
-			pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobPtr.Pipeline.Name)
+			pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), pipelineJobPtr.Pipeline.Name)
 			if err != nil {
-				return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
+				return errors.Wrapf(err, "could not get pipeline information for %s", pipelineJobPtr.Pipeline.Name)
 			}
 		}
 
@@ -1278,7 +1282,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
 							continue
 						}
-						if request.Job != nil && request.Job.ID != msg.JobID {
+						if request.PipelineJob != nil && request.PipelineJob.ID != msg.PipelineJobID {
 							continue
 						}
 						if request.Datum != nil && request.Datum.ID != msg.DatumID {
@@ -1333,7 +1337,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	if err != nil {
 		return errors.Wrapf(err, "invalid from time")
 	}
-	if request.Pipeline == nil && request.Job == nil {
+	if request.Pipeline == nil && request.PipelineJob == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
@@ -1353,17 +1357,17 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if err != nil {
 			return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
 		}
-	} else if request.Job != nil {
-		// If user provides a job, lookup the pipeline from the job info, and then
-		// get the pipeline RC
-		var jobPtr pps.StoredPipelineJobInfo
-		err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(request.Job.ID, &jobPtr)
+	} else if request.PipelineJob != nil {
+		// If user provides a pipeline job, lookup the pipeline from the
+		// PipelineJobInfo, and then get the pipeline RC
+		pipelineJobPtr := &pps.StoredPipelineJobInfo{}
+		err = a.pipelineJobs.ReadOnly(apiGetLogsServer.Context()).Get(request.PipelineJob.ID, pipelineJobPtr)
 		if err != nil {
-			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
+			return errors.Wrapf(err, "could not get pipeline job information for \"%s\"", request.PipelineJob.ID)
 		}
-		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobPtr.Pipeline.Name)
+		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), pipelineJobPtr.Pipeline.Name)
 		if err != nil {
-			return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
+			return errors.Wrapf(err, "could not get pipeline information for %s", pipelineJobPtr.Pipeline.Name)
 		}
 	}
 
@@ -1375,8 +1379,8 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	if request.Master {
 		query += contains("master")
 	}
-	if request.Job != nil {
-		query += contains(request.Job.ID)
+	if request.PipelineJob != nil {
+		query += contains(request.PipelineJob.ID)
 	}
 	if request.Datum != nil {
 		query += contains(request.Datum.ID)
@@ -1398,7 +1402,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
 			return nil
 		}
-		if request.Job != nil && request.Job.ID != msg.JobID {
+		if request.PipelineJob != nil && request.PipelineJob.ID != msg.PipelineJobID {
 			return nil
 		}
 		if request.Datum != nil && request.Datum.ID != msg.DatumID {
@@ -2431,8 +2435,8 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 }
 
 // inspectPipeline contains the functional implementation of InspectPipeline.
-// Many functions (GetLogs, ListPipeline, CreateJob) need to inspect a pipeline,
-// so they call this instead of making an RPC
+// Many functions (GetLogs, ListPipeline, CreatePipelineJob) need to inspect a
+// pipeline, so they call this instead of making an RPC
 func (a *apiServer) inspectPipeline(ctx context.Context, name string) (*pps.PipelineInfo, error) {
 	var response *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
@@ -2804,10 +2808,10 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	// but before the pipeline RC is deleted. Check for orphaned jobs in
 	// pollPipelines.
 	var eg errgroup.Group
-	jobPtr := &pps.StoredPipelineJobInfo{}
-	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobPtr, col.DefaultOptions(), func(jobID string) error {
+	pipelinJobPtr := &pps.StoredPipelineJobInfo{}
+	if err := a.pipelineJobs.ReadOnly(ctx).GetByIndex(ppsdb.PipelineJobsPipelineIndex, request.Pipeline.Name, pipelinJobPtr, col.DefaultOptions(), func(pipelineJobID string) error {
 		eg.Go(func() error {
-			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: client.NewJob(jobID)})
+			_, err := a.DeletePipelineJob(ctx, &pps.DeletePipelineJobRequest{PipelineJob: client.NewPipelineJob(pipelineJobID)})
 			if isNotFoundErr(err) || auth.IsErrNoRoleBinding(err) {
 				return nil
 			}
@@ -3004,9 +3008,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	provenance := request.Provenance
 	provenanceMap := make(map[string]*pfs.CommitProvenance)
 
-	if request.JobID != "" {
-		pipelineJobInfo, err := ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
-			Job: client.NewJob(request.JobID),
+	if request.PipelineJobID != "" {
+		pipelineJobInfo, err := ppsClient.InspectPipelineJob(ctx, &pps.InspectPipelineJobRequest{
+			PipelineJob: client.NewPipelineJob(request.PipelineJobID),
 		})
 		if err != nil {
 			return nil, err

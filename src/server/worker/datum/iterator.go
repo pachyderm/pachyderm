@@ -146,24 +146,24 @@ type Hasher interface {
 	Hash([]*common.Input) string
 }
 
-type jobIterator struct {
+type pipelineJobIterator struct {
 	iterator Iterator
-	jobID    string
+	pipelineJobID    string
 	hasher   Hasher
 }
 
-// NewJobIterator creates a new job iterator.
-func NewJobIterator(iterator Iterator, jobID string, hasher Hasher) Iterator {
-	return &jobIterator{
+// NewPipelineJobIterator creates a new job iterator.
+func NewPipelineJobIterator(iterator Iterator, pipelineJobID string, hasher Hasher) Iterator {
+	return &pipelineJobIterator{
 		iterator: iterator,
-		jobID:    jobID,
+		pipelineJobID:    pipelineJobID,
 		hasher:   hasher,
 	}
 }
 
-func (ji *jobIterator) Iterate(cb func(*Meta) error) error {
+func (ji *pipelineJobIterator) Iterate(cb func(*Meta) error) error {
 	return ji.iterator.Iterate(func(meta *Meta) error {
-		meta.JobID = ji.jobID
+		meta.PipelineJobID = ji.pipelineJobID
 		meta.Hash = ji.hasher.Hash(meta.Inputs)
 		return cb(meta)
 	})

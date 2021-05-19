@@ -9,23 +9,23 @@ import (
 )
 
 // This code can all go away if we ever get the ability to run a PPS server without external dependencies
-type stopJobInTransactionFunc func(*txnenv.TransactionContext, *pps.StopJobRequest) error
+type stopPipelineJobInTransactionFunc func(*txnenv.TransactionContext, *pps.StopPipelineJobRequest) error
 
-type mockStopJobInTransaction struct {
-	handler stopJobInTransactionFunc
+type mockStopPipelineJobInTransaction struct {
+	handler stopPipelineJobInTransactionFunc
 }
 
-func (mock *mockStopJobInTransaction) Use(cb stopJobInTransactionFunc) {
+func (mock *mockStopPipelineJobInTransaction) Use(cb stopPipelineJobInTransactionFunc) {
 	mock.handler = cb
 }
 
-type updateJobStateInTransactionFunc func(*txnenv.TransactionContext, *pps.UpdateJobStateRequest) error
+type updatePipelineJobStateInTransactionFunc func(*txnenv.TransactionContext, *pps.UpdatePipelineJobStateRequest) error
 
-type mockUpdateJobStateInTransaction struct {
-	handler updateJobStateInTransactionFunc
+type mockUpdatePipelineJobStateInTransaction struct {
+	handler updatePipelineJobStateInTransactionFunc
 }
 
-func (mock *mockUpdateJobStateInTransaction) Use(cb updateJobStateInTransactionFunc) {
+func (mock *mockUpdatePipelineJobStateInTransaction) Use(cb updatePipelineJobStateInTransactionFunc) {
 	mock.handler = cb
 }
 
@@ -46,24 +46,24 @@ type ppsTransactionAPI struct {
 // MockPPSTransactionServer provides a mocking interface for overriding PPS
 // behavior inside transactions.
 type MockPPSTransactionServer struct {
-	api                         ppsTransactionAPI
-	StopJobInTransaction        mockStopJobInTransaction
-	UpdateJobStateInTransaction mockUpdateJobStateInTransaction
-	CreatePipelineInTransaction mockCreatePipelineInTransaction
+	api                                 ppsTransactionAPI
+	StopPipelineJobInTransaction        mockStopPipelineJobInTransaction
+	UpdatePipelineJobStateInTransaction mockUpdatePipelineJobStateInTransaction
+	CreatePipelineInTransaction         mockCreatePipelineInTransaction
 }
 
-func (api *ppsTransactionAPI) StopJobInTransaction(txnCtx *txnenv.TransactionContext, req *pps.StopJobRequest) error {
-	if api.mock.StopJobInTransaction.handler != nil {
-		return api.mock.StopJobInTransaction.handler(txnCtx, req)
+func (api *ppsTransactionAPI) StopPipelineJobInTransaction(txnCtx *txnenv.TransactionContext, req *pps.StopPipelineJobRequest) error {
+	if api.mock.StopPipelineJobInTransaction.handler != nil {
+		return api.mock.StopPipelineJobInTransaction.handler(txnCtx, req)
 	}
-	return fmt.Errorf("unhandled pachd mock: pps.StopJobInTransaction")
+	return fmt.Errorf("unhandled pachd mock: pps.StopPipelineJobInTransaction")
 }
 
-func (api *ppsTransactionAPI) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContext, req *pps.UpdateJobStateRequest) error {
-	if api.mock.UpdateJobStateInTransaction.handler != nil {
-		return api.mock.UpdateJobStateInTransaction.handler(txnCtx, req)
+func (api *ppsTransactionAPI) UpdatePipelineJobStateInTransaction(txnCtx *txnenv.TransactionContext, req *pps.UpdatePipelineJobStateRequest) error {
+	if api.mock.UpdatePipelineJobStateInTransaction.handler != nil {
+		return api.mock.UpdatePipelineJobStateInTransaction.handler(txnCtx, req)
 	}
-	return fmt.Errorf("unhandled pachd mock: pps.UpdateJobStateInTransaction")
+	return fmt.Errorf("unhandled pachd mock: pps.UpdatePipelineJobStateInTransaction")
 }
 
 func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContext, req *pps.CreatePipelineRequest, filesetID *string, prevSpecCommit **pfs.Commit) error {

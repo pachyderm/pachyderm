@@ -453,7 +453,7 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 		return collectDebugFile(tw, "jobs", func(w io.Writer) error {
 			// TODO: The limiting should eventually be a feature of list job.
 			var count int64
-			return pachClient.ListJobF(pipelineInfo.Pipeline.Name, nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
+			return pachClient.ListPipelineJobF(pipelineInfo.Pipeline.Name, nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
 				if count >= limit {
 					return errutil.ErrBreak
 				}

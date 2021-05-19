@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	pipelinesCollectionName = "pipelines"
-	jobsCollectionName      = "jobs"
+	pipelinesCollectionName    = "pipelines"
+	pipelineJobsCollectionName = "pipeline_jobs"
 )
 
 var pipelinesIndexes = []*col.Index{}
@@ -29,32 +29,32 @@ func Pipelines(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollecti
 	)
 }
 
-// JobsPipelineIndex maps pipeline to jobs started by the pipeline
-var JobsPipelineIndex = &col.Index{
+// PipelineJobsPipelineIndex maps pipeline to PipelineJobs started by the pipeline
+var PipelineJobsPipelineIndex = &col.Index{
 	Name: "Pipeline",
 	Extract: func(val proto.Message) string {
 		return val.(*pps.StoredPipelineJobInfo).Pipeline.Name
 	},
 }
 
-// JobsOutputIndex maps job outputs to the job that create them.
-var JobsOutputIndex = &col.Index{
+// PipelineJobsOutputIndex maps job outputs to the PipelineJob that create them.
+var PipelineJobsOutputIndex = &col.Index{
 	Name: "OutputCommit",
 	Extract: func(val proto.Message) string {
 		return pfsdb.CommitKey(val.(*pps.StoredPipelineJobInfo).OutputCommit)
 	},
 }
 
-var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsOutputIndex}
+var pipelineJobsIndexes = []*col.Index{PipelineJobsPipelineIndex, PipelineJobsOutputIndex}
 
-// Jobs returns a PostgresCollection of jobs
-func Jobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+// PipelineJobs returns a PostgresCollection of PipelineJobs
+func PipelineJobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		jobsCollectionName,
+		pipelineJobsCollectionName,
 		db,
 		listener,
 		&pps.StoredPipelineJobInfo{},
-		jobsIndexes,
+		pipelineJobsIndexes,
 		nil,
 	)
 }
@@ -65,6 +65,6 @@ func Jobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 func AllCollections() []col.PostgresCollection {
 	return []col.PostgresCollection{
 		col.NewPostgresCollection(pipelinesCollectionName, nil, nil, nil, pipelinesIndexes, nil),
-		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes, nil),
+		col.NewPostgresCollection(pipelineJobsCollectionName, nil, nil, nil, pipelineJobsIndexes, nil),
 	}
 }

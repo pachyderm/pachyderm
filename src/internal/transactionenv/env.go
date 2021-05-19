@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -36,8 +37,8 @@ type PfsWrites interface {
 // directly run the request through PPS or append it to the active transaction,
 // depending on if there is an active transaction in the client context.
 type PpsWrites interface {
-	StopJob(*pps.StopJobRequest) error
-	UpdateJobState(*pps.UpdateJobStateRequest) error
+	StopPipelineJob(*pps.StopPipelineJobRequest) error
+	UpdatePipelineJobState(*pps.UpdatePipelineJobStateRequest) error
 	CreatePipeline(*pps.CreatePipelineRequest, *string, **pfs.Commit) error
 }
 
@@ -69,16 +70,17 @@ type PipelineCommitFinisher interface {
 // set of operations being performed in the Pachyderm API.  When a new
 // transaction is started, a context will be created for it containing these
 // objects, which will be threaded through to every API call:
-//   ctx: the client context which initiated the operations being performed
-//   pachClient: the APIClient associated with the client context ctx
-//   stm: the object that controls transactionality with etcd.  This is to ensure
-//     that all reads and writes are consistent until changes are committed.
-//   txnEnv: a struct containing references to each API server, it can be used
-//     to make calls to other API servers (e.g. checking auth permissions)
+//   ClientContext: the client context which initiated the operations being performed
+//   Client: the Pachyderm APIClient associated with the ClientContext ctx
+//   SqlTx: the object that controls transactionality with the database.  This
+//     is to ensure that all reads and writes are consistent until changes are
+//     committed.
 //   pfsPropagater: an interface for ensuring certain PFS cleanup tasks are performed
 //     properly (and deduped) at the end of the transaction.
 //   commitFinisher: an interface for ensuring certain PPS cleanup tasks are performed
 //     properly at the end of the transaction.
+//   txnEnv: a struct containing references to each API server, it can be used
+//     to make calls to other API servers (e.g. checking auth permissions)
 type TransactionContext struct {
 	ClientContext  context.Context
 	Client         *client.APIClient
@@ -173,7 +175,7 @@ type AuthTransactionServer interface {
 // PfsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
-	NewPropagater(*sqlx.Tx) PfsPropagater
+	NewPropagater(*sqlx.Tx, *pfs.Job) PfsPropagater
 	NewPipelineFinisher(*TransactionContext) PipelineCommitFinisher
 
 	CreateRepoInTransaction(*TransactionContext, *pfs.CreateRepoRequest) error
@@ -195,8 +197,8 @@ type PfsTransactionServer interface {
 // PpsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PPS server.
 type PpsTransactionServer interface {
-	StopJobInTransaction(*TransactionContext, *pps.StopJobRequest) error
-	UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error
+	StopPipelineJobInTransaction(*TransactionContext, *pps.StopPipelineJobRequest) error
+	UpdatePipelineJobStateInTransaction(*TransactionContext, *pps.UpdatePipelineJobStateRequest) error
 	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error
 }
 
@@ -290,14 +292,14 @@ func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) erro
 	return t.txnCtx.txnEnv.pfsServer.DeleteBranchInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) StopJob(original *pps.StopJobRequest) error {
-	req := proto.Clone(original).(*pps.StopJobRequest)
-	return t.txnCtx.txnEnv.ppsServer.StopJobInTransaction(t.txnCtx, req)
+func (t *directTransaction) StopPipelineJob(original *pps.StopPipelineJobRequest) error {
+	req := proto.Clone(original).(*pps.StopPipelineJobRequest)
+	return t.txnCtx.txnEnv.ppsServer.StopPipelineJobInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) error {
-	req := proto.Clone(original).(*pps.UpdateJobStateRequest)
-	return t.txnCtx.txnEnv.ppsServer.UpdateJobStateInTransaction(t.txnCtx, req)
+func (t *directTransaction) UpdatePipelineJobState(original *pps.UpdatePipelineJobStateRequest) error {
+	req := proto.Clone(original).(*pps.UpdatePipelineJobStateRequest)
+	return t.txnCtx.txnEnv.ppsServer.UpdatePipelineJobStateInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
@@ -367,13 +369,13 @@ func (t *appendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
 	return err
 }
 
-func (t *appendTransaction) StopJob(req *pps.StopJobRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StopJob: req})
+func (t *appendTransaction) StopPipelineJob(req *pps.StopPipelineJobRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StopPipelineJob: req})
 	return err
 }
 
-func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{UpdateJobState: req})
+func (t *appendTransaction) UpdatePipelineJobState(req *pps.UpdatePipelineJobStateRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{UpdatePipelineJobState: req})
 	return err
 }
 
@@ -425,7 +427,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 			txnEnv:        env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
 			txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
 		}
 
@@ -451,7 +453,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 			txnEnv:         env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
 		}
 
 		err := cb(txnCtx)

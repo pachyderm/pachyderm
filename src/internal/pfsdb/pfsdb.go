@@ -18,6 +18,7 @@ const (
 	branchesCollectionName    = "branches"
 	commitsCollectionName     = "commits"
 	openCommitsCollectionName = "open_commits"
+	jobsCollectionName        = "jobs"
 )
 
 var ReposTypeIndex = &col.Index{
@@ -51,7 +52,7 @@ func repoKeyCheck(key string) error {
 // Repos returns a collection of repos
 func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		"repos",
+		reposCollectionName,
 		db,
 		listener,
 		&pfs.RepoInfo{},
@@ -76,7 +77,7 @@ func CommitKey(commit *pfs.Commit) string {
 // Commits returns a collection of commits
 func Commits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		"commits",
+		commitsCollectionName,
 		db,
 		listener,
 		&pfs.CommitInfo{},
@@ -101,7 +102,7 @@ func BranchKey(branch *pfs.Branch) string {
 // Branches returns a collection of branches
 func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		"branches",
+		branchesCollectionName,
 		db,
 		listener,
 		&pfs.BranchInfo{},
@@ -124,11 +125,25 @@ var openCommitsIndexes = []*col.Index{}
 // OpenCommits returns a collection of open commits
 func OpenCommits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		"open_commits",
+		openCommitsCollectionName,
 		db,
 		listener,
 		&pfs.Commit{},
 		openCommitsIndexes,
+		nil,
+	)
+}
+
+var jobsIndexes = []*col.Index{}
+
+// Jobs returns a collection of jobs
+func Jobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		jobsCollectionName,
+		db,
+		listener,
+		&pfs.StoredJobInfo{},
+		jobsIndexes,
 		nil,
 	)
 }
@@ -142,5 +157,6 @@ func AllCollections() []col.PostgresCollection {
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes, nil),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes, nil),
 		col.NewPostgresCollection(openCommitsCollectionName, nil, nil, nil, openCommitsIndexes, nil),
+		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes, nil),
 	}
 }

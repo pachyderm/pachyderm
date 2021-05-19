@@ -146,6 +146,22 @@ message CommitInfo {
   int64 subvenant_commits_total = 14;
 }
 
+message Job {
+  string id = 1 [(gogoproto.customname) = "ID"];
+}
+
+message StoredJobInfo {
+  Job job = 1;
+  CommitOrigin origin = 2;
+  repeated Commit commits = 3;
+}
+
+message JobInfo {
+  Job job = 1;
+  CommitOrigin origin = 2;
+  repeated CommitInfo commits = 3;
+}
+
 enum FileType {
   RESERVED = 0;
   FILE = 1;
