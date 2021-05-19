@@ -5,4 +5,12 @@ import HeaderCell from './components/HeaderCell';
 import Row from './components/Row';
 import Table from './Table';
 
-export default Object.assign(Table, {Head, Row, HeaderCell, DataCell, Body});
+export {Table};
+
+export default Object.assign(Table, {
+  Head,
+  Row,
+  HeaderCell,
+  DataCell,
+  Body,
+});

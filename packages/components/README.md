@@ -14,8 +14,9 @@ Run the tests with: `npm test`
 ## Contributing to the library
 
 1. Code your change on a feature branch
-2. Bump version in `package.json`
-3. Create a PR
+2. Add new components to `index.ts`
+3. Bump version in `package.json`
+4. Create a PR
 
 Once your PR is approved, merge your changes and publish the library to npm.
 ### Publishing to npm
