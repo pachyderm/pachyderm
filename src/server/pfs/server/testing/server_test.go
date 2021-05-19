@@ -1124,12 +1124,13 @@ func TestPFS(suite *testing.T) {
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
+		masterCommit := client.NewCommit(repo, "master", "")
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
+		require.NoError(t, env.PachClient.PutFile(masterCommit, "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
 		var buffer bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(commit, "foo", &buffer))
+		require.NoError(t, env.PachClient.GetFile(masterCommit, "foo", &buffer))
 		require.Equal(t, "foo\n", buffer.String())
 		branchInfos, err := env.PachClient.ListBranch(repo)
 		require.NoError(t, err)
@@ -1138,10 +1139,10 @@ func TestPFS(suite *testing.T) {
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
+		require.NoError(t, env.PachClient.PutFile(masterCommit, "foo", strings.NewReader("foo\n"), pclient.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
 		buffer = bytes.Buffer{}
-		require.NoError(t, env.PachClient.GetFile(commit, "foo", &buffer))
+		require.NoError(t, env.PachClient.GetFile(masterCommit, "foo", &buffer))
 		require.Equal(t, "foo\nfoo\n", buffer.String())
 		branchInfos, err = env.PachClient.ListBranch(repo)
 		require.NoError(t, err)
