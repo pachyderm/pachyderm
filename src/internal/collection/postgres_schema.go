@@ -110,7 +110,7 @@ begin
 		insert into collections.large_notifications ("proto") values (row.proto) returning id into notification_id;
 		payload_suffix := 'stored' || ' ' || notification_id;
 	else
-		payload_suffix := 'inline' || ' ' || encode(row.proto, 'base64');
+		payload_suffix := 'inline' || ' ' || translate(encode(row.proto, 'base64'), E'\n', '');
 	end if;
 
 	for i in 1..array_length(notify_channels, 1) loop
