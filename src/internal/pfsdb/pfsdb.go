@@ -18,7 +18,7 @@ const (
 	branchesCollectionName    = "branches"
 	commitsCollectionName     = "commits"
 	openCommitsCollectionName = "open_commits"
-	jobsCollectionName       = "jobs"
+	jobsCollectionName        = "jobs"
 )
 
 var ReposTypeIndex = &col.Index{
