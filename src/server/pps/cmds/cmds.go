@@ -443,14 +443,14 @@ each datum.`,
 	commands = append(commands, cmdutil.CreateAlias(inspectDatum, "inspect datum"))
 
 	var (
-		jobID       string
-		datumID     string
-		commaInputs string // comma-separated list of input files of interest
-		master      bool
-		worker      bool
-		follow      bool
-		tail        int64
-		since       string
+		pipelineJobID string
+		datumID       string
+		commaInputs   string // comma-separated list of input files of interest
+		master        bool
+		worker        bool
+		follow        bool
+		tail          int64
+		since         string
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours
@@ -519,7 +519,7 @@ each datum.`,
 			}
 
 			// Issue RPC
-			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, since)
+			iter := client.GetLogs(pipelineName, pipelineJobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			encoder := json.NewEncoder(&buf)
 			for iter.Next() {
@@ -535,7 +535,7 @@ each datum.`,
 					prettyLogsPrinter(iter.Message().Message)
 				} else if !iter.Message().User && !iter.Message().Master && worker {
 					prettyLogsPrinter(iter.Message().Message)
-				} else if pipelineName == "" && jobID == "" {
+				} else if pipelineName == "" && pipelineJobID == "" {
 					prettyLogsPrinter(iter.Message().Message)
 				}
 			}
@@ -545,7 +545,7 @@ each datum.`,
 	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	getLogs.Flags().StringVarP(&jobID, "job", "j", "", "Filter for log lines from "+
+	getLogs.Flags().StringVarP(&pipelineJobID, "job", "j", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
 	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
 	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
@@ -648,14 +648,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			err = client.RunPipeline(args[0], prov, jobID)
+			err = client.RunPipeline(args[0], prov, pipelineJobID)
 			if err != nil {
 				return err
 			}
 			return nil
 		}),
 	}
-	runPipeline.Flags().StringVar(&jobID, "job", "", "rerun the given job")
+	runPipeline.Flags().StringVar(&pipelineJobID, "job", "", "rerun the given job")
 	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
 
 	runCron := &cobra.Command{

@@ -448,12 +448,12 @@ func ContainsS3Inputs(in *pps.Input) bool {
 }
 
 // SidecarS3GatewayService returns the name of the kubernetes service created
-// for the job 'jobID' to hand sidecar s3 gateway requests. This helper is in
-// ppsutil because both PPS (which creates the service, in the s3 gateway
+// for the job 'pipelineJobID' to hand sidecar s3 gateway requests. This helper
+// is in ppsutil because both PPS (which creates the service, in the s3 gateway
 // sidecar server) and the worker (which passes the endpoint to the user code)
 // need to know it.
-func SidecarS3GatewayService(jobID string) string {
-	return "s3-" + jobID
+func SidecarS3GatewayService(pipelineJobID string) string {
+	return "s3-" + pipelineJobID
 }
 
 // ErrorState returns true if s is an error state for a pipeline, that is, a

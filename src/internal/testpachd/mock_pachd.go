@@ -715,7 +715,7 @@ type listPipelineJobFunc func(*pps.ListPipelineJobRequest, pps.API_ListPipelineJ
 type flushPipelineJobFunc func(*pps.FlushPipelineJobRequest, pps.API_FlushPipelineJobServer) error
 type deletePipelineJobFunc func(context.Context, *pps.DeletePipelineJobRequest) (*types.Empty, error)
 type stopPipelineJobFunc func(context.Context, *pps.StopPipelineJobRequest) (*types.Empty, error)
-type updateJobStateFunc func(context.Context, *pps.UpdatePipelineJobStateRequest) (*types.Empty, error)
+type updatePipelineJobStateFunc func(context.Context, *pps.UpdatePipelineJobStateRequest) (*types.Empty, error)
 type inspectDatumFunc func(context.Context, *pps.InspectDatumRequest) (*pps.DatumInfo, error)
 type listDatumFunc func(*pps.ListDatumRequest, pps.API_ListDatumServer) error
 type restartDatumFunc func(context.Context, *pps.RestartDatumRequest) (*types.Empty, error)
@@ -741,7 +741,7 @@ type mockListPipelineJob struct{ handler listPipelineJobFunc }
 type mockFlushPipelineJob struct{ handler flushPipelineJobFunc }
 type mockDeletePipelineJob struct{ handler deletePipelineJobFunc }
 type mockStopPipelineJob struct{ handler stopPipelineJobFunc }
-type mockUpdatePipelineJobState struct{ handler updateJobStateFunc }
+type mockUpdatePipelineJobState struct{ handler updatePipelineJobStateFunc }
 type mockInspectDatum struct{ handler inspectDatumFunc }
 type mockListDatum struct{ handler listDatumFunc }
 type mockRestartDatum struct{ handler restartDatumFunc }
@@ -761,31 +761,31 @@ type mockDeleteAllPPS struct{ handler deleteAllPPSFunc }
 type mockGetLogs struct{ handler getLogsFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 
-func (mock *mockCreatePipelineJob) Use(cb createPipelineJobFunc)   { mock.handler = cb }
-func (mock *mockInspectPipelineJob) Use(cb inspectPipelineJobFunc) { mock.handler = cb }
-func (mock *mockListPipelineJob) Use(cb listPipelineJobFunc)       { mock.handler = cb }
-func (mock *mockFlushPipelineJob) Use(cb flushPipelineJobFunc)     { mock.handler = cb }
-func (mock *mockDeletePipelineJob) Use(cb deletePipelineJobFunc)   { mock.handler = cb }
-func (mock *mockStopPipelineJob) Use(cb stopPipelineJobFunc)       { mock.handler = cb }
-func (mock *mockUpdatePipelineJobState) Use(cb updateJobStateFunc) { mock.handler = cb }
-func (mock *mockInspectDatum) Use(cb inspectDatumFunc)             { mock.handler = cb }
-func (mock *mockListDatum) Use(cb listDatumFunc)                   { mock.handler = cb }
-func (mock *mockRestartDatum) Use(cb restartDatumFunc)             { mock.handler = cb }
-func (mock *mockCreatePipeline) Use(cb createPipelineFunc)         { mock.handler = cb }
-func (mock *mockInspectPipeline) Use(cb inspectPipelineFunc)       { mock.handler = cb }
-func (mock *mockListPipeline) Use(cb listPipelineFunc)             { mock.handler = cb }
-func (mock *mockDeletePipeline) Use(cb deletePipelineFunc)         { mock.handler = cb }
-func (mock *mockStartPipeline) Use(cb startPipelineFunc)           { mock.handler = cb }
-func (mock *mockStopPipeline) Use(cb stopPipelineFunc)             { mock.handler = cb }
-func (mock *mockRunPipeline) Use(cb runPipelineFunc)               { mock.handler = cb }
-func (mock *mockRunCron) Use(cb runCronFunc)                       { mock.handler = cb }
-func (mock *mockCreateSecret) Use(cb createSecretFunc)             { mock.handler = cb }
-func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)             { mock.handler = cb }
-func (mock *mockInspectSecret) Use(cb inspectSecretFunc)           { mock.handler = cb }
-func (mock *mockListSecret) Use(cb listSecretFunc)                 { mock.handler = cb }
-func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)             { mock.handler = cb }
-func (mock *mockGetLogs) Use(cb getLogsFunc)                       { mock.handler = cb }
-func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc)       { mock.handler = cb }
+func (mock *mockCreatePipelineJob) Use(cb createPipelineJobFunc)           { mock.handler = cb }
+func (mock *mockInspectPipelineJob) Use(cb inspectPipelineJobFunc)         { mock.handler = cb }
+func (mock *mockListPipelineJob) Use(cb listPipelineJobFunc)               { mock.handler = cb }
+func (mock *mockFlushPipelineJob) Use(cb flushPipelineJobFunc)             { mock.handler = cb }
+func (mock *mockDeletePipelineJob) Use(cb deletePipelineJobFunc)           { mock.handler = cb }
+func (mock *mockStopPipelineJob) Use(cb stopPipelineJobFunc)               { mock.handler = cb }
+func (mock *mockUpdatePipelineJobState) Use(cb updatePipelineJobStateFunc) { mock.handler = cb }
+func (mock *mockInspectDatum) Use(cb inspectDatumFunc)                     { mock.handler = cb }
+func (mock *mockListDatum) Use(cb listDatumFunc)                           { mock.handler = cb }
+func (mock *mockRestartDatum) Use(cb restartDatumFunc)                     { mock.handler = cb }
+func (mock *mockCreatePipeline) Use(cb createPipelineFunc)                 { mock.handler = cb }
+func (mock *mockInspectPipeline) Use(cb inspectPipelineFunc)               { mock.handler = cb }
+func (mock *mockListPipeline) Use(cb listPipelineFunc)                     { mock.handler = cb }
+func (mock *mockDeletePipeline) Use(cb deletePipelineFunc)                 { mock.handler = cb }
+func (mock *mockStartPipeline) Use(cb startPipelineFunc)                   { mock.handler = cb }
+func (mock *mockStopPipeline) Use(cb stopPipelineFunc)                     { mock.handler = cb }
+func (mock *mockRunPipeline) Use(cb runPipelineFunc)                       { mock.handler = cb }
+func (mock *mockRunCron) Use(cb runCronFunc)                               { mock.handler = cb }
+func (mock *mockCreateSecret) Use(cb createSecretFunc)                     { mock.handler = cb }
+func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)                     { mock.handler = cb }
+func (mock *mockInspectSecret) Use(cb inspectSecretFunc)                   { mock.handler = cb }
+func (mock *mockListSecret) Use(cb listSecretFunc)                         { mock.handler = cb }
+func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)                     { mock.handler = cb }
+func (mock *mockGetLogs) Use(cb getLogsFunc)                               { mock.handler = cb }
+func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc)               { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer

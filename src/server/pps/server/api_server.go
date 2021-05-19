@@ -2435,8 +2435,8 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 }
 
 // inspectPipeline contains the functional implementation of InspectPipeline.
-// Many functions (GetLogs, ListPipeline, CreateJob) need to inspect a pipeline,
-// so they call this instead of making an RPC
+// Many functions (GetLogs, ListPipeline, CreatePipelineJob) need to inspect a
+// pipeline, so they call this instead of making an RPC
 func (a *apiServer) inspectPipeline(ctx context.Context, name string) (*pps.PipelineInfo, error) {
 	var response *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {

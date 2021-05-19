@@ -60,10 +60,10 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 	// TODO: `master` implementation fails the job here, we may need to do the same
 	// We would need to load the PipelineJobInfo first for this:
 	// }); err != nil {
-	//   reason := fmt.Sprintf("could not connect to s3 gateway for %q: %v", logger.JobID(), err)
+	//   reason := fmt.Sprintf("could not connect to s3 gateway for %q: %v", logger.PipelineJobID(), err)
 	//   logger.Logf("failing job with reason: %s", reason)
 	//   // NOTE: this is the only place a worker will reach over and change the job state, this should not generally be done.
-	//   return finishJob(driver.PipelineInfo(), driver.PachClient(), pipelineJobInfo, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0)
+	//   return finishPipelineJob(driver.PipelineInfo(), driver.PachClient(), pipelineJobInfo, pps.PipelineJobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0)
 	// }
 	// return nil
 }

@@ -2096,13 +2096,12 @@ func TestPipelineJobCounts(t *testing.T) {
 	pipelineJobInfos, err := c.ListPipelineJob(pipeline, nil, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pipelineJobInfos))
-	inspectJobRequest := &pps.InspectPipelineJobRequest{
-		PipelineJob: pipelineJobInfos[0].PipelineJob,
-		BlockState:  true,
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel() //cleanup resources
-	_, err = c.PpsAPIClient.InspectPipelineJob(ctx, inspectJobRequest)
+	_, err = c.PpsAPIClient.InspectPipelineJob(ctx, &pps.InspectPipelineJobRequest{
+		PipelineJob: pipelineJobInfos[0].PipelineJob,
+		BlockState:  true,
+	})
 	require.NoError(t, err)
 
 	// check that the job has been accounted for
@@ -3696,7 +3695,7 @@ func TestStopPipelineJob(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit2.Branch.Name, commit2.ID, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
 
-	var jobID string
+	var pipelineJobID string
 	b := backoff.NewTestingBackOff()
 	require.NoError(t, backoff.Retry(func() error {
 		pipelineJobInfos, err := c.ListPipelineJob(pipelineName, nil, nil, -1, true)
@@ -3704,7 +3703,7 @@ func TestStopPipelineJob(t *testing.T) {
 		if len(pipelineJobInfos) != 1 {
 			return errors.Errorf("len(pipelineJobInfos) should be 1")
 		}
-		jobID = pipelineJobInfos[0].PipelineJob.ID
+		pipelineJobID = pipelineJobInfos[0].PipelineJob.ID
 		state := pipelineJobInfos[0].State
 
 		if state != pps.PipelineJobState_JOB_RUNNING {
@@ -3714,9 +3713,9 @@ func TestStopPipelineJob(t *testing.T) {
 	}, b))
 
 	// Now stop the first job
-	err = c.StopPipelineJob(jobID)
+	err = c.StopPipelineJob(pipelineJobID)
 	require.NoError(t, err)
-	pipelineJobInfo, err := c.InspectPipelineJob(jobID, true)
+	pipelineJobInfo, err := c.InspectPipelineJob(pipelineJobID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineJobState_JOB_KILLED, pipelineJobInfo.State)
 
@@ -3728,10 +3727,10 @@ func TestStopPipelineJob(t *testing.T) {
 		if len(pipelineJobInfos) != 2 {
 			return errors.Errorf("len(pipelineJobInfos) should be 2")
 		}
-		jobID = pipelineJobInfos[0].PipelineJob.ID
+		pipelineJobID = pipelineJobInfos[0].PipelineJob.ID
 		return nil
 	}, b))
-	pipelineJobInfo, err = c.InspectPipelineJob(jobID, true)
+	pipelineJobInfo, err = c.InspectPipelineJob(pipelineJobID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, pipelineJobInfo.State)
 }
@@ -4148,7 +4147,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		"",
 		false,
 	))
-	var jobID string
+	var pipelineJobID string
 	var datumStarted time.Time
 	// checkStatus waits for 'pipeline' to start and makes sure that each time
 	// it's called, the datum being processes was started at a new and later time
@@ -4162,7 +4161,7 @@ func TestDatumStatusRestart(t *testing.T) {
 				return errors.Errorf("no jobs found")
 			}
 
-			jobID = jobs[0].PipelineJob.ID
+			pipelineJobID = jobs[0].PipelineJob.ID
 			pipelineJobInfo, err := c.InspectPipelineJob(jobs[0].PipelineJob.ID, false, true)
 			require.NoError(t, err)
 			if len(pipelineJobInfo.WorkerStatus) == 0 {
@@ -4181,7 +4180,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		}, backoff.RetryEvery(time.Second).For(30*time.Second)))
 	}
 	checkStatus()
-	require.NoError(t, c.RestartDatum(jobID, []string{"/file"}))
+	require.NoError(t, c.RestartDatum(pipelineJobID, []string{"/file"}))
 	checkStatus()
 
 	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
@@ -5480,7 +5479,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	//	require.NoError(t, err)
 	//	require.Equal(t, 2, len(commitInfos))
 	//
-	//	var jobs []*pps.JobInfo
+	//	var jobs []*pps.PipelineJobInfo
 	//	require.NoError(t, backoff.Retry(func() error {
 	//		jobs, err = c.ListPipelineJob(pipeline, nil, nil, -1, true)
 	//		require.NoError(t, err)
@@ -6242,13 +6241,13 @@ func TestFixPipeline(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestListJobOutput(t *testing.T) {
+func TestListPipelineJobOutput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := tu.GetPachClient(t)
 
-	dataRepo := tu.UniqueString("TestListJobOutput_data")
+	dataRepo := tu.UniqueString("TestListPipelineJobOutput_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -6295,13 +6294,13 @@ func TestListJobOutput(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestListJobTruncated(t *testing.T) {
+func TestListPipelineJobTruncated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := tu.GetPachClient(t)
 
-	dataRepo := tu.UniqueString("TestListJobTruncated_data")
+	dataRepo := tu.UniqueString("TestListPipelineJobTruncated_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -7932,7 +7931,7 @@ func TestPipelineDescription(t *testing.T) {
 	require.Equal(t, description, pi.Description)
 }
 
-func TestListJobInputCommits(t *testing.T) {
+func TestListPipelineJobInputCommits(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7940,12 +7939,12 @@ func TestListJobInputCommits(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	aRepo := tu.UniqueString("TestListJobInputCommits_data_a")
+	aRepo := tu.UniqueString("TestListPipelineJobInputCommits_data_a")
 	require.NoError(t, c.CreateRepo(aRepo))
-	bRepo := tu.UniqueString("TestListJobInputCommits_data_b")
+	bRepo := tu.UniqueString("TestListPipelineJobInputCommits_data_b")
 	require.NoError(t, c.CreateRepo(bRepo))
 
-	pipeline := tu.UniqueString("TestListJobInputCommits")
+	pipeline := tu.UniqueString("TestListPipelineJobInputCommits")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -8030,9 +8029,9 @@ func TestListJobInputCommits(t *testing.T) {
 	require.Equal(t, 1, len(pipelineJobInfos))
 }
 
-// TestCancelJob creates a long-running job and then kills it, testing that the
-// user process is killed.
-func TestCancelJob(t *testing.T) {
+// TestCancelPipelineJob creates a long-running job and then kills it, testing
+// that the user process is killed.
+func TestCancelPipelineJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8041,7 +8040,7 @@ func TestCancelJob(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 
 	// Create an input repo
-	repo := tu.UniqueString("TestCancelJob")
+	repo := tu.UniqueString("TestCancelPipelineJob")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Create an input commit
@@ -8123,12 +8122,12 @@ func TestCancelJob(t *testing.T) {
 	require.Equal(t, "commit 2 data", buf.String())
 }
 
-// TestCancelManyJobs creates many jobs to test that the handling of many
+// TestCancelManyPipelineJobs creates many jobs to test that the handling of many
 // incoming job events is correct. Each job comes up (which tests that that
 // cancelling job 'a' does not cancel subsequent job 'b'), must be the only job
 // running (which tests that only one job can run at a time), and then is
 // cancelled.
-func TestCancelManyJobs(t *testing.T) {
+func TestCancelManyPipelineJobs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8137,7 +8136,7 @@ func TestCancelManyJobs(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 
 	// Create an input repo
-	repo := tu.UniqueString("TestCancelManyJobs")
+	repo := tu.UniqueString("TestCancelManyPipelineJobs")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Create sleep pipeline
@@ -8246,7 +8245,7 @@ func TestSquashCommitPropagation(t *testing.T) {
 	// 	// wait for job to run & check that all rows were processed
 	// 	var jobCount int
 	// 	c.FlushPipelineJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-	// 		func(jobInfo *pps.JobInfo) error {
+	// 		func(jobInfo *pps.PipelineJobInfo) error {
 	// 			jobCount++
 	// 			require.Equal(t, 1, jobCount)
 	// 			require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, jobInfo.State)
@@ -8264,7 +8263,7 @@ func TestSquashCommitPropagation(t *testing.T) {
 	// 	// themselves weren't altered)
 	// 	jobCount = 0
 	// 	c.FlushPipelineJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-	// 		func(jobInfo *pps.JobInfo) error {
+	// 		func(jobInfo *pps.PipelineJobInfo) error {
 	// 			jobCount++
 	// 			require.Equal(t, 1, jobCount)
 	// 			require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, jobInfo.State)
@@ -8820,7 +8819,7 @@ func TestSplitFileHeader(t *testing.T) {
 	//	// wait for job to run & check that all rows were processed
 	//	var jobCount int
 	//	c.FlushPipelineJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-	//		func(jobInfo *pps.JobInfo) error {
+	//		func(jobInfo *pps.PipelineJobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
 	//			require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, jobInfo.State)
@@ -8836,7 +8835,7 @@ func TestSplitFileHeader(t *testing.T) {
 	//	// header shouldn't append or change the hash or anything)
 	//	jobCount = 0
 	//	c.FlushPipelineJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-	//		func(jobInfo *pps.JobInfo) error {
+	//		func(jobInfo *pps.PipelineJobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
 	//			require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, jobInfo.State)
@@ -8881,7 +8880,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//	// wait for job to run & check that all rows were processed
 	//	var jobCount int
 	//	c.FlushPipelineJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-	//		func(jobInfo *pps.JobInfo) error {
+	//		func(jobInfo *pps.PipelineJobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
 	//			require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, jobInfo.State)
@@ -8897,7 +8896,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//	// themselves weren't altered)
 	//	jobCount = 0
 	//	c.FlushPipelineJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-	//		func(jobInfo *pps.JobInfo) error {
+	//		func(jobInfo *pps.PipelineJobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
 	//			require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, jobInfo.State)

@@ -451,9 +451,10 @@ func (d *driver) UpdatePipelineJobState(pipelineJobID string, state pps.Pipeline
 	})
 }
 
-// DeletePipelineJob is identical to updateJobState, except that pipelineJobPtr
-// points to a pipeline job that should be deleted rather than marked failed.
-// PipelineJobs may be deleted if their output commit is deleted.
+// DeletePipelineJob is identical to updatePipelineJobState, except that
+// pipelineJobPtr points to a pipeline job that should be deleted rather than
+// marked failed.  PipelineJobs may be deleted if their output commit is
+// deleted.
 func (d *driver) DeletePipelineJob(sqlTx *sqlx.Tx, pipelineJobPtr *pps.StoredPipelineJobInfo) error {
 	pipelinePtr := &pps.StoredPipelineInfo{}
 	if err := d.Pipelines().ReadWrite(sqlTx).Update(pipelineJobPtr.Pipeline.Name, pipelinePtr, func() error {
