@@ -65,4 +65,3 @@ export {ReactComponent as TrashSVG} from './trash.svg';
 export {ReactComponent as TriangleSVG} from './Triangle.svg';
 export {ReactComponent as VisaSVG} from './visa.svg';
 export {ReactComponent as WorkspaceSVG} from './workspace.svg';
-export {ReactComponent as ZendeskSVG} from './Zendesk.svg';

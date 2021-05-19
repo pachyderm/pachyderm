@@ -67,7 +67,6 @@ import {
   TriangleSVG,
   VisaSVG,
   WorkspaceSVG,
-  ZendeskSVG,
 } from '..';
 
 import styles from './SvgStory.module.css';
@@ -117,9 +116,6 @@ export const Companies = () => {
         </SVGWrapper>
         <SVGWrapper title="SlackWithTextSVG">
           <SlackWithTextSVG />
-        </SVGWrapper>
-        <SVGWrapper title="ZendeskSVG">
-          <ZendeskSVG />
         </SVGWrapper>
       </div>
     </div>
