@@ -1,0 +1,62 @@
+.base {
+  padding: 0 !important;
+}
+
+.base [class$="modal-dialog"] {
+  margin: 0;
+  max-width: 100%;
+}
+
+.base [class$="modal-content"] {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  border: none;
+  background-color: var(--white);
+  border-radius: 0;
+}
+
+.body {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.cancelButton {
+  margin-left: auto;
+  margin-right: 1.875rem;
+}
+
+.header {
+  border-bottom: none;
+  padding: 0;
+}
+
+.close {
+  background-color: transparent;
+  border: none;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+}
+
+.close:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.notActionable path {
+  fill: var(--white);
+}
+
+.icon {
+  cursor: pointer;
+}
+
+.icon path {
+  fill: var(--pachyderm-black);
+}
+
+.icon:hover path {
+  fill: var(--placeholder-grey);
+}

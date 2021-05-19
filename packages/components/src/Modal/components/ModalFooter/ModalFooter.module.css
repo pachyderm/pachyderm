@@ -1,0 +1,11 @@
+.base {
+  border-top: none;
+}
+
+.base[class$='modal-footer'] {
+  padding: 1.875rem 1.5rem 0.75rem;
+}
+
+.base[class$='modal-footer']>* {
+  margin: 0;
+}

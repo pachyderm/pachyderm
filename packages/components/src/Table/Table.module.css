@@ -1,0 +1,10 @@
+.base {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Montserrat', sans-serif;
+  position: relative;
+}
+
+.base.compressed td {
+  padding: 1.25rem 1.875rem;
+}

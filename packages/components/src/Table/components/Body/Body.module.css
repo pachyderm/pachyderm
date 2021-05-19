@@ -1,0 +1,7 @@
+.bandedRows tr:nth-child(even) td {
+  background-color: var(--white);
+}
+
+.bandedRows tr:nth-child(odd) td {
+  background-color: var(--background-grey);
+}

@@ -1,0 +1,19 @@
+.active td {
+  background-color: var(--background-blue);
+  font-weight: 500;
+}
+
+.sticky td,
+.sticky th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.button {
+  cursor: pointer;
+}
+
+.button:hover {
+  background-color: var(--background-blue-light);
+}

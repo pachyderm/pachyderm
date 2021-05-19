@@ -1,0 +1,30 @@
+.base {
+  border-bottom: none;
+  font-size: 1.125rem;
+  font-weight: 500;
+  padding-left: 0;
+}
+
+.base[class$='modal-header'] {
+  padding: 3rem 2.5rem 1rem;
+}
+
+.base.error[class$='modal-header'] {
+  padding-top: 1.25rem;
+}
+
+.group {
+  width: 100%;
+}
+
+.important {
+  color: var(--error-red);
+}
+
+.checkmark {
+  height: 1.2rem;
+}
+
+.spinner {
+  color: var(--success-green);
+}

@@ -1,0 +1,51 @@
+.base {
+  background-color: var(--background-blue);
+  font-size: var(--font-size-body-medium);
+  text-transform: uppercase;
+  padding: 1.5rem;
+  font-weight: 400;
+}
+
+.rightAligned {
+  text-align: right;
+}
+
+.base:first-child {
+  padding-left: calc(var(--padding-view-x) + 1.875rem);
+}
+
+.base:last-child {
+  padding-right: 3rem;
+}
+
+.sortHeader:hover {
+  cursor: pointer;
+}
+
+.selectedColumn > path {
+  fill: var(--pachyderm-green);
+}
+
+.flip {
+  transform: scaleY(-1);
+}
+
+.wrapperButton {
+  border: none;
+  background: none;
+  padding-left: 0;
+  font-size: var(--font-size-body-medium);
+  text-transform: uppercase;
+  font-weight: 400;
+  padding-bottom: 0;
+}
+
+.wrapperButton:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+@media (--medium-viewport) {
+  .base:first-child {
+    padding-left: calc(var(--padding-view-x-sm) + 1.875rem);
+  }
+}

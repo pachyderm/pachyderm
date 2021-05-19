@@ -1,0 +1,5 @@
+.base {
+  font-size: var(--font-size-body-large);
+  line-height: 1.625rem;
+  padding: 0 2.5rem;
+}

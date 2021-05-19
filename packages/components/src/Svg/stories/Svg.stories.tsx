@@ -67,6 +67,16 @@ import {
   TriangleSVG,
   VisaSVG,
   WorkspaceSVG,
+  FileAudioSVG,
+  FileCSVSVG,
+  FileDocSVG,
+  FileFolderSVG,
+  FileImageSVG,
+  FileJSONSVG,
+  FileUnknownSVG,
+  FileVideoSVG,
+  ListViewSVG,
+  IconViewSVG,
 } from '..';
 
 import styles from './SvgStory.module.css';
@@ -308,6 +318,36 @@ export const UIIcons = () => {
         </SVGWrapper>
         <SVGWrapper title="WorkspaceSVG">
           <WorkspaceSVG />
+        </SVGWrapper>
+        <SVGWrapper title="FileAudioSVG">
+          <FileAudioSVG />
+        </SVGWrapper>
+        <SVGWrapper title="FileCSVSVG">
+          <FileCSVSVG />
+        </SVGWrapper>
+        <SVGWrapper title="FileDocSVG">
+          <FileDocSVG />
+        </SVGWrapper>
+        <SVGWrapper title="FileFolderSVG">
+          <FileFolderSVG />
+        </SVGWrapper>
+        <SVGWrapper title="FileImageSVG">
+          <FileImageSVG />
+        </SVGWrapper>
+        <SVGWrapper title="FileJSONSVG">
+          <FileJSONSVG />
+        </SVGWrapper>
+        <SVGWrapper title="FileUnknownSVG">
+          <FileUnknownSVG />
+        </SVGWrapper>
+        <SVGWrapper title="FileVideoSVG">
+          <FileVideoSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ListViewSVG">
+          <ListViewSVG />
+        </SVGWrapper>
+        <SVGWrapper title="IconViewSVG">
+          <IconViewSVG />
         </SVGWrapper>
       </div>
     </div>

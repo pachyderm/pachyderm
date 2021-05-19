@@ -1,0 +1,19 @@
+.sticky tr:nth-child(1) th{
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sticky.stuck{
+  position: relative;
+}
+
+.sticky.stuck::after{
+  position: fixed;
+  content: '';
+  width: 100%;
+  height: 6px;
+  margin-top: -6px;
+  top: 4.2rem;
+  box-shadow: 0 3px 2px -2px var(--dropshadow-grey);
+}

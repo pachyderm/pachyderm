@@ -1,0 +1,18 @@
+.base {
+  position: relative;
+  background-color: var(--background-pink);
+  color: var(--error-red);
+  font-size: var(--font-size-body-medium);
+  padding: 1.5rem 0;
+}
+
+.exclamation {
+  position: absolute;
+  transform: scale3d(.6, .6, 0);
+  left: 1.8rem;
+  top: 1.3rem;
+}
+
+.content {
+  padding: 0 2.5rem;
+}

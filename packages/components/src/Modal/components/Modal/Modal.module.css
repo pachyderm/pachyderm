@@ -1,0 +1,50 @@
+.base [class$='modal-content'] {
+  border-radius: 3px;
+  box-shadow: 0 0.125rem 1rem 0 var(--placeholder-grey);
+  padding-bottom: 1.875rem;
+  border: none;
+  width: 100%;
+  background-color: var(--white);
+}
+
+.base [class$="modal-dialog"] {
+  top: 6.25rem;
+}
+
+.pinTop [class$="modal-dialog"] {
+	top: 0;
+}
+
+.content {
+  padding: 0 2.5rem;
+}
+
+.close {
+  background-color: transparent;
+  border: none;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+}
+
+.close:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.notActionable {
+  top: 0;
+  right: -2rem;
+}
+
+.notActionable path {
+  fill: var(--white);
+}
+
+.icon {
+  cursor: pointer;
+}
+
+.icon:hover path {
+  fill: var(--pachyderm-black);
+}
