@@ -5,6 +5,9 @@ import {GRPCPlugin, NotFoundError} from '@dash-backend/lib/types';
 
 import isServiceError from '../utils/isServiceError';
 
+const TOKEN_EXPIRED_MESSAGE = 'token expiration';
+const NO_AUTHENTICATION_METADATA_MESSAGE = 'no authentication metadata';
+
 const errorPlugin: GRPCPlugin = {
   onError: ({error, requestName}) => {
     // grpc has a set of "canonical" error codes that we use in pachd,
@@ -12,6 +15,14 @@ const errorPlugin: GRPCPlugin = {
     // https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
     if (isServiceError(error)) {
       if (error.code === Status.UNAUTHENTICATED) {
+        throw new AuthenticationError(error.details);
+      }
+
+      if (
+        error.code === Status.INTERNAL &&
+        (error.details.includes(TOKEN_EXPIRED_MESSAGE) ||
+          error.details.includes(NO_AUTHENTICATION_METADATA_MESSAGE))
+      ) {
         throw new AuthenticationError(error.details);
       }
 

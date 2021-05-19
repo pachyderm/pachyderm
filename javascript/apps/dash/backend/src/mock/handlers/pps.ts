@@ -22,9 +22,8 @@ const pps: Pick<
     if (authToken && authToken === 'expired') {
       callback(
         {
-          code: Status.UNAUTHENTICATED,
-          details:
-            'provided auth token is corrupted or has expired (try logging in again)',
+          code: Status.INTERNAL,
+          details: 'token expiration is in the past',
         },
         null,
       );
