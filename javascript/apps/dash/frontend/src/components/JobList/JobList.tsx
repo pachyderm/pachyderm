@@ -1,4 +1,3 @@
-import {Form} from '@pachyderm/components';
 import React from 'react';
 
 import {GetJobsQueryVariables} from '@graphqlTypes';
@@ -18,15 +17,15 @@ const JobList: React.FC<JobListProps> = ({
   expandActions = false,
   showStatusFilter = false,
 }) => {
-  const {loading, formCtx, jobs, filteredJobs} = useJobList({
+  const {loading, jobs, selectedFilters, filteredJobs} = useJobList({
     projectId,
     pipelineId,
   });
 
   return (
-    <Form formContext={formCtx}>
+    <>
       {showStatusFilter && jobs.length !== 0 && !loading && (
-        <JobListStatusFilter jobs={jobs} />
+        <JobListStatusFilter jobs={jobs} selectedFilters={selectedFilters} />
       )}
 
       <JobListStatic
@@ -36,7 +35,7 @@ const JobList: React.FC<JobListProps> = ({
         expandActions={expandActions}
         listScroll
       />
-    </Form>
+    </>
   );
 };
 

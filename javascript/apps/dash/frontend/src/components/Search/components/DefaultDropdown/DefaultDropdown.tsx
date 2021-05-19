@@ -1,5 +1,5 @@
 import {ButtonLink, Chip, ChipGroup} from '@pachyderm/components';
-import React, {useCallback} from 'react';
+import React from 'react';
 
 import {jobStates} from '@dash-frontend/components/JobList/components/JobListStatusFilter/JobListStatusFilter';
 
@@ -10,14 +10,8 @@ import {NotFoundMessage, SectionHeader} from '../Messaging';
 import styles from './DefaultDropdown.module.css';
 
 const DefaultDropdown: React.FC = () => {
-  const {setSearchValue, history, clearSearchHistory, closeDropdown} =
-    useSearch();
-  const {stateCounts, allJobs, routeToJobs} = useDefaultDropdown();
-
-  const handleChipClick = useCallback(() => {
-    routeToJobs();
-    closeDropdown();
-  }, [closeDropdown, routeToJobs]);
+  const {setSearchValue, history, clearSearchHistory} = useSearch();
+  const {stateCounts, allJobs, handleJobChipClick} = useDefaultDropdown();
 
   const recentSearch = () => {
     if (history.length > 0) {
@@ -50,13 +44,14 @@ const DefaultDropdown: React.FC = () => {
     return <NotFoundMessage>There are no recent searches.</NotFoundMessage>;
   };
 
-  //TODO: Route with selected filter
   const renderJobStates = () => {
     if (allJobs > 0) {
       return (
         <>
           <div className={styles.sectionHeader}>
-            <SectionHeader>Last 30 Jobs</SectionHeader>
+            <SectionHeader>
+              {allJobs === 1 ? `Last Job` : `Last ${allJobs} Jobs`}
+            </SectionHeader>
           </div>
           <div className={styles.jobsGroup}>
             <ChipGroup>
@@ -66,14 +61,16 @@ const DefaultDropdown: React.FC = () => {
                   return null;
                 }
                 return (
-                  <Chip key={state.value} onClick={handleChipClick}>
+                  <Chip
+                    key={state.value}
+                    onClickValue={state.value}
+                    onClick={handleJobChipClick}
+                  >
                     {state.label} ({stateCounts[state.value]})
                   </Chip>
                 );
               })}
-              <Chip name={'All'} onClick={handleChipClick}>
-                All ({allJobs})
-              </Chip>
+              <Chip onClick={handleJobChipClick}>All ({allJobs})</Chip>
             </ChipGroup>
           </div>
         </>

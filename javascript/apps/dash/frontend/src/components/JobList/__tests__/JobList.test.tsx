@@ -59,7 +59,7 @@ describe('JobList', () => {
   });
 
   it('should allow user to filter on job state', async () => {
-    const {getByLabelText, findByText, getByRole} = render(
+    const {getByText, findByText, getByRole} = render(
       <JobList projectId="2" showStatusFilter />,
     );
 
@@ -67,11 +67,11 @@ describe('JobList', () => {
       await findByText(`Last ${jobs['2'].length} Jobs`),
     ).toBeInTheDocument();
 
-    const startingButton = getByLabelText(/Starting/);
-    const runningButton = getByLabelText(/Running/);
-    const failureButton = getByLabelText(/Failure/);
-    const killedButton = getByLabelText(/Killed/);
-    const egressingButton = getByLabelText(/Egressing/);
+    const startingButton = getByText(/Starting \(\d\)/);
+    const runningButton = getByText(/Running \(\d\)/);
+    const failureButton = getByText(/Failure \(\d\)/);
+    const killedButton = getByText(/Killed \(\d\)/);
+    const egressingButton = getByText(/Egressing \(\d\)/);
 
     const {queryByText: queryByTextWithinList} = within(getByRole('list'));
 

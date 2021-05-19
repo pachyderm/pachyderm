@@ -1,54 +1,42 @@
-import {useEffect, useMemo} from 'react';
-import {useForm} from 'react-hook-form';
+import {useMemo} from 'react';
 
 import {useJobs} from '@dash-frontend/hooks/useJobs';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {GetJobsQueryVariables, JobState} from '@graphqlTypes';
 
-const defaultValues = Object.values(JobState).reduce<{[key: string]: unknown}>(
-  (result, state) => {
-    result[state] = true;
+export type JobFilters = {
+  [key in JobState]?: boolean;
+};
+
+const convertToObject = (JobStateList: JobState[]) => {
+  return Object.values(JobStateList).reduce<JobFilters>((result, jobState) => {
+    result[jobState] = true;
     return result;
-  },
-  {},
-);
+  }, {});
+};
 
 const useJobList = ({projectId, pipelineId}: GetJobsQueryVariables['args']) => {
   const {jobs, loading} = useJobs({projectId, pipelineId});
-  const formCtx = useForm({
-    defaultValues,
-  });
+  const {viewState} = useUrlQueryState();
 
-  const {reset, watch} = formCtx;
-  const formValues = watch();
+  const selectedFilters: JobFilters = useMemo(() => {
+    if (viewState && viewState.jobFilters) {
+      return convertToObject(viewState.jobFilters);
+    }
+    return convertToObject(Object.values(JobState));
+  }, [viewState]);
 
   const filteredJobs = useMemo(() => {
-    const activeStates = Object.entries(formValues).reduce<string[]>(
-      (result, pair) => {
-        const [label, value] = pair;
-
-        if (value) {
-          result.push(label);
-        }
-
-        return result;
-      },
-      [],
-    );
-
     return jobs.filter((job) => {
-      return activeStates.includes(String(job.state));
+      return selectedFilters[job.state];
     });
-  }, [formValues, jobs]);
-
-  useEffect(() => {
-    reset(defaultValues);
-  }, [reset]);
+  }, [jobs, selectedFilters]);
 
   return {
     jobs,
     filteredJobs,
+    selectedFilters,
     loading,
-    formCtx,
   };
 };
 
