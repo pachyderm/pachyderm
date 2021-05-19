@@ -11,22 +11,17 @@ import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/t
 export class Project extends jspb.Message { 
     getId(): string;
     setId(value: string): Project;
-
     getName(): string;
     setName(value: string): Project;
-
     getDescription(): string;
     setDescription(value: string): Project;
-
 
     hasCreatedat(): boolean;
     clearCreatedat(): void;
     getCreatedat(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setCreatedat(value?: google_protobuf_timestamp_pb.Timestamp): Project;
-
     getStatus(): ProjectStatus;
     setStatus(value: ProjectStatus): Project;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Project.AsObject;
@@ -54,7 +49,6 @@ export class Projects extends jspb.Message {
     setProjectInfoList(value: Array<Project>): Projects;
     addProjectInfo(value?: Project, index?: number): Project;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Projects.AsObject;
     static toObject(includeInstance: boolean, msg: Projects): Projects.AsObject;
@@ -74,7 +68,6 @@ export namespace Projects {
 export class ProjectRequest extends jspb.Message { 
     getProjectid(): string;
     setProjectid(value: string): ProjectRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ProjectRequest.AsObject;

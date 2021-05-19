@@ -319,7 +319,7 @@ interface IAPIService_IRenewFileset extends grpc.MethodDefinition<pfs_pfs_pb.Ren
 
 export const APIService: IAPIService;
 
-export interface IAPIServer {
+export interface IAPIServer extends grpc.UntypedServiceImplementation {
     createRepo: grpc.handleUnaryCall<pfs_pfs_pb.CreateRepoRequest, google_protobuf_empty_pb.Empty>;
     inspectRepo: grpc.handleUnaryCall<pfs_pfs_pb.InspectRepoRequest, pfs_pfs_pb.RepoInfo>;
     listRepo: grpc.handleUnaryCall<pfs_pfs_pb.ListRepoRequest, pfs_pfs_pb.ListRepoResponse>;

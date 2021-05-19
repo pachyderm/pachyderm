@@ -14,10 +14,8 @@ import * as auth_auth_pb from "../auth/auth_pb";
 export class Repo extends jspb.Message { 
     getName(): string;
     setName(value: string): Repo;
-
     getType(): string;
     setType(value: string): Repo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Repo.AsObject;
@@ -42,10 +40,8 @@ export class Branch extends jspb.Message {
     clearRepo(): void;
     getRepo(): Repo | undefined;
     setRepo(value?: Repo): Branch;
-
     getName(): string;
     setName(value: string): Branch;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Branch.AsObject;
@@ -70,10 +66,8 @@ export class File extends jspb.Message {
     clearCommit(): void;
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): File;
-
     getPath(): string;
     setPath(value: string): File;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): File.AsObject;
@@ -99,29 +93,23 @@ export class RepoInfo extends jspb.Message {
     getRepo(): Repo | undefined;
     setRepo(value?: Repo): RepoInfo;
 
-
     hasCreated(): boolean;
     clearCreated(): void;
     getCreated(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setCreated(value?: google_protobuf_timestamp_pb.Timestamp): RepoInfo;
-
     getSizeBytes(): number;
     setSizeBytes(value: number): RepoInfo;
-
     getDescription(): string;
     setDescription(value: string): RepoInfo;
-
     clearBranchesList(): void;
     getBranchesList(): Array<Branch>;
     setBranchesList(value: Array<Branch>): RepoInfo;
     addBranches(value?: Branch, index?: number): Branch;
 
-
     hasAuthInfo(): boolean;
     clearAuthInfo(): void;
     getAuthInfo(): RepoAuthInfo | undefined;
     setAuthInfo(value?: RepoAuthInfo): RepoInfo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RepoInfo.AsObject;
@@ -149,12 +137,10 @@ export class RepoAuthInfo extends jspb.Message {
     getPermissionsList(): Array<auth_auth_pb.Permission>;
     setPermissionsList(value: Array<auth_auth_pb.Permission>): RepoAuthInfo;
     addPermissions(value: auth_auth_pb.Permission, index?: number): auth_auth_pb.Permission;
-
     clearRolesList(): void;
     getRolesList(): Array<string>;
     setRolesList(value: Array<string>): RepoAuthInfo;
     addRoles(value: string, index?: number): string;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RepoAuthInfo.AsObject;
@@ -180,33 +166,27 @@ export class BranchInfo extends jspb.Message {
     getBranch(): Branch | undefined;
     setBranch(value?: Branch): BranchInfo;
 
-
     hasHead(): boolean;
     clearHead(): void;
     getHead(): Commit | undefined;
     setHead(value?: Commit): BranchInfo;
-
     clearProvenanceList(): void;
     getProvenanceList(): Array<Branch>;
     setProvenanceList(value: Array<Branch>): BranchInfo;
     addProvenance(value?: Branch, index?: number): Branch;
-
     clearSubvenanceList(): void;
     getSubvenanceList(): Array<Branch>;
     setSubvenanceList(value: Array<Branch>): BranchInfo;
     addSubvenance(value?: Branch, index?: number): Branch;
-
     clearDirectProvenanceList(): void;
     getDirectProvenanceList(): Array<Branch>;
     setDirectProvenanceList(value: Array<Branch>): BranchInfo;
     addDirectProvenance(value?: Branch, index?: number): Branch;
 
-
     hasTrigger(): boolean;
     clearTrigger(): void;
     getTrigger(): Trigger | undefined;
     setTrigger(value?: Trigger): BranchInfo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): BranchInfo.AsObject;
@@ -235,7 +215,6 @@ export class BranchInfos extends jspb.Message {
     setBranchInfoList(value: Array<BranchInfo>): BranchInfos;
     addBranchInfo(value?: BranchInfo, index?: number): BranchInfo;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): BranchInfos.AsObject;
     static toObject(includeInstance: boolean, msg: BranchInfos): BranchInfos.AsObject;
@@ -255,19 +234,14 @@ export namespace BranchInfos {
 export class Trigger extends jspb.Message { 
     getBranch(): string;
     setBranch(value: string): Trigger;
-
     getAll(): boolean;
     setAll(value: boolean): Trigger;
-
     getCronSpec(): string;
     setCronSpec(value: string): Trigger;
-
     getSize(): string;
     setSize(value: string): Trigger;
-
     getCommits(): number;
     setCommits(value: number): Trigger;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Trigger.AsObject;
@@ -293,7 +267,6 @@ export class CommitOrigin extends jspb.Message {
     getKind(): OriginKind;
     setKind(value: OriginKind): CommitOrigin;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CommitOrigin.AsObject;
     static toObject(includeInstance: boolean, msg: CommitOrigin): CommitOrigin.AsObject;
@@ -314,12 +287,10 @@ export class Commit extends jspb.Message {
     getId(): string;
     setId(value: string): Commit;
 
-
     hasBranch(): boolean;
     clearBranch(): void;
     getBranch(): Branch | undefined;
     setBranch(value?: Branch): Commit;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Commit.AsObject;
@@ -345,12 +316,10 @@ export class CommitRange extends jspb.Message {
     getLower(): Commit | undefined;
     setLower(value?: Commit): CommitRange;
 
-
     hasUpper(): boolean;
     clearUpper(): void;
     getUpper(): Commit | undefined;
     setUpper(value?: Commit): CommitRange;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CommitRange.AsObject;
@@ -376,7 +345,6 @@ export class CommitProvenance extends jspb.Message {
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): CommitProvenance;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CommitProvenance.AsObject;
     static toObject(includeInstance: boolean, msg: CommitProvenance): CommitProvenance.AsObject;
@@ -400,63 +368,49 @@ export class CommitInfo extends jspb.Message {
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): CommitInfo;
 
-
     hasOrigin(): boolean;
     clearOrigin(): void;
     getOrigin(): CommitOrigin | undefined;
     setOrigin(value?: CommitOrigin): CommitInfo;
-
     getDescription(): string;
     setDescription(value: string): CommitInfo;
-
 
     hasParentCommit(): boolean;
     clearParentCommit(): void;
     getParentCommit(): Commit | undefined;
     setParentCommit(value?: Commit): CommitInfo;
-
     clearChildCommitsList(): void;
     getChildCommitsList(): Array<Commit>;
     setChildCommitsList(value: Array<Commit>): CommitInfo;
     addChildCommits(value?: Commit, index?: number): Commit;
-
 
     hasStarted(): boolean;
     clearStarted(): void;
     getStarted(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setStarted(value?: google_protobuf_timestamp_pb.Timestamp): CommitInfo;
 
-
     hasFinished(): boolean;
     clearFinished(): void;
     getFinished(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setFinished(value?: google_protobuf_timestamp_pb.Timestamp): CommitInfo;
-
     getSizeBytes(): number;
     setSizeBytes(value: number): CommitInfo;
-
     clearProvenanceList(): void;
     getProvenanceList(): Array<CommitProvenance>;
     setProvenanceList(value: Array<CommitProvenance>): CommitInfo;
     addProvenance(value?: CommitProvenance, index?: number): CommitProvenance;
-
     getReadyProvenance(): number;
     setReadyProvenance(value: number): CommitInfo;
-
     clearSubvenanceList(): void;
     getSubvenanceList(): Array<CommitRange>;
     setSubvenanceList(value: Array<CommitRange>): CommitInfo;
     addSubvenance(value?: CommitRange, index?: number): CommitRange;
-
     getSubvenantCommitsSuccess(): number;
     setSubvenantCommitsSuccess(value: number): CommitInfo;
-
     getSubvenantCommitsFailure(): number;
     setSubvenantCommitsFailure(value: number): CommitInfo;
-
     getSubvenantCommitsTotal(): number;
     setSubvenantCommitsTotal(value: number): CommitInfo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CommitInfo.AsObject;
@@ -491,7 +445,6 @@ export class Job extends jspb.Message {
     getId(): string;
     setId(value: string): Job;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Job.AsObject;
     static toObject(includeInstance: boolean, msg: Job): Job.AsObject;
@@ -515,17 +468,14 @@ export class StoredJobInfo extends jspb.Message {
     getJob(): Job | undefined;
     setJob(value?: Job): StoredJobInfo;
 
-
     hasOrigin(): boolean;
     clearOrigin(): void;
     getOrigin(): CommitOrigin | undefined;
     setOrigin(value?: CommitOrigin): StoredJobInfo;
-
     clearCommitsList(): void;
     getCommitsList(): Array<Commit>;
     setCommitsList(value: Array<Commit>): StoredJobInfo;
     addCommits(value?: Commit, index?: number): Commit;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): StoredJobInfo.AsObject;
@@ -552,17 +502,14 @@ export class JobInfo extends jspb.Message {
     getJob(): Job | undefined;
     setJob(value?: Job): JobInfo;
 
-
     hasOrigin(): boolean;
     clearOrigin(): void;
     getOrigin(): CommitOrigin | undefined;
     setOrigin(value?: CommitOrigin): JobInfo;
-
     clearCommitsList(): void;
     getCommitsList(): Array<CommitInfo>;
     setCommitsList(value: Array<CommitInfo>): JobInfo;
     addCommits(value?: CommitInfo, index?: number): CommitInfo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): JobInfo.AsObject;
@@ -588,24 +535,19 @@ export class FileInfo extends jspb.Message {
     clearFile(): void;
     getFile(): File | undefined;
     setFile(value?: File): FileInfo;
-
     getFileType(): FileType;
     setFileType(value: FileType): FileInfo;
-
     getSizeBytes(): number;
     setSizeBytes(value: number): FileInfo;
-
 
     hasCommitted(): boolean;
     clearCommitted(): void;
     getCommitted(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setCommitted(value?: google_protobuf_timestamp_pb.Timestamp): FileInfo;
-
     getHash(): Uint8Array | string;
     getHash_asU8(): Uint8Array;
     getHash_asB64(): string;
     setHash(value: Uint8Array | string): FileInfo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): FileInfo.AsObject;
@@ -633,13 +575,10 @@ export class CreateRepoRequest extends jspb.Message {
     clearRepo(): void;
     getRepo(): Repo | undefined;
     setRepo(value?: Repo): CreateRepoRequest;
-
     getDescription(): string;
     setDescription(value: string): CreateRepoRequest;
-
     getUpdate(): boolean;
     setUpdate(value: boolean): CreateRepoRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateRepoRequest.AsObject;
@@ -666,7 +605,6 @@ export class InspectRepoRequest extends jspb.Message {
     getRepo(): Repo | undefined;
     setRepo(value?: Repo): InspectRepoRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectRepoRequest.AsObject;
     static toObject(includeInstance: boolean, msg: InspectRepoRequest): InspectRepoRequest.AsObject;
@@ -686,7 +624,6 @@ export namespace InspectRepoRequest {
 export class ListRepoRequest extends jspb.Message { 
     getType(): string;
     setType(value: string): ListRepoRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListRepoRequest.AsObject;
@@ -710,7 +647,6 @@ export class ListRepoResponse extends jspb.Message {
     setRepoInfoList(value: Array<RepoInfo>): ListRepoResponse;
     addRepoInfo(value?: RepoInfo, index?: number): RepoInfo;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListRepoResponse.AsObject;
     static toObject(includeInstance: boolean, msg: ListRepoResponse): ListRepoResponse.AsObject;
@@ -733,13 +669,10 @@ export class DeleteRepoRequest extends jspb.Message {
     clearRepo(): void;
     getRepo(): Repo | undefined;
     setRepo(value?: Repo): DeleteRepoRequest;
-
     getForce(): boolean;
     setForce(value: boolean): DeleteRepoRequest;
-
     getAll(): boolean;
     setAll(value: boolean): DeleteRepoRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeleteRepoRequest.AsObject;
@@ -765,21 +698,17 @@ export class StartCommitRequest extends jspb.Message {
     clearParent(): void;
     getParent(): Commit | undefined;
     setParent(value?: Commit): StartCommitRequest;
-
     getDescription(): string;
     setDescription(value: string): StartCommitRequest;
-
 
     hasBranch(): boolean;
     clearBranch(): void;
     getBranch(): Branch | undefined;
     setBranch(value?: Branch): StartCommitRequest;
-
     clearProvenanceList(): void;
     getProvenanceList(): Array<CommitProvenance>;
     setProvenanceList(value: Array<CommitProvenance>): StartCommitRequest;
     addProvenance(value?: CommitProvenance, index?: number): CommitProvenance;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): StartCommitRequest.AsObject;
@@ -806,16 +735,12 @@ export class FinishCommitRequest extends jspb.Message {
     clearCommit(): void;
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): FinishCommitRequest;
-
     getDescription(): string;
     setDescription(value: string): FinishCommitRequest;
-
     getSizeBytes(): number;
     setSizeBytes(value: number): FinishCommitRequest;
-
     getEmpty(): boolean;
     setEmpty(value: boolean): FinishCommitRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): FinishCommitRequest.AsObject;
@@ -842,10 +767,8 @@ export class InspectCommitRequest extends jspb.Message {
     clearCommit(): void;
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): InspectCommitRequest;
-
     getBlockState(): CommitState;
     setBlockState(value: CommitState): InspectCommitRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectCommitRequest.AsObject;
@@ -871,24 +794,19 @@ export class ListCommitRequest extends jspb.Message {
     getRepo(): Repo | undefined;
     setRepo(value?: Repo): ListCommitRequest;
 
-
     hasFrom(): boolean;
     clearFrom(): void;
     getFrom(): Commit | undefined;
     setFrom(value?: Commit): ListCommitRequest;
 
-
     hasTo(): boolean;
     clearTo(): void;
     getTo(): Commit | undefined;
     setTo(value?: Commit): ListCommitRequest;
-
     getNumber(): number;
     setNumber(value: number): ListCommitRequest;
-
     getReverse(): boolean;
     setReverse(value: boolean): ListCommitRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListCommitRequest.AsObject;
@@ -916,7 +834,6 @@ export class CommitInfos extends jspb.Message {
     setCommitInfoList(value: Array<CommitInfo>): CommitInfos;
     addCommitInfo(value?: CommitInfo, index?: number): CommitInfo;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CommitInfos.AsObject;
     static toObject(includeInstance: boolean, msg: CommitInfos): CommitInfos.AsObject;
@@ -940,7 +857,6 @@ export class SquashCommitRequest extends jspb.Message {
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): SquashCommitRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SquashCommitRequest.AsObject;
     static toObject(includeInstance: boolean, msg: SquashCommitRequest): SquashCommitRequest.AsObject;
@@ -962,12 +878,10 @@ export class FlushCommitRequest extends jspb.Message {
     getCommitsList(): Array<Commit>;
     setCommitsList(value: Array<Commit>): FlushCommitRequest;
     addCommits(value?: Commit, index?: number): Commit;
-
     clearToReposList(): void;
     getToReposList(): Array<Repo>;
     setToReposList(value: Array<Repo>): FlushCommitRequest;
     addToRepos(value?: Repo, index?: number): Repo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): FlushCommitRequest.AsObject;
@@ -992,25 +906,20 @@ export class SubscribeCommitRequest extends jspb.Message {
     clearRepo(): void;
     getRepo(): Repo | undefined;
     setRepo(value?: Repo): SubscribeCommitRequest;
-
     getBranch(): string;
     setBranch(value: string): SubscribeCommitRequest;
-
 
     hasProv(): boolean;
     clearProv(): void;
     getProv(): CommitProvenance | undefined;
     setProv(value?: CommitProvenance): SubscribeCommitRequest;
 
-
     hasFrom(): boolean;
     clearFrom(): void;
     getFrom(): Commit | undefined;
     setFrom(value?: Commit): SubscribeCommitRequest;
-
     getState(): CommitState;
     setState(value: CommitState): SubscribeCommitRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SubscribeCommitRequest.AsObject;
@@ -1039,7 +948,6 @@ export class ClearCommitRequest extends jspb.Message {
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): ClearCommitRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ClearCommitRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ClearCommitRequest): ClearCommitRequest.AsObject;
@@ -1063,23 +971,19 @@ export class CreateBranchRequest extends jspb.Message {
     getHead(): Commit | undefined;
     setHead(value?: Commit): CreateBranchRequest;
 
-
     hasBranch(): boolean;
     clearBranch(): void;
     getBranch(): Branch | undefined;
     setBranch(value?: Branch): CreateBranchRequest;
-
     clearProvenanceList(): void;
     getProvenanceList(): Array<Branch>;
     setProvenanceList(value: Array<Branch>): CreateBranchRequest;
     addProvenance(value?: Branch, index?: number): Branch;
 
-
     hasTrigger(): boolean;
     clearTrigger(): void;
     getTrigger(): Trigger | undefined;
     setTrigger(value?: Trigger): CreateBranchRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateBranchRequest.AsObject;
@@ -1107,7 +1011,6 @@ export class InspectBranchRequest extends jspb.Message {
     getBranch(): Branch | undefined;
     setBranch(value?: Branch): InspectBranchRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectBranchRequest.AsObject;
     static toObject(includeInstance: boolean, msg: InspectBranchRequest): InspectBranchRequest.AsObject;
@@ -1130,10 +1033,8 @@ export class ListBranchRequest extends jspb.Message {
     clearRepo(): void;
     getRepo(): Repo | undefined;
     setRepo(value?: Repo): ListBranchRequest;
-
     getReverse(): boolean;
     setReverse(value: boolean): ListBranchRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListBranchRequest.AsObject;
@@ -1158,10 +1059,8 @@ export class DeleteBranchRequest extends jspb.Message {
     clearBranch(): void;
     getBranch(): Branch | undefined;
     setBranch(value?: Branch): DeleteBranchRequest;
-
     getForce(): boolean;
     setForce(value: boolean): DeleteBranchRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeleteBranchRequest.AsObject;
@@ -1183,28 +1082,23 @@ export namespace DeleteBranchRequest {
 export class PutFile extends jspb.Message { 
     getAppend(): boolean;
     setAppend(value: boolean): PutFile;
-
     getTag(): string;
     setTag(value: string): PutFile;
-
 
     hasRawFileSource(): boolean;
     clearRawFileSource(): void;
     getRawFileSource(): RawFileSource | undefined;
     setRawFileSource(value?: RawFileSource): PutFile;
 
-
     hasTarFileSource(): boolean;
     clearTarFileSource(): void;
     getTarFileSource(): TarFileSource | undefined;
     setTarFileSource(value?: TarFileSource): PutFile;
 
-
     hasUrlFileSource(): boolean;
     clearUrlFileSource(): void;
     getUrlFileSource(): URLFileSource | undefined;
     setUrlFileSource(value?: URLFileSource): PutFile;
-
 
     getSourceCase(): PutFile.SourceCase;
 
@@ -1229,13 +1123,9 @@ export namespace PutFile {
 
     export enum SourceCase {
         SOURCE_NOT_SET = 0,
-    
-    RAW_FILE_SOURCE = 3,
-
-    TAR_FILE_SOURCE = 4,
-
-    URL_FILE_SOURCE = 5,
-
+        RAW_FILE_SOURCE = 3,
+        TAR_FILE_SOURCE = 4,
+        URL_FILE_SOURCE = 5,
     }
 
 }
@@ -1243,15 +1133,12 @@ export namespace PutFile {
 export class RawFileSource extends jspb.Message { 
     getPath(): string;
     setPath(value: string): RawFileSource;
-
     getData(): Uint8Array | string;
     getData_asU8(): Uint8Array;
     getData_asB64(): string;
     setData(value: Uint8Array | string): RawFileSource;
-
     getEof(): boolean;
     setEof(value: boolean): RawFileSource;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RawFileSource.AsObject;
@@ -1277,7 +1164,6 @@ export class TarFileSource extends jspb.Message {
     getData_asB64(): string;
     setData(value: Uint8Array | string): TarFileSource;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): TarFileSource.AsObject;
     static toObject(includeInstance: boolean, msg: TarFileSource): TarFileSource.AsObject;
@@ -1297,13 +1183,10 @@ export namespace TarFileSource {
 export class URLFileSource extends jspb.Message { 
     getPath(): string;
     setPath(value: string): URLFileSource;
-
     getUrl(): string;
     setUrl(value: string): URLFileSource;
-
     getRecursive(): boolean;
     setRecursive(value: boolean): URLFileSource;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): URLFileSource.AsObject;
@@ -1326,10 +1209,8 @@ export namespace URLFileSource {
 export class DeleteFile extends jspb.Message { 
     getFile(): string;
     setFile(value: string): DeleteFile;
-
     getTag(): string;
     setTag(value: string): DeleteFile;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeleteFile.AsObject;
@@ -1351,19 +1232,15 @@ export namespace DeleteFile {
 export class CopyFile extends jspb.Message { 
     getAppend(): boolean;
     setAppend(value: boolean): CopyFile;
-
     getTag(): string;
     setTag(value: string): CopyFile;
-
     getDst(): string;
     setDst(value: string): CopyFile;
-
 
     hasSrc(): boolean;
     clearSrc(): void;
     getSrc(): File | undefined;
     setSrc(value?: File): CopyFile;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CopyFile.AsObject;
@@ -1391,24 +1268,20 @@ export class ModifyFileRequest extends jspb.Message {
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): ModifyFileRequest;
 
-
     hasPutFile(): boolean;
     clearPutFile(): void;
     getPutFile(): PutFile | undefined;
     setPutFile(value?: PutFile): ModifyFileRequest;
-
 
     hasDeleteFile(): boolean;
     clearDeleteFile(): void;
     getDeleteFile(): DeleteFile | undefined;
     setDeleteFile(value?: DeleteFile): ModifyFileRequest;
 
-
     hasCopyFile(): boolean;
     clearCopyFile(): void;
     getCopyFile(): CopyFile | undefined;
     setCopyFile(value?: CopyFile): ModifyFileRequest;
-
 
     getModificationCase(): ModifyFileRequest.ModificationCase;
 
@@ -1432,13 +1305,9 @@ export namespace ModifyFileRequest {
 
     export enum ModificationCase {
         MODIFICATION_NOT_SET = 0,
-    
-    PUT_FILE = 2,
-
-    DELETE_FILE = 3,
-
-    COPY_FILE = 4,
-
+        PUT_FILE = 2,
+        DELETE_FILE = 3,
+        COPY_FILE = 4,
     }
 
 }
@@ -1449,10 +1318,8 @@ export class GetFileRequest extends jspb.Message {
     clearFile(): void;
     getFile(): File | undefined;
     setFile(value?: File): GetFileRequest;
-
     getUrl(): string;
     setUrl(value: string): GetFileRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetFileRequest.AsObject;
@@ -1478,7 +1345,6 @@ export class InspectFileRequest extends jspb.Message {
     getFile(): File | undefined;
     setFile(value?: File): InspectFileRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectFileRequest.AsObject;
     static toObject(includeInstance: boolean, msg: InspectFileRequest): InspectFileRequest.AsObject;
@@ -1501,10 +1367,8 @@ export class ListFileRequest extends jspb.Message {
     clearFile(): void;
     getFile(): File | undefined;
     setFile(value?: File): ListFileRequest;
-
     getFull(): boolean;
     setFull(value: boolean): ListFileRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListFileRequest.AsObject;
@@ -1530,7 +1394,6 @@ export class WalkFileRequest extends jspb.Message {
     getFile(): File | undefined;
     setFile(value?: File): WalkFileRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): WalkFileRequest.AsObject;
     static toObject(includeInstance: boolean, msg: WalkFileRequest): WalkFileRequest.AsObject;
@@ -1553,10 +1416,8 @@ export class GlobFileRequest extends jspb.Message {
     clearCommit(): void;
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): GlobFileRequest;
-
     getPattern(): string;
     setPattern(value: string): GlobFileRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GlobFileRequest.AsObject;
@@ -1582,15 +1443,12 @@ export class DiffFileRequest extends jspb.Message {
     getNewFile(): File | undefined;
     setNewFile(value?: File): DiffFileRequest;
 
-
     hasOldFile(): boolean;
     clearOldFile(): void;
     getOldFile(): File | undefined;
     setOldFile(value?: File): DiffFileRequest;
-
     getShallow(): boolean;
     setShallow(value: boolean): DiffFileRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DiffFileRequest.AsObject;
@@ -1617,12 +1475,10 @@ export class DiffFileResponse extends jspb.Message {
     getNewFile(): FileInfo | undefined;
     setNewFile(value?: FileInfo): DiffFileResponse;
 
-
     hasOldFile(): boolean;
     clearOldFile(): void;
     getOldFile(): FileInfo | undefined;
     setOldFile(value?: FileInfo): DiffFileResponse;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DiffFileResponse.AsObject;
@@ -1645,7 +1501,6 @@ export class FsckRequest extends jspb.Message {
     getFix(): boolean;
     setFix(value: boolean): FsckRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): FsckRequest.AsObject;
     static toObject(includeInstance: boolean, msg: FsckRequest): FsckRequest.AsObject;
@@ -1665,10 +1520,8 @@ export namespace FsckRequest {
 export class FsckResponse extends jspb.Message { 
     getFix(): string;
     setFix(value: string): FsckResponse;
-
     getError(): string;
     setError(value: string): FsckResponse;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): FsckResponse.AsObject;
@@ -1690,7 +1543,6 @@ export namespace FsckResponse {
 export class CreateFilesetResponse extends jspb.Message { 
     getFilesetId(): string;
     setFilesetId(value: string): CreateFilesetResponse;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateFilesetResponse.AsObject;
@@ -1715,7 +1567,6 @@ export class GetFilesetRequest extends jspb.Message {
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): GetFilesetRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetFilesetRequest.AsObject;
     static toObject(includeInstance: boolean, msg: GetFilesetRequest): GetFilesetRequest.AsObject;
@@ -1738,10 +1589,8 @@ export class AddFilesetRequest extends jspb.Message {
     clearCommit(): void;
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): AddFilesetRequest;
-
     getFilesetId(): string;
     setFilesetId(value: string): AddFilesetRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AddFilesetRequest.AsObject;
@@ -1763,10 +1612,8 @@ export namespace AddFilesetRequest {
 export class RenewFilesetRequest extends jspb.Message { 
     getFilesetId(): string;
     setFilesetId(value: string): RenewFilesetRequest;
-
     getTtlSeconds(): number;
     setTtlSeconds(value: number): RenewFilesetRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RenewFilesetRequest.AsObject;

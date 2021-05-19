@@ -12,7 +12,6 @@ export class ActivateRequest extends jspb.Message {
     getRootToken(): string;
     setRootToken(value: string): ActivateRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ActivateRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ActivateRequest): ActivateRequest.AsObject;
@@ -32,7 +31,6 @@ export namespace ActivateRequest {
 export class ActivateResponse extends jspb.Message { 
     getPachToken(): string;
     setPachToken(value: string): ActivateResponse;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ActivateResponse.AsObject;
@@ -88,7 +86,6 @@ export class RotateRootTokenRequest extends jspb.Message {
     getRootToken(): string;
     setRootToken(value: string): RotateRootTokenRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RotateRootTokenRequest.AsObject;
     static toObject(includeInstance: boolean, msg: RotateRootTokenRequest): RotateRootTokenRequest.AsObject;
@@ -109,7 +106,6 @@ export class RotateRootTokenResponse extends jspb.Message {
     getRootToken(): string;
     setRootToken(value: string): RotateRootTokenResponse;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RotateRootTokenResponse.AsObject;
     static toObject(includeInstance: boolean, msg: RotateRootTokenResponse): RotateRootTokenResponse.AsObject;
@@ -129,27 +125,20 @@ export namespace RotateRootTokenResponse {
 export class OIDCConfig extends jspb.Message { 
     getIssuer(): string;
     setIssuer(value: string): OIDCConfig;
-
     getClientId(): string;
     setClientId(value: string): OIDCConfig;
-
     getClientSecret(): string;
     setClientSecret(value: string): OIDCConfig;
-
     getRedirectUri(): string;
     setRedirectUri(value: string): OIDCConfig;
-
     clearScopesList(): void;
     getScopesList(): Array<string>;
     setScopesList(value: Array<string>): OIDCConfig;
     addScopes(value: string, index?: number): string;
-
     getRequireEmailVerified(): boolean;
     setRequireEmailVerified(value: boolean): OIDCConfig;
-
     getLocalhostIssuer(): boolean;
     setLocalhostIssuer(value: boolean): OIDCConfig;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): OIDCConfig.AsObject;
@@ -197,7 +186,6 @@ export class GetConfigurationResponse extends jspb.Message {
     getConfiguration(): OIDCConfig | undefined;
     setConfiguration(value?: OIDCConfig): GetConfigurationResponse;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetConfigurationResponse.AsObject;
     static toObject(includeInstance: boolean, msg: GetConfigurationResponse): GetConfigurationResponse.AsObject;
@@ -220,7 +208,6 @@ export class SetConfigurationRequest extends jspb.Message {
     clearConfiguration(): void;
     getConfiguration(): OIDCConfig | undefined;
     setConfiguration(value?: OIDCConfig): SetConfigurationRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SetConfigurationRequest.AsObject;
@@ -259,15 +246,12 @@ export class TokenInfo extends jspb.Message {
     getSubject(): string;
     setSubject(value: string): TokenInfo;
 
-
     hasExpiration(): boolean;
     clearExpiration(): void;
     getExpiration(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setExpiration(value?: google_protobuf_timestamp_pb.Timestamp): TokenInfo;
-
     getHashedToken(): string;
     setHashedToken(value: string): TokenInfo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): TokenInfo.AsObject;
@@ -290,10 +274,8 @@ export namespace TokenInfo {
 export class AuthenticateRequest extends jspb.Message { 
     getOidcState(): string;
     setOidcState(value: string): AuthenticateRequest;
-
     getIdToken(): string;
     setIdToken(value: string): AuthenticateRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AuthenticateRequest.AsObject;
@@ -315,7 +297,6 @@ export namespace AuthenticateRequest {
 export class AuthenticateResponse extends jspb.Message { 
     getPachToken(): string;
     setPachToken(value: string): AuthenticateResponse;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AuthenticateResponse.AsObject;
@@ -354,12 +335,10 @@ export class WhoAmIResponse extends jspb.Message {
     getUsername(): string;
     setUsername(value: string): WhoAmIResponse;
 
-
     hasExpiration(): boolean;
     clearExpiration(): void;
     getExpiration(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setExpiration(value?: google_protobuf_timestamp_pb.Timestamp): WhoAmIResponse;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): WhoAmIResponse.AsObject;
@@ -383,7 +362,6 @@ export class Roles extends jspb.Message {
     getRolesMap(): jspb.Map<string, boolean>;
     clearRolesMap(): void;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Roles.AsObject;
     static toObject(includeInstance: boolean, msg: Roles): Roles.AsObject;
@@ -406,7 +384,6 @@ export class RoleBinding extends jspb.Message {
     getEntriesMap(): jspb.Map<string, Roles>;
     clearEntriesMap(): void;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RoleBinding.AsObject;
     static toObject(includeInstance: boolean, msg: RoleBinding): RoleBinding.AsObject;
@@ -427,10 +404,8 @@ export namespace RoleBinding {
 export class Resource extends jspb.Message { 
     getType(): ResourceType;
     setType(value: ResourceType): Resource;
-
     getName(): string;
     setName(value: string): Resource;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Resource.AsObject;
@@ -454,7 +429,6 @@ export class Users extends jspb.Message {
     getUsernamesMap(): jspb.Map<string, boolean>;
     clearUsernamesMap(): void;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Users.AsObject;
     static toObject(includeInstance: boolean, msg: Users): Users.AsObject;
@@ -476,7 +450,6 @@ export class Groups extends jspb.Message {
 
     getGroupsMap(): jspb.Map<string, boolean>;
     clearGroupsMap(): void;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Groups.AsObject;
@@ -501,12 +474,10 @@ export class AuthorizeRequest extends jspb.Message {
     clearResource(): void;
     getResource(): Resource | undefined;
     setResource(value?: Resource): AuthorizeRequest;
-
     clearPermissionsList(): void;
     getPermissionsList(): Array<Permission>;
     setPermissionsList(value: Array<Permission>): AuthorizeRequest;
     addPermissions(value: Permission, index?: number): Permission;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AuthorizeRequest.AsObject;
@@ -528,20 +499,16 @@ export namespace AuthorizeRequest {
 export class AuthorizeResponse extends jspb.Message { 
     getAuthorized(): boolean;
     setAuthorized(value: boolean): AuthorizeResponse;
-
     clearSatisfiedList(): void;
     getSatisfiedList(): Array<Permission>;
     setSatisfiedList(value: Array<Permission>): AuthorizeResponse;
     addSatisfied(value: Permission, index?: number): Permission;
-
     clearMissingList(): void;
     getMissingList(): Array<Permission>;
     setMissingList(value: Array<Permission>): AuthorizeResponse;
     addMissing(value: Permission, index?: number): Permission;
-
     getPrincipal(): string;
     setPrincipal(value: string): AuthorizeResponse;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AuthorizeResponse.AsObject;
@@ -569,7 +536,6 @@ export class GetPermissionsRequest extends jspb.Message {
     getResource(): Resource | undefined;
     setResource(value?: Resource): GetPermissionsRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetPermissionsRequest.AsObject;
     static toObject(includeInstance: boolean, msg: GetPermissionsRequest): GetPermissionsRequest.AsObject;
@@ -592,10 +558,8 @@ export class GetPermissionsForPrincipalRequest extends jspb.Message {
     clearResource(): void;
     getResource(): Resource | undefined;
     setResource(value?: Resource): GetPermissionsForPrincipalRequest;
-
     getPrincipal(): string;
     setPrincipal(value: string): GetPermissionsForPrincipalRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetPermissionsForPrincipalRequest.AsObject;
@@ -619,12 +583,10 @@ export class GetPermissionsResponse extends jspb.Message {
     getPermissionsList(): Array<Permission>;
     setPermissionsList(value: Array<Permission>): GetPermissionsResponse;
     addPermissions(value: Permission, index?: number): Permission;
-
     clearRolesList(): void;
     getRolesList(): Array<string>;
     setRolesList(value: Array<string>): GetPermissionsResponse;
     addRoles(value: string, index?: number): string;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetPermissionsResponse.AsObject;
@@ -649,15 +611,12 @@ export class ModifyRoleBindingRequest extends jspb.Message {
     clearResource(): void;
     getResource(): Resource | undefined;
     setResource(value?: Resource): ModifyRoleBindingRequest;
-
     getPrincipal(): string;
     setPrincipal(value: string): ModifyRoleBindingRequest;
-
     clearRolesList(): void;
     getRolesList(): Array<string>;
     setRolesList(value: Array<string>): ModifyRoleBindingRequest;
     addRoles(value: string, index?: number): string;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ModifyRoleBindingRequest.AsObject;
@@ -701,7 +660,6 @@ export class GetRoleBindingRequest extends jspb.Message {
     getResource(): Resource | undefined;
     setResource(value?: Resource): GetRoleBindingRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetRoleBindingRequest.AsObject;
     static toObject(includeInstance: boolean, msg: GetRoleBindingRequest): GetRoleBindingRequest.AsObject;
@@ -725,7 +683,6 @@ export class GetRoleBindingResponse extends jspb.Message {
     getBinding(): RoleBinding | undefined;
     setBinding(value?: RoleBinding): GetRoleBindingResponse;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetRoleBindingResponse.AsObject;
     static toObject(includeInstance: boolean, msg: GetRoleBindingResponse): GetRoleBindingResponse.AsObject;
@@ -745,13 +702,10 @@ export namespace GetRoleBindingResponse {
 export class SessionInfo extends jspb.Message { 
     getNonce(): string;
     setNonce(value: string): SessionInfo;
-
     getEmail(): string;
     setEmail(value: string): SessionInfo;
-
     getConversionErr(): boolean;
     setConversionErr(value: boolean): SessionInfo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SessionInfo.AsObject;
@@ -791,10 +745,8 @@ export namespace GetOIDCLoginRequest {
 export class GetOIDCLoginResponse extends jspb.Message { 
     getLoginUrl(): string;
     setLoginUrl(value: string): GetOIDCLoginResponse;
-
     getState(): string;
     setState(value: string): GetOIDCLoginResponse;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetOIDCLoginResponse.AsObject;
@@ -816,10 +768,8 @@ export namespace GetOIDCLoginResponse {
 export class GetRobotTokenRequest extends jspb.Message { 
     getRobot(): string;
     setRobot(value: string): GetRobotTokenRequest;
-
     getTtl(): number;
     setTtl(value: number): GetRobotTokenRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetRobotTokenRequest.AsObject;
@@ -842,7 +792,6 @@ export class GetRobotTokenResponse extends jspb.Message {
     getToken(): string;
     setToken(value: string): GetRobotTokenResponse;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetRobotTokenResponse.AsObject;
     static toObject(includeInstance: boolean, msg: GetRobotTokenResponse): GetRobotTokenResponse.AsObject;
@@ -862,7 +811,6 @@ export namespace GetRobotTokenResponse {
 export class RevokeAuthTokenRequest extends jspb.Message { 
     getToken(): string;
     setToken(value: string): RevokeAuthTokenRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RevokeAuthTokenRequest.AsObject;
@@ -900,12 +848,10 @@ export namespace RevokeAuthTokenResponse {
 export class SetGroupsForUserRequest extends jspb.Message { 
     getUsername(): string;
     setUsername(value: string): SetGroupsForUserRequest;
-
     clearGroupsList(): void;
     getGroupsList(): Array<string>;
     setGroupsList(value: Array<string>): SetGroupsForUserRequest;
     addGroups(value: string, index?: number): string;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SetGroupsForUserRequest.AsObject;
@@ -944,17 +890,14 @@ export namespace SetGroupsForUserResponse {
 export class ModifyMembersRequest extends jspb.Message { 
     getGroup(): string;
     setGroup(value: string): ModifyMembersRequest;
-
     clearAddList(): void;
     getAddList(): Array<string>;
     setAddList(value: Array<string>): ModifyMembersRequest;
     addAdd(value: string, index?: number): string;
-
     clearRemoveList(): void;
     getRemoveList(): Array<string>;
     setRemoveList(value: Array<string>): ModifyMembersRequest;
     addRemove(value: string, index?: number): string;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ModifyMembersRequest.AsObject;
@@ -1012,7 +955,6 @@ export class GetGroupsForPrincipalRequest extends jspb.Message {
     getPrincipal(): string;
     setPrincipal(value: string): GetGroupsForPrincipalRequest;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetGroupsForPrincipalRequest.AsObject;
     static toObject(includeInstance: boolean, msg: GetGroupsForPrincipalRequest): GetGroupsForPrincipalRequest.AsObject;
@@ -1035,7 +977,6 @@ export class GetGroupsResponse extends jspb.Message {
     setGroupsList(value: Array<string>): GetGroupsResponse;
     addGroups(value: string, index?: number): string;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetGroupsResponse.AsObject;
     static toObject(includeInstance: boolean, msg: GetGroupsResponse): GetGroupsResponse.AsObject;
@@ -1055,7 +996,6 @@ export namespace GetGroupsResponse {
 export class GetUsersRequest extends jspb.Message { 
     getGroup(): string;
     setGroup(value: string): GetUsersRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetUsersRequest.AsObject;
@@ -1078,7 +1018,6 @@ export class GetUsersResponse extends jspb.Message {
     getUsernamesList(): Array<string>;
     setUsernamesList(value: Array<string>): GetUsersResponse;
     addUsernames(value: string, index?: number): string;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetUsersResponse.AsObject;
@@ -1119,7 +1058,6 @@ export class ExtractAuthTokensResponse extends jspb.Message {
     setTokensList(value: Array<TokenInfo>): ExtractAuthTokensResponse;
     addTokens(value?: TokenInfo, index?: number): TokenInfo;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ExtractAuthTokensResponse.AsObject;
     static toObject(includeInstance: boolean, msg: ExtractAuthTokensResponse): ExtractAuthTokensResponse.AsObject;
@@ -1142,7 +1080,6 @@ export class RestoreAuthTokenRequest extends jspb.Message {
     clearToken(): void;
     getToken(): TokenInfo | undefined;
     setToken(value?: TokenInfo): RestoreAuthTokenRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RestoreAuthTokenRequest.AsObject;
@@ -1180,7 +1117,6 @@ export namespace RestoreAuthTokenResponse {
 export class RevokeAuthTokensForUserRequest extends jspb.Message { 
     getUsername(): string;
     setUsername(value: string): RevokeAuthTokensForUserRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RevokeAuthTokensForUserRequest.AsObject;

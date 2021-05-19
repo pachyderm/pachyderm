@@ -269,7 +269,7 @@ interface IAPIService_IUpdatePipelineJobState extends grpc.MethodDefinition<pps_
 
 export const APIService: IAPIService;
 
-export interface IAPIServer {
+export interface IAPIServer extends grpc.UntypedServiceImplementation {
     createPipelineJob: grpc.handleUnaryCall<pps_pps_pb.CreatePipelineJobRequest, pps_pps_pb.PipelineJob>;
     inspectPipelineJob: grpc.handleUnaryCall<pps_pps_pb.InspectPipelineJobRequest, pps_pps_pb.PipelineJobInfo>;
     listPipelineJob: grpc.handleServerStreamingCall<pps_pps_pb.ListPipelineJobRequest, pps_pps_pb.PipelineJobInfo>;

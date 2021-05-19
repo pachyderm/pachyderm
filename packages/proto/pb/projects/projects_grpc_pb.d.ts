@@ -36,7 +36,7 @@ interface IAPIService_IListProject extends grpc.MethodDefinition<google_protobuf
 
 export const APIService: IAPIService;
 
-export interface IAPIServer {
+export interface IAPIServer extends grpc.UntypedServiceImplementation {
     inspectProject: grpc.handleUnaryCall<projects_projects_pb.ProjectRequest, projects_projects_pb.Project>;
     listProject: grpc.handleUnaryCall<google_protobuf_empty_pb.Empty, projects_projects_pb.Projects>;
 }

@@ -256,7 +256,7 @@ interface IAPIService_IRotateRootToken extends grpc.MethodDefinition<auth_auth_p
 
 export const APIService: IAPIService;
 
-export interface IAPIServer {
+export interface IAPIServer extends grpc.UntypedServiceImplementation {
     activate: grpc.handleUnaryCall<auth_auth_pb.ActivateRequest, auth_auth_pb.ActivateResponse>;
     deactivate: grpc.handleUnaryCall<auth_auth_pb.DeactivateRequest, auth_auth_pb.DeactivateResponse>;
     getConfiguration: grpc.handleUnaryCall<auth_auth_pb.GetConfigurationRequest, auth_auth_pb.GetConfigurationResponse>;
