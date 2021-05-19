@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	logrus "github.com/sirupsen/logrus"
@@ -60,17 +61,13 @@ func (a *apiServer) ServeSidecarS3G() {
 	if err := backoff.RetryNotify(func() error {
 		retryCtx, retryCancel := context.WithCancel(context.Background())
 		defer retryCancel()
-		if err := a.sudo(retryCtx, func(superUserClient *client.APIClient) error {
-			buf := bytes.Buffer{}
-			if err := superUserClient.GetFile(client.NewCommit(ppsconsts.SpecRepo, "", specCommit), ppsconsts.SpecFile, &buf); err != nil {
-				return errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
-			}
-			if err := proto.Unmarshal(buf.Bytes(), s.pipelineInfo); err != nil {
-				return errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
-			}
-			return nil
-		}); err != nil {
-			return errors.Wrapf(err, "sidecar s3 gateway: could not read pipeline spec commit")
+		buf := bytes.Buffer{}
+		commit := client.NewSystemRepo(a.env.Config().PPSPipelineName, pfs.SpecRepoType).NewCommit("", specCommit)
+		if err := s.pachClient.GetFile(commit, ppsconsts.SpecFile, &buf); err != nil {
+			return errors.Wrapf(err, "sidecar s3 gateway: could not read pipeline spec commit: could not read existing PipelineInfo from PFS")
+		}
+		if err := proto.Unmarshal(buf.Bytes(), s.pipelineInfo); err != nil {
+			return errors.Wrapf(err, "sidecar s3 gateway: could not read pipeline spec commit: could not unmarshal PipelineInfo bytes from PFS")
 		}
 		if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Input) && !s.pipelineInfo.S3Out {
 			return nil // break out of backoff (nothing to serve via S3 gateway)

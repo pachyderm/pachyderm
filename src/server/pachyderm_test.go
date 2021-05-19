@@ -30,7 +30,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -8526,7 +8525,12 @@ func TestDeleteSpecRepo(t *testing.T) {
 		"",
 		false,
 	))
-	require.YesError(t, c.DeleteRepo(ppsconsts.SpecRepo, false))
+	_, err := c.PfsAPIClient.DeleteRepo(
+		c.Ctx(),
+		&pfs.DeleteRepoRequest{
+			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+		})
+	require.YesError(t, err)
 }
 
 func TestUserWorkingDir(t *testing.T) {
@@ -10468,7 +10472,7 @@ func TestPipelineSpecCommitCleanup(t *testing.T) {
 	require.NoError(t, createPipeline(c.WithTransaction(txn)))
 	require.NoError(t, c.DeleteTransaction(txn))
 
-	commits, err := c.ListCommitByRepo(client.NewRepo(ppsconsts.SpecRepo))
+	commits, err := c.ListCommitByRepo(client.NewSystemRepo(pipeline, pfs.SpecRepoType))
 	require.NoError(t, err)
 	require.Equal(t, len(commits), 0)
 
@@ -10476,7 +10480,7 @@ func TestPipelineSpecCommitCleanup(t *testing.T) {
 	// creating again should error
 	require.YesError(t, createPipeline(c))
 	// resulting in any temporary spec commit being deleted
-	commits, err = c.ListCommitByRepo(client.NewRepo(ppsconsts.SpecRepo))
+	commits, err = c.ListCommitByRepo(client.NewSystemRepo(pipeline, pfs.SpecRepoType))
 	require.NoError(t, err)
 	require.Equal(t, len(commits), 1)
 }

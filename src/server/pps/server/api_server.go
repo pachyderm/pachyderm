@@ -805,7 +805,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *
 	}
 	var specCommit *pfs.Commit
 	for _, prov := range commitInfo.Provenance {
-		if prov.Commit.Branch.Repo.Name == ppsconsts.SpecRepo && prov.Commit.Branch.Name == pipelineJobPtr.Pipeline.Name {
+		if prov.Commit.Branch.Repo.Type == pfs.SpecRepoType && prov.Commit.Branch.Repo.Name == pipelineJobPtr.Pipeline.Name {
 			specCommit = prov.Commit
 			break
 		}
@@ -1683,26 +1683,24 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 	prevSpecCommit *pfs.Commit,
 ) (*pfs.Commit, error) {
 	var commit *pfs.Commit
-	if err := a.sudoTransaction(txnCtx, func(superCtx *txncontext.TransactionContext) error {
-		var err error
-		commit, err = a.env.PfsServer().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
-			Parent: prevSpecCommit,
-			Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineName),
-		}, nil)
-		if err != nil {
-			return errors.Wrapf(err, "could not marshal PipelineInfo")
-		}
+	var err error
+	commit, err = a.env.PfsServer().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
+		Parent: prevSpecCommit,
+		Branch: client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"),
+	}, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not marshal PipelineInfo")
+	}
 
-		if err := a.env.PfsServer().AddFilesetInTransaction(superCtx, &pfs.AddFilesetRequest{
-			Commit:    commit,
-			FilesetId: filesetID,
-		}); err != nil {
-			return err
-		}
+	if err := a.env.PfsServer().AddFilesetInTransaction(txnCtx, &pfs.AddFilesetRequest{
+		Commit:    commit,
+		FilesetId: filesetID,
+	}); err != nil {
+		return nil, err
+	}
 
-		return a.env.PfsServer().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
-			Commit: commit,
-		})
+	if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+		Commit: commit,
 	}); err != nil {
 		return nil, err
 	}
@@ -2092,7 +2090,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	var (
 		// provenance for the pipeline's output branch (includes the spec branch)
 		provenance = append(branchProvenance(newPipelineInfo.Input),
-			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
+			client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"))
 		outputBranch     = client.NewBranch(pipelineName, newPipelineInfo.OutputBranch)
 		statsBranch      = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch("master")
 		outputBranchHead *pfs.Commit
@@ -2109,7 +2107,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
 		if ci, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
-			Commit: client.NewCommit(ppsconsts.SpecRepo, pipelineName, ""),
+			Commit: client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewCommit("master", ""),
 		}); err != nil {
 			return err
 		} else if ci.Finished == nil {
@@ -2118,6 +2116,22 @@ func (a *apiServer) CreatePipelineInTransaction(
 				"call crashed. If you're sure no other CreatePipeline commands are " +
 				"running, you can run 'pachctl update pipeline --clean' which will " +
 				"delete this open commit")
+		}
+	} else {
+		// Create output and spec repos
+		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
+			&pfs.CreateRepoRequest{
+				Repo:        client.NewRepo(pipelineName),
+				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
+			}); err != nil && !isAlreadyExistsErr(err) {
+			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
+		}
+		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
+			&pfs.CreateRepoRequest{
+				Repo:        client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
+				Description: fmt.Sprintf("Spec repo for pipeline %s.", request.Pipeline.Name),
+			}); err != nil && !isAlreadyExistsErr(err) {
+			return errors.Wrapf(err, "error creating spec repo for %s", pipelineName)
 		}
 	}
 
@@ -2224,15 +2238,6 @@ func (a *apiServer) CreatePipelineInTransaction(
 			}
 		}
 	} else {
-		// Create output repo, pipeline output, and stats
-		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
-			&pfs.CreateRepoRequest{
-				Repo:        client.NewRepo(pipelineName),
-				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
-			}); err != nil && !isAlreadyExistsErr(err) {
-			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
-
-		}
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
 		// auth token
 		pipelinePtr := &pps.StoredPipelineInfo{
@@ -2641,10 +2646,16 @@ func (a *apiServer) listPipelinePtr(ctx context.Context,
 			}
 			// Get parent commit
 			pachClient := a.env.GetPachClient(ctx)
-			ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, p.SpecCommit.Branch.Name, p.SpecCommit.ID)
+			ci, err := pachClient.PfsAPIClient.InspectCommit(
+				ctx,
+				&pfs.InspectCommitRequest{
+					Commit:     p.SpecCommit,
+					BlockState: pfs.CommitState_STARTED,
+				},
+			)
 			switch {
 			case err != nil:
-				return err
+				return grpcutil.ScrubGRPC(err)
 			case ci.ParentCommit == nil:
 				return nil
 			default:
@@ -2701,16 +2712,27 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 // so, deletes the orphaned branch.
 func (a *apiServer) cleanUpSpecBranch(ctx context.Context, pipeline string) error {
 	pachClient := a.env.GetPachClient(ctx)
-	specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, pipeline)
+	specBranch := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewBranch("master")
+	specBranchInfo, err := pachClient.PfsAPIClient.InspectBranch(
+		ctx,
+		&pfs.InspectBranchRequest{
+			Branch: specBranch,
+		},
+	)
 	if err != nil && (specBranchInfo != nil && specBranchInfo.Head != nil) {
 		// No spec branch (and no etcd pointer) => the pipeline doesn't exist
-		return errors.Wrapf(err, "pipeline %v was not found", pipeline)
+		return errors.Wrapf(grpcutil.ScrubGRPC(err), "pipeline %v was not found", pipeline)
 	}
 	// branch exists but head is nil => pipeline creation never finished/
 	// pps state is invalid. Delete nil branch
-	return grpcutil.ScrubGRPC(a.sudo(ctx, func(superUserClient *client.APIClient) error {
-		return superUserClient.DeleteBranch(ppsconsts.SpecRepo, pipeline, true)
-	}))
+	_, err = pachClient.PfsAPIClient.DeleteBranch(
+		ctx,
+		&pfs.DeleteBranchRequest{
+			Branch: specBranch,
+			Force:  true,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
 }
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
@@ -2815,13 +2837,6 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 
 	eg = errgroup.Group{}
-	// Delete pipeline branch in SpecRepo (leave commits, to preserve downstream
-	// commits)
-	eg.Go(func() error {
-		return a.sudo(ctx, func(superUserClient *client.APIClient) error {
-			return grpcutil.ScrubGRPC(superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, request.Force))
-		})
-	})
 	// Delete cron input repos
 	if !request.KeepRepo {
 		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
@@ -2884,7 +2899,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	pachClient := a.env.GetPachClient(ctx)
 	// Replace missing branch provenance (removed by StopPipeline)
 	provenance := append(branchProvenance(pipelineInfo.Input),
-		client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name))
+		client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.SpecRepoType).NewBranch("master"))
 	if err := pachClient.CreateBranch(
 		request.Pipeline.Name,
 		pipelineInfo.OutputBranch,
@@ -3030,7 +3045,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		// ensure the commit provenance is consistent with the branch provenance
 		branch := prov.Commit.Branch
 		if len(branchProvMap) != 0 {
-			if branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(branch)] {
+			if branch.Repo.Type != pfs.SpecRepoType && !branchProvMap[key(branch)] {
 				return nil, errors.Errorf("the commit provenance contains a branch which the pipeline's branch is not provenant on")
 			}
 		}
@@ -3265,7 +3280,6 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
 	ctx = ctx // pachClient will propagate auth info
 
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
@@ -3277,21 +3291,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	}); err != nil {
 		return nil, err
 	}
-
-	// PFS doesn't delete the spec repo, so do it here
-	if err := pachClient.DeleteRepo(ppsconsts.SpecRepo, true); err != nil && !isNotFoundErr(err) {
-		return nil, err
-	}
-	if _, err := pachClient.PfsAPIClient.CreateRepo(
-		ctx,
-		&pfs.CreateRepoRequest{
-			Repo:        client.NewRepo(ppsconsts.SpecRepo),
-			Update:      true,
-			Description: ppsconsts.SpecRepoDesc,
-		},
-	); err != nil {
-		return nil, err
-	}
 	return &types.Empty{}, nil
 }
 
@@ -3300,16 +3299,6 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-
-	// Set the permissions on the spec repo so anyone can read it
-	if err := pachClient.ModifyRepoRoleBinding(ppsconsts.SpecRepo, auth.AllClusterUsersSubject, []string{auth.RepoReaderRole}); err != nil {
-		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot configure role binding on spec repo")
-	}
-
-	// Set the permissions on the spec repo so the PPS user can write to it
-	if err := pachClient.ModifyRepoRoleBinding(ppsconsts.SpecRepo, auth.PpsUser, []string{auth.RepoWriterRole}); err != nil {
-		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot configure role binding on spec repo")
-	}
 
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive

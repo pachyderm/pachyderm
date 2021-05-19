@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -139,17 +138,6 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		return nil, err
 	}
 	d.commitStore = newPostgresCommitStore(env.GetDBClient(), tracker, d.storage)
-	// Create spec repo (default repo)
-	repo := client.NewRepo(ppsconsts.SpecRepo)
-	repoInfo := &pfs.RepoInfo{
-		Repo:    repo,
-		Created: types.TimestampNow(),
-	}
-	if err := col.NewSQLTx(env.Context(), env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		return d.repos.ReadWrite(sqlTx).Create(pfsdb.RepoKey(repo), repoInfo)
-	}); err != nil && !col.IsErrExists(err) {
-		return nil, err
-	}
 	// Setup PFS master
 	go d.master(env.Context())
 	return d, nil
@@ -298,9 +286,6 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	repoInfo := &pfs.RepoInfo{}
 
 	processFunc := func(string) error {
-		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
-			return nil
-		}
 		size, err := d.getRepoSize(ctx, repoInfo.Repo)
 		if err != nil {
 			return err
@@ -553,11 +538,11 @@ func (d *driver) makeCommit(
 	}
 
 	// check if this is happening in a spout pipeline, and append the correct provenance
-	spoutName, ok1 := os.LookupEnv("SPOUT_PIPELINE_NAME")
+	spoutName, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
 	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
 	if ok1 && ok2 {
 		log.Infof("Appending provenance for spout: %v %v", spoutName, spoutCommit)
-		provenance = append(provenance, client.NewCommitProvenance(ppsconsts.SpecRepo, spoutName, spoutCommit))
+		provenance = append(provenance, client.NewSystemRepo(spoutName, pfs.SpecRepoType).NewCommit(spoutName, spoutCommit).NewProvenance())
 	}
 
 	// Set newCommitInfo.Started and possibly newCommitInfo.Finished. Enforce:
@@ -640,7 +625,7 @@ func (d *driver) makeCommit(
 		// since spouts will have __spec__ as provenance, but need to accept commits
 		provenanceCount := len(branchInfo.Provenance)
 		for _, p := range branchInfo.Provenance {
-			if p.Repo.Name == ppsconsts.SpecRepo {
+			if p.Repo.Type == pfs.SpecRepoType {
 				provenanceCount--
 				break
 			}
@@ -730,7 +715,7 @@ func (d *driver) makeCommit(
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
 			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
-			if prov.Commit.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Commit.Branch.Name != "" && !branchProvMap[pfsdb.BranchKey(prov.Commit.Branch)] {
+			if prov.Commit.Branch.Repo.Type != pfs.SpecRepoType && prov.Commit.Branch.Name != "" && !branchProvMap[pfsdb.BranchKey(prov.Commit.Branch)] {
 				return nil, errors.Errorf("the commit provenance contains a branch which the branch is not provenant on: %s", pretty.CompactPrintBranch(prov.Commit.Branch))
 			}
 		}
@@ -1026,7 +1011,7 @@ nextSubvBI:
 		// output commit
 		allSpec := true
 		for _, p := range newCommitProvMap {
-			if p.Commit.Branch.Repo.Name != ppsconsts.SpecRepo {
+			if p.Commit.Branch.Repo.Type != pfs.SpecRepoType {
 				allSpec = false
 				break
 			}
@@ -1718,7 +1703,7 @@ func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
 	provenanceCount := len(provenance)
 	for _, p := range provenance {
 		// in particular, we want to exclude provenance on the spec repo (used e.g. for spouts)
-		if p.Commit.Branch.Repo.Name == ppsconsts.SpecRepo {
+		if p.Commit.Branch.Repo.Type == pfs.SpecRepoType {
 			provenanceCount--
 			break
 		}
