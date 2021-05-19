@@ -51,7 +51,7 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
+func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string, heartbeat bool) (ec.APIServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
 		env.GetEtcdClient(),
@@ -70,7 +70,10 @@ func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APISe
 		configCol:            col.NewEtcdCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
 	}
 	go s.enterpriseTokenCache.Watch()
-	go s.heartbeatRoutine()
+
+	if heartbeat {
+		go s.heartbeatRoutine()
+	}
 	return s, nil
 }
 
@@ -81,7 +84,7 @@ func (a *apiServer) heartbeatRoutine() {
 		func() {
 			ctx, cancel := context.WithTimeout(context.Background(), heartbeatTimeout)
 			defer cancel()
-			if err := a.heartbeatIfConfigured(ctx); err != nil {
+			if err := a.heartbeatIfConfigured(ctx); err != nil && !lc.IsErrNotActivated(err) {
 				logrus.WithError(err).Error("enterprise license heartbeat process failed")
 			}
 		}()
