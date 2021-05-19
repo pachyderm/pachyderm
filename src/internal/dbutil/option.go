@@ -25,3 +25,11 @@ func WithDBName(DBName string) Option {
 		dbc.name = DBName
 	}
 }
+
+// WithMaxOpenConns sets the maximum number of concurrent database connections
+// to be allocated before blocking new acquisitions.
+func WithMaxOpenConns(n int) Option {
+	return func(dbc *dbConfig) {
+		dbc.maxOpenConns = n
+	}
+}

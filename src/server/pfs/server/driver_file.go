@@ -416,15 +416,15 @@ func (d *driver) renewFileset(ctx context.Context, id fileset.ID, ttl time.Durat
 	return err
 }
 
-func (d *driver) addFileset(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error {
-	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
+func (d *driver) addFileset(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
+	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
 	}
 	if commitInfo.Finished != nil {
 		return pfsserver.ErrCommitFinished{commitInfo.Commit}
 	}
-	return d.commitStore.AddFileset(ctx, commitInfo.Commit, filesetID)
+	return d.commitStore.AddFilesetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID)
 }
 
 func (d *driver) getFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {

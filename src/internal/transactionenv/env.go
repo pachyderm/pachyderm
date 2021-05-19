@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -35,8 +36,9 @@ type PfsWrites interface {
 // directly run the request through PPS or append it to the active transaction,
 // depending on if there is an active transaction in the client context.
 type PpsWrites interface {
+	StopJob(*pps.StopJobRequest) error
 	UpdateJobState(*pps.UpdateJobStateRequest) error
-	CreatePipeline(*pps.CreatePipelineRequest, **pfs.Commit) error
+	CreatePipeline(*pps.CreatePipelineRequest, *string, **pfs.Commit) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -73,12 +75,14 @@ type PipelineCommitFinisher interface {
 //     that all reads and writes are consistent until changes are committed.
 //   txnEnv: a struct containing references to each API server, it can be used
 //     to make calls to other API servers (e.g. checking auth permissions)
-//   pfsDefer: an interface for ensuring certain PFS cleanup tasks are performed
+//   pfsPropagater: an interface for ensuring certain PFS cleanup tasks are performed
 //     properly (and deduped) at the end of the transaction.
+//   commitFinisher: an interface for ensuring certain PPS cleanup tasks are performed
+//     properly at the end of the transaction.
 type TransactionContext struct {
 	ClientContext  context.Context
 	Client         *client.APIClient
-	Stm            col.STM
+	SqlTx          *sqlx.Tx
 	pfsPropagater  PfsPropagater
 	commitFinisher PipelineCommitFinisher
 	txnEnv         *TransactionEnv
@@ -96,6 +100,13 @@ func (t *TransactionContext) Auth() AuthTransactionServer {
 // (which will not maintain transactional guarantees)
 func (t *TransactionContext) Pfs() PfsTransactionServer {
 	return t.txnEnv.pfsServer
+}
+
+// Pps returns a reference to the PPS API Server so that transactionally-
+// supported methods can be called across the API boundary without using RPCs
+// (which will not maintain transactional guarantees)
+func (t *TransactionContext) Pps() PpsTransactionServer {
+	return t.txnEnv.ppsServer
 }
 
 // PropagateCommit saves a branch to be propagated at the end of the transaction
@@ -162,7 +173,7 @@ type AuthTransactionServer interface {
 // PfsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
-	NewPropagater(col.STM) PfsPropagater
+	NewPropagater(*sqlx.Tx) PfsPropagater
 	NewPipelineFinisher(*TransactionContext) PipelineCommitFinisher
 
 	CreateRepoInTransaction(*TransactionContext, *pfs.CreateRepoRequest) error
@@ -177,13 +188,16 @@ type PfsTransactionServer interface {
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
 	InspectBranchInTransaction(*TransactionContext, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
 	DeleteBranchInTransaction(*TransactionContext, *pfs.DeleteBranchRequest) error
+
+	AddFilesetInTransaction(*TransactionContext, *pfs.AddFilesetRequest) error
 }
 
 // PpsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PPS server.
 type PpsTransactionServer interface {
+	StopJobInTransaction(*TransactionContext, *pps.StopJobRequest) error
 	UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error
-	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, **pfs.Commit) error
+	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error
 }
 
 // TransactionEnv contains the APIServer instances for each subsystem that may
@@ -276,6 +290,11 @@ func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) erro
 	return t.txnCtx.txnEnv.pfsServer.DeleteBranchInTransaction(t.txnCtx, req)
 }
 
+func (t *directTransaction) StopJob(original *pps.StopJobRequest) error {
+	req := proto.Clone(original).(*pps.StopJobRequest)
+	return t.txnCtx.txnEnv.ppsServer.StopJobInTransaction(t.txnCtx, req)
+}
+
 func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) error {
 	req := proto.Clone(original).(*pps.UpdateJobStateRequest)
 	return t.txnCtx.txnEnv.ppsServer.UpdateJobStateInTransaction(t.txnCtx, req)
@@ -286,9 +305,9 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 	return t.txnCtx.txnEnv.authServer.ModifyRoleBindingInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, specCommit **pfs.Commit) error {
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, filesetID *string, prevSpecCommit **pfs.Commit) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, specCommit)
+	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevSpecCommit)
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
@@ -348,12 +367,17 @@ func (t *appendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
 	return err
 }
 
+func (t *appendTransaction) StopJob(req *pps.StopJobRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StopJob: req})
+	return err
+}
+
 func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{UpdateJobState: req})
 	return err
 }
 
-func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ **pfs.Commit) error {
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ *string, _ **pfs.Commit) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
 	return err
 }
@@ -392,16 +416,16 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 // WithWriteContext will call the given callback with a TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
 func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*TransactionContext) error) error {
-	_, err := col.NewSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
+	return col.NewSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{
 			Client:        pachClient,
 			ClientContext: pachClient.Ctx(),
-			Stm:           stm,
+			SqlTx:         sqlTx,
 			txnEnv:        env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx)
 			txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
 		}
 
@@ -411,24 +435,23 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 		}
 		return txnCtx.finish()
 	})
-	return err
 }
 
 // WithReadContext will call the given callback with a TransactionContext
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*TransactionContext) error) error {
-	return col.NewDryrunSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
+	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{
 			Client:         pachClient,
 			ClientContext:  pachClient.Ctx(),
-			Stm:            stm,
+			SqlTx:          sqlTx,
 			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 			txnEnv:         env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(stm)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx)
 		}
 
 		err := cb(txnCtx)

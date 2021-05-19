@@ -108,19 +108,28 @@ func InputBranches(input *Input) []*pfs.Branch {
 	VisitInput(input, func(input *Input) {
 		if input.Pfs != nil {
 			result = append(result, &pfs.Branch{
-				Repo: &pfs.Repo{Name: input.Pfs.Repo},
+				Repo: &pfs.Repo{
+					Name: input.Pfs.Repo,
+					Type: input.Pfs.RepoType,
+				},
 				Name: input.Pfs.Branch,
 			})
 		}
 		if input.Cron != nil {
 			result = append(result, &pfs.Branch{
-				Repo: &pfs.Repo{Name: input.Cron.Repo},
+				Repo: &pfs.Repo{
+					Name: input.Cron.Repo,
+					Type: pfs.UserRepoType,
+				},
 				Name: "master",
 			})
 		}
 		if input.Git != nil {
 			result = append(result, &pfs.Branch{
-				Repo: &pfs.Repo{Name: input.Git.Name},
+				Repo: &pfs.Repo{
+					Name: input.Pfs.Repo,
+					Type: pfs.UserRepoType,
+				},
 				Name: input.Git.Branch,
 			})
 		}

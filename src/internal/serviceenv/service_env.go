@@ -182,11 +182,11 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	}
 	// Initialize pach client
 	return backoff.Retry(func() error {
-		var err error
-		env.pachClient, err = client.NewFromURI(env.pachAddress)
+		pachClient, err := client.NewFromURI(env.pachAddress)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
 		}
+		env.pachClient = pachClient
 		return nil
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }

@@ -1,8 +1,9 @@
 package transactionenv
 
 import (
+	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -65,7 +66,7 @@ func NewMockPfsTransactionServer() *MockPfsTransactionServer {
 }
 
 // NewPropagater returns a MockPfsPropagater
-func (mpts *MockPfsTransactionServer) NewPropagater(col.STM) PfsPropagater {
+func (mpts *MockPfsTransactionServer) NewPropagater(*sqlx.Tx) PfsPropagater {
 	return NewMockPfsPropagater()
 }
 
@@ -109,6 +110,11 @@ func (mpts *MockPfsTransactionServer) DeleteBranchInTransaction(*TransactionCont
 	return unimplementedError("PfsTransactionServer.DeleteBranchInTransaction")
 }
 
+// AddFilesetInTransaction always errors
+func (mpts *MockPfsTransactionServer) AddFilesetInTransaction(*TransactionContext, *pfs.AddFilesetRequest) error {
+	return unimplementedError("PfsTransactionServer.AddFilesetInTransaction")
+}
+
 // MockPpsTransactionServer is a simple mock that can be used to satisfy the
 // PpsTransactionServer interface
 type MockPpsTransactionServer struct{}
@@ -118,12 +124,17 @@ func NewMockPpsTransactionServer() *MockPpsTransactionServer {
 	return &MockPpsTransactionServer{}
 }
 
+// StopJobInTransaction always errors
+func (mpts *MockPpsTransactionServer) StopJobInTransaction(*TransactionContext, *pps.StopJobRequest) error {
+	return unimplementedError("PpsTransactionServer.StopJobInTransaction")
+}
+
 // UpdateJobStateInTransaction always errors
 func (mpts *MockPpsTransactionServer) UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error {
 	return unimplementedError("PpsTransactionServer.UpdateJobStateInTransaction")
 }
 
 // CreatePipelineInTransaction always errors
-func (mpts *MockPpsTransactionServer) CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, **pfs.Commit) error {
-	return unimplementedError("PpsTransactionServer.UpdateJobStateInTransaction")
+func (mpts *MockPpsTransactionServer) CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error {
+	return unimplementedError("PpsTransactionServer.CreatePipelineInTransaction")
 }

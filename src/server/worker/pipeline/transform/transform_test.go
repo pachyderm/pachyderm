@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -89,13 +89,13 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, err)
 
 	// Put the pipeline info into etcd (which is read by the master)
-	_, err = env.driver.NewSTM(func(stm col.STM) error {
+	err = env.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 		etcdPipelineInfo := &pps.StoredPipelineInfo{
 			State:       pps.PipelineState_PIPELINE_STARTING,
 			SpecCommit:  pipelineInfo.SpecCommit,
 			Parallelism: 1,
 		}
-		return env.driver.Pipelines().ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, etcdPipelineInfo)
+		return env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name, etcdPipelineInfo)
 	})
 	require.NoError(t, err)
 
@@ -182,7 +182,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		return &pps.PipelineJobInfo{
 			Job:              etcdJobInfo.Job,
 			Pipeline:         etcdJobInfo.Pipeline,
-			OutputRepo:       &pfs.Repo{Name: etcdJobInfo.Pipeline.Name},
+			OutputRepo:       client.NewRepo(etcdJobInfo.Pipeline.Name),
 			OutputCommit:     etcdJobInfo.OutputCommit,
 			Restart:          etcdJobInfo.Restart,
 			DataProcessed:    etcdJobInfo.DataProcessed,

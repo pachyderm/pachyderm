@@ -68,7 +68,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 }
 
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) CreateRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.CreateRepoRequest) error {
 	if repo := request.GetRepo(); repo != nil && repo.Name == fileSetsRepo {
 		return errors.Errorf("%s is a reserved name", fileSetsRepo)
@@ -89,7 +89,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 }
 
 // InspectRepoInTransaction is identical to InspectRepo except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) InspectRepoInTransaction(txnCtx *txnenv.TransactionContext, originalRequest *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
 	request := proto.Clone(originalRequest).(*pfs.InspectRepoRequest)
 	return a.driver.inspectRepo(txnCtx, request.Repo, true)
@@ -115,12 +115,12 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	repoInfos, err := a.driver.listRepo(ctx, true)
+	repoInfos, err := a.driver.listRepo(ctx, true, request.Type)
 	return repoInfos, err
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
 	if request.All {
 		return a.driver.deleteAll(txnCtx)
@@ -141,7 +141,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 }
 
 // StartCommitInTransaction is identical to StartCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.  The target
+// inside an existing postgres transaction.  This is not an RPC.  The target
 // commit can be specified but is optional.  This is so that the transaction can
 // report the commit ID back to the client before the transaction has finished
 // and it can be used in future commands inside the same transaction.
@@ -169,7 +169,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 }
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
 		if request.Empty {
@@ -192,9 +192,9 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 }
 
 // InspectCommitInTransaction is identical to InspectCommit (some features excluded) except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) InspectCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	return a.driver.resolveCommit(txnCtx.Stm, request.Commit)
+	return a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
@@ -218,7 +218,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 }
 
 // SquashCommitInTransaction is identical to SquashCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) SquashCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.SquashCommitRequest) error {
 	return a.driver.squashCommit(txnCtx, request.Commit)
 }
@@ -257,7 +257,7 @@ func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitReq
 }
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) CreateBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.CreateBranchRequest) error {
 	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
 }
@@ -305,7 +305,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 }
 
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) DeleteBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteBranchRequest) error {
 	return a.driver.deleteBranch(txnCtx, request.Branch, request.Force)
 }
@@ -727,14 +727,23 @@ func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) 
 }
 
 func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
-	fsid, err := fileset.ParseID(req.FilesetId)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.addFileset(ctx, req.Commit, *fsid); err != nil {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return txnCtx.Pfs().AddFilesetInTransaction(txnCtx, req)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) AddFilesetInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.AddFilesetRequest) error {
+	fsid, err := fileset.ParseID(request.FilesetId)
+	if err != nil {
+		return err
+	}
+	if err := a.driver.addFileset(txnCtx, request.Commit, *fsid); err != nil {
+		return err
+	}
+	return nil
 }
 
 // RenewFileset implements the pfs.RenewFileset RPC

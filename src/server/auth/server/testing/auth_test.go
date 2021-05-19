@@ -1162,7 +1162,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
 		inspectResp, err := bobClient.PfsAPIClient.InspectRepo(bobClient.Ctx(),
 			&pfs.InspectRepoRequest{
-				Repo: &pfs.Repo{Name: name},
+				Repo: client.NewRepo(name),
 			})
 		require.NoError(t, err)
 		require.ElementsEqual(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)

@@ -89,6 +89,9 @@ type PostgresReadWriteCollection interface {
 	ReadWriteCollection
 
 	DeleteByIndex(index *Index, indexVal string) error
+	// GetByIndex can have a large impact on database contention if used to retrieve
+	// a large number of rows. Consider using a read-only collection if possible
+	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
 
 	// Unsupported operations - only here during migration so we can compile
 	// TODO: remove these before merging into master

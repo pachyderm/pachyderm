@@ -86,6 +86,7 @@ message Spout {
 message PFSInput {
   string name = 1;
   string repo = 2;
+  string repo_type = 13;
   string branch = 3;
   string commit = 4;
   string glob = 5;
@@ -111,6 +112,7 @@ message PFSInput {
 message CronInput {
   string name = 1;
   string repo = 2;
+  string repo_type = 13;
   string commit = 3;
   string spec = 4;
   // Overwrite, if true, will expose a single datum that gets overwritten each
@@ -520,6 +522,7 @@ message DeleteJobRequest {
 message StopJobRequest {
   Job job = 1;
   pfs.Commit output_commit = 2;
+  string reason = 3;
 }
 
 message UpdateJobStateRequest {

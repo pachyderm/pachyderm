@@ -159,7 +159,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			authAPIServer, err = authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				true,
 				true,
 				true,
@@ -252,7 +251,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			authAPIServer, err = authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				false,
 				true,
@@ -437,7 +435,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 		authAPIServer, err = authserver.NewAuthServer(
 			env,
 			txnEnv,
-			path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 			false,
 			false,
 			false,
@@ -467,7 +464,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 		transactionAPIServer, err = txnserver.NewAPIServer(
 			env,
 			txnEnv,
-			path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 		)
 		if err != nil {
 			return err
@@ -546,7 +542,6 @@ func doFullMode(config interface{}) (retErr error) {
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(env)
 	}
-	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.Config().EtcdHost, env.Config().EtcdPort))
 	ip, err := netutil.ExternalIP()
 	if err != nil {
 		return errors.Wrapf(err, "error getting pachd external ip")
@@ -616,7 +611,7 @@ func doFullMode(config interface{}) (retErr error) {
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
-				env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix), true, requireNoncriticalServers, true)
+				env, txnEnv, true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
@@ -630,7 +625,6 @@ func doFullMode(config interface{}) (retErr error) {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -752,7 +746,6 @@ func doFullMode(config interface{}) (retErr error) {
 			authAPIServer, err = authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				requireNoncriticalServers,
 				true,
@@ -770,7 +763,6 @@ func doFullMode(config interface{}) (retErr error) {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -867,7 +859,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return server.ListenAndServeTLS(certPath, keyPath)
 	})
 	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
-		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix))
+		return githook.RunGitHookServer(env)
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {

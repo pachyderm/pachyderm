@@ -3,7 +3,6 @@ package local
 import (
 	gotls "crypto/tls"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -26,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/v2/src/internal/netutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -112,12 +110,6 @@ func RunLocal() (retErr error) {
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(env)
 	}
-	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.Config().EtcdHost, env.Config().EtcdPort))
-	ip, err := netutil.ExternalIP()
-	if err != nil {
-		return errors.Wrapf(err, "error getting pachd external ip")
-	}
-	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.Config().PeerPort))
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
 	// Setup External Pachd GRPC Server.
@@ -185,7 +177,7 @@ func RunLocal() (retErr error) {
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
-				env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix), true, requireNoncriticalServers, true)
+				env, txnEnv, true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
@@ -199,7 +191,6 @@ func RunLocal() (retErr error) {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -322,7 +313,6 @@ func RunLocal() (retErr error) {
 			authAPIServer, err = authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				requireNoncriticalServers,
 				true,
@@ -340,7 +330,6 @@ func RunLocal() (retErr error) {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -427,7 +416,7 @@ func RunLocal() (retErr error) {
 	//	return server.ListenAndServeTLS(certPath, keyPath)
 	//})
 	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
-		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix))
+		return githook.RunGitHookServer(env)
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {

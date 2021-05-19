@@ -7,7 +7,6 @@ import (
 	"path"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
@@ -18,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -46,12 +46,9 @@ type Worker struct {
 //  3. an api server that serves requests for status or cross-worker communication
 //  4. a driver that provides common functionality between the above components
 func NewWorker(
+	env serviceenv.ServiceEnv,
 	pachClient *client.APIClient,
-	etcdClient *etcd.Client,
-	etcdPrefix string,
 	pipelineInfo *pps.PipelineInfo,
-	workerName string,
-	namespace string,
 	rootPath string,
 ) (*Worker, error) {
 	stats.InitPrometheus()
@@ -62,12 +59,10 @@ func NewWorker(
 	}
 
 	driver, err := driver.NewDriver(
-		pipelineInfo,
+		env,
 		pachClient,
-		etcdClient,
-		etcdPrefix,
+		pipelineInfo,
 		rootPath,
-		namespace,
 	)
 	if err != nil {
 		return nil, err
@@ -90,7 +85,7 @@ func NewWorker(
 		}
 		if pipelineInfo.Transform.Cmd == nil {
 			if len(image.Config.Entrypoint) == 0 {
-				ppsutil.FailPipeline(pachClient.Ctx(), etcdClient, driver.Pipelines(),
+				ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
 					pipelineInfo.Pipeline.Name,
 					"nothing to run: no transform.cmd and no entrypoint")
 			}
@@ -103,9 +98,9 @@ func NewWorker(
 		status: &transform.Status{},
 	}
 
-	worker.APIServer = server.NewAPIServer(driver, worker.status, workerName)
+	worker.APIServer = server.NewAPIServer(driver, worker.status, env.Config().PodName)
 
-	go worker.master(etcdClient, etcdPrefix)
+	go worker.master(env)
 	go worker.worker()
 	return worker, nil
 }
@@ -140,11 +135,11 @@ func (w *Worker) worker() {
 	})
 }
 
-func (w *Worker) master(etcdClient *etcd.Client, etcdPrefix string) {
+func (w *Worker) master(env serviceenv.ServiceEnv) {
 	pipelineInfo := w.driver.PipelineInfo()
 	logger := logs.NewMasterLogger(pipelineInfo)
-	lockPath := path.Join(etcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Salt)
-	masterLock := dlock.NewDLock(etcdClient, lockPath)
+	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Salt)
+	masterLock := dlock.NewDLock(env.GetEtcdClient(), lockPath)
 
 	b := backoff.NewInfiniteBackOff()
 	// Setting a high backoff so that when this master fails, the other
@@ -173,7 +168,7 @@ func (w *Worker) master(etcdClient *etcd.Client, etcdPrefix string) {
 			logger.Logf("failing %q due to auth rejection", pipelineInfo.Pipeline.Name)
 			return ppsutil.FailPipeline(
 				w.driver.PachClient().Ctx(),
-				etcdClient,
+				env.GetDBClient(),
 				w.driver.Pipelines(),
 				pipelineInfo.Pipeline.Name,
 				"worker master could not access output repo to watch for new commits",

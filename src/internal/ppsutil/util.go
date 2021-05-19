@@ -22,6 +22,12 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -29,17 +35,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-
-	etcd "github.com/coreos/etcd/clientv3"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
+	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 )
 
 // PipelineRepo creates a pfs repo for a given pipeline.
 func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
-	return &pfs.Repo{Name: pipeline.Name}
+	return client.NewRepo(pipeline.Name)
 }
 
 // PipelineRcName generates the name of the k8s replication controller that
@@ -145,14 +146,14 @@ func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) 
 }
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
-func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.EtcdCollection, pipelineName string, reason string) error {
-	return SetPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName,
+func FailPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipelineName string, reason string) error {
+	return SetPipelineState(ctx, db, pipelinesCollection, pipelineName,
 		nil, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
 
 // CrashingPipeline updates the pipeline's state to crashing and sets the reason
-func CrashingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.EtcdCollection, pipelineName string, reason string) error {
-	return SetPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName,
+func CrashingPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipelineName string, reason string) error {
+	return SetPipelineState(ctx, db, pipelinesCollection, pipelineName,
 		nil, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
@@ -210,10 +211,10 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 //
 // This function logs a lot for a library function, but it's mostly (maybe
 // exclusively?) called by the PPS master
-func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.EtcdCollection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	logSetPipelineState(pipeline, from, to, reason)
-	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
-		pipelines := pipelinesCollection.ReadWrite(stm)
+	err := col.NewSQLTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+		pipelines := pipelinesCollection.ReadWrite(sqlTx)
 		pipelinePtr := &pps.StoredPipelineInfo{}
 		if err := pipelines.Get(pipeline, pipelinePtr); err != nil {
 			return err
@@ -345,7 +346,7 @@ func IsTerminal(state pps.JobState) bool {
 // UpdateJobState performs the operations involved with a job state transition.
 func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.StoredPipelineJobInfo, state pps.JobState, reason string) error {
 	if IsTerminal(jobPtr.State) {
-		return errors.Errorf("cannot put %q in state %s as it's already in a terminal state (%s)", jobPtr.Job.ID, state.String(), jobPtr.State.String())
+		return ppsServer.ErrJobFinished{jobPtr.Job}
 	}
 
 	// Update pipeline

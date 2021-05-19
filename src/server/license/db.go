@@ -3,6 +3,8 @@ package license
 import (
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/net/context"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // CreateClustersTable sets up the postgres table which tracks active clusters
@@ -18,7 +20,7 @@ CREATE TABLE IF NOT EXISTS license.clusters (
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 `)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func AddUserContextsToClustersTable(ctx context.Context, tx *sqlx.Tx) error {
