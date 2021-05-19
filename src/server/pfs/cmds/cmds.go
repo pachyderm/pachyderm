@@ -533,7 +533,7 @@ $ {{alias}} test@master --new`,
 				if err != nil {
 					return err
 				}
-				prov = client.NewCommitProvenance(client.NewCommit(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID))
+				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)

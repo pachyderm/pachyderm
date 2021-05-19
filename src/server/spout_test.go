@@ -364,7 +364,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// and we want to make sure that these commits all have the same provenance
 		provenanceID := ""
 		var count int
-		require.NoError(t, c.SubscribeCommit(pipeline, "", client.NewCommitProvenance(pipelineInfo.SpecCommit), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(pipeline, "", pipelineInfo.SpecCommit.NewProvenance(), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				require.Equal(t, 1, len(ci.Provenance))
 				provenance := ci.Provenance[0].Commit
@@ -404,7 +404,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, err)
 		countBreakFunc = newCountBreakFunc(3)
 		count = 0
-		require.NoError(t, c.SubscribeCommit(pipeline, "", client.NewCommitProvenance(pipelineInfo.SpecCommit), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(pipeline, "", pipelineInfo.SpecCommit.NewProvenance(), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				require.Equal(t, 1, len(ci.Provenance))
 				provenance := ci.Provenance[0].Commit

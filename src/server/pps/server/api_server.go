@@ -3055,7 +3055,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		}
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
-	specProvenance := client.NewCommitProvenance(specCommit.Commit)
+	specProvenance := specCommit.Commit.NewProvenance()
 	if _, ok := provenanceMap[key(specProvenance.Commit.Branch.Repo.Name, specProvenance.Commit.Branch.Name)]; !ok {
 		provenance = append(provenance, specProvenance)
 	}
@@ -3071,10 +3071,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		// if stats are enabled, then create a stats commit for the job as well
 		if pipelineInfo.EnableStats {
 			// it needs to additionally be provenant on the commit we just created
-			newCommitProv := client.NewCommitProvenance(newCommit)
 			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
 				Branch:     client.NewBranch(request.Pipeline.Name, "stats"),
-				Provenance: append(provenance, newCommitProv),
+				Provenance: append(provenance, newCommit.NewProvenance()),
 			})
 			if err != nil {
 				return err

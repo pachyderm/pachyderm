@@ -198,7 +198,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 			return backoff.RetryNotify(func() error {
 				pachClient := m.a.env.GetPachClient(ctx)
 				return pachClient.SubscribeCommit(pipeline, "",
-					client.NewCommitProvenance(pipelineInfo.SpecCommit),
+					pipelineInfo.SpecCommit.NewProvenance(),
 					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 						ciChan <- ci
 						return nil

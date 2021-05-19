@@ -38,16 +38,16 @@ func NewCommit(repoName string, branchName string, commitID string) *pfs.Commit 
 }
 
 // NewCommitProvenance creates a pfs.CommitProvenance.
-func NewCommitProvenance(commit *pfs.Commit) *pfs.CommitProvenance {
+func NewCommitProvenance(repoName string, branchName string, commitID string) *pfs.CommitProvenance {
 	return &pfs.CommitProvenance{
-		Commit: commit,
+		Commit: NewCommit(repoName, branchName, commitID),
 	}
 }
 
 // NewFile creates a pfs.File.
-func NewFile(commit *pfs.Commit, path string) *pfs.File {
+func NewFile(repoName string, branchName string, commitID string, path string) *pfs.File {
 	return &pfs.File{
-		Commit: commit,
+		Commit: NewCommit(repoName, branchName, commitID),
 		Path:   path,
 	}
 }

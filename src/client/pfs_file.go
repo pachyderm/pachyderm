@@ -49,7 +49,7 @@ func (c APIClient) DeleteFile(commit *pfs.Commit, path string, opts ...DeleteFil
 // It can be used on directories or regular files.
 func (c APIClient) CopyFile(dstCommit *pfs.Commit, dstPath string, srcCommit *pfs.Commit, srcPath string, opts ...CopyFileOption) error {
 	return c.WithModifyFileClient(dstCommit, func(mf ModifyFile) error {
-		return mf.CopyFile(dstPath, NewFile(srcCommit, srcPath), opts...)
+		return mf.CopyFile(dstPath, srcCommit.NewFile(srcPath), opts...)
 	})
 }
 
@@ -390,7 +390,7 @@ func (c APIClient) getFileTar(commit *pfs.Commit, path string) (_ io.Reader, ret
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pfs.GetFileRequest{
-		File: NewFile(commit, path),
+		File: commit.NewFile(path),
 	}
 	client, err := c.PfsAPIClient.GetFile(c.Ctx(), req)
 	if err != nil {
@@ -432,7 +432,7 @@ func (c APIClient) GetFileReadSeeker(commit *pfs.Commit, path string) (io.ReadSe
 	return &getFileReadSeeker{
 		Reader: r,
 		c:      c,
-		file:   NewFile(commit, path),
+		file:   commit.NewFile(path),
 		offset: 0,
 		size:   int64(fi.SizeBytes),
 	}, nil
@@ -489,7 +489,7 @@ func (c APIClient) GetFileURL(commit *pfs.Commit, path, URL string) (retErr erro
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pfs.GetFileRequest{
-		File: NewFile(commit, path),
+		File: commit.NewFile(path),
 		URL:  URL,
 	}
 	client, err := c.PfsAPIClient.GetFile(c.Ctx(), req)
@@ -508,7 +508,7 @@ func (c APIClient) InspectFile(commit *pfs.Commit, path string) (_ *pfs.FileInfo
 	fi, err := c.PfsAPIClient.InspectFile(
 		c.Ctx(),
 		&pfs.InspectFileRequest{
-			File: NewFile(commit, path),
+			File: commit.NewFile(path),
 		},
 	)
 	return fi, err
@@ -522,7 +522,7 @@ func (c APIClient) ListFile(commit *pfs.Commit, path string, cb func(fi *pfs.Fil
 	client, err := c.PfsAPIClient.ListFile(
 		c.Ctx(),
 		&pfs.ListFileRequest{
-			File: NewFile(commit, path),
+			File: commit.NewFile(path),
 		},
 	)
 	if err != nil {
@@ -620,10 +620,10 @@ func (c APIClient) DiffFile(newCommit *pfs.Commit, newPath string, oldCommit *pf
 	defer cancel()
 	var oldFile *pfs.File
 	if oldCommit != nil {
-		oldFile = NewFile(oldCommit, oldPath)
+		oldFile = oldCommit.NewFile(oldPath)
 	}
 	req := &pfs.DiffFileRequest{
-		NewFile: NewFile(newCommit, newPath),
+		NewFile: newCommit.NewFile(newPath),
 		OldFile: oldFile,
 		Shallow: shallow,
 	}
@@ -673,7 +673,7 @@ func (c APIClient) WalkFile(commit *pfs.Commit, path string, cb func(*pfs.FileIn
 	client, err := c.PfsAPIClient.WalkFile(
 		c.Ctx(),
 		&pfs.WalkFileRequest{
-			File: NewFile(commit, path),
+			File: commit.NewFile(path),
 		})
 	if err != nil {
 		return err

@@ -816,7 +816,7 @@ func TestPFS(suite *testing.T) {
 
 		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch:     pclient.NewBranch(repo, "foo"),
-			Provenance: []*pfs.CommitProvenance{pclient.NewCommitProvenance(commit2), pclient.NewCommitProvenance(commit2)},
+			Provenance: []*pfs.CommitProvenance{commit2.NewProvenance(), commit2.NewProvenance()},
 		})
 
 		require.NoError(t, err)
@@ -1018,9 +1018,9 @@ func TestPFS(suite *testing.T) {
 		newCommit, err := env.PachClient.PfsAPIClient.StartCommit(env.Context, &pfs.StartCommitRequest{
 			Branch: pclient.NewBranch("C", "foo"),
 			Provenance: []*pfs.CommitProvenance{
-				pclient.NewCommitProvenance(client.NewCommit("A", "master", "")),
-				pclient.NewCommitProvenance(masterCommitInfo.Commit),
-				pclient.NewCommitProvenance(bCommitInfo.Commit),
+				pclient.NewCommitProvenance("A", "master", ""),
+				masterCommitInfo.Commit.NewProvenance(),
+				bCommitInfo.Commit.NewProvenance(),
 			},
 		})
 		require.NoError(t, err)
