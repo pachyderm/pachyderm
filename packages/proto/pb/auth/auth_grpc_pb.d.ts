@@ -34,6 +34,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     extractAuthTokens: IAPIService_IExtractAuthTokens;
     restoreAuthToken: IAPIService_IRestoreAuthToken;
     deleteExpiredAuthTokens: IAPIService_IDeleteExpiredAuthTokens;
+    rotateRootToken: IAPIService_IRotateRootToken;
 }
 
 interface IAPIService_IActivate extends grpc.MethodDefinition<auth_auth_pb.ActivateRequest, auth_auth_pb.ActivateResponse> {
@@ -243,6 +244,15 @@ interface IAPIService_IDeleteExpiredAuthTokens extends grpc.MethodDefinition<aut
     responseSerialize: grpc.serialize<auth_auth_pb.DeleteExpiredAuthTokensResponse>;
     responseDeserialize: grpc.deserialize<auth_auth_pb.DeleteExpiredAuthTokensResponse>;
 }
+interface IAPIService_IRotateRootToken extends grpc.MethodDefinition<auth_auth_pb.RotateRootTokenRequest, auth_auth_pb.RotateRootTokenResponse> {
+    path: "/auth.API/RotateRootToken";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<auth_auth_pb.RotateRootTokenRequest>;
+    requestDeserialize: grpc.deserialize<auth_auth_pb.RotateRootTokenRequest>;
+    responseSerialize: grpc.serialize<auth_auth_pb.RotateRootTokenResponse>;
+    responseDeserialize: grpc.deserialize<auth_auth_pb.RotateRootTokenResponse>;
+}
 
 export const APIService: IAPIService;
 
@@ -270,6 +280,7 @@ export interface IAPIServer {
     extractAuthTokens: grpc.handleUnaryCall<auth_auth_pb.ExtractAuthTokensRequest, auth_auth_pb.ExtractAuthTokensResponse>;
     restoreAuthToken: grpc.handleUnaryCall<auth_auth_pb.RestoreAuthTokenRequest, auth_auth_pb.RestoreAuthTokenResponse>;
     deleteExpiredAuthTokens: grpc.handleUnaryCall<auth_auth_pb.DeleteExpiredAuthTokensRequest, auth_auth_pb.DeleteExpiredAuthTokensResponse>;
+    rotateRootToken: grpc.handleUnaryCall<auth_auth_pb.RotateRootTokenRequest, auth_auth_pb.RotateRootTokenResponse>;
 }
 
 export interface IAPIClient {
@@ -342,6 +353,9 @@ export interface IAPIClient {
     deleteExpiredAuthTokens(request: auth_auth_pb.DeleteExpiredAuthTokensRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.DeleteExpiredAuthTokensResponse) => void): grpc.ClientUnaryCall;
     deleteExpiredAuthTokens(request: auth_auth_pb.DeleteExpiredAuthTokensRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.DeleteExpiredAuthTokensResponse) => void): grpc.ClientUnaryCall;
     deleteExpiredAuthTokens(request: auth_auth_pb.DeleteExpiredAuthTokensRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.DeleteExpiredAuthTokensResponse) => void): grpc.ClientUnaryCall;
+    rotateRootToken(request: auth_auth_pb.RotateRootTokenRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.RotateRootTokenResponse) => void): grpc.ClientUnaryCall;
+    rotateRootToken(request: auth_auth_pb.RotateRootTokenRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.RotateRootTokenResponse) => void): grpc.ClientUnaryCall;
+    rotateRootToken(request: auth_auth_pb.RotateRootTokenRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.RotateRootTokenResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class APIClient extends grpc.Client implements IAPIClient {
@@ -415,4 +429,7 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public deleteExpiredAuthTokens(request: auth_auth_pb.DeleteExpiredAuthTokensRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.DeleteExpiredAuthTokensResponse) => void): grpc.ClientUnaryCall;
     public deleteExpiredAuthTokens(request: auth_auth_pb.DeleteExpiredAuthTokensRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.DeleteExpiredAuthTokensResponse) => void): grpc.ClientUnaryCall;
     public deleteExpiredAuthTokens(request: auth_auth_pb.DeleteExpiredAuthTokensRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.DeleteExpiredAuthTokensResponse) => void): grpc.ClientUnaryCall;
+    public rotateRootToken(request: auth_auth_pb.RotateRootTokenRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.RotateRootTokenResponse) => void): grpc.ClientUnaryCall;
+    public rotateRootToken(request: auth_auth_pb.RotateRootTokenRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.RotateRootTokenResponse) => void): grpc.ClientUnaryCall;
+    public rotateRootToken(request: auth_auth_pb.RotateRootTokenRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.RotateRootTokenResponse) => void): grpc.ClientUnaryCall;
 }

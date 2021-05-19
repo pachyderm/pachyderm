@@ -207,22 +207,22 @@ export namespace Egress {
     }
 }
 
-export class Job extends jspb.Message { 
+export class PipelineJob extends jspb.Message { 
     getId(): string;
-    setId(value: string): Job;
+    setId(value: string): PipelineJob;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): Job.AsObject;
-    static toObject(includeInstance: boolean, msg: Job): Job.AsObject;
+    toObject(includeInstance?: boolean): PipelineJob.AsObject;
+    static toObject(includeInstance: boolean, msg: PipelineJob): PipelineJob.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: Job, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): Job;
-    static deserializeBinaryFromReader(message: Job, reader: jspb.BinaryReader): Job;
+    static serializeBinaryToWriter(message: PipelineJob, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PipelineJob;
+    static deserializeBinaryFromReader(message: PipelineJob, reader: jspb.BinaryReader): PipelineJob;
 }
 
-export namespace Job {
+export namespace PipelineJob {
     export type AsObject = {
         id: string,
     }
@@ -321,6 +321,9 @@ export class PFSInput extends jspb.Message {
     getRepo(): string;
     setRepo(value: string): PFSInput;
 
+    getRepoType(): string;
+    setRepoType(value: string): PFSInput;
+
     getBranch(): string;
     setBranch(value: string): PFSInput;
 
@@ -369,6 +372,7 @@ export namespace PFSInput {
     export type AsObject = {
         name: string,
         repo: string,
+        repoType: string,
         branch: string,
         commit: string,
         glob: string,
@@ -388,6 +392,9 @@ export class CronInput extends jspb.Message {
 
     getRepo(): string;
     setRepo(value: string): CronInput;
+
+    getRepoType(): string;
+    setRepoType(value: string): CronInput;
 
     getCommit(): string;
     setCommit(value: string): CronInput;
@@ -419,6 +426,7 @@ export namespace CronInput {
     export type AsObject = {
         name: string,
         repo: string,
+        repoType: string,
         commit: string,
         spec: string,
         overwrite: boolean,
@@ -521,34 +529,34 @@ export namespace Input {
     }
 }
 
-export class JobInput extends jspb.Message { 
+export class PipelineJobInput extends jspb.Message { 
     getName(): string;
-    setName(value: string): JobInput;
+    setName(value: string): PipelineJobInput;
 
 
     hasCommit(): boolean;
     clearCommit(): void;
     getCommit(): pfs_pfs_pb.Commit | undefined;
-    setCommit(value?: pfs_pfs_pb.Commit): JobInput;
+    setCommit(value?: pfs_pfs_pb.Commit): PipelineJobInput;
 
     getGlob(): string;
-    setGlob(value: string): JobInput;
+    setGlob(value: string): PipelineJobInput;
 
     getLazy(): boolean;
-    setLazy(value: boolean): JobInput;
+    setLazy(value: boolean): PipelineJobInput;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): JobInput.AsObject;
-    static toObject(includeInstance: boolean, msg: JobInput): JobInput.AsObject;
+    toObject(includeInstance?: boolean): PipelineJobInput.AsObject;
+    static toObject(includeInstance: boolean, msg: PipelineJobInput): PipelineJobInput.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: JobInput, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): JobInput;
-    static deserializeBinaryFromReader(message: JobInput, reader: jspb.BinaryReader): JobInput;
+    static serializeBinaryToWriter(message: PipelineJobInput, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PipelineJobInput;
+    static deserializeBinaryFromReader(message: PipelineJobInput, reader: jspb.BinaryReader): PipelineJobInput;
 }
 
-export namespace JobInput {
+export namespace PipelineJobInput {
     export type AsObject = {
         name: string,
         commit?: pfs_pfs_pb.Commit.AsObject,
@@ -614,10 +622,10 @@ export class Datum extends jspb.Message {
     setId(value: string): Datum;
 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): Datum;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): Datum;
 
 
     serializeBinary(): Uint8Array;
@@ -633,7 +641,7 @@ export class Datum extends jspb.Message {
 export namespace Datum {
     export type AsObject = {
         id: string,
-        job?: Job.AsObject,
+        pipelineJob?: PipelineJob.AsObject,
     }
 }
 
@@ -824,8 +832,8 @@ export class WorkerStatus extends jspb.Message {
     getWorkerId(): string;
     setWorkerId(value: string): WorkerStatus;
 
-    getJobId(): string;
-    setJobId(value: string): WorkerStatus;
+    getPipelineJobId(): string;
+    setPipelineJobId(value: string): WorkerStatus;
 
     clearDataList(): void;
     getDataList(): Array<InputFile>;
@@ -867,7 +875,7 @@ export class WorkerStatus extends jspb.Message {
 export namespace WorkerStatus {
     export type AsObject = {
         workerId: string,
-        jobId: string,
+        pipelineJobId: string,
         dataList: Array<InputFile.AsObject>,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         stats?: ProcessStats.AsObject,
@@ -938,87 +946,87 @@ export namespace GPUSpec {
     }
 }
 
-export class EtcdJobInfo extends jspb.Message { 
+export class StoredPipelineJobInfo extends jspb.Message { 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): EtcdJobInfo;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): StoredPipelineJobInfo;
 
 
     hasPipeline(): boolean;
     clearPipeline(): void;
     getPipeline(): Pipeline | undefined;
-    setPipeline(value?: Pipeline): EtcdJobInfo;
+    setPipeline(value?: Pipeline): StoredPipelineJobInfo;
 
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
     getOutputCommit(): pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: pfs_pfs_pb.Commit): EtcdJobInfo;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): StoredPipelineJobInfo;
 
     getRestart(): number;
-    setRestart(value: number): EtcdJobInfo;
+    setRestart(value: number): StoredPipelineJobInfo;
 
     getDataProcessed(): number;
-    setDataProcessed(value: number): EtcdJobInfo;
+    setDataProcessed(value: number): StoredPipelineJobInfo;
 
     getDataSkipped(): number;
-    setDataSkipped(value: number): EtcdJobInfo;
+    setDataSkipped(value: number): StoredPipelineJobInfo;
 
     getDataTotal(): number;
-    setDataTotal(value: number): EtcdJobInfo;
+    setDataTotal(value: number): StoredPipelineJobInfo;
 
     getDataFailed(): number;
-    setDataFailed(value: number): EtcdJobInfo;
+    setDataFailed(value: number): StoredPipelineJobInfo;
 
     getDataRecovered(): number;
-    setDataRecovered(value: number): EtcdJobInfo;
+    setDataRecovered(value: number): StoredPipelineJobInfo;
 
 
     hasStats(): boolean;
     clearStats(): void;
     getStats(): ProcessStats | undefined;
-    setStats(value?: ProcessStats): EtcdJobInfo;
+    setStats(value?: ProcessStats): StoredPipelineJobInfo;
 
 
     hasStatsCommit(): boolean;
     clearStatsCommit(): void;
     getStatsCommit(): pfs_pfs_pb.Commit | undefined;
-    setStatsCommit(value?: pfs_pfs_pb.Commit): EtcdJobInfo;
+    setStatsCommit(value?: pfs_pfs_pb.Commit): StoredPipelineJobInfo;
 
-    getState(): JobState;
-    setState(value: JobState): EtcdJobInfo;
+    getState(): PipelineJobState;
+    setState(value: PipelineJobState): StoredPipelineJobInfo;
 
     getReason(): string;
-    setReason(value: string): EtcdJobInfo;
+    setReason(value: string): StoredPipelineJobInfo;
 
 
     hasStarted(): boolean;
     clearStarted(): void;
     getStarted(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setStarted(value?: google_protobuf_timestamp_pb.Timestamp): EtcdJobInfo;
+    setStarted(value?: google_protobuf_timestamp_pb.Timestamp): StoredPipelineJobInfo;
 
 
     hasFinished(): boolean;
     clearFinished(): void;
     getFinished(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setFinished(value?: google_protobuf_timestamp_pb.Timestamp): EtcdJobInfo;
+    setFinished(value?: google_protobuf_timestamp_pb.Timestamp): StoredPipelineJobInfo;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): EtcdJobInfo.AsObject;
-    static toObject(includeInstance: boolean, msg: EtcdJobInfo): EtcdJobInfo.AsObject;
+    toObject(includeInstance?: boolean): StoredPipelineJobInfo.AsObject;
+    static toObject(includeInstance: boolean, msg: StoredPipelineJobInfo): StoredPipelineJobInfo.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: EtcdJobInfo, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): EtcdJobInfo;
-    static deserializeBinaryFromReader(message: EtcdJobInfo, reader: jspb.BinaryReader): EtcdJobInfo;
+    static serializeBinaryToWriter(message: StoredPipelineJobInfo, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): StoredPipelineJobInfo;
+    static deserializeBinaryFromReader(message: StoredPipelineJobInfo, reader: jspb.BinaryReader): StoredPipelineJobInfo;
 }
 
-export namespace EtcdJobInfo {
+export namespace StoredPipelineJobInfo {
     export type AsObject = {
-        job?: Job.AsObject,
+        pipelineJob?: PipelineJob.AsObject,
         pipeline?: Pipeline.AsObject,
         outputCommit?: pfs_pfs_pb.Commit.AsObject,
         restart: number,
@@ -1029,233 +1037,233 @@ export namespace EtcdJobInfo {
         dataRecovered: number,
         stats?: ProcessStats.AsObject,
         statsCommit?: pfs_pfs_pb.Commit.AsObject,
-        state: JobState,
+        state: PipelineJobState,
         reason: string,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
     }
 }
 
-export class JobInfo extends jspb.Message { 
+export class PipelineJobInfo extends jspb.Message { 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): JobInfo;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): PipelineJobInfo;
 
 
     hasTransform(): boolean;
     clearTransform(): void;
     getTransform(): Transform | undefined;
-    setTransform(value?: Transform): JobInfo;
+    setTransform(value?: Transform): PipelineJobInfo;
 
 
     hasPipeline(): boolean;
     clearPipeline(): void;
     getPipeline(): Pipeline | undefined;
-    setPipeline(value?: Pipeline): JobInfo;
+    setPipeline(value?: Pipeline): PipelineJobInfo;
 
     getPipelineVersion(): number;
-    setPipelineVersion(value: number): JobInfo;
+    setPipelineVersion(value: number): PipelineJobInfo;
 
 
     hasSpecCommit(): boolean;
     clearSpecCommit(): void;
     getSpecCommit(): pfs_pfs_pb.Commit | undefined;
-    setSpecCommit(value?: pfs_pfs_pb.Commit): JobInfo;
+    setSpecCommit(value?: pfs_pfs_pb.Commit): PipelineJobInfo;
 
 
     hasParallelismSpec(): boolean;
     clearParallelismSpec(): void;
     getParallelismSpec(): ParallelismSpec | undefined;
-    setParallelismSpec(value?: ParallelismSpec): JobInfo;
+    setParallelismSpec(value?: ParallelismSpec): PipelineJobInfo;
 
 
     hasEgress(): boolean;
     clearEgress(): void;
     getEgress(): Egress | undefined;
-    setEgress(value?: Egress): JobInfo;
+    setEgress(value?: Egress): PipelineJobInfo;
 
 
     hasParentJob(): boolean;
     clearParentJob(): void;
-    getParentJob(): Job | undefined;
-    setParentJob(value?: Job): JobInfo;
+    getParentJob(): PipelineJob | undefined;
+    setParentJob(value?: PipelineJob): PipelineJobInfo;
 
 
     hasStarted(): boolean;
     clearStarted(): void;
     getStarted(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setStarted(value?: google_protobuf_timestamp_pb.Timestamp): JobInfo;
+    setStarted(value?: google_protobuf_timestamp_pb.Timestamp): PipelineJobInfo;
 
 
     hasFinished(): boolean;
     clearFinished(): void;
     getFinished(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setFinished(value?: google_protobuf_timestamp_pb.Timestamp): JobInfo;
+    setFinished(value?: google_protobuf_timestamp_pb.Timestamp): PipelineJobInfo;
 
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
     getOutputCommit(): pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: pfs_pfs_pb.Commit): JobInfo;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): PipelineJobInfo;
 
-    getState(): JobState;
-    setState(value: JobState): JobInfo;
+    getState(): PipelineJobState;
+    setState(value: PipelineJobState): PipelineJobInfo;
 
     getReason(): string;
-    setReason(value: string): JobInfo;
+    setReason(value: string): PipelineJobInfo;
 
 
     hasService(): boolean;
     clearService(): void;
     getService(): Service | undefined;
-    setService(value?: Service): JobInfo;
+    setService(value?: Service): PipelineJobInfo;
 
 
     hasSpout(): boolean;
     clearSpout(): void;
     getSpout(): Spout | undefined;
-    setSpout(value?: Spout): JobInfo;
+    setSpout(value?: Spout): PipelineJobInfo;
 
 
     hasOutputRepo(): boolean;
     clearOutputRepo(): void;
     getOutputRepo(): pfs_pfs_pb.Repo | undefined;
-    setOutputRepo(value?: pfs_pfs_pb.Repo): JobInfo;
+    setOutputRepo(value?: pfs_pfs_pb.Repo): PipelineJobInfo;
 
     getOutputBranch(): string;
-    setOutputBranch(value: string): JobInfo;
+    setOutputBranch(value: string): PipelineJobInfo;
 
     getRestart(): number;
-    setRestart(value: number): JobInfo;
+    setRestart(value: number): PipelineJobInfo;
 
     getDataProcessed(): number;
-    setDataProcessed(value: number): JobInfo;
+    setDataProcessed(value: number): PipelineJobInfo;
 
     getDataSkipped(): number;
-    setDataSkipped(value: number): JobInfo;
+    setDataSkipped(value: number): PipelineJobInfo;
 
     getDataFailed(): number;
-    setDataFailed(value: number): JobInfo;
+    setDataFailed(value: number): PipelineJobInfo;
 
     getDataRecovered(): number;
-    setDataRecovered(value: number): JobInfo;
+    setDataRecovered(value: number): PipelineJobInfo;
 
     getDataTotal(): number;
-    setDataTotal(value: number): JobInfo;
+    setDataTotal(value: number): PipelineJobInfo;
 
 
     hasStats(): boolean;
     clearStats(): void;
     getStats(): ProcessStats | undefined;
-    setStats(value?: ProcessStats): JobInfo;
+    setStats(value?: ProcessStats): PipelineJobInfo;
 
     clearWorkerStatusList(): void;
     getWorkerStatusList(): Array<WorkerStatus>;
-    setWorkerStatusList(value: Array<WorkerStatus>): JobInfo;
+    setWorkerStatusList(value: Array<WorkerStatus>): PipelineJobInfo;
     addWorkerStatus(value?: WorkerStatus, index?: number): WorkerStatus;
 
 
     hasResourceRequests(): boolean;
     clearResourceRequests(): void;
     getResourceRequests(): ResourceSpec | undefined;
-    setResourceRequests(value?: ResourceSpec): JobInfo;
+    setResourceRequests(value?: ResourceSpec): PipelineJobInfo;
 
 
     hasResourceLimits(): boolean;
     clearResourceLimits(): void;
     getResourceLimits(): ResourceSpec | undefined;
-    setResourceLimits(value?: ResourceSpec): JobInfo;
+    setResourceLimits(value?: ResourceSpec): PipelineJobInfo;
 
 
     hasSidecarResourceLimits(): boolean;
     clearSidecarResourceLimits(): void;
     getSidecarResourceLimits(): ResourceSpec | undefined;
-    setSidecarResourceLimits(value?: ResourceSpec): JobInfo;
+    setSidecarResourceLimits(value?: ResourceSpec): PipelineJobInfo;
 
 
     hasInput(): boolean;
     clearInput(): void;
     getInput(): Input | undefined;
-    setInput(value?: Input): JobInfo;
+    setInput(value?: Input): PipelineJobInfo;
 
 
     hasNewBranch(): boolean;
     clearNewBranch(): void;
     getNewBranch(): pfs_pfs_pb.BranchInfo | undefined;
-    setNewBranch(value?: pfs_pfs_pb.BranchInfo): JobInfo;
+    setNewBranch(value?: pfs_pfs_pb.BranchInfo): PipelineJobInfo;
 
 
     hasStatsCommit(): boolean;
     clearStatsCommit(): void;
     getStatsCommit(): pfs_pfs_pb.Commit | undefined;
-    setStatsCommit(value?: pfs_pfs_pb.Commit): JobInfo;
+    setStatsCommit(value?: pfs_pfs_pb.Commit): PipelineJobInfo;
 
     getEnableStats(): boolean;
-    setEnableStats(value: boolean): JobInfo;
+    setEnableStats(value: boolean): PipelineJobInfo;
 
     getSalt(): string;
-    setSalt(value: string): JobInfo;
+    setSalt(value: string): PipelineJobInfo;
 
 
     hasChunkSpec(): boolean;
     clearChunkSpec(): void;
     getChunkSpec(): ChunkSpec | undefined;
-    setChunkSpec(value?: ChunkSpec): JobInfo;
+    setChunkSpec(value?: ChunkSpec): PipelineJobInfo;
 
 
     hasDatumTimeout(): boolean;
     clearDatumTimeout(): void;
     getDatumTimeout(): google_protobuf_duration_pb.Duration | undefined;
-    setDatumTimeout(value?: google_protobuf_duration_pb.Duration): JobInfo;
+    setDatumTimeout(value?: google_protobuf_duration_pb.Duration): PipelineJobInfo;
 
 
     hasJobTimeout(): boolean;
     clearJobTimeout(): void;
     getJobTimeout(): google_protobuf_duration_pb.Duration | undefined;
-    setJobTimeout(value?: google_protobuf_duration_pb.Duration): JobInfo;
+    setJobTimeout(value?: google_protobuf_duration_pb.Duration): PipelineJobInfo;
 
     getDatumTries(): number;
-    setDatumTries(value: number): JobInfo;
+    setDatumTries(value: number): PipelineJobInfo;
 
 
     hasSchedulingSpec(): boolean;
     clearSchedulingSpec(): void;
     getSchedulingSpec(): SchedulingSpec | undefined;
-    setSchedulingSpec(value?: SchedulingSpec): JobInfo;
+    setSchedulingSpec(value?: SchedulingSpec): PipelineJobInfo;
 
     getPodSpec(): string;
-    setPodSpec(value: string): JobInfo;
+    setPodSpec(value: string): PipelineJobInfo;
 
     getPodPatch(): string;
-    setPodPatch(value: string): JobInfo;
+    setPodPatch(value: string): PipelineJobInfo;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): JobInfo.AsObject;
-    static toObject(includeInstance: boolean, msg: JobInfo): JobInfo.AsObject;
+    toObject(includeInstance?: boolean): PipelineJobInfo.AsObject;
+    static toObject(includeInstance: boolean, msg: PipelineJobInfo): PipelineJobInfo.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: JobInfo, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): JobInfo;
-    static deserializeBinaryFromReader(message: JobInfo, reader: jspb.BinaryReader): JobInfo;
+    static serializeBinaryToWriter(message: PipelineJobInfo, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PipelineJobInfo;
+    static deserializeBinaryFromReader(message: PipelineJobInfo, reader: jspb.BinaryReader): PipelineJobInfo;
 }
 
-export namespace JobInfo {
+export namespace PipelineJobInfo {
     export type AsObject = {
-        job?: Job.AsObject,
+        pipelineJob?: PipelineJob.AsObject,
         transform?: Transform.AsObject,
         pipeline?: Pipeline.AsObject,
         pipelineVersion: number,
         specCommit?: pfs_pfs_pb.Commit.AsObject,
         parallelismSpec?: ParallelismSpec.AsObject,
         egress?: Egress.AsObject,
-        parentJob?: Job.AsObject,
+        parentJob?: PipelineJob.AsObject,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         outputCommit?: pfs_pfs_pb.Commit.AsObject,
-        state: JobState,
+        state: PipelineJobState,
         reason: string,
         service?: Service.AsObject,
         spout?: Spout.AsObject,
@@ -1333,44 +1341,50 @@ export namespace Pipeline {
     }
 }
 
-export class EtcdPipelineInfo extends jspb.Message { 
+export class StoredPipelineInfo extends jspb.Message { 
     getState(): PipelineState;
-    setState(value: PipelineState): EtcdPipelineInfo;
+    setState(value: PipelineState): StoredPipelineInfo;
 
     getReason(): string;
-    setReason(value: string): EtcdPipelineInfo;
+    setReason(value: string): StoredPipelineInfo;
 
 
     hasSpecCommit(): boolean;
     clearSpecCommit(): void;
     getSpecCommit(): pfs_pfs_pb.Commit | undefined;
-    setSpecCommit(value?: pfs_pfs_pb.Commit): EtcdPipelineInfo;
+    setSpecCommit(value?: pfs_pfs_pb.Commit): StoredPipelineInfo;
 
 
     getJobCountsMap(): jspb.Map<number, number>;
     clearJobCountsMap(): void;
 
     getAuthToken(): string;
-    setAuthToken(value: string): EtcdPipelineInfo;
+    setAuthToken(value: string): StoredPipelineInfo;
 
-    getLastJobState(): JobState;
-    setLastJobState(value: JobState): EtcdPipelineInfo;
+    getLastJobState(): PipelineJobState;
+    setLastJobState(value: PipelineJobState): StoredPipelineInfo;
 
     getParallelism(): number;
-    setParallelism(value: number): EtcdPipelineInfo;
+    setParallelism(value: number): StoredPipelineInfo;
+
+
+    hasPipeline(): boolean;
+    clearPipeline(): void;
+    getPipeline(): Pipeline | undefined;
+    setPipeline(value?: Pipeline): StoredPipelineInfo;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): EtcdPipelineInfo.AsObject;
-    static toObject(includeInstance: boolean, msg: EtcdPipelineInfo): EtcdPipelineInfo.AsObject;
+    toObject(includeInstance?: boolean): StoredPipelineInfo.AsObject;
+    static toObject(includeInstance: boolean, msg: StoredPipelineInfo): StoredPipelineInfo.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: EtcdPipelineInfo, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): EtcdPipelineInfo;
-    static deserializeBinaryFromReader(message: EtcdPipelineInfo, reader: jspb.BinaryReader): EtcdPipelineInfo;
+    static serializeBinaryToWriter(message: StoredPipelineInfo, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): StoredPipelineInfo;
+    static deserializeBinaryFromReader(message: StoredPipelineInfo, reader: jspb.BinaryReader): StoredPipelineInfo;
 }
 
-export namespace EtcdPipelineInfo {
+export namespace StoredPipelineInfo {
     export type AsObject = {
         state: PipelineState,
         reason: string,
@@ -1378,8 +1392,9 @@ export namespace EtcdPipelineInfo {
 
         jobCountsMap: Array<[number, number]>,
         authToken: string,
-        lastJobState: JobState,
+        lastJobState: PipelineJobState,
         parallelism: number,
+        pipeline?: Pipeline.AsObject,
     }
 }
 
@@ -1442,8 +1457,8 @@ export class PipelineInfo extends jspb.Message {
     getJobCountsMap(): jspb.Map<number, number>;
     clearJobCountsMap(): void;
 
-    getLastJobState(): JobState;
-    setLastJobState(value: JobState): PipelineInfo;
+    getLastJobState(): PipelineJobState;
+    setLastJobState(value: PipelineJobState): PipelineInfo;
 
     getOutputBranch(): string;
     setOutputBranch(value: string): PipelineInfo;
@@ -1586,7 +1601,7 @@ export namespace PipelineInfo {
         workersAvailable: number,
 
         jobCountsMap: Array<[number, number]>,
-        lastJobState: JobState,
+        lastJobState: PipelineJobState,
         outputBranch: string,
         resourceRequests?: ResourceSpec.AsObject,
         resourceLimits?: ResourceSpec.AsObject,
@@ -1639,79 +1654,79 @@ export namespace PipelineInfos {
     }
 }
 
-export class CreateJobRequest extends jspb.Message { 
+export class CreatePipelineJobRequest extends jspb.Message { 
 
     hasPipeline(): boolean;
     clearPipeline(): void;
     getPipeline(): Pipeline | undefined;
-    setPipeline(value?: Pipeline): CreateJobRequest;
+    setPipeline(value?: Pipeline): CreatePipelineJobRequest;
 
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
     getOutputCommit(): pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: pfs_pfs_pb.Commit): CreateJobRequest;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): CreatePipelineJobRequest;
 
     getRestart(): number;
-    setRestart(value: number): CreateJobRequest;
+    setRestart(value: number): CreatePipelineJobRequest;
 
     getDataProcessed(): number;
-    setDataProcessed(value: number): CreateJobRequest;
+    setDataProcessed(value: number): CreatePipelineJobRequest;
 
     getDataSkipped(): number;
-    setDataSkipped(value: number): CreateJobRequest;
+    setDataSkipped(value: number): CreatePipelineJobRequest;
 
     getDataTotal(): number;
-    setDataTotal(value: number): CreateJobRequest;
+    setDataTotal(value: number): CreatePipelineJobRequest;
 
     getDataFailed(): number;
-    setDataFailed(value: number): CreateJobRequest;
+    setDataFailed(value: number): CreatePipelineJobRequest;
 
     getDataRecovered(): number;
-    setDataRecovered(value: number): CreateJobRequest;
+    setDataRecovered(value: number): CreatePipelineJobRequest;
 
 
     hasStats(): boolean;
     clearStats(): void;
     getStats(): ProcessStats | undefined;
-    setStats(value?: ProcessStats): CreateJobRequest;
+    setStats(value?: ProcessStats): CreatePipelineJobRequest;
 
 
     hasStatsCommit(): boolean;
     clearStatsCommit(): void;
     getStatsCommit(): pfs_pfs_pb.Commit | undefined;
-    setStatsCommit(value?: pfs_pfs_pb.Commit): CreateJobRequest;
+    setStatsCommit(value?: pfs_pfs_pb.Commit): CreatePipelineJobRequest;
 
-    getState(): JobState;
-    setState(value: JobState): CreateJobRequest;
+    getState(): PipelineJobState;
+    setState(value: PipelineJobState): CreatePipelineJobRequest;
 
     getReason(): string;
-    setReason(value: string): CreateJobRequest;
+    setReason(value: string): CreatePipelineJobRequest;
 
 
     hasStarted(): boolean;
     clearStarted(): void;
     getStarted(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setStarted(value?: google_protobuf_timestamp_pb.Timestamp): CreateJobRequest;
+    setStarted(value?: google_protobuf_timestamp_pb.Timestamp): CreatePipelineJobRequest;
 
 
     hasFinished(): boolean;
     clearFinished(): void;
     getFinished(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setFinished(value?: google_protobuf_timestamp_pb.Timestamp): CreateJobRequest;
+    setFinished(value?: google_protobuf_timestamp_pb.Timestamp): CreatePipelineJobRequest;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): CreateJobRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: CreateJobRequest): CreateJobRequest.AsObject;
+    toObject(includeInstance?: boolean): CreatePipelineJobRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: CreatePipelineJobRequest): CreatePipelineJobRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: CreateJobRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): CreateJobRequest;
-    static deserializeBinaryFromReader(message: CreateJobRequest, reader: jspb.BinaryReader): CreateJobRequest;
+    static serializeBinaryToWriter(message: CreatePipelineJobRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CreatePipelineJobRequest;
+    static deserializeBinaryFromReader(message: CreatePipelineJobRequest, reader: jspb.BinaryReader): CreatePipelineJobRequest;
 }
 
-export namespace CreateJobRequest {
+export namespace CreatePipelineJobRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
         outputCommit?: pfs_pfs_pb.Commit.AsObject,
@@ -1723,91 +1738,91 @@ export namespace CreateJobRequest {
         dataRecovered: number,
         stats?: ProcessStats.AsObject,
         statsCommit?: pfs_pfs_pb.Commit.AsObject,
-        state: JobState,
+        state: PipelineJobState,
         reason: string,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
     }
 }
 
-export class InspectJobRequest extends jspb.Message { 
+export class InspectPipelineJobRequest extends jspb.Message { 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): InspectJobRequest;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): InspectPipelineJobRequest;
 
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
     getOutputCommit(): pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: pfs_pfs_pb.Commit): InspectJobRequest;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): InspectPipelineJobRequest;
 
     getBlockState(): boolean;
-    setBlockState(value: boolean): InspectJobRequest;
+    setBlockState(value: boolean): InspectPipelineJobRequest;
 
     getFull(): boolean;
-    setFull(value: boolean): InspectJobRequest;
+    setFull(value: boolean): InspectPipelineJobRequest;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): InspectJobRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: InspectJobRequest): InspectJobRequest.AsObject;
+    toObject(includeInstance?: boolean): InspectPipelineJobRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InspectPipelineJobRequest): InspectPipelineJobRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: InspectJobRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): InspectJobRequest;
-    static deserializeBinaryFromReader(message: InspectJobRequest, reader: jspb.BinaryReader): InspectJobRequest;
+    static serializeBinaryToWriter(message: InspectPipelineJobRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InspectPipelineJobRequest;
+    static deserializeBinaryFromReader(message: InspectPipelineJobRequest, reader: jspb.BinaryReader): InspectPipelineJobRequest;
 }
 
-export namespace InspectJobRequest {
+export namespace InspectPipelineJobRequest {
     export type AsObject = {
-        job?: Job.AsObject,
+        pipelineJob?: PipelineJob.AsObject,
         outputCommit?: pfs_pfs_pb.Commit.AsObject,
         blockState: boolean,
         full: boolean,
     }
 }
 
-export class ListJobRequest extends jspb.Message { 
+export class ListPipelineJobRequest extends jspb.Message { 
 
     hasPipeline(): boolean;
     clearPipeline(): void;
     getPipeline(): Pipeline | undefined;
-    setPipeline(value?: Pipeline): ListJobRequest;
+    setPipeline(value?: Pipeline): ListPipelineJobRequest;
 
     clearInputCommitList(): void;
     getInputCommitList(): Array<pfs_pfs_pb.Commit>;
-    setInputCommitList(value: Array<pfs_pfs_pb.Commit>): ListJobRequest;
+    setInputCommitList(value: Array<pfs_pfs_pb.Commit>): ListPipelineJobRequest;
     addInputCommit(value?: pfs_pfs_pb.Commit, index?: number): pfs_pfs_pb.Commit;
 
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
     getOutputCommit(): pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: pfs_pfs_pb.Commit): ListJobRequest;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): ListPipelineJobRequest;
 
     getHistory(): number;
-    setHistory(value: number): ListJobRequest;
+    setHistory(value: number): ListPipelineJobRequest;
 
     getFull(): boolean;
-    setFull(value: boolean): ListJobRequest;
+    setFull(value: boolean): ListPipelineJobRequest;
 
     getJqfilter(): string;
-    setJqfilter(value: string): ListJobRequest;
+    setJqfilter(value: string): ListPipelineJobRequest;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ListJobRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: ListJobRequest): ListJobRequest.AsObject;
+    toObject(includeInstance?: boolean): ListPipelineJobRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ListPipelineJobRequest): ListPipelineJobRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ListJobRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ListJobRequest;
-    static deserializeBinaryFromReader(message: ListJobRequest, reader: jspb.BinaryReader): ListJobRequest;
+    static serializeBinaryToWriter(message: ListPipelineJobRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListPipelineJobRequest;
+    static deserializeBinaryFromReader(message: ListPipelineJobRequest, reader: jspb.BinaryReader): ListPipelineJobRequest;
 }
 
-export namespace ListJobRequest {
+export namespace ListPipelineJobRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
         inputCommitList: Array<pfs_pfs_pb.Commit.AsObject>,
@@ -1818,142 +1833,146 @@ export namespace ListJobRequest {
     }
 }
 
-export class FlushJobRequest extends jspb.Message { 
+export class FlushPipelineJobRequest extends jspb.Message { 
     clearCommitsList(): void;
     getCommitsList(): Array<pfs_pfs_pb.Commit>;
-    setCommitsList(value: Array<pfs_pfs_pb.Commit>): FlushJobRequest;
+    setCommitsList(value: Array<pfs_pfs_pb.Commit>): FlushPipelineJobRequest;
     addCommits(value?: pfs_pfs_pb.Commit, index?: number): pfs_pfs_pb.Commit;
 
     clearToPipelinesList(): void;
     getToPipelinesList(): Array<Pipeline>;
-    setToPipelinesList(value: Array<Pipeline>): FlushJobRequest;
+    setToPipelinesList(value: Array<Pipeline>): FlushPipelineJobRequest;
     addToPipelines(value?: Pipeline, index?: number): Pipeline;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): FlushJobRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: FlushJobRequest): FlushJobRequest.AsObject;
+    toObject(includeInstance?: boolean): FlushPipelineJobRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: FlushPipelineJobRequest): FlushPipelineJobRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: FlushJobRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): FlushJobRequest;
-    static deserializeBinaryFromReader(message: FlushJobRequest, reader: jspb.BinaryReader): FlushJobRequest;
+    static serializeBinaryToWriter(message: FlushPipelineJobRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): FlushPipelineJobRequest;
+    static deserializeBinaryFromReader(message: FlushPipelineJobRequest, reader: jspb.BinaryReader): FlushPipelineJobRequest;
 }
 
-export namespace FlushJobRequest {
+export namespace FlushPipelineJobRequest {
     export type AsObject = {
         commitsList: Array<pfs_pfs_pb.Commit.AsObject>,
         toPipelinesList: Array<Pipeline.AsObject>,
     }
 }
 
-export class DeleteJobRequest extends jspb.Message { 
+export class DeletePipelineJobRequest extends jspb.Message { 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): DeleteJobRequest;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): DeletePipelineJobRequest;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): DeleteJobRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: DeleteJobRequest): DeleteJobRequest.AsObject;
+    toObject(includeInstance?: boolean): DeletePipelineJobRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DeletePipelineJobRequest): DeletePipelineJobRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: DeleteJobRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): DeleteJobRequest;
-    static deserializeBinaryFromReader(message: DeleteJobRequest, reader: jspb.BinaryReader): DeleteJobRequest;
+    static serializeBinaryToWriter(message: DeletePipelineJobRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeletePipelineJobRequest;
+    static deserializeBinaryFromReader(message: DeletePipelineJobRequest, reader: jspb.BinaryReader): DeletePipelineJobRequest;
 }
 
-export namespace DeleteJobRequest {
+export namespace DeletePipelineJobRequest {
     export type AsObject = {
-        job?: Job.AsObject,
+        pipelineJob?: PipelineJob.AsObject,
     }
 }
 
-export class StopJobRequest extends jspb.Message { 
+export class StopPipelineJobRequest extends jspb.Message { 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): StopJobRequest;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): StopPipelineJobRequest;
 
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
     getOutputCommit(): pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: pfs_pfs_pb.Commit): StopJobRequest;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): StopPipelineJobRequest;
+
+    getReason(): string;
+    setReason(value: string): StopPipelineJobRequest;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): StopJobRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: StopJobRequest): StopJobRequest.AsObject;
+    toObject(includeInstance?: boolean): StopPipelineJobRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: StopPipelineJobRequest): StopPipelineJobRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: StopJobRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): StopJobRequest;
-    static deserializeBinaryFromReader(message: StopJobRequest, reader: jspb.BinaryReader): StopJobRequest;
+    static serializeBinaryToWriter(message: StopPipelineJobRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): StopPipelineJobRequest;
+    static deserializeBinaryFromReader(message: StopPipelineJobRequest, reader: jspb.BinaryReader): StopPipelineJobRequest;
 }
 
-export namespace StopJobRequest {
+export namespace StopPipelineJobRequest {
     export type AsObject = {
-        job?: Job.AsObject,
+        pipelineJob?: PipelineJob.AsObject,
         outputCommit?: pfs_pfs_pb.Commit.AsObject,
+        reason: string,
     }
 }
 
-export class UpdateJobStateRequest extends jspb.Message { 
+export class UpdatePipelineJobStateRequest extends jspb.Message { 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): UpdateJobStateRequest;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): UpdatePipelineJobStateRequest;
 
-    getState(): JobState;
-    setState(value: JobState): UpdateJobStateRequest;
+    getState(): PipelineJobState;
+    setState(value: PipelineJobState): UpdatePipelineJobStateRequest;
 
     getReason(): string;
-    setReason(value: string): UpdateJobStateRequest;
+    setReason(value: string): UpdatePipelineJobStateRequest;
 
     getRestart(): number;
-    setRestart(value: number): UpdateJobStateRequest;
+    setRestart(value: number): UpdatePipelineJobStateRequest;
 
     getDataProcessed(): number;
-    setDataProcessed(value: number): UpdateJobStateRequest;
+    setDataProcessed(value: number): UpdatePipelineJobStateRequest;
 
     getDataSkipped(): number;
-    setDataSkipped(value: number): UpdateJobStateRequest;
+    setDataSkipped(value: number): UpdatePipelineJobStateRequest;
 
     getDataFailed(): number;
-    setDataFailed(value: number): UpdateJobStateRequest;
+    setDataFailed(value: number): UpdatePipelineJobStateRequest;
 
     getDataRecovered(): number;
-    setDataRecovered(value: number): UpdateJobStateRequest;
+    setDataRecovered(value: number): UpdatePipelineJobStateRequest;
 
     getDataTotal(): number;
-    setDataTotal(value: number): UpdateJobStateRequest;
+    setDataTotal(value: number): UpdatePipelineJobStateRequest;
 
 
     hasStats(): boolean;
     clearStats(): void;
     getStats(): ProcessStats | undefined;
-    setStats(value?: ProcessStats): UpdateJobStateRequest;
+    setStats(value?: ProcessStats): UpdatePipelineJobStateRequest;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): UpdateJobStateRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: UpdateJobStateRequest): UpdateJobStateRequest.AsObject;
+    toObject(includeInstance?: boolean): UpdatePipelineJobStateRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: UpdatePipelineJobStateRequest): UpdatePipelineJobStateRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: UpdateJobStateRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): UpdateJobStateRequest;
-    static deserializeBinaryFromReader(message: UpdateJobStateRequest, reader: jspb.BinaryReader): UpdateJobStateRequest;
+    static serializeBinaryToWriter(message: UpdatePipelineJobStateRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): UpdatePipelineJobStateRequest;
+    static deserializeBinaryFromReader(message: UpdatePipelineJobStateRequest, reader: jspb.BinaryReader): UpdatePipelineJobStateRequest;
 }
 
-export namespace UpdateJobStateRequest {
+export namespace UpdatePipelineJobStateRequest {
     export type AsObject = {
-        job?: Job.AsObject,
-        state: JobState,
+        pipelineJob?: PipelineJob.AsObject,
+        state: PipelineJobState,
         reason: string,
         restart: number,
         dataProcessed: number,
@@ -1973,10 +1992,10 @@ export class GetLogsRequest extends jspb.Message {
     setPipeline(value?: Pipeline): GetLogsRequest;
 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): GetLogsRequest;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): GetLogsRequest;
 
     clearDataFiltersList(): void;
     getDataFiltersList(): Array<string>;
@@ -2021,7 +2040,7 @@ export class GetLogsRequest extends jspb.Message {
 export namespace GetLogsRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
-        job?: Job.AsObject,
+        pipelineJob?: PipelineJob.AsObject,
         dataFiltersList: Array<string>,
         datum?: Datum.AsObject,
         master: boolean,
@@ -2036,8 +2055,8 @@ export class LogMessage extends jspb.Message {
     getPipelineName(): string;
     setPipelineName(value: string): LogMessage;
 
-    getJobId(): string;
-    setJobId(value: string): LogMessage;
+    getPipelineJobId(): string;
+    setPipelineJobId(value: string): LogMessage;
 
     getWorkerId(): string;
     setWorkerId(value: string): LogMessage;
@@ -2079,7 +2098,7 @@ export class LogMessage extends jspb.Message {
 export namespace LogMessage {
     export type AsObject = {
         pipelineName: string,
-        jobId: string,
+        pipelineJobId: string,
         workerId: string,
         datumId: string,
         master: boolean,
@@ -2092,10 +2111,10 @@ export namespace LogMessage {
 
 export class RestartDatumRequest extends jspb.Message { 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): RestartDatumRequest;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): RestartDatumRequest;
 
     clearDataFiltersList(): void;
     getDataFiltersList(): Array<string>;
@@ -2115,7 +2134,7 @@ export class RestartDatumRequest extends jspb.Message {
 
 export namespace RestartDatumRequest {
     export type AsObject = {
-        job?: Job.AsObject,
+        pipelineJob?: PipelineJob.AsObject,
         dataFiltersList: Array<string>,
     }
 }
@@ -2146,10 +2165,16 @@ export namespace InspectDatumRequest {
 
 export class ListDatumRequest extends jspb.Message { 
 
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): ListDatumRequest;
+    hasPipelineJob(): boolean;
+    clearPipelineJob(): void;
+    getPipelineJob(): PipelineJob | undefined;
+    setPipelineJob(value?: PipelineJob): ListDatumRequest;
+
+
+    hasInput(): boolean;
+    clearInput(): void;
+    getInput(): Input | undefined;
+    setInput(value?: Input): ListDatumRequest;
 
 
     serializeBinary(): Uint8Array;
@@ -2164,7 +2189,8 @@ export class ListDatumRequest extends jspb.Message {
 
 export namespace ListDatumRequest {
     export type AsObject = {
-        job?: Job.AsObject,
+        pipelineJob?: PipelineJob.AsObject,
+        input?: Input.AsObject,
     }
 }
 
@@ -2568,8 +2594,8 @@ export class RunPipelineRequest extends jspb.Message {
     setProvenanceList(value: Array<pfs_pfs_pb.CommitProvenance>): RunPipelineRequest;
     addProvenance(value?: pfs_pfs_pb.CommitProvenance, index?: number): pfs_pfs_pb.CommitProvenance;
 
-    getJobId(): string;
-    setJobId(value: string): RunPipelineRequest;
+    getPipelineJobId(): string;
+    setPipelineJobId(value: string): RunPipelineRequest;
 
 
     serializeBinary(): Uint8Array;
@@ -2586,7 +2612,7 @@ export namespace RunPipelineRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
         provenanceList: Array<pfs_pfs_pb.CommitProvenance.AsObject>,
-        jobId: string,
+        pipelineJobId: string,
     }
 }
 
@@ -2764,44 +2790,6 @@ export namespace SecretInfos {
     }
 }
 
-export class GarbageCollectRequest extends jspb.Message { 
-    getMemoryBytes(): number;
-    setMemoryBytes(value: number): GarbageCollectRequest;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GarbageCollectRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: GarbageCollectRequest): GarbageCollectRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GarbageCollectRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GarbageCollectRequest;
-    static deserializeBinaryFromReader(message: GarbageCollectRequest, reader: jspb.BinaryReader): GarbageCollectRequest;
-}
-
-export namespace GarbageCollectRequest {
-    export type AsObject = {
-        memoryBytes: number,
-    }
-}
-
-export class GarbageCollectResponse extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GarbageCollectResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: GarbageCollectResponse): GarbageCollectResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GarbageCollectResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GarbageCollectResponse;
-    static deserializeBinaryFromReader(message: GarbageCollectResponse, reader: jspb.BinaryReader): GarbageCollectResponse;
-}
-
-export namespace GarbageCollectResponse {
-    export type AsObject = {
-    }
-}
-
 export class ActivateAuthRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;
@@ -2836,13 +2824,13 @@ export namespace ActivateAuthResponse {
     }
 }
 
-export enum JobState {
+export enum PipelineJobState {
     JOB_STARTING = 0,
     JOB_RUNNING = 1,
     JOB_FAILURE = 2,
     JOB_SUCCESS = 3,
     JOB_KILLED = 4,
-    JOB_EGRESSING = 6,
+    JOB_EGRESSING = 5,
 }
 
 export enum DatumState {

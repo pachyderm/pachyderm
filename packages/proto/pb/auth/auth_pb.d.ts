@@ -84,6 +84,48 @@ export namespace DeactivateResponse {
     }
 }
 
+export class RotateRootTokenRequest extends jspb.Message { 
+    getRootToken(): string;
+    setRootToken(value: string): RotateRootTokenRequest;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RotateRootTokenRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RotateRootTokenRequest): RotateRootTokenRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RotateRootTokenRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RotateRootTokenRequest;
+    static deserializeBinaryFromReader(message: RotateRootTokenRequest, reader: jspb.BinaryReader): RotateRootTokenRequest;
+}
+
+export namespace RotateRootTokenRequest {
+    export type AsObject = {
+        rootToken: string,
+    }
+}
+
+export class RotateRootTokenResponse extends jspb.Message { 
+    getRootToken(): string;
+    setRootToken(value: string): RotateRootTokenResponse;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RotateRootTokenResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: RotateRootTokenResponse): RotateRootTokenResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RotateRootTokenResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RotateRootTokenResponse;
+    static deserializeBinaryFromReader(message: RotateRootTokenResponse, reader: jspb.BinaryReader): RotateRootTokenResponse;
+}
+
+export namespace RotateRootTokenResponse {
+    export type AsObject = {
+        rootToken: string,
+    }
+}
+
 export class OIDCConfig extends jspb.Message { 
     getIssuer(): string;
     setIssuer(value: string): OIDCConfig;
@@ -1223,6 +1265,8 @@ export enum Permission {
     CLUSTER_AUTH_RESTORE_TOKEN = 113,
     CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL = 141,
     CLUSTER_AUTH_DELETE_EXPIRED_TOKENS = 140,
+    CLUSTER_AUTH_REVOKE_USER_TOKENS = 142,
+    CLUSTER_AUTH_ROTATE_ROOT_TOKEN = 147,
     CLUSTER_ENTERPRISE_ACTIVATE = 114,
     CLUSTER_ENTERPRISE_HEARTBEAT = 115,
     CLUSTER_ENTERPRISE_GET_CODE = 116,
@@ -1246,6 +1290,10 @@ export enum Permission {
     CLUSTER_LICENSE_UPDATE_CLUSTER = 135,
     CLUSTER_LICENSE_DELETE_CLUSTER = 136,
     CLUSTER_LICENSE_LIST_CLUSTERS = 137,
+    CLUSTER_CREATE_SECRET = 143,
+    CLUSTER_LIST_SECRETS = 144,
+    SECRET_DELETE = 145,
+    SECRET_INSPECT = 146,
     CLUSTER_DELETE_ALL = 138,
     REPO_READ = 200,
     REPO_WRITE = 201,

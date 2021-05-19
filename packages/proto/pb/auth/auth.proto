@@ -31,10 +31,9 @@ import "google/protobuf/timestamp.proto";
 // ActivateRequest enables authentication on the cluster. It issues an auth token
 // with no expiration for the irrevocable admin user `pach:root`.
 message ActivateRequest {
-  reserved 1,2;
   // If set, this token is used as the root user login token. Otherwise the root token
   // is randomly generated and returned in the response.
-  string root_token = 3;
+  string root_token = 1;
 }
 
 message ActivateResponse {
@@ -47,6 +46,14 @@ message ActivateResponse {
 message DeactivateRequest {}
 message DeactivateResponse {}
 
+message RotateRootTokenRequest {
+  // root_token is used as the new root token value. If it's unset, then a token will be auto-generated.
+  string root_token = 1;
+}
+
+message RotateRootTokenResponse {
+  string root_token = 1;
+}
 
 // Configure Pachyderm's auth system with an OIDC provider 
 message OIDCConfig{
@@ -86,15 +93,14 @@ message TokenInfo {
 //// Authentication API
 
 message AuthenticateRequest {
-  reserved 1, 2;
-  // Exactly one of 'id_token', 'oidc_state', or 'one_time_password' must be set:
+  // Exactly one of 'id_token' or 'one_time_password' must be set:
 
   // This is the session state that Pachyderm creates in order to keep track of
   // information related to the current OIDC session.
-  string oidc_state = 3 [(gogoproto.customname) = "OIDCState"];
+  string oidc_state = 1 [(gogoproto.customname) = "OIDCState"];
 
   // This is an ID Token issued by the OIDC provider.
-  string id_token = 4;
+  string id_token = 2;
 }
 
 message AuthenticateResponse {
@@ -107,9 +113,8 @@ message AuthenticateResponse {
 message WhoAmIRequest {}
 
 message WhoAmIResponse {
-  reserved 2,3,4;
   string username = 1;
-  google.protobuf.Timestamp expiration = 5 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true];
+  google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true];
 }
 
 //// Authorization data structures
@@ -144,7 +149,8 @@ enum Permission {
   CLUSTER_AUTH_RESTORE_TOKEN                       = 113;
   CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL       = 141;
   CLUSTER_AUTH_DELETE_EXPIRED_TOKENS               = 140;
-
+  CLUSTER_AUTH_REVOKE_USER_TOKENS                  = 142;
+  CLUSTER_AUTH_ROTATE_ROOT_TOKEN                   = 147;
 
   CLUSTER_ENTERPRISE_ACTIVATE            = 114;
   CLUSTER_ENTERPRISE_HEARTBEAT           = 115;
@@ -172,6 +178,12 @@ enum Permission {
   CLUSTER_LICENSE_UPDATE_CLUSTER         = 135;
   CLUSTER_LICENSE_DELETE_CLUSTER         = 136;
   CLUSTER_LICENSE_LIST_CLUSTERS          = 137;
+
+  // TODO(actgardner): Make k8s secrets into nouns and add an Update RPC
+  CLUSTER_CREATE_SECRET  = 143;
+  CLUSTER_LIST_SECRETS   = 144;
+  SECRET_DELETE          = 145;
+  SECRET_INSPECT         = 146;
 
   CLUSTER_DELETE_ALL             = 138;
 
@@ -218,11 +230,10 @@ message Groups {
 //// Authorization API
 
 message AuthorizeRequest {
-  reserved 2;
   Resource resource = 1;
 
   // permissions are the operations the caller is attempting to perform 
-  repeated Permission permissions = 3;
+  repeated Permission permissions = 2;
 }
 
 message AuthorizeResponse {
@@ -391,14 +402,12 @@ message GetUsersResponse {
 message ExtractAuthTokensRequest {}
 
 message ExtractAuthTokensResponse {
-  reserved 1;
-  repeated TokenInfo tokens = 2; 
+  repeated TokenInfo tokens = 1; 
 }
 
 // RestoreAuthToken inserts a hashed token that has previously been extracted.
 message RestoreAuthTokenRequest {
-  reserved 1;
-  TokenInfo token = 2; 
+  TokenInfo token = 1; 
 }
 
 message RestoreAuthTokenResponse {}
@@ -448,4 +457,5 @@ service API {
   rpc RestoreAuthToken(RestoreAuthTokenRequest) returns (RestoreAuthTokenResponse) {}
 
   rpc DeleteExpiredAuthTokens(DeleteExpiredAuthTokensRequest) returns (DeleteExpiredAuthTokensResponse) {}
+  rpc RotateRootToken(RotateRootTokenRequest) returns (RotateRootTokenResponse) {}
 }

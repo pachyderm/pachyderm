@@ -42,15 +42,15 @@ function deserialize_pps_ActivateAuthResponse(buffer_arg) {
   return pps_pps_pb.ActivateAuthResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_CreateJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.CreateJobRequest)) {
-    throw new Error('Expected argument of type pps.CreateJobRequest');
+function serialize_pps_CreatePipelineJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.CreatePipelineJobRequest)) {
+    throw new Error('Expected argument of type pps.CreatePipelineJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_CreateJobRequest(buffer_arg) {
-  return pps_pps_pb.CreateJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_CreatePipelineJobRequest(buffer_arg) {
+  return pps_pps_pb.CreatePipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_CreatePipelineRequest(arg) {
@@ -86,15 +86,15 @@ function deserialize_pps_DatumInfo(buffer_arg) {
   return pps_pps_pb.DatumInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_DeleteJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.DeleteJobRequest)) {
-    throw new Error('Expected argument of type pps.DeleteJobRequest');
+function serialize_pps_DeletePipelineJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.DeletePipelineJobRequest)) {
+    throw new Error('Expected argument of type pps.DeletePipelineJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_DeleteJobRequest(buffer_arg) {
-  return pps_pps_pb.DeleteJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_DeletePipelineJobRequest(buffer_arg) {
+  return pps_pps_pb.DeletePipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_DeletePipelineRequest(arg) {
@@ -119,15 +119,15 @@ function deserialize_pps_DeleteSecretRequest(buffer_arg) {
   return pps_pps_pb.DeleteSecretRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_FlushJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.FlushJobRequest)) {
-    throw new Error('Expected argument of type pps.FlushJobRequest');
+function serialize_pps_FlushPipelineJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.FlushPipelineJobRequest)) {
+    throw new Error('Expected argument of type pps.FlushPipelineJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_FlushJobRequest(buffer_arg) {
-  return pps_pps_pb.FlushJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_FlushPipelineJobRequest(buffer_arg) {
+  return pps_pps_pb.FlushPipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_GetLogsRequest(arg) {
@@ -152,15 +152,15 @@ function deserialize_pps_InspectDatumRequest(buffer_arg) {
   return pps_pps_pb.InspectDatumRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_InspectJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.InspectJobRequest)) {
-    throw new Error('Expected argument of type pps.InspectJobRequest');
+function serialize_pps_InspectPipelineJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.InspectPipelineJobRequest)) {
+    throw new Error('Expected argument of type pps.InspectPipelineJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_InspectJobRequest(buffer_arg) {
-  return pps_pps_pb.InspectJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_InspectPipelineJobRequest(buffer_arg) {
+  return pps_pps_pb.InspectPipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_InspectPipelineRequest(arg) {
@@ -185,28 +185,6 @@ function deserialize_pps_InspectSecretRequest(buffer_arg) {
   return pps_pps_pb.InspectSecretRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_Job(arg) {
-  if (!(arg instanceof pps_pps_pb.Job)) {
-    throw new Error('Expected argument of type pps.Job');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pps_Job(buffer_arg) {
-  return pps_pps_pb.Job.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_pps_JobInfo(arg) {
-  if (!(arg instanceof pps_pps_pb.JobInfo)) {
-    throw new Error('Expected argument of type pps.JobInfo');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pps_JobInfo(buffer_arg) {
-  return pps_pps_pb.JobInfo.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_pps_ListDatumRequest(arg) {
   if (!(arg instanceof pps_pps_pb.ListDatumRequest)) {
     throw new Error('Expected argument of type pps.ListDatumRequest');
@@ -218,15 +196,15 @@ function deserialize_pps_ListDatumRequest(buffer_arg) {
   return pps_pps_pb.ListDatumRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_ListJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.ListJobRequest)) {
-    throw new Error('Expected argument of type pps.ListJobRequest');
+function serialize_pps_ListPipelineJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.ListPipelineJobRequest)) {
+    throw new Error('Expected argument of type pps.ListPipelineJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_ListJobRequest(buffer_arg) {
-  return pps_pps_pb.ListJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_ListPipelineJobRequest(buffer_arg) {
+  return pps_pps_pb.ListPipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_ListPipelineRequest(arg) {
@@ -271,6 +249,28 @@ function serialize_pps_PipelineInfos(arg) {
 
 function deserialize_pps_PipelineInfos(buffer_arg) {
   return pps_pps_pb.PipelineInfos.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_PipelineJob(arg) {
+  if (!(arg instanceof pps_pps_pb.PipelineJob)) {
+    throw new Error('Expected argument of type pps.PipelineJob');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_PipelineJob(buffer_arg) {
+  return pps_pps_pb.PipelineJob.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_PipelineJobInfo(arg) {
+  if (!(arg instanceof pps_pps_pb.PipelineJobInfo)) {
+    throw new Error('Expected argument of type pps.PipelineJobInfo');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_PipelineJobInfo(buffer_arg) {
+  return pps_pps_pb.PipelineJobInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_RestartDatumRequest(arg) {
@@ -339,15 +339,15 @@ function deserialize_pps_StartPipelineRequest(buffer_arg) {
   return pps_pps_pb.StartPipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_StopJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.StopJobRequest)) {
-    throw new Error('Expected argument of type pps.StopJobRequest');
+function serialize_pps_StopPipelineJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.StopPipelineJobRequest)) {
+    throw new Error('Expected argument of type pps.StopPipelineJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_StopJobRequest(buffer_arg) {
-  return pps_pps_pb.StopJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_StopPipelineJobRequest(buffer_arg) {
+  return pps_pps_pb.StopPipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_StopPipelineRequest(arg) {
@@ -361,83 +361,83 @@ function deserialize_pps_StopPipelineRequest(buffer_arg) {
   return pps_pps_pb.StopPipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_UpdateJobStateRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.UpdateJobStateRequest)) {
-    throw new Error('Expected argument of type pps.UpdateJobStateRequest');
+function serialize_pps_UpdatePipelineJobStateRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.UpdatePipelineJobStateRequest)) {
+    throw new Error('Expected argument of type pps.UpdatePipelineJobStateRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_UpdateJobStateRequest(buffer_arg) {
-  return pps_pps_pb.UpdateJobStateRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_UpdatePipelineJobStateRequest(buffer_arg) {
+  return pps_pps_pb.UpdatePipelineJobStateRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 
 var APIService = exports.APIService = {
-  createJob: {
-    path: '/pps.API/CreateJob',
+  createPipelineJob: {
+    path: '/pps.API/CreatePipelineJob',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.CreateJobRequest,
-    responseType: pps_pps_pb.Job,
-    requestSerialize: serialize_pps_CreateJobRequest,
-    requestDeserialize: deserialize_pps_CreateJobRequest,
-    responseSerialize: serialize_pps_Job,
-    responseDeserialize: deserialize_pps_Job,
+    requestType: pps_pps_pb.CreatePipelineJobRequest,
+    responseType: pps_pps_pb.PipelineJob,
+    requestSerialize: serialize_pps_CreatePipelineJobRequest,
+    requestDeserialize: deserialize_pps_CreatePipelineJobRequest,
+    responseSerialize: serialize_pps_PipelineJob,
+    responseDeserialize: deserialize_pps_PipelineJob,
   },
-  inspectJob: {
-    path: '/pps.API/InspectJob',
+  inspectPipelineJob: {
+    path: '/pps.API/InspectPipelineJob',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.InspectJobRequest,
-    responseType: pps_pps_pb.JobInfo,
-    requestSerialize: serialize_pps_InspectJobRequest,
-    requestDeserialize: deserialize_pps_InspectJobRequest,
-    responseSerialize: serialize_pps_JobInfo,
-    responseDeserialize: deserialize_pps_JobInfo,
+    requestType: pps_pps_pb.InspectPipelineJobRequest,
+    responseType: pps_pps_pb.PipelineJobInfo,
+    requestSerialize: serialize_pps_InspectPipelineJobRequest,
+    requestDeserialize: deserialize_pps_InspectPipelineJobRequest,
+    responseSerialize: serialize_pps_PipelineJobInfo,
+    responseDeserialize: deserialize_pps_PipelineJobInfo,
   },
-  // ListJob returns information about current and past Pachyderm jobs.
-listJob: {
-    path: '/pps.API/ListJob',
+  // ListPipelineJob returns information about current and past Pachyderm jobs.
+listPipelineJob: {
+    path: '/pps.API/ListPipelineJob',
     requestStream: false,
     responseStream: true,
-    requestType: pps_pps_pb.ListJobRequest,
-    responseType: pps_pps_pb.JobInfo,
-    requestSerialize: serialize_pps_ListJobRequest,
-    requestDeserialize: deserialize_pps_ListJobRequest,
-    responseSerialize: serialize_pps_JobInfo,
-    responseDeserialize: deserialize_pps_JobInfo,
+    requestType: pps_pps_pb.ListPipelineJobRequest,
+    responseType: pps_pps_pb.PipelineJobInfo,
+    requestSerialize: serialize_pps_ListPipelineJobRequest,
+    requestDeserialize: deserialize_pps_ListPipelineJobRequest,
+    responseSerialize: serialize_pps_PipelineJobInfo,
+    responseDeserialize: deserialize_pps_PipelineJobInfo,
   },
-  flushJob: {
-    path: '/pps.API/FlushJob',
+  flushPipelineJob: {
+    path: '/pps.API/FlushPipelineJob',
     requestStream: false,
     responseStream: true,
-    requestType: pps_pps_pb.FlushJobRequest,
-    responseType: pps_pps_pb.JobInfo,
-    requestSerialize: serialize_pps_FlushJobRequest,
-    requestDeserialize: deserialize_pps_FlushJobRequest,
-    responseSerialize: serialize_pps_JobInfo,
-    responseDeserialize: deserialize_pps_JobInfo,
+    requestType: pps_pps_pb.FlushPipelineJobRequest,
+    responseType: pps_pps_pb.PipelineJobInfo,
+    requestSerialize: serialize_pps_FlushPipelineJobRequest,
+    requestDeserialize: deserialize_pps_FlushPipelineJobRequest,
+    responseSerialize: serialize_pps_PipelineJobInfo,
+    responseDeserialize: deserialize_pps_PipelineJobInfo,
   },
-  deleteJob: {
-    path: '/pps.API/DeleteJob',
+  deletePipelineJob: {
+    path: '/pps.API/DeletePipelineJob',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.DeleteJobRequest,
+    requestType: pps_pps_pb.DeletePipelineJobRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_DeleteJobRequest,
-    requestDeserialize: deserialize_pps_DeleteJobRequest,
+    requestSerialize: serialize_pps_DeletePipelineJobRequest,
+    requestDeserialize: deserialize_pps_DeletePipelineJobRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
-  stopJob: {
-    path: '/pps.API/StopJob',
+  stopPipelineJob: {
+    path: '/pps.API/StopPipelineJob',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.StopJobRequest,
+    requestType: pps_pps_pb.StopPipelineJobRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_StopJobRequest,
-    requestDeserialize: deserialize_pps_StopJobRequest,
+    requestSerialize: serialize_pps_StopPipelineJobRequest,
+    requestDeserialize: deserialize_pps_StopPipelineJobRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
@@ -644,14 +644,14 @@ activateAuth: {
     responseDeserialize: deserialize_pps_ActivateAuthResponse,
   },
   // An internal call used to move a job from one state to another
-updateJobState: {
-    path: '/pps.API/UpdateJobState',
+updatePipelineJobState: {
+    path: '/pps.API/UpdatePipelineJobState',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.UpdateJobStateRequest,
+    requestType: pps_pps_pb.UpdatePipelineJobStateRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_UpdateJobStateRequest,
-    requestDeserialize: deserialize_pps_UpdateJobStateRequest,
+    requestSerialize: serialize_pps_UpdatePipelineJobStateRequest,
+    requestDeserialize: deserialize_pps_UpdatePipelineJobStateRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },

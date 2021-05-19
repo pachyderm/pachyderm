@@ -15,6 +15,9 @@ export class Repo extends jspb.Message {
     getName(): string;
     setName(value: string): Repo;
 
+    getType(): string;
+    setType(value: string): Repo;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Repo.AsObject;
@@ -29,6 +32,7 @@ export class Repo extends jspb.Message {
 export namespace Repo {
     export type AsObject = {
         name: string,
+        type: string,
     }
 }
 
@@ -203,9 +207,6 @@ export class BranchInfo extends jspb.Message {
     getTrigger(): Trigger | undefined;
     setTrigger(value?: Trigger): BranchInfo;
 
-    getName(): string;
-    setName(value: string): BranchInfo;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): BranchInfo.AsObject;
@@ -225,7 +226,6 @@ export namespace BranchInfo {
         subvenanceList: Array<Branch.AsObject>,
         directProvenanceList: Array<Branch.AsObject>,
         trigger?: Trigger.AsObject,
-        name: string,
     }
 }
 
@@ -311,14 +311,14 @@ export namespace CommitOrigin {
 }
 
 export class Commit extends jspb.Message { 
-
-    hasRepo(): boolean;
-    clearRepo(): void;
-    getRepo(): Repo | undefined;
-    setRepo(value?: Repo): Commit;
-
     getId(): string;
     setId(value: string): Commit;
+
+
+    hasBranch(): boolean;
+    clearBranch(): void;
+    getBranch(): Branch | undefined;
+    setBranch(value?: Branch): Commit;
 
 
     serializeBinary(): Uint8Array;
@@ -333,8 +333,8 @@ export class Commit extends jspb.Message {
 
 export namespace Commit {
     export type AsObject = {
-        repo?: Repo.AsObject,
         id: string,
+        branch?: Branch.AsObject,
     }
 }
 
@@ -377,12 +377,6 @@ export class CommitProvenance extends jspb.Message {
     setCommit(value?: Commit): CommitProvenance;
 
 
-    hasBranch(): boolean;
-    clearBranch(): void;
-    getBranch(): Branch | undefined;
-    setBranch(value?: Branch): CommitProvenance;
-
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CommitProvenance.AsObject;
     static toObject(includeInstance: boolean, msg: CommitProvenance): CommitProvenance.AsObject;
@@ -396,7 +390,6 @@ export class CommitProvenance extends jspb.Message {
 export namespace CommitProvenance {
     export type AsObject = {
         commit?: Commit.AsObject,
-        branch?: Branch.AsObject,
     }
 }
 
@@ -406,12 +399,6 @@ export class CommitInfo extends jspb.Message {
     clearCommit(): void;
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): CommitInfo;
-
-
-    hasBranch(): boolean;
-    clearBranch(): void;
-    getBranch(): Branch | undefined;
-    setBranch(value?: Branch): CommitInfo;
 
 
     hasOrigin(): boolean;
@@ -484,7 +471,6 @@ export class CommitInfo extends jspb.Message {
 export namespace CommitInfo {
     export type AsObject = {
         commit?: Commit.AsObject,
-        branch?: Branch.AsObject,
         origin?: CommitOrigin.AsObject,
         description: string,
         parentCommit?: Commit.AsObject,
@@ -498,6 +484,101 @@ export namespace CommitInfo {
         subvenantCommitsSuccess: number,
         subvenantCommitsFailure: number,
         subvenantCommitsTotal: number,
+    }
+}
+
+export class Job extends jspb.Message { 
+    getId(): string;
+    setId(value: string): Job;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Job.AsObject;
+    static toObject(includeInstance: boolean, msg: Job): Job.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Job, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Job;
+    static deserializeBinaryFromReader(message: Job, reader: jspb.BinaryReader): Job;
+}
+
+export namespace Job {
+    export type AsObject = {
+        id: string,
+    }
+}
+
+export class StoredJobInfo extends jspb.Message { 
+
+    hasJob(): boolean;
+    clearJob(): void;
+    getJob(): Job | undefined;
+    setJob(value?: Job): StoredJobInfo;
+
+
+    hasOrigin(): boolean;
+    clearOrigin(): void;
+    getOrigin(): CommitOrigin | undefined;
+    setOrigin(value?: CommitOrigin): StoredJobInfo;
+
+    clearCommitsList(): void;
+    getCommitsList(): Array<Commit>;
+    setCommitsList(value: Array<Commit>): StoredJobInfo;
+    addCommits(value?: Commit, index?: number): Commit;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): StoredJobInfo.AsObject;
+    static toObject(includeInstance: boolean, msg: StoredJobInfo): StoredJobInfo.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: StoredJobInfo, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): StoredJobInfo;
+    static deserializeBinaryFromReader(message: StoredJobInfo, reader: jspb.BinaryReader): StoredJobInfo;
+}
+
+export namespace StoredJobInfo {
+    export type AsObject = {
+        job?: Job.AsObject,
+        origin?: CommitOrigin.AsObject,
+        commitsList: Array<Commit.AsObject>,
+    }
+}
+
+export class JobInfo extends jspb.Message { 
+
+    hasJob(): boolean;
+    clearJob(): void;
+    getJob(): Job | undefined;
+    setJob(value?: Job): JobInfo;
+
+
+    hasOrigin(): boolean;
+    clearOrigin(): void;
+    getOrigin(): CommitOrigin | undefined;
+    setOrigin(value?: CommitOrigin): JobInfo;
+
+    clearCommitsList(): void;
+    getCommitsList(): Array<CommitInfo>;
+    setCommitsList(value: Array<CommitInfo>): JobInfo;
+    addCommits(value?: CommitInfo, index?: number): CommitInfo;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): JobInfo.AsObject;
+    static toObject(includeInstance: boolean, msg: JobInfo): JobInfo.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: JobInfo, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): JobInfo;
+    static deserializeBinaryFromReader(message: JobInfo, reader: jspb.BinaryReader): JobInfo;
+}
+
+export namespace JobInfo {
+    export type AsObject = {
+        job?: Job.AsObject,
+        origin?: CommitOrigin.AsObject,
+        commitsList: Array<CommitInfo.AsObject>,
     }
 }
 
@@ -603,6 +684,9 @@ export namespace InspectRepoRequest {
 }
 
 export class ListRepoRequest extends jspb.Message { 
+    getType(): string;
+    setType(value: string): ListRepoRequest;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListRepoRequest.AsObject;
@@ -616,6 +700,7 @@ export class ListRepoRequest extends jspb.Message {
 
 export namespace ListRepoRequest {
     export type AsObject = {
+        type: string,
     }
 }
 
@@ -684,8 +769,11 @@ export class StartCommitRequest extends jspb.Message {
     getDescription(): string;
     setDescription(value: string): StartCommitRequest;
 
-    getBranch(): string;
-    setBranch(value: string): StartCommitRequest;
+
+    hasBranch(): boolean;
+    clearBranch(): void;
+    getBranch(): Branch | undefined;
+    setBranch(value?: Branch): StartCommitRequest;
 
     clearProvenanceList(): void;
     getProvenanceList(): Array<CommitProvenance>;
@@ -707,7 +795,7 @@ export namespace StartCommitRequest {
     export type AsObject = {
         parent?: Commit.AsObject,
         description: string,
-        branch: string,
+        branch?: Branch.AsObject,
         provenanceList: Array<CommitProvenance.AsObject>,
     }
 }
@@ -975,9 +1063,6 @@ export class CreateBranchRequest extends jspb.Message {
     getHead(): Commit | undefined;
     setHead(value?: Commit): CreateBranchRequest;
 
-    getSBranch(): string;
-    setSBranch(value: string): CreateBranchRequest;
-
 
     hasBranch(): boolean;
     clearBranch(): void;
@@ -1009,7 +1094,6 @@ export class CreateBranchRequest extends jspb.Message {
 export namespace CreateBranchRequest {
     export type AsObject = {
         head?: Commit.AsObject,
-        sBranch: string,
         branch?: Branch.AsObject,
         provenanceList: Array<Branch.AsObject>,
         trigger?: Trigger.AsObject,

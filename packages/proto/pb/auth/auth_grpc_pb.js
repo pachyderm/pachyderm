@@ -424,6 +424,28 @@ function deserialize_auth_RevokeAuthTokensForUserResponse(buffer_arg) {
   return auth_auth_pb.RevokeAuthTokensForUserResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_auth_RotateRootTokenRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.RotateRootTokenRequest)) {
+    throw new Error('Expected argument of type auth.RotateRootTokenRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_RotateRootTokenRequest(buffer_arg) {
+  return auth_auth_pb.RotateRootTokenRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_RotateRootTokenResponse(arg) {
+  if (!(arg instanceof auth_auth_pb.RotateRootTokenResponse)) {
+    throw new Error('Expected argument of type auth.RotateRootTokenResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_RotateRootTokenResponse(buffer_arg) {
+  return auth_auth_pb.RotateRootTokenResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_auth_SetConfigurationRequest(arg) {
   if (!(arg instanceof auth_auth_pb.SetConfigurationRequest)) {
     throw new Error('Expected argument of type auth.SetConfigurationRequest');
@@ -747,6 +769,17 @@ activate: {
     requestDeserialize: deserialize_auth_DeleteExpiredAuthTokensRequest,
     responseSerialize: serialize_auth_DeleteExpiredAuthTokensResponse,
     responseDeserialize: deserialize_auth_DeleteExpiredAuthTokensResponse,
+  },
+  rotateRootToken: {
+    path: '/auth.API/RotateRootToken',
+    requestStream: false,
+    responseStream: false,
+    requestType: auth_auth_pb.RotateRootTokenRequest,
+    responseType: auth_auth_pb.RotateRootTokenResponse,
+    requestSerialize: serialize_auth_RotateRootTokenRequest,
+    requestDeserialize: deserialize_auth_RotateRootTokenRequest,
+    responseSerialize: serialize_auth_RotateRootTokenResponse,
+    responseDeserialize: deserialize_auth_RotateRootTokenResponse,
   },
 };
 
