@@ -999,7 +999,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 		}),
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
-	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Don't print progress bars.")
+	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 
