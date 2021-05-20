@@ -437,13 +437,15 @@ func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
 // 'S3' set to true. Any pipelines with s3 inputs lj
 func ContainsS3Inputs(in *pps.Input) bool {
-	foundErr := pps.VisitInput(in, func(in *pps.Input) error {
+	var found bool
+	pps.VisitInput(in, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
+			found = true
 			return errutil.ErrBreak
 		}
 		return nil
 	})
-	return foundErr != nil
+	return found
 }
 
 // SidecarS3GatewayService returns the name of the kubernetes service created

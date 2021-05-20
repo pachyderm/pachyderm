@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"gopkg.in/src-d/go-git.v4"
 )
 
@@ -33,6 +34,14 @@ func init() {
 
 // VisitInput visits each input recursively in ascending order (root last)
 func VisitInput(input *Input, f func(*Input) error) error {
+	err := visitInput(input, f)
+	if err != nil && errors.Is(err, errutil.ErrBreak) {
+		return nil
+	}
+	return err
+}
+
+func visitInput(input *Input, f func(*Input) error) error {
 	var source []*Input
 	switch {
 	case input == nil:
@@ -47,7 +56,7 @@ func VisitInput(input *Input, f func(*Input) error) error {
 		source = input.Union
 	}
 	for _, input := range source {
-		if err := VisitInput(input, f); err != nil {
+		if err := visitInput(input, f); err != nil {
 			return err
 		}
 	}

@@ -794,12 +794,15 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 		}
 	}
 
-	if hasGitErr := pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
+	var hasGitInput bool
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
 		if input.Git != nil {
+			hasGitInput = true
 			return errutil.ErrBreak
 		}
 		return nil
-	}); hasGitErr != nil {
+	})
+	if hasGitInput {
 		return a.checkOrDeployGithookService()
 	}
 	return nil
