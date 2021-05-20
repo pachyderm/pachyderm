@@ -2463,12 +2463,15 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 			pipelineInfo.Service.IP = service.Spec.ClusterIP
 		}
 	}
-	if hasGitInput := pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
+	var hasGitInput bool
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
 		if input.Git != nil {
+			hasGitInput = true
 			return errutil.ErrBreak
 		}
 		return nil
-	}); hasGitInput != nil {
+	})
+	if hasGitInput {
 		pipelineInfo.GithookURL = "pending"
 		svc, err := getGithookService(kubeClient, a.namespace)
 		if err != nil {
