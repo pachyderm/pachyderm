@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -793,17 +794,16 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 		}
 	}
 
-	// True if the pipeline has a git input
 	var hasGitInput bool
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
 		if input.Git != nil {
 			hasGitInput = true
+			return errutil.ErrBreak
 		}
+		return nil
 	})
 	if hasGitInput {
-		if err := a.checkOrDeployGithookService(); err != nil {
-			return err
-		}
+		return a.checkOrDeployGithookService()
 	}
 	return nil
 }

@@ -601,31 +601,36 @@ func (reg *registry) processJobEgressing(ppj *pendingPipelineJob) error {
 
 func failedInputs(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo) ([]string, error) {
 	var failed []string
-	var vistErr error
-	blockCommit := func(name string, commit *pfs.Commit) {
+	blockCommit := func(name string, commit *pfs.Commit) error {
 		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
 				Commit:     commit,
 				BlockState: pfs.CommitState_FINISHED,
 			})
 		if err != nil {
-			if vistErr == nil {
-				vistErr = errors.Wrapf(err, "error blocking on commit %s@%s",
-					commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
-			}
-			return
+			return errors.Wrapf(err, "error blocking on commit %s@%s",
+				commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 		}
 		if strings.Contains(ci.Description, pfs.EmptyStr) {
 			failed = append(failed, name)
 		}
+		return nil
 	}
-	pps.VisitInput(pipelineJobInfo.Input, func(input *pps.Input) {
+	visitErr := pps.VisitInput(pipelineJobInfo.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Commit != "" {
-			blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit))
+			if err := blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit)); err != nil {
+				return err
+			}
 		}
 		if input.Git != nil && input.Git.Commit != "" {
-			blockCommit(input.Git.Name, client.NewCommit(input.Git.Name, input.Git.Branch, input.Git.Commit))
+			if err := blockCommit(input.Git.Name, client.NewCommit(input.Git.Name, input.Git.Branch, input.Git.Commit)); err != nil {
+				return err
+			}
 		}
+		return nil
 	})
-	return failed, vistErr
+	if visitErr != nil {
+		return nil, visitErr
+	}
+	return failed, nil
 }

@@ -179,7 +179,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 	pipeline := pipelineInfo.Pipeline.Name
 	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
-	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
+	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) error {
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
@@ -188,6 +188,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 					backoff.NotifyCtx(ctx, "cron for "+in.Cron.Name))
 			})
 		}
+		return nil
 	})
 	if pipelineInfo.Standby {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into

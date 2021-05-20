@@ -1047,14 +1047,13 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			if request.Transform.Build.Language != "" && request.Transform.Build.Image != "" {
 				return errors.New("cannot specify both a build `language` and `image`")
 			}
-			var err error
-			ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) {
+			if err := ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) error {
 				inputName := ppsclient.InputName(input)
 				if inputName == "build" || inputName == "source" {
-					err = errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
+					return errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
 				}
-			})
-			if err != nil {
+				return nil
+			}); err != nil {
 				return err
 			}
 			pipelineParentPath, _ := filepath.Split(pipelinePath)
