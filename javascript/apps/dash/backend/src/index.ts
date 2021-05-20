@@ -38,15 +38,16 @@ const attachWebServer = (app: Express) => {
   // eslint-disable-next-line import/no-named-as-default-member
   app.use(express.static(FE_BUILD_DIRECTORY));
 
-  app.use(cookieParser());
-
-  app.get('/download/:repoName/:commitId/*', handleFileDownload);
-
   app.get('/*', (_, res) => {
     res.render('index.html', {
       PACH_DASH_CONFIG: env,
     });
   });
+};
+
+const attachDownloadHandler = (app: Express) => {
+  app.use(cookieParser());
+  app.get('/download/:repoName/:commitId/*', handleFileDownload);
 };
 
 const createServer = () => {
@@ -55,6 +56,8 @@ const createServer = () => {
   gqlServer.applyMiddleware({app});
   const httpServer = httpCreateServer(app);
   gqlServer.installSubscriptionHandlers(httpServer);
+
+  attachDownloadHandler(app);
 
   if (process.env.NODE_ENV !== 'development') {
     attachWebServer(app);

@@ -12,6 +12,7 @@ import {MutationExchangeCodeArgs} from '@graphqlTypes';
 import useLoggedIn from './useLoggedIn';
 
 const COOKIE_EXPIRES = 365; // TODO: align with api token expiry
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 interface UseAuthArgs {
   onError?: (error: ApolloError) => void;
@@ -55,8 +56,8 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
         window.localStorage.getItem('auth-token') || '',
         {
           expires: COOKIE_EXPIRES,
-          httpOnly: true,
-          sameSite: 'strict',
+          httpOnly: !IS_DEV && true,
+          sameSite: IS_DEV ? 'lax' : 'strict',
           secure: true,
         },
       );

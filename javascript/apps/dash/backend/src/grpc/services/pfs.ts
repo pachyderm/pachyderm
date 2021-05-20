@@ -10,6 +10,7 @@ import {
   RepoInfo,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
+import {extract} from 'tar-stream';
 
 import {
   fileFromObject,
@@ -52,29 +53,30 @@ const pfs = ({
       const stream = client.getFile(getFileRequest, credentialMetadata);
 
       return new Promise<Buffer>((resolve, reject) => {
-        // The chunks contain:
-        // chunks[0]: File metadata
-        // chunks[1]: File data
-        // chunks[2...n]: All 0s
-        // TODO: why is 2...n even sent?
-        const chunks: BytesValue.AsObject['value'][] = [];
+        // The GetFile request returns a tar stream.
+        // We have to untar it before we can read it.
+        const buffers: Buffer[] = [];
+        const extractor = extract();
 
-        stream.on('data', (chunk: BytesValue) => {
-          chunks.push(chunk.getValue());
+        extractor.on('entry', (_, estream, next) => {
+          estream.on('data', (buffer: Buffer) => buffers.push(buffer));
+          estream.on('end', () => next());
+          estream.resume();
         });
 
-        stream.on('end', () => {
-          // We already have the metadata we need, so we only create a buffer from chunks[1][0]
-          if (chunks[1]) {
-            return resolve(Buffer.from(chunks[1]));
+        extractor.on('finish', () => {
+          if (buffers.length) {
+            return resolve(buffers[0]);
           } else {
             return reject(new Error('File does not exist.'));
           }
         });
 
-        stream.on('error', (err) => {
-          return reject(err);
-        });
+        stream.on('data', (chunk: BytesValue) =>
+          extractor.write(chunk.getValue()),
+        );
+        stream.on('end', () => extractor.end());
+        stream.on('error', (err) => reject(err));
       });
     },
     listCommit: (
