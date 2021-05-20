@@ -37,7 +37,7 @@ func subvStr(i interface{}) interface{} {
 func expectProv(commits ...*pfs.Commit) []interface{} {
 	result := []interface{}{}
 	for _, commit := range commits {
-		result = append(result, provStr(client.NewCommitProvenance(commit)))
+		result = append(result, provStr(commit.NewProvenance()))
 	}
 	return result
 }
