@@ -43,13 +43,13 @@ jobs:
       - run: etc/testing/circle/start-minikube.sh 
       - restore_cache:
          keys:
-         - pach-go-cache-{{ .Branch }}
-         - pach-go-cache-
+         - pach-go-cache-1.13-{{ .Branch }}
+         - pach-go-cache-1.13-
       - run: etc/testing/circle/build.sh 
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
       - save_cache:
-         key: pach-go-cache-{{ .Branch }}
+         key: pach-go-cache-1-13.{{ .Branch }}
          paths:
          - /home/circleci/.go_workspace/pkg/mod
          - /home/circleci/.gocache
