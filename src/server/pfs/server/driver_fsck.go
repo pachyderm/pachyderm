@@ -121,8 +121,6 @@ func (e ErrCommitInfoNotFound) Error() string {
 // fsck verifies that pfs satisfies the following invariants:
 // 1. Branch provenance is transitive
 // 2. Head commit provenance has heads of branch's branch provenance
-// 3. Commit provenance is transitive
-// 4. Commit provenance and commit subvenance are dual relations
 // If fix is true it will attempt to fix as many of these issues as it can.
 func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) error) error {
 	// Check that the user is logged in (user doesn't need any access level to

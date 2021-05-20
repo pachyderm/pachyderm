@@ -86,7 +86,7 @@ func (mpts *MockPfsTransactionServer) DeleteRepoInTransaction(*TransactionContex
 }
 
 // StartCommitInTransaction always errors
-func (mpts *MockPfsTransactionServer) StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error) {
+func (mpts *MockPfsTransactionServer) StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	return nil, unimplementedError("PfsTransactionServer.StartCommitInTransaction")
 }
 

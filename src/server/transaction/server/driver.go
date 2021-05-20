@@ -141,6 +141,10 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
 	}
 
+	// Set the transaction's JobID to be the same as the transaction ID, which
+	// will be used for any newly made commits.
+	txnCtx.Job = &pfs.Job{ID: info.Transaction.ID}
+
 	directTxn := txnenv.NewDirectTransaction(txnCtx)
 	for i, request := range info.Requests {
 		var err error
@@ -151,10 +155,7 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 		} else if request.DeleteRepo != nil {
 			err = directTxn.DeleteRepo(request.DeleteRepo)
 		} else if request.StartCommit != nil {
-			// Do a little extra work here so we can make sure the new commit ID is
-			// the same every time.  We store the response the first time and reuse
-			// the commit ID on subsequent runs.
-			response.Commit, err = directTxn.StartCommit(request.StartCommit, response.Commit)
+			response.Commit, err = directTxn.StartCommit(request.StartCommit)
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
 		} else if request.SquashCommit != nil {

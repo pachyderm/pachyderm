@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"io"
-	"sort"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"

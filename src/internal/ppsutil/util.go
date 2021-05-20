@@ -16,7 +16,6 @@ package ppsutil
 import (
 	"bytes"
 	"fmt"
-	"path"
 	"strings"
 	"time"
 

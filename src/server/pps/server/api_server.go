@@ -1697,7 +1697,7 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 		commit, err = superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
 			Parent: prevSpecCommit,
 			Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineName),
-		}, nil)
+		})
 		if err != nil {
 			return err
 		}
@@ -2944,6 +2944,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	return &types.Empty{}, nil
 }
 
+// TODO(global ids): do this all transactionally after the inspectPipeline
 func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2987,6 +2988,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	provenance := request.Provenance
 	provenanceMap := make(map[string]*pfs.CommitProvenance)
 
+	// TODO(global ids): seems like it's an error to specify both PipelineJobID
+	// and Provenance - the jobOutputCommit.Provenance should overwrite anything
+	// specified in the request.
 	if request.PipelineJobID != "" {
 		pipelineJobInfo, err := ppsClient.InspectPipelineJob(ctx, &pps.InspectPipelineJobRequest{
 			PipelineJob: client.NewPipelineJob(request.PipelineJobID),
@@ -3038,6 +3042,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			if branchInfo.Head == nil {
 				continue
 			}
+			// TODO(global ids): why is this loading the branch head's ID?  PFS should
+			// be able to fill in the provenance based on the latest in each provenant
+			// branch, right?
 			headCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: branchInfo.Head})
 			if err != nil {
 				return nil, err

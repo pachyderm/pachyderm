@@ -141,16 +141,9 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 }
 
 // StartCommitInTransaction is identical to StartCommit except that it can run
-// inside an existing postgres transaction.  This is not an RPC.  The target
-// commit can be specified but is optional.  This is so that the transaction can
-// report the commit ID back to the client before the transaction has finished
-// and it can be used in future commands inside the same transaction.
-func (a *apiServer) StartCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
-	id := ""
-	if commit != nil {
-		id = commit.ID
-	}
-	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) StartCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
+	return a.driver.startCommit(txnCtx, request.Parent, request.Branch, request.Provenance, request.Description)
 }
 
 // StartCommit implements the protobuf pfs.StartCommit RPC
@@ -160,7 +153,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	var err error
 	commit := &pfs.Commit{}
 	if err = a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		commit, err = txn.StartCommit(request, nil)
+		commit, err = txn.StartCommit(request)
 		return err
 	}); err != nil {
 		return nil, err

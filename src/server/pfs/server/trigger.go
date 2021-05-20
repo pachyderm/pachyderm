@@ -77,7 +77,7 @@ func (d *driver) triggerCommit(
 					return err
 				}
 				if triggered {
-					if err := d.aliasCommit(newHead, bi.Branch, true); err != nil {
+					if err := d.aliasCommit(txnCtx, newHead, bi.Branch); err != nil {
 						return err
 					}
 					headBranches[bi.Branch.Name] = true

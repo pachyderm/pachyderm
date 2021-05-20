@@ -24,7 +24,7 @@ type PfsWrites interface {
 	CreateRepo(*pfs.CreateRepoRequest) error
 	DeleteRepo(*pfs.DeleteRepoRequest) error
 
-	StartCommit(*pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
+	StartCommit(*pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
 	SquashCommit(*pfs.SquashCommitRequest) error
 
@@ -183,7 +183,7 @@ type PfsTransactionServer interface {
 	InspectRepoInTransaction(*TransactionContext, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 	DeleteRepoInTransaction(*TransactionContext, *pfs.DeleteRepoRequest) error
 
-	StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
+	StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommitInTransaction(*TransactionContext, *pfs.FinishCommitRequest) error
 	SquashCommitInTransaction(*TransactionContext, *pfs.SquashCommitRequest) error
 	InspectCommitInTransaction(*TransactionContext, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
@@ -268,9 +268,9 @@ func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
 	return t.txnCtx.txnEnv.pfsServer.DeleteRepoInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
+func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	req := proto.Clone(original).(*pfs.StartCommitRequest)
-	return t.txnCtx.txnEnv.pfsServer.StartCommitInTransaction(t.txnCtx, req, commit)
+	return t.txnCtx.txnEnv.pfsServer.StartCommitInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) error {
@@ -342,7 +342,7 @@ func (t *appendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
 	return err
 }
 
-func (t *appendTransaction) StartCommit(req *pfs.StartCommitRequest, _ *pfs.Commit) (*pfs.Commit, error) {
+func (t *appendTransaction) StartCommit(req *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	res, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StartCommit: req})
 	if err != nil {
 		return nil, err

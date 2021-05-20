@@ -4961,24 +4961,28 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("CommitProgress", func(t *testing.T) {
+		// TODO(2.0 required): reimplement in terms of Job progress
+		t.Skip("CommitInfo no longer contains progress fields, use JobInfo instead")
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		/*
+			env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("in"))
-		require.NoError(t, env.PachClient.CreateRepo("out"))
-		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
-		require.NoError(t, env.PachClient.PutFile("in", "master", "", "foo", strings.NewReader("foo")))
-		ci, err := env.PachClient.InspectCommit("in", "master", "")
-		require.NoError(t, err)
-		require.Equal(t, int64(1), ci.SubvenantCommitsTotal)
-		require.Equal(t, int64(0), ci.SubvenantCommitsSuccess)
-		require.Equal(t, int64(0), ci.SubvenantCommitsFailure)
-		require.NoError(t, env.PachClient.FinishCommit("out", "master", ""))
-		ci, err = env.PachClient.InspectCommit("in", "master", "")
-		require.NoError(t, err)
-		require.Equal(t, int64(1), ci.SubvenantCommitsTotal)
-		require.Equal(t, int64(1), ci.SubvenantCommitsSuccess)
-		require.Equal(t, int64(0), ci.SubvenantCommitsFailure)
+			require.NoError(t, env.PachClient.CreateRepo("in"))
+			require.NoError(t, env.PachClient.CreateRepo("out"))
+			require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
+			require.NoError(t, env.PachClient.PutFile("in", "master", "", "foo", strings.NewReader("foo")))
+			ci, err := env.PachClient.InspectCommit("in", "master", "")
+			require.NoError(t, err)
+			require.Equal(t, int64(1), ci.SubvenantCommitsTotal)
+			require.Equal(t, int64(0), ci.SubvenantCommitsSuccess)
+			require.Equal(t, int64(0), ci.SubvenantCommitsFailure)
+			require.NoError(t, env.PachClient.FinishCommit("out", "master", ""))
+			ci, err = env.PachClient.InspectCommit("in", "master", "")
+			require.NoError(t, err)
+			require.Equal(t, int64(1), ci.SubvenantCommitsTotal)
+			require.Equal(t, int64(1), ci.SubvenantCommitsSuccess)
+			require.Equal(t, int64(0), ci.SubvenantCommitsFailure)
+		*/
 	})
 
 	suite.Run("ListAll", func(t *testing.T) {
