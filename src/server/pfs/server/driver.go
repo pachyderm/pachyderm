@@ -261,6 +261,11 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(repo), result); err != nil {
 		return nil, err
 	}
+	size, err := d.getRepoSize(txnCtx.ClientContext, repo)
+	if err != nil {
+		return nil, err
+	}
+	result.SizeBytes = uint64(size)
 	if includeAuth {
 		permissions, roles, err := d.getPermissions(txnCtx.ClientContext, repo)
 		if err != nil {
@@ -295,6 +300,11 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
 			return nil
 		}
+		size, err := d.getRepoSize(ctx, repoInfo.Repo)
+		if err != nil {
+			return err
+		}
+		repoInfo.SizeBytes = uint64(size)
 		if includeAuth && authSeemsActive {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err == nil {
@@ -848,28 +858,33 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 	if err := d.openCommits.ReadWrite(sqlTx).Delete(commit.ID); err != nil {
 		return errors.Wrapf(err, "could not confirm that commit %s is open; this is likely a bug", commit.ID)
 	}
-	// update the repo size if this is the head of master
 	repoInfo := new(pfs.RepoInfo)
 	if err := d.repos.ReadWrite(sqlTx).Get(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
+	// update the repo size if this is the head of master
+	repoInfo := new(pfs.RepoInfo)
+	if err := d.repos.ReadOnly(ctx).Get(pfsdb.RepoKey(repo), repoInfo); err != nil {
+		return 0, err
+	}
 	for _, branch := range repoInfo.Branches {
 		if branch.Name == "master" {
 			branchInfo := &pfs.BranchInfo{}
-			if err := d.branches.ReadWrite(sqlTx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
-				return err
+			if err := d.branches.ReadOnly(ctx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
+				return 0, err
 			}
 			// If the head commit of master has been deleted, we could get here if another branch
 			// had shared its head commit with master, and then we created a new commit on that branch
-			if branchInfo.Head != nil && branchInfo.Head.ID == commit.ID {
-				repoInfo.SizeBytes = commitInfo.SizeBytes
-				if err := d.repos.ReadWrite(sqlTx).Put(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
-					return err
-				}
+			if branchInfo.Head != nil {
+				return d.sizeOfCommit(ctx, branchInfo.Head)
 			}
 		}
 	}
-	return nil
+	return 0, nil
 }
 
 // propagateCommits selectively starts commits in or downstream of 'branches' in
@@ -1176,6 +1191,13 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 		}); err != nil {
 			return nil, err
 		}
+	}
+	if commitInfo.Finished != nil {
+		size, err := d.sizeOfCommit(ctx, commitInfo.Commit)
+		if err != nil {
+			return nil, err
+		}
+		commitInfo.SizeBytes = uint64(size)
 	}
 	return commitInfo, nil
 }

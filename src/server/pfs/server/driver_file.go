@@ -490,3 +490,12 @@ func (d *driver) getOrComputeTotal(ctx context.Context, commit *pfs.Commit) (*fi
 	}
 	return d.commitStore.GetTotalFileset(ctx, commit)
 }
+
+// sizeOfCommit gets the size of a commit.
+func (d *driver) sizeOfCommit(ctx context.Context, commit *pfs.Commit) (int64, error) {
+	fsid, err := d.getFileset(ctx, commit)
+	if err != nil {
+		return 0, err
+	}
+	return d.storage.SizeOf(ctx, *fsid)
+}
