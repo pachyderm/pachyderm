@@ -37,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
@@ -189,113 +190,107 @@ func (a *apiServer) validateInput(pipelineName string, input *pps.Input) error {
 	if err := validateNames(make(map[string]bool), input); err != nil {
 		return err
 	}
-	var result error
-	pps.VisitInput(input, func(input *pps.Input) {
-		if err := func() error {
-			set := false
-			if input.Pfs != nil {
-				set = true
-				switch {
-				case len(input.Pfs.Name) == 0:
-					return errors.Errorf("input must specify a name")
-				case input.Pfs.Name == "out":
-					return errors.Errorf("input cannot be named \"out\", as pachyderm " +
-						"already creates /pfs/out to collect job output")
-				case input.Pfs.Repo == "":
-					return errors.Errorf("input must specify a repo")
-				case input.Pfs.Repo == "out" && input.Pfs.Name == "":
-					return errors.Errorf("inputs based on repos named \"out\" must have " +
-						"'name' set, as pachyderm already creates /pfs/out to collect " +
-						"job output")
-				case input.Pfs.Branch == "":
-					return errors.Errorf("input must specify a branch")
-				case !input.Pfs.S3 && len(input.Pfs.Glob) == 0:
-					return errors.Errorf("input must specify a glob")
-				case input.Pfs.S3 && input.Pfs.Glob != "/":
-					return errors.Errorf("inputs that set 's3' to 'true' must also set " +
-						"'glob', to \"/\", as the S3 gateway is only able to expose data " +
-						"at the commit level")
-				case input.Pfs.S3 && input.Pfs.Lazy:
-					return errors.Errorf("input cannot specify both 's3' and 'lazy', as " +
-						"'s3' requires input data to be accessed via Pachyderm's S3 " +
-						"gateway rather than the file system")
-				case input.Pfs.S3 && input.Pfs.EmptyFiles:
-					return errors.Errorf("input cannot specify both 's3' and " +
-						"'empty_files', as 's3' requires input data to be accessed via " +
-						"Pachyderm's S3 gateway rather than the file system")
-				}
+	return pps.VisitInput(input, func(input *pps.Input) error {
+		set := false
+		if input.Pfs != nil {
+			set = true
+			switch {
+			case len(input.Pfs.Name) == 0:
+				return errors.Errorf("input must specify a name")
+			case input.Pfs.Name == "out":
+				return errors.Errorf("input cannot be named \"out\", as pachyderm " +
+					"already creates /pfs/out to collect job output")
+			case input.Pfs.Repo == "":
+				return errors.Errorf("input must specify a repo")
+			case input.Pfs.Repo == "out" && input.Pfs.Name == "":
+				return errors.Errorf("inputs based on repos named \"out\" must have " +
+					"'name' set, as pachyderm already creates /pfs/out to collect " +
+					"job output")
+			case input.Pfs.Branch == "":
+				return errors.Errorf("input must specify a branch")
+			case !input.Pfs.S3 && len(input.Pfs.Glob) == 0:
+				return errors.Errorf("input must specify a glob")
+			case input.Pfs.S3 && input.Pfs.Glob != "/":
+				return errors.Errorf("inputs that set 's3' to 'true' must also set " +
+					"'glob', to \"/\", as the S3 gateway is only able to expose data " +
+					"at the commit level")
+			case input.Pfs.S3 && input.Pfs.Lazy:
+				return errors.Errorf("input cannot specify both 's3' and 'lazy', as " +
+					"'s3' requires input data to be accessed via Pachyderm's S3 " +
+					"gateway rather than the file system")
+			case input.Pfs.S3 && input.Pfs.EmptyFiles:
+				return errors.Errorf("input cannot specify both 's3' and " +
+					"'empty_files', as 's3' requires input data to be accessed via " +
+					"Pachyderm's S3 gateway rather than the file system")
 			}
-			if input.Cross != nil {
-				if set {
-					return errors.Errorf("multiple input types set")
-				}
-				set = true
-			}
-			if input.Join != nil {
-				if set {
-					return errors.Errorf("multiple input types set")
-				}
-				set = true
-				if ppsutil.ContainsS3Inputs(input) {
-					// The best datum semantics for s3 inputs embedded in join expressions
-					// are not yet clear, and we see no use case for them yet, so block
-					// them until we know how they should work
-					return errors.Errorf("S3 inputs in join expressions are not supported")
-				}
-			}
-			if input.Group != nil {
-				if set {
-					return errors.Errorf("multiple input types set")
-				}
-				set = true
-				if ppsutil.ContainsS3Inputs(input) {
-					// See above for "joins"; block s3 inputs in group expressions until
-					// we know how they should work
-					return errors.Errorf("S3 inputs in group expressions are not supported")
-				}
-			}
-			if input.Union != nil {
-				if set {
-					return errors.Errorf("multiple input types set")
-				}
-				set = true
-				if ppsutil.ContainsS3Inputs(input) {
-					// See above for "joins"; block s3 inputs in union expressions until
-					// we know how they should work
-					return errors.Errorf("S3 inputs in union expressions are not supported")
-				}
-			}
-			if input.Cron != nil {
-				if set {
-					return errors.Errorf("multiple input types set")
-				}
-				set = true
-				if len(input.Cron.Name) == 0 {
-					return errors.Errorf("input must specify a name")
-				}
-				if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
-					return errors.Wrapf(err, "error parsing cron-spec")
-				}
-			}
-			if input.Git != nil {
-				if set {
-					return errors.Errorf("multiple input types set")
-				}
-				logrus.Warn("githooks are deprecated and will be removed in a future version - see pipeline build steps for an alternative")
-				set = true
-				if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
-					return err
-				}
-			}
-			if !set {
-				return errors.Errorf("no input set")
-			}
-			return nil
-		}(); err != nil && result == nil {
-			result = err
 		}
+		if input.Cross != nil {
+			if set {
+				return errors.Errorf("multiple input types set")
+			}
+			set = true
+		}
+		if input.Join != nil {
+			if set {
+				return errors.Errorf("multiple input types set")
+			}
+			set = true
+			if ppsutil.ContainsS3Inputs(input) {
+				// The best datum semantics for s3 inputs embedded in join expressions
+				// are not yet clear, and we see no use case for them yet, so block
+				// them until we know how they should work
+				return errors.Errorf("S3 inputs in join expressions are not supported")
+			}
+		}
+		if input.Group != nil {
+			if set {
+				return errors.Errorf("multiple input types set")
+			}
+			set = true
+			if ppsutil.ContainsS3Inputs(input) {
+				// See above for "joins"; block s3 inputs in group expressions until
+				// we know how they should work
+				return errors.Errorf("S3 inputs in group expressions are not supported")
+			}
+		}
+		if input.Union != nil {
+			if set {
+				return errors.Errorf("multiple input types set")
+			}
+			set = true
+			if ppsutil.ContainsS3Inputs(input) {
+				// See above for "joins"; block s3 inputs in union expressions until
+				// we know how they should work
+				return errors.Errorf("S3 inputs in union expressions are not supported")
+			}
+		}
+		if input.Cron != nil {
+			if set {
+				return errors.Errorf("multiple input types set")
+			}
+			set = true
+			if len(input.Cron.Name) == 0 {
+				return errors.Errorf("input must specify a name")
+			}
+			if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
+				return errors.Wrapf(err, "error parsing cron-spec")
+			}
+		}
+		if input.Git != nil {
+			if set {
+				return errors.Errorf("multiple input types set")
+			}
+			logrus.Warn("githooks are deprecated and will be removed in a future version - see pipeline build steps for an alternative")
+			set = true
+			if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
+				return err
+			}
+		}
+		if !set {
+			return errors.Errorf("no input set")
+		}
+		return nil
 	})
-	return result
 }
 
 func validateTransform(transform *pps.Transform) error {
@@ -424,26 +419,20 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		// output repo (which the pipeline needs to be able to do on the user's
 		// behalf)
 		done := make(map[string]struct{}) // don't double-authorize repos
-		err = nil
-		pps.VisitInput(input, func(in *pps.Input) {
-			if err != nil {
-				return
-			}
-
+		if err := pps.VisitInput(input, func(in *pps.Input) error {
 			var repo string
 			if in.Pfs != nil {
 				repo = in.Pfs.Repo
 			} else {
-				return
+				return nil
 			}
 
 			if _, ok := done[repo]; ok {
-				return
+				return nil
 			}
 			done[repo] = struct{}{}
-			err = a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ)
-		})
-		if err != nil {
+			return a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ)
+		}); err != nil {
 			return err
 		}
 	}
@@ -740,7 +729,7 @@ func (a *apiServer) listPipelineJob(
 		}
 		if len(inputCommits) > 0 {
 			found := make([]bool, len(inputCommits))
-			pps.VisitInput(pipelineJobInfo.Input, func(in *pps.Input) {
+			pps.VisitInput(pipelineJobInfo.Input, func(in *pps.Input) error {
 				if in.Pfs != nil {
 					for i, inputCommit := range inputCommits {
 						if in.Pfs.Commit == inputCommit.ID {
@@ -748,6 +737,7 @@ func (a *apiServer) listPipelineJob(
 						}
 					}
 				}
+				return nil
 			})
 			for _, found := range found {
 				if !found {
@@ -1067,25 +1057,20 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 
 func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb func(*datum.Meta) error) error {
 	setInputDefaults("", input)
-	var visitErr error
-	pps.VisitInput(input, func(input *pps.Input) {
-		if visitErr != nil {
-			return
-		}
+	if visitErr := pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			pachClient := a.env.GetPachClient(ctx)
 			ci, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Branch, "")
 			if err != nil {
-				visitErr = err
-				return
+				return err
 			}
 			input.Pfs.Commit = ci.Commit.ID
 		}
 		if input.Cron != nil {
-			visitErr = errors.Errorf("can't list datums with a cron input, there will be no datums until the pipeline is created")
+			return errors.Errorf("can't list datums with a cron input, there will be no datums until the pipeline is created")
 		}
-	})
-	if visitErr != nil {
+		return nil
+	}); visitErr != nil {
 		return visitErr
 	}
 	pachClient := a.env.GetPachClient(ctx)
@@ -1579,7 +1564,7 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 
 func branchProvenance(input *pps.Input) []*pfs.Branch {
 	var result []*pfs.Branch
-	pps.VisitInput(input, func(input *pps.Input) {
+	pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			result = append(result, client.NewBranch(input.Pfs.Repo, input.Pfs.Branch))
 		}
@@ -1589,6 +1574,7 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 		if input.Git != nil {
 			result = append(result, client.NewBranch(input.Git.Name, input.Git.Branch))
 		}
+		return nil
 	})
 	return result
 }
@@ -1738,7 +1724,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	// Figure out which repos 'pipeline' might no longer be using
 	if prevPipelineInfo != nil {
 		pipelineName = prevPipelineInfo.Pipeline.Name
-		pps.VisitInput(prevPipelineInfo.Input, func(input *pps.Input) {
+		pps.VisitInput(prevPipelineInfo.Input, func(input *pps.Input) error {
 			var repo string
 			switch {
 			case input.Pfs != nil:
@@ -1748,9 +1734,10 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			case input.Git != nil:
 				repo = input.Git.Name
 			default:
-				return // no scope to set: input is not a repo
+				return nil // no scope to set: input is not a repo
 			}
 			remove[repo] = struct{}{}
+			return nil
 		})
 	}
 
@@ -1767,7 +1754,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 
 		// collect inputs (remove redundant inputs from 'remove', but don't
 		// bother authorizing 'pipeline' twice)
-		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
 			var repo string
 			switch {
 			case input.Pfs != nil:
@@ -1777,13 +1764,14 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			case input.Git != nil:
 				repo = input.Git.Name
 			default:
-				return // no scope to set: input is not a repo
+				return nil // no scope to set: input is not a repo
 			}
 			if _, ok := remove[repo]; ok {
 				delete(remove, repo)
 			} else {
 				add[repo] = struct{}{}
 			}
+			return nil
 		})
 	}
 	if pipelineName == "" {
@@ -2052,15 +2040,14 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 
 	// Verify that all input repos exist (create cron and git repos if necessary)
-	var visitErr error
-	pps.VisitInput(newPipelineInfo.Input, func(input *pps.Input) {
+	if visitErr := pps.VisitInput(newPipelineInfo.Input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx,
 				&pfs.InspectRepoRequest{
 					Repo: client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType),
 				},
 			); err != nil {
-				visitErr = err
+				return err
 			}
 		}
 		if input.Cron != nil {
@@ -2070,7 +2057,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
 				},
 			); err != nil && !isAlreadyExistsErr(err) {
-				visitErr = err
+				return err
 			}
 		}
 		if input.Git != nil {
@@ -2080,11 +2067,11 @@ func (a *apiServer) CreatePipelineInTransaction(
 					Description: fmt.Sprintf("Git input repo for pipeline %s.", request.Pipeline.Name),
 				},
 			); err != nil && !isAlreadyExistsErr(err) {
-				visitErr = err
+				return err
 			}
 		}
-	})
-	if visitErr != nil {
+		return nil
+	}); visitErr != nil {
 		return visitErr
 	}
 
@@ -2303,32 +2290,28 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}); err != nil {
 		return errors.Wrapf(err, "could not create/update output branch")
 	}
-	visitErr = nil
-	pps.VisitInput(request.Input, func(input *pps.Input) {
-		if visitErr != nil {
-			return
-		}
+	if visitErr := pps.VisitInput(request.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
 			_, err = a.env.PfsServer().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
 				Branch: client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
 			})
 
 			if err != nil && !isNotFoundErr(err) {
-				visitErr = err
+				return err
 			} else {
 				var prevHead *pfs.Commit
 				if err == nil {
 					prevHead = client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, "")
 				}
-				visitErr = a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				return a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 					Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
 					Head:    prevHead,
 					Trigger: input.Pfs.Trigger,
 				})
 			}
 		}
-	})
-	if visitErr != nil {
+		return nil
+	}); visitErr != nil {
 		return errors.Wrapf(visitErr, "could not create/update trigger branch")
 	}
 	if newPipelineInfo.EnableStats {
@@ -2379,7 +2362,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 func setInputDefaults(pipelineName string, input *pps.Input) {
 	now := time.Now()
 	nCreatedBranches := make(map[string]int)
-	pps.VisitInput(input, func(input *pps.Input) {
+	pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			if input.Pfs.Branch == "" {
 				if input.Pfs.Trigger != nil {
@@ -2420,6 +2403,7 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 				input.Git.Name = tokens[0]
 			}
 		}
+		return nil
 	})
 }
 
@@ -2479,13 +2463,12 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 			pipelineInfo.Service.IP = service.Spec.ClusterIP
 		}
 	}
-	var hasGitInput bool
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+	if hasGitInput := pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
 		if input.Git != nil {
-			hasGitInput = true
+			return errutil.ErrBreak
 		}
-	})
-	if hasGitInput {
+		return nil
+	}); hasGitInput != nil {
 		pipelineInfo.GithookURL = "pending"
 		svc, err := getGithookService(kubeClient, a.namespace)
 		if err != nil {
@@ -2832,12 +2815,13 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	})
 	// Delete cron input repos
 	if !request.KeepRepo {
-		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
 			if input.Cron != nil {
 				eg.Go(func() error {
 					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
 				})
 			}
+			return nil
 		})
 	}
 	// Delete StoredPipelineInfo
@@ -3116,10 +3100,11 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 	// find any cron inputs
 	var crons []*pps.CronInput
-	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
+	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) error {
 		if in.Cron != nil {
 			crons = append(crons, in.Cron)
 		}
+		return nil
 	})
 
 	if len(crons) < 1 {

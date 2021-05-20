@@ -8340,17 +8340,15 @@ func TestSquashCommitRunsJob(t *testing.T) {
 			if len(pipelineJobInfos) != 1 {
 				return errors.Errorf("Expected one job, but got %d: %v", len(pipelineJobInfos), pipelineJobInfos)
 			}
-			pps.VisitInput(pipelineJobInfos[0].Input, func(input *pps.Input) {
+			return pps.VisitInput(pipelineJobInfos[0].Input, func(input *pps.Input) error {
 				if input.Pfs == nil {
-					err = errors.Errorf("expected a single PFS input, but got: %v", pipelineJobInfos[0].Input)
-					return
+					return errors.Errorf("expected a single PFS input, but got: %v", pipelineJobInfos[0].Input)
 				}
 				if input.Pfs.Commit != commit2.ID {
-					err = errors.Errorf("expected job to process %s, but instead processed: %s", commit2.ID, pipelineJobInfos[0].Input)
-					return
+					return errors.Errorf("expected job to process %s, but instead processed: %s", commit2.ID, pipelineJobInfos[0].Input)
 				}
+				return nil
 			})
-			return err
 		}, backoff.NewTestingBackOff())
 	})
 
@@ -8369,17 +8367,15 @@ func TestSquashCommitRunsJob(t *testing.T) {
 			if len(pipelineJobInfos) != 1 {
 				return errors.Errorf("Expected one job, but got %d: %v", len(pipelineJobInfos), pipelineJobInfos)
 			}
-			pps.VisitInput(pipelineJobInfos[0].Input, func(input *pps.Input) {
+			return pps.VisitInput(pipelineJobInfos[0].Input, func(input *pps.Input) error {
 				if input.Pfs == nil {
-					err = errors.Errorf("expected a single PFS input, but got: %v", pipelineJobInfos[0].Input)
-					return
+					return errors.Errorf("expected a single PFS input, but got: %v", pipelineJobInfos[0].Input)
 				}
 				if input.Pfs.Commit != commit1.ID {
-					err = errors.Errorf("expected job to process %s, but instead processed: %s", commit1.ID, pipelineJobInfos[0].Input)
-					return
+					return errors.Errorf("expected job to process %s, but instead processed: %s", commit1.ID, pipelineJobInfos[0].Input)
 				}
+				return nil
 			})
-			return err
 		}, backoff.NewTestingBackOff())
 	})
 
@@ -8983,10 +8979,11 @@ func TestDeferredCross(t *testing.T) {
 	headCommit, err := c.InspectCommit(dataSet, "master", "")
 	require.NoError(t, err)
 
-	pps.VisitInput(pipelineJobInfo.Input, func(i *pps.Input) {
+	pps.VisitInput(pipelineJobInfo.Input, func(i *pps.Input) error {
 		if i.Pfs != nil && i.Pfs.Repo == dataSet {
 			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
 		}
+		return nil
 	})
 }
 

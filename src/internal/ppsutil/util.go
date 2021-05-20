@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -276,7 +277,7 @@ func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.Comm
 		branchToCommit[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)] = prov.Commit
 	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
-	pps.VisitInput(jobInput, func(input *pps.Input) {
+	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			if commit, ok := branchToCommit[key(input.Pfs.Repo, input.Pfs.Branch)]; ok {
 				input.Pfs.Commit = commit.ID
@@ -292,6 +293,7 @@ func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.Comm
 				input.Git.Commit = commit.ID
 			}
 		}
+		return nil
 	})
 	return jobInput
 }
@@ -435,16 +437,13 @@ func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
 // 'S3' set to true. Any pipelines with s3 inputs lj
 func ContainsS3Inputs(in *pps.Input) bool {
-	var found bool
-	pps.VisitInput(in, func(in *pps.Input) {
-		if found {
-			return
-		}
+	foundErr := pps.VisitInput(in, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
-			found = true
+			return errutil.ErrBreak
 		}
+		return nil
 	})
-	return found
+	return foundErr != nil
 }
 
 // SidecarS3GatewayService returns the name of the kubernetes service created

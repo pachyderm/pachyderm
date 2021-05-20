@@ -32,28 +32,26 @@ func init() {
 }
 
 // VisitInput visits each input recursively in ascending order (root last)
-func VisitInput(input *Input, f func(*Input)) {
+func VisitInput(input *Input, f func(*Input) error) error {
+	var source []*Input
 	switch {
 	case input == nil:
-		return // Spouts may have nil input
+		return nil // Spouts may have nil input
 	case input.Cross != nil:
-		for _, input := range input.Cross {
-			VisitInput(input, f)
-		}
+		source = input.Cross
 	case input.Join != nil:
-		for _, input := range input.Join {
-			VisitInput(input, f)
-		}
+		source = input.Join
 	case input.Group != nil:
-		for _, input := range input.Group {
-			VisitInput(input, f)
-		}
+		source = input.Group
 	case input.Union != nil:
-		for _, input := range input.Union {
-			VisitInput(input, f)
+		source = input.Union
+	}
+	for _, input := range source {
+		if err := VisitInput(input, f); err != nil {
+			return err
 		}
 	}
-	f(input)
+	return f(input)
 }
 
 // InputName computes the name of an Input.
@@ -85,7 +83,7 @@ func InputName(input *Input) string {
 
 // SortInput sorts an Input.
 func SortInput(input *Input) {
-	VisitInput(input, func(input *Input) {
+	VisitInput(input, func(input *Input) error {
 		SortInputs := func(inputs []*Input) {
 			sort.SliceStable(inputs, func(i, j int) bool { return InputName(inputs[i]) < InputName(inputs[j]) })
 		}
@@ -99,13 +97,14 @@ func SortInput(input *Input) {
 		case input.Union != nil:
 			SortInputs(input.Union)
 		}
+		return nil
 	})
 }
 
 // InputBranches returns the branches in an Input.
 func InputBranches(input *Input) []*pfs.Branch {
 	var result []*pfs.Branch
-	VisitInput(input, func(input *Input) {
+	VisitInput(input, func(input *Input) error {
 		if input.Pfs != nil {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{
@@ -133,6 +132,7 @@ func InputBranches(input *Input) []*pfs.Branch {
 				Name: input.Git.Branch,
 			})
 		}
+		return nil
 	})
 	return result
 }

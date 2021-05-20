@@ -186,7 +186,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, pipelineJob
 
 	// Initialize new S3 gateway
 	var inputBuckets []*s3.Bucket
-	pps.VisitInput(pipelineJobInfo.Input, func(in *pps.Input) {
+	pps.VisitInput(pipelineJobInfo.Input, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
 				Repo:   in.Pfs.Repo,
@@ -195,6 +195,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, pipelineJob
 				Name:   in.Pfs.Name,
 			})
 		}
+		return nil
 	})
 	var outputBucket *s3.Bucket
 	if s.s.pipelineInfo.S3Out {
