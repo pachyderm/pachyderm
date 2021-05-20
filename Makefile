@@ -194,6 +194,7 @@ clean-launch-kube:
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
+	# TODO
 	$(PACHCTL) deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
@@ -201,6 +202,7 @@ launch: install check-kubectl
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
+	# TODO
 	$(PACHCTL) deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
@@ -209,15 +211,18 @@ launch-dev: check-kubectl check-kubectl-connection install
 launch-enterprise: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
+	# TODO
 	$(PACHCTL) deploy local --no-guaranteed -d --enterprise-server --namespace enterprise  --pachd-memory-request 128M --postgres-memory-request 128M --etcd-memory-request 128M --pachd-cpu-request 100m --postgres-cpu-request 100m --etcd-cpu-request 100m --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pach-enterprise enterprise; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl install
+	# TODO
 	yes | $(PACHCTL) undeploy
 
 clean-launch-dev: check-kubectl install
+	# TODO
 	yes | $(PACHCTL) undeploy
 
 full-clean-launch: check-kubectl
@@ -228,12 +233,6 @@ full-clean-launch: check-kubectl
 
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
-
-test-deploy-manifests: install
-	./etc/testing/deploy-manifests/validate.sh
-
-regenerate-test-deploy-manifests: install
-	./etc/testing/deploy-manifests/validate.sh --regenerate
 
 proto: docker-build-proto
 	./etc/proto/build.sh
@@ -269,7 +268,6 @@ test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -378,16 +376,6 @@ launch-monitoring:
 	@echo "All services up. Now port forwarding grafana to localhost:3000"
 	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
 
-clean-launch-logging: check-kubectl check-kubectl-connection
-	git submodule update --init
-	cd etc/plugin/logging && ./undeploy.sh
-
-launch-logging: check-kubectl check-kubectl-connection
-	@# Creates Fluentd / Elasticsearch / Kibana services for logging under --namespace=monitoring
-	git submodule update --init
-	cd etc/plugin/logging && ./deploy.sh
-	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
-
 launch-loki:
 	helm repo remove loki || true
 	helm repo add loki https://grafana.github.io/loki/charts
@@ -404,9 +392,6 @@ logs: check-kubectl
 follow-logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs -f pod'
 
-google-cluster-manifest:
-	@$(PACHCTL) deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
-
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
 	gcloud config set container/cluster $(CLUSTER_NAME)
@@ -421,9 +406,6 @@ clean-google-cluster:
 	gcloud compute firewall-rules delete pachd
 	gsutil -m rm -r gs://$(BUCKET_NAME)
 	gcloud compute disks delete $(STORAGE_NAME)
-
-amazon-cluster-manifest: install
-	@$(PACHCTL) deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
@@ -445,9 +427,6 @@ amazon-clean:
 	N|n) echo "The amazon clean process has been cancelled by user!";break;; \
 	*) echo "input parameter error, please input again ";continue;;esac; \
         fi;done;
-
-microsoft-cluster-manifest:
-	@$(PACHCTL) deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
 
 microsoft-cluster:
 	azure group create --name $(AZURE_RESOURCE_GROUP) --location $(AZURE_LOCATION)
@@ -502,8 +481,6 @@ spellcheck:
 	clean-launch-dev \
 	full-clean-launch \
 	test-proto-static \
-	test-deploy-manifests \
-	regenerate-test-deploy-manifests \
 	proto \
 	test \
 	enterprise-code-checkin-test \
@@ -534,8 +511,6 @@ spellcheck:
 	launch-stats \
 	clean-launch-monitoring \
 	launch-monitoring \
-	clean-launch-logging \
-	launch-logging \
 	launch-loki \
 	clean-launch-loki \
 	launch-dex \
@@ -543,15 +518,12 @@ spellcheck:
 	launch-enterprise \
 	logs \
 	follow-logs \
-	google-cluster-manifest \
 	google-cluster \
 	clean-google-cluster \
-	amazon-cluster-manifest \
 	amazon-cluster \
 	amazon-clean-cluster \
 	amazon-clean-launch \
 	amazon-clean \
-	microsoft-cluster-manifest \
 	microsoft-cluster \
 	clean-microsoft-cluster \
 	lint \

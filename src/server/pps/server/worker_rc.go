@@ -5,14 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"os"
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
-	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -123,8 +120,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "POSTGRES_DATABASE_NAME",
 		Value: a.env.Config().PostgresDBName,
 	}}
-	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
-	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
+	//sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...) TODO
+	//sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
@@ -180,7 +177,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 			Value: strconv.FormatUint(uint64(a.peerPort), 10),
 		},
 	}...)
-	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+	//workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...) TODO
 
 	// Set S3GatewayPort in the worker (for user code) and sidecar (for serving)
 	if options.s3GatewayPort != 0 {
@@ -240,10 +237,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
 		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
 	}
-	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend)
-	options.volumes = append(options.volumes, secretVolume)
-	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
-	userVolumeMounts = append(userVolumeMounts, secretMount)
+	//secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend) TODO
+	//options.volumes = append(options.volumes, secretVolume)
+	//sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
+	//userVolumeMounts = append(userVolumeMounts, secretMount)
 
 	// mount secret for spouts using pachctl
 	if pipelineInfo.Spout != nil {
@@ -261,10 +258,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
 	// Get service account name for worker from env or use default
-	workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar)
-	if !ok {
-		workerServiceAccountName = assets.DefaultWorkerServiceAccountName
-	}
+	//workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar) TODO
+	//if !ok {
+	//	workerServiceAccountName = assets.DefaultWorkerServiceAccountName
+	//}
 
 	// possibly expose s3 gateway port in the sidecar container
 	var sidecarPorts []v1.ContainerPort
@@ -293,13 +290,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	if a.workerUsesRoot {
 		securityContext = &v1.PodSecurityContext{RunAsUser: &zeroVal}
 	}
-	resp, err := a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
-	if err != nil {
-		return v1.PodSpec{}, err
-	}
-	if resp.State != enterprise.State_ACTIVE {
-		workerImage = assets.AddRegistry("", workerImage)
-	}
+	//resp, err := a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	//if err != nil {
+	//	return v1.PodSpec{}, err
+	//}
+	//if resp.State != enterprise.State_ACTIVE {
+	//	workerImage = assets.AddRegistry("", workerImage)
+	//}
 	podSpec := v1.PodSpec{
 		InitContainers: []v1.Container{
 			{
@@ -347,7 +344,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 				Ports: sidecarPorts,
 			},
 		},
-		ServiceAccountName:            workerServiceAccountName,
+		//ServiceAccountName:            workerServiceAccountName,
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
@@ -423,6 +420,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	return podSpec, nil
 }
 
+/*
 func (a *apiServer) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
 		{Name: assets.UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(a.env.Config().StorageUploadConcurrencyLimit)},
@@ -431,7 +429,7 @@ func (a *apiServer) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVa
 		vars = append(vars, v1.EnvVar{Name: "SPOUT_PIPELINE_NAME", Value: pipelineInfo.Pipeline.Name})
 	}
 	return vars
-}
+}*/
 
 // We don't want to expose pipeline auth tokens, so we hash it. This will be
 // visible to any user with k8s cluster access
@@ -794,20 +792,21 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 		}
 	}
 
-	var hasGitInput bool
+	//var hasGitInput bool
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
 		if input.Git != nil {
-			hasGitInput = true
+			//hasGitInput = true
 			return errutil.ErrBreak
 		}
 		return nil
 	})
-	if hasGitInput {
+	/*if hasGitInput {
 		return a.checkOrDeployGithookService()
-	}
+	}*/
 	return nil
 }
 
+/*
 func (a *apiServer) checkOrDeployGithookService() error {
 	kubeClient := a.env.GetKubeClient()
 	_, err := getGithookService(kubeClient, a.namespace)
@@ -822,7 +821,7 @@ func (a *apiServer) checkOrDeployGithookService() error {
 	// service already exists
 	return nil
 }
-
+*/
 func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Service, error) {
 	labels := map[string]string{
 		"app":   "githook",

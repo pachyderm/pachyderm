@@ -14,14 +14,3 @@ software that it is compatible with.
 
 Generally these files should not be manually modified, though they can be if
 necessary.
-
-## Why
-
-This allows us to retrieve the latest dash image a user can use with their version of pachctl, enabling:
-
-```shell
-# Implicit upgrades each time deploy is used
-pachctl deploy ...
-```
-
-Likewise with the IDE.
