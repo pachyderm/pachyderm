@@ -4,7 +4,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 )
 
 // InactiveAPIServer (in the auth/testing package) is an implementation of the

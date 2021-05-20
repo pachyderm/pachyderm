@@ -4,7 +4,7 @@ import (
 	"context"
 
 	auth_client "github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 )
 
 // APIServer is the internal interface for other services to call this one.

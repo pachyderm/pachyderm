@@ -38,6 +38,9 @@ type ServiceEnv interface {
 	AuthServer() auth_server.APIServer
 	PfsServer() pfs_server.APIServer
 	PpsServer() pps_server.APIServer
+	SetAuthServer(auth_server.APIServer)
+	SetPfsServer(pfs_server.APIServer)
+	SetPpsServer(pps_server.APIServer)
 
 	Config() *Configuration
 	GetPachClient(ctx context.Context) *client.APIClient

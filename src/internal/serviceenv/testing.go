@@ -121,3 +121,18 @@ func (env *TestServiceEnv) PpsServer() pps_server.APIServer {
 func (env *TestServiceEnv) PfsServer() pfs_server.APIServer {
 	return env.Pfs
 }
+
+// SetAuthServer returns the registered PFS APIServer
+func (env *TestServiceEnv) SetAuthServer(s auth_server.APIServer) {
+	env.Auth = s
+}
+
+// SetPpsServer returns the registered PPS APIServer
+func (env *TestServiceEnv) SetPpsServer(s pps_server.APIServer) {
+	env.Pps = s
+}
+
+// SetPfsServer returns the registered PFS APIServer
+func (env *TestServiceEnv) SetPfsServer(s pfs_server.APIServer) {
+	env.Pfs = s
+}

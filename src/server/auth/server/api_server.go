@@ -22,8 +22,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -129,7 +130,7 @@ func NewAuthServer(
 	public bool,
 	requireNoncriticalServers bool,
 	watchesEnabled bool,
-) (*apiServer, error) {
+) (authiface.APIServer, error) {
 	oidcStates := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(oidcAuthnPrefix),

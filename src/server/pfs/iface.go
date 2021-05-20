@@ -3,7 +3,7 @@ package pfs
 import (
 	"github.com/jmoiron/sqlx"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	pfs_client "github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
