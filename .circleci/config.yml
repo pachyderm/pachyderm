@@ -1,93 +1,70 @@
-# Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
+
+orbs:
+  go: circleci/go@1.6.0
 
 parameters:
   run_flaky_tests:
     type: string
     default: ""
+  retain_slots:
+    type: string
+    default: "0"
 
 jobs:
-  build:
-    docker:
-    - image: cimg/base:2020.01
-
+  circleci:
     parameters:
       bucket:
         type: string
-
+    resource_class: large
+    machine:
+      image: ubuntu-2004:202101-01
     environment:
       PPS_BUCKETS: "6"
-      AUTH_BUCKETS: "2"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
-      RUN_BAD_TESTS: << pipeline.parameters.run_flaky_tests >>
-
-    resource_class: small
-
+      BIGQUERY_PROJECT: alysha-dev-006
+      BIGQUERY_DATASET: pach_test
+      BIGQUERY_TABLE: test_runs
+      TEST_RESULTS_BUCKET: pach-test-data
     steps:
-
-      # Hard to get this info out of the API, so reflect it back here so we can
-      # search for this and parse it.
-      - run:
-          name: Are we running flaky tests?
-          command: |
-            echo "RUN_BAD_TESTS=${RUN_BAD_TESTS}"
-
-      - run:
-          name: Install deps
-          command: |
-            sudo apt update && sudo apt install -y pv moreutils rsync
-
       - checkout
-
-      - run:
-          name: Install testfaster CLI and log in
-          command: |
-            set -x
-            sudo curl -sSL -o /usr/local/bin/testctl \
-                https://storage.googleapis.com/get-faster-ci/Linux-x86_64/testctl
-            sudo chmod +x /usr/local/bin/testctl
-            testctl login --token "$TESTFASTER_TOKEN"
-
-      - run:
-          name: Run tests
-          command: |
-            etc/testing/circle_tests.sh 2>&1 |ts
-
+      - restore_cache:
+         keys:
+         - pach-build-dependencies-{{ checksum "etc/testing/circle/install.sh" }}
+         - pach-build-dependencies-
+      - run: etc/testing/circle/install.sh 
+      - save_cache:
+         key: pach-build-dependencies-{{ checksum "etc/testing/circle/install.sh" }}
+         paths:
+         - cached-deps/
+      - run: etc/testing/circle/start-minikube.sh 
+      - restore_cache:
+         keys:
+         - pach-go-cache-{{ .Branch }}
+         - pach-go-cache-
+      - run: etc/testing/circle/build.sh 
+      - run: etc/testing/circle/launch.sh 
+      - run: etc/testing/circle/run_tests.sh 
+      - save_cache:
+         key: pach-go-cache-{{ .Branch }}
+         paths:
+         - /home/circleci/.go_workspace/pkg/mod
+         - /home/circleci/.gocache
+      - run: etc/testing/circle/upload_stats.sh 
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
-          command: |
-            # NB: kubeconfig is used by testctl-ssh.sh, not kubectl. It has
-            # address and private key for ssh embedded in it.
-            export KUBECONFIG=$(pwd)/kubeconfig
-            etc/testing/testctl-ssh.sh -- ./project/pachyderm/etc/testing/kube_debug.sh
-
-      ## retry on failure
-      #- run:
-      #    name: Test (retry 2)
-      #    command: etc/testing/circle_tests.sh 2>&1 |ts
-      #    when: on_fail
-
-      ## retry on failure again...
-      #- run:
-      #    name: Test (retry 3)
-      #    command: etc/testing/circle_tests.sh 2>&1 |ts
-      #    when: on_fail
-
-      - run:
-          name: Release VM after successful run
-          command: |
-            export KUBECONFIG=$(pwd)/kubeconfig
-            echo "============= IMAGES AFTER =============="
-            ./etc/testing/testctl-ssh.sh -- docker images --format "{{.Repository}}:{{.Tag}}" |sort |sed 's/^/   - /g'
-            echo "========================================="
-            testctl drop
+          command: etc/testing/circle/kube_debug.sh
+      - store_test_results:
+          path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/test-results
 
 workflows:
-  all-tests:
+  circleci:
     jobs:
-      - build:
+      - circleci:
           matrix:
             parameters:
               bucket:
