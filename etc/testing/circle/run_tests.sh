@@ -58,12 +58,13 @@ function test_bucket {
     set -x
 }
 
+
 # Clean cached test results
 go clean -testcache
 
 case "${BUCKET}" in
  MISC)
-    #make lint
+    make lint
     make enterprise-code-checkin-test
     make test-cmds
     make test-libs
@@ -71,47 +72,48 @@ case "${BUCKET}" in
     make test-transaction
     make test-deploy-manifests
     make test-s3gateway-unit
+    make test-enterprise
     make test-worker
-    if [[ "${TRAVIS_SECURE_ENV_VARS:-""}" == "true" ]]; then
+    if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         # these tests require secure env vars to run, which aren't available
         # when the PR is coming from an outside contributor - so we just
         # disable them
         make test-tls
+        make test-vault
     fi
     ;;
-  EXAMPLES)
+ ADMIN)
+    make test-admin
+    ;;
+ EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
     ;;
-  PFS)
+ PFS)
     make test-pfs-server
     make test-pfs-storage
     ;;
-  PPS?)
+ PPS?)
+    pushd etc/testing/images/ubuntu_with_s3_clients
+    make push-to-minikube
+    popd
     make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
-      go test -v -count=1 ./src/server/pps/server -timeout 300s
+      go test -v -count=1 ./src/server/pps/server -timeout 3600s
     fi
     ;;
-  AUTH)
-    make test-identity
-    make test-auth
+ AUTH?)
+    make launch-dex
+    bucket_num="${BUCKET#AUTH}"
+    test_bucket "./src/server/auth/server/testing" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
+    set +x
     ;;
-  OBJECT)
+OBJECT)
     make test-object-clients
     ;;
-  ENTERPRISE)
-    make test-license
-    make test-enterprise
-    # Launch a stand-alone enterprise server in a separate namespace
-    make launch-enterprise
-    echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite 
-    pachctl config set active-enterprise-context enterprise
-    make test-enterprise-integration
-    ;;
-  *)
+ *)
     echo "Unknown bucket"
     exit 1
     ;;
