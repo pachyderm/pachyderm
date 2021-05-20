@@ -2,7 +2,7 @@
 The **Enterprise Server** is a component in Pachyderm which manages Enterprise Licensing
 and the integration with a company's Identity Providers (IDPs).
 
-At a high level, an organization can have **many Pachyderm clusters federated under one single Enterprise Server**. Administrators activate the Enterprise Server with an **Enterprise License Key** from Pachyderm sales, and optionally configure authentication with their IDP via SAML, OIDC, LDAP, etc...
+At a high level, an organization can have **many Pachyderm clusters registered with one single Enterprise Server**. Administrators activate the Enterprise Server with an **Enterprise License Key** from Pachyderm sales, and optionally configure authentication with their IDP via SAML, OIDC, LDAP, etc...
 
 The following diagram gives you a quick overview of an organization with multiple Pachyderm clusters behind a single Enterprise Server.
 ![Enterprise Server General Deployment](../images/enterprise-server.png)
@@ -22,10 +22,10 @@ The setup of an Enterprise Server requires to:
 Deploying a Pachyderm cluster with the embedded enterprise server does not require any specific action.
 Proceed as usual:
 
-1. [Install your favorite version of `pachctl`](../../../getting_started/local_installation/#install-pachctl).
+1. [Install your favorite version of `pachctl`](../../../../getting_started/local_installation/#install-pachctl).
 1. [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm): `pachctl deploy <local, google.....>`.
-1. [Activate your enterprise Key](h../deployment/#activate-pachyderm-enterprise-edition): `pachctl enterprise activate`
-1. [Enable authentication](https://docs.pachyderm.com/latest/enterprise/auth/enable-auth/#activate-access-controls-with-pachctl): `pachctl auth activate` //TODO update this link once auth2.0 is out
+1. [Activate your enterprise Key](../deployment/#activate-pachyderm-enterprise-edition): `pachctl enterprise activate`
+1. [Enable authentication](../index.md/#activate-user-access-management): `pachctl auth activate` 
 
 
 This results in a single pachd pod, with authentication enabled. Proceed to [configuring IDP integrations]()//TODO update this link once auth2.0 is out.
@@ -38,7 +38,7 @@ Deploying a stand-alone enterprise server requires using the `--enterprise-serve
 
 	```shell
 	$ kubectl create namespace enterprise
-	$ pachctl deploy <local, google...> --enterprise-server --namespace enterprise
+	$ pachctl deploy <local, google, microsoft...> --enterprise-server --namespace enterprise <disk-size> --dynamic-etcd-nodes=1 <bucket-name> 
 	```
 
 	This command deploys postgres, etcd and a deployment and service called `pach-enterprise`. 

@@ -4,7 +4,7 @@
     Return to our [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/) if you do not have a key.
 
     Before connecting your IdP to Pachyderm, verify that
-    the [User Access Management](../index.md/#activate-user-access-management) feature is on by running `pachctl auth whoami`.
+    the [Authentication](../index.md/#activate-user-access-management) is enabled by running `pachctl auth whoami`.
 
     The command should return `You are "pach:root" `(i.e., your are the **Root User** with `clusterAdmin` privileges). 
     
