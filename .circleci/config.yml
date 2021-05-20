@@ -21,6 +21,8 @@ jobs:
       image: ubuntu-2004:202101-01
     environment:
       PPS_BUCKETS: "6"
+      AUTH_BUCKETS: "2"
+      RUN_BAD_TESTS: "1"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
       BIGQUERY_PROJECT: alysha-dev-006
