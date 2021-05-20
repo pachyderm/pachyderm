@@ -2,8 +2,11 @@
 
 set -xeuo pipefail
 
-export GOPATH=/home/circleci/.go_workspace
-export PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
+GOPATH=/home/circleci/.go_workspace
+export GOPATH
+
+PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
+export PATH
 
 if [ -f /tmp/results ]; then
   mkdir -p /tmp/test-results
