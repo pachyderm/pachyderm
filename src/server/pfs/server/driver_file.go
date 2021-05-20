@@ -13,10 +13,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"golang.org/x/net/context"
 )
@@ -62,7 +61,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 
 // TODO: Cleanup after failure?
 func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) (retErr error) {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) (retErr error) {
 		commit, err := d.startCommit(txnCtx, "", nil, client.NewBranch(repo, branch), nil, "")
 		if err != nil {
 			return err
@@ -127,8 +126,7 @@ func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit, opts ...ind
 		}
 		return &pfs.CommitInfo{Commit: commit}, fs, nil
 	}
-	pachClient := d.env.GetPachClient(ctx)
-	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, err
 	}
 	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
@@ -327,15 +325,14 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 	if newFile.Commit.Branch.Repo == nil {
 		return errors.New("file commit repo cannot be nil")
 	}
-	pachClient := d.env.GetPachClient(ctx)
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := authserver.CheckRepoIsAuthorized(pachClient, oldFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
+		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, oldFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		if err := authserver.CheckRepoIsAuthorized(pachClient, newFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
+		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, newFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
@@ -416,7 +413,7 @@ func (d *driver) renewFileset(ctx context.Context, id fileset.ID, ttl time.Durat
 	return err
 }
 
-func (d *driver) addFileset(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
+func (d *driver) addFileset(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
 	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err

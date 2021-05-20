@@ -3,13 +3,13 @@ package testpachd
 import (
 	"fmt"
 
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // This code can all go away if we ever get the ability to run a PPS server without external dependencies
-type stopPipelineJobInTransactionFunc func(*txnenv.TransactionContext, *pps.StopPipelineJobRequest) error
+type stopPipelineJobInTransactionFunc func(*txncontext.TransactionContext, *pps.StopPipelineJobRequest) error
 
 type mockStopPipelineJobInTransaction struct {
 	handler stopPipelineJobInTransactionFunc
@@ -19,7 +19,7 @@ func (mock *mockStopPipelineJobInTransaction) Use(cb stopPipelineJobInTransactio
 	mock.handler = cb
 }
 
-type updatePipelineJobStateInTransactionFunc func(*txnenv.TransactionContext, *pps.UpdatePipelineJobStateRequest) error
+type updatePipelineJobStateInTransactionFunc func(*txncontext.TransactionContext, *pps.UpdatePipelineJobStateRequest) error
 
 type mockUpdatePipelineJobStateInTransaction struct {
 	handler updatePipelineJobStateInTransactionFunc
@@ -29,7 +29,7 @@ func (mock *mockUpdatePipelineJobStateInTransaction) Use(cb updatePipelineJobSta
 	mock.handler = cb
 }
 
-type createPipelineInTransactionFunc func(*txnenv.TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error
+type createPipelineInTransactionFunc func(*txncontext.TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error
 
 type mockCreatePipelineInTransaction struct {
 	handler createPipelineInTransactionFunc
@@ -40,6 +40,7 @@ func (mock *mockCreatePipelineInTransaction) Use(cb createPipelineInTransactionF
 }
 
 type ppsTransactionAPI struct {
+	ppsServerAPI
 	mock *MockPPSTransactionServer
 }
 
@@ -52,21 +53,21 @@ type MockPPSTransactionServer struct {
 	CreatePipelineInTransaction         mockCreatePipelineInTransaction
 }
 
-func (api *ppsTransactionAPI) StopPipelineJobInTransaction(txnCtx *txnenv.TransactionContext, req *pps.StopPipelineJobRequest) error {
+func (api *ppsTransactionAPI) StopPipelineJobInTransaction(txnCtx *txncontext.TransactionContext, req *pps.StopPipelineJobRequest) error {
 	if api.mock.StopPipelineJobInTransaction.handler != nil {
 		return api.mock.StopPipelineJobInTransaction.handler(txnCtx, req)
 	}
 	return fmt.Errorf("unhandled pachd mock: pps.StopPipelineJobInTransaction")
 }
 
-func (api *ppsTransactionAPI) UpdatePipelineJobStateInTransaction(txnCtx *txnenv.TransactionContext, req *pps.UpdatePipelineJobStateRequest) error {
+func (api *ppsTransactionAPI) UpdatePipelineJobStateInTransaction(txnCtx *txncontext.TransactionContext, req *pps.UpdatePipelineJobStateRequest) error {
 	if api.mock.UpdatePipelineJobStateInTransaction.handler != nil {
 		return api.mock.UpdatePipelineJobStateInTransaction.handler(txnCtx, req)
 	}
 	return fmt.Errorf("unhandled pachd mock: pps.UpdatePipelineJobStateInTransaction")
 }
 
-func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContext, req *pps.CreatePipelineRequest, filesetID *string, prevSpecCommit **pfs.Commit) error {
+func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineRequest, filesetID *string, prevSpecCommit **pfs.Commit) error {
 	if api.mock.CreatePipelineInTransaction.handler != nil {
 		return api.mock.CreatePipelineInTransaction.handler(txnCtx, req, filesetID, prevSpecCommit)
 	}

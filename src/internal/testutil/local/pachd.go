@@ -133,20 +133,19 @@ func RunLocal() (retErr error) {
 
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
+			pfsAPIServer, err := pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
 			if err != nil {
 				return err
 			}
 			pfsclient.RegisterAPIServer(externalServer.Server, pfsAPIServer)
+			env.SetPfsServer(pfsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		var ppsAPIServer pps_server.APIServer
 		if err := logGRPCServerSetup("PPS API", func() error {
-			ppsAPIServer, err = pps_server.NewAPIServer(
+			ppsAPIServer, err := pps_server.NewAPIServer(
 				env,
 				txnEnv,
 				reporter,
@@ -155,6 +154,7 @@ func RunLocal() (retErr error) {
 				return err
 			}
 			ppsclient.RegisterAPIServer(externalServer.Server, ppsAPIServer)
+			env.SetPpsServer(ppsAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -174,14 +174,14 @@ func RunLocal() (retErr error) {
 			return err
 		}
 
-		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
+			authAPIServer, err := authserver.NewAuthServer(
 				env, txnEnv, true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
 			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
+			env.SetAuthServer(authAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -251,7 +251,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+		txnEnv.Initialize(env, transactionAPIServer)
 		log.Printf("listening on %v", env.Config().Port)
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
@@ -268,9 +268,8 @@ func RunLocal() (retErr error) {
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(
+			pfsAPIServer, err := pfs_server.NewAPIServer(
 				env,
 				txnEnv,
 				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
@@ -283,9 +282,8 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		var ppsAPIServer pps_server.APIServer
 		if err := logGRPCServerSetup("PPS API", func() error {
-			ppsAPIServer, err = pps_server.NewAPIServer(
+			ppsAPIServer, err := pps_server.NewAPIServer(
 				env,
 				txnEnv,
 				reporter,
@@ -308,9 +306,8 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
+			authAPIServer, err := authserver.NewAuthServer(
 				env,
 				txnEnv,
 				false,
@@ -369,7 +366,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+		txnEnv.Initialize(env, transactionAPIServer)
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}

@@ -50,11 +50,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	authServer "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
@@ -405,14 +405,14 @@ const (
 // authorizePipelineOp checks if the user indicated by 'ctx' is authorized
 // to perform 'operation' on the pipeline in 'info'
 func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineOperation, input *pps.Input, output string) error {
-	return a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.authorizePipelineOpInTransaction(txnCtx, operation, input, output)
 	})
 }
 
 // authorizePipelineOpInTransaction is identical to authorizePipelineOp, but runs in the provided transaction
-func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionContext, operation pipelineOperation, input *pps.Input, output string) error {
-	_, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
+func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.TransactionContext, operation pipelineOperation, input *pps.Input, output string) error {
+	_, err := a.env.AuthServer().WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil // Auth isn't activated, skip authorization completely
 	} else if err != nil {
@@ -441,7 +441,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 				return
 			}
 			done[repo] = struct{}{}
-			err = authServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ)
+			err = a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ)
 		})
 		if err != nil {
 			return err
@@ -458,7 +458,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 		var required auth.Permission
 		switch operation {
 		case pipelineOpCreate:
-			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 				Repo: client.NewRepo(output),
 			}); err == nil {
 				// the repo already exists, so we need the same permissions as update
@@ -473,7 +473,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 		case pipelineOpUpdate:
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
-			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 				Repo: client.NewRepo(output),
 			}); isNotFoundErr(err) {
 				// special case: the pipeline output repo has been deleted (so the
@@ -484,7 +484,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 		default:
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-		if err := authServer.CheckRepoIsAuthorizedInTransaction(txnCtx, output, required); err != nil {
+		if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, output, required); err != nil {
 			return err
 		}
 	}
@@ -504,9 +504,8 @@ func (a *apiServer) UpdatePipelineJobState(ctx context.Context, request *pps.Upd
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) UpdatePipelineJobStateInTransaction(txnCtx *txnenv.TransactionContext, request *pps.UpdatePipelineJobStateRequest) error {
+func (a *apiServer) UpdatePipelineJobStateInTransaction(txnCtx *txncontext.TransactionContext, request *pps.UpdatePipelineJobStateRequest) error {
 	pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
-
 	pipelineJobPtr := &pps.StoredPipelineJobInfo{}
 	if err := pipelineJobs.Get(request.PipelineJob.ID, pipelineJobPtr); err != nil {
 		return err
@@ -531,8 +530,8 @@ func (a *apiServer) CreatePipelineJob(ctx context.Context, request *pps.CreatePi
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var result *pps.PipelineJob
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
 			Commit: request.OutputCommit,
 		})
 		if err != nil {
@@ -682,9 +681,7 @@ func (a *apiServer) listPipelineJob(
 		// caller without access to a single pipeline's output repo couldn't run
 		// `pachctl list job` at all) and instead silently skip jobs where the user
 		// doesn't have access to the job's output repo.
-		pachClient := a.env.GetPachClient(ctx)
-		if err := authServer.CheckRepoIsAuthorized(pachClient, pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
-
+		if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 			return err
 		}
 	}
@@ -932,7 +929,7 @@ func (a *apiServer) DeletePipelineJob(ctx context.Context, request *pps.DeletePi
 	if request.PipelineJob == nil {
 		return nil, errors.New("Job cannot be nil")
 	}
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		if err := a.stopPipelineJob(txnCtx, request.PipelineJob, nil, "job deleted"); err != nil {
 			return err
 		}
@@ -957,7 +954,7 @@ func (a *apiServer) StopPipelineJob(ctx context.Context, request *pps.StopPipeli
 
 // StopPipelineJobInTransaction is identical to StopPipelineJob except that it can run inside an
 // existing postgres transaction.  This is not an RPC.
-func (a *apiServer) StopPipelineJobInTransaction(txnCtx *txnenv.TransactionContext, request *pps.StopPipelineJobRequest) error {
+func (a *apiServer) StopPipelineJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.StopPipelineJobRequest) error {
 	reason := request.Reason
 	if reason == "" {
 		reason = "job stopped"
@@ -965,7 +962,7 @@ func (a *apiServer) StopPipelineJobInTransaction(txnCtx *txnenv.TransactionConte
 	return a.stopPipelineJob(txnCtx, request.PipelineJob, request.OutputCommit, reason)
 }
 
-func (a *apiServer) stopPipelineJob(txnCtx *txnenv.TransactionContext, pipelineJob *pps.PipelineJob, outputCommit *pfs.Commit, reason string) error {
+func (a *apiServer) stopPipelineJob(txnCtx *txncontext.TransactionContext, pipelineJob *pps.PipelineJob, outputCommit *pfs.Commit, reason string) error {
 	pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
 	if (pipelineJob == nil) == (outputCommit == nil) {
 		return errors.New("Exactly one of PipelineJob or OutputCommit must be specified")
@@ -979,21 +976,21 @@ func (a *apiServer) stopPipelineJob(txnCtx *txnenv.TransactionContext, pipelineJ
 		outputCommit = pipelineJobInfo.OutputCommit
 	}
 
-	commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+	commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
 		Commit: proto.Clone(outputCommit).(*pfs.Commit),
 	})
 	if err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
 		return err
 	}
 	if commitInfo != nil {
-		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+		if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: commitInfo.Commit,
 			Empty:  true,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
 		}
 
-		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+		if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: ppsutil.GetStatsCommit(commitInfo),
 			Empty:  true,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
@@ -1642,10 +1639,9 @@ func (a *apiServer) sudo(ctx context.Context, f func(*client.APIClient) error) e
 }
 
 // sudoTransaction is a convenience wrapper around sudo for api calls in a transaction
-func (a *apiServer) sudoTransaction(txnCtx *txnenv.TransactionContext, f func(*txnenv.TransactionContext) error) error {
+func (a *apiServer) sudoTransaction(txnCtx *txncontext.TransactionContext, f func(*txncontext.TransactionContext) error) error {
 	return a.sudo(txnCtx.ClientContext, func(superUserClient *client.APIClient) error {
 		superCtx := *txnCtx
-		superCtx.Client = superUserClient
 		// simulate the GRPC setting outgoing as incoming - this should only change the auth token
 		outMD, _ := metadata.FromOutgoingContext(superUserClient.Ctx())
 		superCtx.ClientContext = metadata.NewIncomingContext(superUserClient.Ctx(), outMD)
@@ -1668,7 +1664,7 @@ func (a *apiServer) writePipelineInfo(ctx context.Context, pipelineInfo *pps.Pip
 	}
 
 	var commit *pfs.Commit
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		commit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineInfo.Pipeline.Name, filesetID, pipelineInfo.SpecCommit)
 		return err
@@ -1696,15 +1692,15 @@ func (a *apiServer) writePipelineInfoToFileset(ctx context.Context, pipelineInfo
 }
 
 func (a *apiServer) commitPipelineInfoFromFileset(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	pipelineName string,
 	filesetID string,
 	prevSpecCommit *pfs.Commit,
 ) (*pfs.Commit, error) {
 	var commit *pfs.Commit
-	if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+	if err := a.sudoTransaction(txnCtx, func(superCtx *txncontext.TransactionContext) error {
 		var err error
-		commit, err = superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
+		commit, err = a.env.PfsServer().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
 			Parent: prevSpecCommit,
 			Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineName),
 		}, nil)
@@ -1712,14 +1708,14 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 			return err
 		}
 
-		if err := superCtx.Pfs().AddFilesetInTransaction(superCtx, &pfs.AddFilesetRequest{
+		if err := a.env.PfsServer().AddFilesetInTransaction(superCtx, &pfs.AddFilesetRequest{
 			Commit:    commit,
 			FilesetId: filesetID,
 		}); err != nil {
 			return err
 		}
 
-		return superCtx.Pfs().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
+		return a.env.PfsServer().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
 			Commit: commit,
 		})
 	}); err != nil {
@@ -1730,12 +1726,12 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 }
 
 func (a *apiServer) fixPipelineInputRepoACLs(ctx context.Context, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
-	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, prevPipelineInfo)
 	})
 }
 
-func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
+func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
 	add := make(map[string]struct{})
 	remove := make(map[string]struct{})
 	var pipelineName string
@@ -1806,20 +1802,20 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 	// Remove pipeline from old, unused inputs
 	for repo := range remove {
 		// If we get an `ErrNoRoleBinding` that means the input repo no longer exists - we're removing it anyways, so we don't care.
-		if err := txnCtx.Auth().RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineName); err != nil && !auth.IsErrNoRoleBinding(err) {
+		if err := a.env.AuthServer().RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineName); err != nil && !auth.IsErrNoRoleBinding(err) {
 			return err
 		}
 	}
 	// Add pipeline to every new input's ACL as a READER
 	for repo := range add {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
-		if err := txnCtx.Auth().AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
+		if err := a.env.AuthServer().AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
 			return err
 		}
 	}
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
-		if err := txnCtx.Auth().AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
+		if err := a.env.AuthServer().AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
 			return err
 		}
 	}
@@ -1978,7 +1974,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 // latestPipelineInfo doesn't actually work transactionally because
 // ppsutil.GetPipelineInfo needs to use pfs.GetFile to read the spec commit,
 // which does not support transactions.
-func (a *apiServer) latestPipelineInfo(txnCtx *txnenv.TransactionContext, pipelineName string) (*pps.PipelineInfo, error) {
+func (a *apiServer) latestPipelineInfo(txnCtx *txncontext.TransactionContext, pipelineName string) (*pps.PipelineInfo, error) {
 	pipelinePtr := pps.StoredPipelineInfo{}
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(pipelineName, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
@@ -1987,10 +1983,10 @@ func (a *apiServer) latestPipelineInfo(txnCtx *txnenv.TransactionContext, pipeli
 		return nil, err
 	}
 	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
-	return ppsutil.GetPipelineInfo(txnCtx.Client, &pipelinePtr)
+	return ppsutil.GetPipelineInfo(a.env.GetPachClient(txnCtx.ClientContext), &pipelinePtr)
 }
 
-func (a *apiServer) pipelineInfosForUpdate(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest) (*pps.PipelineInfo, *pps.PipelineInfo, error) {
+func (a *apiServer) pipelineInfosForUpdate(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) (*pps.PipelineInfo, *pps.PipelineInfo, error) {
 	if request.Pipeline == nil {
 		return nil, nil, errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -2013,7 +2009,7 @@ func (a *apiServer) pipelineInfosForUpdate(txnCtx *txnenv.TransactionContext, re
 }
 
 func (a *apiServer) CreatePipelineInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pps.CreatePipelineRequest,
 	specFilesetID *string,
 	prevSpecCommit **pfs.Commit,
@@ -2026,7 +2022,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 
 	if *specFilesetID != "" {
 		// If we already have a fileset, try to renew it - if that fails, invalidate it
-		if err := txnCtx.Client.RenewFileSet(*specFilesetID, 600*time.Second); err != nil {
+		if err := a.env.GetPachClient(txnCtx.ClientContext).RenewFileSet(*specFilesetID, 600*time.Second); err != nil {
 			*specFilesetID = ""
 		}
 	}
@@ -2059,7 +2055,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	var visitErr error
 	pps.VisitInput(newPipelineInfo.Input, func(input *pps.Input) {
 		if input.Pfs != nil {
-			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx,
+			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx,
 				&pfs.InspectRepoRequest{
 					Repo: client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType),
 				},
@@ -2068,7 +2064,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			}
 		}
 		if input.Cron != nil {
-			if err := txnCtx.Pfs().CreateRepoInTransaction(txnCtx,
+			if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
@@ -2078,7 +2074,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			}
 		}
 		if input.Git != nil {
-			if err := txnCtx.Pfs().CreateRepoInTransaction(txnCtx,
+			if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(input.Git.Name),
 					Description: fmt.Sprintf("Git input repo for pipeline %s.", request.Pipeline.Name),
@@ -2126,7 +2122,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
-		if ci, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+		if ci, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
 			Commit: client.NewCommit(ppsconsts.SpecRepo, pipelineName, ""),
 		}); err != nil {
 			return err
@@ -2145,7 +2141,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			// state and should not do any updates
 			return errors.New("Cannot update a pipeline and provide a spec commit at the same time")
 		}
-		commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+		commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
 			Commit: request.SpecCommit,
 		})
 		if err != nil {
@@ -2186,7 +2182,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
 			if err := func() error {
 				oldAuthToken := pipelinePtr.AuthToken
-				token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
+				token, err := a.env.AuthServer().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
 				if err != nil {
 					if auth.IsErrNotActivated(err) {
 						return nil // no auth work to do
@@ -2197,7 +2193,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 
 				// If getting a new auth token worked, we should revoke the old one
 				if oldAuthToken != "" {
-					_, err := txnCtx.Auth().RevokeAuthTokenInTransaction(txnCtx,
+					_, err := a.env.AuthServer().RevokeAuthTokenInTransaction(txnCtx,
 						&auth.RevokeAuthTokenRequest{
 							Token: oldAuthToken,
 						})
@@ -2221,14 +2217,14 @@ func (a *apiServer) CreatePipelineInTransaction(
 			// don't branch the output/stats commit chain from the old pipeline (re-use old branch HEAD)
 			// However it's valid to set request.Update == true even if no pipeline exists, so only
 			// set outputBranchHead if there's an old pipeline to update
-			_, err := txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: outputBranch})
+			_, err := a.env.PfsServer().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: outputBranch})
 			if err != nil && !isNotFoundErr(err) {
 				return err
 			} else if err == nil {
 				outputBranchHead = client.NewCommit(pipelineName, newPipelineInfo.OutputBranch, "")
 			}
 
-			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: statsBranch})
+			_, err = a.env.PfsServer().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: statsBranch})
 			if err != nil && !isNotFoundErr(err) {
 				return err
 			} else if err == nil {
@@ -2243,7 +2239,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		}
 	} else {
 		// Create output repo, pipeline output, and stats
-		if err := txnCtx.Pfs().CreateRepoInTransaction(txnCtx,
+		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewRepo(pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
@@ -2264,7 +2260,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		// repos
 
 		if err := func() error {
-			token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
+			token, err := a.env.AuthServer().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
 			if err != nil {
 				if auth.IsErrNotActivated(err) {
 					return nil // no auth work to do
@@ -2300,7 +2296,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 
 	// Create/update output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
-	if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+	if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 		Branch:     outputBranch,
 		Provenance: provenance,
 		Head:       outputBranchHead,
@@ -2313,7 +2309,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			return
 		}
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
-			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
+			_, err = a.env.PfsServer().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
 				Branch: client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
 			})
 
@@ -2324,7 +2320,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 				if err == nil {
 					prevHead = client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, "")
 				}
-				visitErr = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				visitErr = a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 					Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
 					Head:    prevHead,
 					Trigger: input.Pfs.Trigger,
@@ -2336,7 +2332,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return errors.Wrapf(visitErr, "could not create/update trigger branch")
 	}
 	if newPipelineInfo.EnableStats {
-		if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineName, "stats"),
 			Provenance: []*pfs.Branch{outputBranch},
 			Head:       statsBranchHead,
@@ -2439,7 +2435,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 // pipeline, so they call this instead of making an RPC
 func (a *apiServer) inspectPipeline(ctx context.Context, name string) (*pps.PipelineInfo, error) {
 	var response *pps.PipelineInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.inspectPipelineInTransaction(txnCtx, name)
 		return err
@@ -2449,7 +2445,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string) (*pps.Pipe
 	return response, nil
 }
 
-func (a *apiServer) inspectPipelineInTransaction(txnCtx *txnenv.TransactionContext, name string) (*pps.PipelineInfo, error) {
+func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, name string) (*pps.PipelineInfo, error) {
 	kubeClient := a.env.GetKubeClient()
 	name, ancestors, err := ancestry.Parse(name)
 	if err != nil {
@@ -2464,7 +2460,8 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txnenv.TransactionConte
 	}
 	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
 	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
-	pipelineInfo, err := ppsutil.GetPipelineInfo(txnCtx.Client, &pipelinePtr)
+	pachClient := a.env.GetPachClient(txnCtx.ClientContext)
+	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
 	if err != nil {
 		return nil, err
 	}
@@ -2868,7 +2865,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 
 	// Get request.Pipeline's info
 	var pipelineInfo *pps.PipelineInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		pipelineInfo, err = a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
 		return err
@@ -2916,7 +2913,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	var pipelineInfo *pps.PipelineInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		pipelineInfo, err = a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
 		return err
@@ -3336,8 +3333,8 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
 		eg.Go(func() error {
-			return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-				token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, pipelineName)
+			return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+				token, err := a.env.AuthServer().GetPipelineAuthTokenInTransaction(txnCtx, pipelineName)
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
 				}
