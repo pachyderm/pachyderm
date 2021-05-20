@@ -168,7 +168,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, uw *fileset.UnorderedWri
 		idx2.Path = pathTransform(idx2.Path)
 		return &idx2
 	})
-	return uw.Copy(ctx, fs, appendFile, tag)
+	return uw.Copy(ctx, fs, tag, appendFile)
 }
 
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File) (Source, error) {

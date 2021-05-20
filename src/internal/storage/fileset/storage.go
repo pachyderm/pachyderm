@@ -32,6 +32,9 @@ const (
 
 	// TrackerPrefix is used for creating tracker objects for filesets
 	TrackerPrefix = "fileset/"
+
+	// DefaultFileTag is the default file tag.
+	DefaultFileTag = "default"
 )
 
 var (

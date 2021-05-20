@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -5998,7 +5999,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, mf.PutFile("bar", strings.NewReader("bar\n")))
 			return nil
 		}))
-		expected := []*pfs.File{pclient.NewFile(repo, "master", "", "/bar"), pclient.NewFile(repo, "master", "", "/foo", "tag1"), pclient.NewFile(repo, "master", "", "/foo", "tag2")}
+		expected := []*pfs.File{pclient.NewFile(repo, "master", "", "/bar", fileset.DefaultFileTag), pclient.NewFile(repo, "master", "", "/foo", "tag1"), pclient.NewFile(repo, "master", "", "/foo", "tag2")}
 		require.NoError(t, env.PachClient.ListFile(repo, "master", "", "", func(fi *pfs.FileInfo) error {
 			require.Equal(t, expected[0].Path, fi.File.Path)
 			require.Equal(t, expected[0].Tag, fi.File.Tag)

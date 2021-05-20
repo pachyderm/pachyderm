@@ -41,14 +41,17 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 	return uw, nil
 }
 
-func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, tag ...string) (retErr error) {
+func (uw *UnorderedWriter) Put(p, tag string, appendFile bool, r io.Reader) (retErr error) {
 	if err := Validate(p); err != nil {
 		return err
 	}
-	if !appendFile {
-		uw.buffer.Delete(p, tag...)
+	if tag == "" {
+		tag = DefaultFileTag
 	}
-	w := uw.buffer.Add(p, tag...)
+	if !appendFile {
+		uw.buffer.Delete(p, tag)
+	}
+	w := uw.buffer.Add(p, tag)
 	for {
 		n, err := io.CopyN(w, r, uw.memAvailable)
 		uw.memAvailable -= n
@@ -62,7 +65,7 @@ func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, tag ...st
 			if err := uw.serialize(); err != nil {
 				return err
 			}
-			w = uw.buffer.Add(p, tag...)
+			w = uw.buffer.Add(p, tag)
 		}
 	}
 }
@@ -111,13 +114,16 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 }
 
 // Delete deletes a file from the file set.
-func (uw *UnorderedWriter) Delete(p string, tag ...string) error {
+func (uw *UnorderedWriter) Delete(p, tag string) error {
 	if err := Validate(p); err != nil {
 		return err
 	}
+	if tag == "" {
+		tag = DefaultFileTag
+	}
 	p = Clean(p, IsDir(p))
 	if IsDir(p) {
-		uw.buffer.Delete(p)
+		uw.buffer.Delete(p, tag)
 		var ids []ID
 		if uw.parentID != nil {
 			ids = []ID{*uw.parentID}
@@ -127,29 +133,28 @@ func (uw *UnorderedWriter) Delete(p string, tag ...string) error {
 			return err
 		}
 		return fs.Iterate(uw.ctx, func(f File) error {
-			return uw.Delete(f.Index().Path)
+			return uw.Delete(f.Index().Path, tag)
 		})
 	}
-	uw.buffer.Delete(p, tag...)
+	uw.buffer.Delete(p, tag)
 	return nil
 }
 
-func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, appendFile bool, tag ...string) error {
+func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, tag string, appendFile bool) error {
 	if err := uw.serialize(); err != nil {
 		return err
 	}
-	var fileTag string
-	if len(tag) > 0 {
-		fileTag = tag[0]
+	if tag == "" {
+		tag = DefaultFileTag
 	}
 	return uw.withWriter(func(w *Writer) error {
 		return fs.Iterate(ctx, func(f File) error {
 			if !appendFile {
-				if err := w.Delete(f.Index().Path, fileTag); err != nil {
+				if err := w.Delete(f.Index().Path, tag); err != nil {
 					return err
 				}
 			}
-			return w.Copy(f, fileTag)
+			return w.Copy(f, tag)
 		})
 	})
 }

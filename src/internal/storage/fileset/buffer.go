@@ -25,28 +25,24 @@ func NewBuffer() *Buffer {
 	}
 }
 
-func (b *Buffer) Add(path string, tag ...string) io.Writer {
+func (b *Buffer) Add(path, tag string) io.Writer {
 	path = Clean(path, false)
 	if _, ok := b.additive[path]; !ok {
 		b.additive[path] = make(map[string]*file)
 	}
 	taggedFiles := b.additive[path]
-	var fileTag string
-	if len(tag) > 0 {
-		fileTag = tag[0]
-	}
-	if _, ok := taggedFiles[fileTag]; !ok {
-		taggedFiles[fileTag] = &file{
+	if _, ok := taggedFiles[tag]; !ok {
+		taggedFiles[tag] = &file{
 			path: path,
-			tag:  fileTag,
+			tag:  tag,
 			buf:  &bytes.Buffer{},
 		}
 	}
-	f := taggedFiles[fileTag]
+	f := taggedFiles[tag]
 	return f.buf
 }
 
-func (b *Buffer) Delete(path string, tag ...string) {
+func (b *Buffer) Delete(path, tag string) {
 	path = Clean(path, IsDir(path))
 	if IsDir(path) {
 		// TODO: Linear scan for directory delete is less than ideal.
@@ -58,24 +54,20 @@ func (b *Buffer) Delete(path string, tag ...string) {
 		}
 		return
 	}
-	var fileTag string
-	if len(tag) > 0 {
-		fileTag = tag[0]
-	}
 	if taggedFiles, ok := b.additive[path]; ok {
-		delete(taggedFiles, fileTag)
+		delete(taggedFiles, tag)
 	}
 	if _, ok := b.deletive[path]; !ok {
 		b.deletive[path] = make(map[string]*file)
 	}
 	taggedFiles := b.deletive[path]
-	taggedFiles[fileTag] = &file{
+	taggedFiles[tag] = &file{
 		path: path,
-		tag:  fileTag,
+		tag:  tag,
 	}
 }
 
-func (b *Buffer) WalkAdditive(cb func(string, string, io.Reader) error) error {
+func (b *Buffer) WalkAdditive(cb func(path, tag string, r io.Reader) error) error {
 	for _, file := range sortFiles(b.additive) {
 		if err := cb(file.path, file.tag, bytes.NewReader(file.buf.Bytes())); err != nil {
 			return err
@@ -100,7 +92,7 @@ func sortFiles(files map[string]map[string]*file) []*file {
 	return result
 }
 
-func (b *Buffer) WalkDeletive(cb func(string, string) error) error {
+func (b *Buffer) WalkDeletive(cb func(path, tag string) error) error {
 	for _, file := range sortFiles(b.deletive) {
 		if err := cb(file.path, file.tag); err != nil {
 			return err
