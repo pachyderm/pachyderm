@@ -1,5 +1,5 @@
 import {FileType} from '@pachyderm/proto/pb/pfs/pfs_pb';
-import {JobState, PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
+import {PipelineJobState, PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
 import {ProjectStatus} from '@pachyderm/proto/pb/projects/projects_pb';
 import {ApolloError} from 'apollo-server-errors';
 
@@ -7,7 +7,7 @@ import {
   ProjectStatus as GQLProjectStatus,
   FileType as GQLFileType,
   PipelineState as GQLPipelineState,
-  JobState as GQLJobState,
+  PipelineJobState as GQLPipelineJobState,
 } from '@graphqlTypes';
 
 /*
@@ -39,20 +39,20 @@ export const toGQLPipelineState = (
   }
 };
 
-export const toGQLJobState = (jobState: JobState) => {
+export const toGQLPipelineJobState = (jobState: PipelineJobState) => {
   switch (jobState) {
-    case JobState.JOB_EGRESSING:
-      return GQLJobState.JOB_EGRESSING;
-    case JobState.JOB_FAILURE:
-      return GQLJobState.JOB_FAILURE;
-    case JobState.JOB_KILLED:
-      return GQLJobState.JOB_KILLED;
-    case JobState.JOB_RUNNING:
-      return GQLJobState.JOB_RUNNING;
-    case JobState.JOB_STARTING:
-      return GQLJobState.JOB_STARTING;
-    case JobState.JOB_SUCCESS:
-      return GQLJobState.JOB_SUCCESS;
+    case PipelineJobState.JOB_EGRESSING:
+      return GQLPipelineJobState.JOB_EGRESSING;
+    case PipelineJobState.JOB_FAILURE:
+      return GQLPipelineJobState.JOB_FAILURE;
+    case PipelineJobState.JOB_KILLED:
+      return GQLPipelineJobState.JOB_KILLED;
+    case PipelineJobState.JOB_RUNNING:
+      return GQLPipelineJobState.JOB_RUNNING;
+    case PipelineJobState.JOB_STARTING:
+      return GQLPipelineJobState.JOB_STARTING;
+    case PipelineJobState.JOB_SUCCESS:
+      return GQLPipelineJobState.JOB_SUCCESS;
     default:
       throw new ApolloError(`Unknown job state ${jobState}`);
   }

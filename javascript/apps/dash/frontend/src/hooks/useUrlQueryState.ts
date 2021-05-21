@@ -1,11 +1,11 @@
 import {useCallback, useMemo} from 'react';
 import {useLocation} from 'react-router';
 
-import {DagDirection, JobState} from '@graphqlTypes';
+import {DagDirection, PipelineJobState} from '@graphqlTypes';
 
 interface UrlState {
   dagDirection?: DagDirection;
-  jobFilters?: JobState[];
+  pipelineJobFilters?: PipelineJobState[];
 }
 
 const useUrlQueryState = () => {

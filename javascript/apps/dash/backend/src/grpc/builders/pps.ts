@@ -6,7 +6,7 @@ import {
   GitInput,
   GPUSpec,
   Input,
-  JobState,
+  PipelineJobState,
   ParallelismSpec,
   PFSInput,
   Pipeline,
@@ -20,8 +20,8 @@ import {
   Spout,
   TFJob,
   Transform,
-  Job,
-  JobInfo,
+  PipelineJob,
+  PipelineJobInfo,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import {
@@ -173,7 +173,7 @@ export type PipelineInfoObject = {
   workersAvailable?: PipelineInfo.AsObject['workersAvailable'];
   //TODO: Proto Map does not have a setter
   // jobCountsMap: jspb.Map<number, number>;
-  lastJobState?: JobState;
+  lastJobState?: PipelineJobState;
   outputBranch?: PipelineInfo.AsObject['outputBranch'];
   resourceRequests?: ResourceSpecObject;
   resourceLimits?: ResourceSpecObject;
@@ -206,16 +206,14 @@ export type PipelineInfosObject = {
   pipelineInfoList: PipelineInfoObject[];
 };
 
-export type JobObject = {
-  id: Job.AsObject['id'];
+export type PipelineJobObject = {
+  id: PipelineJob.AsObject['id'];
 };
 
-export type JobInfoObject = {
-  job: {
-    id: Job.AsObject['id'];
-  };
-  createdAt: JobInfo.AsObject['started'];
-  state: JobState;
+export type PipelineJobInfoObject = {
+  pipelineJob: Pick<PipelineJob.AsObject, 'id'>;
+  createdAt: PipelineJobInfo.AsObject['started'];
+  state: PipelineJobState;
   pipeline: {
     name: Pipeline.AsObject['name'];
   };
@@ -641,25 +639,25 @@ export const pipelineInfosFromObject = ({
   return pipelineInfos;
 };
 
-export const jobFromObject = ({id}: JobObject) => {
-  const job = new Job();
+export const pipelineJobFromObject = ({id}: PipelineJobObject) => {
+  const job = new PipelineJob();
   job.setId(id);
 
   return job;
 };
 
-export const jobInfoFromObject = ({
-  job: {id},
+export const pipelineJobInfoFromObject = ({
+  pipelineJob: {id},
   createdAt,
   state,
   pipeline: {name},
-}: JobInfoObject) => {
-  const jobInfo = new JobInfo()
+}: PipelineJobInfoObject) => {
+  const jobInfo = new PipelineJobInfo()
     .setState(state)
     .setStarted(
       timestampFromObject({seconds: createdAt?.seconds || 0, nanos: 0}),
     )
-    .setJob(new Job().setId(id))
+    .setPipelineJob(new PipelineJob().setId(id))
     .setPipeline(new Pipeline().setName(name));
 
   return jobInfo;

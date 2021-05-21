@@ -17,8 +17,8 @@ import {
   spoutFromObject,
   tfJobFromObject,
   transformFromObject,
-  jobInfoFromObject,
-  jobFromObject,
+  pipelineJobInfoFromObject,
+  pipelineJobFromObject,
 } from '@dash-backend/grpc/builders/pps';
 
 describe('grpc/builders/pps', () => {
@@ -547,7 +547,7 @@ describe('grpc/builders/pps', () => {
       },
       githookUrl: 'https://github.com/pachyderm/pachyderm.git',
       specCommit: {
-        repo: {name: '__spec__'},
+        branch: {name: '', repo: {name: '__spec__'}},
         id: '4af40d34a0384f23a5b98d3bd7eaece1',
       },
       datumTries: 12,
@@ -621,16 +621,16 @@ describe('grpc/builders/pps', () => {
   });
 });
 
-it('should create Job from an object', () => {
-  const job = jobFromObject({id: '23efw4ef098few0'});
+it('should create PipelineJob from an object', () => {
+  const pipelineJob = pipelineJobFromObject({id: '23efw4ef098few0'});
 
-  expect(job.getId()).toBe('23efw4ef098few0');
+  expect(pipelineJob.getId()).toBe('23efw4ef098few0');
 });
 
 it('should create JobInfo from an object', () => {
-  const job = jobInfoFromObject({
+  const pipelineJob = pipelineJobInfoFromObject({
     state: 1,
-    job: {id: '1'},
+    pipelineJob: {id: '1'},
     createdAt: {
       seconds: 564645,
       nanos: 0,
@@ -638,8 +638,8 @@ it('should create JobInfo from an object', () => {
     pipeline: {name: 'montage'},
   });
 
-  expect(job.getState()).toBe(1);
-  expect(job.getStarted()?.getSeconds()).toBe(564645);
-  expect(job.getJob()?.getId()).toBe('1');
-  expect(job.getPipeline()?.getName()).toBe('montage');
+  expect(pipelineJob.getState()).toBe(1);
+  expect(pipelineJob.getStarted()?.getSeconds()).toBe(564645);
+  expect(pipelineJob.getPipelineJob()?.getId()).toBe('1');
+  expect(pipelineJob.getPipeline()?.getName()).toBe('montage');
 });

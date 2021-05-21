@@ -1,17 +1,19 @@
 import {useMemo} from 'react';
 
 import useCurrentProject from '@dash-frontend/hooks/useCurrentProject';
-import {useJobs} from '@dash-frontend/hooks/useJobs';
+import {usePipelineJobs} from '@dash-frontend/hooks/usePipelineJobs';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
-import {JobState} from '@graphqlTypes';
+import {PipelineJobState} from '@graphqlTypes';
 
 const useProjectHeader = () => {
   const {projectId, currentProject, loading} = useCurrentProject();
-  const {jobs} = useJobs({projectId});
+  const {pipelineJobs} = usePipelineJobs({projectId});
 
   const numOfFailedJobs = useMemo(
-    () => jobs.filter((job) => job.state === JobState.JOB_FAILURE).length,
-    [jobs],
+    () =>
+      pipelineJobs.filter((job) => job.state === PipelineJobState.JOB_FAILURE)
+        .length,
+    [pipelineJobs],
   );
 
   return {

@@ -1,4 +1,5 @@
 import {
+  Branch,
   Commit,
   File,
   FileInfo,
@@ -12,7 +13,7 @@ import {timestampFromObject} from '@dash-backend/grpc/builders/protobuf';
 export type FileObject = {
   commitId?: Commit.AsObject['id'];
   path?: File.AsObject['path'];
-  repoName: Repo.AsObject['name'];
+  branch?: BranchObject;
 };
 
 export type FileInfoObject = {
@@ -35,23 +36,39 @@ export type RepoObject = {
   name: Repo.AsObject['name'];
 };
 
-export type CommitObject = {
+export type BranchObject = {
+  name: Branch.AsObject['name'];
   repo?: RepoObject;
+};
+
+export type CommitObject = {
   id: Commit.AsObject['id'];
+  branch?: BranchObject;
 };
 
 export const fileFromObject = ({
   commitId = 'master',
   path = '/',
-  repoName,
+  branch,
 }: FileObject) => {
   const file = new File();
   const commit = new Commit();
   const repo = new Repo();
+  repo.setType('user');
+  let repoBranch = new Branch();
 
-  repo.setName(repoName);
   commit.setId(commitId);
-  commit.setRepo(repo);
+
+  if (branch) {
+    repoBranch = new Branch().setName(branch.name);
+
+    if (branch.repo) {
+      repo.setName(branch.repo.name);
+      repoBranch.setRepo(repo);
+      commit.setBranch(repoBranch);
+    }
+  }
+
   file.setPath(path);
   file.setCommit(commit);
 
@@ -99,15 +116,20 @@ export const triggerFromObject = ({
 export const repoFromObject = ({name}: RepoObject) => {
   const repo = new Repo();
   repo.setName(name);
+  repo.setType('user');
 
   return repo;
 };
 
-export const commitFromObject = ({repo, id}: CommitObject) => {
+export const commitFromObject = ({branch, id}: CommitObject) => {
   const commit = new Commit();
 
-  if (repo) {
-    commit.setRepo(repoFromObject(repo));
+  if (branch) {
+    commit.setBranch(
+      new Branch()
+        .setName(branch.name)
+        .setRepo(new Repo().setName(branch.repo?.name || '').setType('user')),
+    );
   }
   commit.setId(id);
 

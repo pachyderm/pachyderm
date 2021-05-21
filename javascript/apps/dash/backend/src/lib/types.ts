@@ -4,7 +4,7 @@ import Logger from 'bunyan';
 import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
 import client from '@dash-backend/grpc/client';
-import {Node, JobState, Account, Link} from '@graphqlTypes';
+import {Node, PipelineJobState, Account, Link} from '@graphqlTypes';
 
 export type PachClient = ReturnType<typeof client>;
 
@@ -28,7 +28,7 @@ export interface NodeInputData extends ElkNode, Omit<Node, 'x' | 'y'> {}
 
 export interface Vertex extends Omit<Node, 'x' | 'y' | 'id'> {
   parents: string[];
-  jobState?: JobState;
+  jobState?: PipelineJobState;
 }
 
 export interface ServiceArgs {

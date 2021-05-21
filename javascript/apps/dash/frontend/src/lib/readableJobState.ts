@@ -1,9 +1,9 @@
 import capitalize from 'lodash/capitalize';
 
-import {JobState} from '@graphqlTypes';
+import {PipelineJobState} from '@graphqlTypes';
 
-const readableJobState = (JobState: JobState | string) => {
-  const state = JobState.toString().replace('JOB_', '');
+const readableJobState = (pipelineJobState: PipelineJobState | string) => {
+  const state = pipelineJobState.toString().replace('JOB_', '');
   return capitalize(state);
 };
 

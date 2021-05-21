@@ -15,14 +15,18 @@ const handleFileDownload = async (req: Request, res: Response) => {
       .status(401);
   }
 
-  const {commitId, repoName} = req.params;
+  const {commitId, repoName, branchName} = req.params;
   const path = req.params['0'];
   let data;
 
   try {
     data = await client({pachdAddress, authToken, log})
       .pfs()
-      .getFile({commitId, path, repoName});
+      .getFile({
+        commitId,
+        path,
+        branch: {name: branchName, repo: {name: repoName}},
+      });
   } catch (err) {
     data = '';
   }

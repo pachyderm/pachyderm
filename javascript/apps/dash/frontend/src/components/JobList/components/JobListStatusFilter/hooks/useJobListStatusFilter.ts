@@ -3,33 +3,38 @@ import countBy from 'lodash/countBy';
 import {useMemo} from 'react';
 import {useHistory} from 'react-router';
 
-import {JobFilters} from '@dash-frontend/components/JobList/hooks/useJobList';
+import {PipelineJobFilters} from '@dash-frontend/components/JobList/hooks/useJobList';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {GetJobsQuery, JobState} from '@graphqlTypes';
+import {PipelineJobsQuery, PipelineJobState} from '@graphqlTypes';
 
 const useJobListStatusFilter = (
-  jobs: GetJobsQuery['jobs'],
-  selectedFilters: JobFilters,
+  pipelineJobs: PipelineJobsQuery['pipelineJobs'],
+  selectedFilters: PipelineJobFilters,
 ) => {
   const {setUrlFromViewState} = useUrlQueryState();
   const browserHistory = useHistory();
 
-  const stateCounts = useMemo(() => countBy(jobs, (job) => job.state), [jobs]);
+  const stateCounts = useMemo(
+    () => countBy(pipelineJobs, (job) => job.state),
+    [pipelineJobs],
+  );
 
-  const onChipClick = (job?: JobState) => {
+  const onChipClick = (job?: PipelineJobState) => {
     if (job) {
       const updatedFilterList = cloneDeep(selectedFilters);
       updatedFilterList[job] = !updatedFilterList[job];
 
-      const updatedJobFilters = Object.entries(updatedFilterList).reduce<
-        JobState[]
-      >((result, [key, selected]) => {
+      const updatedPipelineJobFilters = Object.entries(
+        updatedFilterList,
+      ).reduce<PipelineJobState[]>((result, [key, selected]) => {
         if (selected) {
-          result.push(key as JobState);
+          result.push(key as PipelineJobState);
         }
         return result;
       }, []);
-      browserHistory.push(setUrlFromViewState({jobFilters: updatedJobFilters}));
+      browserHistory.push(
+        setUrlFromViewState({pipelineJobFilters: updatedPipelineJobFilters}),
+      );
     }
   };
 

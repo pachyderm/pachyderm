@@ -34,7 +34,7 @@ const pfs: Pick<IAPIServer, 'listRepo' | 'inspectRepo' | 'listCommit'> = {
     const allCommits = commits[projectId.toString()] || commits['1'];
 
     allCommits.forEach((commit) => {
-      if (commit.getBranch()?.getRepo()?.getName() === repoName) {
+      if (commit.getCommit()?.getBranch()?.getRepo()?.getName() === repoName) {
         call.write(commit);
       }
     });

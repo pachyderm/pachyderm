@@ -5,17 +5,17 @@ import React from 'react';
 import {Link} from 'react-router-dom';
 
 import readableJobState from '@dash-frontend/lib/readableJobState';
-import {Job} from '@graphqlTypes';
+import {PipelineJob} from '@graphqlTypes';
 
 import styles from './JobListItem.module.css';
 
 type JobListItemProps = {
-  job: Job;
+  pipelineJob: PipelineJob;
   expandActions?: boolean;
 };
 
 const JobListItem: React.FC<JobListItemProps> = ({
-  job,
+  pipelineJob,
   expandActions = false,
 }) => {
   return (
@@ -28,8 +28,10 @@ const JobListItem: React.FC<JobListItemProps> = ({
       >
         <Tooltip
           tooltipKey="Job Details"
-          tooltipText={`See details for Job ID: ${job.id} Created: ${format(
-            fromUnixTime(job.createdAt),
+          tooltipText={`See details for Job ID: ${
+            pipelineJob.id
+          } Created: ${format(
+            fromUnixTime(pipelineJob.createdAt),
             'MM/dd/yyyy h:mmaaa',
           )}`}
         >
@@ -38,16 +40,16 @@ const JobListItem: React.FC<JobListItemProps> = ({
               className={classNames(
                 styles.jobStatus,
                 styles.innerContentItem,
-                styles[job.state],
+                styles[pipelineJob.state],
               )}
             >
-              {readableJobState(job.state)}
+              {readableJobState(pipelineJob.state)}
             </span>
             <span
               className={classNames(styles.timestamp, styles.innerContentItem)}
             >
               {`Created ${formatDistanceToNowStrict(
-                fromUnixTime(job.createdAt),
+                fromUnixTime(pipelineJob.createdAt),
                 {
                   addSuffix: true,
                 },

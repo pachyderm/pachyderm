@@ -1,7 +1,7 @@
 import {render, waitFor, within} from '@testing-library/react';
 import React from 'react';
 
-import jobs from '@dash-backend/mock/fixtures/jobs';
+import pipelineJobs from '@dash-backend/mock/fixtures/pipelineJobs';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
 import JobListComponent from '../JobList';
@@ -20,7 +20,7 @@ describe('JobList', () => {
       getByRole('list'),
     );
 
-    expect(queryAllByRole('listitem').length).toBe(jobs['2'].length);
+    expect(queryAllByRole('listitem').length).toBe(pipelineJobs['2'].length);
     expect(queryByText('Failure')).toBeInTheDocument();
     expect(queryByText('Egressing')).toBeInTheDocument();
     expect(queryByText('Killed')).toBeInTheDocument();
@@ -42,8 +42,9 @@ describe('JobList', () => {
     const {queryAllByRole, queryByText} = within(getByRole('list'));
 
     expect(queryAllByRole('listitem').length).toBe(
-      jobs['1'].filter((job) => job.getPipeline()?.getName() === 'montage')
-        .length,
+      pipelineJobs['1'].filter(
+        (job) => job.getPipeline()?.getName() === 'montage',
+      ).length,
     );
     expect(queryByText('Success')).toBeInTheDocument();
   });
@@ -54,8 +55,8 @@ describe('JobList', () => {
     const readLogsButtons = await findAllByText('Read logs');
     const seeDetailsButtons = await findAllByText('See Details');
 
-    expect(readLogsButtons.length).toBe(jobs['2'].length);
-    expect(seeDetailsButtons.length).toBe(jobs['2'].length);
+    expect(readLogsButtons.length).toBe(pipelineJobs['2'].length);
+    expect(seeDetailsButtons.length).toBe(pipelineJobs['2'].length);
   });
 
   it('should allow user to filter on job state', async () => {
@@ -64,7 +65,7 @@ describe('JobList', () => {
     );
 
     expect(
-      await findByText(`Last ${jobs['2'].length} Jobs`),
+      await findByText(`Last ${pipelineJobs['2'].length} Jobs`),
     ).toBeInTheDocument();
 
     const startingButton = getByText(/Starting \(\d\)/);

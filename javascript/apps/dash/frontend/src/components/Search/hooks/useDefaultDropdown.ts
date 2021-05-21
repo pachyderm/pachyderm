@@ -8,25 +8,30 @@ import useJobList from '@dash-frontend/components/JobList/hooks/useJobList';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
-import {JobState} from '@graphqlTypes';
+import {PipelineJobState} from '@graphqlTypes';
 
 import {useSearch} from './useSearch';
 
 export const useDefaultDropdown = () => {
   const {projectId} = useUrlState();
-  const {jobs} = useJobList({projectId});
+  const {pipelineJobs} = useJobList({projectId});
   const browserHistory = useHistory();
   const {setUrlFromViewState} = useUrlQueryState();
   const {closeDropdown} = useSearch();
 
-  const stateCounts = useMemo(() => countBy(jobs, (job) => job.state), [jobs]);
+  const stateCounts = useMemo(
+    () => countBy(pipelineJobs, (job) => job.state),
+    [pipelineJobs],
+  );
   const allJobs = useMemo(() => sum(values(stateCounts)), [stateCounts]);
 
   const handleJobChipClick = useCallback(
-    (value?: JobState) => {
+    (value?: PipelineJobState) => {
       const params = value
-        ? setUrlFromViewState({jobFilters: [value]})
-        : setUrlFromViewState({jobFilters: Object.values(JobState)});
+        ? setUrlFromViewState({pipelineJobFilters: [value]})
+        : setUrlFromViewState({
+            pipelineJobFilters: Object.values(PipelineJobState),
+          });
 
       browserHistory.push(params);
       browserHistory.push(jobsRoute({projectId}));

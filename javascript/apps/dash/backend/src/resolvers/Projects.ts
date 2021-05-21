@@ -7,7 +7,7 @@ import Logger from 'bunyan';
 import client from '@dash-backend/grpc/client';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {
-  toGQLJobState,
+  toGQLPipelineJobState,
   toGQLProjectStatus,
 } from '@dash-backend/lib/gqlEnumMappers';
 import {GRPCClient} from '@dash-backend/lib/types';
@@ -121,8 +121,8 @@ const projectsResolver: ProjectsResolver = {
         repoCount: repos.length,
         pipelineCount: pipelines.length,
         jobs: jobs.map((job) => ({
-          id: job.job?.id || '',
-          state: toGQLJobState(job.state),
+          id: job.pipelineJob?.id || '',
+          state: toGQLPipelineJobState(job.state),
           createdAt: job.started?.seconds || 0,
         })),
       };

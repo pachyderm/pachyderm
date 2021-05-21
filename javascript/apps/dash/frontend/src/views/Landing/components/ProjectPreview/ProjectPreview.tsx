@@ -62,7 +62,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
       </h4>
       <JobListStatic
         projectId={project.id}
-        jobs={projectDetails?.jobs}
+        pipelineJobs={projectDetails?.jobs}
         loading={loading}
       />
     </div>

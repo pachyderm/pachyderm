@@ -10,12 +10,13 @@ interface FileResolver {
 }
 
 const getDownloadLink = (file: FileInfo.AsObject) => {
-  if (
-    file.file?.commit?.repo?.name &&
-    file.file?.commit?.id &&
-    file.file?.path
-  ) {
-    return `/download/${file.file?.commit?.repo?.name}/${file.file?.commit?.id}${file?.file?.path}`;
+  const repoName = file.file?.commit?.branch?.repo?.name;
+  const branchName = file.file?.commit?.branch?.name;
+  const commitId = file.file?.commit?.id;
+  const filePath = file.file?.path;
+
+  if (repoName && branchName && commitId && filePath) {
+    return `/download/${repoName}/${branchName}/${commitId}${filePath}`;
   }
 
   return null;
@@ -25,13 +26,13 @@ const fileResolver: FileResolver = {
   Query: {
     files: async (
       _parent,
-      {args: {commitId, path, repoName}},
+      {args: {commitId, path, branchName, repoName}},
       {pachClient},
     ) => {
       const files = await pachClient.pfs().listFile({
         commitId: commitId || 'master',
         path: path || '/',
-        repoName,
+        branch: {name: branchName, repo: {name: repoName}},
       });
 
       return files.map((file) => ({
@@ -41,7 +42,7 @@ const fileResolver: FileResolver = {
         download: getDownloadLink(file),
         hash: file.hash.toString(),
         path: file.file?.path || '/',
-        repoName: file.file?.commit?.repo?.name || '',
+        repoName: file.file?.commit?.branch?.repo?.name || '',
         sizeBytes: file.sizeBytes,
         type: toGQLFileType(file.fileType),
       }));

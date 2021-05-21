@@ -2,15 +2,19 @@ import {QueryResolvers} from '@dash-backend/generated/types';
 
 import {jobInfoToGQLJob} from './builders/pps';
 
-interface JobResolver {
+interface PipelineJobResolver {
   Query: {
-    jobs: QueryResolvers['jobs'];
+    pipelineJobs: QueryResolvers['pipelineJobs'];
   };
 }
 
-const jobResolver: JobResolver = {
+const pipelineJobResolver: PipelineJobResolver = {
   Query: {
-    jobs: async (_parent, {args: {pipelineId, limit}}, {pachClient}) => {
+    pipelineJobs: async (
+      _parent,
+      {args: {pipelineId, limit}},
+      {pachClient},
+    ) => {
       let jq = '';
 
       if (pipelineId) {
@@ -26,4 +30,4 @@ const jobResolver: JobResolver = {
   },
 };
 
-export default jobResolver;
+export default pipelineJobResolver;

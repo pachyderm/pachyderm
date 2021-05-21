@@ -126,7 +126,10 @@ const setEnterpriseContext = async () => {
 const configureIssuer = async () => {
   console.log('Configuring issuer...');
   try {
-    await executePachCommand(`idp set-config --issuer 'http://localhost:30658/'`);
+    await executePachCommand(`idp set-config <<EOF
+      {
+        "issuer": "http://localhost:30658/"
+      }`);
     console.log('Issuer configured ✅');
   } catch (e) {
     console.error('Problem configuring issuer:', e);
@@ -140,7 +143,7 @@ const configureGithubConnector = async () => {
 
   console.log('Configuring Github connector...');
   try {
-    await executePachCommand(`idp create-connector --config - <<EOF
+    await executePachCommand(`idp create-connector <<EOF
       {
         "id": "github",
         "name": "github",
@@ -166,7 +169,7 @@ const configureGithubConnector = async () => {
 const configureOIDCProvider = async () => {
   console.log('Configuring OIDC provider...');
   try {
-    await executePachCommand(`auth set-config  <<EOF
+    await executePachCommand(`auth set-config <<EOF
       {
         "issuer": "http://localhost:30658/",
         "localhost_issuer": true,
@@ -188,7 +191,12 @@ const configureOIDCProvider = async () => {
 const configureDashClient = async () => {
   console.log('Configuring Dash client...');
   try {
-    const output = await executePachCommand(`idp create-client --id dash --name dash --redirectUris http://localhost:4000/oauth/callback/\?inline\=true`);
+    const output = await executePachCommand(`idp create-client <<EOF
+    {
+      "id": "dash",
+      "name": "dash",
+      "redirect_uris": ["http://localhost:4000/oauth/callback/\?inline\=true"]
+    }`);
     const secret = output.match(/"(.*?)"/)[1];
     await writeToEnv('OAUTH_CLIENT_SECRET', secret);
     console.log('Dash client configured ✅');
@@ -205,7 +213,11 @@ const configureDashClient = async () => {
 const setupTrustedPeers = async () => {
   console.log('Setting up trusted peers...');
   try {
-    await executePachCommand('idp update-client pachd --trustedPeers dash');
+    await executePachCommand(`idp update-client <<EOF
+    {
+      "id": "pachd",
+      "trusted_peers": ["dash"]
+    }`);
     console.log('Trusted peers added ✅');
   } catch (e) {
     console.log('Problem setting up trusted peers:', e);
@@ -218,7 +230,6 @@ const setup = async () => {
   await writePachdAddress();
   await activateAuth();
   await setupClusterAdmin();
-  await setEnterpriseContext();
   await configureIssuer();
   await configureGithubConnector();
   await configureOIDCProvider();

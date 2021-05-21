@@ -11,21 +11,21 @@ describe('grpc/builders/pfs', () => {
     const file = fileFromObject({
       commitId: '1234567890',
       path: '/assets',
-      repoName: 'neato',
+      branch: {name: 'master', repo: {name: 'neato'}},
     });
 
     expect(file.getCommit()?.getId()).toBe('1234567890');
-    expect(file.getCommit()?.getRepo()?.getName()).toBe('neato');
+    expect(file.getCommit()?.getBranch()?.getRepo()?.getName()).toBe('neato');
     expect(file.getPath()).toBe('/assets');
   });
 
   it('should create File from an object with defaults', () => {
     const file = fileFromObject({
-      repoName: 'neato',
+      branch: {name: 'master', repo: {name: 'neato'}},
     });
 
     expect(file.getCommit()?.getId()).toBe('master');
-    expect(file.getCommit()?.getRepo()?.getName()).toBe('neato');
+    expect(file.getCommit()?.getBranch()?.getRepo()?.getName()).toBe('neato');
     expect(file.getPath()).toBe('/');
   });
 
@@ -38,7 +38,7 @@ describe('grpc/builders/pfs', () => {
       file: {
         commitId: '1234567890',
         path: '/assets',
-        repoName: 'neato',
+        branch: {name: 'master', repo: {name: 'neato'}},
       },
       fileType: 2,
       hash: 'abcde12345',
@@ -46,7 +46,9 @@ describe('grpc/builders/pfs', () => {
     });
 
     expect(fileInfo.getFile()?.getCommit()?.getId()).toBe('1234567890');
-    expect(fileInfo.getFile()?.getCommit()?.getRepo()?.getName()).toBe('neato');
+    expect(
+      fileInfo.getFile()?.getCommit()?.getBranch()?.getRepo()?.getName(),
+    ).toBe('neato');
     expect(fileInfo.getFile()?.getPath()).toBe('/assets');
     expect(fileInfo.getFileType()).toBe(2);
     expect(fileInfo.getHash()).toBe('abcde12345');
@@ -61,7 +63,7 @@ describe('grpc/builders/pfs', () => {
       file: {
         commitId: '1234567890',
         path: '/assets',
-        repoName: 'neato',
+        branch: {name: 'master', repo: {name: 'neato'}},
       },
       fileType: 2,
       hash: 'abcde12345',
@@ -69,7 +71,9 @@ describe('grpc/builders/pfs', () => {
     });
 
     expect(fileInfo.getFile()?.getCommit()?.getId()).toBe('1234567890');
-    expect(fileInfo.getFile()?.getCommit()?.getRepo()?.getName()).toBe('neato');
+    expect(
+      fileInfo.getFile()?.getCommit()?.getBranch()?.getRepo()?.getName(),
+    ).toBe('neato');
     expect(fileInfo.getFile()?.getPath()).toBe('/assets');
     expect(fileInfo.getFileType()).toBe(2);
     expect(fileInfo.getHash()).toBe('abcde12345');
@@ -104,11 +108,11 @@ describe('grpc/builders/pfs', () => {
 
   it('should create Commit from an object', () => {
     const commit = commitFromObject({
-      repo: {name: '__spec__'},
+      branch: {name: 'master', repo: {name: '__spec__'}},
       id: '4af40d34a0384f23a5b98d3bd7eaece1',
     });
 
-    expect(commit.getRepo()?.getName()).toBe('__spec__');
+    expect(commit.getBranch()?.getRepo()?.getName()).toBe('__spec__');
     expect(commit.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
   });
 });

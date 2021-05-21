@@ -37,9 +37,9 @@ const repoResolver: RepoResolver = {
       try {
         return (await pachClient.pfs().listCommit(repo.id, NUM_COMMITS)).map(
           (commit) => ({
-            branch: commit.branch && {
-              id: commit.branch?.name,
-              name: commit.branch?.name,
+            branch: commit.commit?.branch && {
+              id: commit.commit?.branch?.name,
+              name: commit.commit?.branch?.name,
             },
             description: commit.description,
             finished: commit.finished?.seconds || 0,

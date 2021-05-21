@@ -2,18 +2,18 @@ import {Status} from '@grpc/grpc-js/build/src/constants';
 import {IAPIServer} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
 import {PipelineInfos} from '@pachyderm/proto/pb/pps/pps_pb';
 
-import jobs from '@dash-backend/mock/fixtures/jobs';
+import pipelineJobs from '@dash-backend/mock/fixtures/pipelineJobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
 
 import {
-  jobInfoFromObject,
+  pipelineJobInfoFromObject,
   pipelineInfoFromObject,
 } from '../../grpc/builders/pps';
 import runJQFilter from '../utils/runJQFilter';
 
 const pps: Pick<
   IAPIServer,
-  'listPipeline' | 'listJob' | 'inspectJob' | 'inspectPipeline'
+  'listPipeline' | 'listPipelineJob' | 'inspectPipelineJob' | 'inspectPipeline'
 > = {
   listPipeline: async (call, callback) => {
     const [projectId] = call.metadata.get('project-id');
@@ -50,26 +50,32 @@ const pps: Pick<
       callback(null, reply);
     }
   },
-  listJob: async (call) => {
+  listPipelineJob: async (call) => {
     const [projectId] = call.metadata.get('project-id');
-    let replyJobs = projectId ? jobs[projectId.toString()] : jobs['1'];
+    let replyJobs = projectId
+      ? pipelineJobs[projectId.toString()]
+      : pipelineJobs['1'];
 
     if (call.request.getJqfilter()) {
       replyJobs = await runJQFilter({
-        jqFilter: `.jobInfoList[] | ${call.request.getJqfilter()}`,
-        object: {jobInfoList: replyJobs.map((rj) => rj.toObject())},
-        objectMapper: jobInfoFromObject,
+        jqFilter: `.pipelineJobInfoList[] | ${call.request.getJqfilter()}`,
+        object: {pipelineJobInfoList: replyJobs.map((rj) => rj.toObject())},
+        objectMapper: pipelineJobInfoFromObject,
       });
     }
 
     replyJobs.forEach((job) => call.write(job));
     call.end();
   },
-  inspectJob: (call, callback) => {
+  inspectPipelineJob: (call, callback) => {
     const [projectId] = call.metadata.get('project-id');
-    const replyJobs = projectId ? jobs[projectId.toString()] : jobs['1'];
+    const replyJobs = projectId
+      ? pipelineJobs[projectId.toString()]
+      : pipelineJobs['1'];
     const foundJob = replyJobs.find(
-      (job) => job.getJob()?.getId() === call.request.getJob()?.getId(),
+      (job) =>
+        job.getPipelineJob()?.getId() ===
+        call.request.getPipelineJob()?.getId(),
     );
     if (foundJob) {
       callback(null, foundJob);
