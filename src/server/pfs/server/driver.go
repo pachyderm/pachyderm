@@ -866,7 +866,6 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 }
 
 func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
-	// update the repo size if this is the head of master
 	repoInfo := new(pfs.RepoInfo)
 	if err := d.repos.ReadOnly(ctx).Get(pfsdb.RepoKey(repo), repoInfo); err != nil {
 		return 0, err
