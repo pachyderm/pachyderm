@@ -13,6 +13,7 @@ export interface UnauthenticatedContext {
   pachClient: PachClient;
   pachdAddress?: string;
   log: Logger;
+  host: string;
   account?: Account;
 }
 

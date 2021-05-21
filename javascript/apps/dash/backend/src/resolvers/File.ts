@@ -9,14 +9,14 @@ interface FileResolver {
   };
 }
 
-const getDownloadLink = (file: FileInfo.AsObject) => {
+const getDownloadLink = (file: FileInfo.AsObject, host: string) => {
   const repoName = file.file?.commit?.branch?.repo?.name;
   const branchName = file.file?.commit?.branch?.name;
   const commitId = file.file?.commit?.id;
   const filePath = file.file?.path;
 
   if (repoName && branchName && commitId && filePath) {
-    return `/download/${repoName}/${branchName}/${commitId}${filePath}`;
+    return `${host}/download/${repoName}/${branchName}/${commitId}${filePath}`;
   }
 
   return null;
@@ -27,7 +27,7 @@ const fileResolver: FileResolver = {
     files: async (
       _parent,
       {args: {commitId, path, branchName, repoName}},
-      {pachClient},
+      {pachClient, host},
     ) => {
       const files = await pachClient.pfs().listFile({
         commitId: commitId || 'master',
@@ -39,7 +39,7 @@ const fileResolver: FileResolver = {
         commitId: file.file?.commit?.id || '',
         committed: file.committed,
         // TODO: This may eventually come from the S3 gateway or Pach's http server
-        download: getDownloadLink(file),
+        download: getDownloadLink(file, host),
         hash: file.hash.toString(),
         path: file.file?.path || '/',
         repoName: file.file?.commit?.branch?.repo?.name || '',

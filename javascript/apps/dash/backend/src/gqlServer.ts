@@ -18,6 +18,7 @@ const gqlServer = new ApolloServer({
     let authToken: string | undefined;
     let projectId: string | undefined;
     let account: Account | undefined;
+    let host = '';
 
     if (connection) {
       idToken = connection.context['id-token'];
@@ -27,6 +28,7 @@ const gqlServer = new ApolloServer({
       idToken = req.header('id-token');
       authToken = req.header('auth-token');
       projectId = req.body?.variables?.args?.projectId;
+      host = `${req.protocol}://${req.get('host')}`;
     }
 
     if (idToken) {
@@ -52,6 +54,7 @@ const gqlServer = new ApolloServer({
     return {
       account,
       authToken,
+      host,
       log,
       pachClient,
       pachdAddress,
