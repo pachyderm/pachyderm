@@ -405,6 +405,7 @@ type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Em
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
 type squashCommitFunc func(context.Context, *pfs.SquashCommitRequest) (*types.Empty, error)
+type inspectJobFunc func(context.Context, *pfs.InspectJobRequest) (*pfs.JobInfo, error)
 type flushJobFunc func(*pfs.FlushJobRequest, pfs.API_FlushJobServer) error
 type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeCommitServer) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
@@ -436,6 +437,7 @@ type mockFinishCommit struct{ handler finishCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
 type mockListCommit struct{ handler listCommitFunc }
 type mockSquashCommit struct{ handler squashCommitFunc }
+type mockInspectJob struct{ handler inspectJobFunc }
 type mockFlushJob struct{ handler flushJobFunc }
 type mockSubscribeCommit struct{ handler subscribeCommitFunc }
 type mockClearCommit struct{ handler clearCommitFunc }
@@ -467,6 +469,7 @@ func (mock *mockFinishCommit) Use(cb finishCommitFunc)       { mock.handler = cb
 func (mock *mockInspectCommit) Use(cb inspectCommitFunc)     { mock.handler = cb }
 func (mock *mockListCommit) Use(cb listCommitFunc)           { mock.handler = cb }
 func (mock *mockSquashCommit) Use(cb squashCommitFunc)       { mock.handler = cb }
+func (mock *mockInspectJob) Use(cb inspectJobFunc)           { mock.handler = cb }
 func (mock *mockFlushJob) Use(cb flushJobFunc)               { mock.handler = cb }
 func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc) { mock.handler = cb }
 func (mock *mockClearCommit) Use(cb clearCommitFunc)         { mock.handler = cb }
@@ -504,6 +507,7 @@ type mockPFSServer struct {
 	InspectCommit   mockInspectCommit
 	ListCommit      mockListCommit
 	SquashCommit    mockSquashCommit
+	InspectJob      mockInspectJob
 	FlushJob        mockFlushJob
 	SubscribeCommit mockSubscribeCommit
 	ClearCommit     mockClearCommit
@@ -585,6 +589,12 @@ func (api *pfsServerAPI) SquashCommit(ctx context.Context, req *pfs.SquashCommit
 		return api.mock.SquashCommit.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommit")
+}
+func (api *pfsServerAPI) InspectJob(ctx context.Context, req *pfs.InspectJobRequest) (*pfs.JobInfo, error) {
+	if api.mock.InspectJob.handler != nil {
+		return api.mock.InspectJob.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.InspectJob")
 }
 func (api *pfsServerAPI) FlushJob(req *pfs.FlushJobRequest, serv pfs.API_FlushJobServer) error {
 	if api.mock.FlushJob.handler != nil {

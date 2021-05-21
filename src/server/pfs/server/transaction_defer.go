@@ -22,8 +22,9 @@ type Propagater struct {
 
 func (a *apiServer) NewPropagater(txnCtx *txnenv.TransactionContext) txnenv.PfsPropagater {
 	return &Propagater{
-		d:      a.driver,
-		txnCtx: txnCtx,
+		d:        a.driver,
+		txnCtx:   txnCtx,
+		branches: map[string]*pfs.Branch{},
 	}
 }
 
