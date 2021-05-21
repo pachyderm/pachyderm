@@ -30,7 +30,7 @@ func Commits(pachClient *client.APIClient, repo, branch string, spec *CommitsSpe
 		}
 		validator := env.Validator()
 		if validator != nil {
-			if err := validator.Validate(env.Client(), repo, branch, commit.ID); err != nil {
+			if err := validator.Validate(env.Client(), commit); err != nil {
 				return err
 			}
 		}

@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -856,10 +857,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				sources = filePaths
 			}
 
-			repo := file.Commit.Branch.Repo.Name
-			branch := file.Commit.Branch.Name
-			commit := file.Commit.ID
-			return c.WithModifyFileClient(repo, branch, commit, func(mf client.ModifyFile) error {
+			return c.WithModifyFileClient(file.Commit, func(mf client.ModifyFile) error {
 				for _, source := range sources {
 					source := source
 					if file.Path == "" {
@@ -932,8 +930,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 				opts = append(opts, client.WithAppendCopyFile())
 			}
 			return c.CopyFile(
-				destFile.Commit.Branch.Repo.Name, destFile.Commit.Branch.Name, destFile.Commit.ID, destFile.Path,
-				srcFile.Commit.Branch.Repo.Name, srcFile.Commit.Branch.Name, srcFile.Commit.ID, srcFile.Path,
+				destFile.Commit, destFile.Path,
+				srcFile.Commit, srcFile.Path,
 				opts...,
 			)
 		}),
@@ -982,9 +980,9 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				w = os.Stdout
 			} else {
 				if url, err := url.Parse(outputPath); err == nil && url.Scheme != "" {
-					return c.GetFileURL(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path, url.String())
+					return c.GetFileURL(file.Commit, file.Path, url.String())
 				}
-				fi, err := c.InspectFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path)
+				fi, err := c.InspectFile(file.Commit, file.Path)
 				if err != nil {
 					return err
 				}
@@ -995,7 +993,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				defer f.Close()
 				w = f
 			}
-			return c.GetFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path, w)
+			return c.GetFile(file.Commit, file.Path, w)
 		}),
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
@@ -1017,7 +1015,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				return err
 			}
 			defer c.Close()
-			fileInfo, err := c.InspectFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path)
+			fileInfo, err := c.InspectFile(file.Commit, file.Path)
 			if err != nil {
 				return err
 			}
@@ -1078,7 +1076,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			}
 			defer c.Close()
 			if raw {
-				return c.ListFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path, func(fi *pfsclient.FileInfo) error {
+				return c.ListFile(file.Commit, file.Path, func(fi *pfsclient.FileInfo) error {
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
@@ -1087,7 +1085,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 				header = pretty.FileHeaderWithCommit
 			}
 			writer := tabwriter.NewWriter(os.Stdout, header)
-			if err := c.ListFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path, func(fi *pfsclient.FileInfo) error {
+			if err := c.ListFile(file.Commit, file.Path, func(fi *pfsclient.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
 			}); err != nil {
@@ -1124,7 +1122,7 @@ $ {{alias}} "foo@master:data/*"`,
 				return err
 			}
 			defer c.Close()
-			fileInfos, err := c.GlobFileAll(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path)
+			fileInfos, err := c.GlobFileAll(file.Commit, file.Path)
 			if err != nil {
 				return err
 			}
@@ -1168,7 +1166,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			if err != nil {
 				return err
 			}
-			oldFile := client.NewFile("", "", "", "")
+			oldFile := &pfs.File{}
 			if len(args) == 2 {
 				oldFile, err = cmdutil.ParseFile(args[1])
 				if err != nil {
@@ -1193,8 +1191,8 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				}
 
 				newFiles, oldFiles, err := c.DiffFileAll(
-					newFile.Commit.Branch.Repo.Name, newFile.Commit.Branch.Name, newFile.Commit.ID, newFile.Path,
-					oldFile.Commit.Branch.Repo.Name, oldFile.Commit.Branch.Name, oldFile.Commit.ID, oldFile.Path,
+					newFile.Commit, newFile.Path,
+					oldFile.Commit, oldFile.Path,
 					shallow,
 				)
 				if err != nil {
@@ -1267,7 +1265,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 			defer c.Close()
 
-			return c.DeleteFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path)
+			return c.DeleteFile(file.Commit, file.Path)
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
@@ -1400,7 +1398,7 @@ func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr e
 			retErr = err
 		}
 	}()
-	if err := pachClient.GetFile(f.Commit.Branch.Repo.Name, f.Commit.Branch.Name, f.Commit.ID, f.Path, file); err != nil {
+	if err := pachClient.GetFile(f.Commit, f.Path, file); err != nil {
 		return "", err
 	}
 	return file.Name(), nil
