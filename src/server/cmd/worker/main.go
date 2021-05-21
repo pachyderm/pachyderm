@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -53,15 +54,9 @@ func main() {
 func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	resp, err := env.GetEtcdClient().Get(ctx, path.Join(env.Config().PPSEtcdPrefix, "pipelines", env.Config().PPSPipelineName))
-	if err != nil {
-		return nil, err
-	}
-	if len(resp.Kvs) != 1 {
-		return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.Config().PPSPipelineName, len(resp.Kvs), resp)
-	}
-	var pipelinePtr pps.StoredPipelineInfo
-	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
+	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
+	pipelinePtr := &pps.StoredPipelineInfo{}
+	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelinePtr); err != nil {
 		return nil, err
 	}
 	pachClient.SetAuthToken(pipelinePtr.AuthToken)
@@ -70,7 +65,7 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
 	pipelinePtr.SpecCommit.ID = env.Config().PPSSpecCommitID
-	return ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
+	return ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 }
 
 func do(config interface{}) error {
@@ -87,7 +82,7 @@ func do(config interface{}) error {
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.Config().PPSEtcdPrefix, pipelineInfo, env.Config().PodName, env.Config().Namespace, "/")
+	workerInstance, err := worker.NewWorker(env, pachClient, pipelineInfo, "/")
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
+	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -32,6 +35,13 @@ const clusterIDKey = "cluster-id"
 // create more, if they want to create multiple pachyderm "clusters" served in
 // separate goroutines.
 type ServiceEnv interface {
+	AuthServer() auth_server.APIServer
+	PfsServer() pfs_server.APIServer
+	PpsServer() pps_server.APIServer
+	SetAuthServer(auth_server.APIServer)
+	SetPfsServer(pfs_server.APIServer)
+	SetPpsServer(pps_server.APIServer)
+
 	Config() *Configuration
 	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
@@ -100,6 +110,10 @@ type NonblockingServiceEnv struct {
 	listener *col.PostgresListener
 	// listenerEg coordinates the initialization of listener (see pachdEg)
 	listenerEg errgroup.Group
+
+	authServer auth_server.APIServer
+	ppsServer  pps_server.APIServer
+	pfsServer  pfs_server.APIServer
 
 	// ctx is the background context for the environment that will be canceled
 	// when the ServiceEnv is closed - this typically only happens for orderly
@@ -182,11 +196,11 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	}
 	// Initialize pach client
 	return backoff.Retry(func() error {
-		var err error
-		env.pachClient, err = client.NewFromURI(env.pachAddress)
+		pachClient, err := client.NewFromURI(env.pachAddress)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
 		}
+		env.pachClient = pachClient
 		return nil
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
@@ -388,4 +402,34 @@ func (env *NonblockingServiceEnv) Close() error {
 	eg.Go(env.GetDBClient().Close)
 	eg.Go(env.GetPostgresListener().Close)
 	return eg.Wait()
+}
+
+// AuthServer returns the registered Auth APIServer
+func (env *NonblockingServiceEnv) AuthServer() auth_server.APIServer {
+	return env.authServer
+}
+
+// SetAuthServer registers an Auth APIServer with this service env
+func (env *NonblockingServiceEnv) SetAuthServer(s auth_server.APIServer) {
+	env.authServer = s
+}
+
+// PpsServer returns the registered PPS APIServer
+func (env *NonblockingServiceEnv) PpsServer() pps_server.APIServer {
+	return env.ppsServer
+}
+
+// SetPpsServer registers a Pps APIServer with this service env
+func (env *NonblockingServiceEnv) SetPpsServer(s pps_server.APIServer) {
+	env.ppsServer = s
+}
+
+// PfsServer returns the registered PFS APIServer
+func (env *NonblockingServiceEnv) PfsServer() pfs_server.APIServer {
+	return env.pfsServer
+}
+
+// SetPfsServer registers a Pfs APIServer with this service env
+func (env *NonblockingServiceEnv) SetPfsServer(s pfs_server.APIServer) {
+	env.pfsServer = s
 }

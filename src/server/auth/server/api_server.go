@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgerrcode"
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -23,21 +22,20 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
 const (
-	tokensPrefix       = "/tokens"
-	roleBindingsPrefix = "/role-bindings"
-	membersPrefix      = "/members"
-	groupsPrefix       = "/groups"
-	configPrefix       = "/config"
-	oidcAuthnPrefix    = "/oidc-authns"
+	// oidc etcd object prefix
+	oidcAuthnPrefix = "/oidc-authns"
 
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
@@ -62,12 +60,6 @@ const (
 // DefaultOIDCConfig is the default config for the auth API server
 var DefaultOIDCConfig = auth.OIDCConfig{}
 
-// APIServer represents an auth api server
-type APIServer interface {
-	auth.APIServer
-	txnenv.AuthTransactionServer
-}
-
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
@@ -79,13 +71,13 @@ type apiServer struct {
 	clusterRoleBindingCache *keycache.Cache
 
 	// roleBindings is a collection of resource name -> role binding mappings.
-	roleBindings col.EtcdCollection
+	roleBindings col.PostgresCollection
 	// members is a collection of username -> groups mappings.
-	members col.EtcdCollection
+	members col.PostgresCollection
 	// groups is a collection of group -> usernames mappings.
-	groups col.EtcdCollection
+	groups col.PostgresCollection
 	// collection containing the auth config (under the key configKey)
-	authConfig col.EtcdCollection
+	authConfig col.PostgresCollection
 	// oidcStates  contains the set of OIDC nonces for requests that are in progress
 	oidcStates col.EtcdCollection
 
@@ -135,58 +127,28 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 func NewAuthServer(
 	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
 	public bool,
 	requireNoncriticalServers bool,
 	watchesEnabled bool,
-) (APIServer, error) {
+) (authiface.APIServer, error) {
+	oidcStates := col.NewEtcdCollection(
+		env.GetEtcdClient(),
+		path.Join(oidcAuthnPrefix),
+		nil,
+		&auth.SessionInfo{},
+		nil,
+		nil,
+	)
 
-	authConfig := col.NewEtcdCollection(
-		env.GetEtcdClient(),
-		path.Join(etcdPrefix, configKey),
-		nil,
-		&auth.OIDCConfig{},
-		nil,
-		nil,
-	)
-	roleBindings := col.NewEtcdCollection(
-		env.GetEtcdClient(),
-		path.Join(etcdPrefix, roleBindingsPrefix),
-		nil,
-		&auth.RoleBinding{},
-		nil,
-		nil,
-	)
 	s := &apiServer{
-		env:        env,
-		txnEnv:     txnEnv,
-		pachLogger: log.NewLogger("auth.API", env.Logger()),
-		members: col.NewEtcdCollection(
-			env.GetEtcdClient(),
-			path.Join(etcdPrefix, membersPrefix),
-			nil,
-			&auth.Groups{},
-			nil,
-			nil,
-		),
-		groups: col.NewEtcdCollection(
-			env.GetEtcdClient(),
-			path.Join(etcdPrefix, groupsPrefix),
-			nil,
-			&auth.Users{},
-			nil,
-			nil,
-		),
-		oidcStates: col.NewEtcdCollection(
-			env.GetEtcdClient(),
-			path.Join(oidcAuthnPrefix),
-			nil,
-			&auth.SessionInfo{},
-			nil,
-			nil,
-		),
-		authConfig:     authConfig,
-		roleBindings:   roleBindings,
+		env:            env,
+		txnEnv:         txnEnv,
+		pachLogger:     log.NewLogger("auth.API", env.Logger()),
+		authConfig:     authConfigCollection(env.GetDBClient(), env.GetPostgresListener()),
+		roleBindings:   roleBindingsCollection(env.GetDBClient(), env.GetPostgresListener()),
+		members:        membersCollection(env.GetDBClient(), env.GetPostgresListener()),
+		groups:         groupsCollection(env.GetDBClient(), env.GetPostgresListener()),
+		oidcStates:     oidcStates,
 		public:         public,
 		watchesEnabled: watchesEnabled,
 	}
@@ -198,8 +160,8 @@ func NewAuthServer(
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(env.Context(), authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(env.Context(), roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(env.Context(), s.authConfig.ReadOnly(env.Context()), configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(env.Context(), s.roleBindings.ReadOnly(env.Context()), clusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch()
@@ -387,8 +349,8 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 
 	// Store a new Pachyderm token (as the caller is authenticating) and
 	// initialize the root user as a cluster admin
-	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		roleBindings := a.roleBindings.ReadWrite(stm)
+	if err := a.txnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		roleBindings := a.roleBindings.ReadWrite(txCtx.SqlTx)
 		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
 				auth.RootUser: &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
@@ -396,8 +358,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		}); err != nil {
 			return err
 		}
-		// TODO(acohen4): workout the transactionality
-		return a.insertAuthTokenNoTTL(ctx, auth.HashToken(pachToken), auth.RootUser)
+		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
 		return nil, err
 	}
@@ -423,9 +384,9 @@ func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTok
 
 	// TODO(acohen4): Merge with postgres-integration library changes
 	var rootToken string
-	if err := a.processInTransaction(ctx, func(sqlTx *sqlx.Tx) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		// First revoke root's existing auth token
-		if err := a.deleteAuthTokensForSubjectInTransaction(ctx, sqlTx, auth.RootUser); err != nil {
+		if err := a.deleteAuthTokensForSubjectInTransaction(txCtx.SqlTx, auth.RootUser); err != nil {
 			return err
 		}
 		// If the new token is in the request, use it.
@@ -434,7 +395,7 @@ func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTok
 		if rootToken == "" {
 			rootToken = uuid.NewWithoutDashes()
 		}
-		if err := a.insertAuthTokenNoTTLInTransaction(ctx, sqlTx, auth.HashToken(rootToken), auth.RootUser); err != nil {
+		if err := a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(rootToken), auth.RootUser); err != nil {
 			return err
 		}
 		return nil
@@ -450,15 +411,14 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		a.roleBindings.ReadWrite(stm).DeleteAll()
-		a.deleteAllAuthTokens(ctx) // need to merge with transaction changes
-		a.members.ReadWrite(stm).DeleteAll()
-		a.groups.ReadWrite(stm).DeleteAll()
-		a.authConfig.ReadWrite(stm).DeleteAll()
+	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		a.roleBindings.ReadWrite(sqlTx).DeleteAll()
+		a.deleteAllAuthTokens(ctx, sqlTx)
+		a.members.ReadWrite(sqlTx).DeleteAll()
+		a.groups.ReadWrite(sqlTx).DeleteAll()
+		a.authConfig.ReadWrite(sqlTx).DeleteAll()
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -504,11 +464,11 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		// Generate a new Pachyderm token and write it
-		token, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
+		t, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
-		pachToken = token
+		pachToken = t
 
 	case req.IdToken != "":
 		// Determine caller's Pachyderm/OIDC user info (email)
@@ -562,7 +522,7 @@ func resourceKey(r *auth.Resource) string {
 	return fmt.Sprintf("%s:%s", r.Type, r.Name)
 }
 
-func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, principal string, resource *auth.Resource, permissions map[auth.Permission]bool) (*authorizeRequest, error) {
+func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, principal string, resource *auth.Resource, permissions map[auth.Permission]bool) (*authorizeRequest, error) {
 	binding, err := a.getClusterRoleBinding(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
@@ -584,7 +544,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txnenv.TransactionC
 
 	// Get the role bindings for the resource to check
 	var roleBinding auth.RoleBinding
-	if err := a.roleBindings.ReadWrite(txnCtx.Stm).Get(resourceKey(resource), &roleBinding); err != nil {
+	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(resourceKey(resource), &roleBinding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, &auth.ErrNoRoleBinding{*resource}
 		}
@@ -599,7 +559,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txnenv.TransactionC
 // AuthorizeInTransaction is identical to Authorize except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) AuthorizeInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.AuthorizeRequest,
 ) (resp *auth.AuthorizeResponse, retErr error) {
 	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
@@ -634,7 +594,7 @@ func (a *apiServer) Authorize(
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.AuthorizeResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.AuthorizeInTransaction(txnCtx, req)
 		return err
@@ -654,7 +614,7 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 	}
 
 	var request *authorizeRequest
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		request, err = a.evaluateRoleBindingInTransaction(txnCtx, req.Principal, req.Resource, permissions)
 		return err
@@ -705,7 +665,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 // DeleteRoleBindingInTransaction is used to remove role bindings for resources when they're deleted in other services.
 // It doesn't do any auth checks itself - the calling method should ensure the user is allowed to delete this resource.
 // This is not an RPC, this is only called in-process.
-func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource) error {
+func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource) error {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return err
 	}
@@ -715,7 +675,7 @@ func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionCon
 	}
 
 	key := resourceKey(resource)
-	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
+	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
 	if err := roleBindings.Delete(key); err != nil {
 		return err
 	}
@@ -746,7 +706,7 @@ func rolesFromRoleSlice(rs []string) (*auth.Roles, error) {
 // CreateRoleBindingInTransaction is an internal-only API to create a role binding for a new resource.
 // It doesn't do any authorization checks itself - the calling method should ensure the user is allowed
 // to create the resource. This is not an RPC.
-func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error {
+func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error {
 	bindings := &auth.RoleBinding{
 		Entries: make(map[string]*auth.Roles),
 	}
@@ -767,7 +727,7 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionCon
 
 	// Call Create, this will raise an error if the role binding already exists.
 	key := resourceKey(resource)
-	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
+	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
 	if err := roleBindings.Create(key, bindings); err != nil {
 		return err
 	}
@@ -779,8 +739,8 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionCon
 // This is distinct from ModifyRoleBinding because AddPipelineReader is a less expansive permission
 // that is included in the repoReader role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
-func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, sourceRepo, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
+func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, sourceRepo, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
 		return err
 	}
 
@@ -791,9 +751,9 @@ func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.Transact
 // This is distinct from ModifyRoleBinding because AddPipelineWriter is a less expansive permission
 // that is included in the repoWriter role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
-func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) error {
+func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) error {
 	// Check that the user is allowed to add a pipeline to write to the output repo.
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
 		return err
 	}
 
@@ -804,11 +764,11 @@ func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txnenv.Transact
 // This is distinct from ModifyRoleBinding because RemovePipelineReader is a less expansive permission
 // that is included in the repoWriter role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
-func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
 	// Check that the user is allowed to remove input repos from the pipeline repo - this check is on the pipeline itself
 	// and not sourceRepo because otherwise users could break piplines they don't have access to by revoking them from the
 	// input repo.
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return err
 	}
 
@@ -816,9 +776,9 @@ func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.Tra
 }
 
 // ModifyRoleBindingInTransaction is identical to ModifyRoleBinding except that it can run inside
-// an existing etcd STM transaction.  This is not an RPC.
+// an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) ModifyRoleBindingInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.ModifyRoleBindingRequest,
 ) (*auth.ModifyRoleBindingResponse, error) {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
@@ -837,11 +797,11 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	// and the permission required depends on the type of resource.
 	switch req.Resource.Type {
 	case auth.ResourceType_CLUSTER:
-		if err := CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
+		if err := a.CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
 			return nil, err
 		}
 	case auth.ResourceType_REPO:
-		if err := CheckRepoIsAuthorizedInTransaction(txnCtx, req.Resource.Name, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
+		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, req.Resource.Name, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
 			return nil, err
 		}
 	default:
@@ -855,14 +815,14 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	return &auth.ModifyRoleBindingResponse{}, nil
 }
 
-func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource, principal string, roleSlice []string) error {
+func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource, principal string, roleSlice []string) error {
 	roles, err := rolesFromRoleSlice(roleSlice)
 	if err != nil {
 		return err
 	}
 
 	key := resourceKey(resource)
-	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
+	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
 	var bindings auth.RoleBinding
 	if err := roleBindings.Get(key, &bindings); err != nil {
 		if col.IsErrNotFound(err) {
@@ -921,18 +881,17 @@ func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleB
 }
 
 // GetRoleBindingInTransaction is identical to GetRoleBinding except that it can run inside
-// an existing etcd STM transaction.  This is not an RPC.
+// an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) GetRoleBindingInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.GetRoleBindingRequest,
 ) (*auth.GetRoleBindingResponse, error) {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
-	// Read role bindings from etcd
 	var roleBindings auth.RoleBinding
-	if err := a.roleBindings.ReadWrite(txnCtx.Stm).Get(resourceKey(req.Resource), &roleBindings); err != nil && !col.IsErrNotFound(err) {
+	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(resourceKey(req.Resource), &roleBindings); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
 
@@ -950,7 +909,7 @@ func (a *apiServer) GetRoleBinding(ctx context.Context, req *auth.GetRoleBinding
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.GetRoleBindingResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.GetRoleBindingInTransaction(txnCtx, req)
 		return err
@@ -991,14 +950,13 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 
 // GetPipelineAuthTokenInTransaction is an internal API used to create a pipeline token for a given pipeline.
 // Not an RPC.
-func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) (string, error) {
+func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) (string, error) {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return "", err
 	}
 
 	token := uuid.NewWithoutDashes()
-	// TODO(acohen4): look at transaction context
-	if err := a.insertAuthTokenNoTTL(txnCtx.ClientContext, auth.HashToken(token), auth.PipelinePrefix+pipeline); err != nil {
+	if err := a.insertAuthTokenNoTTLInTransaction(txnCtx, auth.HashToken(token), auth.PipelinePrefix+pipeline); err != nil {
 		return "", errors.Wrapf(err, "error storing token")
 	} else {
 		return token, nil
@@ -1026,19 +984,19 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
 	})
 	return resp, retErr
 }
 
-func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
+func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txncontext.TransactionContext, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	if err := a.isActive(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
-	if err := a.deleteAuthToken(txnCtx.ClientContext, auth.HashToken(req.Token)); err != nil {
+	if err := a.deleteAuthToken(txnCtx.ClientContext, txnCtx.SqlTx, auth.HashToken(req.Token)); err != nil {
 		return nil, err
 	}
 	return &auth.RevokeAuthTokenResponse{}, nil
@@ -1049,8 +1007,8 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionConte
 // group membership information based on signed SAML assertions or JWT claims).
 // This does no auth checks, so the caller must do all relevant authorization.
 func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		members := a.members.ReadWrite(stm)
+	return col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		members := a.members.ReadWrite(sqlTx)
 
 		// Get groups to remove/add user from/to
 		var removeGroups auth.Groups
@@ -1072,7 +1030,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 		}
 
 		// Remove user from previous groups
-		groups := a.groups.ReadWrite(stm)
+		groups := a.groups.ReadWrite(sqlTx)
 		var membersProto auth.Users
 		for group := range removeGroups.Groups {
 			if err := groups.Upsert(group, &membersProto, func() error {
@@ -1095,7 +1053,6 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 
 		return nil
 	})
-	return err
 }
 
 // SetGroupsForUser implements the protobuf auth.SetGroupsForUser RPC
@@ -1126,8 +1083,8 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		return nil, err
 	}
 
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		members := a.members.ReadWrite(stm)
+	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		members := a.members.ReadWrite(sqlTx)
 		var groupsProto auth.Groups
 		for _, username := range req.Add {
 			if err := members.Upsert(username, &groupsProto, func() error {
@@ -1146,7 +1103,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 			}
 		}
 
-		groups := a.groups.ReadWrite(stm)
+		groups := a.groups.ReadWrite(sqlTx)
 		var membersProto auth.Users
 		if err := groups.Upsert(req.Group, &membersProto, func() error {
 			membersProto.Usernames = addToSet(membersProto.Usernames, req.Add...)
@@ -1236,8 +1193,8 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	// Filter by group
 	if req.Group != "" {
 		var membersProto auth.Users
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			groups := a.groups.ReadWrite(stm)
+		if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+			groups := a.groups.ReadWrite(sqlTx)
 			if err := groups.Get(req.Group, &membersProto); err != nil {
 				return err
 			}
@@ -1299,7 +1256,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		}, nil
 	}
 
-	// Lookup the token
 	tokenInfo, lookupErr := a.lookupAuthTokenInfo(ctx, auth.HashToken(token))
 	if lookupErr != nil {
 		if col.IsErrNotFound(lookupErr) {
@@ -1313,10 +1269,8 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	}
 
 	// verify token hasn't expired
-	if tokenInfo.Expiration != nil {
-		if time.Now().After(*tokenInfo.Expiration) {
-			return nil, auth.ErrExpiredToken
-		}
+	if tokenInfo.Expiration != nil && time.Now().After(*tokenInfo.Expiration) {
+		return nil, auth.ErrExpiredToken
 	}
 	return tokenInfo, nil
 }
@@ -1358,7 +1312,7 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 // GetConfiguration implements the protobuf auth.GetConfiguration RPC.
 func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (resp *auth.GetConfigurationResponse, retErr error) {
 	removeSecret := func(r *auth.GetConfigurationResponse) *auth.GetConfigurationResponse {
-		if r.Configuration == nil {
+		if r == nil || r.Configuration == nil {
 			return r
 		}
 		copyResp := proto.Clone(r).(*auth.GetConfigurationResponse)
@@ -1367,6 +1321,10 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 	}
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isActive(ctx); err != nil {
+		return nil, err
+	}
 
 	if !a.watchesEnabled {
 		return nil, errors.New("watches are not enabled, unable to get current config")
@@ -1411,8 +1369,8 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 	}
 
 	// set the new config
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.authConfig.ReadWrite(stm).Put(configKey, configToStore)
+	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		return a.authConfig.ReadWrite(sqlTx).Put(configKey, configToStore)
 	}); err != nil {
 		return nil, err
 	}
@@ -1552,7 +1510,6 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
-	// Register the pachd in the database
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
 		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
@@ -1568,14 +1525,14 @@ func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subje
 
 // TODO(acohen4): replace this function with what's implemented in postgres-integration once it lands
 func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
-	return a.processInTransaction(ctx, func(sqlTx *sqlx.Tx) error {
-		return a.insertAuthTokenNoTTLInTransaction(ctx, sqlTx, tokenHash, subject)
+	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		err := a.insertAuthTokenNoTTLInTransaction(txnCtx, tokenHash, subject)
+		return err
 	})
 }
 
-func (a *apiServer) insertAuthTokenNoTTLInTransaction(ctx context.Context, sqlTx *sqlx.Tx, tokenHash string, subject string) error {
-	// Register the pachd in the database
-	if _, err := sqlTx.ExecContext(ctx,
+func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txncontext.TransactionContext, tokenHash string, subject string) error {
+	if _, err := txnCtx.SqlTx.ExecContext(txnCtx.ClientContext,
 		`INSERT INTO auth.auth_tokens (token_hash, subject) 
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
 		if pgErr, ok := err.(*pq.Error); ok {
@@ -1588,16 +1545,15 @@ func (a *apiServer) insertAuthTokenNoTTLInTransaction(ctx context.Context, sqlTx
 	return nil
 }
 
-// TODO(acohen4): Transactionify
-func (a *apiServer) deleteAllAuthTokens(ctx context.Context) error {
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens`); err != nil {
+func (a *apiServer) deleteAllAuthTokens(ctx context.Context, sqlTx *sqlx.Tx) error {
+	if _, err := sqlTx.ExecContext(ctx, `DELETE FROM auth.auth_tokens`); err != nil {
 		return errors.Wrapf(err, "error deleting all auth tokens")
 	}
 	return nil
 }
 
-func (a *apiServer) deleteAuthToken(ctx context.Context, tokenHash string) error {
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
+func (a *apiServer) deleteAuthToken(ctx context.Context, sqlTx *sqlx.Tx, tokenHash string) error {
+	if _, err := sqlTx.ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
 		return errors.Wrapf(err, "error deleting token")
 	}
 	return nil
@@ -1605,12 +1561,12 @@ func (a *apiServer) deleteAuthToken(ctx context.Context, tokenHash string) error
 
 func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) error {
 	return a.processInTransaction(ctx, func(sqlTx *sqlx.Tx) error {
-		return a.deleteAuthTokensForSubjectInTransaction(ctx, sqlTx, subject)
+		return a.deleteAuthTokensForSubjectInTransaction(sqlTx, subject)
 	})
 }
 
-func (a *apiServer) deleteAuthTokensForSubjectInTransaction(ctx context.Context, tx *sqlx.Tx, subject string) error {
-	if _, err := tx.ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, subject); err != nil {
+func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *sqlx.Tx, subject string) error {
+	if _, err := tx.Exec(`DELETE FROM auth.auth_tokens WHERE subject = $1`, subject); err != nil {
 		return errors.Wrapf(err, "error deleting all auth tokens")
 	}
 	return nil

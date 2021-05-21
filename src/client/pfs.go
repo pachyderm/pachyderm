@@ -13,7 +13,12 @@ import (
 
 // NewRepo creates a pfs.Repo.
 func NewRepo(repoName string) *pfs.Repo {
-	return &pfs.Repo{Name: repoName}
+	return &pfs.Repo{Name: repoName, Type: pfs.UserRepoType}
+}
+
+// NewSystemRepo creates a pfs.Repo of the given type
+func NewSystemRepo(repoName string, repoType string) *pfs.Repo {
+	return &pfs.Repo{Name: repoName, Type: repoType}
 }
 
 // NewBranch creates a pfs.Branch
@@ -91,12 +96,15 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 	return resp, nil
 }
 
-// ListRepo returns info about all Repos.
-// provenance specifies a set of provenance repos, only repos which have ALL of
-// the specified repos as provenance will be returned unless provenance is nil
-// in which case it is ignored.
+// ListRepo returns info about user Repos
 func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
-	request := &pfs.ListRepoRequest{}
+	return c.ListRepoByType(pfs.UserRepoType)
+}
+
+// ListRepoByType returns info about Repos of the given type
+// The if repoType is empty, all Repos will be included
+func (c APIClient) ListRepoByType(repoType string) ([]*pfs.RepoInfo, error) {
+	request := &pfs.ListRepoRequest{Type: repoType}
 	repoInfos, err := c.PfsAPIClient.ListRepo(
 		c.Ctx(),
 		request,

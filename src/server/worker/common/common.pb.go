@@ -26,16 +26,16 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type Input struct {
 	FileInfo             *pfs.FileInfo `protobuf:"bytes,1,opt,name=file_info,json=fileInfo,proto3" json:"file_info,omitempty"`
-	ParentCommit         *pfs.Commit   `protobuf:"bytes,5,opt,name=parent_commit,json=parentCommit,proto3" json:"parent_commit,omitempty"`
-	Name                 string        `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	JoinOn               string        `protobuf:"bytes,8,opt,name=join_on,json=joinOn,proto3" json:"join_on,omitempty"`
-	OuterJoin            bool          `protobuf:"varint,11,opt,name=outer_join,json=outerJoin,proto3" json:"outer_join,omitempty"`
-	GroupBy              string        `protobuf:"bytes,10,opt,name=group_by,json=groupBy,proto3" json:"group_by,omitempty"`
-	Lazy                 bool          `protobuf:"varint,3,opt,name=lazy,proto3" json:"lazy,omitempty"`
-	Branch               string        `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
-	GitURL               string        `protobuf:"bytes,6,opt,name=git_url,json=gitUrl,proto3" json:"git_url,omitempty"`
-	EmptyFiles           bool          `protobuf:"varint,7,opt,name=empty_files,json=emptyFiles,proto3" json:"empty_files,omitempty"`
-	S3                   bool          `protobuf:"varint,9,opt,name=s3,proto3" json:"s3,omitempty"`
+	ParentCommit         *pfs.Commit   `protobuf:"bytes,2,opt,name=parent_commit,json=parentCommit,proto3" json:"parent_commit,omitempty"`
+	Name                 string        `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	JoinOn               string        `protobuf:"bytes,4,opt,name=join_on,json=joinOn,proto3" json:"join_on,omitempty"`
+	OuterJoin            bool          `protobuf:"varint,5,opt,name=outer_join,json=outerJoin,proto3" json:"outer_join,omitempty"`
+	GroupBy              string        `protobuf:"bytes,6,opt,name=group_by,json=groupBy,proto3" json:"group_by,omitempty"`
+	Lazy                 bool          `protobuf:"varint,7,opt,name=lazy,proto3" json:"lazy,omitempty"`
+	Branch               string        `protobuf:"bytes,8,opt,name=branch,proto3" json:"branch,omitempty"`
+	GitURL               string        `protobuf:"bytes,9,opt,name=git_url,json=gitUrl,proto3" json:"git_url,omitempty"`
+	EmptyFiles           bool          `protobuf:"varint,10,opt,name=empty_files,json=emptyFiles,proto3" json:"empty_files,omitempty"`
+	S3                   bool          `protobuf:"varint,11,opt,name=s3,proto3" json:"s3,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -169,19 +169,19 @@ var fileDescriptor_91fb6c79ddd9db74 = []byte{
 	0x58, 0xf1, 0x8a, 0xdb, 0x18, 0x9b, 0x34, 0xd8, 0xef, 0x0f, 0x2e, 0x8c, 0x77, 0x4c, 0xb4, 0x1a,
 	0xfd, 0x84, 0xb0, 0xa4, 0x35, 0x49, 0x29, 0x2b, 0x39, 0x76, 0x16, 0xce, 0x32, 0x5a, 0x4f, 0x56,
 	0xa6, 0xfd, 0x2f, 0xad, 0xc9, 0x8e, 0x95, 0x3c, 0x09, 0xca, 0x53, 0x42, 0xbf, 0x60, 0x22, 0x32,
-	0x49, 0x98, 0x4e, 0xcd, 0x2c, 0xaa, 0xf1, 0xd8, 0xd6, 0x47, 0xb6, 0xfe, 0x8f, 0x55, 0xc9, 0xfb,
-	0xa1, 0x62, 0x20, 0x84, 0x60, 0xc4, 0xb2, 0x86, 0x60, 0x77, 0xe1, 0x2c, 0xc3, 0xc4, 0x66, 0xf4,
-	0x19, 0xfc, 0x6b, 0x4e, 0x59, 0xca, 0x19, 0x0e, 0xac, 0xf6, 0x0c, 0x5e, 0x30, 0xf4, 0x15, 0x80,
-	0xb7, 0x9a, 0xc8, 0xd4, 0x30, 0x8e, 0x16, 0xce, 0x32, 0x48, 0x42, 0x6b, 0xce, 0x38, 0x65, 0xe8,
-	0x0b, 0x04, 0x95, 0xe4, 0xad, 0x48, 0xf3, 0x0e, 0x83, 0x6d, 0xf4, 0x2d, 0x6f, 0x3b, 0x33, 0xa6,
-	0xce, 0xee, 0x3a, 0xfc, 0xce, 0xf6, 0xd8, 0x8c, 0x3e, 0x81, 0x97, 0xcb, 0x8c, 0x15, 0x07, 0x3c,
-	0x1a, 0xa6, 0x0c, 0x84, 0x7e, 0x80, 0x5f, 0x51, 0x9d, 0xb6, 0xb2, 0xc6, 0x9e, 0xf9, 0xb1, 0x85,
-	0xfe, 0x69, 0xee, 0xfd, 0xa3, 0x7a, 0x9f, 0x9c, 0x27, 0x5e, 0x45, 0xf5, 0x5e, 0xd6, 0x68, 0x0e,
-	0x11, 0x69, 0x84, 0xee, 0x52, 0x73, 0x77, 0x85, 0x7d, 0x7b, 0x2e, 0x58, 0x65, 0xde, 0x45, 0xa1,
-	0x0f, 0xe0, 0xaa, 0x0d, 0x0e, 0xad, 0x77, 0xd5, 0x66, 0xfb, 0xff, 0xbe, 0x9f, 0x39, 0x8f, 0xfd,
+	0x49, 0x98, 0x4e, 0xcd, 0x2c, 0xaa, 0xb1, 0x6b, 0xeb, 0x23, 0x5b, 0xff, 0xc7, 0xaa, 0xe4, 0xfd,
+	0x50, 0x31, 0x10, 0x42, 0x30, 0x62, 0x59, 0x43, 0xf0, 0xbb, 0x85, 0xb3, 0x0c, 0x13, 0x9b, 0xd1,
+	0x67, 0xf0, 0xaf, 0x39, 0x65, 0x29, 0x67, 0x78, 0x64, 0xb5, 0x67, 0xf0, 0x82, 0xa1, 0xaf, 0x00,
+	0xbc, 0xd5, 0x44, 0xa6, 0x86, 0xf1, 0x78, 0xe1, 0x2c, 0x83, 0x24, 0xb4, 0xe6, 0x8c, 0x53, 0x86,
+	0xbe, 0x40, 0x50, 0x49, 0xde, 0x8a, 0x34, 0xef, 0xb0, 0x67, 0x1b, 0x7d, 0xcb, 0xdb, 0xce, 0x8c,
+	0xa9, 0xb3, 0xbb, 0x0e, 0xfb, 0xb6, 0xc7, 0x66, 0xf4, 0x09, 0xbc, 0x5c, 0x66, 0xac, 0x38, 0xe0,
+	0x60, 0x98, 0x32, 0x10, 0xfa, 0x01, 0x7e, 0x45, 0x75, 0xda, 0xca, 0x1a, 0x87, 0xe6, 0xc7, 0x16,
+	0xfa, 0xa7, 0xb9, 0xf7, 0x8f, 0xea, 0x7d, 0x72, 0x9e, 0x78, 0x15, 0xd5, 0x7b, 0x59, 0xa3, 0x39,
+	0x44, 0xa4, 0x11, 0xba, 0x4b, 0xcd, 0xdd, 0x15, 0x06, 0x7b, 0x2e, 0x58, 0x65, 0xde, 0x45, 0xa1,
+	0x0f, 0xe0, 0xaa, 0x0d, 0x8e, 0xac, 0x77, 0xd5, 0x66, 0xfb, 0xff, 0xbe, 0x9f, 0x39, 0x8f, 0xfd,
 	0xcc, 0x79, 0xee, 0x67, 0xce, 0xe5, 0xef, 0x8a, 0xea, 0x43, 0x9b, 0xaf, 0x0a, 0xde, 0xc4, 0x22,
 	0x2b, 0x0e, 0xdd, 0x15, 0x91, 0xaf, 0xd3, 0x71, 0x1d, 0x2b, 0x59, 0xc4, 0x6f, 0x2d, 0x35, 0xf7,
-	0xec, 0x86, 0x36, 0x2f, 0x01, 0x00, 0x00, 0xff, 0xff, 0xbf, 0x3e, 0x25, 0x71, 0xf3, 0x01, 0x00,
+	0xec, 0x86, 0x36, 0x2f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x14, 0x7a, 0x34, 0x38, 0xf3, 0x01, 0x00,
 	0x00,
 }
 
@@ -209,23 +209,6 @@ func (m *Input) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.OuterJoin {
-		i--
-		if m.OuterJoin {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x58
-	}
-	if len(m.GroupBy) > 0 {
-		i -= len(m.GroupBy)
-		copy(dAtA[i:], m.GroupBy)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.GroupBy)))
-		i--
-		dAtA[i] = 0x52
-	}
 	if m.S3 {
 		i--
 		if m.S3 {
@@ -234,14 +217,7 @@ func (m *Input) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			dAtA[i] = 0
 		}
 		i--
-		dAtA[i] = 0x48
-	}
-	if len(m.JoinOn) > 0 {
-		i -= len(m.JoinOn)
-		copy(dAtA[i:], m.JoinOn)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.JoinOn)))
-		i--
-		dAtA[i] = 0x42
+		dAtA[i] = 0x58
 	}
 	if m.EmptyFiles {
 		i--
@@ -251,14 +227,62 @@ func (m *Input) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			dAtA[i] = 0
 		}
 		i--
-		dAtA[i] = 0x38
+		dAtA[i] = 0x50
 	}
 	if len(m.GitURL) > 0 {
 		i -= len(m.GitURL)
 		copy(dAtA[i:], m.GitURL)
 		i = encodeVarintCommon(dAtA, i, uint64(len(m.GitURL)))
 		i--
+		dAtA[i] = 0x4a
+	}
+	if len(m.Branch) > 0 {
+		i -= len(m.Branch)
+		copy(dAtA[i:], m.Branch)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.Branch)))
+		i--
+		dAtA[i] = 0x42
+	}
+	if m.Lazy {
+		i--
+		if m.Lazy {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x38
+	}
+	if len(m.GroupBy) > 0 {
+		i -= len(m.GroupBy)
+		copy(dAtA[i:], m.GroupBy)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.GroupBy)))
+		i--
 		dAtA[i] = 0x32
+	}
+	if m.OuterJoin {
+		i--
+		if m.OuterJoin {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
+	}
+	if len(m.JoinOn) > 0 {
+		i -= len(m.JoinOn)
+		copy(dAtA[i:], m.JoinOn)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.JoinOn)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if m.ParentCommit != nil {
 		{
@@ -269,30 +293,6 @@ func (m *Input) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i -= size
 			i = encodeVarintCommon(dAtA, i, uint64(size))
 		}
-		i--
-		dAtA[i] = 0x2a
-	}
-	if len(m.Branch) > 0 {
-		i -= len(m.Branch)
-		copy(dAtA[i:], m.Branch)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.Branch)))
-		i--
-		dAtA[i] = 0x22
-	}
-	if m.Lazy {
-		i--
-		if m.Lazy {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x18
-	}
-	if len(m.Name) > 0 {
-		i -= len(m.Name)
-		copy(dAtA[i:], m.Name)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.Name)))
 		i--
 		dAtA[i] = 0x12
 	}
@@ -332,7 +332,22 @@ func (m *Input) Size() (n int) {
 		l = m.FileInfo.Size()
 		n += 1 + l + sovCommon(uint64(l))
 	}
+	if m.ParentCommit != nil {
+		l = m.ParentCommit.Size()
+		n += 1 + l + sovCommon(uint64(l))
+	}
 	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovCommon(uint64(l))
+	}
+	l = len(m.JoinOn)
+	if l > 0 {
+		n += 1 + l + sovCommon(uint64(l))
+	}
+	if m.OuterJoin {
+		n += 2
+	}
+	l = len(m.GroupBy)
 	if l > 0 {
 		n += 1 + l + sovCommon(uint64(l))
 	}
@@ -343,10 +358,6 @@ func (m *Input) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovCommon(uint64(l))
 	}
-	if m.ParentCommit != nil {
-		l = m.ParentCommit.Size()
-		n += 1 + l + sovCommon(uint64(l))
-	}
 	l = len(m.GitURL)
 	if l > 0 {
 		n += 1 + l + sovCommon(uint64(l))
@@ -354,18 +365,7 @@ func (m *Input) Size() (n int) {
 	if m.EmptyFiles {
 		n += 2
 	}
-	l = len(m.JoinOn)
-	if l > 0 {
-		n += 1 + l + sovCommon(uint64(l))
-	}
 	if m.S3 {
-		n += 2
-	}
-	l = len(m.GroupBy)
-	if l > 0 {
-		n += 1 + l + sovCommon(uint64(l))
-	}
-	if m.OuterJoin {
 		n += 2
 	}
 	if m.XXX_unrecognized != nil {
@@ -447,90 +447,6 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowCommon
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthCommon
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthCommon
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Lazy", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowCommon
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.Lazy = bool(v != 0)
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Branch", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowCommon
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthCommon
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthCommon
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Branch = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field ParentCommit", wireType)
 			}
 			var msglen int
@@ -565,9 +481,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 6:
+		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field GitURL", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -595,29 +511,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.GitURL = string(dAtA[iNdEx:postIndex])
+			m.Name = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 7:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EmptyFiles", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowCommon
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.EmptyFiles = bool(v != 0)
-		case 8:
+		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field JoinOn", wireType)
 			}
@@ -649,9 +545,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 			}
 			m.JoinOn = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 9:
+		case 5:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field S3", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field OuterJoin", wireType)
 			}
 			var v int
 			for shift := uint(0); ; shift += 7 {
@@ -668,8 +564,8 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-			m.S3 = bool(v != 0)
-		case 10:
+			m.OuterJoin = bool(v != 0)
+		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field GroupBy", wireType)
 			}
@@ -701,9 +597,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 			}
 			m.GroupBy = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 11:
+		case 7:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field OuterJoin", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Lazy", wireType)
 			}
 			var v int
 			for shift := uint(0); ; shift += 7 {
@@ -720,7 +616,111 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-			m.OuterJoin = bool(v != 0)
+			m.Lazy = bool(v != 0)
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Branch", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Branch = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GitURL", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.GitURL = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 10:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EmptyFiles", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.EmptyFiles = bool(v != 0)
+		case 11:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field S3", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.S3 = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCommon(dAtA[iNdEx:])

@@ -155,7 +155,7 @@ func (t *postgresTracker) GetUpstream(ctx context.Context, id string) ([]string,
 
 func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 	var count int
-	if err := t.db.Get(&count, `
+	if err := tx.Get(&count, `
 		WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
@@ -166,7 +166,7 @@ func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 	if count > 0 {
 		return ErrDanglingRef
 	}
-	_, err := t.db.Exec(`
+	_, err := tx.Exec(`
 		WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
@@ -175,7 +175,7 @@ func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.db.Exec(`DELETE FROM storage.tracker_objects WHERE str_id = $1`, id)
+	_, err = tx.Exec(`DELETE FROM storage.tracker_objects WHERE str_id = $1`, id)
 	return err
 }
 

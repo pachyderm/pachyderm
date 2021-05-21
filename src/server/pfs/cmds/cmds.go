@@ -155,16 +155,25 @@ or type (e.g. csv, binary, images, etc).`,
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
 
+	var all bool
+	var repoType string
 	listRepo := &cobra.Command{
-		Short: "Return all repos.",
-		Long:  "Return all repos.",
+		Short: "Return a list of repos.",
+		Long:  "Return a list of repos. By default, only show user repos",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if all && repoType != "" {
+				return errors.Errorf("cannot set a repo type with --all")
+			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			repoInfos, err := c.ListRepo()
+
+			if repoType == "" && !all {
+				repoType = pfsclient.UserRepoType // default to user
+			}
+			repoInfos, err := c.ListRepoByType(repoType)
 			if err != nil {
 				return err
 			}
@@ -190,10 +199,11 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	listRepo.Flags().AddFlagSet(rawFlags)
 	listRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
+	listRepo.Flags().StringVar(&repoType, "type", "", "only include repos of the given type")
 	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
 
 	var force bool
-	var all bool
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
@@ -989,7 +999,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 		}),
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
-	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Don't print progress bars.")
+	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 

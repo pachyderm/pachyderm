@@ -2,10 +2,8 @@
 package ppsdb
 
 import (
-	"path"
-
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -13,48 +11,60 @@ import (
 )
 
 const (
-	pipelinesPrefix = "/pipelines"
-	jobsPrefix      = "/jobs"
+	pipelinesCollectionName    = "pipelines"
+	pipelineJobsCollectionName = "pipeline_jobs"
 )
 
-var (
-	// JobsPipelineIndex maps pipeline to jobs started by the pipeline
-	JobsPipelineIndex = &col.Index{
-		Name: "Pipeline",
-		Extract: func(val proto.Message) string {
-			return val.(*pps.StoredPipelineJobInfo).Pipeline.Name
-		},
-	}
+var pipelinesIndexes = []*col.Index{}
 
-	// JobsOutputIndex maps job outputs to the job that create them.
-	JobsOutputIndex = &col.Index{
-		Name: "OutputCommit",
-		Extract: func(val proto.Message) string {
-			return pfsdb.CommitKey(val.(*pps.StoredPipelineJobInfo).OutputCommit)
-		},
-	}
-)
-
-// Pipelines returns an EtcdCollection of pipelines
-func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, pipelinesPrefix),
-		nil,
+// Pipelines returns a PostgresCollection of pipelines
+func Pipelines(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		pipelinesCollectionName,
+		db,
+		listener,
 		&pps.StoredPipelineInfo{},
 		nil,
 		nil,
 	)
 }
 
-// Jobs returns an EtcdCollection of jobs
-func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, jobsPrefix),
-		[]*col.Index{JobsPipelineIndex, JobsOutputIndex},
+// PipelineJobsPipelineIndex maps pipeline to PipelineJobs started by the pipeline
+var PipelineJobsPipelineIndex = &col.Index{
+	Name: "Pipeline",
+	Extract: func(val proto.Message) string {
+		return val.(*pps.StoredPipelineJobInfo).Pipeline.Name
+	},
+}
+
+// PipelineJobsOutputIndex maps job outputs to the PipelineJob that create them.
+var PipelineJobsOutputIndex = &col.Index{
+	Name: "OutputCommit",
+	Extract: func(val proto.Message) string {
+		return pfsdb.CommitKey(val.(*pps.StoredPipelineJobInfo).OutputCommit)
+	},
+}
+
+var pipelineJobsIndexes = []*col.Index{PipelineJobsPipelineIndex, PipelineJobsOutputIndex}
+
+// PipelineJobs returns a PostgresCollection of PipelineJobs
+func PipelineJobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		pipelineJobsCollectionName,
+		db,
+		listener,
 		&pps.StoredPipelineJobInfo{},
-		nil,
+		pipelineJobsIndexes,
 		nil,
 	)
+}
+
+// AllCollections returns a list of all the PPS API collections for
+// postgres-initialization purposes. These collections are not usable for
+// querying.
+func AllCollections() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(pipelinesCollectionName, nil, nil, nil, pipelinesIndexes, nil),
+		col.NewPostgresCollection(pipelineJobsCollectionName, nil, nil, nil, pipelineJobsIndexes, nil),
+	}
 }

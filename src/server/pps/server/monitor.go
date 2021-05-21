@@ -67,11 +67,12 @@ func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo, ptr *pps.Stored
 	defer m.monitorCancelsMu.Unlock()
 	if _, ok := m.monitorCancels[pipeline]; !ok {
 		m.monitorCancels[pipeline] = m.startMonitorThread(
-			"monitorPipeline for "+pipeline, func(pachClient *client.APIClient) {
+			"monitorPipeline for "+pipeline, func(ctx context.Context) {
 				// monitorPipeline needs auth privileges to call subscribeCommit and
 				// blockCommit
+				pachClient := m.a.env.GetPachClient(ctx)
 				pachClient.SetAuthToken(ptr.AuthToken)
-				m.monitorPipeline(pachClient, pipelineInfo)
+				m.monitorPipeline(pachClient.Ctx(), pipelineInfo)
 			})
 	}
 }
@@ -100,8 +101,8 @@ func (m *ppsMaster) startCrashingMonitor(parallelism uint64, pipelineInfo *pps.P
 	if _, ok := m.crashingMonitorCancels[pipeline]; !ok {
 		m.crashingMonitorCancels[pipeline] = m.startMonitorThread(
 			"monitorCrashingPipeline for "+pipeline,
-			func(pachClient *client.APIClient) {
-				m.monitorCrashingPipeline(pachClient, parallelism, pipelineInfo)
+			func(ctx context.Context) {
+				m.monitorCrashingPipeline(ctx, parallelism, pipelineInfo)
 			})
 	}
 }
@@ -154,11 +155,11 @@ func (m *ppsMaster) cancelAllMonitorsAndCrashingMonitors() {
 // and startPipelinePoller (in poller.go). It doesn't manipulate any of
 // APIServer's fields, just wrapps the passed function in a goroutine, and
 // returns a cancel() fn to cancel it and block until it returns.
-func (m *ppsMaster) startMonitorThread(name string, f func(pachClient *client.APIClient)) func() {
-	ctx, cancel := context.WithCancel(m.masterClient.Ctx())
+func (m *ppsMaster) startMonitorThread(name string, f func(ctx context.Context)) func() {
+	ctx, cancel := context.WithCancel(m.masterCtx)
 	done := make(chan struct{})
 	go func() {
-		f(m.a.env.GetPachClient(ctx))
+		f(ctx)
 		close(done)
 	}()
 	return func() {
@@ -174,19 +175,20 @@ func (m *ppsMaster) startMonitorThread(name string, f func(pachClient *client.AP
 	}
 }
 
-func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
-	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
+	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) error {
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
-					return m.makeCronCommits(pachClient, in)
+					return m.makeCronCommits(ctx, in)
 				}, backoff.NewInfiniteBackOff(),
-					backoff.NotifyCtx(pachClient.Ctx(), "cron for "+in.Cron.Name))
+					backoff.NotifyCtx(ctx, "cron for "+in.Cron.Name))
 			})
 		}
+		return nil
 	})
 	if pipelineInfo.Standby {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
@@ -195,6 +197,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		eg.Go(func() error {
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
+				pachClient := m.a.env.GetPachClient(ctx)
 				return pachClient.SubscribeCommit(pipeline, "",
 					client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
 					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
@@ -202,15 +205,14 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						return nil
 					})
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(pachClient.Ctx(), "SubscribeCommit for "+pipeline))
+				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipeline))
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
 				var (
-					oldCtx        = pachClient.Ctx()
-					oldPachClient = pachClient
-					childSpan     opentracing.Span
-					ctx           context.Context
+					oldCtx    = ctx
+					childSpan opentracing.Span
+					ctx       context.Context
 				)
 				defer func() {
 					// childSpan is overwritten so wrap in a lambda for late binding
@@ -220,10 +222,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 					m.a.env.GetEtcdClient(), pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
-				if childSpan != nil {
-					pachClient = oldPachClient.WithCtx(ctx)
-				}
-				if err := m.a.transitionPipelineState(pachClient.Ctx(),
+				if err := m.a.transitionPipelineState(ctx,
 					pipeline,
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
@@ -260,11 +259,8 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							m.a.env.GetEtcdClient(), pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
-						if childSpan != nil {
-							pachClient = oldPachClient.WithCtx(ctx)
-						}
 
-						if err := m.a.transitionPipelineState(pachClient.Ctx(),
+						if err := m.a.transitionPipelineState(ctx,
 							pipeline,
 							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
@@ -282,10 +278,11 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						for {
 							// Wait for the commit to be finished before blocking on the
 							// job because the job may not exist yet.
+							pachClient := m.a.env.GetPachClient(ctx)
 							if _, err := pachClient.BlockCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID); err != nil {
 								return err
 							}
-							if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID, true); err != nil {
+							if _, err := pachClient.InspectPipelineJobOutputCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID, true); err != nil {
 								return err
 							}
 
@@ -300,15 +297,12 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 									m.a.env.GetEtcdClient(), pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
 									"commit", ci.Commit.ID)
-								if childSpan != nil {
-									pachClient = oldPachClient.WithCtx(ctx)
-								}
 							default:
 								break running
 							}
 						}
 
-						if err := m.a.transitionPipelineState(pachClient.Ctx(),
+						if err := m.a.transitionPipelineState(ctx,
 							pipeline,
 							[]pps.PipelineState{
 								pps.PipelineState_PIPELINE_RUNNING,
@@ -325,12 +319,12 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							}
 							return err
 						}
-					case <-pachClient.Ctx().Done():
-						return pachClient.Ctx().Err()
+					case <-ctx.Done():
+						return ctx.Err()
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
+				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipeline))
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -338,9 +332,9 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 	}
 }
 
-func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) monitorCrashingPipeline(ctx context.Context, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
-	ctx, cancelInner := context.WithCancel(pachClient.Ctx())
+	ctx, cancelInner := context.WithCancel(ctx)
 	if parallelism == 0 {
 		parallelism = 1
 	}
@@ -371,11 +365,12 @@ func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parall
 
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
-func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
+func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 	schedule, err := cron.ParseStandard(in.Cron.Spec)
 	if err != nil {
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}
+	pachClient := m.a.env.GetPachClient(ctx)
 	// make sure there isn't an unfinished commit on the branch
 	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master", "")
 	if err != nil && !pfsserver.IsNoHeadErr(err) {
@@ -387,7 +382,7 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		}
 	}
 
-	latestTime, err := getLatestCronTime(pachClient, in)
+	latestTime, err := m.getLatestCronTime(ctx, in)
 	if err != nil {
 		return err
 	}
@@ -398,8 +393,8 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		// and wait until then to make the next commit
 		select {
 		case <-time.After(time.Until(next)):
-		case <-pachClient.Ctx().Done():
-			return pachClient.Ctx().Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 		if err != nil {
 			return err
@@ -437,8 +432,9 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 // 'in's most recently executed cron tick was and returns it (or, if no cron
 // ticks are in 'in's cron repo, it retuns the 'Start' time set in 'in.Cron'
 // (typically set by 'pachctl extract')
-func getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
+func (m *ppsMaster) getLatestCronTime(ctx context.Context, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
+	pachClient := m.a.env.GetPachClient(ctx)
 	files, err := pachClient.ListFileAll(in.Cron.Repo, "master", "", "")
 	if err != nil && !pfsserver.IsNoHeadErr(err) {
 		return latestTime, err

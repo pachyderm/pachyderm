@@ -12,7 +12,7 @@ import (
 // currently-running task in the worker process.
 type WorkerInterface interface {
 	GetStatus() (*pps.WorkerStatus, error)
-	Cancel(jobID string, datumFilter []string) bool
+	Cancel(pipelineJobID string, datumFilter []string) bool
 }
 
 // APIServer implements the worker API
@@ -43,6 +43,6 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 
 // Cancel cancels the currently running datum
 func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
-	success := a.workerInterface.Cancel(request.JobID, request.DataFilters)
+	success := a.workerInterface.Cancel(request.PipelineJobID, request.DataFilters)
 	return &CancelResponse{Success: success}, nil
 }

@@ -217,14 +217,14 @@ func jobDesc(pji *pps.PipelineJobInfo) string {
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
-	if err := c.ListJobF("", nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
+	if err := c.ListPipelineJobF("", nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
 		if maxCompletions > 0 {
 			maxCompletions--
 		} else {
 			return errutil.ErrBreak
 		}
 		result = append(result, prompt.Suggest{
-			Text:        pji.Job.ID,
+			Text:        pji.PipelineJob.ID,
 			Description: jobDesc(pji),
 		})
 		return nil

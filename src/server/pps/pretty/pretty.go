@@ -41,7 +41,7 @@ func safeTrim(s string, l int) string {
 
 // PrintPipelineJobInfo pretty-prints job info.
 func PrintPipelineJobInfo(w io.Writer, pipelineJobInfo *ppsclient.PipelineJobInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", pipelineJobInfo.Job.ID)
+	fmt.Fprintf(w, "%s\t", pipelineJobInfo.PipelineJob.ID)
 	fmt.Fprintf(w, "%s\t", pipelineJobInfo.Pipeline.Name)
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", pipelineJobInfo.Started.String())
@@ -57,7 +57,7 @@ func PrintPipelineJobInfo(w io.Writer, pipelineJobInfo *ppsclient.PipelineJobInf
 	fmt.Fprintf(w, "%s\t", Progress(pipelineJobInfo))
 	fmt.Fprintf(w, "%s\t", pretty.Size(pipelineJobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(pipelineJobInfo.Stats.UploadBytes))
-	if pipelineJobInfo.State == ppsclient.JobState_JOB_FAILURE {
+	if pipelineJobInfo.State == ppsclient.PipelineJobState_JOB_FAILURE {
 		fmt.Fprintf(w, "%s: %s\t", JobState(pipelineJobInfo.State), safeTrim(pipelineJobInfo.Reason, jobReasonLen))
 	} else {
 		fmt.Fprintf(w, "%s\t", JobState(pipelineJobInfo.State))
@@ -97,7 +97,7 @@ func PrintWorkerStatusHeader(w io.Writer) {
 // PrintWorkerStatus pretty prints a worker status.
 func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", workerStatus.WorkerID)
-	fmt.Fprintf(w, "%s\t", workerStatus.JobID)
+	fmt.Fprintf(w, "%s\t", workerStatus.PipelineJobID)
 	for _, datum := range workerStatus.Data {
 		fmt.Fprintf(w, datum.Path)
 	}
@@ -128,7 +128,7 @@ func NewPrintablePipelineJobInfo(pji *ppsclient.PipelineJobInfo) *PrintablePipel
 // PrintDetailedPipelineJobInfo pretty-prints detailed job info.
 func PrintDetailedPipelineJobInfo(w io.Writer, pipelineJobInfo *PrintablePipelineJobInfo) error {
 	template, err := template.New("PipelineJobInfo").Funcs(funcMap).Parse(
-		`ID: {{.Job.ID}} {{if .Pipeline}}
+		`ID: {{.PipelineJob.ID}} {{if .Pipeline}}
 Pipeline: {{.Pipeline.Name}} {{end}} {{if .ParentJob}}
 Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
@@ -266,7 +266,7 @@ func datumFiles(datumInfo *ppsclient.DatumInfo) string {
 // PrintDetailedDatumInfo pretty-prints detailed info about a datum
 func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "ID\t%s\n", datumInfo.Datum.ID)
-	fmt.Fprintf(w, "Job ID\t%s\n", datumInfo.Datum.Job.ID)
+	fmt.Fprintf(w, "Pipeline Job ID\t%s\n", datumInfo.Datum.PipelineJob.ID)
 	fmt.Fprintf(w, "State\t%s\n", datumInfo.State)
 	fmt.Fprintf(w, "Data Downloaded\t%s\n", pretty.Size(datumInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "Data Uploaded\t%s\n", pretty.Size(datumInfo.Stats.UploadBytes))
@@ -345,19 +345,19 @@ func datumState(datumState ppsclient.DatumState) string {
 }
 
 // JobState returns the state of a job as a pretty printed string.
-func JobState(jobState ppsclient.JobState) string {
-	switch jobState {
-	case ppsclient.JobState_JOB_STARTING:
+func JobState(pipelineJobState ppsclient.PipelineJobState) string {
+	switch pipelineJobState {
+	case ppsclient.PipelineJobState_JOB_STARTING:
 		return color.New(color.FgYellow).SprintFunc()("starting")
-	case ppsclient.JobState_JOB_RUNNING:
+	case ppsclient.PipelineJobState_JOB_RUNNING:
 		return color.New(color.FgYellow).SprintFunc()("running")
-	case ppsclient.JobState_JOB_FAILURE:
+	case ppsclient.PipelineJobState_JOB_FAILURE:
 		return color.New(color.FgRed).SprintFunc()("failure")
-	case ppsclient.JobState_JOB_SUCCESS:
+	case ppsclient.PipelineJobState_JOB_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
-	case ppsclient.JobState_JOB_KILLED:
+	case ppsclient.PipelineJobState_JOB_KILLED:
 		return color.New(color.FgRed).SprintFunc()("killed")
-	case ppsclient.JobState_JOB_EGRESSING:
+	case ppsclient.PipelineJobState_JOB_EGRESSING:
 		return color.New(color.FgYellow).SprintFunc()("egressing")
 
 	}
@@ -428,8 +428,8 @@ func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
 
 func jobCounts(counts map[int32]int32) string {
 	var buffer bytes.Buffer
-	for i := int32(ppsclient.JobState_JOB_STARTING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
-		fmt.Fprintf(&buffer, "%s: %d\t", JobState(ppsclient.JobState(i)), counts[i])
+	for i := int32(ppsclient.PipelineJobState_JOB_STARTING); i <= int32(ppsclient.PipelineJobState_JOB_SUCCESS); i++ {
+		fmt.Fprintf(&buffer, "%s: %d\t", JobState(ppsclient.PipelineJobState(i)), counts[i])
 	}
 	return buffer.String()
 }

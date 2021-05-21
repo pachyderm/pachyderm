@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -89,13 +89,13 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, err)
 
 	// Put the pipeline info into etcd (which is read by the master)
-	_, err = env.driver.NewSTM(func(stm col.STM) error {
+	err = env.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 		etcdPipelineInfo := &pps.StoredPipelineInfo{
 			State:       pps.PipelineState_PIPELINE_STARTING,
 			SpecCommit:  pipelineInfo.SpecCommit,
 			Parallelism: 1,
 		}
-		return env.driver.Pipelines().ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, etcdPipelineInfo)
+		return env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name, etcdPipelineInfo)
 	})
 	require.NoError(t, err)
 
@@ -148,15 +148,15 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 	// Create a context that the caller can wait on
 	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
 
-	// Mock out the initial ListJob, CreateJob, and InspectJob calls
-	etcdJobInfo := &pps.StoredPipelineJobInfo{Job: client.NewJob(uuid.NewWithoutDashes())}
+	// Mock out the initial ListPipelineJob, CreatePipelineJob, and InspectPipelineJob calls
+	etcdJobInfo := &pps.StoredPipelineJobInfo{PipelineJob: client.NewPipelineJob(uuid.NewWithoutDashes())}
 
 	// TODO: use a 'real' pps if we can make one that doesn't need a real kube client
-	env.MockPachd.PPS.ListJob.Use(func(*pps.ListJobRequest, pps.API_ListJobServer) error {
+	env.MockPachd.PPS.ListPipelineJob.Use(func(*pps.ListPipelineJobRequest, pps.API_ListPipelineJobServer) error {
 		return nil
 	})
 
-	env.MockPachd.PPS.CreateJob.Use(func(ctx context.Context, request *pps.CreateJobRequest) (*pps.Job, error) {
+	env.MockPachd.PPS.CreatePipelineJob.Use(func(ctx context.Context, request *pps.CreatePipelineJobRequest) (*pps.PipelineJob, error) {
 		etcdJobInfo.OutputCommit = request.OutputCommit
 		etcdJobInfo.Pipeline = request.Pipeline
 		etcdJobInfo.Stats = request.Stats
@@ -169,10 +169,10 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		etcdJobInfo.StatsCommit = request.StatsCommit
 		etcdJobInfo.Started = request.Started
 		etcdJobInfo.Finished = request.Finished
-		return etcdJobInfo.Job, nil
+		return etcdJobInfo.PipelineJob, nil
 	})
 
-	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.PipelineJobInfo, error) {
+	env.MockPachd.PPS.InspectPipelineJob.Use(func(ctx context.Context, request *pps.InspectPipelineJobRequest) (*pps.PipelineJobInfo, error) {
 		if etcdJobInfo.OutputCommit == nil {
 			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
@@ -180,9 +180,9 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		require.NoError(t, err)
 
 		return &pps.PipelineJobInfo{
-			Job:              etcdJobInfo.Job,
+			PipelineJob:      etcdJobInfo.PipelineJob,
 			Pipeline:         etcdJobInfo.Pipeline,
-			OutputRepo:       &pfs.Repo{Name: etcdJobInfo.Pipeline.Name},
+			OutputRepo:       client.NewRepo(etcdJobInfo.Pipeline.Name),
 			OutputCommit:     etcdJobInfo.OutputCommit,
 			Restart:          etcdJobInfo.Restart,
 			DataProcessed:    etcdJobInfo.DataProcessed,
@@ -205,7 +205,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 			OutputBranch:     pi.OutputBranch,
 			ResourceRequests: pi.ResourceRequests,
 			ResourceLimits:   pi.ResourceLimits,
-			Input:            ppsutil.JobInput(pi, outputCommitInfo),
+			Input:            ppsutil.PipelineJobInput(pi, outputCommitInfo),
 			EnableStats:      pi.EnableStats,
 			Salt:             pi.Salt,
 			ChunkSpec:        pi.ChunkSpec,
@@ -218,7 +218,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		}, nil
 	})
 
-	updateJobState := func(request *pps.UpdateJobStateRequest) {
+	updateJobState := func(request *pps.UpdatePipelineJobStateRequest) {
 		if ppsutil.IsTerminal(etcdJobInfo.State) {
 			return
 		}
@@ -232,12 +232,12 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		}
 	}
 
-	env.MockPPSTransactionServer.UpdateJobStateInTransaction.Use(func(txnctx *txnenv.TransactionContext, request *pps.UpdateJobStateRequest) error {
+	env.MockPPSTransactionServer.UpdatePipelineJobStateInTransaction.Use(func(txnctx *txnenv.TransactionContext, request *pps.UpdatePipelineJobStateRequest) error {
 		updateJobState(request)
 		return nil
 	})
 
-	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
+	env.MockPachd.PPS.UpdatePipelineJobState.Use(func(ctx context.Context, request *pps.UpdatePipelineJobStateRequest) (*types.Empty, error) {
 		updateJobState(request)
 		return &types.Empty{}, nil
 	})
@@ -266,7 +266,7 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 	triggerJob(t, env, pi, files)
 	ctx = withTimeout(ctx, 10*time.Second)
 	<-ctx.Done()
-	require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+	require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
 
 	// Ensure the output commit is successful
 	outputCommitID := etcdJobInfo.OutputCommit.ID
@@ -341,7 +341,7 @@ func TestTransformPipeline(suite *testing.T) {
 		triggerJob(t, env, pi, tarFiles)
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.JobState_JOB_FAILURE, etcdJobInfo.State)
+		require.Equal(t, pps.PipelineJobState_JOB_FAILURE, etcdJobInfo.State)
 		// TODO: check job stats
 	})
 
@@ -358,7 +358,7 @@ func TestTransformPipeline(suite *testing.T) {
 		triggerJob(t, env, pi, tarFiles)
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
 
 		// Ensure the output commit is successful.
 		outputCommitID := etcdJobInfo.OutputCommit.ID
@@ -395,13 +395,13 @@ func TestTransformPipeline(suite *testing.T) {
 		triggerJob(t, env, pi, tarFiles[:1])
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
 
 		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, tarFiles[1:])
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
 
 		// Ensure the output commit is successful
 		outputCommitID := etcdJobInfo.OutputCommit.ID
@@ -438,19 +438,19 @@ func TestTransformPipeline(suite *testing.T) {
 		triggerJob(t, env, pi, tarFiles[:1])
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
 
 		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, tarFiles[1:])
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
 
 		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
 		deleteFiles(t, env, pi, []string{"/a"})
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
 
 		// Ensure the output commit is successful
 		outputCommitID := etcdJobInfo.OutputCommit.ID

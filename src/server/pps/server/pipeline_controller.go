@@ -49,7 +49,7 @@ type pipelineOp struct {
 	m *ppsMaster
 	// a pachyderm client wrapping this operation's context (child of the PPS
 	// master's context, and cancelled at the end of step())
-	opClient     *client.APIClient
+	ctx          context.Context
 	ptr          *pps.StoredPipelineInfo
 	pipelineInfo *pps.PipelineInfo
 	rc           *v1.ReplicationController
@@ -70,10 +70,10 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	log.Infof("PPS master: processing event for %q", pipeline)
 
 	// Initialize op ctx (cancelled at the end of step(), to avoid leaking
-	// resources). op.opClient wraps opCtx, whereas masterClient is passed by the
+	// resources), whereas masterClient is passed by the
 	// PPS master and used in case a monitor needs to be spawned for 'pipeline',
 	// whose lifetime is tied to the master rather than this op.
-	opCtx, cancel := context.WithCancel(m.masterClient.Ctx())
+	opCtx, cancel := context.WithCancel(m.masterCtx)
 	defer cancel()
 
 	// Handle tracing
@@ -89,7 +89,7 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	}()
 
 	// Retrieve pipelineInfo from the spec repo
-	op, err := m.newPipelineOp(m.masterClient.WithCtx(opCtx), pipeline)
+	op, err := m.newPipelineOp(opCtx, pipeline)
 	if err != nil {
 		// fail immediately without retry
 		return stepError{
@@ -108,19 +108,19 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	return op.run()
 }
 
-func (m *ppsMaster) newPipelineOp(opClient *client.APIClient, pipeline string) (*pipelineOp, error) {
+func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
-		m:        m,
-		opClient: opClient,
-		ptr:      &pps.StoredPipelineInfo{},
+		m:   m,
+		ctx: ctx,
+		ptr: &pps.StoredPipelineInfo{},
 	}
 	// get latest StoredPipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
-	if err := m.a.pipelines.ReadOnly(opClient.Ctx()).Get(pipeline, op.ptr); err != nil {
+	if err := m.a.pipelines.ReadOnly(ctx).Get(pipeline, op.ptr); err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve etcd pipeline info for %q", pipeline)
 	}
 	// Update trace with any new pipeline info from getPipelineInfo()
-	tracing.TagAnySpan(opClient.Ctx(),
+	tracing.TagAnySpan(ctx,
 		"current-state", op.ptr.State.String(),
 		"spec-commit", pretty.CompactPrintCommitSafe(op.ptr.SpecCommit))
 	// set op.pipelineInfo
@@ -236,7 +236,7 @@ func (op *pipelineOp) run() error {
 // should be one of the first calls made on 'op', as most other methods (e.g.
 // getRC, though not failPipeline) assume that op.pipelineInfo is set.
 func (op *pipelineOp) getPipelineInfo() error {
-	err := op.m.a.sudo(op.opClient, func(superUserClient *client.APIClient) error {
+	err := op.m.a.sudo(op.ctx, func(superUserClient *client.APIClient) error {
 		var err error
 		op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.ptr)
 		return err
@@ -260,7 +260,7 @@ func (op *pipelineOp) getPipelineInfo() error {
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
 func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
+	span, _ := tracing.AddSpanToAnyExisting(op.ctx,
 		"/pps.Master/GetRC", "pipeline", op.ptr.Pipeline.Name)
 	defer func(span opentracing.Span) {
 		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
@@ -377,7 +377,7 @@ func (op *pipelineOp) rcIsFresh() bool {
 // setPipelineState set's op's state in etcd to 'state'. This will trigger an
 // etcd watch event and cause step() to eventually run again.
 func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
-	if err := op.m.a.setPipelineState(op.opClient.Ctx(),
+	if err := op.m.a.setPipelineState(op.ctx,
 		op.ptr.Pipeline.Name, state, reason); err != nil {
 		// don't bother failing if we can't set the state
 		return stepError{
@@ -392,7 +392,7 @@ func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) e
 // createPipelineResources creates the RC and any services for op's pipeline.
 func (op *pipelineOp) createPipelineResources() error {
 	log.Infof("PPS master: creating resources for pipeline %q", op.ptr.Pipeline.Name)
-	if err := op.m.a.createWorkerSvcAndRc(op.opClient.Ctx(), op.ptr, op.pipelineInfo); err != nil {
+	if err := op.m.a.createWorkerSvcAndRc(op.ctx, op.ptr, op.pipelineInfo); err != nil {
 		if errors.As(err, &noValidOptionsErr{}) {
 			// these errors indicate invalid pipelineInfo, don't retry
 			return stepError{
@@ -441,21 +441,19 @@ func (op *pipelineOp) stopCrashingPipelineMonitor() {
 func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 	log.Infof("PPS master: finishing output commits for pipeline %q", op.ptr.Pipeline.Name)
 
-	var pachClient *client.APIClient
-	if span, _ctx := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
+	pachClient := op.m.a.env.GetPachClient(op.ctx)
+	if span, _ctx := tracing.AddSpanToAnyExisting(op.ctx,
 		"/pps.Master/FinishPipelineOutputCommits", "pipeline", op.ptr.Pipeline.Name); span != nil {
-		pachClient = op.opClient.WithCtx(_ctx) // copy span back into pachClient
+		pachClient = pachClient.WithCtx(_ctx) // copy span back into pachClient
 		defer func() {
 			tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
 			tracing.FinishAnySpan(span)
 		}()
-	} else {
-		pachClient = op.opClient
 	}
 	pachClient.SetAuthToken(op.ptr.AuthToken)
 
 	if err := pachClient.ListCommitF(op.ptr.Pipeline.Name, op.pipelineInfo.OutputBranch, "", "", "", 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopJobOutputCommit(commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID)
+		return pachClient.StopPipelineJobOutputCommit(commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID)
 	}); err != nil {
 		if isNotFoundErr(err) {
 			return nil // already deleted
@@ -499,7 +497,7 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 // configured number of workers.
 func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 	log.Infof("PPS master: scaling up workers for %q", op.ptr.Pipeline.Name)
-	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
+	span, _ := tracing.AddSpanToAnyExisting(op.ctx,
 		"/pps.Master/ScaleUpPipeline", "pipeline", op.ptr.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
@@ -530,7 +528,7 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 // configured number of workers.
 func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 	log.Infof("PPS master: scaling down workers for %q", op.ptr.Pipeline.Name)
-	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
+	span, _ := tracing.AddSpanToAnyExisting(op.ctx,
 		"/pps.Master/ScaleDownPipeline", "pipeline", op.ptr.Pipeline.Name)
 	defer func() {
 		if retErr != nil {

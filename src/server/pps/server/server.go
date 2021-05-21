@@ -8,21 +8,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
+	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 )
-
-// APIServer represents a PPS API server
-type APIServer interface {
-	ppsclient.APIServer
-	txnenv.PpsTransactionServer
-}
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
 	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	reporter *metrics.Reporter,
-) (APIServer, error) {
+) (ppsiface.APIServer, error) {
 	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix)
 	apiServer := &apiServer{
 		Logger:                log.NewLogger("pps.API", env.Logger()),
@@ -41,8 +35,8 @@ func NewAPIServer(
 		noExposeDockerSocket:  env.Config().NoExposeDockerSocket,
 		reporter:              reporter,
 		workerUsesRoot:        env.Config().WorkerUsesRoot,
-		pipelines:             ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
-		jobs:                  ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
+		pipelines:             ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener()),
+		pipelineJobs:          ppsdb.PipelineJobs(env.GetDBClient(), env.GetPostgresListener()),
 		workerGrpcPort:        env.Config().PPSWorkerPort,
 		port:                  env.Config().Port,
 		httpPort:              env.Config().HTTPPort,
@@ -67,7 +61,7 @@ func NewSidecarAPIServer(
 	workerGrpcPort uint16,
 	httpPort uint16,
 	peerPort uint16,
-) (APIServer, error) {
+) (*apiServer, error) {
 	apiServer := &apiServer{
 		Logger:         log.NewLogger("pps.API", env.Logger()),
 		env:            env,
@@ -77,8 +71,8 @@ func NewSidecarAPIServer(
 		reporter:       reporter,
 		namespace:      namespace,
 		workerUsesRoot: true,
-		pipelines:      ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
-		jobs:           ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
+		pipelines:      ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener()),
+		pipelineJobs:   ppsdb.PipelineJobs(env.GetDBClient(), env.GetPostgresListener()),
 		workerGrpcPort: workerGrpcPort,
 		httpPort:       httpPort,
 		peerPort:       peerPort,

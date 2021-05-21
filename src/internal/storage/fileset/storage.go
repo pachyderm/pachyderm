@@ -129,24 +129,39 @@ func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (Fil
 // It does not perform a merge or check that the filesets at ids in any way
 // other than ensuring that they exist.
 func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+	var result *ID
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
+		var err error
+		result, err = s.ComposeTx(tx, ids, ttl)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ComposeTx produces a composite fileset from the filesets under ids.
+// It does not perform a merge or check that the filesets at ids in any way
+// other than ensuring that they exist.
+func (s *Storage) ComposeTx(tx *sqlx.Tx, ids []ID, ttl time.Duration) (*ID, error) {
 	c := &Composite{
 		Layers: idsToHex(ids),
 	}
-	return s.newComposite(ctx, c, ttl)
+	return s.newCompositeTx(tx, c, ttl)
 }
 
-// Clone creates a new fileset, identical to the fileset at id, but with the specified ttl.
+// CloneTx creates a new fileset, identical to the fileset at id, but with the specified ttl.
 // The ttl can be ignored by using track.NoTTL
-func (s *Storage) Clone(ctx context.Context, id ID, ttl time.Duration) (*ID, error) {
-	md, err := s.store.Get(ctx, id)
+func (s *Storage) CloneTx(tx *sqlx.Tx, id ID, ttl time.Duration) (*ID, error) {
+	md, err := s.store.GetTx(tx, id)
 	if err != nil {
 		return nil, err
 	}
 	switch x := md.Value.(type) {
 	case *Metadata_Primitive:
-		return s.newPrimitive(ctx, x.Primitive, ttl)
+		return s.newPrimitiveTx(tx, x.Primitive, ttl)
 	case *Metadata_Composite:
-		return s.newComposite(ctx, x.Composite, ttl)
+		return s.newCompositeTx(tx, x.Composite, ttl)
 	default:
 		return nil, errors.Errorf("cannot clone type %T", md.Value)
 	}
@@ -297,6 +312,18 @@ func (s *Storage) exists(ctx context.Context, id ID) (bool, error) {
 }
 
 func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {
+	var result *ID
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
+		var err error
+		result, err = s.newPrimitiveTx(tx, prim, ttl)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *Storage) newPrimitiveTx(tx *sqlx.Tx, prim *Primitive, ttl time.Duration) (*ID, error) {
 	id := newID()
 	md := &Metadata{
 		Value: &Metadata_Primitive{
@@ -307,19 +334,28 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 	for _, chunkID := range prim.PointsTo() {
 		pointsTo = append(pointsTo, chunkID.TrackerID())
 	}
-	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
-		if err := s.store.SetTx(tx, id, md); err != nil {
-			return err
-		}
-		return s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl)
-	})
-	if err != nil {
+	if err := s.store.SetTx(tx, id, md); err != nil {
+		return nil, err
+	}
+	if err := s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl); err != nil {
 		return nil, err
 	}
 	return &id, nil
 }
 
 func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Duration) (*ID, error) {
+	var result *ID
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
+		var err error
+		result, err = s.newCompositeTx(tx, comp, ttl)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *Storage) newCompositeTx(tx *sqlx.Tx, comp *Composite, ttl time.Duration) (*ID, error) {
 	id := newID()
 	md := &Metadata{
 		Value: &Metadata_Composite{
@@ -334,12 +370,10 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 	for _, id := range ids {
 		pointsTo = append(pointsTo, id.TrackerID())
 	}
-	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
-		if err := s.store.SetTx(tx, id, md); err != nil {
-			return err
-		}
-		return s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl)
-	}); err != nil {
+	if err := s.store.SetTx(tx, id, md); err != nil {
+		return nil, err
+	}
+	if err := s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl); err != nil {
 		return nil, err
 	}
 	return &id, nil

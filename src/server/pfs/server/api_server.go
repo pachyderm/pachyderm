@@ -21,12 +21,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"golang.org/x/net/context"
 )
-
-var _ APIServer = &apiServer{}
 
 // apiServer implements the public interface of the Pachyderm File System,
 // including all RPCs defined in the protobuf spec.  Implementation details
@@ -52,7 +51,6 @@ func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 		env:    env,
 		txnEnv: txnEnv,
 	}
-	go func() { s.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
 	return s, nil
 }
 
@@ -60,7 +58,7 @@ func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.activateAuth(txnCtx)
 	}); err != nil {
 		return nil, err
@@ -69,8 +67,8 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 }
 
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) CreateRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.CreateRepoRequest) error {
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) CreateRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateRepoRequest) error {
 	if repo := request.GetRepo(); repo != nil && repo.Name == fileSetsRepo {
 		return errors.Errorf("%s is a reserved name", fileSetsRepo)
 	}
@@ -90,8 +88,8 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 }
 
 // InspectRepoInTransaction is identical to InspectRepo except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) InspectRepoInTransaction(txnCtx *txnenv.TransactionContext, originalRequest *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) InspectRepoInTransaction(txnCtx *txncontext.TransactionContext, originalRequest *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
 	request := proto.Clone(originalRequest).(*pfs.InspectRepoRequest)
 	return a.driver.inspectRepo(txnCtx, request.Repo, true)
 }
@@ -101,7 +99,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var info *pfs.RepoInfo
-	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		info, err = a.InspectRepoInTransaction(txnCtx, request)
 		return err
@@ -116,13 +114,13 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	repoInfos, err := a.driver.listRepo(a.env.GetPachClient(ctx), true)
+	repoInfos, err := a.driver.listRepo(ctx, true, request.Type)
 	return repoInfos, err
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
 	if request.All {
 		return a.driver.deleteAll(txnCtx)
 	}
@@ -142,11 +140,11 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 }
 
 // StartCommitInTransaction is identical to StartCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.  The target
+// inside an existing postgres transaction.  This is not an RPC.  The target
 // commit can be specified but is optional.  This is so that the transaction can
 // report the commit ID back to the client before the transaction has finished
 // and it can be used in future commands inside the same transaction.
-func (a *apiServer) StartCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
+func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
 	id := ""
 	if commit != nil {
 		id = commit.ID
@@ -170,8 +168,8 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 }
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
 		if request.Empty {
 			request.Description += pfs.EmptyStr
@@ -193,16 +191,16 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 }
 
 // InspectCommitInTransaction is identical to InspectCommit (some features excluded) except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) InspectCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	return a.driver.resolveCommit(txnCtx.Stm, request.Commit)
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
+	return a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectCommit(a.env.GetPachClient(ctx), request.Commit, request.BlockState)
+	return a.driver.inspectCommit(ctx, request.Commit, request.BlockState)
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
@@ -212,15 +210,15 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listCommit(a.env.GetPachClient(respServer.Context()), request.Repo, request.To, request.From, request.Number, request.Reverse, func(ci *pfs.CommitInfo) error {
+	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.Number, request.Reverse, func(ci *pfs.CommitInfo) error {
 		sent++
 		return respServer.Send(ci)
 	})
 }
 
 // SquashCommitInTransaction is identical to SquashCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) SquashCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.SquashCommitRequest) error {
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) SquashCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitRequest) error {
 	return a.driver.squashCommit(txnCtx, request.Commit)
 }
 
@@ -240,26 +238,26 @@ func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitR
 func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.flushCommit(a.env.GetPachClient(stream.Context()), request.Commits, request.ToRepos, stream.Send)
+	return a.driver.flushCommit(stream.Context(), request.Commits, request.ToRepos, stream.Send)
 }
 
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.subscribeCommit(a.env.GetPachClient(stream.Context()), request.Repo, request.Branch, request.Prov, request.From, request.State, stream.Send)
+	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.Prov, request.From, request.State, stream.Send)
 }
 
 // ClearCommit deletes all data in the commit.
 func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitRequest) (_ *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return &types.Empty{}, a.driver.clearCommit(a.env.GetPachClient(ctx), request.Commit)
+	return &types.Empty{}, a.driver.clearCommit(ctx, request.Commit)
 }
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) CreateBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.CreateBranchRequest) error {
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
 	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
 }
 
@@ -280,7 +278,7 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	branchInfo := &pfs.BranchInfo{}
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		branchInfo, err = a.driver.inspectBranch(txnCtx, request.Branch)
 		return err
@@ -290,7 +288,7 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	return branchInfo, nil
 }
 
-func (a *apiServer) InspectBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
+func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
 	return a.driver.inspectBranch(txnCtx, request.Branch)
 }
 
@@ -298,7 +296,7 @@ func (a *apiServer) InspectBranchInTransaction(txnCtx *txnenv.TransactionContext
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	branches, err := a.driver.listBranch(a.env.GetPachClient(ctx), request.Repo, request.Reverse)
+	branches, err := a.driver.listBranch(ctx, request.Repo, request.Reverse)
 	if err != nil {
 		return nil, err
 	}
@@ -306,8 +304,8 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 }
 
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) DeleteBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteBranchRequest) error {
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) DeleteBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteBranchRequest) error {
 	return a.driver.deleteBranch(txnCtx, request.Branch, request.Force)
 }
 
@@ -324,7 +322,6 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 }
 
 func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
-	pachClient := a.env.GetPachClient(server.Context())
 	request, err := server.Recv()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -333,7 +330,7 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 			return 0, err
 		}
 		var bytesRead int64
-		if err := a.driver.modifyFile(pachClient, request.Commit, func(uw *fileset.UnorderedWriter) error {
+		if err := a.driver.modifyFile(server.Context(), request.Commit, func(uw *fileset.UnorderedWriter) error {
 			var err error
 			bytesRead, err = a.modifyFile(server.Context(), uw, server, request)
 			return err
@@ -349,7 +346,6 @@ type modifyFileSource interface {
 }
 
 func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.ModifyFileRequest) (int64, error) {
-	pachClient := a.env.GetPachClient(ctx)
 	var bytesRead int64
 	for {
 		// TODO Validation.
@@ -376,7 +372,7 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 				}
 			case *pfs.ModifyFileRequest_CopyFile:
 				cf := mod.CopyFile
-				if err := a.driver.copyFile(pachClient, uw, cf.Dst, cf.Src, cf.Append, cf.Tag); err != nil {
+				if err := a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Tag); err != nil {
 					return bytesRead, err
 				}
 			}
@@ -532,7 +528,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
-		src, err := a.driver.getFile(a.env.GetPachClient(ctx), request.File)
+		src, err := a.driver.getFile(ctx, request.File)
 		if err != nil {
 			return 0, err
 		}
@@ -618,7 +614,7 @@ func getFileTar(ctx context.Context, w io.Writer, src Source) error {
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectFile(a.env.GetPachClient(ctx), request.File)
+	return a.driver.inspectFile(ctx, request.File)
 }
 
 // ListFile implements the protobuf pfs.ListFile RPC
@@ -628,7 +624,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listFile(a.env.GetPachClient(server.Context()), request.File, request.Full, func(fi *pfs.FileInfo) error {
+	return a.driver.listFile(server.Context(), request.File, request.Full, func(fi *pfs.FileInfo) error {
 		sent++
 		return server.Send(fi)
 	})
@@ -641,7 +637,7 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.walkFile(a.env.GetPachClient(server.Context()), request.File, func(fi *pfs.FileInfo) error {
+	return a.driver.walkFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
 		sent++
 		return server.Send(fi)
 	})
@@ -654,7 +650,7 @@ func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_Gl
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.globFile(a.env.GetPachClient(respServer.Context()), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
+	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
 		sent++
 		return respServer.Send(fi)
 	})
@@ -667,7 +663,7 @@ func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFi
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.diffFile(a.env.GetPachClient(server.Context()), request.OldFile, request.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
+	return a.driver.diffFile(server.Context(), request.OldFile, request.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
 		sent++
 		return server.Send(&pfs.DiffFileResponse{
 			OldFile: oldFi,
@@ -680,7 +676,7 @@ func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFi
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.deleteAll(txnCtx)
 	})
 	if err != nil {
@@ -696,7 +692,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("stream containing %d messages", sent), retErr, time.Since(start))
 	}(time.Now())
-	if err := a.driver.fsck(a.env.GetPachClient(fsckServer.Context()), request.Fix, func(resp *pfs.FsckResponse) error {
+	if err := a.driver.fsck(fsckServer.Context(), request.Fix, func(resp *pfs.FsckResponse) error {
 		sent++
 		return fsckServer.Send(resp)
 	}); err != nil {
@@ -720,7 +716,7 @@ func (a *apiServer) CreateFileset(server pfs.API_CreateFilesetServer) error {
 }
 
 func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error) {
-	filesetID, err := a.driver.getFileset(a.env.GetPachClient(ctx), req.Commit)
+	filesetID, err := a.driver.getFileset(ctx, req.Commit)
 	if err != nil {
 		return nil, err
 	}
@@ -730,15 +726,23 @@ func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) 
 }
 
 func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
-	pachClient := a.env.GetPachClient(ctx)
-	fsid, err := fileset.ParseID(req.FilesetId)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.addFileset(pachClient, req.Commit, *fsid); err != nil {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.AddFilesetInTransaction(txnCtx, req)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) AddFilesetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.AddFilesetRequest) error {
+	fsid, err := fileset.ParseID(request.FilesetId)
+	if err != nil {
+		return err
+	}
+	if err := a.driver.addFileset(txnCtx, request.Commit, *fsid); err != nil {
+		return err
+	}
+	return nil
 }
 
 // RenewFileset implements the pfs.RenewFileset RPC
