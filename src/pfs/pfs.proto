@@ -136,16 +136,23 @@ message Job {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
 
+message JobCommitInfo {
+  Branch branch = 1;
+  repeated Branch provenance = 2;
+}
+
 message StoredJobInfo {
   Job job = 1;
-  CommitOrigin origin = 2;
-  repeated Commit commits = 3;
+  repeated JobCommitInfo job_commits = 3;
 }
 
 message JobInfo {
   Job job = 1;
-  CommitOrigin origin = 2;
-  repeated CommitInfo commits = 3;
+  repeated JobCommitInfo job_commits = 3;
+}
+
+message InspectJobRequest {
+  Job job = 1;
 }
 
 enum FileType {
@@ -249,11 +256,10 @@ message FlushJobRequest {
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
-  CommitProvenance prov = 3;
   // only commits created since this commit are returned
-  Commit from = 4;
+  Commit from = 3;
   // Don't return commits until they're in (at least) the desired state.
-  CommitState state = 5;
+  CommitState state = 4;
 }
 
 message ClearCommitRequest {
@@ -469,6 +475,8 @@ service API {
   rpc StartCommit(StartCommitRequest) returns (Commit) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // ClearCommit removes all data from the commit.
+  rpc ClearCommit(ClearCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
@@ -479,10 +487,11 @@ service API {
   rpc FlushJob(FlushJobRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
-  // ClearCommit removes all data from the commit.
-  rpc ClearCommit(ClearCommitRequest) returns (google.protobuf.Empty) {}
   // TODO: BuildCommit?
   //rpc BuildCommit(BuildCommitRequest) returns (Commit) {}
+
+  // InspectJob returns the info about a job.
+  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}

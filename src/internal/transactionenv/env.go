@@ -176,7 +176,7 @@ type AuthTransactionServer interface {
 // PfsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
-	NewPropagater(*sqlx.Tx, *pfs.Job) PfsPropagater
+	NewPropagater(*TransactionContext) PfsPropagater
 	NewPipelineFinisher(*TransactionContext) PipelineCommitFinisher
 
 	CreateRepoInTransaction(*TransactionContext, *pfs.CreateRepoRequest) error
@@ -429,7 +429,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 			txnEnv:        env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, txnCtx.Job)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(txnCtx)
 			txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
 		}
 
@@ -456,7 +456,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 			txnEnv:         env,
 		}
 		if env.pfsServer != nil {
-			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(sqlTx, txnCtx.Job)
+			txnCtx.pfsPropagater = env.pfsServer.NewPropagater(txnCtx)
 		}
 
 		err := cb(txnCtx)

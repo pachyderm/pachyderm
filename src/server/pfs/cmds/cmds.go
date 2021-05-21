@@ -22,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -454,35 +453,39 @@ $ {{alias}} foo@XXX bar@YYY
 # return commits caused by foo@XXX leading to repos bar and baz
 $ {{alias}} foo@XXX -r bar -r baz`,
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			commits, err := cmdutil.ParseCommits(args)
-			if err != nil {
-				return err
-			}
-
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			var toRepos []*pfsclient.Repo
-			for _, repoName := range repos {
-				toRepos = append(toRepos, client.NewRepo(repoName))
-			}
-
-			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			defer func() {
-				if err := w.Flush(); retErr == nil {
-					retErr = err
+			// TODO(global ids): implement flush job command
+			return errors.New("unimplemented")
+			/*
+				commits, err := cmdutil.ParseCommits(args)
+				if err != nil {
+					return err
 				}
-			}()
-			return c.FlushJob(commits, toRepos, func(ci *pfsclient.CommitInfo) error {
-				if raw {
-					return marshaller.Marshal(os.Stdout, ci)
+
+				c, err := client.NewOnUserMachine("user")
+				if err != nil {
+					return err
 				}
-				pretty.PrintCommitInfo(w, ci, fullTimestamps)
-				return nil
-			})
+				defer c.Close()
+
+				var toRepos []*pfsclient.Repo
+				for _, repoName := range repos {
+					toRepos = append(toRepos, client.NewRepo(repoName))
+				}
+
+				w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
+				defer func() {
+					if err := w.Flush(); retErr == nil {
+						retErr = err
+					}
+				}()
+				return c.FlushJob(commits, toRepos, func(ci *pfsclient.CommitInfo) error {
+					if raw {
+						return marshaller.Marshal(os.Stdout, ci)
+					}
+					pretty.PrintCommitInfo(w, ci, fullTimestamps)
+					return nil
+				})
+			*/
 		}),
 	}
 	flushJob.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
@@ -493,7 +496,6 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
 
 	var newCommits bool
-	var pipeline string
 	subscribeCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Print commits as they are created (finished).",
@@ -526,22 +528,13 @@ $ {{alias}} test@master --new`,
 				from = branch.Name
 			}
 
-			var prov *pfsclient.CommitProvenance
-			if pipeline != "" {
-				pipelineInfo, err := c.InspectPipeline(pipeline)
-				if err != nil {
-					return err
-				}
-				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
-			}
-
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 			defer func() {
 				if err := w.Flush(); retErr == nil {
 					retErr = err
 				}
 			}()
-			return c.SubscribeCommit(branch.Repo.Name, branch.Name, prov, from, pfsclient.CommitState_STARTED, func(ci *pfsclient.CommitInfo) error {
+			return c.SubscribeCommit(branch.Repo.Name, branch.Name, from, pfsclient.CommitState_STARTED, func(ci *pfsclient.CommitInfo) error {
 				if raw {
 					return marshaller.Marshal(os.Stdout, ci)
 				}
@@ -551,7 +544,6 @@ $ {{alias}} test@master --new`,
 		}),
 	}
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
-	subscribeCommit.Flags().StringVar(&pipeline, "pipeline", "", "subscribe to all commits created by this pipeline")
 	subscribeCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
 	subscribeCommit.Flags().AddFlagSet(rawFlags)

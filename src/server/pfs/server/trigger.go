@@ -4,7 +4,6 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 
@@ -33,6 +32,8 @@ func (d *driver) triggerCommit(
 	}
 	// find which branches this commit is the head of
 	headBranches := make(map[string]bool)
+	// TODO(global ids): this comment may not be true for run pipeline which
+	// probably shouldn't update the branch head:
 	// The commit _was_ the branch head at some point in time, although it is
 	// not guaranteed to still be the branch head. This can happen on a
 	// downstream pipeline with triggers - the upstream pipeline may have
@@ -49,13 +50,13 @@ func (d *driver) triggerCommit(
 			headBranches[b.Name] = true
 		}
 	}
-	triggeredBranches := map[string]bool{}
+	triggeredBranches := map[string]struct{}{}
 	var triggerBranch func(branch *pfs.Branch) error
 	triggerBranch = func(branch *pfs.Branch) error {
-		if triggeredBranches[branch.Name] {
+		if _, ok := triggeredBranches[branch.Name]; ok {
 			return nil
 		}
-		triggeredBranches[branch.Name] = true
+		triggeredBranches[branch.Name] = struct{}{}
 		bi := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(branch), bi); err != nil {
 			return err
@@ -77,7 +78,13 @@ func (d *driver) triggerCommit(
 					return err
 				}
 				if triggered {
-					if err := d.aliasCommit(txnCtx, newHead, bi.Branch); err != nil {
+					// TODO(global ids): ideally the new commit will have the same Job ID
+					// as the triggering commit - would need to insert it into the Job as
+					// well (if it has already been made)
+					if err := d.aliasCommit(txnCtx, newHead.Commit, bi.Branch); err != nil {
+						return err
+					}
+					if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
 						return err
 					}
 					headBranches[bi.Branch.Name] = true
@@ -88,7 +95,7 @@ func (d *driver) triggerCommit(
 	}
 	for _, b := range repoInfo.Branches {
 		if err := triggerBranch(b); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	return nil

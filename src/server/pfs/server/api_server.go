@@ -228,6 +228,12 @@ func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitR
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) InspectJob(ctx context.Context, request *pfs.InspectJobRequest) (response *pfs.JobInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	return nil, errors.New("unimplemented")
+}
+
 // FlushJob implements the protobuf pfs.FlushJob RPC
 func (a *apiServer) FlushJob(request *pfs.FlushJobRequest, stream pfs.API_FlushJobServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
@@ -239,7 +245,7 @@ func (a *apiServer) FlushJob(request *pfs.FlushJobRequest, stream pfs.API_FlushJ
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.Prov, request.From, request.State, stream.Send)
+	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, stream.Send)
 }
 
 // ClearCommit deletes all data in the commit.

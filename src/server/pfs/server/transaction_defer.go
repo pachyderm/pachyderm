@@ -1,10 +1,9 @@
 package server
 
 import (
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -14,19 +13,17 @@ import (
 // a transaction.  The transactionenv package provides the interface for this
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
-	d     *driver
-	sqlTx *sqlx.Tx
-	job   *pfs.Job
+	d      *driver
+	txnCtx *txnenv.TransactionContext
 
 	// Branches that were modified (new commits or head commit was moved to an old commit)
 	branches map[string]*pfs.Branch
 }
 
-func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx, job *pfs.Job) txnenv.PfsPropagater {
+func (a *apiServer) NewPropagater(txnCtx *txnenv.TransactionContext) txnenv.PfsPropagater {
 	return &Propagater{
-		d:     a.driver,
-		sqlTx: sqlTx,
-		job:   job,
+		d:      a.driver,
+		txnCtx: txnCtx,
 	}
 }
 
@@ -47,7 +44,7 @@ func (t *Propagater) Run() error {
 	for _, branch := range t.branches {
 		branches = append(branches, branch)
 	}
-	return t.d.propagateCommits(t.sqlTx, t.job, branches)
+	return t.d.propagateCommits(t.txnCtx, branches)
 }
 
 // PipelineFinisher closes any open commits on a pipeline output branch,

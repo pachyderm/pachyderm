@@ -126,7 +126,7 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 }
 
 // FlushJob implements the protobuf pfs.FlushJob RPC
-func (a *validatedpiServer) FlushJob(request *pfs.FlushJobRequest, server pfs.API_FlushJobServer) error {
+func (a *validatedAPIServer) FlushJob(request *pfs.FlushJobRequest, server pfs.API_FlushJobServer) error {
 	if request.Job == nil {
 		return errors.New("job cannot be nil")
 	}

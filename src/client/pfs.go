@@ -51,6 +51,11 @@ func NewFile(repoName string, branchName string, commitID string, path string) *
 	}
 }
 
+// NewJob creates a pfs.Job.
+func NewJob(jobID string) *pfs.Job {
+	return &pfs.Job{ID: jobID}
+}
+
 // CreateRepo creates a new Repo object in pfs with the given name. Repos are
 // the top level data object in pfs and should be used to store data of a
 // similar type. For example rather than having a single Repo for an entire
@@ -439,14 +444,13 @@ func (c APIClient) FlushJobAll(job *pfs.Job, toBranches []*pfs.Branch) ([]*pfs.C
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
-func (c APIClient) SubscribeCommit(repoName string, branchName string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
+func (c APIClient) SubscribeCommit(repoName string, branchName string, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   NewRepo(repoName),
 		Branch: branchName,
-		Prov:   prov,
 		State:  state,
 	}
 	if from != "" {

@@ -22,9 +22,9 @@ func NewMockPfsPropagater() *MockPfsPropagater {
 	return &MockPfsPropagater{}
 }
 
-// PropagateCommit always errors
-func (mpp *MockPfsPropagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error {
-	return unimplementedError("PfsPropagater.PropagateCommit")
+// PropagateBranch always errors
+func (mpp *MockPfsPropagater) PropagateBranch(branch *pfs.Branch) error {
+	return unimplementedError("PfsPropagater.PropagateBranch")
 }
 
 // Run always errors

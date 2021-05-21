@@ -82,12 +82,9 @@ func forEachCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo,
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
-	// TODO: Readd subscribe on spec commit provenance. Current code simplifies correctness in terms
-	// of commits being closed / pipeline jobs being finished.
 	return pachClient.SubscribeCommit(
 		pipelineInfo.Pipeline.Name,
 		"",
-		nil,
 		"",
 		pfs.CommitState_READY,
 		func(ci *pfs.CommitInfo) error {
