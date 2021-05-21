@@ -21,11 +21,7 @@ const BranchBrowserComponent: React.FC = withContextProviders(() => {
 
 describe('BranchBrowser/hooks/useBranchBrowser', () => {
   it('should sort branches with master on top', () => {
-    window.history.replaceState(
-      '',
-      '',
-      '/project/3/dag/cron/repo/cron/branch/master',
-    );
+    window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
 
     const {getByText} = render(<BranchBrowserComponent />);
     const items = getByText('master-none-alpha-develop-feature');

@@ -233,28 +233,4 @@ describe('Dag resolver', () => {
     });
     close();
   });
-
-  it('should surface a pipeline error to dag', async () => {
-    const {observable, close} = createSubscriptionClients<Dag[]>(
-      GET_DAGS_QUERY,
-      {
-        args: {
-          projectId: '2',
-          nodeHeight: 60,
-          nodeWidth: 120,
-          direction: DagDirection.RIGHT,
-        },
-      },
-    );
-
-    observable.subscribe((data) => {
-      const dags = data.data;
-
-      expect(dags?.[0].priorityPipelineState).toBe('PIPELINE_FAILURE');
-      expect(dags?.[1].priorityPipelineState).toBe(null);
-      expect(dags?.[2].priorityPipelineState).toBe(null);
-    });
-
-    close();
-  });
 });

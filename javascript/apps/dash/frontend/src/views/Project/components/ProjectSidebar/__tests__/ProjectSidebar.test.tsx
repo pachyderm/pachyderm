@@ -33,11 +33,7 @@ describe('ProjectSidebar', () => {
 
   describe('pipelines', () => {
     it('should display pipeline details', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/project/1/dag/images/pipeline/montage',
-      );
+      window.history.replaceState('', '', '/project/1/pipeline/montage');
 
       const {queryByTestId, findByTestId} = render(<Project />);
 
@@ -53,11 +49,7 @@ describe('ProjectSidebar', () => {
 
   describe('repos', () => {
     it('should display repo details', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/project/3/dag/cron/repo/cron/branch/master',
-      );
+      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
 
       const {findByTestId, getByText} = render(<Project />);
 
@@ -71,11 +63,7 @@ describe('ProjectSidebar', () => {
     });
 
     it('should show no commits when the branch has no commits', () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/project/3/dag/cron/repo/cron/branch/master',
-      );
+      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
 
       const {getByText} = render(<Project />);
 

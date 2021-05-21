@@ -9,7 +9,7 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import styles from './PipelineSpec.module.css';
 
 const PipelineSpec = () => {
-  const {projectId, dagId} = useUrlState();
+  const {projectId} = useUrlState();
   const {pipeline, loading} = useCurrentPipeline();
 
   return (
@@ -20,7 +20,6 @@ const PipelineSpec = () => {
             branchId="master"
             inputString={pipeline.inputString}
             projectId={projectId}
-            dagId={dagId}
             className={styles.input}
           />
         )}

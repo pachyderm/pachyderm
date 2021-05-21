@@ -85,10 +85,10 @@ describe('useProjects', () => {
     expect(node1state).toBeInTheDocument();
 
     const link0id = await findByText('0 link id: montage-montage_repo');
-    const link1id = await findByText('1 link id: edges_repo-montage');
+    const link1id = await findByText('1 link id: edges-edges_repo');
     const link2id = await findByText('2 link id: images_repo-montage');
-    const link3id = await findByText('3 link id: edges-edges_repo');
-    const link4id = await findByText('4 link id: images_repo-edges');
+    const link3id = await findByText('3 link id: images_repo-edges');
+    const link4id = await findByText('4 link id: edges_repo-montage');
 
     expect(link0id).toBeInTheDocument();
     expect(link1id).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe('useProjects', () => {
     expect(link4id).toBeInTheDocument();
 
     const link0state = await findByText('0 link state: JOB_STARTING');
-    const link1state = await findByText('1 link state:');
+    const link1state = await findByText('1 link state: JOB_STARTING');
 
     expect(link0state).toBeInTheDocument();
     expect(link1state).toBeInTheDocument();

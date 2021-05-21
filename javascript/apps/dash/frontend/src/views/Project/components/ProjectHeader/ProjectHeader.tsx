@@ -5,19 +5,14 @@ import {Link} from 'react-router-dom';
 import Badge from '@dash-frontend/components/Badge';
 import Header from '@dash-frontend/components/Header';
 import Search from '@dash-frontend/components/Search';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {projectRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import {ReactComponent as BackArrowSvg} from './BackArrow.svg';
 import useProjectHeader from './hooks/useProjectHeader';
 import styles from './ProjectHeader.module.css';
 
-const ProjectHeader = ({totalDags}: {totalDags: number}) => {
+const ProjectHeader = () => {
   const {projectName, numOfFailedJobs, seeJobsUrl, loading} =
     useProjectHeader();
-  const {projectId, dagId} = useUrlState();
-  const goesBackToProject = dagId && totalDags > 1;
-
   const [showTooltip, setShowTooltip] = useState(false);
   const setProjectNameRef = useCallback((element: HTMLHeadingElement) => {
     setShowTooltip(element && element.clientWidth < element.scrollWidth);
@@ -25,18 +20,9 @@ const ProjectHeader = ({totalDags}: {totalDags: number}) => {
 
   return (
     <Header>
-      <Link
-        to={
-          goesBackToProject ? projectRoute({projectId, withSearch: false}) : '/'
-        }
-        className={styles.goBack}
-      >
+      <Link to="/" className={styles.goBack}>
         <BackArrowSvg
-          aria-label={
-            goesBackToProject
-              ? 'Go back to project page'
-              : 'Go back to landing page.'
-          }
+          aria-label="Go back to landing page."
           className={styles.goBackSvg}
         />
       </Link>

@@ -5,23 +5,15 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   pipelineRoute,
   repoRoute,
-  dagRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 import {Node, NodeType} from '@graphqlTypes';
 
-import deriveRouteParamFromNode from '../utils/deriveRepoNameFromNode';
+import deriveRouteParamFromNode from '../lib/deriveRepoNameFromNode';
 
 const useRouteController = () => {
-  const {projectId, repoId, pipelineId, dagId} = useUrlState();
+  const {projectId, repoId, pipelineId} = useUrlState();
 
   const browserHistory = useHistory();
-
-  const navigateToDag = useCallback(
-    (dagIndex: string) => {
-      browserHistory.push(dagRoute({projectId, dagId: dagIndex}));
-    },
-    [browserHistory, projectId],
-  );
 
   const navigateToNode = useCallback(
     (n: Node) => {
@@ -30,7 +22,6 @@ const useRouteController = () => {
           repoRoute({
             branchId: 'master',
             projectId,
-            dagId,
             repoId: deriveRouteParamFromNode(n),
           }),
         );
@@ -38,13 +29,12 @@ const useRouteController = () => {
         browserHistory.push(
           pipelineRoute({
             projectId,
-            dagId,
             pipelineId: deriveRouteParamFromNode(n),
           }),
         );
       }
     },
-    [browserHistory, projectId, dagId],
+    [browserHistory, projectId],
   );
 
   const selectedNode = useMemo(() => {
@@ -64,7 +54,6 @@ const useRouteController = () => {
   return {
     selectedNode,
     navigateToNode,
-    navigateToDag,
   };
 };
 

@@ -4,10 +4,10 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {Node, NodeType} from '@graphqlTypes';
+import useRouteController from 'hooks/useRouteController';
+import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 
-import useRouteController from '../../../hooks/useRouteController';
 import convertNodeStateToDagState from '../../../utils/convertNodeStateToDagState';
-import deriveRepoNameFromNode from '../../../utils/deriveRepoNameFromNode';
 
 const useNode = (node: Node, isInteractive: boolean) => {
   const {navigateToNode, selectedNode} = useRouteController();
@@ -27,7 +27,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
       nodeName = host.replace('.com', '');
     }
 
-    return `#${nodeName}GROUP`;
+    return `${nodeName}GROUP`;
   }, [node]);
 
   const onClick = useCallback(() => {
@@ -37,7 +37,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
 
   const onMouseOver = useCallback(() => {
     if (isInteractive) {
-      select(groupName).raise();
+      select(`#${groupName}`).raise();
       setHoveredNode(node.name);
     }
   }, [isInteractive, setHoveredNode, node, groupName]);

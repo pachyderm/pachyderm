@@ -1,9 +1,5 @@
 import {RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
-import {
-  Input,
-  PipelineInfo,
-  PipelineState,
-} from '@pachyderm/proto/pb/pps/pps_pb';
+import {Input, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatMap from 'lodash/flatMap';
 import flatten from 'lodash/flatten';
@@ -26,7 +22,6 @@ import {
   NodeType,
   QueryResolvers,
   SubscriptionResolvers,
-  PipelineState as GQLPipelineState,
   DagDirection,
   PipelineJobState,
 } from '@graphqlTypes';
@@ -137,8 +132,6 @@ const normalizeDAGData = async (
   vertices: Vertex[],
   nodeWidth: number,
   nodeHeight: number,
-  id: string,
-  priorityPipelineState?: GQLPipelineState,
   direction: DagDirection = DagDirection.RIGHT,
 ) => {
   // Calculate the indicies of the nodes in the DAG, as
@@ -198,16 +191,22 @@ const normalizeDAGData = async (
     height: nodeHeight,
   }));
 
+  const horizontal =
+    direction === DagDirection.RIGHT || direction === DagDirection.LEFT;
+
   await elk.layout(
     {id: 'root', children: elkChildren, edges: elkEdges},
     {
       layoutOptions: {
-        'org.eclipse.elk.padding': '80',
-        'org.eclipse.elk.algorithm': 'layered',
+        'org.eclipse.elk.algorithm': 'disco',
+        'org.eclipse.elk.aspectRatio': horizontal ? '0.2' : '10',
         'org.eclipse.elk.mergeEdges': 'false',
         'org.eclipse.elk.direction': direction,
         'org.eclipse.elk.layered.layering.strategy': 'INTERACTIVE',
-        'org.eclipse.elk.edgeRouting': 'ORTHOGONAL',
+        'org.eclipse.elk.disco.componentCompaction.componentLayoutAlgorithm':
+          'layered',
+        'spacing.componentComponent': horizontal ? '75' : '150',
+
         'org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers': '20',
         'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': '40',
       },
@@ -251,18 +250,7 @@ const normalizeDAGData = async (
   return {
     nodes,
     links,
-    id,
-    priorityPipelineState,
   };
-};
-
-const getPriorityPipelineState = (pipelines: PipelineInfo.AsObject[]) => {
-  if (pipelines.some((p) => p.state === PipelineState.PIPELINE_CRASHING)) {
-    return toGQLPipelineState(PipelineState.PIPELINE_CRASHING);
-  }
-  if (pipelines.some((p) => p.state === PipelineState.PIPELINE_FAILURE)) {
-    return toGQLPipelineState(PipelineState.PIPELINE_FAILURE);
-  }
 };
 
 const dagResolver: DagResolver = {
@@ -286,16 +274,18 @@ const dagResolver: DagResolver = {
       const allVertices = deriveVertices(repos, pipelines);
 
       const id = minBy(repos, (r) => r.created?.seconds)?.repo?.name || '';
-      const priorityPipelineState = getPriorityPipelineState(pipelines);
 
-      return normalizeDAGData(
+      const normalizedData = await normalizeDAGData(
         allVertices,
         nodeWidth,
         nodeHeight,
-        id,
-        priorityPipelineState,
-        direction,
       );
+
+      return {
+        id,
+        nodes: normalizedData.nodes,
+        links: normalizedData.links,
+      };
     },
   },
   Subscription: {
@@ -340,40 +330,37 @@ const dagResolver: DagResolver = {
             event: 'discovering disconnected components',
             meta: {projectId},
           });
-          const components = disconnectedComponents(allVertices);
 
-          return Promise.all(
-            components.map((component) => {
-              const componentRepos = repos.filter((repo) =>
-                component.find(
-                  (c) =>
-                    c.type === NodeType.REPO &&
-                    c.name === `${repo.repo?.name}_repo`,
-                ),
-              );
-              const componentPipelines = pipelines.filter((pipeline) =>
-                component.find(
-                  (c) =>
-                    c.type === NodeType.PIPELINE &&
-                    c.name === pipeline.pipeline?.name,
-                ),
-              );
-              const id =
-                minBy(componentRepos, (r) => r.created?.seconds)?.repo?.name ||
-                '';
-              const priorityPipelineState =
-                getPriorityPipelineState(componentPipelines);
-
-              return normalizeDAGData(
-                component,
-                nodeWidth,
-                nodeHeight,
-                id,
-                priorityPipelineState,
-                direction,
-              );
-            }),
+          const normalizedData = await normalizeDAGData(
+            allVertices,
+            nodeWidth,
+            nodeHeight,
+            direction,
           );
+
+          const components = disconnectedComponents(
+            normalizedData.nodes,
+            normalizedData.links,
+          );
+
+          return components.map((component) => {
+            const componentRepos = repos.filter((repo) =>
+              component.nodes.find(
+                (c) =>
+                  c.type === NodeType.REPO &&
+                  c.name === `${repo.repo?.name}_repo`,
+              ),
+            );
+            const id =
+              minBy(componentRepos, (r) => r.created?.seconds)?.repo?.name ||
+              '';
+
+            return {
+              id,
+              nodes: component.nodes,
+              links: component.links,
+            };
+          });
         };
 
         return withSubscription<Dag[]>({

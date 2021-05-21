@@ -34,7 +34,6 @@ export const GET_DAGS_QUERY = gql`
         }
       }
       id
-      priorityPipelineState
     }
   }
 `;

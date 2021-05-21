@@ -8,7 +8,7 @@ import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 import {Account, Dag} from '@graphqlTypes';
 
-import useRouteController from './views/Project/components/DAG/hooks/useRouteController';
+import useRouteController from './hooks/useRouteController';
 import {PROJECT_PATHS} from './views/Project/constants/projectPaths';
 
 export {default as server} from '@dash-backend/index';

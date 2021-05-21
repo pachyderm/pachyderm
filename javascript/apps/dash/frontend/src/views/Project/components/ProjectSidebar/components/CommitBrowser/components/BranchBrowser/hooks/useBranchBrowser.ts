@@ -11,20 +11,19 @@ interface useBranchBrowserOpts {
 }
 
 const useBranchBrowser = ({branches = []}: useBranchBrowserOpts = {}) => {
-  const {dagId, projectId, repoId, branchId} = useUrlState();
+  const {projectId, repoId, branchId} = useUrlState();
   const browserHistory = useHistory();
   const handleBranchClick = useCallback(
     (branchId: string) => {
       browserHistory.push(
         repoRoute({
           branchId,
-          dagId,
           projectId,
           repoId,
         }),
       );
     },
-    [browserHistory, dagId, projectId, repoId],
+    [browserHistory, projectId, repoId],
   );
   const dropdownItems = useMemo<DropdownItem[]>(() => {
     return [

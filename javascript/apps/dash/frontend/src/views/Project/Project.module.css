@@ -1,0 +1,50 @@
+.view {
+  overflow: visible;
+}
+
+.base:hover {
+  cursor: move;
+  cursor: grab;
+}
+
+.base:active {
+  cursor: grabbing;
+}
+
+.canvasControls {
+  display: flex;
+  width: 100%;
+  align-items: center;
+}
+
+.rotate {
+  border: none;
+  background-color: transparent;
+  margin-left: 1.875rem;
+}
+
+.rotate.UP {
+  transform: scaleX(-1) rotate(0deg);
+}
+
+.rotate.RIGHT {
+  transform: scaleX(-1) rotate(270deg);
+}
+
+.rotate.DOWN {
+  transform: scaleX(-1) rotate(180deg);
+}
+
+.rotate.LEFT {
+  transform: scaleX(-1) rotate(90deg);
+}
+
+.rotateSvg {
+  fill: var(--pachyderm-black);
+  width: 2rem;
+  height: 2rem;
+}
+
+.rotate:hover .rotateSvg {
+  fill: var(--selected-grey);
+}

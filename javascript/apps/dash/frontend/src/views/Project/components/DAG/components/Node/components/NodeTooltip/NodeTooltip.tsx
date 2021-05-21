@@ -3,8 +3,7 @@ import React from 'react';
 
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {NodeType, PipelineState} from '@graphqlTypes';
-
-import {deriveNameFromNodeNameAndType} from '../../../../utils/deriveRepoNameFromNode';
+import {deriveNameFromNodeNameAndType} from 'lib/deriveRepoNameFromNode';
 
 import styles from './NodeTooltip.module.css';
 

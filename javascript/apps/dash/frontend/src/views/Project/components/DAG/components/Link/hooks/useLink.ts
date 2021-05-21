@@ -3,8 +3,7 @@ import {useMemo} from 'react';
 
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {Link, PointCoordinates} from '@graphqlTypes';
-
-import useRouteController from '../../../hooks/useRouteController';
+import useRouteController from 'hooks/useRouteController';
 
 const getLineArray = (
   startPoint: PointCoordinates,

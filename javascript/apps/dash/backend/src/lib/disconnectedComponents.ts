@@ -1,39 +1,45 @@
 import keyBy from 'lodash/keyBy';
 import mapValues from 'lodash/mapValues';
 
-import {Vertex} from './types';
+import {Link, Node} from '@graphqlTypes';
 
-const disconnectedComponents = (nodes: Vertex[]) => {
+const disconnectedComponents = (nodes: Node[], links: Link[]) => {
   const nodeByName = keyBy(nodes, (n) => n.name);
   const isVisited = mapValues(nodeByName, () => false);
-  const adjNodesByNodeName = mapValues(nodeByName, () => new Set<Vertex>());
 
-  nodes.forEach((node) => {
-    node.parents.forEach((parentName) => {
-      const parentNode = nodeByName[parentName];
-
-      if (parentNode) {
-        adjNodesByNodeName[node.name].add(parentNode);
-        adjNodesByNodeName[parentNode.name].add(node);
-      }
-    });
-  });
-
-  const dfs = (node: Vertex) => {
+  const dfs = (node: Node) => {
     isVisited[node.name] = true;
 
-    const result = [node];
+    const result: {nodes: Node[]; links: Link[]} = {
+      nodes: [node],
+      links: [],
+    };
 
-    adjNodesByNodeName[node.name].forEach((adj) => {
-      if (!isVisited[adj.name]) {
-        result.push(...dfs(adj));
+    links.forEach((link) => {
+      if (link.source === node.name) result.links.push(link);
+
+      if (link.source === node.name && !isVisited[link.target]) {
+        const target = nodes.find((node) => node.name === link.target);
+        if (target) {
+          const dfsResult = dfs(target);
+          result.nodes.push(...dfsResult.nodes);
+          result.links.push(...dfsResult.links);
+        }
+      }
+      if (link.target === node.name && !isVisited[link.source]) {
+        const source = nodes.find((node) => node.name === link.source);
+        if (source) {
+          const dfsResult = dfs(source);
+          result.nodes.push(...dfsResult.nodes);
+          result.links.push(...dfsResult.links);
+        }
       }
     });
 
     return result;
   };
 
-  const components: Vertex[][] = [];
+  const components: {nodes: Node[]; links: Link[]}[] = [];
 
   nodes.forEach((node) => {
     if (!isVisited[node.name]) {

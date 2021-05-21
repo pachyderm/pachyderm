@@ -67,7 +67,6 @@ export type Dag = {
   id: Scalars['String'];
   nodes: Array<Node>;
   links: Array<Link>;
-  priorityPipelineState?: Maybe<PipelineState>;
 };
 
 export enum DagDirection {
@@ -693,11 +692,6 @@ export type DagResolvers<
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   nodes?: Resolver<Array<ResolversTypes['Node']>, ParentType, ContextType>;
   links?: Resolver<Array<ResolversTypes['Link']>, ParentType, ContextType>;
-  priorityPipelineState?: Resolver<
-    Maybe<ResolversTypes['PipelineState']>,
-    ParentType,
-    ContextType
-  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1210,7 +1204,7 @@ export type GetDagQueryVariables = Exact<{
 }>;
 
 export type GetDagQuery = {__typename?: 'Query'} & {
-  dag: {__typename?: 'Dag'} & Pick<Dag, 'id' | 'priorityPipelineState'> & {
+  dag: {__typename?: 'Dag'} & Pick<Dag, 'id'> & {
       nodes: Array<
         {__typename?: 'Node'} & Pick<
           Node,
@@ -1247,7 +1241,7 @@ export type GetDagsSubscriptionVariables = Exact<{
 
 export type GetDagsSubscription = {__typename?: 'Subscription'} & {
   dags: Array<
-    {__typename?: 'Dag'} & Pick<Dag, 'id' | 'priorityPipelineState'> & {
+    {__typename?: 'Dag'} & Pick<Dag, 'id'> & {
         nodes: Array<
           {__typename?: 'Node'} & Pick<
             Node,

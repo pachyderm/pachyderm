@@ -11,7 +11,7 @@ import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 import styles from './PipelineInfo.module.css';
 
 const PipelineInfo = () => {
-  const {projectId, dagId, pipelineId} = useUrlState();
+  const {projectId, pipelineId} = useUrlState();
   const {pipeline, loading} = useCurrentPipeline();
 
   return (
@@ -33,7 +33,6 @@ const PipelineInfo = () => {
           to={repoRoute({
             branchId: 'master',
             projectId,
-            dagId: dagId,
             repoId: pipelineId,
           })}
         >

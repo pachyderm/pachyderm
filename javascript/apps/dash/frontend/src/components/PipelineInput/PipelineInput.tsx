@@ -12,7 +12,6 @@ import styles from './PipelineInput.module.css';
 const generateInputObject = (
   jsonString: string,
   projectId: string,
-  dagId: string,
   branchId: string,
 ) => {
   const json = JSON.parse(jsonString, (key, value) => {
@@ -20,7 +19,6 @@ const generateInputObject = (
       return `
         <a href=${repoRoute({
           projectId,
-          dagId,
           repoId: value,
           branchId,
         })} id=${`__repo${value}`} class=repoLink>${value}</a>
@@ -36,7 +34,6 @@ const generateInputObject = (
 interface PipelineInputProps extends JSONBlockProps {
   inputString: string;
   projectId: string;
-  dagId: string;
   branchId?: string;
 }
 
@@ -44,7 +41,6 @@ const PipelineInput: React.FC<PipelineInputProps> = ({
   branchId = 'master',
   inputString,
   projectId,
-  dagId,
   className,
   ...rest
 }) => {
@@ -52,11 +48,11 @@ const PipelineInput: React.FC<PipelineInputProps> = ({
 
   const html = useMemo(() => {
     return JSON.stringify(
-      generateInputObject(inputString, projectId, dagId, branchId),
+      generateInputObject(inputString, projectId, branchId),
       null,
       2,
     );
-  }, [inputString, projectId, dagId, branchId]);
+  }, [inputString, projectId, branchId]);
 
   useEffect(() => {
     const links = Array.from(
