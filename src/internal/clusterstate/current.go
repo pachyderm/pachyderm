@@ -82,4 +82,7 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 		collections = append(collections, transactiondb.AllCollections()...)
 		collections = append(collections, authserver.AllCollections()...)
 		return col.SetupPostgresCollections(ctx, env.Tx, collections...)
+	}).
+	Apply("license clusters client_id column", func(ctx context.Context, env migrations.Env) error {
+		return license.AddClusterClientIdColumn(ctx, env.Tx)
 	})
