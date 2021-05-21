@@ -6006,7 +6006,12 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, mf.PutFile("bar", strings.NewReader("bar\n")))
 			return nil
 		}))
-		expected := []*pfs.File{pclient.NewFile(repo, "master", "", "/bar", fileset.DefaultFileTag), pclient.NewFile(repo, "master", "", "/foo", "tag1"), pclient.NewFile(repo, "master", "", "/foo", "tag2")}
+		newFile := func(repo, branch, commit, path, tag string) *pfs.File {
+			file := pclient.NewFile(repo, branch, commit, path)
+			file.Tag = tag
+			return file
+		}
+		expected := []*pfs.File{newFile(repo, "master", "", "/bar", fileset.DefaultFileTag), newFile(repo, "master", "", "/foo", "tag1"), newFile(repo, "master", "", "/foo", "tag2")}
 		require.NoError(t, env.PachClient.ListFile(repo, "master", "", "", func(fi *pfs.FileInfo) error {
 			require.Equal(t, expected[0].Path, fi.File.Path)
 			require.Equal(t, expected[0].Tag, fi.File.Tag)

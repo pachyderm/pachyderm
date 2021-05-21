@@ -45,15 +45,11 @@ func NewCommitProvenance(repoName string, branchName string, commitID string) *p
 }
 
 // NewFile creates a pfs.File.
-func NewFile(repoName string, branchName string, commitID string, path string, tag ...string) *pfs.File {
-	f := &pfs.File{
+func NewFile(repoName string, branchName string, commitID string, path string) *pfs.File {
+	return &pfs.File{
 		Commit: NewCommit(repoName, branchName, commitID),
 		Path:   path,
 	}
-	if len(tag) > 0 {
-		f.Tag = tag[0]
-	}
-	return f
 }
 
 // CreateRepo creates a new Repo object in pfs with the given name. Repos are
