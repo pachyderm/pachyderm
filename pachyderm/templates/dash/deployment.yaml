@@ -36,15 +36,24 @@ spec:
         {{- end }}
         name: dash
         ports:
-        - containerPort: 8080
+        - containerPort: {{ .Values.dash.config.graphqlPort }}
           name: dash-http
+        env:
+        - name: ISSUER_URI
+          value: {{ .Values.dash.config.issuerURI | quote}}
+        - name: OAUTH_REDIRECT_URI
+          value: {{ .Values.dash.config.oauthRedirectURI | quote }}
+        - name: OAUTH_CLIENT_ID
+          value: {{ .Values.dash.config.oauthClientID | quote }}
+        - name: OAUTH_CLIENT_SECRET
+          value: {{ .Values.dash.config.oauthClientSecret | quote }}
+        - name: GRAPHQL_PORT
+          value: {{ .Values.dash.config.graphqlPort | quote }}
+        - name: OAUTH_PACHD_CLIENT_ID
+          value: {{ .Values.dash.config.oauthPachdClientID | quote }}
+        - name: PACHD_ADDRESS
+          value: {{ .Values.dash.config.pachdAddress | quote }}
         {{- if .Values.dash.resources }}
         resources: {{ toYaml .Values.dash.resources | nindent 10 }}
         {{- end }}
-      - image: pachyderm/grpc-proxy:0.4.10
-        imagePullPolicy: IfNotPresent
-        name: grpc-proxy
-        ports:
-        - containerPort: 8081
-          name: grpc-proxy-http
 {{ end -}}

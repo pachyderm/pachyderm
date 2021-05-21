@@ -28,7 +28,7 @@ version: 2.0.0-alpha.4
 # the application. Versions are not expected to follow Semantic
 # Versioning. They should reflect the version the application is
 # using.
-appVersion: 2.0.0-alpha.15
+appVersion: 2.0.0-alpha.17
 
 kubeVersion: ">= 1.16.0-0"
 

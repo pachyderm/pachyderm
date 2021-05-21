@@ -19,11 +19,11 @@ dash:
     # repository is the image repo to pull from; together with tag it
     # replicates the --dash-image & --registry arguments to pachctl
     # deploy.
-    repository: "pachyderm/dash"
+    repository: "pachyderm/haberdashery"
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
-    tag: "0.5.58"
+    tag: "83baed0930c3d990f33c06094996a0692713439f"
   # podLabels specifies labels to add to the dash pod.
   podLabels: {}
   # resources specifies the resource request and limits.
@@ -34,6 +34,14 @@ dash:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+  config:
+    issuerURI: ""
+    oauthRedirectURI: ""
+    oauthClientID: ""
+    oauthClientSecret: ""
+    graphqlPort: 4000
+    oauthPachdClientID: ""
+    pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
   service:
     # labels specifies labels to add to the dash service.
     labels: {}

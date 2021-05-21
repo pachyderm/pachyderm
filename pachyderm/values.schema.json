@@ -5,6 +5,32 @@
         "dash": {
             "type": "object",
             "properties": {
+                "config": {
+                    "type": "object",
+                    "properties": {
+                        "graphqlPort": {
+                            "type": "integer"
+                        },
+                        "issuerURI": {
+                            "type": "string"
+                        },
+                        "oauthClientID": {
+                            "type": "string"
+                        },
+                        "oauthClientSecret": {
+                            "type": "string"
+                        },
+                        "oauthPachdClientID": {
+                            "type": "string"
+                        },
+                        "oauthRedirectURI": {
+                            "type": "string"
+                        },
+                        "pachdAddress": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "enabled": {
                     "type": "boolean"
                 },

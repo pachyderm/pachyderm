@@ -17,15 +17,19 @@ import (
 	"github.com/instrumenta/kubeval/kubeval"
 )
 
-func TestDashImageTag(t *testing.T) {
+func TestDashImageAndConfigTag(t *testing.T) {
 
 	helmChartPath := "../pachyderm"
 
+	expectedIssuerURI := "http://foo.bar"
+	expectedOauthRedirectURI := "http://foo.bar/oauth"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"dash.image.tag":              "0.5.5",
-			"pachd.storage.backend":       "GOOGLE",
-			"pachd.storage.google.bucket": "bucket",
+			"dash.image.tag":               "abc123",
+			"dash.config.issuerURI":        expectedIssuerURI,
+			"dash.config.oauthRedirectURI": expectedOauthRedirectURI,
+			"pachd.storage.backend":        "GOOGLE",
+			"pachd.storage.google.bucket":  "bucket",
 		},
 	}
 
@@ -34,11 +38,30 @@ func TestDashImageTag(t *testing.T) {
 	var deployment appsv1.Deployment
 	helm.UnmarshalK8SYaml(t, output, &deployment)
 
-	expectedContainerImage := "pachyderm/dash:0.5.5"
+	expectedContainerImage := "pachyderm/haberdashery:abc123"
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
 	if deploymentContainers[0].Image != expectedContainerImage {
 		t.Fatalf("Rendered container image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedContainerImage)
 	}
+
+	issuerURIEnvVar := "ISSUER_URI"
+	err, issuerURI := GetEnvVarByName(deploymentContainers[0].Env, issuerURIEnvVar)
+	if err != nil {
+		t.Fatalf("Could not find env var")
+	}
+	if issuerURI != expectedIssuerURI {
+		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", issuerURIEnvVar, issuerURI, expectedIssuerURI)
+	}
+
+	oauthURIEnvVar := "OAUTH_REDIRECT_URI"
+	err, oauthURI := GetEnvVarByName(deploymentContainers[0].Env, oauthURIEnvVar)
+	if err != nil {
+		t.Fatalf("Could not find env var")
+	}
+	if issuerURI != expectedIssuerURI {
+		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", oauthURIEnvVar, oauthURI, expectedOauthRedirectURI)
+	}
+
 }
 
 func TestEtcdImageTag(t *testing.T) {

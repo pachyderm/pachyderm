@@ -26,10 +26,6 @@ spec:
             backend:
               serviceName: "dash"
               servicePort: "dash-http"
-          - path: "/ws"
-            backend:
-              serviceName: "dash"
-              servicePort: "grpc-proxy-http"
           - path: "/dex"
             backend:
               serviceName: "pachd"
