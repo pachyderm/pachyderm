@@ -401,7 +401,7 @@ func Merge(dits []Iterator, cb func([]*Meta) error) error {
 	for _, dit := range dits {
 		ss = append(ss, newDatumStream(dit, len(ss)))
 	}
-	pq := stream.NewPriorityQueue(ss)
+	pq := stream.NewPriorityQueue(ss, compare)
 	return pq.Iterate(func(ss []stream.Stream) error {
 		var metas []*Meta
 		for _, s := range ss {
@@ -451,8 +451,10 @@ func (ds *datumStream) Next() error {
 	}
 }
 
-func (ds *datumStream) Compare(s stream.Stream) int {
-	return strings.Compare(ds.id, s.(*datumStream).id)
+func compare(s1, s2 stream.Stream) int {
+	ds1 := s1.(*datumStream)
+	ds2 := s2.(*datumStream)
+	return strings.Compare(ds1.id, ds2.id)
 }
 
 // NewIterator creates a new datum iterator.

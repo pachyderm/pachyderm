@@ -45,7 +45,7 @@ func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 			iterator: NewIterator(ctx, fs),
 		})
 	}
-	pq := stream.NewPriorityQueue(ss)
+	pq := stream.NewPriorityQueue(ss, compare)
 	return pq.Iterate(func(ss []stream.Stream) error {
 		var fss []*fileStream
 		for _, s := range ss {
@@ -83,7 +83,7 @@ func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error)
 			iterator: NewIterator(ctx, fs, true),
 		})
 	}
-	pq := stream.NewPriorityQueue(ss)
+	pq := stream.NewPriorityQueue(ss, compare)
 	return pq.Iterate(func(ss []stream.Stream) error {
 		var fss []*fileStream
 		for _, s := range ss {
@@ -133,12 +133,11 @@ func (fs *fileStream) Next() error {
 	return err
 }
 
-func (fs *fileStream) Compare(s stream.Stream) int {
-	idx := fs.file.Index()
-	fsCheck := s.(*fileStream)
-	idxCheck := fsCheck.file.Index()
-	if idx.Path == idxCheck.Path {
-		return strings.Compare(idx.File.Tag, idxCheck.File.Tag)
+func compare(s1, s2 stream.Stream) int {
+	idx1 := s1.(*fileStream).file.Index()
+	idx2 := s2.(*fileStream).file.Index()
+	if idx1.Path == idx2.Path {
+		return strings.Compare(idx1.File.Tag, idx2.File.Tag)
 	}
-	return strings.Compare(idx.Path, idxCheck.Path)
+	return strings.Compare(idx1.Path, idx2.Path)
 }

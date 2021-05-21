@@ -7,11 +7,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-// Stream is the standard interface for a sorted stream that can be used in a PriorityQueue.
+// Stream is a sorted stream that can be iterated.
 type Stream interface {
 	Next() error
-	Compare(Stream) int
 }
+
+// CompareFunc is a comparision function for two streams.
+type CompareFunc func(Stream, Stream) int
 
 type stream struct {
 	stream   Stream
@@ -23,10 +25,11 @@ type PriorityQueue struct {
 	queue []*stream
 	size  int
 	ss    []*stream
+	cmp   CompareFunc
 }
 
 // NewPriorityQueue creates a new priority queue.
-func NewPriorityQueue(ss []Stream) *PriorityQueue {
+func NewPriorityQueue(ss []Stream, cmp CompareFunc) *PriorityQueue {
 	var streams []*stream
 	for _, s := range ss {
 		streams = append(streams, &stream{
@@ -37,6 +40,7 @@ func NewPriorityQueue(ss []Stream) *PriorityQueue {
 	return &PriorityQueue{
 		queue: make([]*stream, len(ss)+1),
 		ss:    streams,
+		cmp:   cmp,
 	}
 }
 
@@ -67,7 +71,7 @@ func collectStreams(ss []*stream) []Stream {
 func (pq *PriorityQueue) compare(i, j int) int {
 	si := pq.queue[i]
 	sj := pq.queue[j]
-	return si.stream.Compare(sj.stream)
+	return pq.cmp(si.stream, sj.stream)
 }
 
 func (pq *PriorityQueue) empty() bool {
@@ -111,7 +115,7 @@ func (pq *PriorityQueue) next() ([]*stream, error) {
 	ss := []*stream{pq.queue[1]}
 	pq.fill()
 	// Keep popping streams off the queue if they are equal.
-	for pq.queue[1] != nil && pq.queue[1].stream.Compare(ss[0].stream) == 0 {
+	for pq.queue[1] != nil && pq.cmp(pq.queue[1].stream, ss[0].stream) == 0 {
 		ss = append(ss, pq.queue[1])
 		pq.fill()
 	}
