@@ -3641,22 +3641,9 @@ func TestPFS(suite *testing.T) {
 		commit1Info = inspect("A", commit1.Branch.Name, commit1.ID)
 		require.ElementsEqualUnderFn(t, []string{commit2.ID}, commit1Info.ChildCommits, CommitToID)
 
-		// Create a downstream branch in the same repo, then commit to "A" and make
-		// sure the new HEAD commit is in the parent's children (i.e. test
+		// Create a downstream branch in a different repo, then commit to "A" and
+		// make sure the new HEAD commit is in the parent's children (i.e. test
 		// propagateCommit)
-		require.NoError(t, env.PachClient.CreateBranch("A", "out", "", "", []*pfs.Branch{
-			pclient.NewBranch("A", "master"),
-		}))
-		outCommit1 := inspect("A", "out", "")
-		commit3, err = env.PachClient.StartCommit("A", "master")
-		require.NoError(t, err)
-		env.PachClient.FinishCommit("A", commit3.Branch.Name, commit3.ID)
-		// Re-inspect outCommit1, which has been updated by StartCommit
-		outCommit1, outCommit2 := inspect("A", outCommit1.Commit.Branch.Name, outCommit1.Commit.ID), inspect("A", "out", "")
-		require.Equal(t, outCommit1.Commit.ID, outCommit2.ParentCommit.ID)
-		require.ElementsEqualUnderFn(t, []string{outCommit2.Commit.ID}, outCommit1.ChildCommits, CommitToID)
-
-		// create a new branch in a different repo and do the same test again
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{
 			pclient.NewBranch("A", "master"),
@@ -3677,6 +3664,10 @@ func TestPFS(suite *testing.T) {
 			pclient.NewBranch("A", "master"),
 		}))
 		cCommit1 := inspect("C", "master", "") // Get new commit's ID
+		// TODO(global ids): this is failing because B@master is still open - is
+		// there anything we can do in this case?  We could maybe create a commit in
+		// B@master's job? That gets really tough in a transaction with multiple
+		// operations, though...
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "master", "", []*pfs.Branch{
 			pclient.NewBranch("A", "master"),
 			pclient.NewBranch("B", "master"),
@@ -5035,7 +5026,7 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CommitProgress", func(t *testing.T) {
 		// TODO(2.0 required): reimplement in terms of Job progress
-		t.Skip("CommitInfo no longer contains progress fields, use JobInfo instead")
+		t.Skip("CommitInfo no longer contains progress fields, use PipelineJobInfo instead")
 		t.Parallel()
 		/*
 			env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))

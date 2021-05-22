@@ -1281,13 +1281,11 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	return nil
 }
 
-// TODO: squash all commits in job
 func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
 	// TODO update branches inside this txn, by storing a repo's branches in its
 	// RepoInfo or its HEAD commit
-	deleted := make(map[string]*pfs.CommitInfo)   // deleted commits
-	affectedRepoKeys := make(map[string]struct{}) // repos containing deleted commits
+	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
 
 	// 1) re-read CommitInfo inside txn
 	userCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, userCommit)
@@ -1295,51 +1293,66 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 		return errors.Wrapf(err, "resolveCommit")
 	}
 
-	// 2) Define helper for deleting commits. 'lower' corresponds to
-	// pfs.CommitRange.Lower, and is an ancestor of 'upper'
-	deleteCommit := func(lower, upper *pfs.Commit) error {
-		// Validate arguments
-		lowerKey := pfsdb.RepoKey(lower.Branch.Repo)
-
-		if upperKey := pfsdb.RepoKey(upper.Branch.Repo); upperKey != lowerKey {
-			return errors.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lowerKey, upperKey)
-		}
-		affectedRepoKeys[lowerKey] = struct{}{}
-
-		// delete commits on path upper -> ... -> lower (traverse ParentCommits)
-		commit := upper
-		for {
-			if commit == nil {
-				return errors.Errorf("encountered nil parent commit in %s@%s...%s", lowerKey, lower.ID, upper.ID)
-			}
-			// Store commitInfo in 'deleted' and remove commit from etcd
-			commitInfo := &pfs.CommitInfo{}
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
-				return err
-			}
-			// If a commit has already been deleted, we don't want to overwrite the existing information, since commitInfo will be nil
-			if _, ok := deleted[commit.ID]; !ok {
-				deleted[commit.ID] = commitInfo
-			}
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.CommitKey(commit)); err != nil {
-				return err
-			}
-			// Delete the commit's filesets
-			if err := d.commitStore.DropFilesetsTx(txnCtx.SqlTx, commit); err != nil {
-				return err
-			}
-			if commit.ID == lower.ID {
-				break // check after deletion so we delete 'lower' (inclusive range)
-			}
-			commit = commitInfo.ParentCommit
-		}
-
-		return nil
+	// 3) Delete the commit
+	jobInfo := &pfs.JobInfo{}
+	if err := d.jobs.ReadWrite(txnCtx.SqlTx).Get(userCommitInfo.Commit.ID, jobInfo); err != nil {
+		return err
 	}
 
-	// 3) Delete the commit
-	// TODO(global ids): we need to delete every commit from the job
-	deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)
+	affectedBranches := []*pfs.Branch{}
+	for _, jobCommitInfo := range jobInfo.JobCommits {
+		commit := client.NewCommit(jobCommitInfo.Branch.Repo.Name, jobCommitInfo.Branch.Name, userCommitInfo.Commit.ID)
+
+		// Store commitInfo in 'deleted' and remove commit from etcd
+		commitInfo := &pfs.CommitInfo{}
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
+			return err
+		}
+		deleted[commit.ID] = commitInfo
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.CommitKey(commit)); err != nil {
+			return err
+		}
+
+		// Delete the commit's filesets
+		if err := d.commitStore.DropFilesetsTx(txnCtx.SqlTx, commit); err != nil {
+			return err
+		}
+
+		// Update the commit's branch's branchInfo in case this was the head of the branch
+		var branchInfo pfs.BranchInfo
+		movedHead := false
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(commit.Branch), &branchInfo, func() error {
+			if branchInfo.Head.ID == commit.ID {
+				branchInfo.Head = commitInfo.ParentCommit
+				affectedBranches = append(affectedBranches, commit.Branch)
+				movedHead = true
+			}
+			return nil
+		}); err != nil && !col.IsErrNotFound(err) {
+			// If err is NotFound, branch is in downstream provenance but
+			// doesn't exist yet (or branch may have been deleted) --nothing to update
+			return errors.Wrapf(err, "error updating branch %s", pfsdb.BranchKey(commit.Branch))
+		}
+
+		if commit.Branch.Name == "master" && movedHead {
+			repoInfo := &pfs.RepoInfo{}
+			if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(pfsdb.RepoKey(commit.Branch.Repo), repoInfo, func() error {
+				if branchInfo.Head != nil {
+					headCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, branchInfo.Head)
+					if err != nil {
+						return err
+					}
+					repoInfo.SizeBytes = headCommitInfo.SizeBytes
+				} else {
+					// No head commit, set the repo size to 0
+					repoInfo.SizeBytes = 0
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+	}
 
 	// 4) Rewrite ParentCommit of deleted commits' children, and
 	// ChildCommits of deleted commits' parents
@@ -1417,71 +1430,11 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 		}
 	}
 
-	// 5) Traverse affected repos and rewrite all branches so that no branch
-	// points to a deleted commit
-	var affectedBranches []*pfs.BranchInfo
-	for repoKey := range affectedRepoKeys {
-		repoInfo := &pfs.RepoInfo{}
-		if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(repoKey, repoInfo); err != nil {
-			return err
-		}
-		for _, brokenBranch := range repoInfo.Branches {
-			// Traverse HEAD commit until we find a non-deleted parent or nil;
-			// rewrite branch
-			var branchInfo pfs.BranchInfo
-			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(brokenBranch), &branchInfo, func() error {
-				prevHead := branchInfo.Head
-				for {
-					if branchInfo.Head == nil {
-						return nil // no commits left in branch
-					}
-					headCommitInfo, headIsDeleted := deleted[branchInfo.Head.ID]
-					if !headIsDeleted {
-						break
-					}
-					branchInfo.Head = headCommitInfo.ParentCommit
-				}
-				// TODO(global ids): should the branch be affected if prevHead is nil?  test that this situation is handled correctly:
-				//   create two input repos A and B
-				//   create a pipeline C using these repos as input
-				//   make a commit in A and B
-				//   squash the commit in A
-				//   what happens in A and C?  should we get an empty commit autogenerated in A?
-				if prevHead != nil && prevHead.ID != branchInfo.Head.ID {
-					affectedBranches = append(affectedBranches, &branchInfo)
-				}
-				return err
-			}); err != nil && !col.IsErrNotFound(err) {
-				// If err is NotFound, branch is in downstream provenance but
-				// doesn't exist yet--nothing to update
-				return errors.Wrapf(err, "error updating branch %v@%v", brokenBranch.Repo.Name, brokenBranch.Name)
-			}
-
-			// Update repo size if this is the master branch
-			if branchInfo.Branch.Name == "master" {
-				if branchInfo.Head != nil {
-					headCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, branchInfo.Head)
-					if err != nil {
-						return err
-					}
-					repoInfo.SizeBytes = headCommitInfo.SizeBytes
-				} else {
-					// No HEAD commit, set the repo size to 0
-					repoInfo.SizeBytes = 0
-				}
-
-				if err := d.repos.ReadWrite(txnCtx.SqlTx).Put(repoKey, repoInfo); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
 	// 6) propagate the changes to 'branch' and its subvenance. This may start
 	// new HEAD commits downstream, if the new branch heads haven't been
 	// processed yet
-	for _, afBranch := range affectedBranches {
-		if err := txnCtx.PropagateBranch(afBranch.Branch); err != nil {
+	for _, branch := range affectedBranches {
+		if err := txnCtx.PropagateBranch(branch); err != nil {
 			return err
 		}
 	}
@@ -1627,7 +1580,6 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	var ci *pfs.CommitInfo
 	// resolve the given commit
 	if commit != nil {
-		fmt.Printf("resolving commit: %s\n", pfsdb.CommitKey(commit))
 		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
 		if err != nil {
 			// possible that branch exists but has no head commit. This is fine, but
@@ -1670,7 +1622,6 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(pfsdb.BranchKey(branch), branchInfo, func() error {
 		branchInfo.Branch = branch
-		branchInfo.Head = commit
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
 			if provBranch.Repo.Name == branch.Repo.Name {
@@ -1694,6 +1645,13 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	// Create an alias of the head commit onto this branch - this will move the head of the branch
+	if commit != nil {
+		if err := d.aliasCommit(txnCtx, commit, branch); err != nil {
+			return err
+		}
 	}
 
 	// Update (or create)
