@@ -146,7 +146,7 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 	case commitOrBranchPart:
 		return BranchCompletion(flag, text, maxCompletions)
 	case filePart:
-		if err := c.GlobFile(partialFile.Commit.Branch.Repo.Name, partialFile.Commit.Branch.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
+		if err := c.GlobFile(partialFile.Commit, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
 				maxCompletions--
 			} else {

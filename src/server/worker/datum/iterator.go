@@ -51,7 +51,7 @@ func (pi *pfsIterator) Iterate(cb func(*Meta) error) error {
 	branch := pi.input.Branch
 	commit := pi.input.Commit
 	pattern := pi.input.Glob
-	return pi.pachClient.GlobFile(repo, branch, commit, pattern, func(fi *pfs.FileInfo) error {
+	return pi.pachClient.GlobFile(client.NewCommit(repo, branch, commit), pattern, func(fi *pfs.FileInfo) error {
 		g := glob.MustCompile(pi.input.Glob, '/')
 		joinOn := g.Replace(fi.File.Path, pi.input.JoinOn)
 		groupBy := g.Replace(fi.File.Path, pi.input.GroupBy)
@@ -196,7 +196,7 @@ func NewFileSetIterator(pachClient *client.APIClient, fsID string) Iterator {
 }
 
 func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
-	r, err := fsi.pachClient.GetFileTar(fsi.repo, "", fsi.commit, path.Join("/", MetaPrefix, "*", MetaFileName))
+	r, err := fsi.pachClient.GetFileTar(client.NewCommit(fsi.repo, "", fsi.commit), path.Join("/", MetaPrefix, "*", MetaFileName))
 	if err != nil {
 		return err
 	}

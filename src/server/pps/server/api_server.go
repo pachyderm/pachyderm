@@ -1691,7 +1691,7 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 			Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineName),
 		}, nil)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "could not marshal PipelineInfo")
 		}
 
 		if err := a.env.PfsServer().AddFilesetInTransaction(superCtx, &pfs.AddFilesetRequest{
@@ -3055,7 +3055,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		}
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
-	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
+	specProvenance := specCommit.Commit.NewProvenance()
 	if _, ok := provenanceMap[key(specProvenance.Commit.Branch.Repo.Name, specProvenance.Commit.Branch.Name)]; !ok {
 		provenance = append(provenance, specProvenance)
 	}
@@ -3071,10 +3071,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		// if stats are enabled, then create a stats commit for the job as well
 		if pipelineInfo.EnableStats {
 			// it needs to additionally be provenant on the commit we just created
-			newCommitProv := client.NewCommitProvenance(newCommit.Branch.Repo.Name, "", newCommit.ID)
 			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
 				Branch:     client.NewBranch(request.Pipeline.Name, "stats"),
-				Provenance: append(provenance, newCommitProv),
+				Provenance: append(provenance, newCommit.NewProvenance()),
 			})
 			if err != nil {
 				return err
@@ -3126,7 +3125,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	// make a tick on each cron input
 	for _, cron := range crons {
 		// TODO: This isn't transactional, we could support a transactional modify file through the fileset API though.
-		if err := txnClient.WithModifyFileClient(cron.Repo, "master", "", func(mf client.ModifyFile) error {
+		if err := txnClient.WithModifyFileClient(client.NewCommit(cron.Repo, "master", ""), func(mf client.ModifyFile) error {
 			if cron.Overwrite {
 				// get rid of any files, so the new file "overwrites" previous runs
 				err = mf.DeleteFile("/")
