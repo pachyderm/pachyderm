@@ -26,6 +26,10 @@ func (c *Commit) FullID() string {
 	return fmt.Sprintf("%s@%s", c.Branch.Repo.Name, c.ID)
 }
 
+func (c *Commit) Job() *Job {
+	return &Job{ID: c.ID}
+}
+
 // NewHash returns a hash that PFS uses internally to compute checksums.
 func NewHash() hash.Hash {
 	return pachhash.New()

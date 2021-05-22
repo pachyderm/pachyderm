@@ -72,6 +72,12 @@ type ErrCommitNotFinished struct {
 	Commit *pfs.Commit
 }
 
+// ErrAmbiguousCommit represents an error where a user-specified commit did not
+// specify a branch and resolved to multiple commits on different branches.
+type ErrAmbiguousCommit struct {
+	Commit *pfs.Commit
+}
+
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo.Name, e.File.Commit.ID)
 }
@@ -121,6 +127,10 @@ func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit.ID)
 }
 
+func (e ErrAmbiguousCommit) Error() string {
+	return fmt.Sprintf("commit %v is ambiguous (specify the commit branch to resolve)", e.Commit.ID)
+}
+
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
@@ -132,6 +142,7 @@ var (
 	hasNoHeadRe               = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
+	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -222,4 +233,14 @@ func IsCommitNotFinishedErr(err error) bool {
 		return false
 	}
 	return commitNotFinishedRe.MatchString(err.Error())
+}
+
+// IsAmbiguousCommitErr returns true if the err is due to attempting to resolve
+// a commit without specifying a branch when it is required to uniquely identify
+// the commit.
+func IsAmbiguousCommitErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return ambiguousCommitRe.MatchString(err.Error())
 }

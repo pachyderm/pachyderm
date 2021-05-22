@@ -68,9 +68,20 @@ var CommitsRepoIndex = &col.Index{
 	},
 }
 
-var commitsIndexes = []*col.Index{CommitsRepoIndex}
+var CommitsBranchlessIndex = &col.Index{
+	Name: "branchless",
+	Extract: func(val proto.Message) string {
+		return CommitBranchlessKey(val.(*pfs.CommitInfo).Commit)
+	},
+}
+
+var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex}
 
 func CommitKey(commit *pfs.Commit) string {
+	return BranchKey(commit.Branch) + "=" + commit.ID
+}
+
+func CommitBranchlessKey(commit *pfs.Commit) string {
 	return RepoKey(commit.Branch.Repo) + "@" + commit.ID
 }
 

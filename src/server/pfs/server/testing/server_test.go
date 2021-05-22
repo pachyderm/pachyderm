@@ -285,6 +285,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(cis))
 		id := cis[0].Commit.ID
+		fmt.Printf("cis: %v\n", cis)
 		require.NoError(t, env.PachClient.DeleteBranch("out", "master", false))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", id, []*pfs.Branch{pclient.NewBranch("in", "master")}))
 		cis, err = env.PachClient.ListCommit("out", "", "", "", "", 0)
@@ -801,23 +802,62 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		repoA := "a"
+		repoB := "b"
+		require.NoError(t, env.PachClient.CreateRepo(repoA))
+		require.NoError(t, env.PachClient.CreateRepo(repoB))
 
-		commit1, err := env.PachClient.StartCommit(repo, "master")
+		commit1, err := env.PachClient.StartCommit(repoA, "master")
 		require.NoError(t, err)
 
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, env.PachClient.FinishCommit(repoA, commit1.Branch.Name, commit1.ID))
 
-		commit2, err := env.PachClient.StartCommit(repo, "master")
+		commit2, err := env.PachClient.StartCommit(repoA, "master")
 		require.NoError(t, err)
+
+		// It should be an error to specify two provenances for the same repo@branch
+		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
+			Branch:     pclient.NewBranch(repoB, "master"),
+			Provenance: []*pfs.CommitProvenance{pclient.NewCommitProvenance(repoA, "master", commit2.ID), pclient.NewCommitProvenance(repoA, "master", commit1.ID)},
+		})
+		require.YesError(t, err)
+		require.Matches(t, "provenance contains multiple commits from the same branch", err.Error())
 
 		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
-			Branch:     pclient.NewBranch(repo, "foo"),
-			Provenance: []*pfs.CommitProvenance{pclient.NewCommitProvenance(repo, "master", commit2.ID), pclient.NewCommitProvenance(repo, "master", commit2.ID)},
+			Branch:     pclient.NewBranch(repoB, "master"),
+			Provenance: []*pfs.CommitProvenance{pclient.NewCommitProvenance(repoA, "master", commit2.ID), pclient.NewCommitProvenance(repoA, "master", commit2.ID)},
 		})
+		require.YesError(t, err)
+		require.Matches(t, "provenance contains multiple commits from the same branch", err.Error())
+	})
 
+	suite.Run("ProvenanceWithinSingleRepoDisallowed", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		repo := "repo"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+
+		// Errors when linking provenance across branches of the same repo
+		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
+			Branch:     pclient.NewBranch(repo, "foo"),
+			Provenance: []*pfs.CommitProvenance{pclient.NewCommitProvenance(repo, "master", commit.ID)},
+		})
+		require.YesError(t, err)
+		require.Matches(t, "cannot be in the provenance of its own branch", err.Error())
+
+		// Errors when linking provenance within a single branch of the same repo
+		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
+			Branch:     pclient.NewBranch(repo, "master"),
+			Provenance: []*pfs.CommitProvenance{pclient.NewCommitProvenance(repo, "master", commit.ID)},
+		})
+		require.YesError(t, err)
+		// Error message is different for a branch which already exists
+		require.Matches(t, "provenance contains a branch which the branch is not provenant on", err.Error())
 	})
 
 	suite.Run("AncestrySyntax", func(t *testing.T) {
