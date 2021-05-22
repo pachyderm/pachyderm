@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -1186,59 +1187,26 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, string(expectedOutputA), buffer.String())
 	})
 
-	suite.Run("TestPutFile", func(t *testing.T) {
-		// TODO(2.0 required): Implement directory & file path collision?
-		t.Skip("Directory & file path collision detection not implemented in V2")
+	suite.Run("PutFile", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-
-		// Detect file conflict
-		commit1, err := env.PachClient.StartCommit(repo, "")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.PutFile(commit1, "foo/bar", strings.NewReader("foo\n")))
-		require.YesError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
-
-		commit1, err = env.PachClient.StartCommit(repo, "")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
-
-		var buffer bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(commit1, "foo", &buffer))
-		require.Equal(t, "foo\nfoo\n", buffer.String())
-
-		commit2, err := env.PachClient.StartCommitParent(repo, "", commit1.Branch.Name, commit1.ID)
-		require.NoError(t, err)
-		// file conflicts with the previous commit
-		require.NoError(t, env.PachClient.PutFile(commit2, "foo/bar", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.PutFile(commit2, "/bar", strings.NewReader("bar\n")))
-		require.YesError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
-
-		commit2, err = env.PachClient.StartCommitParent(repo, "", commit1.Branch.Name, commit1.ID)
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(commit2, "/bar", strings.NewReader("bar\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
-
-		commit3, err := env.PachClient.StartCommitParent(repo, "", commit2.Branch.Name, commit2.ID)
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(commit3, "dir1/foo", strings.NewReader("foo\n"))) // because the directory dir does not exist
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.Branch.Name, commit3.ID))
-
-		commit4, err := env.PachClient.StartCommitParent(repo, "", commit3.Branch.Name, commit3.ID)
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(commit4, "dir2/bar", strings.NewReader("bar\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit4.Branch.Name, commit4.ID))
-
-		buffer = bytes.Buffer{}
-		require.NoError(t, env.PachClient.GetFile(commit4, "dir2/bar", &buffer))
-		require.Equal(t, "bar\n", buffer.String())
-		buffer = bytes.Buffer{}
-		require.NoError(t, env.PachClient.GetFile(commit4, "dir2", &buffer))
+		masterCommit := client.NewCommit(repo, "master", "")
+		require.NoError(t, env.PachClient.PutFile(masterCommit, "file", strings.NewReader("foo")))
+		var buf bytes.Buffer
+		require.NoError(t, env.PachClient.GetFile(masterCommit, "file", &buf))
+		require.Equal(t, "foo", buf.String())
+		require.NoError(t, env.PachClient.PutFile(masterCommit, "file", strings.NewReader("bar")))
+		buf.Reset()
+		require.NoError(t, env.PachClient.GetFile(masterCommit, "file", &buf))
+		require.Equal(t, "bar", buf.String())
+		require.NoError(t, env.PachClient.DeleteFile(masterCommit, "file"))
+		require.NoError(t, env.PachClient.PutFile(masterCommit, "file", strings.NewReader("buzz")))
+		buf.Reset()
+		require.NoError(t, env.PachClient.GetFile(masterCommit, "file", &buf))
+		require.Equal(t, "buzz", buf.String())
 	})
 
 	suite.Run("PutFile2", func(t *testing.T) {
@@ -1289,28 +1257,6 @@ func TestPFS(suite *testing.T) {
 		buffer.Reset()
 		require.NoError(t, env.PachClient.GetFile(fooCommit, "file", buffer))
 		require.Equal(t, expected, buffer.String())
-	})
-
-	suite.Run("PutFile", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-		commit := client.NewCommit(repo, "master", "")
-		require.NoError(t, env.PachClient.PutFile(commit, "file", strings.NewReader("foo")))
-		var buf bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(commit, "file", &buf))
-		require.Equal(t, "foo", buf.String())
-		require.NoError(t, env.PachClient.PutFile(commit, "file", strings.NewReader("bar")))
-		buf.Reset()
-		require.NoError(t, env.PachClient.GetFile(commit, "file", &buf))
-		require.Equal(t, "bar", buf.String())
-		require.NoError(t, env.PachClient.DeleteFile(commit, "file"))
-		require.NoError(t, env.PachClient.PutFile(commit, "file", strings.NewReader("buzz")))
-		buf.Reset()
-		require.NoError(t, env.PachClient.GetFile(commit, "file", &buf))
-		require.Equal(t, "buzz", buf.String())
 	})
 
 	suite.Run("PutFileBranchCommitID", func(t *testing.T) {
@@ -1756,28 +1702,6 @@ func TestPFS(suite *testing.T) {
 			return nil
 		}))
 		require.ElementsEqual(t, []string{"/dir1/", "/dir2/"}, finfosToPaths(fis))
-	})
-
-	suite.Run("PutFileTypeConflict", func(t *testing.T) {
-		// TODO(2.0 required): Implement directory & file path collision?
-		t.Skip("Directory & file path collision detection not implemented in V2")
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-
-		fileContent := "foo\n"
-
-		commit1, err := env.PachClient.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(commit1, "dir/1", strings.NewReader(fileContent)))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
-
-		commit2, err := env.PachClient.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(commit2, "dir", strings.NewReader(fileContent)))
-		require.YesError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
 	})
 
 	suite.Run("RootDirectory", func(t *testing.T) {
@@ -6022,6 +5946,33 @@ func TestPFS(suite *testing.T) {
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{})
 		requireNoPanic(err)
+	})
+
+	suite.Run("DuplicateFileDifferentTag", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		masterCommit := client.NewCommit(repo, "master", "")
+		require.NoError(t, env.PachClient.WithModifyFileClient(masterCommit, func(mf pclient.ModifyFile) error {
+			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), pclient.WithTagPutFile("tag1")))
+			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), pclient.WithTagPutFile("tag2")))
+			require.NoError(t, mf.PutFile("bar", strings.NewReader("bar\n")))
+			return nil
+		}))
+		newFile := func(repo, branch, commit, path, tag string) *pfs.File {
+			file := pclient.NewFile(repo, branch, commit, path)
+			file.Tag = tag
+			return file
+		}
+		expected := []*pfs.File{newFile(repo, "master", "", "/bar", fileset.DefaultFileTag), newFile(repo, "master", "", "/foo", "tag1"), newFile(repo, "master", "", "/foo", "tag2")}
+		require.NoError(t, env.PachClient.ListFile(masterCommit, "", func(fi *pfs.FileInfo) error {
+			require.Equal(t, expected[0].Path, fi.File.Path)
+			require.Equal(t, expected[0].Tag, fi.File.Tag)
+			expected = expected[1:]
+			return nil
+		}))
+		require.Equal(t, 0, len(expected))
 	})
 }
 

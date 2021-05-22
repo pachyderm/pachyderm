@@ -5214,11 +5214,7 @@ func TestUnionInput(t *testing.T) {
 		outCommit := commitInfos[0].Commit
 		fileInfos, err := c.ListFileAll(outCommit, "")
 		require.NoError(t, err)
-		require.Equal(t, 2, len(fileInfos))
-		for _, fi := range fileInfos {
-			// 1 byte per repo
-			require.Equal(t, uint64(len(repos)), fi.SizeBytes)
-		}
+		require.Equal(t, 8, len(fileInfos))
 	})
 
 	t.Run("union crosses", func(t *testing.T) {
@@ -5254,11 +5250,7 @@ func TestUnionInput(t *testing.T) {
 		for _, repo := range repos {
 			fileInfos, err := c.ListFileAll(outCommit, repo)
 			require.NoError(t, err)
-			require.Equal(t, 2, len(fileInfos))
-			for _, fi := range fileInfos {
-				// each file should be seen twice
-				require.Equal(t, uint64(2), fi.SizeBytes)
-			}
+			require.Equal(t, 4, len(fileInfos))
 		}
 	})
 
@@ -5295,11 +5287,7 @@ func TestUnionInput(t *testing.T) {
 		for _, repo := range repos {
 			fileInfos, err := c.ListFileAll(outCommit, repo)
 			require.NoError(t, err)
-			require.Equal(t, 2, len(fileInfos))
-			for _, fi := range fileInfos {
-				// each file should be seen twice
-				require.Equal(t, uint64(4), fi.SizeBytes)
-			}
+			require.Equal(t, 8, len(fileInfos))
 		}
 	})
 }

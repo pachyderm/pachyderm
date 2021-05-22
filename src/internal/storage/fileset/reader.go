@@ -74,7 +74,6 @@ func (fr *FileReader) Index() *index.Index {
 
 // Content writes the content of the file.
 func (fr *FileReader) Content(w io.Writer) error {
-	dataRefs := getDataRefs(fr.idx.File.Parts)
-	r := fr.chunks.NewReader(fr.ctx, dataRefs)
+	r := fr.chunks.NewReader(fr.ctx, fr.idx.File.DataRefs)
 	return r.Get(w)
 }

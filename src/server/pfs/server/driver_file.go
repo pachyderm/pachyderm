@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"path"
 	"path/filepath"
 	"strings"
@@ -86,7 +85,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, commit *pfs.Comm
 
 func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
 	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}, opts...)
-	uw, err := d.storage.NewUnorderedWriter(ctx, d.getDefaultTag(), opts...)
+	uw, err := d.storage.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +106,6 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringS
 	}
 	renewer.Add(compactedID.HexString())
 	return compactedID, nil
-}
-
-func (d *driver) getDefaultTag() string {
-	// TODO: change this to a constant like "input" or "default"
-	return fmt.Sprintf("%012d", time.Now().UnixNano())
 }
 
 func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit, opts ...index.Option) (*pfs.CommitInfo, fileset.FileSet, error) {
@@ -159,7 +153,7 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 		}
 		return path.Join(dstPath, relPath)
 	}
-	_, fs, err := d.openCommit(ctx, srcCommit, index.WithPrefix(srcPath))
+	_, fs, err := d.openCommit(ctx, srcCommit, index.WithPrefix(srcPath), index.WithTag(src.Tag))
 	if err != nil {
 		return err
 	}
@@ -171,13 +165,13 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 		idx2.Path = pathTransform(idx2.Path)
 		return &idx2
 	})
-	return uw.Copy(ctx, fs, appendFile, tag)
+	return uw.Copy(ctx, fs, tag, appendFile)
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {
 	commit := file.Commit
 	glob := cleanPath(file.Path)
-	commitInfo, fs, err := d.openCommit(ctx, commit, index.WithPrefix(globLiteralPrefix(glob)))
+	commitInfo, fs, err := d.openCommit(ctx, commit, index.WithPrefix(globLiteralPrefix(glob)), index.WithTag(file.Tag))
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +195,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	if p == "/" {
 		p = ""
 	}
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(p))
+	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(p), index.WithTag(file.Tag))
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +224,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, cb func(*pfs.FileInfo) error) error {
 	name := cleanPath(file.Path)
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(name))
+	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(name), index.WithTag(file.Tag))
 	if err != nil {
 		return err
 	}
@@ -265,7 +259,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 	if p == "/" {
 		p = ""
 	}
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(p))
+	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(p), index.WithTag(file.Tag))
 	if err != nil {
 		return err
 	}
@@ -358,7 +352,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 	}
 	var old Source = emptySource{}
 	if oldCommit != nil {
-		oldCommitInfo, fs, err := d.openCommit(ctx, oldCommit, index.WithPrefix(oldName))
+		oldCommitInfo, fs, err := d.openCommit(ctx, oldCommit, index.WithPrefix(oldName), index.WithTag(oldFile.Tag))
 		if err != nil {
 			return err
 		}
@@ -372,7 +366,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 		}
 		old = NewSource(d.storage, oldCommitInfo, fs, opts...)
 	}
-	newCommitInfo, fs, err := d.openCommit(ctx, newCommit, index.WithPrefix(newName))
+	newCommitInfo, fs, err := d.openCommit(ctx, newCommit, index.WithPrefix(newName), index.WithTag(newFile.Tag))
 	if err != nil {
 		return err
 	}

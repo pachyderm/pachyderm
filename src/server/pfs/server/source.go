@@ -54,8 +54,10 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	cache := make(map[string]*pfs.FileInfo)
 	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
+		file := s.commitInfo.Commit.NewFile(idx.Path)
+		file.Tag = idx.File.Tag
 		fi := &pfs.FileInfo{
-			File:      s.commitInfo.Commit.NewFile(idx.Path),
+			File:      file,
 			FileType:  pfs.FileType_FILE,
 			Committed: s.commitInfo.Finished,
 		}

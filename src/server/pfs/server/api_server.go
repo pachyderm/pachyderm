@@ -406,7 +406,7 @@ func putFileTar(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.P
 		if hdr.Typeflag == tar.TypeDir {
 			continue
 		}
-		if err := uw.Put(hdr.Name, req.Append, tr, req.Tag); err != nil {
+		if err := uw.Put(hdr.Name, req.Tag, req.Append, tr); err != nil {
 			return tfsr.bytesRead, err
 		}
 	}
@@ -455,7 +455,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.PutFi
 				retErr = err
 			}
 		}()
-		return 0, uw.Put(src.Path, req.Append, resp.Body, req.Tag)
+		return 0, uw.Put(src.Path, req.Tag, req.Append, resp.Body)
 	default:
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
@@ -471,14 +471,14 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.PutFi
 				return obj.WithPipe(func(w io.Writer) error {
 					return objClient.Get(ctx, name, w)
 				}, func(r io.Reader) error {
-					return uw.Put(filepath.Join(src.Path, strings.TrimPrefix(name, path)), req.Append, r, req.Tag)
+					return uw.Put(filepath.Join(src.Path, strings.TrimPrefix(name, path)), req.Tag, req.Append, r)
 				})
 			})
 		}
 		return 0, obj.WithPipe(func(w io.Writer) error {
 			return objClient.Get(ctx, url.Object, w)
 		}, func(r io.Reader) error {
-			return uw.Put(src.Path, req.Append, r, req.Tag)
+			return uw.Put(src.Path, req.Tag, req.Append, r)
 		})
 	}
 }
@@ -490,7 +490,7 @@ func putFileRaw(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.P
 		r:      bytes.NewReader(src.Data),
 		done:   src.EOF,
 	}
-	err := uw.Put(src.Path, req.Append, rfsr, req.Tag)
+	err := uw.Put(src.Path, req.Tag, req.Append, rfsr)
 	return rfsr.bytesRead, err
 }
 
