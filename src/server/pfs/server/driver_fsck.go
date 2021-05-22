@@ -46,25 +46,13 @@ func equalBranches(a, b []*pfs.Branch) bool {
 	return true
 }
 
-func equalCommits(a, b []*pfs.Commit) bool {
-	aMap := make(map[string]bool)
-	bMap := make(map[string]bool)
-	for _, commit := range a {
-		aMap[fsckCommitKey(commit)] = true
-	}
-	for _, commit := range b {
-		bMap[fsckCommitKey(commit)] = true
-	}
-	if len(aMap) != len(bMap) {
-		return false
-	}
-
-	for k := range aMap {
-		if !bMap[k] {
-			return false
+func branchInSet(branch *pfs.Branch, set []*pfs.Branch) bool {
+	for _, b := range set {
+		if proto.Equal(branch, b) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // ErrBranchProvenanceTransitivity Branch provenance is not transitively closed.
@@ -94,6 +82,15 @@ func (e ErrBranchProvenanceTransitivity) Error() string {
 		}
 	}
 	return msg.String()
+}
+
+type ErrBranchSubvenanceTransitivity struct {
+	BranchInfo        *pfs.BranchInfo
+	MissingSubvenance *pfs.Branch
+}
+
+func (e ErrBranchSubvenanceTransitivity) Error() string {
+	return fmt.Sprintf("consistency error: branch %s is missing branch %s in its subvenance\n", pfsdb.BranchKey(e.BranchInfo.Branch), pfsdb.BranchKey(e.MissingSubvenance))
 }
 
 // ErrBranchInfoNotFound Branch info could not be found. Typically because of an incomplete deletion of a branch.
@@ -177,6 +174,19 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 				FullProvenance: union,
 			}); err != nil {
 				return err
+			}
+		}
+
+		// every branch's provenant branches should have this branch in its subvenance
+		for _, provBranch := range bi.Provenance {
+			provBranchInfo := branchInfos[pfsdb.BranchKey(provBranch)]
+			if !branchInSet(bi.Branch, provBranchInfo.Subvenance) {
+				if err := onError(ErrBranchSubvenanceTransitivity{
+					BranchInfo:        provBranchInfo,
+					MissingSubvenance: bi.Branch,
+				}); err != nil {
+					return err
+				}
 			}
 		}
 

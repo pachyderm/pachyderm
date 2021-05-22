@@ -505,7 +505,7 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 		return nil, err
 	}
 
-	if err := d.openCommits.ReadWrite(txnCtx.SqlTx).Put(newCommit.ID, newCommit); err != nil {
+	if err := d.openCommits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(newCommit), newCommit); err != nil {
 		return nil, err
 	}
 
@@ -532,7 +532,7 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 		}
 		// fail if the parent commit has not been finished
 		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Branch.Repo.Name, parent.ID)
+			return nil, errors.Errorf("parent commit %s has not been finished", pfsdb.CommitKey(parent))
 		}
 		// TODO: is it necessary to do an Update here?  We just loaded the commit info in the transaction
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(parentCommitInfo.Commit), parentCommitInfo, func() error {
@@ -542,7 +542,7 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 		}); err != nil {
 			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
 			// missing/invalid commit ID
-			return nil, errors.Wrapf(err, "could not resolve parent commit \"%s\"", parent.ID)
+			return nil, errors.Wrapf(err, "could not resolve parent commit %s", pfsdb.CommitKey(parent))
 		}
 	}
 
@@ -583,11 +583,6 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 	// Finally, create the commit
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
 		return nil, err
-	}
-	if newCommitInfo.Finished != nil {
-		if err := d.triggerCommit(txnCtx, newCommit); err != nil {
-			return nil, err
-		}
 	}
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
@@ -733,7 +728,7 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitI
 	if err := d.commits.ReadWrite(sqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
 		return err
 	}
-	if err := d.openCommits.ReadWrite(sqlTx).Delete(commit.ID); err != nil {
+	if err := d.openCommits.ReadWrite(sqlTx).Delete(pfsdb.CommitKey(commit)); err != nil {
 		return errors.Wrapf(err, "could not confirm that commit %s is open; this is likely a bug", commit.ID)
 	}
 	// update the repo size if this is the head of master
@@ -806,7 +801,7 @@ func (d *driver) propagateCommits(txnCtx *txnenv.TransactionContext, branches []
 			if err != nil {
 				return err
 			}
-			subvBIMap[pfsdb.BranchKey(branch)] = subvInfo
+			subvBIMap[pfsdb.BranchKey(subvBranch)] = subvInfo
 		}
 	}
 
@@ -896,17 +891,20 @@ nextSubvBI:
 			if err != nil {
 				return err
 			}
-			if provOfSubvBI.Head.ID != txnCtx.Job.ID {
-				if err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
-					return err
+			// If one of the provenances has a nil head, skip adding it to this job
+			if provOfSubvBI.Head != nil {
+				if provOfSubvBI.Head.ID != txnCtx.Job.ID {
+					if err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
+						return err
+					}
+					// Update the cached branch head
+					provOfSubvBI.Head.ID = txnCtx.Job.ID
 				}
-				// Update the cached branch head
-				provOfSubvBI.Head.ID = txnCtx.Job.ID
-			}
-			// Generate the new job commit info for this branch
-			jobCommitInfoMap[pfsdb.BranchKey(provOfSubvBI.Branch)] = &pfs.JobCommitInfo{
-				Branch:     provOfSubvBI.Branch,
-				Provenance: provOfSubvBI.Provenance,
+				// Generate the new job commit info for this branch
+				jobCommitInfoMap[pfsdb.BranchKey(provOfSubvBI.Branch)] = &pfs.JobCommitInfo{
+					Branch:     provOfSubvBI.Branch,
+					Provenance: provOfSubvBI.Provenance,
+				}
 			}
 		}
 
@@ -914,7 +912,7 @@ nextSubvBI:
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
 			return err
 		}
-		if err := d.openCommits.ReadWrite(txnCtx.SqlTx).Put(newCommit.ID, newCommit); err != nil {
+		if err := d.openCommits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(newCommit), newCommit); err != nil {
 			return err
 		}
 	}
