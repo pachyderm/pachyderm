@@ -1183,59 +1183,25 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, string(expectedOutputA), buffer.String())
 	})
 
-	suite.Run("TestPutFile", func(t *testing.T) {
-		// TODO(2.0 required): Implement directory & file path collision?
-		t.Skip("Directory & file path collision detection not implemented in V2")
+	suite.Run("PutFile", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-
-		// Detect file conflict
-		commit1, err := env.PachClient.StartCommit(repo, "")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "foo/bar", strings.NewReader("foo\n")))
-		require.YesError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
-
-		commit1, err = env.PachClient.StartCommit(repo, "")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
-
-		var buffer bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(repo, commit1.Branch.Name, commit1.ID, "foo", &buffer))
-		require.Equal(t, "foo\nfoo\n", buffer.String())
-
-		commit2, err := env.PachClient.StartCommitParent(repo, "", commit1.Branch.Name, commit1.ID)
-		require.NoError(t, err)
-		// file conflicts with the previous commit
-		require.NoError(t, env.PachClient.PutFile(repo, commit2.Branch.Name, commit2.ID, "foo/bar", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.PutFile(repo, commit2.Branch.Name, commit2.ID, "/bar", strings.NewReader("bar\n")))
-		require.YesError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
-
-		commit2, err = env.PachClient.StartCommitParent(repo, "", commit1.Branch.Name, commit1.ID)
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit2.Branch.Name, commit2.ID, "/bar", strings.NewReader("bar\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
-
-		commit3, err := env.PachClient.StartCommitParent(repo, "", commit2.Branch.Name, commit2.ID)
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit3.Branch.Name, commit3.ID, "dir1/foo", strings.NewReader("foo\n"))) // because the directory dir does not exist
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.Branch.Name, commit3.ID))
-
-		commit4, err := env.PachClient.StartCommitParent(repo, "", commit3.Branch.Name, commit3.ID)
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit4.Branch.Name, commit4.ID, "dir2/bar", strings.NewReader("bar\n")))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit4.Branch.Name, commit4.ID))
-
-		buffer = bytes.Buffer{}
-		require.NoError(t, env.PachClient.GetFile(repo, commit4.Branch.Name, commit4.ID, "dir2/bar", &buffer))
-		require.Equal(t, "bar\n", buffer.String())
-		buffer = bytes.Buffer{}
-		require.NoError(t, env.PachClient.GetFile(repo, commit4.Branch.Name, commit4.ID, "dir2", &buffer))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "", "file", strings.NewReader("foo")))
+		var buf bytes.Buffer
+		require.NoError(t, env.PachClient.GetFile(repo, "master", "", "file", &buf))
+		require.Equal(t, "foo", buf.String())
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "", "file", strings.NewReader("bar")))
+		buf.Reset()
+		require.NoError(t, env.PachClient.GetFile(repo, "master", "", "file", &buf))
+		require.Equal(t, "bar", buf.String())
+		require.NoError(t, env.PachClient.DeleteFile(repo, "master", "", "file"))
+		require.NoError(t, env.PachClient.PutFile(repo, "master", "", "file", strings.NewReader("buzz")))
+		buf.Reset()
+		require.NoError(t, env.PachClient.GetFile(repo, "master", "", "file", &buf))
+		require.Equal(t, "buzz", buf.String())
 	})
 
 	suite.Run("PutFile2", func(t *testing.T) {
@@ -1284,27 +1250,6 @@ func TestPFS(suite *testing.T) {
 		buffer.Reset()
 		require.NoError(t, env.PachClient.GetFile(repo, "foo", "", "file", buffer))
 		require.Equal(t, expected, buffer.String())
-	})
-
-	suite.Run("PutFile", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "", "file", strings.NewReader("foo")))
-		var buf bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(repo, "master", "", "file", &buf))
-		require.Equal(t, "foo", buf.String())
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "", "file", strings.NewReader("bar")))
-		buf.Reset()
-		require.NoError(t, env.PachClient.GetFile(repo, "master", "", "file", &buf))
-		require.Equal(t, "bar", buf.String())
-		require.NoError(t, env.PachClient.DeleteFile(repo, "master", "", "file"))
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "", "file", strings.NewReader("buzz")))
-		buf.Reset()
-		require.NoError(t, env.PachClient.GetFile(repo, "master", "", "file", &buf))
-		require.Equal(t, "buzz", buf.String())
 	})
 
 	suite.Run("PutFileBranchCommitID", func(t *testing.T) {
@@ -1746,28 +1691,6 @@ func TestPFS(suite *testing.T) {
 			return nil
 		}))
 		require.ElementsEqual(t, []string{"/dir1/", "/dir2/"}, finfosToPaths(fis))
-	})
-
-	suite.Run("PutFileTypeConflict", func(t *testing.T) {
-		// TODO(2.0 required): Implement directory & file path collision?
-		t.Skip("Directory & file path collision detection not implemented in V2")
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-
-		fileContent := "foo\n"
-
-		commit1, err := env.PachClient.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit1.Branch.Name, commit1.ID, "dir/1", strings.NewReader(fileContent)))
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
-
-		commit2, err := env.PachClient.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, commit2.Branch.Name, commit2.ID, "dir", strings.NewReader(fileContent)))
-		require.YesError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
 	})
 
 	suite.Run("RootDirectory", func(t *testing.T) {
