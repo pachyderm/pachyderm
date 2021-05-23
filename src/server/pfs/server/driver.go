@@ -583,7 +583,7 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 	// (inconsistent DAG).  The rest of the commits in the branch provenance will
 	// be evaluated during propagateCommits at the end of the transaction.
 	for _, prov := range resolvedProv {
-		if err := d.aliasCommit(txnCtx, prov, prov.Branch); err != nil {
+		if _, err := d.aliasCommit(txnCtx, prov, prov.Branch); err != nil {
 			return nil, err
 		}
 	}
@@ -647,7 +647,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	return nil
 }
 
-func (d *driver) aliasCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Commit, branch *pfs.Branch) error {
+func (d *driver) aliasCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Commit, branch *pfs.Branch) (*pfs.Commit, error) {
 	// It is considered an error if the Job attempts to use two different commits
 	// from the same branch.  Therefore, if there is already a row for the given
 	// branch and it doesn't reference the same parent commit, we fail.
@@ -665,7 +665,7 @@ func (d *driver) aliasCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 	newCommitInfo := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), newCommitInfo); err != nil {
 		if !col.IsErrNotFound(err) {
-			return err
+			return nil, err
 		}
 		// No commit already exists, create a new one
 		// First load the parent commit and update it to point to the child
@@ -678,7 +678,7 @@ func (d *driver) aliasCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, commit)
 			return nil
 		}); err != nil {
-			return err
+			return nil, err
 		}
 
 		newCommitInfo = &pfs.CommitInfo{
@@ -691,39 +691,40 @@ func (d *driver) aliasCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 			SizeBytes:    parentCommitInfo.SizeBytes,
 		}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommitInfo.Commit), newCommitInfo); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		// A commit at the current transaction's ID already exists - make sure it is an alias with the right parent
 		if newCommitInfo.Origin.Kind != pfs.OriginKind_AUTO || !proto.Equal(newCommitInfo.ParentCommit, parent) {
 			// TODO: real error type for this
-			return errors.Errorf("inconsistent dependencies: cannot create alias for %s - branch (%s) is already aliased to %s", pfsdb.CommitKey(parent), pfsdb.BranchKey(branch), pfsdb.CommitKey(newCommitInfo.ParentCommit))
+			return nil, errors.Errorf("inconsistent dependencies: cannot create alias for %s - branch (%s) is already aliased to %s", pfsdb.CommitKey(parent), pfsdb.BranchKey(branch), pfsdb.CommitKey(newCommitInfo.ParentCommit))
 		}
 	}
 
 	// Update the branch head to point to the alias
-	// TODO(global ids): there may be some cases we don't want to do this, like
-	// when doing a 'run pipeline' with explicit provenance?
+	// TODO(global ids): we likely want this behavior to be optional, like when
+	// doing a 'run pipeline' with explicit provenance (to make off-head commits
+	// in the branch).
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(branch), branchInfo, func() error {
 		branchInfo.Head = commit
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Update the repo size if this is on the 'master' branch
-	if branchInfo.Branch.Name == "master" {
+	if branch.Name == "master" {
 		repoInfo := &pfs.RepoInfo{}
 		if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(pfsdb.RepoKey(branch.Repo), repoInfo, func() error {
 			repoInfo.SizeBytes = newCommitInfo.SizeBytes
 			return nil
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return commit, nil
 }
 
 // writeFinishedCommit writes these changes to etcd:
@@ -898,7 +899,7 @@ nextSubvBI:
 			// If one of the provenances has a nil head, skip adding it to this job
 			if provOfSubvBI.Head != nil {
 				if provOfSubvBI.Head.ID != txnCtx.Job.ID {
-					if err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
+					if _, err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
 						return err
 					}
 					// Update the cached branch head
@@ -1633,22 +1634,15 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}); err != nil {
 		return err
 	}
-	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(pfsdb.RepoKey(branch.Repo), repoInfo, func() error {
-		add(&repoInfo.Branches, branch)
-		if branch.Name == "master" && ci != nil {
-			repoInfo.SizeBytes = ci.SizeBytes
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
 
 	// Create an alias of the head commit onto this branch - this will move the head of the branch
 	if commit != nil {
-		if err := d.aliasCommit(txnCtx, commit, branch); err != nil {
+		aliasCommit, err := d.aliasCommit(txnCtx, commit, branch)
+		if err != nil {
 			return err
 		}
+		// Update the local branchInfo.Head
+		branchInfo.Head = aliasCommit
 	}
 
 	// Update (or create)

@@ -81,7 +81,7 @@ func (d *driver) triggerCommit(
 					// TODO(global ids): ideally the new commit will have the same Job ID
 					// as the triggering commit - would need to insert it into the Job as
 					// well (if it has already been made)
-					if err := d.aliasCommit(txnCtx, newHead.Commit, bi.Branch); err != nil {
+					if _, err := d.aliasCommit(txnCtx, newHead.Commit, bi.Branch); err != nil {
 						return err
 					}
 					if err := txnCtx.PropagateBranch(bi.Branch); err != nil {

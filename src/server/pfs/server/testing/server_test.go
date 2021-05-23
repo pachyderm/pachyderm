@@ -285,7 +285,6 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(cis))
 		id := cis[0].Commit.ID
-		fmt.Printf("cis: %v\n", cis)
 		require.NoError(t, env.PachClient.DeleteBranch("out", "master", false))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", id, []*pfs.Branch{pclient.NewBranch("in", "master")}))
 		cis, err = env.PachClient.ListCommit("out", "", "", "", "", 0)
@@ -2165,11 +2164,16 @@ func TestPFS(suite *testing.T) {
 
 		commit, err := env.PachClient.StartCommit(repo, "branch1")
 		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(repo, commit.Branch.Name, commit.ID, "foo", strings.NewReader("bar")))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
 		expectedBranches := []string{"branch1", "branch2", "branch3"}
+		expectedCommits := []*pfs.Commit{}
 		for _, branch := range expectedBranches {
-			require.NoError(t, env.PachClient.CreateBranch(repo, branch, "", commit.ID, nil))
+			require.NoError(t, env.PachClient.CreateBranch(repo, branch, commit.Branch.Name, commit.ID, nil))
+			commitInfo, err := env.PachClient.InspectCommit(repo, branch, "")
+			require.NoError(t, err)
+			expectedCommits = append(expectedCommits, commitInfo.Commit)
 		}
 
 		branchInfos, err := env.PachClient.ListBranch(repo)
@@ -2178,7 +2182,17 @@ func TestPFS(suite *testing.T) {
 		for i, branchInfo := range branchInfos {
 			// branches should return in newest-first order
 			require.Equal(t, expectedBranches[len(branchInfos)-i-1], branchInfo.Branch.Name)
-			require.Equal(t, commit, branchInfo.Head)
+
+			// each branch should have a different commit id (from the transaction
+			// that moved the branch head)
+			headCommit := expectedCommits[len(branchInfos)-i-1]
+			require.Equal(t, headCommit.Branch, branchInfo.Branch)
+			require.Equal(t, headCommit, branchInfo.Head)
+
+			// ensure that the branch has the file from the original commit
+			var buffer bytes.Buffer
+			require.NoError(t, env.PachClient.GetFile(repo, headCommit.Branch.Name, headCommit.ID, "foo", &buffer))
+			require.Equal(t, "bar", buffer.String())
 		}
 
 		commit2, err := env.PachClient.StartCommit(repo, "branch1")
@@ -2187,7 +2201,7 @@ func TestPFS(suite *testing.T) {
 
 		commit2Info, err := env.PachClient.InspectCommit(repo, "branch1", "")
 		require.NoError(t, err)
-		require.Equal(t, commit, commit2Info.ParentCommit)
+		require.Equal(t, expectedCommits[0], commit2Info.ParentCommit)
 
 		// delete the last branch
 		lastBranch := expectedBranches[len(expectedBranches)-1]
@@ -2196,7 +2210,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(branchInfos))
 		require.Equal(t, "branch2", branchInfos[0].Branch.Name)
-		require.Equal(t, commit, branchInfos[0].Head)
+		require.Equal(t, expectedCommits[1], branchInfos[0].Head)
 		require.Equal(t, "branch1", branchInfos[1].Branch.Name)
 		require.Equal(t, commit2, branchInfos[1].Head)
 	})
@@ -3386,9 +3400,6 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 		commits, err := env.PachClient.ListCommitByRepo("C")
 		require.NoError(t, err)
-		for _, commitInfo := range commits {
-			fmt.Printf("commit: %s\n", pfsdb.CommitKey(commitInfo.Commit))
-		}
 		require.Equal(t, 2, len(commits))
 
 		// Create a branch in D, it should receive a single commit for the heads of `A` and `B`.
