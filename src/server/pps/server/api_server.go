@@ -641,7 +641,6 @@ func (a *apiServer) InspectPipelineJob(ctx context.Context, request *pps.Inspect
 			for _, status := range workerStatus {
 				if status.PipelineJobID == pipelineJobInfo.PipelineJob.ID {
 					pipelineJobInfo.WorkerStatus = append(pipelineJobInfo.WorkerStatus, status)
-					pipelineJobInfo.DataProcessed += status.DataProcessed
 				}
 			}
 		}

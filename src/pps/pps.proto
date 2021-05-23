@@ -220,13 +220,13 @@ message AggregateProcessStats {
 message WorkerStatus {
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
   string pipeline_job_id = 2 [(gogoproto.customname) = "PipelineJobID"];
-  repeated pps.InputFile data = 3;
+  DatumStatus datum_status = 3;
+}
+
+message DatumStatus {
   // Started is the time processing on the current datum began.
-  google.protobuf.Timestamp started = 4;
-  ProcessStats stats = 5;
-  int64 queue_size = 6;
-  int64 data_processed = 7;
-  int64 data_recovered = 8;
+  google.protobuf.Timestamp started = 1;
+  repeated pps.InputFile data = 2;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
