@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"path"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -16,14 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
-
-// fsckCommitKey is not pfsdb.CommitKey because it ignores the commit branch.  Until
-// provenance is removed for global IDs, commit provenance references a commit
-// on a specific branch, which does not necessarily equal the branch that the
-// commit was initially created on and will confuse fsck if we include it.
-func fsckCommitKey(commit *pfs.Commit) string {
-	return path.Join(commit.Branch.Repo.Name, commit.ID)
-}
 
 func equalBranches(a, b []*pfs.Branch) bool {
 	aMap := make(map[string]bool)
@@ -154,7 +145,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	if err := d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), func(string) error {
 		commitInfo := &pfs.CommitInfo{}
 		if err := d.commits.ReadOnly(ctx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repoInfo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
-			commitInfos[fsckCommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+			commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 			return nil
 		}); err != nil {
 			return err
@@ -222,7 +213,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 				}
 				if provBranchInfo.Head != nil {
 					// in this case, the headCommit Provenance should contain provBranch.Head
-					if _, ok := commitInfos[fsckCommitKey(bi.Head)]; !ok {
+					if _, ok := commitInfos[pfsdb.CommitKey(bi.Head)]; !ok {
 						if err := onError(ErrCommitInfoNotFound{
 							Location: "head commit provenance (=>)",
 							Commit:   bi.Head,
@@ -239,7 +230,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	for _, commitInfo := range commitInfos {
 		// Every parent commit info should exist and point to this as a child
 		if commitInfo.ParentCommit != nil {
-			parentCommitInfo, ok := commitInfos[fsckCommitKey(commitInfo.ParentCommit)]
+			parentCommitInfo, ok := commitInfos[pfsdb.CommitKey(commitInfo.ParentCommit)]
 			if !ok {
 				if err := onError(ErrCommitInfoNotFound{
 					Location: fmt.Sprintf("parent commit of %s", pfsdb.CommitKey(commitInfo.Commit)),
@@ -247,29 +238,32 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 				}); err != nil {
 					return err
 				}
-			}
-
-			found := false
-			for _, child := range parentCommitInfo.ChildCommits {
-				if proto.Equal(child, commitInfo.Commit) {
-					found = true
-					break
+			} else {
+				found := false
+				for _, child := range parentCommitInfo.ChildCommits {
+					if proto.Equal(child, commitInfo.Commit) {
+						found = true
+						break
+					}
 				}
-			}
 
-			if !found {
-				if err := onError(ErrCommitAncestryBroken{
-					Parent: parentCommitInfo.Commit,
-					Child:  commitInfo.Commit,
-				}); err != nil {
-					return err
+				if !found {
+					fmt.Printf("ancestry check 1:\n")
+					fmt.Printf("parent.ChildCommits: %v\n", parentCommitInfo.ChildCommits)
+					fmt.Printf("child.ParentCommit: %v\n", commitInfo.ParentCommit)
+					if err := onError(ErrCommitAncestryBroken{
+						Parent: parentCommitInfo.Commit,
+						Child:  commitInfo.Commit,
+					}); err != nil {
+						return err
+					}
 				}
 			}
 		}
 
 		// Every child commit info should exist and point to this as their parent
 		for _, child := range commitInfo.ChildCommits {
-			childCommitInfo, ok := commitInfos[fsckCommitKey(child)]
+			childCommitInfo, ok := commitInfos[pfsdb.CommitKey(child)]
 
 			if !ok {
 				if err := onError(ErrCommitInfoNotFound{
@@ -278,14 +272,17 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 				}); err != nil {
 					return err
 				}
-			}
-
-			if childCommitInfo.ParentCommit == nil || !proto.Equal(childCommitInfo.ParentCommit, commitInfo.Commit) {
-				if err := onError(ErrCommitAncestryBroken{
-					Parent: commitInfo.Commit,
-					Child:  childCommitInfo.Commit,
-				}); err != nil {
-					return err
+			} else {
+				if childCommitInfo.ParentCommit == nil || !proto.Equal(childCommitInfo.ParentCommit, commitInfo.Commit) {
+					fmt.Printf("ancestry check 2:\n")
+					fmt.Printf("parent: %v\n", commitInfo)
+					fmt.Printf("child: %v\n", childCommitInfo)
+					if err := onError(ErrCommitAncestryBroken{
+						Parent: commitInfo.Commit,
+						Child:  childCommitInfo.Commit,
+					}); err != nil {
+						return err
+					}
 				}
 			}
 		}

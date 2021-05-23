@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -551,12 +550,11 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 		if parentCommitInfo.Finished == nil {
 			return nil, errors.Errorf("parent commit %s has not been finished", pfsdb.CommitKey(parent))
 		}
-		// TODO: is it necessary to do an Update here?  We just loaded the commit info in the transaction
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(parentCommitInfo.Commit), parentCommitInfo, func() error {
-			newCommitInfo.ParentCommit = parentCommitInfo.Commit
-			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
-			return nil
-		}); err != nil {
+
+		newCommitInfo.ParentCommit = parentCommitInfo.Commit
+		parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
+
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(parentCommitInfo.Commit), parentCommitInfo); err != nil {
 			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
 			// missing/invalid commit ID
 			return nil, errors.Wrapf(err, "could not resolve parent commit %s", pfsdb.CommitKey(parent))
@@ -643,12 +641,11 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if commitInfo.Finished != nil {
 		return pfsserver.ErrCommitFinished{commitInfo.Commit}
 	}
-	commit = commitInfo.Commit
 	if description != "" {
 		commitInfo.Description = description
 	}
 	commitInfo.Finished = types.TimestampNow()
-	if err := d.writeFinishedCommit(txnCtx.SqlTx, commit, commitInfo); err != nil {
+	if err := d.writeFinishedCommit(txnCtx.SqlTx, commitInfo); err != nil {
 		return err
 	}
 	if err := d.triggerCommit(txnCtx, commitInfo.Commit); err != nil {
@@ -694,7 +691,6 @@ func (d *driver) aliasCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 		newCommitInfo = &pfs.CommitInfo{
 			Commit:       commit,
 			Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-			Description:  fmt.Sprintf("alias of %s", pfsdb.CommitKey(parent)),
 			ParentCommit: parent,
 			ChildCommits: []*pfs.Commit{},
 			Started:      types.TimestampNow(),
@@ -741,7 +737,8 @@ func (d *driver) aliasCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 // 1) it closes the input commit (i.e., it writes any changes made to it and
 //    removes it from the open commits)
 // 2) if the commit is the new HEAD of master, it updates the repo size
-func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commit *pfs.Commit, commitInfo *pfs.CommitInfo) error {
+func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commitInfo *pfs.CommitInfo) error {
+	commit := commitInfo.Commit
 	if err := d.commits.ReadWrite(sqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
 		return err
 	}
@@ -861,7 +858,7 @@ nextSubvBI:
 			}
 		}
 
-		if needsCommit || subvBI.Head == nil || subvBI.Head.ID == txnCtx.Job.ID {
+		if needsCommit || (subvBI.Head != nil && subvBI.Head.ID == txnCtx.Job.ID) {
 			jobCommitInfoMap[pfsdb.BranchKey(subvBI.Branch)] = &pfs.JobCommitInfo{
 				Branch:     subvBI.Branch,
 				Provenance: subvBI.Provenance,
@@ -888,7 +885,8 @@ nextSubvBI:
 
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
 		newCommitInfo.ParentCommit = subvBI.Head
-		if subvBI.Head != nil {
+		subvBI.Head = newCommit
+		if newCommitInfo.ParentCommit != nil {
 			parentCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(newCommitInfo.ParentCommit), parentCommitInfo, func() error {
 				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
@@ -897,7 +895,6 @@ nextSubvBI:
 				return err
 			}
 		}
-		subvBI.Head = newCommit
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Put(pfsdb.BranchKey(subvBI.Branch), subvBI); err != nil {
 			return err
 		}
@@ -1369,11 +1366,6 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 		}
 	}
 
-	fmt.Printf("deleted commits:\n")
-	for _, commitInfo := range deleted {
-		fmt.Printf("  %s\n", pfsdb.CommitKey(commitInfo.Commit))
-	}
-
 	// 4) Rewrite ParentCommit of deleted commits' children, and
 	// ChildCommits of deleted commits' parents
 	visited := make(map[string]bool) // visited child/parent commits
@@ -1411,12 +1403,6 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				continue
 			}
 			queue = append(queue, nextInfo.ChildCommits...)
-		}
-
-		fmt.Printf("deleted[%s]:\n", pfsdb.CommitKey(deletedInfo.Commit))
-		fmt.Printf("  oldest deleted commit: %s\n", pfsdb.CommitKey(oldestCommitInfo.Commit))
-		for id, branch := range liveChildren {
-			fmt.Printf("  live child: %s %s\n", id, branch)
 		}
 
 		// Point all non-deleted children at the first valid parent (or nil),
