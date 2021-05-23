@@ -4698,6 +4698,30 @@ func TestPFS(suite *testing.T) {
 		require.ElementsEqualUnderFn(t, expectedCommits, commitInfos, CommitInfoToID)
 	})
 
+	suite.Run("SquashCommitEmptyChild", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		repo := "repo"
+		file := "foo"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		commitA, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commitA, file, strings.NewReader("foo")))
+		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
+
+		commitB, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
+
+		require.NoError(t, env.PachClient.SquashCommitSet(commitA.ID))
+
+		var b bytes.Buffer
+		require.NoError(t, env.PachClient.GetFile(commitB, file, &b))
+		require.Equal(t, "foo", b.String())
+	})
+
 	suite.Run("ListAll", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
