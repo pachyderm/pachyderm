@@ -5304,9 +5304,9 @@ func TestPFS(suite *testing.T) {
 				}
 				i := r.Intn(len(inputBranches))
 				branch := inputBranches[i]
-				inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
 				err = env.PachClient.DeleteBranch(branch.Repo.Name, branch.Name, false)
 				// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
+				inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
 				if err != nil && !strings.Contains(err.Error(), "break") {
 					require.NoError(t, err)
 				}
@@ -5342,8 +5342,11 @@ func TestPFS(suite *testing.T) {
 					}
 				}
 
-				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", provBranches))
-				outputBranches = append(outputBranches, pclient.NewBranch(repo, "master"))
+				err = env.PachClient.CreateBranch(repo, "master", "", "", provBranches)
+				if err != nil && !strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
+					require.NoError(t, err)
+					outputBranches = append(outputBranches, pclient.NewBranch(repo, "master"))
+				}
 			case outputBranch:
 				if len(outputRepos) == 0 {
 					continue OpLoop
@@ -5369,17 +5372,21 @@ func TestPFS(suite *testing.T) {
 						}
 					}
 				}
-				require.NoError(t, env.PachClient.CreateBranch(repo, branch, "", "", provBranches))
-				outputBranches = append(outputBranches, pclient.NewBranch(repo, branch))
+
+				err = env.PachClient.CreateBranch(repo, branch, "", "", provBranches)
+				if err != nil && !strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
+					require.NoError(t, err)
+					outputBranches = append(outputBranches, pclient.NewBranch(repo, branch))
+				}
 			case deleteOutputBranch:
 				if len(outputBranches) == 0 {
 					continue OpLoop
 				}
 				i := r.Intn(len(outputBranches))
 				branch := outputBranches[i]
-				outputBranches = append(outputBranches[:i], outputBranches[i+1:]...)
 				err = env.PachClient.DeleteBranch(branch.Repo.Name, branch.Name, false)
 				// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
+				outputBranches = append(outputBranches[:i], outputBranches[i+1:]...)
 				if err != nil && !strings.Contains(err.Error(), "break") {
 					require.NoError(t, err)
 				}

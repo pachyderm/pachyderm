@@ -115,6 +115,18 @@ func (e ErrCommitInfoNotFound) Error() string {
 		e.Commit.ID, e.Commit.Branch.Repo.Name, e.Location)
 }
 
+// ErrCommitAncestryBroken Commit info could not be found. Typically because of an incomplete deletion of a commit.
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrCommitAncestryBroken struct {
+	Parent *pfs.Commit
+	Child  *pfs.Commit
+}
+
+func (e ErrCommitAncestryBroken) Error() string {
+	return fmt.Sprintf("consistency error: parent commit %s and child commit %s disagree about their parent/child relationship",
+		pfsdb.CommitKey(e.Parent), pfsdb.CommitKey(e.Child))
+}
+
 // fsck verifies that pfs satisfies the following invariants:
 // 1. Branch provenance is transitive
 // 2. Head commit provenance has heads of branch's branch provenance
@@ -222,6 +234,64 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 			}
 		}
 	}
+
+	// For every commit
+	for _, commitInfo := range commitInfos {
+		// Every parent commit info should exist and point to this as a child
+		if commitInfo.ParentCommit != nil {
+			parentCommitInfo, ok := commitInfos[fsckCommitKey(commitInfo.ParentCommit)]
+			if !ok {
+				if err := onError(ErrCommitInfoNotFound{
+					Location: fmt.Sprintf("parent commit of %s", pfsdb.CommitKey(commitInfo.Commit)),
+					Commit:   commitInfo.ParentCommit,
+				}); err != nil {
+					return err
+				}
+			}
+
+			found := false
+			for _, child := range parentCommitInfo.ChildCommits {
+				if proto.Equal(child, commitInfo.Commit) {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				if err := onError(ErrCommitAncestryBroken{
+					Parent: parentCommitInfo.Commit,
+					Child:  commitInfo.Commit,
+				}); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Every child commit info should exist and point to this as their parent
+		for _, child := range commitInfo.ChildCommits {
+			childCommitInfo, ok := commitInfos[fsckCommitKey(child)]
+
+			if !ok {
+				if err := onError(ErrCommitInfoNotFound{
+					Location: fmt.Sprintf("child commit of %s", pfsdb.CommitKey(commitInfo.Commit)),
+					Commit:   child,
+				}); err != nil {
+					return err
+				}
+			}
+
+			if childCommitInfo.ParentCommit == nil || !proto.Equal(childCommitInfo.ParentCommit, commitInfo.Commit) {
+				if err := onError(ErrCommitAncestryBroken{
+					Parent: commitInfo.Commit,
+					Child:  childCommitInfo.Commit,
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// TODO(global ids): is there any verification we can do for jobs?
 
 	if fix {
 		return col.NewSQLTx(ctx, d.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
