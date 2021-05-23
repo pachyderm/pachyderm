@@ -285,6 +285,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(cis))
 		id := cis[0].Commit.ID
 		require.NoError(t, env.PachClient.DeleteBranch("out", "master", false))
+		require.NoError(t, env.PachClient.FinishCommit("out", "", id))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", id, []*pfs.Branch{pclient.NewBranch("in", "master")}))
 		cis, err = env.PachClient.ListCommit("out", "", "", "", "", 0)
 		require.NoError(t, err)

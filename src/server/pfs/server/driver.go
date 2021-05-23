@@ -825,7 +825,6 @@ func (d *driver) propagateCommits(txnCtx *txnenv.TransactionContext, branches []
 
 	// Iterate through downstream branches and determine which need a new commit.
 	jobCommitInfoMap := map[string]*pfs.JobCommitInfo{}
-nextSubvBI:
 	for _, subvBI := range subvBIs {
 		// Check if any commits in the provenance chain disagree on their job, in
 		// which case we need a new job
@@ -833,15 +832,13 @@ nextSubvBI:
 		for _, provOfSubvB := range subvBI.Provenance {
 			provOfSubvBI, err := getBranchInfo(provOfSubvB)
 			if err != nil {
-				// TODO(global ids): the old code would ignore it if the branch info wasn't found?!?
 				return err
 			}
-			// if provOfSubvB has no head commit, then it doesn't contribute to newCommit
-			if provOfSubvBI.Head == nil {
-				// TODO(global ids): the old code continued with the current subvBI in
-				// this case, but why would we create a commit when an upstream branch
-				// has no head?
-				continue nextSubvBI
+			// TODO(global ids): this logic doesn't seem to cover all the cases where
+			// we would want to create a new output commit, think about this more
+			if provOfSubvBI.Head == nil || provOfSubvBI.Branch.Repo.Type == pfs.SpecRepoType {
+				// provOfSubvB doesn't contribute datums to newCommit
+				continue
 			}
 			if subvBI.Head == nil || subvBI.Head.ID != provOfSubvBI.Head.ID {
 				needsCommit = true
@@ -859,9 +856,6 @@ nextSubvBI:
 		if !needsCommit {
 			continue
 		}
-
-		// TODO(global ids): old code would skip making a new commit if the only
-		// provenant commit is a spec commit
 
 		// Start a new output commit in 'subvBI.Branch'
 		newCommit := &pfs.Commit{
