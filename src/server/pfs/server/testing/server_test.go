@@ -3745,10 +3745,10 @@ func TestPFS(suite *testing.T) {
 		// Create commits in A and B
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
-		env.PachClient.FinishCommit("A", commit.Branch.Name, commit.ID)
+		require.NoError(t, env.PachClient.FinishCommit("A", commit.Branch.Name, commit.ID))
 		commit, err = env.PachClient.StartCommit("B", "master")
 		require.NoError(t, err)
-		env.PachClient.FinishCommit("A", commit.Branch.Name, commit.ID)
+		require.NoError(t, env.PachClient.FinishCommit("B", commit.Branch.Name, commit.ID))
 
 		// Check for first output commit in C
 		commits, err := env.PachClient.ListCommit("C", "master", "", "", "", 0)
@@ -3756,7 +3756,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(commits))
 
 		// Update the provenance of C/master and make sure it creates a new commit
-		require.NoError(t, env.PachClient.CreateBranch("C", "master", "master", "",
+		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "",
 			[]*pfs.Branch{pclient.NewBranch("B", "master")}))
 		commits, err = env.PachClient.ListCommit("C", "master", "", "", "", 0)
 		require.NoError(t, err)
