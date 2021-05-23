@@ -130,7 +130,9 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	}
 
 	onError := func(err error) error { return cb(&pfs.FsckResponse{Error: err.Error()}) }
-	onFix := func(fix string) error { return cb(&pfs.FsckResponse{Fix: fix}) }
+
+	// TODO(global ids): no fixable fsck issues?
+	// onFix := func(fix string) error { return cb(&pfs.FsckResponse{Fix: fix}) }
 
 	// collect all the info for the branches and commits in pfs
 	branchInfos := make(map[string]*pfs.BranchInfo)
@@ -181,11 +183,14 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		for _, provBranch := range bi.Provenance {
 			provBranchInfo := branchInfos[pfsdb.BranchKey(provBranch)]
 			if !branchInSet(bi.Branch, provBranchInfo.Subvenance) {
-				if err := onError(ErrBranchSubvenanceTransitivity{
-					BranchInfo:        provBranchInfo,
-					MissingSubvenance: bi.Branch,
-				}); err != nil {
-					return err
+				if !fix {
+					if err := onError(ErrBranchSubvenanceTransitivity{
+						BranchInfo:        provBranchInfo,
+						MissingSubvenance: bi.Branch,
+					}); err != nil {
+						return err
+					}
+				} else {
 				}
 			}
 		}
@@ -205,28 +210,11 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 				}
 				if provBranchInfo.Head != nil {
 					// in this case, the headCommit Provenance should contain provBranch.Head
-					headCommitInfo, ok := commitInfos[fsckCommitKey(bi.Head)]
-					if !ok {
-						if !fix {
-							if err := onError(ErrCommitInfoNotFound{
-								Location: "head commit provenance (=>)",
-								Commit:   bi.Head,
-							}); err != nil {
-								return err
-							}
-							continue
-						}
-						headCommitInfo = &pfs.CommitInfo{
-							Commit: bi.Head,
-							Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
-						}
-						commitInfos[fsckCommitKey(bi.Head)] = headCommitInfo
-						newCommitInfos[fsckCommitKey(bi.Head)] = headCommitInfo
-						if err := onFix(fmt.Sprintf(
-							"creating commit %s@%s which was missing, but referenced by %s@%s",
-							bi.Head.Branch.Repo.Name, bi.Head.ID,
-							bi.Branch.Repo.Name, bi.Branch.Name),
-						); err != nil {
+					if _, ok := commitInfos[fsckCommitKey(bi.Head)]; !ok {
+						if err := onError(ErrCommitInfoNotFound{
+							Location: "head commit provenance (=>)",
+							Commit:   bi.Head,
+						}); err != nil {
 							return err
 						}
 					}

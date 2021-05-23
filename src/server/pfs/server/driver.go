@@ -385,6 +385,23 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 		if err := d.commitStore.DropFilesetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
 			return err
 		}
+
+		// Also delete the entry for this commit from its job
+		jobInfo := &pfs.JobInfo{}
+		if err := d.jobs.ReadWrite(txnCtx.SqlTx).Update(ci.Commit.ID, jobInfo, func() error {
+			idx := -1
+			for i, jobCommitInfo := range jobInfo.JobCommits {
+				if proto.Equal(jobCommitInfo.Branch, ci.Commit.Branch) {
+					idx = i
+				}
+			}
+			if idx != -1 {
+				jobInfo.JobCommits = append(jobInfo.JobCommits[:idx], jobInfo.JobCommits[idx+1:]...)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
 	}
 
 	var branchInfos []*pfs.BranchInfo
@@ -403,7 +420,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 		// delete them in the right order.
 		branch := branchInfos[len(branchInfos)-1-i].Branch
 		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
-			return errors.Wrapf(err, "delete branch %s", branch)
+			return errors.Wrapf(err, "delete branch %s", pfsdb.BranchKey(branch))
 		}
 	}
 	// Despite the fact that we already deleted each branch with
@@ -1833,9 +1850,8 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 				return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
 			}
 		}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.BranchKey(branch)); err != nil {
-			return errors.Wrapf(err, "branches.Delete")
-		}
+
+		// For provenant branches, remove this branch from subvenance
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(provBranch), provBranchInfo, func() error {
@@ -1844,6 +1860,22 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 			}); err != nil && !isNotFoundErr(err) {
 				return errors.Wrapf(err, "error deleting subvenance")
 			}
+		}
+
+		// For subvenant branches, recalculate provenance
+		for _, subvBranch := range branchInfo.Subvenance {
+			subvBranchInfo := &pfs.BranchInfo{}
+			if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(subvBranch), subvBranchInfo); err != nil {
+				return err
+			}
+			del(&subvBranchInfo.DirectProvenance, branch)
+			if err := d.createBranch(txnCtx, subvBranch, nil, subvBranchInfo.DirectProvenance, nil); err != nil {
+				return err
+			}
+		}
+
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.BranchKey(branch)); err != nil {
+			return errors.Wrapf(err, "branches.Delete")
 		}
 	}
 	repoInfo := &pfs.RepoInfo{}

@@ -5143,6 +5143,8 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("FsckFix", func(t *testing.T) {
+		// TODO(optional 2.0): force-deleting the repo no longer creates dangling references
+		t.Skip("this test no longer creates invalid metadata")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -5161,11 +5163,13 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.DeleteRepo(input, true))
 		require.NoError(t, env.PachClient.CreateRepo(input))
 		require.NoError(t, env.PachClient.CreateBranch(input, "master", "", "", nil))
+
+		// Fsck should fail because ???
 		require.YesError(t, env.PachClient.FsckFastExit())
-		// Deleting both repos should error, because they were broken by deleting the upstream repo.
-		require.YesError(t, env.PachClient.DeleteRepo(output2, false))
+
+		// Deleting output1 should fail because output2 is provenant on it
 		require.YesError(t, env.PachClient.DeleteRepo(output1, false))
-		require.NoError(t, env.PachClient.Fsck(true, func(resp *pfs.FsckResponse) error { return nil }))
+
 		// Deleting should now work due to fixing, must delete 2 before 1 though.
 		require.NoError(t, env.PachClient.DeleteRepo(output2, false))
 		require.NoError(t, env.PachClient.DeleteRepo(output1, false))
