@@ -1307,7 +1307,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
 			return err
 		}
-		deleted[commit.ID] = commitInfo
+		deleted[pfsdb.CommitKey(commit)] = commitInfo
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.CommitKey(commit)); err != nil {
 			return err
 		}
@@ -1355,9 +1355,9 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 
 	// 4) Rewrite ParentCommit of deleted commits' children, and
 	// ChildCommits of deleted commits' parents
-	visited := make(map[string]bool) // visited child/parent commits
-	for deletedID, deletedInfo := range deleted {
-		if visited[deletedID] {
+	visited := make(map[string]struct{}) // visited child/parent commits
+	for _, deletedInfo := range deleted {
+		if _, ok := visited[pfsdb.CommitKey(deletedInfo.Commit)]; ok {
 			continue
 		}
 
@@ -1367,7 +1367,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			if oldestCommitInfo.ParentCommit == nil {
 				break // parent is nil
 			}
-			parentInfo, ok := deleted[oldestCommitInfo.ParentCommit.ID]
+			parentInfo, ok := deleted[pfsdb.CommitKey(oldestCommitInfo.ParentCommit)]
 			if !ok {
 				break // parent is not deleted
 			}
@@ -1377,16 +1377,16 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 		// BFS for all non-deleted children
 		var next *pfs.Commit                            // next vertex to search
 		queue := []*pfs.Commit{oldestCommitInfo.Commit} // queue of vertices to explore
-		liveChildren := make(map[string]string)         // live children discovered so far
+		liveChildren := make(map[string]*pfs.Commit)    // live children discovered so far
 		for len(queue) > 0 {
 			next, queue = queue[0], queue[1:]
-			if visited[next.ID] {
+			if _, ok := visited[pfsdb.CommitKey(next)]; ok {
 				continue
 			}
-			visited[next.ID] = true
-			nextInfo, ok := deleted[next.ID]
+			visited[pfsdb.CommitKey(next)] = struct{}{}
+			nextInfo, ok := deleted[pfsdb.CommitKey(next)]
 			if !ok {
-				liveChildren[next.ID] = next.Branch.Name
+				liveChildren[pfsdb.CommitKey(next)] = next
 				continue
 			}
 			queue = append(queue, nextInfo.ChildCommits...)
@@ -1395,8 +1395,7 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 		// Point all non-deleted children at the first valid parent (or nil),
 		// and point first non-deleted parent at all non-deleted children
 		parent := oldestCommitInfo.ParentCommit
-		for child, branch := range liveChildren {
-			commit := client.NewCommit(deletedInfo.Commit.Branch.Repo.Name, branch, child)
+		for _, commit := range liveChildren {
 			commitInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(commit), commitInfo, func() error {
 				commitInfo.ParentCommit = parent
@@ -1412,14 +1411,14 @@ func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				// live children above oldestCommitInfo, then put them all in
 				// 'parent'
 				for _, child := range commitInfo.ChildCommits {
-					if _, ok := deleted[child.ID]; ok {
+					if _, ok := deleted[pfsdb.CommitKey(child)]; ok {
 						continue
 					}
-					liveChildren[child.ID] = child.Branch.Name
+					liveChildren[pfsdb.CommitKey(child)] = child
 				}
 				commitInfo.ChildCommits = make([]*pfs.Commit, 0, len(liveChildren))
-				for child, branchName := range liveChildren {
-					commitInfo.ChildCommits = append(commitInfo.ChildCommits, client.NewCommit(parent.Branch.Repo.Name, branchName, child))
+				for _, commit := range liveChildren {
+					commitInfo.ChildCommits = append(commitInfo.ChildCommits, commit)
 				}
 				return nil
 			}); err != nil {

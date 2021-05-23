@@ -5241,8 +5241,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		// seed := time.Now().UnixNano()
-		seed := int64(1621749421541648300)
+		seed := time.Now().UnixNano()
 		t.Log("Random seed is", seed)
 		r := rand.New(rand.NewSource(seed))
 
