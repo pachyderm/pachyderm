@@ -27,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
@@ -1323,9 +1322,18 @@ func TestPFS(suite *testing.T) {
 
 		commit3, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.Branch.Name, commit3.ID))
 		require.NoError(t, env.PachClient.CreateBranch(repo, "foo", "", commit3.ID, nil))
+
+		commit4, err := env.PachClient.StartCommit(repo, "foo")
+		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, "foo", "", "file", strings.NewReader("foo\nbar\nbuzz\n"), pclient.WithAppendPutFile()))
-		require.NoError(t, env.PachClient.FinishCommit(repo, "foo", ""))
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit4.Branch.Name, commit4.ID))
+
+		// commit 3 should have remained unchanged
+		buffer.Reset()
+		require.NoError(t, env.PachClient.GetFile(repo, commit3.Branch.Name, commit3.ID, "file", buffer))
+		require.Equal(t, expected, buffer.String())
 
 		expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
 		buffer.Reset()
@@ -2519,21 +2527,23 @@ func TestPFS(suite *testing.T) {
 
 		commit1, err := env.PachClient.StartCommit(repo, "foo")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", commit1.ID, nil))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", commit1.ID, nil))
 
 		commit2, err := env.PachClient.StartCommit(repo, "foo")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", commit2.ID, nil))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", commit2.ID, nil))
 
 		branchInfos, err := env.PachClient.ListBranch(repo)
 		require.NoError(t, err)
 
+		// branches should be returned newest-first
 		require.Equal(t, 2, len(branchInfos))
-		require.ElementsEqual(t, []string{"master", "foo"}, []string{branchInfos[0].Branch.Name, branchInfos[1].Branch.Name})
-		require.Equal(t, commit2.ID, branchInfos[0].Head.ID)
-		require.Equal(t, commit2.ID, branchInfos[1].Head.ID)
+		require.Equal(t, "master", branchInfos[0].Branch.Name)
+		require.NotEqual(t, commit2.ID, branchInfos[0].Head.ID) // aliased branch should have a new commit ID
+		require.Equal(t, "foo", branchInfos[1].Branch.Name)
+		require.Equal(t, commit2.ID, branchInfos[1].Head.ID) // original branch should remain unchanged
 	})
 
 	/* TODO(global ids):
