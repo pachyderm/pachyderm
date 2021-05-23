@@ -75,11 +75,10 @@ type driver struct {
 	prefix     string
 
 	// collections
-	repos       col.PostgresCollection
-	commits     col.PostgresCollection
-	branches    col.PostgresCollection
-	openCommits col.PostgresCollection
-	jobs        col.PostgresCollection
+	repos    col.PostgresCollection
+	commits  col.PostgresCollection
+	branches col.PostgresCollection
+	jobs     col.PostgresCollection
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -101,20 +100,18 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	repos := pfsdb.Repos(env.GetDBClient(), env.GetPostgresListener())
 	commits := pfsdb.Commits(env.GetDBClient(), env.GetPostgresListener())
 	branches := pfsdb.Branches(env.GetDBClient(), env.GetPostgresListener())
-	openCommits := pfsdb.OpenCommits(env.GetDBClient(), env.GetPostgresListener())
 	jobs := pfsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
 
 	// Setup driver struct.
 	d := &driver{
-		env:         env,
-		txnEnv:      txnEnv,
-		etcdClient:  etcdClient,
-		prefix:      etcdPrefix,
-		repos:       repos,
-		commits:     commits,
-		branches:    branches,
-		openCommits: openCommits,
-		jobs:        jobs,
+		env:        env,
+		txnEnv:     txnEnv,
+		etcdClient: etcdClient,
+		prefix:     etcdPrefix,
+		repos:      repos,
+		commits:    commits,
+		branches:   branches,
+		jobs:       jobs,
 		// TODO: set maxFanIn based on downward API.
 	}
 	// Setup tracker and chunk / fileset storage.
@@ -521,10 +518,6 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, parent *pfs.Comm
 		return nil, err
 	}
 
-	if err := d.openCommits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(newCommit), newCommit); err != nil {
-		return nil, err
-	}
-
 	// Update repoInfo (potentially with new branch and new size)
 	repoInfo := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(pfsdb.RepoKey(branch.Repo), repoInfo, func() error {
@@ -742,9 +735,6 @@ func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commitInfo *pfs.CommitInfo)
 	if err := d.commits.ReadWrite(sqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
 		return err
 	}
-	if err := d.openCommits.ReadWrite(sqlTx).Delete(pfsdb.CommitKey(commit)); err != nil {
-		return errors.Wrapf(err, "could not confirm that commit %s is open; this is likely a bug", commit.ID)
-	}
 	// update the repo size if this is the head of master
 	repoInfo := new(pfs.RepoInfo)
 	if err := d.repos.ReadWrite(sqlTx).Get(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
@@ -924,9 +914,6 @@ nextSubvBI:
 
 		// finally create open 'commit'
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
-			return err
-		}
-		if err := d.openCommits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(newCommit), newCommit); err != nil {
 			return err
 		}
 	}

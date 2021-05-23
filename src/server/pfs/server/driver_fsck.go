@@ -102,8 +102,8 @@ type ErrCommitInfoNotFound struct {
 }
 
 func (e ErrCommitInfoNotFound) Error() string {
-	return fmt.Sprintf("consistency error: the commit %v in repo %v could not be found while checking %v",
-		e.Commit.ID, e.Commit.Branch.Repo.Name, e.Location)
+	return fmt.Sprintf("consistency error: the commit %s could not be found while checking %v",
+		pfsdb.CommitKey(e.Commit), e.Location)
 }
 
 // ErrCommitAncestryBroken Commit info could not be found. Typically because of an incomplete deletion of a commit.
@@ -248,9 +248,6 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 				}
 
 				if !found {
-					fmt.Printf("ancestry check 1:\n")
-					fmt.Printf("parent.ChildCommits: %v\n", parentCommitInfo.ChildCommits)
-					fmt.Printf("child.ParentCommit: %v\n", commitInfo.ParentCommit)
 					if err := onError(ErrCommitAncestryBroken{
 						Parent: parentCommitInfo.Commit,
 						Child:  commitInfo.Commit,
@@ -274,9 +271,6 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 				}
 			} else {
 				if childCommitInfo.ParentCommit == nil || !proto.Equal(childCommitInfo.ParentCommit, commitInfo.Commit) {
-					fmt.Printf("ancestry check 2:\n")
-					fmt.Printf("parent: %v\n", commitInfo)
-					fmt.Printf("child: %v\n", childCommitInfo)
 					if err := onError(ErrCommitAncestryBroken{
 						Parent: commitInfo.Commit,
 						Child:  childCommitInfo.Commit,

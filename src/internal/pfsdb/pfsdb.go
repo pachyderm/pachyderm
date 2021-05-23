@@ -14,11 +14,10 @@ import (
 )
 
 const (
-	reposCollectionName       = "repos"
-	branchesCollectionName    = "branches"
-	commitsCollectionName     = "commits"
-	openCommitsCollectionName = "open_commits"
-	jobsCollectionName        = "jobs"
+	reposCollectionName    = "repos"
+	branchesCollectionName = "branches"
+	commitsCollectionName  = "commits"
+	jobsCollectionName     = "jobs"
 )
 
 var ReposTypeIndex = &col.Index{
@@ -131,20 +130,6 @@ func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollectio
 	)
 }
 
-var openCommitsIndexes = []*col.Index{}
-
-// OpenCommits returns a collection of open commits
-func OpenCommits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
-	return col.NewPostgresCollection(
-		openCommitsCollectionName,
-		db,
-		listener,
-		&pfs.Commit{},
-		openCommitsIndexes,
-		nil,
-	)
-}
-
 var jobsIndexes = []*col.Index{}
 
 // Jobs returns a collection of jobs
@@ -167,7 +152,6 @@ func AllCollections() []col.PostgresCollection {
 		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes, nil),
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes, nil),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes, nil),
-		col.NewPostgresCollection(openCommitsCollectionName, nil, nil, nil, openCommitsIndexes, nil),
 		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes, nil),
 	}
 }
