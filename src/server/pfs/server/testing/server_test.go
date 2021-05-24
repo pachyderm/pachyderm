@@ -3998,19 +3998,21 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 		require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", "", nil))
 
-		// Create commits 'a', 'b', and 'c'
+		// Create commits 'a' and 'b'
 		a, err := env.PachClient.StartCommit("repo", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("repo", a.Branch.Name, a.ID))
 		b, err := env.PachClient.StartCommit("repo", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("repo", b.Branch.Name, b.ID))
-		c, err := env.PachClient.StartCommit("repo", "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.FinishCommit("repo", c.Branch.Name, c.ID))
 
 		// Create 'd' by aliasing 'b' into another branch
 		require.NoError(t, env.PachClient.CreateBranch("repo", "master2", "master", "", nil))
+
+		// Create 'c'
+		c, err := env.PachClient.StartCommit("repo", "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit("repo", c.Branch.Name, c.ID))
 
 		// Collect info re: a, b, c, and d, and make sure that the parent/child
 		// relationships are all correct
