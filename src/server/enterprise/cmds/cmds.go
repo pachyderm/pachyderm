@@ -203,7 +203,15 @@ func RegisterCmd() *cobra.Command {
 					LicenseServer: enterpriseAddr,
 				})
 			if err != nil {
-				return errors.Wrapf(err, "could not register with the license server")
+				err = errors.Wrapf(err, "could not register with the license server.")
+				_, deleteErr := ec.License.DeleteCluster(ec.Ctx(), &license.DeleteClusterRequest{Id: id})
+				if deleteErr != nil {
+					deleteErr := errors.Wrapf(deleteErr, "also failed to rollback creation of cluster with ID, %v."+
+						"To retry enterprise registration, first delete this cluster with 'pachctl license delete-cluster --id %v'.: %v",
+						id, id, deleteErr.Error())
+					return errors.Wrap(err, deleteErr.Error())
+				}
+				return err
 			}
 
 			return nil
