@@ -1,7 +1,7 @@
 package testing
 
 var loads = []string{`
-count: 5
+count: 3
 operations:
   - count: 5
     operation:
@@ -37,7 +37,7 @@ fileSources:
           max: 100000000
           prob: 0.1
 `, `
-count: 5
+count: 3
 operations:
   - count: 5
     operation:
@@ -57,7 +57,7 @@ fileSources:
           max: 1000
           prob: 1 
 `, `
-count: 5
+count: 3
 operations:
   - count: 5
     operation:
