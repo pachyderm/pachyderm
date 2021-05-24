@@ -5836,8 +5836,6 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("TestPanicOnNilArgs", func(t *testing.T) {
-		// TODO(2.0 required): Add validation to all PFS endpoints.
-		t.Skip("PFS endpoints are not fully validated in V2")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 		c := env.PachClient
