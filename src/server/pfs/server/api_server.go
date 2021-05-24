@@ -108,6 +108,11 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	if err != nil {
 		return nil, err
 	}
+	size, err := a.driver.getRepoSize(ctx, info.Repo)
+	if err != nil {
+		return nil, err
+	}
+	info.SizeBytes = uint64(size)
 	return info, nil
 }
 

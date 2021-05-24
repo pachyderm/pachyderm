@@ -256,16 +256,10 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 	if repo == nil {
 		return nil, errors.New("repo cannot be nil")
 	}
-
 	result := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(repo), result); err != nil {
 		return nil, err
 	}
-	size, err := d.getRepoSize(txnCtx.ClientContext, repo)
-	if err != nil {
-		return nil, err
-	}
-	result.SizeBytes = uint64(size)
 	if includeAuth {
 		permissions, roles, err := d.getPermissions(txnCtx.ClientContext, repo)
 		if err != nil {
