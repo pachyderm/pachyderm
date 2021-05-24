@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"modernc.org/mathutil"
 )
 
@@ -15,8 +16,8 @@ import (
 // TODO: This should become the client.Client interface when we put the standard pach client behind an interface that
 // takes a context as the first parameter for each method.
 type Client interface {
-	WithModifyFileClient(ctx context.Context, repo, branch, commit string, cb func(client.ModifyFile) error) error
-	GetFileTar(ctx context.Context, repo, branch, commit, path string) (io.Reader, error)
+	WithModifyFileClient(ctx context.Context, commit *pfs.Commit, cb func(client.ModifyFile) error) error
+	GetFileTar(ctx context.Context, commit *pfs.Commit, path string) (io.Reader, error)
 }
 
 type pachClient struct {
@@ -27,12 +28,12 @@ func NewPachClient(client *client.APIClient) Client {
 	return &pachClient{client: client}
 }
 
-func (pc *pachClient) WithModifyFileClient(ctx context.Context, repo, branch, commit string, cb func(client.ModifyFile) error) error {
-	return pc.client.WithCtx(ctx).WithModifyFileClient(repo, branch, commit, cb)
+func (pc *pachClient) WithModifyFileClient(ctx context.Context, commit *pfs.Commit, cb func(client.ModifyFile) error) error {
+	return pc.client.WithCtx(ctx).WithModifyFileClient(commit, cb)
 }
 
-func (pc *pachClient) GetFileTar(ctx context.Context, repo, branch, commit, path string) (io.Reader, error) {
-	return pc.client.WithCtx(ctx).GetFileTar(repo, branch, commit, path)
+func (pc *pachClient) GetFileTar(ctx context.Context, commit *pfs.Commit, path string) (io.Reader, error) {
+	return pc.client.WithCtx(ctx).GetFileTar(commit, path)
 }
 
 type ThroughputSpec struct {
@@ -54,8 +55,8 @@ func NewThroughputLimitClient(client Client, spec *ThroughputSpec, random *rand.
 	}
 }
 
-func (tlc *throughputLimitClient) WithModifyFileClient(ctx context.Context, repo, branch, commit string, cb func(client.ModifyFile) error) error {
-	return tlc.Client.WithModifyFileClient(ctx, repo, branch, commit, func(mf client.ModifyFile) error {
+func (tlc *throughputLimitClient) WithModifyFileClient(ctx context.Context, commit *pfs.Commit, cb func(client.ModifyFile) error) error {
+	return tlc.Client.WithModifyFileClient(ctx, commit, func(mf client.ModifyFile) error {
 		return cb(&throughputLimitModifyFileClient{
 			ModifyFile: mf,
 			spec:       tlc.spec,
@@ -123,7 +124,7 @@ func NewCancelClient(client Client, spec *CancelSpec, random *rand.Rand) Client 
 	}
 }
 
-func (cc *cancelClient) WithModifyFileClient(ctx context.Context, repo, branch, commit string, cb func(client.ModifyFile) error) (retErr error) {
+func (cc *cancelClient) WithModifyFileClient(ctx context.Context, commit *pfs.Commit, cb func(client.ModifyFile) error) (retErr error) {
 	if shouldExecute(cc.random, cc.spec.Prob) {
 		var cancel context.CancelFunc
 		cancelCtx, cancel := context.WithCancel(ctx)
@@ -139,7 +140,7 @@ func (cc *cancelClient) WithModifyFileClient(ctx context.Context, repo, branch, 
 		}()
 		ctx = cancelCtx
 	}
-	return cc.Client.WithModifyFileClient(ctx, repo, branch, commit, func(mf client.ModifyFile) error {
+	return cc.Client.WithModifyFileClient(ctx, commit, func(mf client.ModifyFile) error {
 		return cb(mf)
 	})
 }

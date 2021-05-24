@@ -45,7 +45,7 @@ func PutFile(env *Env, repo, branch, commit string, spec *PutFileSpec) error {
 	if err != nil {
 		return err
 	}
-	return c.WithModifyFileClient(context.Background(), repo, branch, commit, func(mf client.ModifyFile) error {
+	return c.WithModifyFileClient(context.Background(), client.NewCommit(repo, branch, commit), func(mf client.ModifyFile) error {
 		for _, file := range files {
 			if err := mf.PutFile(file.Path(), file.Reader()); err != nil {
 				return err
@@ -62,7 +62,7 @@ type DeleteFileSpec struct {
 
 func DeleteFile(env *Env, repo, branch, commit string, spec *DeleteFileSpec) error {
 	c := env.Client()
-	return c.WithModifyFileClient(context.Background(), repo, branch, commit, func(mf client.ModifyFile) error {
+	return c.WithModifyFileClient(context.Background(), client.NewCommit(repo, branch, commit), func(mf client.ModifyFile) error {
 		for i := 0; i < spec.Count; i++ {
 			p, err := nextDeletePath(env, spec)
 			if err != nil {
