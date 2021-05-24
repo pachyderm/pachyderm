@@ -81,8 +81,9 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 
 		// make sure we can delete commits
-		err = c.SquashCommit(pipeline, "master", "")
+		commit, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
+		require.NoError(t, c.SquashJob(commit.ID))
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
@@ -135,8 +136,9 @@ func TestSpoutPachctl(t *testing.T) {
 		defer tu.DeleteAll(t)
 
 		// make sure we can delete commits
-		err = c.SquashCommit(pipeline, "master", "")
+		commit, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
+		require.NoError(t, c.SquashJob(commit.ID))
 
 		// now let's update the pipeline and make sure it works again
 		_, err = c.PpsAPIClient.CreatePipeline(
@@ -239,9 +241,11 @@ func testSpout(t *testing.T, usePachctl bool) {
 				return nil
 			})
 		}))
+
 		// make sure we can delete commits
-		err = c.SquashCommit(pipeline, "master", "")
+		commit, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
+		require.NoError(t, c.SquashJob(commit.ID))
 
 		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")

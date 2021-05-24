@@ -61,24 +61,18 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txnenv.Transactio
 	return a.APIServer.FinishCommitInTransaction(txnCtx, request)
 }
 
-// SquashCommitInTransaction is identical to SquashCommit except that it can run
+// SquashJobInTransaction is identical to SquashJob except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) SquashCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.SquashCommitRequest) error {
-	userCommit := request.Commit
+func (a *validatedAPIServer) SquashJobInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.SquashJobRequest) error {
 	// Validate arguments
-	if userCommit == nil {
-		return errors.New("commit cannot be nil")
+	if request.Job == nil {
+		return errors.New("job cannot be nil")
 	}
-	if userCommit.Branch == nil {
-		return errors.New("commit branch cannot be nil")
-	}
-	if userCommit.Branch.Repo == nil {
-		return errors.New("commit repo cannot be nil")
-	}
-	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_DELETE_COMMIT); err != nil {
-		return err
-	}
-	return a.APIServer.SquashCommitInTransaction(txnCtx, request)
+	// TODO(global ids): how to verify that a user is allowed to squash a job given that it can touch several repos
+	// if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_DELETE_COMMIT); err != nil {
+	//	return err
+	//}
+	return a.APIServer.SquashJobInTransaction(txnCtx, request)
 }
 
 // InspectFile implements the protobuf pfs.InspectFile RPC

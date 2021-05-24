@@ -366,12 +366,26 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
-// SquashCommit deletes a commit.
-func (c APIClient) SquashCommit(repoName string, branchName string, commitID string) error {
-	_, err := c.PfsAPIClient.SquashCommit(
+// InspectJob returns info about a specific Job.
+func (c APIClient) InspectJob(jobID string) (*pfs.JobInfo, error) {
+	resp, err := c.PfsAPIClient.InspectJob(
 		c.Ctx(),
-		&pfs.SquashCommitRequest{
-			Commit: NewCommit(repoName, branchName, commitID),
+		&pfs.InspectJobRequest{
+			Job: NewJob(jobID),
+		},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return resp, nil
+}
+
+// SquashJob squashes the commits of a job into their children.
+func (c APIClient) SquashJob(jobID string) error {
+	_, err := c.PfsAPIClient.SquashJob(
+		c.Ctx(),
+		&pfs.SquashJobRequest{
+			Job: NewJob(jobID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

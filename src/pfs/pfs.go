@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"hash"
 
+	"github.com/gogo/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 )
 
@@ -28,6 +30,13 @@ func (c *Commit) FullID() string {
 
 func (c *Commit) Job() *Job {
 	return &Job{ID: c.ID}
+}
+
+func (ji *JobInfo) Commit(jobCommitInfo *JobCommitInfo) *Commit {
+	return &Commit{
+		Branch: proto.Clone(jobCommitInfo.Branch).(*Branch),
+		ID:     ji.Job.ID,
+	}
 }
 
 // NewHash returns a hash that PFS uses internally to compute checksums.

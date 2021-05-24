@@ -85,9 +85,9 @@ func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
 	return fmt.Sprintf("finish commit %s@%s", request.Commit.Branch.Repo.Name, request.Commit.ID)
 }
 
-// func sprintSquashCommit(request *pfs.SquashCommitRequest) string {
-// 	return fmt.Sprintf("squash commit %s@%s", request.Commit.Repo.Name, request.Commit.ID)
-// }
+func sprintSquashJob(request *pfs.SquashJobRequest) string {
+	return fmt.Sprintf("squash job %s", request.Job.ID)
+}
 
 func sprintCreateBranch(request *pfs.CreateBranchRequest) string {
 	provenance := ""
@@ -160,8 +160,8 @@ func transactionRequests(
 			}
 		} else if request.FinishCommit != nil {
 			line = sprintFinishCommit(request.FinishCommit)
-			// } else if request.SquashCommit != nil {
-			// 	line = sprintSquashCommit(request.SquashCommit)
+		} else if request.SquashJob != nil {
+			line = sprintSquashJob(request.SquashJob)
 		} else if request.CreateBranch != nil {
 			line = sprintCreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {

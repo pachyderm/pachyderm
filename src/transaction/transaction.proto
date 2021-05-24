@@ -20,7 +20,7 @@ message TransactionRequest {
   pfs.DeleteRepoRequest delete_repo = 2;
   pfs.StartCommitRequest start_commit = 3;
   pfs.FinishCommitRequest finish_commit = 4;
-  pfs.SquashCommitRequest squash_commit = 5;
+  pfs.SquashJobRequest squash_job = 5;
   pfs.CreateBranchRequest create_branch = 6;
   pfs.DeleteBranchRequest delete_branch = 7;
   pps.UpdatePipelineJobStateRequest update_pipeline_job_state = 8;

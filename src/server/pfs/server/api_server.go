@@ -184,8 +184,9 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return &types.Empty{}, nil
 }
 
-// InspectCommitInTransaction is identical to InspectCommit (some features excluded) except that it can run
-// inside an existing postgres transaction.  This is not an RPC.
+// InspectCommitInTransaction is identical to InspectCommit (some features
+// excluded) except that it can run inside an existing postgres transaction.
+// This is not an RPC.
 func (a *apiServer) InspectCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	return a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
 }
@@ -210,28 +211,43 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	})
 }
 
-// SquashCommitInTransaction is identical to SquashCommit except that it can run
+// InspectJobInTransaction is identical to InspectJob except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) SquashCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.SquashCommitRequest) error {
-	return a.driver.squashCommit(txnCtx, request.Commit)
+func (a *apiServer) InspectJobInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectJobRequest) (*pfs.JobInfo, error) {
+	return a.driver.inspectJob(txnCtx, request.Job)
 }
 
-// SquashCommit implements the protobuf pfs.SquashCommit RPC
-func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *types.Empty, retErr error) {
+// InspectJob implements the protobuf pfs.InspectJob RPC
+func (a *apiServer) InspectJob(ctx context.Context, request *pfs.InspectJobRequest) (response *pfs.JobInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	var jobInfo *pfs.JobInfo
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		var err error
+		jobInfo, err = a.driver.inspectJob(txnCtx, request.Job)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return jobInfo, nil
+}
+
+// SquashJobInTransaction is identical to SquashJob except that it can run
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) SquashJobInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.SquashJobRequest) error {
+	return a.driver.squashJob(txnCtx, request.Job)
+}
+
+// SquashJob implements the protobuf pfs.SquashJob RPC
+func (a *apiServer) SquashJob(ctx context.Context, request *pfs.SquashJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.SquashCommit(request)
+		return txn.SquashJob(request)
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
-}
-
-func (a *apiServer) InspectJob(ctx context.Context, request *pfs.InspectJobRequest) (response *pfs.JobInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return nil, errors.New("unimplemented")
 }
 
 // FlushJob implements the protobuf pfs.FlushJob RPC

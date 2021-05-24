@@ -151,10 +151,6 @@ message JobInfo {
   repeated JobCommitInfo job_commits = 3;
 }
 
-message InspectJobRequest {
-  Job job = 1;
-}
-
 enum FileType {
   RESERVED = 0;
   FILE = 1;
@@ -244,8 +240,12 @@ message CommitInfos {
   repeated CommitInfo commit_info = 1;
 }
 
-message SquashCommitRequest {
-  Commit commit = 1;
+message InspectJobRequest {
+  Job job = 1;
+}
+
+message SquashJobRequest {
+  Job job = 1;
 }
 
 message FlushJobRequest {
@@ -481,17 +481,15 @@ service API {
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
-  // SquashCommit squashes a commit into it's parent.
-  rpc SquashCommit(SquashCommitRequest) returns (google.protobuf.Empty) {}
+
+  // InspectJob returns the info about a job.
+  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
+  // SquashJob squashes the commits of a job into their children.
+  rpc SquashJob(SquashJobRequest) returns (google.protobuf.Empty) {}
   // FlushJob waits for downstream commits to finish.
   rpc FlushJob(FlushJobRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
-  // TODO: BuildCommit?
-  //rpc BuildCommit(BuildCommitRequest) returns (Commit) {}
-
-  // InspectJob returns the info about a job.
-  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}

@@ -128,7 +128,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs.API/FinishCommit":    authDisabledOr(authenticated),
 	"/pfs.API/InspectCommit":   authDisabledOr(authenticated),
 	"/pfs.API/ListCommit":      authDisabledOr(authenticated),
-	"/pfs.API/SquashCommit":    authDisabledOr(authenticated),
+	"/pfs.API/SquashJob":       authDisabledOr(authenticated),
 	"/pfs.API/FlushJob":        authDisabledOr(authenticated),
 	"/pfs.API/SubscribeCommit": authDisabledOr(authenticated),
 	"/pfs.API/ClearCommit":     authDisabledOr(authenticated),

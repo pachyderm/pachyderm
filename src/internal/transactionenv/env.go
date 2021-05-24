@@ -26,7 +26,7 @@ type PfsWrites interface {
 
 	StartCommit(*pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
-	SquashCommit(*pfs.SquashCommitRequest) error
+	SquashJob(*pfs.SquashJobRequest) error
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
@@ -183,10 +183,12 @@ type PfsTransactionServer interface {
 	InspectRepoInTransaction(*TransactionContext, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 	DeleteRepoInTransaction(*TransactionContext, *pfs.DeleteRepoRequest) error
 
+	InspectCommitInTransaction(*TransactionContext, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 	StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommitInTransaction(*TransactionContext, *pfs.FinishCommitRequest) error
-	SquashCommitInTransaction(*TransactionContext, *pfs.SquashCommitRequest) error
-	InspectCommitInTransaction(*TransactionContext, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
+
+	InspectJobInTransaction(*TransactionContext, *pfs.InspectJobRequest) (*pfs.JobInfo, error)
+	SquashJobInTransaction(*TransactionContext, *pfs.SquashJobRequest) error
 
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
 	InspectBranchInTransaction(*TransactionContext, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
@@ -278,9 +280,9 @@ func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) erro
 	return t.txnCtx.txnEnv.pfsServer.FinishCommitInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) SquashCommit(original *pfs.SquashCommitRequest) error {
-	req := proto.Clone(original).(*pfs.SquashCommitRequest)
-	return t.txnCtx.txnEnv.pfsServer.SquashCommitInTransaction(t.txnCtx, req)
+func (t *directTransaction) SquashJob(original *pfs.SquashJobRequest) error {
+	req := proto.Clone(original).(*pfs.SquashJobRequest)
+	return t.txnCtx.txnEnv.pfsServer.SquashJobInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
@@ -355,8 +357,8 @@ func (t *appendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
 	return err
 }
 
-func (t *appendTransaction) SquashCommit(req *pfs.SquashCommitRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommit: req})
+func (t *appendTransaction) SquashJob(req *pfs.SquashJobRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashJob: req})
 	return err
 }
 

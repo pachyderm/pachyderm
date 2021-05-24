@@ -551,15 +551,11 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	deleteCommit := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>",
-		Short: "Delete an input commit.",
-		Long:  "Delete an input commit. An input is a commit which is not the output of a pipeline.",
+	squashJob := &cobra.Command{
+		Use:   "{{alias}} <job>",
+		Short: "Squash the commits of a job.",
+		Long:  "Squash the commits of a job into their child commits.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			commit, err := cmdutil.ParseCommit(args[0])
-			if err != nil {
-				return err
-			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -567,12 +563,12 @@ $ {{alias}} test@master --new`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.SquashCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+				return c.SquashJob(args[0])
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
+	shell.RegisterCompletionFunc(squashJob, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(squashJob, "squash job"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",

@@ -159,8 +159,8 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 			response.Commit, err = directTxn.StartCommit(request.StartCommit)
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
-		} else if request.SquashCommit != nil {
-			err = directTxn.SquashCommit(request.SquashCommit)
+		} else if request.SquashJob != nil {
+			err = directTxn.SquashJob(request.SquashJob)
 		} else if request.CreateBranch != nil {
 			err = directTxn.CreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {
