@@ -616,8 +616,7 @@ func TestPFS(suite *testing.T) {
 
 		require.Equal(t, commit, commitInfo.Commit)
 		require.NotNil(t, commitInfo.Finished)
-		// TODO (2.0 required)
-		// require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
+		require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
 		require.True(t, started.Before(tStarted))
 		require.True(t, finished.After(tFinished))
 	})
@@ -2195,18 +2194,17 @@ func TestPFS(suite *testing.T) {
 
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
-		_, err = env.PachClient.InspectRepo(repo)
+		info, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
 
-		// TODO (2.0 required)
-		// require.Equal(t, int(info.SizeBytes), totalSize)
+		require.Equal(t, totalSize, int(info.SizeBytes))
 
-		// infos, err := env.PachClient.ListRepo()
-		// require.NoError(t, err)
-		// require.Equal(t, 1, len(infos))
-		// info = infos[0]
+		infos, err := env.PachClient.ListRepo()
+		require.NoError(t, err)
+		require.Equal(t, 1, len(infos))
+		info = infos[0]
 
-		// require.Equal(t, int(info.SizeBytes), totalSize)
+		require.Equal(t, totalSize, int(info.SizeBytes))
 	})
 
 	suite.Run("Create", func(t *testing.T) {
