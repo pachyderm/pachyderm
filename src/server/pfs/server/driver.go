@@ -1449,6 +1449,11 @@ func (d *driver) squashJob(txnCtx *txnenv.TransactionContext, job *pfs.Job) erro
 		}
 	}
 
+	// 5) Delete the job
+	if err := d.jobs.ReadWrite(txnCtx.SqlTx).Delete(job.ID); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1647,7 +1652,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		return err
 	}
 
-	if commit != nil {
+	if commit != nil && (branchInfo.Head == nil || branchInfo.Head.ID != commit.ID) {
 		// Create an alias of the head commit onto this branch - this will move the
 		// head of the branch and update the repo size if necessary
 		aliasCommit, err := d.aliasCommit(txnCtx, commit, branch)
