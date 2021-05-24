@@ -869,7 +869,7 @@ func (d *driver) propagateCommits(txnCtx *txnenv.TransactionContext, branches []
 		}
 
 		// If there are no upstream commits for this job and no commit in this branch, we can skip
-		if !needsJob {
+		if !needsJob && (subvBI.Head == nil || subvBI.Head.ID != txnCtx.Job.ID) {
 			continue
 		}
 
