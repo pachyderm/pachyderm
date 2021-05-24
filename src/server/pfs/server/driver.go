@@ -850,38 +850,26 @@ func (d *driver) propagateCommits(txnCtx *txnenv.TransactionContext, branches []
 		return len(subvBIs[i].Provenance) < len(subvBIs[j].Provenance)
 	})
 
-	fmt.Printf("job: %v\n", txnCtx.Job)
-	fmt.Printf("subvBIs: %v\n", subvBIs)
-
 	// Iterate through downstream branches and determine which need a new commit.
 	for _, subvBI := range subvBIs {
-		// Check if any commits in the provenance chain disagree on their job, in
-		// which case we need a new job
-		needsCommit := false
+		// Check the commits we would be provenant on
+		needsJob := false
 		for _, provOfSubvB := range subvBI.Provenance {
 			provOfSubvBI, err := getBranchInfo(provOfSubvB)
 			if err != nil {
 				return err
 			}
-
-			// If the provenant branch has a commit for this job already, ensure that
-			// this branch's head is part of the Job we are constructing.
-			if provOfSubvBI.Head != nil && provOfSubvBI.Head.ID == txnCtx.Job.ID {
-				addJobCommit(provOfSubvBI)
-				needsCommit = true
-				break
+			if provOfSubvBI.Head == nil || provOfSubvBI.Branch.Repo.Type == pfs.SpecRepoType {
+				continue
 			}
-
-			// If this subvenant branch does not have a head, we need a commit if any
-			// input branches potentially have data
-			if subvBI.Head == nil && provOfSubvBI.Branch.Repo.Type != pfs.SpecRepoType && provOfSubvBI.Head != nil {
-				needsCommit = true
+			if subvBI.Head == nil || provOfSubvBI.Head.ID != subvBI.Head.ID {
+				needsJob = true
 				break
 			}
 		}
 
 		// If there are no upstream commits for this job and no commit in this branch, we can skip
-		if !needsCommit && (subvBI.Head == nil || subvBI.Head.ID != txnCtx.Job.ID) {
+		if !needsJob {
 			continue
 		}
 
