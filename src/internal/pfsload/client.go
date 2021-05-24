@@ -1,4 +1,4 @@
-package load
+package pfsload
 
 import (
 	"context"
@@ -42,13 +42,15 @@ type ThroughputSpec struct {
 
 type throughputLimitClient struct {
 	Client
-	spec *ThroughputSpec
+	spec   *ThroughputSpec
+	random *rand.Rand
 }
 
-func NewThroughputLimitClient(client Client, spec *ThroughputSpec) Client {
+func NewThroughputLimitClient(client Client, spec *ThroughputSpec, random *rand.Rand) Client {
 	return &throughputLimitClient{
 		Client: client,
 		spec:   spec,
+		random: random,
 	}
 }
 
@@ -57,17 +59,19 @@ func (tlc *throughputLimitClient) WithModifyFileClient(ctx context.Context, repo
 		return cb(&throughputLimitModifyFileClient{
 			ModifyFile: mf,
 			spec:       tlc.spec,
+			random:     tlc.random,
 		})
 	})
 }
 
 type throughputLimitModifyFileClient struct {
 	client.ModifyFile
-	spec *ThroughputSpec
+	spec   *ThroughputSpec
+	random *rand.Rand
 }
 
 func (tlmfc *throughputLimitModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) error {
-	if shouldExecute(tlmfc.spec.Prob) {
+	if shouldExecute(tlmfc.random, tlmfc.spec.Prob) {
 		r = &throughputLimitReader{
 			r:              r,
 			bytesPerSecond: tlmfc.spec.Limit,
@@ -107,18 +111,20 @@ type CancelSpec struct {
 
 type cancelClient struct {
 	Client
-	spec *CancelSpec
+	spec   *CancelSpec
+	random *rand.Rand
 }
 
-func NewCancelClient(client Client, spec *CancelSpec) Client {
+func NewCancelClient(client Client, spec *CancelSpec, random *rand.Rand) Client {
 	return &cancelClient{
 		Client: client,
 		spec:   spec,
+		random: random,
 	}
 }
 
 func (cc *cancelClient) WithModifyFileClient(ctx context.Context, repo, branch, commit string, cb func(client.ModifyFile) error) (retErr error) {
-	if shouldExecute(cc.spec.Prob) {
+	if shouldExecute(cc.random, cc.spec.Prob) {
 		var cancel context.CancelFunc
 		cancelCtx, cancel := context.WithCancel(ctx)
 		defer func() {
@@ -128,7 +134,7 @@ func (cc *cancelClient) WithModifyFileClient(ctx context.Context, repo, branch, 
 		}()
 		// TODO: This leaks, refactor into an errgroup.
 		go func() {
-			<-time.After(time.Duration(int64(float64(int64(cc.spec.MaxTime)) * rand.Float64())))
+			<-time.After(time.Duration(int64(float64(int64(cc.spec.MaxTime)) * cc.random.Float64())))
 			cancel()
 		}()
 		ctx = cancelCtx

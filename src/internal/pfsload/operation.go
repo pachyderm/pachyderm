@@ -1,4 +1,4 @@
-package load
+package pfsload
 
 import (
 	"context"
@@ -8,13 +8,13 @@ import (
 )
 
 type OperationsSpec struct {
-	Count              int                  `yaml:"count,omitempty"`
-	FuzzOperationSpecs []*FuzzOperationSpec `yaml:"fuzzOperations,omitempty"`
+	Count          int              `yaml:"count,omitempty"`
+	OperationSpecs []*OperationSpec `yaml:"operation,omitempty"`
 }
 
 func Operations(env *Env, repo, branch, commit string, spec *OperationsSpec) error {
 	for i := 0; i < spec.Count; i++ {
-		if err := FuzzOperation(env, repo, branch, commit, spec.FuzzOperationSpecs); err != nil {
+		if err := FuzzOperation(env, repo, branch, commit, spec.OperationSpecs); err != nil {
 			return err
 		}
 	}
@@ -25,6 +25,7 @@ func Operations(env *Env, repo, branch, commit string, spec *OperationsSpec) err
 type OperationSpec struct {
 	PutFileSpec    *PutFileSpec    `yaml:"putFile,omitempty"`
 	DeleteFileSpec *DeleteFileSpec `yaml:"deleteFile,omitempty"`
+	Prob           float64         `yaml:"prob,omitempty"`
 }
 
 func Operation(env *Env, repo, branch, commit string, spec *OperationSpec) error {
@@ -81,7 +82,7 @@ func nextDeletePath(env *Env, spec *DeleteFileSpec) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for shouldExecute(spec.DirectoryProb) {
+	for shouldExecute(env.Rand(), spec.DirectoryProb) {
 		p, _ = path.Split(p)
 		if p == "" {
 			break

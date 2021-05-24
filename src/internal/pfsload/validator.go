@@ -1,9 +1,10 @@
-package load
+package pfsload
 
 import (
 	"bytes"
 	"context"
 	"io"
+	"math/rand"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -14,17 +15,27 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-type ValidatorSpec struct{}
+type FrequencySpec struct {
+	Count int     `yaml:"count,omitempty"`
+	Prob  float64 `yaml:"prob,omitempty"`
+	count int
+}
+
+type ValidatorSpec struct {
+	FrequencySpec *FrequencySpec `yaml:"frequency,omitempty"`
+}
 
 type Validator struct {
 	spec   *ValidatorSpec
 	buffer *fileset.Buffer
+	random *rand.Rand
 }
 
-func NewValidator(client Client, spec *ValidatorSpec) (Client, *Validator) {
+func NewValidator(client Client, spec *ValidatorSpec, random *rand.Rand) (Client, *Validator) {
 	v := &Validator{
 		spec:   spec,
 		buffer: fileset.NewBuffer(),
+		random: random,
 	}
 	return &validatorClient{
 		Client:    client,
@@ -34,17 +45,15 @@ func NewValidator(client Client, spec *ValidatorSpec) (Client, *Validator) {
 
 // TODO: The performance of this is bad.
 func (v *Validator) RandomFile() (string, error) {
-	files := make(map[string]struct{})
-	if err := v.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
-		files[p] = struct{}{}
+	var files []string
+	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
+		files = append(files, p)
 		return nil
 	}); err != nil {
 		return "", err
 	}
 	if len(files) > 0 {
-		for file := range files {
-			return file, nil
-		}
+		return files[v.random.Intn(len(files))], nil
 	}
 	return "no-op-delete", nil
 }
@@ -55,8 +64,23 @@ type file struct {
 }
 
 func (v *Validator) Validate(client Client, repo, branch, commit string) (retErr error) {
+	if v.spec.FrequencySpec != nil {
+		freq := v.spec.FrequencySpec
+		switch {
+		case freq.Count > 0:
+			freq.count++
+			if freq.Count > freq.count {
+				return nil
+			}
+			freq.count = 0
+		case freq.Prob > 0:
+			if !shouldExecute(v.random, freq.Prob) {
+				return nil
+			}
+		}
+	}
 	var files []*file
-	if err := v.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
+	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
 		buf := &bytes.Buffer{}
 		if _, err := io.Copy(buf, r); err != nil {
 			return err
@@ -113,7 +137,7 @@ type validatorClient struct {
 }
 
 func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, branch, commit string, cb func(client.ModifyFile) error) error {
-	return vc.Client.WithModifyFileClient(ctx, repo, branch, commit, func(mf client.ModifyFile) error {
+	return vc.Client.WithModifyFileClient(ctx, repo, branch, commit, func(mf client.ModifyFile) (retErr error) {
 		vmfc := &validatorModifyFileClient{
 			ModifyFile: mf,
 			buffer:     fileset.NewBuffer(),
@@ -122,7 +146,7 @@ func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, branc
 			return err
 		}
 		for _, p := range vmfc.deletes {
-			vc.validator.buffer.Delete(p, "")
+			vc.validator.buffer.Delete(p, fileset.DefaultFileTag)
 		}
 		return vmfc.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
 			w := vc.validator.buffer.Add(p, tag)
@@ -138,13 +162,13 @@ type validatorModifyFileClient struct {
 	deletes []string
 }
 
-func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) error {
+func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) (retErr error) {
 	h := pfs.NewHash()
 	if err := vmfc.ModifyFile.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
 		return err
 	}
-	vmfc.buffer.Delete(path, "")
-	w := vmfc.buffer.Add(path, "")
+	vmfc.buffer.Delete(path, fileset.DefaultFileTag)
+	w := vmfc.buffer.Add(path, fileset.DefaultFileTag)
 	_, err := io.Copy(w, bytes.NewReader(h.Sum(nil)))
 	return err
 }
@@ -154,6 +178,6 @@ func (vmfc *validatorModifyFileClient) DeleteFile(path string, opts ...client.De
 		return err
 	}
 	vmfc.deletes = append(vmfc.deletes, path)
-	vmfc.buffer.Delete(path, "")
+	vmfc.buffer.Delete(path, fileset.DefaultFileTag)
 	return nil
 }

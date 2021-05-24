@@ -1,0 +1,19 @@
+count: 5
+operations:
+  - count: 5
+    operation:
+      - putFile:
+          files:
+            count: 1
+            file:
+              - source: "random"
+                prob: 1
+        prob: 1
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      size:
+        - min: 10000000
+          max: 100000000
+          prob: 1 

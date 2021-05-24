@@ -1,0 +1,29 @@
+count: 5
+operations:
+  - count: 100
+    operation:
+      - putFile:
+          files:
+            count: 5
+            file:
+              - source: "random"
+                prob: 1
+        prob: 0.7
+      - deleteFile:
+          count: 5
+          directoryProb: 0.2
+        prob: 0.3
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      directory:
+        depth: 3
+        run: 3
+      size:
+        - min: 1000
+          max: 10000
+          prob: 0.7
+        - min: 10000
+          max: 100000
+          prob: 0.3

@@ -1,4 +1,4 @@
-package load
+package pfsload
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -13,8 +13,8 @@ type CommitsSpec struct {
 	FileSourceSpecs []*FileSourceSpec `yaml:"fileSources,omitempty"`
 }
 
-func Commits(pachClient *client.APIClient, repo, branch string, spec *CommitsSpec) error {
-	env := NewEnv(NewPachClient(pachClient), spec)
+func Commits(pachClient *client.APIClient, repo, branch string, spec *CommitsSpec, seed int64) error {
+	env := NewEnv(NewPachClient(pachClient), spec, seed)
 	for i := 0; i < spec.Count; i++ {
 		commit, err := pachClient.StartCommit(repo, branch)
 		if err != nil {
