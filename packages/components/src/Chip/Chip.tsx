@@ -27,6 +27,7 @@ export const Chip = <T,>({
   selected,
   onClick = noop,
   onClickValue,
+  disabled,
   ...rest
 }: React.PropsWithChildren<ChipProps<T>>) => {
   const classes = classNames(styles.base, className, {
@@ -42,6 +43,7 @@ export const Chip = <T,>({
 
   return (
     <button
+      disabled={disabled}
       className={classes}
       aria-pressed={selected}
       onClick={() => onClickCallback(onClickValue)}

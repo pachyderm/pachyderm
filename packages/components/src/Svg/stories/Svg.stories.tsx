@@ -77,6 +77,7 @@ import {
   FileVideoSVG,
   ListViewSVG,
   IconViewSVG,
+  ElephantEmptyState,
 } from '..';
 
 import styles from './SvgStory.module.css';
@@ -189,6 +190,9 @@ export const Pachyderm = () => {
         </SVGWrapper>
         <SVGWrapper title="TriangleSVG">
           <TriangleSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ElephantEmptyState">
+          <ElephantEmptyState />
         </SVGWrapper>
       </div>
     </div>

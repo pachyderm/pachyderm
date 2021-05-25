@@ -23,6 +23,7 @@ export {ReactComponent as DrawerElephantSVG} from './drawerElephant.svg';
 export {ReactComponent as DrawerRingsSVG} from './drawerRings.svg';
 export {ReactComponent as ElephantSVG} from './elephant.svg';
 export {ReactComponent as ElephantCtaSVG} from './elephantCta.svg';
+export {ReactComponent as ElephantEmptyState} from './elephantEmptyState.svg';
 export {ReactComponent as ElephantHeadSVG} from './ElephantHead.svg';
 export {ReactComponent as ElephantHeadExtraLargeSVG} from './elephantHeadExtraLarge.svg';
 export {ReactComponent as ElephantHeadLargeSVG} from './elephantHeadLarge.svg';

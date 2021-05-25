@@ -10,9 +10,14 @@
   position: relative;
 }
 
-.base:hover {
+.base:not(:disabled):hover {
   background-color: var(--selected-grey);
   color: var(--white);
+}
+
+.base:disabled {
+  cursor: default;
+  color: var(--pachyderm-black);
 }
 
 .selected {
