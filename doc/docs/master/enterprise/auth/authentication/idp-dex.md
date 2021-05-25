@@ -128,7 +128,7 @@ See our oidc connector example in JSON and YAML formats below.
             issuer: https://dev-k34x5yjn.us.auth0.com/
             clientID: hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5
             clientSecret: 7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL
-            redirectURI: http://<id>:30658/callback
+            redirectURI: http://<ip>:30658/callback
             insecureEnableGroups: true
     ```
 
@@ -138,9 +138,9 @@ You will need to replace the following placeholders with relevant values:
 
 - `name`: Its full name (string).
 
-- `type`: The type of connector (oidc, saml,    //TODO other?).
+- `type`: The type of connector. (oidc, saml).
 
-- `version` (optional):The version of your connector (integer - default to 0 when creating a new connector)
+- `version`:The version of your connector (integer - default to 0 when creating a new connector)
 
 - `issuer` — The domain of your application (here in Auth0). For example,
 `https://dev-k34x5yjn.us.auth0.com/`. **Note the trailing slash**.
@@ -180,7 +180,7 @@ However, you can set its value to a different integer.
 
 You will specifically need to increment this value when updating your connector.
 ```shell
-$ pachctl idp update-connector auth0 --version 1
+$ pachctl idp update-connector <your connector id: auth0> --version 1
 ```
 or
 ```shell
