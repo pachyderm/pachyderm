@@ -28,10 +28,6 @@ describe('AuthenticatedRoute', () => {
     window.history.pushState('', '', '/authenticated');
   });
 
-  afterEach(() => {
-    window.location = windowLocation;
-  });
-
   it('should allow logged in users to reach authenticated routes', async () => {
     window.localStorage.setItem('auth-token', '123');
 
@@ -70,35 +66,6 @@ describe('AuthenticatedRoute', () => {
     expect(await findByText('Authenticated!')).toBeVisible();
   });
 
-  it('should redirect unauthenticated users through the oauth flow', async () => {
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      writable: true,
-      value: {
-        ...windowLocation,
-        assign: jest.fn(),
-      },
-    });
-
-    window.localStorage.removeItem('auth-token');
-    window.localStorage.removeItem('id-token');
-
-    render(<TestBed />);
-
-    await waitFor(() =>
-      expect(window.location.assign).toBeCalledWith(
-        [
-          `http://localhost:${mockServer.state.authPort}/auth`,
-          `?client_id=${process.env.OAUTH_CLIENT_ID}`,
-          '&redirect_uri=http://localhost/oauth/callback/?inline=true',
-          '&response_type=code',
-          `&scope=openid+email+profile+audience:server:client_id:${process.env.OAUTH_PACHD_CLIENT_ID}`,
-          '&state=AAAAAAAAAAAAAAAAAAAA',
-        ].join(''),
-      ),
-    );
-  });
-
   it('should redirect the user to the error page if the OIDC provider is misconfigured', async () => {
     window.localStorage.removeItem('auth-token');
     window.localStorage.removeItem('id-token');
@@ -124,5 +91,44 @@ describe('AuthenticatedRoute', () => {
       ),
     );
     expect(window.location.pathname).toEqual('/');
+  });
+
+  describe('external navigation', () => {
+    beforeEach(() => {
+      window.history.pushState('', '', '/authenticated');
+    });
+
+    afterAll(() => {
+      window.location = windowLocation;
+    });
+
+    it('should redirect unauthenticated users through the oauth flow', async () => {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        writable: true,
+        value: {
+          ...windowLocation,
+          assign: jest.fn(),
+        },
+      });
+
+      window.localStorage.removeItem('auth-token');
+      window.localStorage.removeItem('id-token');
+
+      render(<TestBed />);
+
+      await waitFor(() =>
+        expect(window.location.assign).toBeCalledWith(
+          [
+            `http://localhost:${mockServer.state.authPort}/auth`,
+            `?client_id=${process.env.OAUTH_CLIENT_ID}`,
+            '&redirect_uri=http://localhost/oauth/callback/?inline=true',
+            '&response_type=code',
+            `&scope=openid+email+profile+audience:server:client_id:${process.env.OAUTH_PACHD_CLIENT_ID}`,
+            '&state=AAAAAAAAAAAAAAAAAAAA',
+          ].join(''),
+        ),
+      );
+    });
   });
 });
