@@ -5748,9 +5748,10 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 			},
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
-					Repo:   pipeline1,
-					Branch: "stats",
-					Glob:   "/*",
+					Repo:     pipeline1,
+					RepoType: pfs.MetaRepoType,
+					Branch:   "master",
+					Glob:     "/*",
 				},
 			},
 			EnableStats: true,

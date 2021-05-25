@@ -2094,7 +2094,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		provenance = append(branchProvenance(newPipelineInfo.Input),
 			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 		outputBranch     = client.NewBranch(pipelineName, newPipelineInfo.OutputBranch)
-		statsBranch      = client.NewBranch(pipelineName, "stats")
+		statsBranch      = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch("master")
 		outputBranchHead *pfs.Commit
 		statsBranchHead  *pfs.Commit
 		specCommit       *pfs.Commit
@@ -2137,7 +2137,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		specCommit = commitInfo.Commit
 		// We also use the existing head for the branches, rather than making a new one.
 		outputBranchHead = client.NewCommit(pipelineName, newPipelineInfo.OutputBranch, "")
-		statsBranchHead = client.NewCommit(pipelineName, "stats", "")
+		statsBranchHead = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewCommit("master", "")
 	} else {
 		specCommit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineName, *specFilesetID, *prevSpecCommit)
 		if err != nil {
@@ -2214,7 +2214,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			if err != nil && !isNotFoundErr(err) {
 				return err
 			} else if err == nil {
-				statsBranchHead = client.NewCommit(pipelineName, "stats", "")
+				statsBranchHead = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewCommit("master", "")
 			}
 		}
 
@@ -2314,12 +2314,19 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return errors.Wrapf(visitErr, "could not create/update trigger branch")
 	}
 	if newPipelineInfo.EnableStats {
+		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
+			Repo:        statsBranch.Repo,
+			Description: fmt.Sprint("Meta repo for", pipelineName),
+			Update:      true, // don't error if it already exists
+		}); err != nil {
+			return errors.Wrap(err, "could not create meta repo")
+		}
 		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewBranch(pipelineName, "stats"),
+			Branch:     statsBranch,
 			Provenance: []*pfs.Branch{outputBranch},
 			Head:       statsBranchHead,
 		}); err != nil {
-			return errors.Wrapf(err, "could not create/update stats branch")
+			return errors.Wrapf(err, "could not create/update meta branch")
 		}
 	}
 	return nil
@@ -3071,7 +3078,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		if pipelineInfo.EnableStats {
 			// it needs to additionally be provenant on the commit we just created
 			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
-				Branch:     client.NewBranch(request.Pipeline.Name, "stats"),
+				Branch:     client.NewSystemRepo(request.Pipeline.Name, pfs.MetaRepoType).NewBranch("master"),
 				Provenance: append(provenance, newCommit.NewProvenance()),
 			})
 			if err != nil {

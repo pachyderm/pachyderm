@@ -1755,13 +1755,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		if branch != "" && commitInfo.Commit.Branch.Name != branch {
 			return nil
 		}
-		// For now, we don't want stats branches to have jobs triggered on them
-		// and this is the simplest way to achieve that. Once we have labels,
-		// we'll use those instead for a more principled approach.
-		// TODO: Address this sooner rather than later... - should be obsolete once we have stats in a system repo
-		if commitInfo.Commit.Branch.Name == "stats" {
-			return nil
-		}
 
 		// We don't want to include the `from` commit itself
 		if !(seen[commitInfo.Commit.ID] || (from != nil && from.ID == commitInfo.Commit.ID)) {
