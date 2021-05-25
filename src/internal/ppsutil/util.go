@@ -427,7 +427,7 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 
 func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
 	for _, commitRange := range commitInfo.Subvenance {
-		if proto.Equal(commitRange.Lower.Branch.Repo, commitInfo.Commit.Branch.Repo) {
+		if commitRange.Lower.Branch.Repo.Type == pfs.MetaRepoType {
 			return commitRange.Lower
 		}
 	}

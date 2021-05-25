@@ -239,9 +239,16 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 		// New repo case
 		if authIsActivated {
-			// Create ACL for new repo. Make caller the sole owner. If the ACL already
-			// exists with a different owner, this will fail.
-			if err := d.env.AuthServer().CreateRoleBindingInTransaction(txnCtx, whoAmI.Username, []string{auth.RepoOwnerRole}, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil {
+			// Create ACL for new repo. Make caller the sole owner. If this is a user repo,
+			// and the ACL already exists with a different owner, this will fail.
+			// For now, we expect system repos to share auth info with their corresponding
+			// user repo, so the role binding should exist
+			if err := d.env.AuthServer().CreateRoleBindingInTransaction(
+				txnCtx,
+				whoAmI.Username,
+				[]string{auth.RepoOwnerRole},
+				&auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+			); err != nil && (!col.IsErrExists(err) || repo.Type == pfs.UserRepoType) {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo \"%s\"", pretty.CompactPrintRepo(repo))
 			}
 		}
