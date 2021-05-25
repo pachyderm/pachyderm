@@ -21,7 +21,7 @@ type: application
 # each time you make changes to the chart and its templates, including
 # the app version.  Versions are expected to follow Semantic
 # Versioning (https://semver.org/)
-version: 2.0.0-alpha.1
+version: 2.0.0-alpha.2
 
 # This is the version number of the application being deployed. This
 # version number should be incremented each time you make changes to
@@ -33,3 +33,21 @@ appVersion: 2.0.0-alpha.15
 kubeVersion: ">= 1.16.0-0"
 
 icon: https://www.pachyderm.com/favicons/favicon-32x32.png
+
+annotations:
+  artifacthub.io/prerelease: "true" # NOTE: update prior to releasing
+  artifacthub.io/license: "Apache-2.0"
+  artifacthub.io/links: |
+    - name: "Pachyderm"
+      url: https://www.pachyderm.com/
+    - name: "Pachyderm repo
+      url: https://github.com/pachyderm/pachyderm
+    - name: "Chart repo"
+      url: https://github.com/pachyderm/helmchart
+
+keywords:
+  - data science
+home: https://www.pachyderm.com/
+sources:
+  - https://github.com/pachyderm/pachyderm
+  - https://github.com/pachyderm/helmchart
