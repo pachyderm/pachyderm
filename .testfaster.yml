@@ -56,11 +56,7 @@ base:
     # Makefile uses cacheable build params (version).
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-<<<<<<< HEAD
         git checkout 3b4a8a7c8e2f8e3b6ca179c4816c29e943b71731 && \
-=======
-        git checkout bb4c26d7c838e61cff5b99c56f44662eea920c6b && \
->>>>>>> d0f098121 (add testfaster fix)
         CIRCLE_BRANCH=1 make install
     # Also cache the go deps the linter uses (we don't really care if the
     # linter passes)
