@@ -1,0 +1,39 @@
+
+.commit {
+    text-transform: capitalize;
+    margin: 0;
+}
+
+.search {
+    border-left: solid 1px var(--line-grey);
+    flex: 1;
+    padding: 1rem;
+    padding-left: 3rem;
+    background-origin: content-box;
+    background-size: 1rem;
+    background-position: -1.5rem 0;
+}
+
+.header {
+    width: 100%;
+    margin-right: 2rem;
+}
+
+.navigate {
+    color: var(--pachyderm-black);
+    font-size: var(--font-size-body-medium);
+    width: auto;
+    display: inline-flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.directionRight {
+    transform: rotate(90deg);
+    margin-left: 1rem;
+}
+
+.directionLeft {
+    margin-right: 1rem;
+    transform: rotate(-90deg);
+}

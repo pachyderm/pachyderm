@@ -28,7 +28,7 @@ const ProjectSidebar = () => {
           <Route path={JOBS_PATH} exact>
             <JobList projectId={projectId} expandActions showStatusFilter />
           </Route>
-          <Route path={REPO_PATH} exact>
+          <Route path={REPO_PATH}>
             <RepoDetails />
           </Route>
           <Route path={PIPELINE_PATH} exact>

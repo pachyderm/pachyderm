@@ -1,15 +1,18 @@
 import classnames from 'classnames';
 import React from 'react';
+import {Route} from 'react-router';
 
 import View from '@dash-frontend/components/View';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 
 import DAG from './components/DAG';
+import FileBrowser from './components/FileBrowser';
 import ProjectHeader from './components/ProjectHeader';
 import ProjectSidebar from './components/ProjectSidebar';
 import RangeSlider from './components/RangeSlider';
 import {ReactComponent as RotateSvg} from './components/Rotate.svg';
 import {NODE_HEIGHT, NODE_WIDTH} from './constants/nodeSizes';
+import {FILE_BROWSER_PATH} from './constants/projectPaths';
 import {useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
 
@@ -105,6 +108,9 @@ const Project: React.FC = () => {
           </svg>
         </HoveredNodeProvider>
         <ProjectSidebar />
+        <Route path={FILE_BROWSER_PATH}>
+          <FileBrowser />
+        </Route>
       </View>
     </>
   );

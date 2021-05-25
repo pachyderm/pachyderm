@@ -1,9 +1,17 @@
 .base {
-  background-color: var(--background-black);
   min-height: var(--header-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 2rem;
   flex: 0;
+}
+
+.light {
+  background-color: var(--white);
+  border-bottom: 1px solid var(--line-grey);
+}
+
+.dark {
+  background-color: var(--background-black);
 }

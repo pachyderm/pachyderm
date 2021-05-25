@@ -1,7 +1,9 @@
+import {Link} from '@pachyderm/components';
 import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import React, {useMemo} from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {RepoQuery} from '@graphqlTypes';
 
 import styles from './CommitBrowser.module.css';
@@ -13,7 +15,7 @@ type CommitBrowserProps = {
 };
 
 const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
-  const {branchId} = useUrlState();
+  const {branchId, projectId, repoId} = useUrlState();
   const currentCommits = useMemo(
     () =>
       (repo?.commits || []).filter(
@@ -45,7 +47,16 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                     <a href="#TODO">Linked Job</a>
                   </dt>
                   <dt className={styles.commitData}>
-                    <a href="#TODO">View Files</a>
+                    <Link
+                      to={fileBrowserRoute({
+                        projectId,
+                        branchId,
+                        repoId: repoId,
+                        commitId: commit.id,
+                      })}
+                    >
+                      View Files
+                    </Link>
                   </dt>
                 </dl>
               </div>

@@ -1,0 +1,15 @@
+.base {
+    width: 100%;
+    font-size: var(--font-size-body-medium);
+    background-color: var(--background-grey);
+    flex: 1;
+}
+
+.link {
+    margin-right: 0.2rem;
+}
+
+.link:last-child {
+    pointer-events: none;
+    color: var(--pachyderm-black);
+}

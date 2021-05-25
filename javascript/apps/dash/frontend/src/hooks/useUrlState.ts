@@ -20,8 +20,14 @@ const useUrlState = () => {
   const branchId = match?.params.branchId
     ? decodeURIComponent(match.params.branchId)
     : '';
+  const commitId = match?.params.commitId
+    ? decodeURIComponent(match.params.commitId)
+    : '';
+  const filePath = match?.params.filePath
+    ? decodeURIComponent(match.params.filePath)
+    : '';
 
-  return {branchId, projectId, repoId, pipelineId};
+  return {branchId, projectId, repoId, pipelineId, commitId, filePath};
 };
 
 export default useUrlState;

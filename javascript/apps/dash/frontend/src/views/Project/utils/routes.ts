@@ -7,6 +7,7 @@ import {
   PIPELINE_PATH,
   PROJECT_PATH,
   REPO_PATH,
+  FILE_BROWSER_PATH,
 } from '../constants/projectPaths';
 
 const generatePathWithSearch = (
@@ -67,4 +68,25 @@ export const pipelineRoute = ({
     projectId: encodeURIComponent(projectId),
     pipelineId: encodeURIComponent(pipelineId),
     tabId,
+  });
+
+export const fileBrowserRoute = ({
+  projectId,
+  repoId,
+  commitId,
+  filePath,
+  branchId,
+}: {
+  projectId: string;
+  repoId: string;
+  commitId: string;
+  filePath?: string;
+  branchId: string;
+}) =>
+  generatePathWithSearch(FILE_BROWSER_PATH, {
+    projectId: encodeURIComponent(projectId),
+    repoId: encodeURIComponent(repoId),
+    commitId: encodeURIComponent(commitId),
+    branchId: encodeURIComponent(branchId),
+    filePath: filePath ? encodeURIComponent(filePath) : undefined,
   });
