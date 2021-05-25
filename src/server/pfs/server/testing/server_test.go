@@ -2549,7 +2549,6 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit2.ID, branchInfos[1].Head.ID) // original branch should remain unchanged
 	})
 
-	/* TODO(global ids):
 	suite.Run("Flush", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2559,17 +2558,29 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 		ACommit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
+		BCommit := pclient.NewCommit("B", "master", ACommit.ID)
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
 		require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
-		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{ACommit}, nil)
+
+		commitInfos, err := env.PachClient.FlushJobAll(ACommit.Job(), nil)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(commitInfos))
+		require.Equal(t, ACommit, commitInfos[0].Commit)
+		require.Equal(t, BCommit, commitInfos[1].Commit)
+
+		commitInfos, err = env.PachClient.FlushJobAll(ACommit.Job(), []*pfs.Branch{ACommit.Branch})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, ACommit, commitInfos[0].Commit)
+
+		commitInfos, err = env.PachClient.FlushJobAll(ACommit.Job(), []*pfs.Branch{BCommit.Branch})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, BCommit, commitInfos[0].Commit)
 	})
-	*/
 
 	// Flush2 implements the following DAG:
 	// A ─▶ B ─▶ C ─▶ D
-	/* TODO(global ids):
 	suite.Run("Flush2", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2593,18 +2604,25 @@ func TestPFS(suite *testing.T) {
 		}()
 
 		// Flush ACommit
-		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{ACommit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll(ACommit.Job(), nil)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(commitInfos))
+		BCommit := pclient.NewCommit("B", "master", ACommit.ID)
+		CCommit := pclient.NewCommit("C", "master", ACommit.ID)
+		DCommit := pclient.NewCommit("D", "master", ACommit.ID)
+		require.Equal(t, 4, len(commitInfos))
+		require.Equal(t, ACommit, commitInfos[0].Commit)
+		require.Equal(t, BCommit, commitInfos[1].Commit)
+		require.Equal(t, CCommit, commitInfos[2].Commit)
+		require.Equal(t, DCommit, commitInfos[3].Commit)
 
 		commitInfos, err = env.PachClient.FlushJobAll(
-			[]*pfs.Commit{ACommit},
-			[]*pfs.Repo{pclient.NewRepo("C")},
+			ACommit.Job(),
+			[]*pfs.Branch{pclient.NewBranch("C", "master")},
 		)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, CCommit, commitInfos[0].Commit)
 	})
-	*/
 
 	// A
 	//  ╲
@@ -2613,7 +2631,6 @@ func TestPFS(suite *testing.T) {
 	//   ◀
 	//  ╱
 	// B
-	/* TODO(global ids):
 	suite.Run("Flush3", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2638,30 +2655,19 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("B", BCommit.Branch.Name, BCommit.ID))
 		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 
-		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{BCommit, ACommit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll(ACommit.Job(), nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, 2, len(commitInfos))
+		require.Equal(t, ACommit, commitInfos[0].Commit)
+		require.Equal(t, pclient.NewCommit("C", "master", ACommit.ID), commitInfos[1].Commit)
 
-		require.Equal(t, commitInfos[0].Commit.Branch.Repo.Name, "C")
+		// The first two commits will be A and B, but they aren't deterministically sorted
+		commitInfos, err = env.PachClient.FlushJobAll(BCommit.Job(), nil)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(commitInfos))
+		require.Equal(t, pclient.NewCommit("C", "master", BCommit.ID), commitInfos[2].Commit)
 	})
-	*/
 
-	/* TODO(global ids):
-	suite.Run("FlushRedundant", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		ACommit, err := env.PachClient.StartCommit("A", "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
-		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{ACommit, ACommit}, nil)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(commitInfos))
-	})
-	*/
-
-	/* TODO(global ids):
 	suite.Run("FlushJobWithNoDownstreamRepos", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2671,33 +2677,30 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
-		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{commit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll(commit.Job(), nil)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(commitInfos))
+		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, commit, commitInfos[0].Commit)
 	})
-	*/
 
-	/* TODO(global ids):
 	suite.Run("FlushOpenCommit", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		repo1 := "test1"
-		repo2 := "test2"
-		require.NoError(t, env.PachClient.CreateRepo(repo1))
-		require.NoError(t, env.PachClient.CreateRepo(repo2))
-		require.NoError(t, env.PachClient.CreateBranch(repo2, "master", "", "", []*pfs.Branch{pclient.NewBranch(repo1, "master")}))
-		commit, err := env.PachClient.StartCommit(repo1, "master")
+		require.NoError(t, env.PachClient.CreateRepo("A"))
+		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 
 		// do the other commits in a goro so we can block for them
 		eg, _ := errgroup.WithContext(context.Background())
 		eg.Go(func() error {
 			time.Sleep(3 * time.Second)
-			if err := env.PachClient.FinishCommit(repo1, "master", ""); err != nil {
+			if err := env.PachClient.FinishCommit("A", "master", ""); err != nil {
 				return err
 			}
-			return env.PachClient.FinishCommit(repo2, "master", "")
+			return env.PachClient.FinishCommit("B", "master", "")
 		})
 
 		t.Cleanup(func() {
@@ -2705,13 +2708,41 @@ func TestPFS(suite *testing.T) {
 		})
 
 		// Flush commit
-		commitInfos, err := env.PachClient.FlushJobAll([]*pfs.Commit{commit}, nil)
+		commitInfos, err := env.PachClient.FlushJobAll(commit.Job(), nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, 2, len(commitInfos))
+		require.Equal(t, commit, commitInfos[0].Commit)
+		require.Equal(t, pclient.NewCommit("B", "master", commit.ID), commitInfos[1].Commit)
 	})
-	*/
 
-	/* TODO(global ids):
+	suite.Run("FlushUninvolvedBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		require.NoError(t, env.PachClient.CreateRepo("A"))
+		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", nil))
+		commit, err := env.PachClient.StartCommit("A", "master")
+		require.NoError(t, err)
+
+		// If a commit is not found on that branch for the job, it is ignored
+		commitInfos, err := env.PachClient.FlushJobAll(commit.Job(), []*pfs.Branch{pclient.NewBranch("B", "master")})
+		require.NoError(t, err)
+		require.Equal(t, 0, len(commitInfos))
+	})
+
+	suite.Run("FlushNonExistentBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		require.NoError(t, env.PachClient.CreateRepo("A"))
+		commit, err := env.PachClient.StartCommit("A", "master")
+		require.NoError(t, err)
+
+		_, err = env.PachClient.FlushJobAll(commit.Job(), []*pfs.Branch{pclient.NewBranch("A", "foo")})
+		require.YesError(t, err)
+	})
+
 	suite.Run("EmptyFlush", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2719,27 +2750,14 @@ func TestPFS(suite *testing.T) {
 		_, err := env.PachClient.FlushJobAll(nil, nil)
 		require.YesError(t, err)
 	})
-	*/
 
-	/* TODO(global ids):
 	suite.Run("FlushNonExistentCommit", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-branch", "fake-commit")}, nil)
-		require.YesError(t, err)
-		repo := "FlushNonExistentCommit"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-		_, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit(repo, "fake-branch", "fake-commit")}, nil)
-		require.YesError(t, err)
-		_, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit(repo, "", "fake-commit")}, nil)
-		require.YesError(t, err)
-		_, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit(repo, "fake-branch", "")}, nil)
-		require.YesError(t, err)
-		_, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit(repo, "", "")}, nil)
+		_, err := env.PachClient.FlushJobAll(pclient.NewJob("fake-job"), nil)
 		require.YesError(t, err)
 	})
-	*/
 
 	suite.Run("PutFileSplit", func(t *testing.T) {
 		// TODO(2.0 optional): Implement put file split.
@@ -3419,7 +3437,6 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch("D", "master", "", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("B", "master")}))
 		commits, err = env.PachClient.ListCommitByRepo("D")
 		require.NoError(t, err)
-		fmt.Printf("commits: %v\n", commits)
 		require.Equal(t, 1, len(commits))
 	})
 
@@ -3433,7 +3450,6 @@ func TestPFS(suite *testing.T) {
 	//      ▲
 	// D ───╯
 	//
-	/* TODO(global ids):
 	suite.Run("UpdateBranch", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -3459,9 +3475,11 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 		cCommitInfo, err := env.PachClient.InspectCommit("C", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, 3, len(cCommitInfo.Provenance))
+
+		jobInfo, err := env.PachClient.InspectJob(cCommitInfo.Commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 4, len(jobInfo.JobCommits))
 	})
-	*/
 
 	suite.Run("BranchProvenance", func(t *testing.T) {
 		t.Parallel()
@@ -3692,10 +3710,6 @@ func TestPFS(suite *testing.T) {
 			pclient.NewBranch("A", "master"),
 		}))
 		cCommit1 := inspect("C", "master", "") // Get new commit's ID
-		// TODO(global ids): this is failing because B@master is still open - is
-		// there anything we can do in this case?  We could maybe create a commit in
-		// B@master's job? That gets really tough in a transaction with multiple
-		// operations, though...
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{
 			pclient.NewBranch("A", "master"),
 			pclient.NewBranch("B", "master"),
@@ -4017,109 +4031,6 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, c.ID, masterInfo.Head.ID)
 	})
-
-	// SquashJobShrinkSubvRange is like SquashJobBigSubvenance, but
-	// instead of deleting commits from "schema", this test deletes them from
-	// "logs", to make sure that the subvenance of "schema" commits is rewritten
-	// correctly. As before, there are four cases:
-	// 1. Subvenance "Lower" is increased
-	// 2. Subvenance "Upper" is decreased
-	// 3. Subvenance is not affected, because the deleted commit is between "Lower" and "Upper"
-	// 4. The entire subvenance range is deleted
-	/* TODO(global ids):
-	suite.Run("SquashJobShrinkSubvRange", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		// two input repos, one with many commits (logs), and one with few (schema)
-		require.NoError(t, env.PachClient.CreateRepo("logs"))
-		require.NoError(t, env.PachClient.CreateRepo("schema"))
-
-		// Commit to logs and schema
-		logsCommit := make([]*pfs.Commit, 10)
-		var err error
-		logsCommit[0], err = env.PachClient.StartCommit("logs", "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.FinishCommit("logs", logsCommit[0].Branch.Name, logsCommit[0].ID))
-		schemaCommit, err := env.PachClient.StartCommit("schema", "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.FinishCommit("schema", schemaCommit.Branch.Name, schemaCommit.ID))
-
-		// Create an output branch, in "pipeline"
-		require.NoError(t, env.PachClient.CreateRepo("pipeline"))
-		require.NoError(t, env.PachClient.CreateBranch("pipeline", "master", "", "", []*pfs.Branch{
-			pclient.NewBranch("schema", "master"),
-			pclient.NewBranch("logs", "master"),
-		}))
-		commits, err := env.PachClient.ListCommit("pipeline", "master", "", "", "", 0)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(commits))
-
-		// Commit to "logs" 9 more times, so that the commit to "schema" has 10
-		// commits in its subvenance
-		for i := 1; i < 10; i++ {
-			logsCommit[i], err = env.PachClient.StartCommit("logs", "master")
-			require.NoError(t, err)
-			require.NoError(t, env.PachClient.FinishCommit("logs", logsCommit[i].Branch.Name, logsCommit[i].ID))
-		}
-		pipelineCommitInfos, err := env.PachClient.ListCommit("pipeline", "master", "", "", "", 0)
-		require.Equal(t, 10, len(pipelineCommitInfos))
-		pipelineCommit := make([]string, 10)
-		for i := range pipelineCommitInfos {
-			// ListCommit sorts from newest to oldest, but we want the reverse (0 is
-			// oldest, like how logsCommit[0] is the oldest)
-			pipelineCommit[9-i] = pipelineCommitInfos[i].Commit.ID
-		}
-		require.NoError(t, err)
-		// Make sure the subvenance of the one commit in "schema" includes all commits
-		// in "pipeline"
-		schemaCommitInfo, err := env.PachClient.InspectCommit("schema", schemaCommit.Branch.Name, schemaCommit.ID)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
-		require.Equal(t, pipelineCommit[0], schemaCommitInfo.Subvenance[0].Lower.ID)
-		require.Equal(t, pipelineCommit[9], schemaCommitInfo.Subvenance[0].Upper.ID)
-
-		// Case 1
-		// - Delete the first commit in "logs" and make sure that the subvenance of
-		//   the single commit in "schema" has increased its Lower value
-		require.NoError(t, env.PachClient.SquashJob("logs", logsCommit[0].Branch.Name, logsCommit[0].ID))
-		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.Branch.Name, schemaCommit.ID)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
-		require.Equal(t, pipelineCommit[1], schemaCommitInfo.Subvenance[0].Lower.ID)
-		require.Equal(t, pipelineCommit[9], schemaCommitInfo.Subvenance[0].Upper.ID)
-
-		// Case 2
-		// - Delete the last commit in "logs" and make sure that the subvenance of
-		//   the single commit in "schema" has decreased its Upper value
-		require.NoError(t, env.PachClient.SquashJob("logs", logsCommit[9].Branch.Name, logsCommit[9].ID))
-		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.Branch.Name, schemaCommit.ID)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
-		require.Equal(t, pipelineCommit[1], schemaCommitInfo.Subvenance[0].Lower.ID)
-		require.Equal(t, pipelineCommit[8], schemaCommitInfo.Subvenance[0].Upper.ID)
-
-		// Case 3
-		// - Delete the middle commit in "logs" and make sure that the subvenance of
-		//   the single commit in "schema" hasn't changed
-		require.NoError(t, env.PachClient.SquashJob("logs", logsCommit[5].Branch.Name, logsCommit[5].ID))
-		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.Branch.Name, schemaCommit.ID)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
-		require.Equal(t, pipelineCommit[1], schemaCommitInfo.Subvenance[0].Lower.ID)
-		require.Equal(t, pipelineCommit[8], schemaCommitInfo.Subvenance[0].Upper.ID)
-
-		// Case 4
-		// - Delete the remaining commits in "logs" and make sure that the subvenance
-		//   of the single commit in "schema" is now empty
-		for _, i := range []int{1, 2, 3, 4, 6, 7, 8} {
-			require.NoError(t, env.PachClient.SquashJob("logs", logsCommit[i].Branch.Name, logsCommit[i].ID))
-		}
-		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.Branch.Name, schemaCommit.ID)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(schemaCommitInfo.Subvenance))
-	})
-	*/
 
 	suite.Run("CommitState", func(t *testing.T) {
 		t.Parallel()
@@ -4593,7 +4504,6 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, desc, ri.Description)
 	})
 
-	/* TODO(global ids):
 	suite.Run("DeferredProcessing", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -4604,150 +4514,35 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch("output1", "staging", "", "", []*pfs.Branch{pclient.NewBranch("input", "master")}))
 		require.NoError(t, env.PachClient.CreateBranch("output2", "staging", "", "", []*pfs.Branch{pclient.NewBranch("output1", "master")}))
 		require.NoError(t, env.PachClient.PutFile("input", "staging", "", "file", strings.NewReader("foo")))
-
-		commits, err := env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit("input", "staging", "")}, nil)
+		commitInfo, err := env.PachClient.InspectCommit("input", "staging", "")
 		require.NoError(t, err)
-		require.Equal(t, 0, len(commits))
+
+		commitInfos, err := env.PachClient.FlushJobAll(commitInfo.Commit.Job(), nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, commitInfo.Commit, commitInfos[0].Commit)
 
 		require.NoError(t, env.PachClient.CreateBranch("input", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output1", "staging", ""))
-		commits, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit("input", "staging", "")}, nil)
+		commitInfo, err = env.PachClient.InspectCommit("input", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, 1, len(commits))
+
+		commitInfos, err = env.PachClient.FlushJobAll(commitInfo.Commit.Job(), nil)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(commitInfos))
+		require.Equal(t, commitInfo.Commit, commitInfos[0].Commit)
+		require.Equal(t, pclient.NewCommit("output1", "staging", commitInfo.Commit.ID), commitInfos[1].Commit)
 
 		require.NoError(t, env.PachClient.CreateBranch("output1", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output2", "staging", ""))
-		commits, err = env.PachClient.FlushJobAll([]*pfs.Commit{pclient.NewCommit("input", "staging", "")}, nil)
+		commitInfo, err = env.PachClient.InspectCommit("output1", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commits))
-	})
-	*/
 
-	// MultiInputWithDeferredProcessing tests this DAG:
-	//
-	// input1 ─▶ deferred-output ─▶ final-output
-	//                              ▲
-	// input2 ──────────────────────╯
-	//
-	// For this test to pass, commits in 'final-output' must include commits from
-	// the provenance of 'deferred-output', *even if 'deferred-output@master' isn't
-	// the branch being propagated*
-	/* TODO(global ids):
-	suite.Run("MultiInputWithDeferredProcessing", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		require.NoError(t, env.PachClient.CreateRepo("input1"))
-		require.NoError(t, env.PachClient.CreateRepo("deferred-output"))
-		require.NoError(t, env.PachClient.CreateRepo("input2"))
-		require.NoError(t, env.PachClient.CreateRepo("final-output"))
-		require.NoError(t, env.PachClient.CreateBranch("deferred-output", "staging", "", "",
-			[]*pfs.Branch{pclient.NewBranch("input1", "master")}))
-		require.NoError(t, env.PachClient.CreateBranch("final-output", "master", "", "",
-			[]*pfs.Branch{
-				pclient.NewBranch("input2", "master"),
-				pclient.NewBranch("deferred-output", "master"),
-			}))
-		require.NoError(t, env.PachClient.PutFile("input1", "master", "", "1", strings.NewReader("1")))
-		require.NoError(t, env.PachClient.PutFile("input2", "master", "", "2", strings.NewReader("2")))
-
-		// There should be an open commit in "staging" but not "master"
-		cis, err := env.PachClient.ListCommit("deferred-output", "staging", "", "", "", 0)
+		commitInfos, err = env.PachClient.FlushJobAll(commitInfo.Commit.Job(), nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(cis))
-		require.NoError(t, env.PachClient.FinishCommit("deferred-output", "staging", ""))
-		cis, err = env.PachClient.ListCommit("deferred-output", "master", "", "", "", 0)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(cis))
-
-		// There shouldn't be one output commit in "final-output@master", but with no
-		// provenance in deferred-output or input1 (only in input2)
-		cis, err = env.PachClient.ListCommit("final-output", "master", "", "", "", 0)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(cis))
-		require.NoError(t, env.PachClient.FinishCommit("final-output", "master", ""))
-		ci, err := env.PachClient.InspectCommit("input2", "master", "")
-		require.NoError(t, err)
-		expectedProv := map[string]bool{
-			path.Join("input2", ci.Commit.Branch.Name, ci.Commit.ID): true,
-		}
-		ci, err = env.PachClient.InspectCommit("final-output", "master", "")
-		require.NoError(t, err)
-		require.Equal(t, len(expectedProv), len(ci.Provenance))
-		for _, c := range ci.Provenance {
-			require.True(t, expectedProv[path.Join(c.Commit.Branch.Repo.Name, c.Commit.Branch.Name, c.Commit.ID)])
-		}
-
-		// 1) Move master branch and create second output commit (first w/ full prov)
-		require.NoError(t, env.PachClient.CreateBranch("deferred-output", "master", "staging", "", nil))
-		require.NoError(t, err)
-		cis, err = env.PachClient.ListCommit("final-output", "master", "", "", "", 0)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(cis))
-		require.NoError(t, env.PachClient.FinishCommit("final-output", "master", ""))
-
-		// Make sure the final output (triggered by deferred-downstream) has the right
-		// commit provenance
-		expectedProv = make(map[string]bool)
-		for _, r := range []string{"input1", "input2", "deferred-output"} {
-			ci, err := env.PachClient.InspectCommit(r, "master", "")
-			require.NoError(t, err)
-			expectedProv[path.Join(r, "master", ci.Commit.ID)] = true
-		}
-		ci, err = env.PachClient.InspectCommit("final-output", "master", "")
-		require.NoError(t, err)
-		require.Equal(t, len(expectedProv), len(ci.Provenance))
-		for _, c := range ci.Provenance {
-			require.True(t, expectedProv[path.Join(c.Commit.Branch.Repo.Name, c.Commit.Branch.Name, c.Commit.ID)])
-		}
-
-		// 2) Commit to input2 and create second output commit
-		require.NoError(t, env.PachClient.PutFile("input2", "master", "", "3", strings.NewReader("3")))
-		cis, err = env.PachClient.ListCommit("final-output", "master", "", "", "", 0)
-		require.NoError(t, err)
-		require.Equal(t, 3, len(cis))
-		require.NoError(t, env.PachClient.FinishCommit("final-output", "master", ""))
-
-		// Make sure the final output (triggered by second input) has the right
-		// commit provenance
-		expectedProv = make(map[string]bool)
-		for _, r := range []string{"input1", "input2", "deferred-output"} {
-			ci, err := env.PachClient.InspectCommit(r, "master", "")
-			require.NoError(t, err)
-			expectedProv[path.Join(r, "master", ci.Commit.ID)] = true
-		}
-		ci, err = env.PachClient.InspectCommit("final-output", "master", "")
-		require.NoError(t, err)
-		require.Equal(t, len(expectedProv), len(ci.Provenance))
-		for _, c := range ci.Provenance {
-			require.True(t, expectedProv[path.Join(c.Commit.Branch.Repo.Name, c.Commit.Branch.Name, c.Commit.ID)])
-		}
-	})
-	*/
-
-	suite.Run("CommitProgress", func(t *testing.T) {
-		// TODO(2.0 required): reimplement in terms of Job progress
-		t.Skip("CommitInfo no longer contains progress fields, use PipelineJobInfo instead")
-		t.Parallel()
-		/*
-			env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-			require.NoError(t, env.PachClient.CreateRepo("in"))
-			require.NoError(t, env.PachClient.CreateRepo("out"))
-			require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
-			require.NoError(t, env.PachClient.PutFile("in", "master", "", "foo", strings.NewReader("foo")))
-			ci, err := env.PachClient.InspectCommit("in", "master", "")
-			require.NoError(t, err)
-			require.Equal(t, int64(1), ci.SubvenantCommitsTotal)
-			require.Equal(t, int64(0), ci.SubvenantCommitsSuccess)
-			require.Equal(t, int64(0), ci.SubvenantCommitsFailure)
-			require.NoError(t, env.PachClient.FinishCommit("out", "master", ""))
-			ci, err = env.PachClient.InspectCommit("in", "master", "")
-			require.NoError(t, err)
-			require.Equal(t, int64(1), ci.SubvenantCommitsTotal)
-			require.Equal(t, int64(1), ci.SubvenantCommitsSuccess)
-			require.Equal(t, int64(0), ci.SubvenantCommitsFailure)
-		*/
+		require.Equal(t, 2, len(commitInfos))
+		require.Equal(t, commitInfo.Commit, commitInfos[0].Commit)
+		require.Equal(t, pclient.NewCommit("output2", "staging", commitInfo.Commit.ID), commitInfos[1].Commit)
 	})
 
 	suite.Run("ListAll", func(t *testing.T) {

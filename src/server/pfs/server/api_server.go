@@ -176,9 +176,16 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext,
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.FinishCommit(request)
-	}); err != nil {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		// FinishCommit in a transaction by itself has special handling with regards
+		// to its job ID.  It is possible that this transaction will create new
+		// commits via triggers, but we want those commits to be associated with the
+		// same job that the finished commit is associated with.  Therefore, we
+		// override the txnCtx's Job field to point to the same commit.
+		txnCtx.Job.ID = request.Commit.ID
+		return a.FinishCommitInTransaction(txnCtx, request)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
