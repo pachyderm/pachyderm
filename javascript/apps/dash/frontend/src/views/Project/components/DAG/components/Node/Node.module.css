@@ -13,6 +13,10 @@
   border: solid 1px var(--line-grey);
 }
 
+:global(.borderRect):hover ~ .nodeGroup.interactive .node .label {
+  box-shadow: 1px 1px 6px 0 var(--dropshadow-grey);
+}
+
 .node .label.egress {
   border: none;
   box-shadow: none;

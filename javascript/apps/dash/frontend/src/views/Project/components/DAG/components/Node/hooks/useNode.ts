@@ -31,8 +31,8 @@ const useNode = (node: Node, isInteractive: boolean) => {
   }, [node]);
 
   const onClick = useCallback(() => {
-    if (isInteractive && !isEgress) navigateToNode(node);
-    if (isEgress && supported) copy();
+    if (isInteractive) navigateToNode(node);
+    if (isInteractive && isEgress && supported) copy();
   }, [node, isInteractive, navigateToNode, isEgress, supported, copy]);
 
   const onMouseOver = useCallback(() => {

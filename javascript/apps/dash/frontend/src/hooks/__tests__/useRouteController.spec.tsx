@@ -13,9 +13,9 @@ import {DagDirection} from '@graphqlTypes';
 describe('useRouteController', () => {
   const projectId = '2';
 
-  const TestBed = withContextProviders(() => {
+  const TestBed = withContextProviders(({id = '2'}: {id: string}) => {
     const {dags = [], loading} = useProjectDagsData({
-      projectId,
+      projectId: id,
       nodeHeight: NODE_HEIGHT,
       nodeWidth: NODE_WIDTH,
       direction: DagDirection.RIGHT,
@@ -96,5 +96,17 @@ describe('useRouteController', () => {
         `/project/${projectId}/pipeline/likelihoods`,
       ),
     );
+  });
+
+  it('should not update the url when selecting an egress node', async () => {
+    window.history.replaceState('', '', '/project/5');
+
+    const {findByText} = render(<TestBed id="5" />);
+
+    const egress = await findByText('https://egress.com');
+
+    userEvent.click(egress);
+
+    await waitFor(() => expect(window.location.pathname).toBe('/project/5'));
   });
 });

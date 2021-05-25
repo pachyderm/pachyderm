@@ -14,3 +14,8 @@
   transform-box: fill-box;
   transform-origin: center;
 }
+
+:global(.borderRect) {
+  fill: transparent;
+  cursor: pointer;
+}
