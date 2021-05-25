@@ -551,10 +551,10 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	squashJob := &cobra.Command{
+	deleteJob := &cobra.Command{
 		Use:   "{{alias}} <job>",
-		Short: "Squash the commits of a job.",
-		Long:  "Squash the commits of a job into their child commits.",
+		Short: "Delete the commits of a job.",
+		Long:  "Delete the commits of a job.  The data in the commits will remain in their child commits unless there are no children.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -567,8 +567,8 @@ $ {{alias}} test@master --new`,
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(squashJob, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(squashJob, "squash job"))
+	shell.RegisterCompletionFunc(deleteJob, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(deleteJob, "delete job"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",

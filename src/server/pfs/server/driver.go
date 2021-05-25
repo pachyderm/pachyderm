@@ -941,6 +941,7 @@ func (d *driver) propagateCommits(txnCtx *txnenv.TransactionContext, branches []
 			return len(jobInfo.JobCommits[i].Provenance) < len(jobInfo.JobCommits[j].Provenance)
 		})
 
+		fmt.Printf("new job commit info: %v\n", jobInfo)
 		if err := d.jobs.ReadWrite(txnCtx.SqlTx).Create(jobInfo.Job.ID, jobInfo); err != nil {
 			return err
 		}

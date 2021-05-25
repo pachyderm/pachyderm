@@ -1130,11 +1130,29 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, aHead.Commit.ID, ci.Commit.ID)
 		require.Equal(t, bHead.Commit.ID, ci.Commit.ID)
 
+		printRepo := func(desc string) {
+			commitInfos, err := env.PachClient.ListCommit("input", "", "", "", "", 0)
+			require.NoError(t, err)
+
+			fmt.Printf("%s\n", desc)
+			for _, ci := range commitInfos {
+				if ci.ParentCommit != nil {
+					fmt.Printf(" %s (parent %s)\n", pfsdb.CommitKey(ci.Commit), pfsdb.CommitKey(ci.ParentCommit))
+				} else {
+					fmt.Printf(" %s (parent nil)\n", pfsdb.CommitKey(ci.Commit))
+				}
+			}
+		}
+
+		printRepo("before squash")
+
 		// We should also be able to squash both commit aliases in A
 		// Squash the parent first because otherwise the squash causes a new head
 		// commit to propagate in.
 		require.NoError(t, env.PachClient.SquashJob(aHead.ParentCommit.ID))
+		printRepo("squash A head parent")
 		require.NoError(t, env.PachClient.SquashJob(aHead.Commit.ID))
+		printRepo("squash A head")
 
 		// There should be no more head in A
 		_, err = env.PachClient.InspectCommit("input", "A", "")
@@ -1149,7 +1167,9 @@ func TestPFS(suite *testing.T) {
 
 		// We should also be able to delete both commits in B, starting from the parent
 		require.NoError(t, env.PachClient.SquashJob(bHead.ParentCommit.ID))
+		printRepo("squash B head parent")
 		require.NoError(t, env.PachClient.SquashJob(bHead.Commit.ID))
+		printRepo("squash B head")
 
 		// There should be no more head in B
 		_, err = env.PachClient.InspectCommit("input", "B", "")
