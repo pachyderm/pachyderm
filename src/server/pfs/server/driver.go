@@ -917,6 +917,7 @@ func (d *driver) propagateCommits(txnCtx *txnenv.TransactionContext, branches []
 					return err
 				}
 			}
+
 			if err := d.branches.ReadWrite(txnCtx.SqlTx).Put(pfsdb.BranchKey(subvBI.Branch), subvBI); err != nil {
 				return err
 			}
@@ -941,7 +942,6 @@ func (d *driver) propagateCommits(txnCtx *txnenv.TransactionContext, branches []
 			return len(jobInfo.JobCommits[i].Provenance) < len(jobInfo.JobCommits[j].Provenance)
 		})
 
-		fmt.Printf("new job commit info: %v\n", jobInfo)
 		if err := d.jobs.ReadWrite(txnCtx.SqlTx).Create(jobInfo.Job.ID, jobInfo); err != nil {
 			return err
 		}
@@ -1336,7 +1336,11 @@ func (d *driver) squashJob(txnCtx *txnenv.TransactionContext, job *pfs.Job) erro
 		movedHead := false
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(commit.Branch), &branchInfo, func() error {
 			if branchInfo.Head.ID == commit.ID {
-				branchInfo.Head = commitInfo.ParentCommit
+				if commitInfo.ParentCommit == nil || !proto.Equal(commitInfo.ParentCommit.Branch, commit.Branch) {
+					branchInfo.Head = nil
+				} else {
+					branchInfo.Head = commitInfo.ParentCommit
+				}
 				affectedBranches = append(affectedBranches, commit.Branch)
 				movedHead = true
 			}
