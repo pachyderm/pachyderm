@@ -34,7 +34,7 @@ describe('LandingHeader', () => {
     expect(queryByTestId('Account__loader')).toBeInTheDocument();
 
     expect(
-      await findByText(`Hello, ${mockServer.state.account.name}!`),
+      await findByText(`Hello, ${mockServer.getAccount().name}!`),
     ).toBeInTheDocument();
     expect(queryByTestId('Account__loader')).not.toBeInTheDocument();
   });

@@ -25,6 +25,13 @@ To run the development environment against the mock gRPC server, run:
 
 This will start the UI server, API server, mock gRPC server, and a mock IDP. You can access the UI in the browser at `localhost:4000`.
 
+#### Setting account
+To switch between mock accounts, you can use our devtools in the JS console of the browser.
+
+```
+> devtools.setAccount('2'); // will set your account to Barret Wallace
+```
+
 ### Using 2.0 Pachyderm Cluster 🚧
 This feature is still under development, and will likely change.
 

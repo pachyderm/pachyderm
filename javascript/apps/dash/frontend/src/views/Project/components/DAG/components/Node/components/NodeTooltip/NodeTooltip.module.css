@@ -13,7 +13,7 @@
   opacity: 0;
 }
 
-.base .text.egress {
+.base .text.noCaps {
   text-transform: none;
 }
 

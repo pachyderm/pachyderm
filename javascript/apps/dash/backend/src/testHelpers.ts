@@ -66,9 +66,9 @@ const getWsClient = () => {
     {
       reconnect: true,
       connectionParams: () => ({
-        'id-token': generateIdTokenForAccount(mockServer.state.account),
+        'id-token': generateIdTokenForAccount(mockServer.getAccount()),
         'pachd-address': `localhost:${process.env.GRPC_PORT}`,
-        'auth-token': 'xyz',
+        'auth-token': mockServer.getAccount().id,
       }),
     },
     ws,
@@ -108,7 +108,8 @@ const executeQuery = async <T>(
 
   const context = {
     headers: {
-      'id-token': generateIdTokenForAccount(mockServer.state.account),
+      'id-token': generateIdTokenForAccount(mockServer.getAccount()),
+      'auth-token': mockServer.getAccount().id,
       'Content-Type': 'application/json',
       ...headers,
     },
@@ -139,7 +140,8 @@ const executeMutation = async <T>(
 
   const context = {
     headers: {
-      'id-token': generateIdTokenForAccount(mockServer.state.account),
+      'id-token': generateIdTokenForAccount(mockServer.getAccount()),
+      'auth-token': mockServer.getAccount().id,
       'Content-Type': 'application/json',
       ...headers,
     },

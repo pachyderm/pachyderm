@@ -13,6 +13,7 @@ import {
   toGQLPipelineJobState,
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
+import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
 import {LinkInputData, NodeInputData, Vertex} from '@dash-backend/lib/types';
 import withSubscription from '@dash-backend/lib/withSubscription';
 import {
@@ -68,7 +69,7 @@ const deriveVertices = (
     name: `${r.repo?.name}_repo`,
     type: NodeType.REPO,
     state: null,
-    access: true,
+    access: hasRepoReadPermissions(r.authInfo?.permissionsList),
     created: r.created,
     // detect out output repos as those name matching a pipeline
     parents: r.repo && pipelineMap[r.repo.name] ? [r.repo.name] : [],
@@ -184,7 +185,7 @@ const normalizeDAGData = async (
     name: node.name,
     type: node.type,
     state: node.state,
-    access: true,
+    access: node.access,
     x: 0,
     y: 0,
     width: nodeWidth,

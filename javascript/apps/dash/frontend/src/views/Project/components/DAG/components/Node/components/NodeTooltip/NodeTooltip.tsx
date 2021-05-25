@@ -2,7 +2,7 @@ import classnames from 'classnames';
 import React from 'react';
 
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
-import {NodeType, PipelineState} from '@graphqlTypes';
+import {Node, NodeType} from '@graphqlTypes';
 import {deriveNameFromNodeNameAndType} from 'lib/deriveRepoNameFromNode';
 
 import styles from './NodeTooltip.module.css';
@@ -14,20 +14,57 @@ const NODE_TOOLTIP_X_OFFSET = -(NODE_TOOLTIP_WIDTH / 4);
 const EGRESS_NODE_TOOLTIP_Y_OFFSET = NODE_TOOLTIP_Y_OFFSET + 22;
 const EGRESS_NODE_TOOLTIP_X_OFFSET = NODE_TOOLTIP_X_OFFSET - 23;
 
+interface TooltipContentProps {
+  name: Node['name'];
+  type: Node['type'];
+  state: Node['state'];
+  access: Node['access'];
+}
+
+const TooltipContent: React.FC<TooltipContentProps> = ({
+  name,
+  type,
+  state,
+  access,
+}) => {
+  if (!access) {
+    // NOTE: in the future, there may be auth on nodes
+    // other than repos.
+    return (
+      <>
+        In order to view this repo, you must have the &quot;repoReader&quot;
+        role.
+      </>
+    );
+  }
+
+  if (type === NodeType.EGRESS) {
+    return <>Click to copy S3 address: {name}</>;
+  }
+
+  return (
+    <>
+      {' '}
+      {deriveNameFromNodeNameAndType(name, type)}
+      <br />
+      <br />
+      {type === NodeType.PIPELINE
+        ? `${type.toLowerCase()} status: ${readablePipelineState(state || '')}`
+        : ''}
+    </>
+  );
+};
+
 interface NodeTooltipProps {
-  nodeType: NodeType;
-  nodeName: string;
-  nodeState?: PipelineState | null;
+  node: Node;
   textClassName?: string;
 }
 
 const NodeTooltip: React.FC<NodeTooltipProps> = ({
-  nodeType,
-  nodeName,
-  nodeState = '',
+  node: {type, name, state, access},
   textClassName = '',
 }) => {
-  const isEgress = nodeType === NodeType.EGRESS;
+  const isEgress = type === NodeType.EGRESS;
 
   return (
     <foreignObject
@@ -40,25 +77,16 @@ const NodeTooltip: React.FC<NodeTooltipProps> = ({
       <span>
         <p
           className={classnames(styles.text, textClassName, {
-            [styles.egress]: isEgress,
+            [styles.noCaps]: isEgress || !access,
           })}
           style={{minHeight: `${NODE_TOOLTIP_HEIGHT - 9}px`}}
         >
-          {isEgress ? (
-            <>Click to copy S3 address: {nodeName}</>
-          ) : (
-            <>
-              {' '}
-              {deriveNameFromNodeNameAndType(nodeName, nodeType)}
-              <br />
-              <br />
-              {nodeType === NodeType.PIPELINE
-                ? `${nodeType.toLowerCase()} status: ${readablePipelineState(
-                    nodeState || '',
-                  )}`
-                : ''}
-            </>
-          )}
+          <TooltipContent
+            name={name}
+            type={type}
+            state={state}
+            access={access}
+          />
         </p>
       </span>
     </foreignObject>

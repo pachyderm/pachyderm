@@ -1,6 +1,7 @@
 import {
   createSubscriptionClients,
   executeQuery,
+  mockServer,
 } from '@dash-backend/testHelpers';
 import {GET_DAG_QUERY} from '@dash-frontend/queries/GetDagQuery';
 import {GET_DAGS_QUERY} from '@dash-frontend/queries/GetDagsQuery';
@@ -77,6 +78,25 @@ describe('Dag resolver', () => {
     expect(
       doesLinkExistInDag({source: 'processor', target: 'processor_repo'}, dag),
     ).toBe(true);
+  });
+
+  it('should correctly return access data to a given node', async () => {
+    mockServer.setAccount('2');
+
+    const {data} = await executeQuery<{dag: Dag}>(GET_DAG_QUERY, {
+      args: {
+        projectId: '1',
+        nodeWidth: 120,
+        nodeHeight: 60,
+        direction: DagDirection.RIGHT,
+      },
+    });
+
+    const montageNode = data?.dag.nodes.find(
+      (node) => node.name === 'montage_repo',
+    );
+
+    expect(montageNode?.access).toBe(false);
   });
 
   it('should resolve disconnected components of a dag', async () => {

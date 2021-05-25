@@ -47,9 +47,14 @@ const Node: React.FC<NodeProps> = ({
   const classes = classNames(styles.nodeGroup, {
     [styles.interactive]: isInteractive,
     [styles.selected]: [selectedNode, hoveredNode].includes(node.name),
+    [styles.access]: node.access,
   });
 
-  const getNodeIconHref = (state: string) => {
+  const getNodeIconHref = (state: string, access: boolean) => {
+    if (!access) {
+      return '/dag_no_access.svg';
+    }
+
     switch (state) {
       case 'busy':
         return '/dag_busy.svg';
@@ -61,9 +66,6 @@ const Node: React.FC<NodeProps> = ({
   };
 
   const getNodeImageHref = (node: GraphQLNode) => {
-    if (!node.access) {
-      return '/dag_no_access.svg';
-    }
     switch (node.type) {
       case NodeType.REPO:
         return '/dag_repo.svg';
@@ -95,17 +97,12 @@ const Node: React.FC<NodeProps> = ({
             })}
             style={{height: `${nodeHeight}px`}}
           >
-            {node.access ? normalizedNodeName : 'No Access'}
+            {normalizedNodeName}
           </p>
         </span>
       </foreignObject>
 
-      <NodeTooltip
-        nodeName={node.name}
-        nodeType={node.type}
-        nodeState={node.state}
-        textClassName={styles.tooltipText}
-      />
+      <NodeTooltip node={node} textClassName={styles.tooltipText} />
 
       <image
         x={isEgress ? EGRESS_NODE_IMAGE_X_OFFSET : NODE_IMAGE_X_OFFSET}
@@ -120,7 +117,7 @@ const Node: React.FC<NodeProps> = ({
           x={nodeWidth - NODE_ICON_X_OFFSET}
           y={NODE_ICON_Y_OFFSET}
           pointerEvents="none"
-          href={getNodeIconHref(state)}
+          href={getNodeIconHref(state, node.access)}
         />
       )}
 

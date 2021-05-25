@@ -24,20 +24,24 @@
   opacity: 0;
 }
 
-.nodeGroup.interactive:hover .node .label:not(.egress),
-.nodeGroup.interactive.selected .node .label:not(.egress) {
+.nodeGroup.interactive:not(.access):hover {
+  cursor: not-allowed;
+}
+
+.nodeGroup.interactive.access:hover .node .label:not(.egress),
+.nodeGroup.interactive.access.selected .node .label:not(.egress) {
   background-color: var(--background-blue);
 }
 
-.nodeGroup.interactive.error:hover .node .label:not(.egress),
-.nodeGroup.interactive.selected.error .node .label:not(.egress) {
+.nodeGroup.interactive.access.error:hover .node .label:not(.egress),
+.nodeGroup.interactive.access.selected.error .node .label:not(.egress) {
   background-color: var(--background-pink);
 }
 
-.nodeGroup.interactive.busy:hover .label:not(.egress),
-.nodeGroup.interactive.selected.busy .label:not(.egress),
-.nodeGroup.interactive.busy:hover use,
-.nodeGroup.interactive.selected.busy use {
+.nodeGroup.interactive.access.busy:hover .label:not(.egress),
+.nodeGroup.interactive.access.selected.busy .label:not(.egress),
+.nodeGroup.interactive.access.busy:hover use,
+.nodeGroup.interactive.access.selected.busy use {
   opacity: #f4f9fa;
   color: #8e8f91;
   box-shadow: 0 1px 2px 0 var(--line-grey);

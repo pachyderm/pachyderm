@@ -57,10 +57,10 @@ beforeEach(() => {
   fetchMock.dontMock();
   mockServer.resetState();
 
-  window.localStorage.setItem('auth-token', 'xyz');
+  window.localStorage.setItem('auth-token', mockServer.getAccount().id);
   window.localStorage.setItem(
     'id-token',
-    generateIdTokenForAccount(mockServer.state.account),
+    generateIdTokenForAccount(mockServer.getAccount()),
   );
 });
 

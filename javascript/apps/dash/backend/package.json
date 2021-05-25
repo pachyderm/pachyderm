@@ -50,6 +50,7 @@
     "@types/tar-stream": "^2.2.0",
     "@types/uuid": "8.3.0",
     "@types/ws": "7.4.1",
+    "cors": "2.8.5",
     "cross-fetch": "3.1.4",
     "eslint": "6.8.0",
     "jest": "26.6.3",

@@ -16,6 +16,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
   const {copy, supported, copied, reset} = useClipboardCopy(node.name);
 
   const isEgress = node.type === NodeType.EGRESS;
+  const noAccess = !node.access;
 
   const groupName = useMemo(() => {
     let nodeName = node.name;
@@ -31,9 +32,18 @@ const useNode = (node: Node, isInteractive: boolean) => {
   }, [node]);
 
   const onClick = useCallback(() => {
+    if (noAccess) return;
     if (isInteractive) navigateToNode(node);
     if (isInteractive && isEgress && supported) copy();
-  }, [node, isInteractive, navigateToNode, isEgress, supported, copy]);
+  }, [
+    node,
+    isInteractive,
+    navigateToNode,
+    isEgress,
+    supported,
+    copy,
+    noAccess,
+  ]);
 
   const onMouseOver = useCallback(() => {
     if (isInteractive) {
