@@ -36,7 +36,7 @@ $ pachctl get file 'foo@master:/test\[\].txt'
   -h, --help              help for file
   -o, --output string     The path where data will be downloaded.
   -p, --parallelism int   The maximum number of files that can be downloaded in parallel (default 10)
-      --progress          Don't print progress bars. (default true)
+      --progress          {true|false} Whether or not to print the progress bars. (default true)
   -r, --recursive         Recursively download a directory.
 ```
 

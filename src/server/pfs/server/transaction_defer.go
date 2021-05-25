@@ -5,7 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -16,16 +16,18 @@ import (
 type Propagater struct {
 	d     *driver
 	sqlTx *sqlx.Tx
+	job   *pfs.Job
 
 	// Branches to propagate when the transaction completes
 	branches    []*pfs.Branch
 	isNewCommit bool
 }
 
-func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx) txnenv.PfsPropagater {
+func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx, job *pfs.Job) txncontext.PfsPropagater {
 	return &Propagater{
 		d:     a.driver,
 		sqlTx: sqlTx,
+		job:   job,
 	}
 }
 
@@ -43,7 +45,7 @@ func (t *Propagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error
 // Run performs any final tasks and cleanup tasks in the transaction, such as
 // propagating branches
 func (t *Propagater) Run() error {
-	return t.d.propagateCommits(t.sqlTx, t.branches, t.isNewCommit)
+	return t.d.propagateCommits(t.sqlTx, t.job, t.branches, t.isNewCommit)
 }
 
 // PipelineFinisher closes any open commits on a pipeline output branch,
@@ -51,13 +53,13 @@ func (t *Propagater) Run() error {
 // The Run method is called at the end of any transaction
 type PipelineFinisher struct {
 	d      *driver
-	txnCtx *txnenv.TransactionContext
+	txnCtx *txncontext.TransactionContext
 
 	// pipeline output branches to finish commits on
 	branches []*pfs.Branch
 }
 
-func (a *apiServer) NewPipelineFinisher(txnCtx *txnenv.TransactionContext) txnenv.PipelineCommitFinisher {
+func (a *apiServer) NewPipelineFinisher(txnCtx *txncontext.TransactionContext) txncontext.PipelineCommitFinisher {
 	return &PipelineFinisher{
 		d:      a.driver,
 		txnCtx: txnCtx,
@@ -90,7 +92,7 @@ func (f *PipelineFinisher) Run() error {
 			0,     // number
 			false, // reverse
 			func(commitInfo *pfs.CommitInfo) error {
-				return f.txnCtx.Pps().StopJobInTransaction(f.txnCtx, &pps.StopJobRequest{
+				return f.d.env.PpsServer().StopPipelineJobInTransaction(f.txnCtx, &pps.StopPipelineJobRequest{
 					OutputCommit: commitInfo.Commit,
 				})
 			}); err != nil && !isNotFoundErr(err) {

@@ -26,6 +26,7 @@ message Branch {
 message File {
   Commit commit = 1;
   string path = 2;
+  string tag = 3;
 }
 
 // RepoInfo is the main data structure representing a Repo in etcd
@@ -144,6 +145,22 @@ message CommitInfo {
   int64 subvenant_commits_success = 12;
   int64 subvenant_commits_failure = 13;
   int64 subvenant_commits_total = 14;
+}
+
+message Job {
+  string id = 1 [(gogoproto.customname) = "ID"];
+}
+
+message StoredJobInfo {
+  Job job = 1;
+  CommitOrigin origin = 2;
+  repeated Commit commits = 3;
+}
+
+message JobInfo {
+  Job job = 1;
+  CommitOrigin origin = 2;
+  repeated CommitInfo commits = 3;
 }
 
 enum FileType {
@@ -453,6 +470,17 @@ message RenewFilesetRequest {
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
+message RunLoadTestRequest {
+  bytes spec = 1;
+  int64 seed = 2; 
+}
+
+message RunLoadTestResponse {
+  Branch branch = 1;
+  int64 seed = 2;
+  string error = 3;
+}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -523,4 +551,7 @@ service API {
   rpc AddFileset(AddFilesetRequest) returns (google.protobuf.Empty) {}
   // RenewFileset prevents a fileset from being deleted for a set amount of time.
   rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
+
+  // RunLoadTest runs a load test.
+  rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
 }

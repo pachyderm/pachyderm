@@ -23,7 +23,7 @@ func benchmarkIterators(j int, b *testing.B) {
 		commit, err := c.StartCommit(dataRepo, "master")
 		require.NoError(b, err)
 		for i := 0; i < 100*j; i++ {
-			require.NoError(b, c.PutFile(dataRepo, commit.Branch.Name, commit.ID, fmt.Sprintf("foo%v", i), strings.NewReader("bar")))
+			require.NoError(b, c.PutFile(commit, fmt.Sprintf("foo%v", i), strings.NewReader("bar")))
 		}
 		require.NoError(b, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 

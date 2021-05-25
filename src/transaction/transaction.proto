@@ -23,9 +23,9 @@ message TransactionRequest {
   pfs.SquashCommitRequest squash_commit = 5;
   pfs.CreateBranchRequest create_branch = 6;
   pfs.DeleteBranchRequest delete_branch = 7;
-  pps.UpdateJobStateRequest update_job_state = 8;
+  pps.UpdatePipelineJobStateRequest update_pipeline_job_state = 8;
   pps.CreatePipelineRequest create_pipeline = 9;
-  pps.StopJobRequest stop_job = 10;
+  pps.StopPipelineJobRequest stop_pipeline_job = 10;
   DeleteAllRequest delete_all = 11;
 }
 

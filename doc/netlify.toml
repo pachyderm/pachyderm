@@ -216,6 +216,12 @@
   force = true
 
 [[redirects]]
+  from = "/latest/pachhub/pachhub_getting_started/"
+  to = "/latest/hub/hub_getting_started/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/latest/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
   to = "/latest/deploy-manage/deploy/deploy-pachyderm-ide/"
   status = 301

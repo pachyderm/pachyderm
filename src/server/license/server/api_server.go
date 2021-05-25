@@ -264,7 +264,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 		return nil, lc.ErrInvalidIDOrSecret
 	}
 
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `UPDATE license.clusters SET version=$1, auth_enabled=$2, last_heartbeat=NOW() WHERE id=$3`, req.Version, req.AuthEnabled, req.Id); err != nil {
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `UPDATE license.clusters SET version=$1, auth_enabled=$2, client_id=$3, last_heartbeat=NOW() WHERE id=$4`, req.Version, req.AuthEnabled, req.ClientId, req.Id); err != nil {
 		return nil, errors.Wrapf(err, "unable to update cluster in database")
 	}
 

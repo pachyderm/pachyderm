@@ -13,20 +13,24 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"gopkg.in/yaml.v2"
 
 	"golang.org/x/net/context"
 )
-
-var _ APIServer = &apiServer{}
 
 // apiServer implements the public interface of the Pachyderm File System,
 // including all RPCs defined in the protobuf spec.  Implementation details
@@ -59,7 +63,7 @@ func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.activateAuth(txnCtx)
 	}); err != nil {
 		return nil, err
@@ -69,7 +73,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) CreateRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.CreateRepoRequest) error {
+func (a *apiServer) CreateRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateRepoRequest) error {
 	if repo := request.GetRepo(); repo != nil && repo.Name == fileSetsRepo {
 		return errors.Errorf("%s is a reserved name", fileSetsRepo)
 	}
@@ -90,7 +94,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 
 // InspectRepoInTransaction is identical to InspectRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) InspectRepoInTransaction(txnCtx *txnenv.TransactionContext, originalRequest *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
+func (a *apiServer) InspectRepoInTransaction(txnCtx *txncontext.TransactionContext, originalRequest *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
 	request := proto.Clone(originalRequest).(*pfs.InspectRepoRequest)
 	return a.driver.inspectRepo(txnCtx, request.Repo, true)
 }
@@ -100,7 +104,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var info *pfs.RepoInfo
-	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		info, err = a.InspectRepoInTransaction(txnCtx, request)
 		return err
@@ -108,6 +112,11 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	if err != nil {
 		return nil, err
 	}
+	size, err := a.driver.getRepoSize(ctx, info.Repo)
+	if err != nil {
+		return nil, err
+	}
+	info.SizeBytes = uint64(size)
 	return info, nil
 }
 
@@ -121,7 +130,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
+func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
 	if request.All {
 		return a.driver.deleteAll(txnCtx)
 	}
@@ -145,7 +154,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 // commit can be specified but is optional.  This is so that the transaction can
 // report the commit ID back to the client before the transaction has finished
 // and it can be used in future commands inside the same transaction.
-func (a *apiServer) StartCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
+func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
 	id := ""
 	if commit != nil {
 		id = commit.ID
@@ -170,7 +179,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
+func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
 		if request.Empty {
 			request.Description += pfs.EmptyStr
@@ -193,7 +202,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 
 // InspectCommitInTransaction is identical to InspectCommit (some features excluded) except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) InspectCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
+func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	return a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
 }
 
@@ -219,7 +228,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 
 // SquashCommitInTransaction is identical to SquashCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) SquashCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.SquashCommitRequest) error {
+func (a *apiServer) SquashCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitRequest) error {
 	return a.driver.squashCommit(txnCtx, request.Commit)
 }
 
@@ -258,7 +267,7 @@ func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitReq
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) CreateBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.CreateBranchRequest) error {
+func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
 	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
 }
 
@@ -279,7 +288,7 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	branchInfo := &pfs.BranchInfo{}
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		branchInfo, err = a.driver.inspectBranch(txnCtx, request.Branch)
 		return err
@@ -289,7 +298,7 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	return branchInfo, nil
 }
 
-func (a *apiServer) InspectBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
+func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
 	return a.driver.inspectBranch(txnCtx, request.Branch)
 }
 
@@ -306,7 +315,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) DeleteBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteBranchRequest) error {
+func (a *apiServer) DeleteBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteBranchRequest) error {
 	return a.driver.deleteBranch(txnCtx, request.Branch, request.Force)
 }
 
@@ -407,7 +416,7 @@ func putFileTar(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.P
 		if hdr.Typeflag == tar.TypeDir {
 			continue
 		}
-		if err := uw.Put(hdr.Name, req.Append, tr, req.Tag); err != nil {
+		if err := uw.Put(hdr.Name, req.Tag, req.Append, tr); err != nil {
 			return tfsr.bytesRead, err
 		}
 	}
@@ -456,7 +465,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.PutFi
 				retErr = err
 			}
 		}()
-		return 0, uw.Put(src.Path, req.Append, resp.Body, req.Tag)
+		return 0, uw.Put(src.Path, req.Tag, req.Append, resp.Body)
 	default:
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
@@ -472,14 +481,14 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.PutFi
 				return obj.WithPipe(func(w io.Writer) error {
 					return objClient.Get(ctx, name, w)
 				}, func(r io.Reader) error {
-					return uw.Put(filepath.Join(src.Path, strings.TrimPrefix(name, path)), req.Append, r, req.Tag)
+					return uw.Put(filepath.Join(src.Path, strings.TrimPrefix(name, path)), req.Tag, req.Append, r)
 				})
 			})
 		}
 		return 0, obj.WithPipe(func(w io.Writer) error {
 			return objClient.Get(ctx, url.Object, w)
 		}, func(r io.Reader) error {
-			return uw.Put(src.Path, req.Append, r, req.Tag)
+			return uw.Put(src.Path, req.Tag, req.Append, r)
 		})
 	}
 }
@@ -491,7 +500,7 @@ func putFileRaw(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.P
 		r:      bytes.NewReader(src.Data),
 		done:   src.EOF,
 	}
-	err := uw.Put(src.Path, req.Append, rfsr, req.Tag)
+	err := uw.Put(src.Path, req.Tag, req.Append, rfsr)
 	return rfsr.bytesRead, err
 }
 
@@ -677,7 +686,7 @@ func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFi
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.deleteAll(txnCtx)
 	})
 	if err != nil {
@@ -727,15 +736,15 @@ func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) 
 }
 
 func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		return txnCtx.Pfs().AddFilesetInTransaction(txnCtx, req)
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.AddFilesetInTransaction(txnCtx, req)
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) AddFilesetInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.AddFilesetRequest) error {
+func (a *apiServer) AddFilesetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.AddFilesetRequest) error {
 	fsid, err := fileset.ParseID(request.FilesetId)
 	if err != nil {
 		return err
@@ -756,4 +765,39 @@ func (a *apiServer) RenewFileset(ctx context.Context, req *pfs.RenewFilesetReque
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// RunLoadTest implements the pfs.RunLoadTest RPC
+func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.env.GetPachClient(ctx)
+	repo := "load_test"
+	if err := pachClient.CreateRepo(repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
+		return nil, err
+	}
+	branch := uuid.New()
+	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
+		return nil, err
+	}
+	seed := time.Now().UTC().UnixNano()
+	if req.Seed > 0 {
+		seed = req.Seed
+	}
+	resp := &pfs.RunLoadTestResponse{
+		Branch: client.NewBranch(repo, branch),
+		Seed:   seed,
+	}
+	if err := a.runLoadTest(pachClient, resp.Branch, req.Spec, seed); err != nil {
+		resp.Error = err.Error()
+	}
+	return resp, nil
+}
+
+func (a *apiServer) runLoadTest(pachClient *client.APIClient, branch *pfs.Branch, specBytes []byte, seed int64) error {
+	spec := &pfsload.CommitsSpec{}
+	if err := yaml.UnmarshalStrict(specBytes, spec); err != nil {
+		return err
+	}
+	return pfsload.Commits(pachClient, branch.Repo.Name, branch.Name, spec, seed)
 }

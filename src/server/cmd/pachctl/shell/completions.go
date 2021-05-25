@@ -146,7 +146,7 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 	case commitOrBranchPart:
 		return BranchCompletion(flag, text, maxCompletions)
 	case filePart:
-		if err := c.GlobFile(partialFile.Commit.Branch.Repo.Name, partialFile.Commit.Branch.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
+		if err := c.GlobFile(partialFile.Commit, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
 				maxCompletions--
 			} else {
@@ -217,14 +217,14 @@ func jobDesc(pji *pps.PipelineJobInfo) string {
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
-	if err := c.ListJobF("", nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
+	if err := c.ListPipelineJobF("", nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
 		if maxCompletions > 0 {
 			maxCompletions--
 		} else {
 			return errutil.ErrBreak
 		}
 		result = append(result, prompt.Suggest{
-			Text:        pji.Job.ID,
+			Text:        pji.PipelineJob.ID,
 			Description: jobDesc(pji),
 		})
 		return nil

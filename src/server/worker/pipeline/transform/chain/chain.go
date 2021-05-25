@@ -51,16 +51,16 @@ func NewJobChain(pachClient *client.APIClient, hasher datum.Hasher, opts ...JobC
 
 // CreateJob creates a job in the job chain.
 // TODO: Context should be associated with the iteration, but need to change datum iterator interface for that.
-func (jc *JobChain) CreateJob(ctx context.Context, jobID string, dit, outputDit datum.Iterator) *JobDatumIterator {
+func (jc *JobChain) CreateJob(ctx context.Context, pipelineJobID string, dit, outputDit datum.Iterator) *JobDatumIterator {
 	jdi := &JobDatumIterator{
-		ctx:       ctx,
-		jc:        jc,
-		parent:    jc.prevJob,
-		jobID:     jobID,
-		stats:     &datum.Stats{ProcessStats: &pps.ProcessStats{}},
-		dit:       datum.NewJobIterator(dit, jobID, jc.hasher),
-		outputDit: outputDit,
-		done:      make(chan struct{}),
+		ctx:           ctx,
+		jc:            jc,
+		parent:        jc.prevJob,
+		pipelineJobID: pipelineJobID,
+		stats:         &datum.Stats{ProcessStats: &pps.ProcessStats{}},
+		dit:           datum.NewPipelineJobIterator(dit, pipelineJobID, jc.hasher),
+		outputDit:     outputDit,
+		done:          make(chan struct{}),
 	}
 	jc.prevJob = jdi
 	return jdi
@@ -71,7 +71,7 @@ type JobDatumIterator struct {
 	ctx            context.Context
 	jc             *JobChain
 	parent         *JobDatumIterator
-	jobID          string
+	pipelineJobID  string
 	stats          *datum.Stats
 	dit, outputDit datum.Iterator
 	finishOnce     sync.Once
@@ -130,16 +130,16 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 			if outputFilesetID, err = jdi.withDatumFileset(pachClient, func(outputSet *datum.Set) error {
 				return datum.Merge([]datum.Iterator{parentFilesetIterator, filesetIterator}, func(metas []*datum.Meta) error {
 					if len(metas) == 1 {
-						if metas[0].JobID != jdi.jobID {
+						if metas[0].PipelineJobID != jdi.pipelineJobID {
 							return nil
 						}
 						return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
 					}
-					if jdi.skippableDatum(metas[0], metas[1]) {
+					if jdi.skippableDatum(metas[1], metas[0]) {
 						jdi.stats.Skipped++
-						return skippedSet.UploadMeta(metas[0])
+						return skippedSet.UploadMeta(metas[1])
 					}
-					return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
+					return outputSet.UploadMeta(metas[1], datum.WithPrefixIndex())
 				})
 			}); err != nil {
 				return err
@@ -166,7 +166,7 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 			return datum.Merge([]datum.Iterator{jdi.parent.outputDit, skippedFilesetIterator}, func(metas []*datum.Meta) error {
 				if len(metas) == 1 {
 					// Datum was skipped, but does not exist in the parent job output.
-					if metas[0].JobID == jdi.jobID {
+					if metas[0].PipelineJobID == jdi.pipelineJobID {
 						jdi.stats.Skipped--
 						return s.UploadMeta(metas[0], datum.WithPrefixIndex())
 					}
@@ -174,12 +174,12 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 					return jdi.deleteDatum(metas[0])
 				}
 				// Check if a skipped datum was not successfully processed by the parent.
-				if !jdi.skippableDatum(metas[0], metas[1]) {
+				if !jdi.skippableDatum(metas[1], metas[0]) {
 					jdi.stats.Skipped--
-					if err := jdi.deleteDatum(metas[1]); err != nil {
+					if err := jdi.deleteDatum(metas[0]); err != nil {
 						return err
 					}
-					return s.UploadMeta(metas[0], datum.WithPrefixIndex())
+					return s.UploadMeta(metas[1], datum.WithPrefixIndex())
 				}
 				return nil
 			})

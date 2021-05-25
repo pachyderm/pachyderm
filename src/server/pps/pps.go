@@ -8,23 +8,23 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-// ErrJobFinished represents a finished job error.
-type ErrJobFinished struct {
-	Job *pps.Job
+// ErrPipelineJobFinished represents a finished job error.
+type ErrPipelineJobFinished struct {
+	PipelineJob *pps.PipelineJob
 }
 
-func (e ErrJobFinished) Error() string {
-	return fmt.Sprintf("job %v has already finished", e.Job.ID)
+func (e ErrPipelineJobFinished) Error() string {
+	return fmt.Sprintf("pipeline job %v has already finished", e.PipelineJob.ID)
 }
 
 var (
-	jobFinishedRe = regexp.MustCompile("job [^ ]+ has already finished")
+	pipelineJobFinishedRe = regexp.MustCompile("pipeline job [^ ]+ has already finished")
 )
 
-// IsJobFinishedErr returns true if 'err' has an error message that matches ErrJobFinished
-func IsJobFinishedErr(err error) bool {
+// IsPipelineJobFinishedErr returns true if 'err' has an error message that matches ErrPipelineJobFinished
+func IsPipelineJobFinishedErr(err error) bool {
 	if err == nil {
 		return false
 	}
-	return jobFinishedRe.MatchString(grpcutil.ScrubGRPC(err).Error())
+	return pipelineJobFinishedRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }

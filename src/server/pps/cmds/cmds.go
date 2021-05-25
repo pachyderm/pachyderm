@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -116,9 +117,9 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			pipelineJobInfo, err := client.InspectJob(args[0], block, true)
+			pipelineJobInfo, err := client.InspectPipelineJob(args[0], block, true)
 			if err != nil {
-				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
+				cmdutil.ErrorAndExit("error from InspectPipelineJob: %s", err.Error())
 			}
 			if pipelineJobInfo == nil {
 				cmdutil.ErrorAndExit("job %s not found.", args[0])
@@ -197,14 +198,14 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(pji *ppsclient.PipelineJobInfo) error {
+					return client.ListPipelineJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(pji *ppsclient.PipelineJobInfo) error {
 						return e.EncodeProto(pji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(pji *ppsclient.PipelineJobInfo) error {
+				if err := client.ListPipelineJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(pji *ppsclient.PipelineJobInfo) error {
 					pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
 					return nil
 				}); err != nil {
@@ -265,7 +266,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			}
 			e := encoder(output)
-			if err := c.FlushJob(commits, pipelines, func(pji *ppsclient.PipelineJobInfo) error {
+			if err := c.FlushPipelineJob(commits, pipelines, func(pji *ppsclient.PipelineJobInfo) error {
 				if raw {
 					if err := e.EncodeProto(pji); err != nil {
 						return err
@@ -308,8 +309,8 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				return err
 			}
 			defer client.Close()
-			if err := client.DeleteJob(args[0]); err != nil {
-				cmdutil.ErrorAndExit("error from DeleteJob: %s", err.Error())
+			if err := client.DeletePipelineJob(args[0]); err != nil {
+				cmdutil.ErrorAndExit("error from DeletePipelineJob: %s", err.Error())
 			}
 			return nil
 		}),
@@ -327,8 +328,8 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				return err
 			}
 			defer client.Close()
-			if err := client.StopJob(args[0]); err != nil {
-				cmdutil.ErrorAndExit("error from StopJob: %s", err.Error())
+			if err := client.StopPipelineJob(args[0]); err != nil {
+				cmdutil.ErrorAndExit("error from StopPipelineJob: %s", err.Error())
 			}
 			return nil
 		}),
@@ -443,14 +444,14 @@ each datum.`,
 	commands = append(commands, cmdutil.CreateAlias(inspectDatum, "inspect datum"))
 
 	var (
-		jobID       string
-		datumID     string
-		commaInputs string // comma-separated list of input files of interest
-		master      bool
-		worker      bool
-		follow      bool
-		tail        int64
-		since       string
+		pipelineJobID string
+		datumID       string
+		commaInputs   string // comma-separated list of input files of interest
+		master        bool
+		worker        bool
+		follow        bool
+		tail          int64
+		since         string
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours
@@ -519,7 +520,7 @@ each datum.`,
 			}
 
 			// Issue RPC
-			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, since)
+			iter := client.GetLogs(pipelineName, pipelineJobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			encoder := json.NewEncoder(&buf)
 			for iter.Next() {
@@ -535,7 +536,7 @@ each datum.`,
 					prettyLogsPrinter(iter.Message().Message)
 				} else if !iter.Message().User && !iter.Message().Master && worker {
 					prettyLogsPrinter(iter.Message().Message)
-				} else if pipelineName == "" && jobID == "" {
+				} else if pipelineName == "" && pipelineJobID == "" {
 					prettyLogsPrinter(iter.Message().Message)
 				}
 			}
@@ -545,7 +546,7 @@ each datum.`,
 	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	getLogs.Flags().StringVarP(&jobID, "job", "j", "", "Filter for log lines from "+
+	getLogs.Flags().StringVarP(&pipelineJobID, "job", "j", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
 	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
 	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
@@ -648,14 +649,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			err = client.RunPipeline(args[0], prov, jobID)
+			err = client.RunPipeline(args[0], prov, pipelineJobID)
 			if err != nil {
 				return err
 			}
 			return nil
 		}),
 	}
-	runPipeline.Flags().StringVar(&jobID, "job", "", "rerun the given job")
+	runPipeline.Flags().StringVar(&pipelineJobID, "job", "", "rerun the given job")
 	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
 
 	runCron := &cobra.Command{
@@ -1047,14 +1048,13 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			if request.Transform.Build.Language != "" && request.Transform.Build.Image != "" {
 				return errors.New("cannot specify both a build `language` and `image`")
 			}
-			var err error
-			ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) {
+			if err := ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) error {
 				inputName := ppsclient.InputName(input)
 				if inputName == "build" || inputName == "source" {
-					err = errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
+					return errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
 				}
-			})
-			if err != nil {
+				return nil
+			}); err != nil {
 				return err
 			}
 			pipelineParentPath, _ := filepath.Split(pipelinePath)
@@ -1294,7 +1294,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 
 	// insert the source code
-	if err := pc.WithModifyFileClient(buildPipelineName, "source", "", func(mf pachdclient.ModifyFile) error {
+	if err := pc.WithModifyFileClient(client.NewCommit(buildPipelineName, "source", ""), func(mf pachdclient.ModifyFile) error {
 		if update {
 			if err := mf.DeleteFile("/"); err != nil {
 				return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
@@ -1391,7 +1391,7 @@ func validateJQConditionString(filter string) (string, error) {
 func ParseJobStates(stateStrs []string) (string, error) {
 	var conditions []string
 	for _, stateStr := range stateStrs {
-		if state, err := ppsclient.JobStateFromName(stateStr); err == nil {
+		if state, err := ppsclient.PipelineJobStateFromName(stateStr); err == nil {
 			conditions = append(conditions, fmt.Sprintf(".state == \"%s\"", state))
 		} else {
 			return "", err

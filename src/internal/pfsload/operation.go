@@ -1,4 +1,4 @@
-package load
+package pfsload
 
 import (
 	"context"
@@ -8,13 +8,13 @@ import (
 )
 
 type OperationsSpec struct {
-	Count              int                  `yaml:"count,omitempty"`
-	FuzzOperationSpecs []*FuzzOperationSpec `yaml:"fuzzOperations,omitempty"`
+	Count          int              `yaml:"count,omitempty"`
+	OperationSpecs []*OperationSpec `yaml:"operation,omitempty"`
 }
 
 func Operations(env *Env, repo, branch, commit string, spec *OperationsSpec) error {
 	for i := 0; i < spec.Count; i++ {
-		if err := FuzzOperation(env, repo, branch, commit, spec.FuzzOperationSpecs); err != nil {
+		if err := FuzzOperation(env, repo, branch, commit, spec.OperationSpecs); err != nil {
 			return err
 		}
 	}
@@ -25,6 +25,7 @@ func Operations(env *Env, repo, branch, commit string, spec *OperationsSpec) err
 type OperationSpec struct {
 	PutFileSpec    *PutFileSpec    `yaml:"putFile,omitempty"`
 	DeleteFileSpec *DeleteFileSpec `yaml:"deleteFile,omitempty"`
+	Prob           int             `yaml:"prob,omitempty"`
 }
 
 func Operation(env *Env, repo, branch, commit string, spec *OperationSpec) error {
@@ -44,7 +45,7 @@ func PutFile(env *Env, repo, branch, commit string, spec *PutFileSpec) error {
 	if err != nil {
 		return err
 	}
-	return c.WithModifyFileClient(context.Background(), repo, branch, commit, func(mf client.ModifyFile) error {
+	return c.WithModifyFileClient(context.Background(), client.NewCommit(repo, branch, commit), func(mf client.ModifyFile) error {
 		for _, file := range files {
 			if err := mf.PutFile(file.Path(), file.Reader()); err != nil {
 				return err
@@ -55,13 +56,16 @@ func PutFile(env *Env, repo, branch, commit string, spec *PutFileSpec) error {
 }
 
 type DeleteFileSpec struct {
-	Count         int     `yaml:"count,omitempty"`
-	DirectoryProb float64 `yaml:"directoryProb,omitempty"`
+	Count         int `yaml:"count,omitempty"`
+	DirectoryProb int `yaml:"directoryProb,omitempty"`
 }
 
 func DeleteFile(env *Env, repo, branch, commit string, spec *DeleteFileSpec) error {
+	if err := validateProb(spec.DirectoryProb); err != nil {
+		return err
+	}
 	c := env.Client()
-	return c.WithModifyFileClient(context.Background(), repo, branch, commit, func(mf client.ModifyFile) error {
+	return c.WithModifyFileClient(context.Background(), client.NewCommit(repo, branch, commit), func(mf client.ModifyFile) error {
 		for i := 0; i < spec.Count; i++ {
 			p, err := nextDeletePath(env, spec)
 			if err != nil {
@@ -81,7 +85,7 @@ func nextDeletePath(env *Env, spec *DeleteFileSpec) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for shouldExecute(spec.DirectoryProb) {
+	for shouldExecute(env.Rand(), spec.DirectoryProb) {
 		p, _ = path.Split(p)
 		if p == "" {
 			break

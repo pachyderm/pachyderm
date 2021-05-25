@@ -5,15 +5,17 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"modernc.org/mathutil"
 )
@@ -36,11 +38,13 @@ var tests = []test{
 
 func TestWriteThenRead(t *testing.T) {
 	_, chunks := newTestStorage(t)
-	msg := random.SeedRand()
+	seed := time.Now().UTC().UnixNano()
+	msg := fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+	random := rand.New(rand.NewSource(seed))
 	for _, test := range tests {
 		t.Run(test.name(), func(t *testing.T) {
 			// Generate set of annotations.
-			as := generateAnnotations(test)
+			as := generateAnnotations(random, test)
 			// Write then read the set of annotations.
 			writeAnnotations(t, chunks, as, msg)
 			readAnnotations(t, chunks, as, msg)
@@ -50,12 +54,14 @@ func TestWriteThenRead(t *testing.T) {
 
 func TestCopy(t *testing.T) {
 	_, chunks := newTestStorage(t)
-	msg := random.SeedRand()
+	seed := time.Now().UTC().UnixNano()
+	msg := fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+	random := rand.New(rand.NewSource(seed))
 	for _, test := range tests {
 		t.Run(test.name(), func(t *testing.T) {
 			// Generate two sets of annotations.
-			as1 := generateAnnotations(test)
-			as2 := generateAnnotations(test)
+			as1 := generateAnnotations(random, test)
+			as2 := generateAnnotations(random, test)
 			// Write the two sets of annotations.
 			writeAnnotations(t, chunks, as1, msg)
 			writeAnnotations(t, chunks, as2, msg)
@@ -94,7 +100,9 @@ func TestCopy(t *testing.T) {
 
 func BenchmarkWriter(b *testing.B) {
 	_, chunks := newTestStorage(b)
-	seq := RandSeq(100 * units.MB)
+	seed := time.Now().UTC().UnixNano()
+	random := rand.New(rand.NewSource(seed))
+	data := randutil.Bytes(random, 100*units.MB)
 	b.SetBytes(100 * units.MB)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -102,7 +110,7 @@ func BenchmarkWriter(b *testing.B) {
 		w := chunks.NewWriter(context.Background(), uuid.NewWithoutDashes(), cb)
 		for i := 0; i < 100; i++ {
 			w.Annotate(&Annotation{})
-			_, err := w.Write(seq[i*units.MB : (i+1)*units.MB])
+			_, err := w.Write(data[i*units.MB : (i+1)*units.MB])
 			require.NoError(b, err)
 		}
 		require.NoError(b, w.Close())
@@ -110,7 +118,9 @@ func BenchmarkWriter(b *testing.B) {
 }
 
 func BenchmarkRollingHash(b *testing.B) {
-	seq := RandSeq(100 * units.MB)
+	seed := time.Now().UTC().UnixNano()
+	random := rand.New(rand.NewSource(seed))
+	data := randutil.Bytes(random, 100*units.MB)
 	b.SetBytes(100 * units.MB)
 	hash := buzhash64.New()
 	splitMask := uint64((1 << uint64(23)) - 1)
@@ -118,7 +128,7 @@ func BenchmarkRollingHash(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		hash.Reset()
 		hash.Write(initialWindow)
-		for _, bt := range seq {
+		for _, bt := range data {
 			hash.Roll(bt)
 			//lint:ignore SA9003 benchmark is simulating exact usecase
 			if hash.Sum64()&splitMask == 0 {
@@ -132,11 +142,11 @@ type testAnnotation struct {
 	dataRefs []*DataRef
 }
 
-func generateAnnotations(t test) []*testAnnotation {
+func generateAnnotations(random *rand.Rand, t test) []*testAnnotation {
 	var as []*testAnnotation
 	for t.n > 0 {
 		a := &testAnnotation{}
-		a.data = RandSeq(mathutil.Min(rand.Intn(t.maxAnnotationSize)+1, t.n))
+		a.data = randutil.Bytes(random, mathutil.Min(rand.Intn(t.maxAnnotationSize)+1, t.n))
 		t.n -= len(a.data)
 		as = append(as, a)
 	}

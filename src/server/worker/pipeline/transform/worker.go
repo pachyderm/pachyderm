@@ -30,8 +30,8 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 	if err != nil {
 		return err
 	}
-	return status.withJob(datumSet.JobID, func() error {
-		logger = logger.WithJob(datumSet.JobID)
+	return status.withPipelineJob(datumSet.PipelineJobID, func() error {
+		logger = logger.WithPipelineJob(datumSet.PipelineJobID)
 		if err := logger.LogStep("datum task", func() error {
 			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Input) || driver.PipelineInfo().S3Out {
 				if err := checkS3Gateway(driver, logger); err != nil {
@@ -49,21 +49,21 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 
 func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		endpoint := fmt.Sprintf("http://%s:%s/", ppsutil.SidecarS3GatewayService(logger.JobID()), os.Getenv("S3GATEWAY_PORT"))
+		endpoint := fmt.Sprintf("http://%s:%s/", ppsutil.SidecarS3GatewayService(logger.PipelineJobID()), os.Getenv("S3GATEWAY_PORT"))
 		_, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint)
-		logger.Logf("checking s3 gateway service for job %q: %v", logger.JobID(), err)
+		logger.Logf("checking s3 gateway service for job %q: %v", logger.PipelineJobID(), err)
 		return err
 	}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
-		logger.Logf("worker could not connect to s3 gateway for %q: %v", logger.JobID(), err)
+		logger.Logf("worker could not connect to s3 gateway for %q: %v", logger.PipelineJobID(), err)
 		return nil
 	})
 	// TODO: `master` implementation fails the job here, we may need to do the same
 	// We would need to load the PipelineJobInfo first for this:
 	// }); err != nil {
-	//   reason := fmt.Sprintf("could not connect to s3 gateway for %q: %v", logger.JobID(), err)
+	//   reason := fmt.Sprintf("could not connect to s3 gateway for %q: %v", logger.PipelineJobID(), err)
 	//   logger.Logf("failing job with reason: %s", reason)
 	//   // NOTE: this is the only place a worker will reach over and change the job state, this should not generally be done.
-	//   return finishJob(driver.PipelineInfo(), driver.PachClient(), pipelineJobInfo, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0)
+	//   return finishPipelineJob(driver.PipelineInfo(), driver.PachClient(), pipelineJobInfo, pps.PipelineJobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0)
 	// }
 	// return nil
 }
@@ -91,7 +91,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 					ctx := pachClient.Ctx()
 					inputs := meta.Inputs
 					logger = logger.WithData(inputs)
-					env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)
+					env := driver.UserCodeEnv(logger.PipelineJobID(), datumSet.OutputCommit, inputs)
 					var opts []datum.Option
 					if driver.PipelineInfo().DatumTimeout != nil {
 						timeout, err := types.DurationFromProto(driver.PipelineInfo().DatumTimeout)

@@ -1,4 +1,4 @@
-package load
+package pfsload
 
 import (
 	"bytes"
@@ -7,9 +7,10 @@ import (
 	"math/rand"
 	"path"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 )
+
+const pathSize = 32
 
 type MemFile struct {
 	path    string
@@ -37,46 +38,52 @@ type FileSourceSpec struct {
 }
 
 type FileSource interface {
-	Next() *MemFile
+	Next() (*MemFile, error)
 }
 
-func NewFileSource(spec *FileSourceSpec) FileSource {
-	return newRandomFileSource(spec.RandomFileSourceSpec)
+func NewFileSource(spec *FileSourceSpec, random *rand.Rand) FileSource {
+	return newRandomFileSource(spec.RandomFileSourceSpec, random)
 }
 
 type RandomFileSourceSpec struct {
 	IncrementPath       bool                 `yaml:"incrementPath,omitempty"`
 	RandomDirectorySpec *RandomDirectorySpec `yaml:"directory,omitempty"`
-	FuzzSizeSpecs       []*FuzzSizeSpec      `yaml:"fuzzSize,omitempty"`
+	SizeSpecs           []*SizeSpec          `yaml:"size,omitempty"`
 }
 
 type randomFileSource struct {
 	spec      *RandomFileSourceSpec
+	random    *rand.Rand
 	dirSource *randomDirectorySource
 	next      int64
 }
 
-func newRandomFileSource(spec *RandomFileSourceSpec) FileSource {
+func newRandomFileSource(spec *RandomFileSourceSpec, random *rand.Rand) FileSource {
 	var dirSource *randomDirectorySource
 	if spec.RandomDirectorySpec != nil {
 		dirSource = &randomDirectorySource{
-			spec: spec.RandomDirectorySpec,
+			spec:   spec.RandomDirectorySpec,
+			random: random,
 		}
 	}
 	return &randomFileSource{
 		spec:      spec,
+		random:    random,
 		dirSource: dirSource,
 	}
 }
 
-func (rfs *randomFileSource) Next() *MemFile {
-	sizeSpec := FuzzSize(rfs.spec.FuzzSizeSpecs)
+func (rfs *randomFileSource) Next() (*MemFile, error) {
+	sizeSpec, err := FuzzSize(rfs.spec.SizeSpecs, rfs.random)
+	if err != nil {
+		return nil, err
+	}
 	min, max := sizeSpec.Min, sizeSpec.Max
 	size := min
 	if max > min {
-		size += rand.Intn(max - min)
+		size += rfs.random.Intn(max - min)
 	}
-	return NewMemFile(rfs.nextPath(), chunk.RandSeq(size))
+	return NewMemFile(rfs.nextPath(), randutil.Bytes(rfs.random, size)), nil
 }
 
 func (rfs *randomFileSource) nextPath() string {
@@ -89,7 +96,7 @@ func (rfs *randomFileSource) nextPath() string {
 		rfs.next += 1
 		return path.Join(dir, fmt.Sprintf("%016d", next))
 	}
-	return path.Join(dir, uuid.NewWithoutDashes())
+	return path.Join(dir, string(randutil.Bytes(rfs.random, pathSize)))
 }
 
 type RandomDirectorySpec struct {
@@ -98,16 +105,17 @@ type RandomDirectorySpec struct {
 }
 
 type randomDirectorySource struct {
-	spec *RandomDirectorySpec
-	next string
-	run  int64
+	spec   *RandomDirectorySpec
+	random *rand.Rand
+	next   string
+	run    int64
 }
 
 func (rds *randomDirectorySource) nextPath() string {
 	if rds.next == "" {
-		depth := rand.Intn(rds.spec.Depth)
+		depth := rds.random.Intn(rds.spec.Depth)
 		for i := 0; i < depth; i++ {
-			rds.next = path.Join(rds.next, uuid.NewWithoutDashes())
+			rds.next = path.Join(rds.next, string(randutil.Bytes(rds.random, pathSize)))
 		}
 	}
 	dir := rds.next
@@ -120,14 +128,14 @@ func (rds *randomDirectorySource) nextPath() string {
 }
 
 type FilesSpec struct {
-	Count         int             `yaml:"count,omitempty"`
-	FuzzFileSpecs []*FuzzFileSpec `yaml:"fuzzFile,omitempty"`
+	Count     int         `yaml:"count,omitempty"`
+	FileSpecs []*FileSpec `yaml:"file,omitempty"`
 }
 
 func Files(env *Env, spec *FilesSpec) ([]*MemFile, error) {
 	var files []*MemFile
 	for i := 0; i < spec.Count; i++ {
-		file, err := FuzzFile(env, spec.FuzzFileSpecs)
+		file, err := FuzzFile(env, spec.FileSpecs)
 		if err != nil {
 			return nil, err
 		}
@@ -139,13 +147,15 @@ func Files(env *Env, spec *FilesSpec) ([]*MemFile, error) {
 // TODO: Add different types of files.
 type FileSpec struct {
 	Source string `yaml:"source,omitempty"`
+	Prob   int    `yaml:"prob,omitempty"`
 }
 
 func File(env *Env, spec *FileSpec) (*MemFile, error) {
-	return env.FileSource(spec.Source).Next(), nil
+	return env.FileSource(spec.Source).Next()
 }
 
 type SizeSpec struct {
-	Min int `yaml:"min,omitempty"`
-	Max int `yaml:"max,omitempty"`
+	Min  int `yaml:"min,omitempty"`
+	Max  int `yaml:"max,omitempty"`
+	Prob int `yaml:"prob,omitempty"`
 }

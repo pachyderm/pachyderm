@@ -7,6 +7,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	glob "github.com/pachyderm/ohmyglob"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -94,7 +95,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	err = pc.GlobFile(bucket.Repo, bucket.Branch, bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(client.NewCommit(bucket.Repo, bucket.Branch, bucket.Commit), pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -220,7 +221,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 
 	if branchInfo.Head != nil {
 		hasFiles := false
-		err = pc.WalkFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
+		err = pc.WalkFile(branchInfo.Head, "", func(fileInfo *pfsClient.FileInfo) error {
 			if fileInfo.FileType == pfsClient.FileType_FILE {
 				hasFiles = true
 				return errutil.ErrBreak

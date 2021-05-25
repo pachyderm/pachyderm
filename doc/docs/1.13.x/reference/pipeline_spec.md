@@ -923,15 +923,20 @@ in 1.13.0.
 
 ### Cache Size (optional)
 
-`cache_size` controls how much cache a pipeline's sidecar containers use. In
+`cache_size` controls how much **in-memory cache** a pipeline's sidecar containers use. In
 general, your pipeline's performance will increase with the cache size, but
 only up to a certain point depending on your workload.
 
 Every worker in every pipeline has a limited-functionality `pachd` server
 running adjacent to it, which proxies PFS reads and writes (this prevents
 thundering herds when jobs start and end, which is when all of a pipeline's
-workers are reading from and writing to PFS simultaneously). Part of what these
-"sidecar" pachd servers do is cache PFS reads. If a pipeline has a cross input,
+workers are reading from and writing to PFS simultaneously). 
+Part of what these "sidecar" pachd servers do is *cache PFS reads:*
+Any time the worker reads files from the input repo or writes files to the output repo,
+the sidecar manages those requests, 
+which will **cache the files in memory for better performance**.
+
+If a pipeline has a cross input,
 and a worker is downloading the same datum from one branch of the input
 repeatedly, then the cache can speed up processing significantly.
 
