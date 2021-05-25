@@ -5837,20 +5837,6 @@ func TestPFS(suite *testing.T) {
 		})
 	})
 
-	suite.Run("TestLoad", func(subsuite *testing.T) {
-		subsuite.Parallel()
-		for i, load := range loads {
-			load := load
-			subsuite.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
-				t.Parallel()
-				env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-				resp, err := env.PachClient.RunPFSLoadTest([]byte(load))
-				require.NoError(t, err)
-				require.Equal(t, "", resp.Error, fmt.Sprint("seed: ", resp.Seed))
-			})
-		}
-	})
-
 	suite.Run("TestPanicOnNilArgs", func(t *testing.T) {
 		// TODO(2.0 required): Add validation to all PFS endpoints.
 		t.Skip("PFS endpoints are not fully validated in V2")

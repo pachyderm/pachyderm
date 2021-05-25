@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/fileutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
 )
 
 func join(names ...string) string {
@@ -41,7 +41,7 @@ func collectDebugFile(tw *tar.Writer, name string, cb func(io.Writer) error, pre
 			retErr = writeErrorFile(tw, retErr, name)
 		}
 	}()
-	return fileutil.WithTmpFile("pachyderm_debug", func(f *os.File) error {
+	return fsutil.WithTmpFile("pachyderm_debug", func(f *os.File) error {
 		if err := cb(f); err != nil {
 			return err
 		}
@@ -54,7 +54,7 @@ func writeErrorFile(tw *tar.Writer, err error, prefix ...string) error {
 	if len(prefix) > 0 {
 		file = join(prefix[0], file)
 	}
-	return fileutil.WithTmpFile("pachyderm_debug", func(f *os.File) error {
+	return fsutil.WithTmpFile("pachyderm_debug", func(f *os.File) error {
 		if _, err := io.Copy(f, strings.NewReader(err.Error()+"\n")); err != nil {
 			return err
 		}

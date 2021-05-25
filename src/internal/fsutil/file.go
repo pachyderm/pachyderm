@@ -1,4 +1,4 @@
-package fileutil
+package fsutil
 
 import (
 	"io/ioutil"
@@ -8,9 +8,6 @@ import (
 )
 
 func WithTmpFile(prefix string, cb func(*os.File) error) (retErr error) {
-	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
-		return errors.EnsureStack(err)
-	}
 	f, err := ioutil.TempFile(os.TempDir(), prefix)
 	if err != nil {
 		return errors.EnsureStack(err)

@@ -7,10 +7,12 @@ import (
 	"io"
 	"math/rand"
 	"testing"
+	"time"
 
 	units "github.com/docker/go-units"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -74,13 +76,15 @@ func newTestStorage(t *testing.T) *Storage {
 func TestWriteThenRead(t *testing.T) {
 	ctx := context.Background()
 	storage := newTestStorage(t)
+	seed := time.Now().UTC().UnixNano()
+	random := rand.New(rand.NewSource(seed))
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
 		var files []*testFile
-		for _, tagInt := range rand.Perm(maxTags) {
+		for _, tagInt := range random.Perm(maxTags) {
 			tag := fmt.Sprintf("%08x", tagInt)
-			data := chunk.RandSeq(rand.Intn(max))
+			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
 				path: "/" + fileName,
 				tag:  tag,
@@ -108,12 +112,14 @@ func TestWriteThenRead(t *testing.T) {
 func TestWriteThenReadFuzz(t *testing.T) {
 	ctx := context.Background()
 	storage := newTestStorage(t)
+	seed := time.Now().UTC().UnixNano()
+	random := rand.New(rand.NewSource(seed))
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
-		for _, tagInt := range rand.Perm(maxTags) {
+		for _, tagInt := range random.Perm(maxTags) {
 			tag := fmt.Sprintf("%08x", tagInt)
-			data := chunk.RandSeq(rand.Intn(max))
+			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
 				path: "/" + fileName,
 				tag:  tag,
@@ -135,8 +141,8 @@ func TestWriteThenReadFuzz(t *testing.T) {
 			filesIter = filesIter[1:]
 			return nil
 		}))
-		idx := rand.Intn(len(files))
-		data := chunk.RandSeq(rand.Intn(max))
+		idx := random.Intn(len(files))
+		data := randutil.Bytes(random, random.Intn(max))
 		files[idx] = &testFile{
 			path: files[idx].path,
 			tag:  files[idx].tag,
@@ -149,12 +155,14 @@ func TestWriteThenReadFuzz(t *testing.T) {
 func TestCopy(t *testing.T) {
 	ctx := context.Background()
 	fileSets := newTestStorage(t)
+	seed := time.Now().UTC().UnixNano()
+	random := rand.New(rand.NewSource(seed))
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
-		for _, tagInt := range rand.Perm(maxTags) {
+		for _, tagInt := range random.Perm(maxTags) {
 			tag := fmt.Sprintf("%08x", tagInt)
-			data := chunk.RandSeq(rand.Intn(max))
+			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
 				path: "/" + fileName,
 				tag:  tag,

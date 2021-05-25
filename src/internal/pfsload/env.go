@@ -11,17 +11,27 @@ type Env struct {
 	random      *rand.Rand
 }
 
-func NewEnv(client Client, spec *CommitsSpec, seed int64) *Env {
+func NewEnv(client Client, spec *CommitsSpec, seed int64) (*Env, error) {
+	var err error
 	random := rand.New(rand.NewSource(seed))
 	if spec.ThroughputSpec != nil {
-		client = NewThroughputLimitClient(client, spec.ThroughputSpec, random)
+		client, err = NewThroughputLimitClient(client, spec.ThroughputSpec, random)
+	}
+	if err != nil {
+		return nil, err
 	}
 	var validator *Validator
 	if spec.ValidatorSpec != nil {
-		client, validator = NewValidator(client, spec.ValidatorSpec, random)
+		client, validator, err = NewValidator(client, spec.ValidatorSpec, random)
+	}
+	if err != nil {
+		return nil, err
 	}
 	if spec.CancelSpec != nil {
-		client = NewCancelClient(client, spec.CancelSpec, random)
+		client, err = NewCancelClient(client, spec.CancelSpec, random)
+	}
+	if err != nil {
+		return nil, err
 	}
 	fileSources := make(map[string]FileSource)
 	for _, spec := range spec.FileSourceSpecs {
@@ -32,7 +42,7 @@ func NewEnv(client Client, spec *CommitsSpec, seed int64) *Env {
 		validator:   validator,
 		fileSources: fileSources,
 		random:      random,
-	}
+	}, nil
 }
 
 func (e *Env) Client() Client {

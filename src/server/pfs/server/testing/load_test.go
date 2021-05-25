@@ -1,5 +1,27 @@
 package testing
 
+import (
+	"fmt"
+	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+)
+
+func TestLoad(t *testing.T) {
+	for i, load := range loads {
+		load := load
+		t.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
+			t.Parallel()
+			env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+			resp, err := env.PachClient.RunPFSLoadTest([]byte(load))
+			require.NoError(t, err)
+			require.Equal(t, "", resp.Error, fmt.Sprint("seed: ", resp.Seed))
+		})
+	}
+}
+
 var loads = []string{`
 count: 3
 operations:
@@ -10,12 +32,12 @@ operations:
             count: 5
             file:
               - source: "random"
-                prob: 1
-        prob: 0.7
+                prob: 100
+        prob: 70 
       - deleteFile:
           count: 5
-          directoryProb: 0.2
-        prob: 0.3
+          directoryProb: 20 
+        prob: 30 
 validator: {}
 fileSources:
   - name: "random"
@@ -26,16 +48,16 @@ fileSources:
       size:
         - min: 1000
           max: 10000
-          prob: 0.3
+          prob: 30 
         - min: 10000
           max: 100000
-          prob: 0.3
+          prob: 30 
         - min: 1000000
           max: 10000000
-          prob: 0.3
+          prob: 30 
         - min: 10000000
           max: 100000000
-          prob: 0.1
+          prob: 10 
 `, `
 count: 3
 operations:
@@ -46,8 +68,8 @@ operations:
             count: 10000 
             file:
               - source: "random"
-                prob: 1
-        prob: 1
+                prob: 100
+        prob: 100
 validator: {}
 fileSources:
   - name: "random"
@@ -55,7 +77,7 @@ fileSources:
       size:
         - min: 100
           max: 1000
-          prob: 1 
+          prob: 100
 `, `
 count: 3
 operations:
@@ -66,8 +88,8 @@ operations:
             count: 1
             file:
               - source: "random"
-                prob: 1
-        prob: 1
+                prob: 100
+        prob: 100
 validator: {}
 fileSources:
   - name: "random"
@@ -75,5 +97,5 @@ fileSources:
       size:
         - min: 10000000
           max: 100000000
-          prob: 1 
+          prob: 100 
 `}

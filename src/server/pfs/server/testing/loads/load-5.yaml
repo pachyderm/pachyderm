@@ -7,12 +7,12 @@ operations:
             count: 5
             file:
               - source: "random"
-                prob: 1
-        prob: 0.7
+                prob: 100
+        prob: 70 
       - deleteFile:
           count: 5
-          directoryProb: 0.2
-        prob: 0.3
+          directoryProb: 20 
+        prob: 30 
 validator:
   frequency:
     count: 10
@@ -25,7 +25,7 @@ fileSources:
       size:
         - min: 1000
           max: 10000
-          prob: 0.7
+          prob: 70 
         - min: 10000
           max: 100000
-          prob: 0.3
+          prob: 30 

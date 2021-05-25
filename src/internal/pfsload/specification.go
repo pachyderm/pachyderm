@@ -11,9 +11,9 @@ validator:
   frequency: FrequencySpec
 throughput:
   limit: int
-  prob: float [0, 1]
+  prob: int [0, 100]
 cancel:
-  prob: float [0, 1]
+  prob: int [0, 100]
 fileSources: [ FileSourceSpec ]
 
 -- OperationSpec --
@@ -22,7 +22,7 @@ count: int
 operation:
   putFile: PutFileSpec
   deleteFile: DeleteFileSpec
-  prob: float [0, 1]
+  prob: int [0, 100]
 
 -- PutFileSpec --
 
@@ -32,17 +32,17 @@ file: [ FileSpec ]
 -- FileSpec --
 
 source: string
-prob: float [0, 1]
+prob: int [0, 100]
 
 -- DeleteFileSpec --
 
 count: int 
-directoryProb: float [0, 1]
+directoryProb: int [0, 100]
 
 -- FrequencySpec --
 
 count: int
-prob: int
+prob: int [0, 100]
 
 -- FileSourceSpec --
 
@@ -64,7 +64,7 @@ run: int
 
 min: int
 max: int
-prob: float [0, 1]
+prob: int [0, 100]
 
 Example: 
 
@@ -77,12 +77,12 @@ operations:
             count: 5
             file:
               - source: "random"
-                prob: 1
-        prob: 0.7
+                prob: 100
+        prob: 70 
       - deleteFile:
           count: 5
-          directoryProb: 0.2
-        prob: 0.3
+          directoryProb: 20 
+        prob: 30 
 validator: {}
 fileSources:
   - name: "random"
@@ -93,14 +93,14 @@ fileSources:
       size:
         - min: 1000
           max: 10000
-          prob: 0.3
+          prob: 30 
         - min: 10000
           max: 100000
-          prob: 0.3
+          prob: 30 
         - min: 1000000
           max: 10000000
-          prob: 0.3
+          prob: 30 
         - min: 10000000
           max: 100000000
-          prob: 0.1
+          prob: 10 
 `

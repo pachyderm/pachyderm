@@ -16,8 +16,8 @@ import (
 )
 
 type FrequencySpec struct {
-	Count int     `yaml:"count,omitempty"`
-	Prob  float64 `yaml:"prob,omitempty"`
+	Count int `yaml:"count,omitempty"`
+	Prob  int `yaml:"prob,omitempty"`
 	count int
 }
 
@@ -31,7 +31,12 @@ type Validator struct {
 	random *rand.Rand
 }
 
-func NewValidator(client Client, spec *ValidatorSpec, random *rand.Rand) (Client, *Validator) {
+func NewValidator(client Client, spec *ValidatorSpec, random *rand.Rand) (Client, *Validator, error) {
+	if spec.FrequencySpec != nil {
+		if err := validateProb(spec.FrequencySpec.Prob); err != nil {
+			return nil, nil, err
+		}
+	}
 	v := &Validator{
 		spec:   spec,
 		buffer: fileset.NewBuffer(),
@@ -40,7 +45,7 @@ func NewValidator(client Client, spec *ValidatorSpec, random *rand.Rand) (Client
 	return &validatorClient{
 		Client:    client,
 		validator: v,
-	}, v
+	}, v, nil
 }
 
 // TODO: The performance of this is bad.

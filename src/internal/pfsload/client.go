@@ -37,8 +37,8 @@ func (pc *pachClient) GetFileTar(ctx context.Context, commit *pfs.Commit, path s
 }
 
 type ThroughputSpec struct {
-	Limit int     `yaml:"limit,omitempty"`
-	Prob  float64 `yaml:"prob,omitempty"`
+	Limit int `yaml:"limit,omitempty"`
+	Prob  int `yaml:"prob,omitempty"`
 }
 
 type throughputLimitClient struct {
@@ -47,12 +47,15 @@ type throughputLimitClient struct {
 	random *rand.Rand
 }
 
-func NewThroughputLimitClient(client Client, spec *ThroughputSpec, random *rand.Rand) Client {
+func NewThroughputLimitClient(client Client, spec *ThroughputSpec, random *rand.Rand) (Client, error) {
+	if err := validateProb(spec.Prob); err != nil {
+		return nil, err
+	}
 	return &throughputLimitClient{
 		Client: client,
 		spec:   spec,
 		random: random,
-	}
+	}, nil
 }
 
 func (tlc *throughputLimitClient) WithModifyFileClient(ctx context.Context, commit *pfs.Commit, cb func(client.ModifyFile) error) error {
@@ -107,7 +110,7 @@ func (tlr *throughputLimitReader) Read(data []byte) (int, error) {
 
 type CancelSpec struct {
 	MaxTime time.Duration `yaml:"maxTime,omitempty"`
-	Prob    float64       `yaml:"prob,omitempty"`
+	Prob    int           `yaml:"prob,omitempty"`
 }
 
 type cancelClient struct {
@@ -116,12 +119,15 @@ type cancelClient struct {
 	random *rand.Rand
 }
 
-func NewCancelClient(client Client, spec *CancelSpec, random *rand.Rand) Client {
+func NewCancelClient(client Client, spec *CancelSpec, random *rand.Rand) (Client, error) {
+	if err := validateProb(spec.Prob); err != nil {
+		return nil, err
+	}
 	return &cancelClient{
 		Client: client,
 		spec:   spec,
 		random: random,
-	}
+	}, nil
 }
 
 func (cc *cancelClient) WithModifyFileClient(ctx context.Context, commit *pfs.Commit, cb func(client.ModifyFile) error) (retErr error) {

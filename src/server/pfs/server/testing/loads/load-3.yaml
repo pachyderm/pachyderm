@@ -7,8 +7,8 @@ operations:
             count: 1
             file:
               - source: "random"
-                prob: 1
-        prob: 1
+                prob: 100
+        prob: 100
 validator: {}
 fileSources:
   - name: "random"
@@ -16,4 +16,4 @@ fileSources:
       size:
         - min: 10000000
           max: 100000000
-          prob: 1 
+          prob: 100 

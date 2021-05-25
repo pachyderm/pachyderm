@@ -25,7 +25,7 @@ func Operations(env *Env, repo, branch, commit string, spec *OperationsSpec) err
 type OperationSpec struct {
 	PutFileSpec    *PutFileSpec    `yaml:"putFile,omitempty"`
 	DeleteFileSpec *DeleteFileSpec `yaml:"deleteFile,omitempty"`
-	Prob           float64         `yaml:"prob,omitempty"`
+	Prob           int             `yaml:"prob,omitempty"`
 }
 
 func Operation(env *Env, repo, branch, commit string, spec *OperationSpec) error {
@@ -56,11 +56,14 @@ func PutFile(env *Env, repo, branch, commit string, spec *PutFileSpec) error {
 }
 
 type DeleteFileSpec struct {
-	Count         int     `yaml:"count,omitempty"`
-	DirectoryProb float64 `yaml:"directoryProb,omitempty"`
+	Count         int `yaml:"count,omitempty"`
+	DirectoryProb int `yaml:"directoryProb,omitempty"`
 }
 
 func DeleteFile(env *Env, repo, branch, commit string, spec *DeleteFileSpec) error {
+	if err := validateProb(spec.DirectoryProb); err != nil {
+		return err
+	}
 	c := env.Client()
 	return c.WithModifyFileClient(context.Background(), client.NewCommit(repo, branch, commit), func(mf client.ModifyFile) error {
 		for i := 0; i < spec.Count; i++ {
