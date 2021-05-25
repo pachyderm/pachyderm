@@ -4,7 +4,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -14,13 +14,13 @@ import (
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
 	d      *driver
-	txnCtx *txnenv.TransactionContext
+	txnCtx *txncontext.TransactionContext
 
 	// Branches that were modified (new commits or head commit was moved to an old commit)
 	branches map[string]*pfs.Branch
 }
 
-func (a *apiServer) NewPropagater(txnCtx *txnenv.TransactionContext) txnenv.PfsPropagater {
+func (a *apiServer) NewPropagater(txnCtx *txncontext.TransactionContext) txncontext.PfsPropagater {
 	return &Propagater{
 		d:        a.driver,
 		txnCtx:   txnCtx,
@@ -53,13 +53,13 @@ func (t *Propagater) Run() error {
 // The Run method is called at the end of any transaction
 type PipelineFinisher struct {
 	d      *driver
-	txnCtx *txnenv.TransactionContext
+	txnCtx *txncontext.TransactionContext
 
 	// pipeline output branches to finish commits on
 	branches []*pfs.Branch
 }
 
-func (a *apiServer) NewPipelineFinisher(txnCtx *txnenv.TransactionContext) txnenv.PipelineCommitFinisher {
+func (a *apiServer) NewPipelineFinisher(txnCtx *txncontext.TransactionContext) txncontext.PipelineCommitFinisher {
 	return &PipelineFinisher{
 		d:      a.driver,
 		txnCtx: txnCtx,
@@ -92,7 +92,7 @@ func (f *PipelineFinisher) Run() error {
 			0,     // number
 			false, // reverse
 			func(commitInfo *pfs.CommitInfo) error {
-				return f.txnCtx.Pps().StopPipelineJobInTransaction(f.txnCtx, &pps.StopPipelineJobRequest{
+				return f.d.env.PpsServer().StopPipelineJobInTransaction(f.txnCtx, &pps.StopPipelineJobRequest{
 					OutputCommit: commitInfo.Commit,
 				})
 			}); err != nil && !isNotFoundErr(err) {

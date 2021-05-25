@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -1047,14 +1048,13 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			if request.Transform.Build.Language != "" && request.Transform.Build.Image != "" {
 				return errors.New("cannot specify both a build `language` and `image`")
 			}
-			var err error
-			ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) {
+			if err := ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) error {
 				inputName := ppsclient.InputName(input)
 				if inputName == "build" || inputName == "source" {
-					err = errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
+					return errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
 				}
-			})
-			if err != nil {
+				return nil
+			}); err != nil {
 				return err
 			}
 			pipelineParentPath, _ := filepath.Split(pipelinePath)
@@ -1294,7 +1294,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 
 	// insert the source code
-	if err := pc.WithModifyFileClient(buildPipelineName, "source", "", func(mf pachdclient.ModifyFile) error {
+	if err := pc.WithModifyFileClient(client.NewCommit(buildPipelineName, "source", ""), func(mf pachdclient.ModifyFile) error {
 		if update {
 			if err := mf.DeleteFile("/"); err != nil {
 				return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")

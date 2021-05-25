@@ -80,12 +80,13 @@ func (s *server) getFileHandler(w http.ResponseWriter, r *http.Request, ps httpr
 		w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fileName))
 	}
 	c := s.getPachClient().WithCtx(ctx)
+	commit := client.NewCommit(ps.ByName("repoName"), ps.ByName("branchName"), ps.ByName("commitID"))
 	commitInfo, err := c.InspectCommit(ps.ByName("repoName"), ps.ByName("branchName"), ps.ByName("commitID"))
 	if err != nil {
 		httpError(w, err)
 		return
 	}
-	content, err := c.GetFileReadSeeker(ps.ByName("repoName"), ps.ByName("branchName"), ps.ByName("commitID"), ps.ByName("filePath"))
+	content, err := c.GetFileReadSeeker(commit, ps.ByName("filePath"))
 	if err != nil {
 		httpError(w, err)
 		return

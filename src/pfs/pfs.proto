@@ -26,6 +26,7 @@ message Branch {
 message File {
   Commit commit = 1;
   string path = 2;
+  string tag = 3;
 }
 
 // RepoInfo is the main data structure representing a Repo in etcd

@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -48,7 +49,7 @@ func now() *types.Timestamp {
 
 func (d *driver) batchTransaction(ctx context.Context, req []*transaction.TransactionRequest) (*transaction.TransactionInfo, error) {
 	var result *transaction.TransactionInfo
-	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// Because we're building and running the entire transaction atomically here,
 		// there is no need to persist the TransactionInfo to the collection
 		info := &transaction.TransactionInfo{
@@ -98,7 +99,7 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 }
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID)
 	})
 }
@@ -136,7 +137,7 @@ func (d *driver) deleteAll(ctx context.Context, sqlTx *sqlx.Tx, running *transac
 	return nil
 }
 
-func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	result := proto.Clone(info).(*transaction.TransactionInfo)
 	for len(result.Responses) < len(result.Requests) {
 		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
@@ -146,7 +147,7 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 	// will be used for any newly made commits.
 	txnCtx.Job = &pfs.Job{ID: info.Transaction.ID}
 
-	directTxn := txnenv.NewDirectTransaction(txnCtx)
+	directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
 	for i, request := range info.Requests {
 		var err error
 		response := result.Responses[i]
@@ -198,7 +199,7 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
 		if err != nil {
 			return err
@@ -234,7 +235,7 @@ func (d *driver) appendTransaction(
 		var numRequests, numResponses int
 		var newResponses []*transaction.TransactionResponse
 
-		if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			// Get the existing transaction and append the new requests
 			info := &transaction.TransactionInfo{}
 			err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, info)

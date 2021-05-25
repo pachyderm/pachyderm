@@ -108,12 +108,13 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 		return nil, nil, err
 	}
 	for _, pipelineInfo := range pipelines {
-		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
 			if input.Git != nil {
 				if input.Git.URL == payload.Repository.CloneURL && matchingBranch(input.Git.Branch, payloadBranch) {
 					inputs = append(inputs, input.Git)
 				}
 			}
+			return nil
 		})
 	}
 	if len(inputs) == 0 {
@@ -176,10 +177,10 @@ func (s *gitHookServer) commitPayload(repoName string, branchName string, rawPay
 		}
 		retErr = client.FinishCommit(repoName, branchName, commit.ID)
 	}()
-	if err = client.DeleteFile(repoName, branchName, commit.ID, "commit.json"); err != nil {
+	if err = client.DeleteFile(commit, "commit.json"); err != nil {
 		return err
 	}
-	if err = client.PutFile(repoName, branchName, commit.ID, "commit.json", bytes.NewReader(rawPayload)); err != nil {
+	if err = client.PutFile(commit, "commit.json", bytes.NewReader(rawPayload)); err != nil {
 		return err
 	}
 	return nil

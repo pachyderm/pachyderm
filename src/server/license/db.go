@@ -32,3 +32,11 @@ func AddUserContextsToClustersTable(ctx context.Context, tx *sqlx.Tx) error {
 	;`)
 	return err
 }
+
+func AddClusterClientIdColumn(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+	ALTER TABLE license.clusters
+	ADD COLUMN client_id VARCHAR(4096)
+	;`)
+	return err
+}

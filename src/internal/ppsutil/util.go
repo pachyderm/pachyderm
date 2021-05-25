@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -115,7 +116,7 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
-	if err := pachClient.GetFile(ptr.SpecCommit.Branch.Repo.Name, ptr.SpecCommit.Branch.Name, ptr.SpecCommit.ID, ppsconsts.SpecFile, &buf); err != nil {
+	if err := pachClient.GetFile(ptr.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
 	} else {
 		if err := result.Unmarshal(buf.Bytes()); err != nil {
@@ -268,7 +269,7 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
 	jobID := outputCommitInfo.Commit.ID
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
-	pps.VisitInput(jobInput, func(input *pps.Input) {
+	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			input.Pfs.Commit = jobID
 		}
@@ -278,6 +279,7 @@ func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.Comm
 		if input.Git != nil {
 			input.Git.Commit = jobID
 		}
+		return nil
 	})
 	return jobInput
 }
@@ -408,17 +410,20 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 	return err
 }
 
+func StatsCommit(commit *pfs.Commit) *pfs.Commit {
+	return client.NewSystemRepo(commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
+}
+
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
 // 'S3' set to true. Any pipelines with s3 inputs lj
 func ContainsS3Inputs(in *pps.Input) bool {
 	var found bool
-	pps.VisitInput(in, func(in *pps.Input) {
-		if found {
-			return
-		}
+	pps.VisitInput(in, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			found = true
+			return errutil.ErrBreak
 		}
+		return nil
 	})
 	return found
 }

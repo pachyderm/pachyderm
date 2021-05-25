@@ -32,6 +32,9 @@ const (
 
 	// TrackerPrefix is used for creating tracker objects for filesets
 	TrackerPrefix = "fileset/"
+
+	// DefaultFileTag is the default file tag.
+	DefaultFileTag = "default"
 )
 
 var (
@@ -82,8 +85,8 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // NewUnorderedWriter creates a new unordered file set writer.
-func (s *Storage) NewUnorderedWriter(ctx context.Context, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
-	return newUnorderedWriter(ctx, s, s.memThreshold, defaultTag, opts...)
+func (s *Storage) NewUnorderedWriter(ctx context.Context, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
+	return newUnorderedWriter(ctx, s, s.memThreshold, opts...)
 }
 
 // NewWriter creates a new file set writer.

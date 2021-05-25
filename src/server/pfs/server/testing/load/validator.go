@@ -14,8 +14,6 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-const defaultTag = "tag"
-
 type ValidatorSpec struct{}
 
 type Validator struct {
@@ -37,7 +35,7 @@ func NewValidator(client Client, spec *ValidatorSpec) (Client, *Validator) {
 // TODO: The performance of this is bad.
 func (v *Validator) RandomFile() (string, error) {
 	files := make(map[string]struct{})
-	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
+	if err := v.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
 		files[p] = struct{}{}
 		return nil
 	}); err != nil {
@@ -56,9 +54,9 @@ type file struct {
 	hash []byte
 }
 
-func (v *Validator) Validate(client Client, repo, branch, commit string) (retErr error) {
+func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 	var files []*file
-	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
+	if err := v.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
 		buf := &bytes.Buffer{}
 		if _, err := io.Copy(buf, r); err != nil {
 			return err
@@ -78,7 +76,7 @@ func (v *Validator) Validate(client Client, repo, branch, commit string) (retErr
 			}
 		}
 	}()
-	r, err := client.GetFileTar(context.Background(), repo, branch, commit, "**")
+	r, err := client.GetFileTar(context.Background(), commit, "**")
 	if err != nil {
 		return err
 	}
@@ -114,8 +112,8 @@ type validatorClient struct {
 	validator *Validator
 }
 
-func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, branch, commit string, cb func(client.ModifyFile) error) error {
-	return vc.Client.WithModifyFileClient(ctx, repo, branch, commit, func(mf client.ModifyFile) (retErr error) {
+func (vc *validatorClient) WithModifyFileClient(ctx context.Context, commit *pfs.Commit, cb func(client.ModifyFile) error) error {
+	return vc.Client.WithModifyFileClient(ctx, commit, func(mf client.ModifyFile) (retErr error) {
 		vmfc := &validatorModifyFileClient{
 			ModifyFile: mf,
 			buffer:     fileset.NewBuffer(),
@@ -124,9 +122,9 @@ func (vc *validatorClient) WithModifyFileClient(ctx context.Context, repo, branc
 			return err
 		}
 		for _, p := range vmfc.deletes {
-			vc.validator.buffer.Delete(p)
+			vc.validator.buffer.Delete(p, "")
 		}
-		return vmfc.buffer.WalkAdditive(func(p, tag string, r io.Reader) (retErr error) {
+		return vmfc.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
 			w := vc.validator.buffer.Add(p, tag)
 			_, err := io.Copy(w, r)
 			return err
@@ -140,13 +138,13 @@ type validatorModifyFileClient struct {
 	deletes []string
 }
 
-func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) (retErr error) {
+func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) error {
 	h := pfs.NewHash()
 	if err := vmfc.ModifyFile.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
 		return err
 	}
-	vmfc.buffer.Delete(path)
-	w := vmfc.buffer.Add(path, defaultTag)
+	vmfc.buffer.Delete(path, "")
+	w := vmfc.buffer.Add(path, "")
 	_, err := io.Copy(w, bytes.NewReader(h.Sum(nil)))
 	return err
 }
@@ -156,6 +154,6 @@ func (vmfc *validatorModifyFileClient) DeleteFile(path string, opts ...client.De
 		return err
 	}
 	vmfc.deletes = append(vmfc.deletes, path)
-	vmfc.buffer.Delete(path)
+	vmfc.buffer.Delete(path, "")
 	return nil
 }

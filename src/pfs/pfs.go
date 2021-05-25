@@ -53,3 +53,30 @@ func EncodeHash(bytes []byte) string {
 func DecodeHash(hash string) ([]byte, error) {
 	return hex.DecodeString(hash)
 }
+
+func (r *Repo) NewBranch(name string) *Branch {
+	return &Branch{
+		Repo: proto.Clone(r).(*Repo),
+		Name: name,
+	}
+}
+
+func (r *Repo) NewCommit(branch, id string) *Commit {
+	return &Commit{
+		ID:     id,
+		Branch: r.NewBranch(branch),
+	}
+}
+
+func (c *Commit) NewFile(path string) *File {
+	return &File{
+		Commit: proto.Clone(c).(*Commit),
+		Path:   path,
+	}
+}
+
+func (c *Commit) NewProvenance() *CommitProvenance {
+	return &CommitProvenance{
+		Commit: proto.Clone(c).(*Commit),
+	}
+}

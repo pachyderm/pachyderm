@@ -5,6 +5,7 @@ import (
 	"io"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/cevaris/ordered_map"
 	"github.com/gogo/protobuf/jsonpb"
@@ -50,7 +51,7 @@ func (pi *pfsIterator) Iterate(cb func(*Meta) error) error {
 	branch := pi.input.Branch
 	commit := pi.input.Commit
 	pattern := pi.input.Glob
-	return pi.pachClient.GlobFile(repo, branch, commit, pattern, func(fi *pfs.FileInfo) error {
+	return pi.pachClient.GlobFile(client.NewCommit(repo, branch, commit), pattern, func(fi *pfs.FileInfo) error {
 		g := glob.MustCompile(pi.input.Glob, '/')
 		joinOn := g.Replace(fi.File.Path, pi.input.JoinOn)
 		groupBy := g.Replace(fi.File.Path, pi.input.GroupBy)
@@ -195,7 +196,7 @@ func NewFileSetIterator(pachClient *client.APIClient, fsID string) Iterator {
 }
 
 func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
-	r, err := fsi.pachClient.GetFileTar(fsi.repo, "", fsi.commit, path.Join("/", MetaPrefix, "*", MetaFileName))
+	r, err := fsi.pachClient.GetFileTar(client.NewCommit(fsi.repo, "", fsi.commit), path.Join("/", MetaPrefix, "*", MetaFileName))
 	if err != nil {
 		return err
 	}
@@ -400,8 +401,8 @@ func Merge(dits []Iterator, cb func([]*Meta) error) error {
 	for _, dit := range dits {
 		ss = append(ss, newDatumStream(dit, len(ss)))
 	}
-	pq := stream.NewPriorityQueue(ss)
-	return pq.Iterate(func(ss []stream.Stream, _ ...string) error {
+	pq := stream.NewPriorityQueue(ss, compare)
+	return pq.Iterate(func(ss []stream.Stream) error {
 		var metas []*Meta
 		for _, s := range ss {
 			metas = append(metas, s.(*datumStream).meta)
@@ -412,9 +413,9 @@ func Merge(dits []Iterator, cb func([]*Meta) error) error {
 
 type datumStream struct {
 	meta     *Meta
+	id       string
 	metaChan chan *Meta
 	errChan  chan error
-	priority int
 }
 
 func newDatumStream(dit Iterator, priority int) *datumStream {
@@ -433,7 +434,6 @@ func newDatumStream(dit Iterator, priority int) *datumStream {
 	return &datumStream{
 		metaChan: metaChan,
 		errChan:  errChan,
-		priority: priority,
 	}
 }
 
@@ -444,18 +444,17 @@ func (ds *datumStream) Next() error {
 			return io.EOF
 		}
 		ds.meta = meta
+		ds.id = common.DatumID(meta.Inputs)
 		return nil
 	case err := <-ds.errChan:
 		return err
 	}
 }
 
-func (ds *datumStream) Key() string {
-	return common.DatumID(ds.meta.Inputs)
-}
-
-func (ds *datumStream) Priority() int {
-	return ds.priority
+func compare(s1, s2 stream.Stream) int {
+	ds1 := s1.(*datumStream)
+	ds2 := s2.(*datumStream)
+	return strings.Compare(ds1.id, ds2.id)
 }
 
 // NewIterator creates a new datum iterator.

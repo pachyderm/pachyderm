@@ -69,7 +69,8 @@ func masterListBucketsBranchless(t *testing.T, pachClient *client.APIClient, min
 func masterGetObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	require.NoError(t, pachClient.PutFile(repo, "master", "", "file", strings.NewReader("content")))
+	commit := client.NewCommit(repo, "master", "")
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
 	require.NoError(t, err)
@@ -80,7 +81,8 @@ func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioCl
 	repo := tu.UniqueString("testgetobjectinbranch")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", "", nil))
-	require.NoError(t, pachClient.PutFile(repo, "branch", "", "file", strings.NewReader("content")))
+	commit := client.NewCommit(repo, "branch", "")
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
 	require.NoError(t, err)
@@ -90,13 +92,14 @@ func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioCl
 func masterStatObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("teststatobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	require.NoError(t, pachClient.PutFile(repo, "master", "", "file", strings.NewReader("content")))
+	commit := client.NewCommit(repo, "master", "")
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	// `startTime` and `endTime` will be used to ensure that an object's
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-	require.NoError(t, pachClient.PutFile(repo, "master", "", "file", strings.NewReader("new-content")))
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("new-content")))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 	info, err := minioClient.StatObject(fmt.Sprintf("master.%s", repo), "file", minio.StatObjectOptions{})
@@ -130,7 +133,8 @@ func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *mi
 func masterRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testremoveobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	require.NoError(t, pachClient.PutFile(repo, "master", "", "file", strings.NewReader("content")))
+	commit := client.NewCommit(repo, "master", "")
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
 	require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
@@ -321,12 +325,12 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	commit, err := pachClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	for i := 0; i <= 1000; i++ {
-		putListFileTestObject(t, pachClient, repo, commit.ID, "", i)
+		putListFileTestObject(t, pachClient, commit, "", i)
 	}
 	for i := 0; i < 10; i++ {
-		putListFileTestObject(t, pachClient, repo, commit.ID, "dir/", i)
+		putListFileTestObject(t, pachClient, commit, "dir/", i)
 	}
-	putListFileTestObject(t, pachClient, repo, "branch", "", 1001)
+	putListFileTestObject(t, pachClient, client.NewCommit(repo, "branch", ""), "", 1001)
 	require.NoError(t, pachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
@@ -379,10 +383,10 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 	require.NoError(t, pachClient.CreateBranch(repo, "emptybranch", "", "", nil))
 	commit, err := pachClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	putListFileTestObject(t, pachClient, repo, commit.ID, "", 0)
-	putListFileTestObject(t, pachClient, repo, commit.ID, "rootdir/", 1)
-	putListFileTestObject(t, pachClient, repo, commit.ID, "rootdir/subdir/", 2)
-	putListFileTestObject(t, pachClient, repo, "branch", "", 3)
+	putListFileTestObject(t, pachClient, commit, "", 0)
+	putListFileTestObject(t, pachClient, commit, "rootdir/", 1)
+	putListFileTestObject(t, pachClient, commit, "rootdir/subdir/", 2)
+	putListFileTestObject(t, pachClient, client.NewCommit(repo, "branch", ""), "", 3)
 	require.NoError(t, pachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 

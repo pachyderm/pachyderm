@@ -91,23 +91,25 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTi
 
 // PrintWorkerStatusHeader pretty prints a worker status header.
 func PrintWorkerStatusHeader(w io.Writer) {
-	fmt.Fprint(w, "WORKER\tJOB\tDATUM\tSTARTED\tQUEUE\t\n")
+	fmt.Fprint(w, "WORKER\tJOB\tDATUM\tSTARTED\t\n")
 }
 
 // PrintWorkerStatus pretty prints a worker status.
 func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", workerStatus.WorkerID)
 	fmt.Fprintf(w, "%s\t", workerStatus.PipelineJobID)
-	for _, datum := range workerStatus.Data {
-		fmt.Fprintf(w, datum.Path)
+	if workerStatus.DatumStatus != nil {
+		datumStatus := workerStatus.DatumStatus
+		for _, datum := range datumStatus.Data {
+			fmt.Fprintf(w, datum.Path)
+		}
+		fmt.Fprintf(w, "\t")
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", datumStatus.Started.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(datumStatus.Started))
+		}
 	}
-	fmt.Fprintf(w, "\t")
-	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", workerStatus.Started.String())
-	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(workerStatus.Started))
-	}
-	fmt.Fprintf(w, "%d\t", workerStatus.QueueSize)
 	fmt.Fprintln(w)
 }
 

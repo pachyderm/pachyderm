@@ -84,7 +84,7 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 }
 
 func workerRemoveObject(t *testing.T, s *workerTestState) {
-	require.NoError(t, s.pachClient.PutFile(s.outputRepo, s.outputBranch, "", "file", strings.NewReader("content")))
+	require.NoError(t, s.pachClient.PutFile(client.NewCommit(s.outputRepo, s.outputBranch, ""), "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
 	require.NoError(t, s.minioClient.RemoveObject("out", "file"))
@@ -239,19 +239,19 @@ func TestWorkerDriver(t *testing.T) {
 	// create a master branch on the input repo
 	inputMasterCommit, err := pachClient.StartCommit(inputRepo, "master")
 	require.NoError(t, err)
-	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "", 0)
-	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/", 1)
-	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/subdir/", 2)
+	putListFileTestObject(t, pachClient, inputMasterCommit, "", 0)
+	putListFileTestObject(t, pachClient, inputMasterCommit, "rootdir/", 1)
+	putListFileTestObject(t, pachClient, inputMasterCommit, "rootdir/subdir/", 2)
 	require.NoError(t, pachClient.FinishCommit(inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.ID))
 
 	// create a develop branch on the input repo
 	inputDevelopCommit, err := pachClient.StartCommit(inputRepo, "develop")
 	require.NoError(t, err)
 	for i := 0; i <= 100; i++ {
-		putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "", i)
+		putListFileTestObject(t, pachClient, inputDevelopCommit, "", i)
 	}
 	for i := 0; i < 10; i++ {
-		putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "dir/", i)
+		putListFileTestObject(t, pachClient, inputDevelopCommit, "dir/", i)
 	}
 	require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.Branch.Name, inputDevelopCommit.ID))
 

@@ -51,7 +51,6 @@ func (w *Writer) WriteIndex(idx *Index) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.setupLevels()
-	unresolveParts(idx)
 	return w.writeIndex(idx, 0)
 }
 
@@ -72,6 +71,8 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	if idx.Range != nil {
 		refDataRefs = []*chunk.DataRef{idx.Range.ChunkRef}
 	}
+	// TODO: I think we need to clear this field since it is reused.
+	// Maybe we could restructure this into a clone, with the field cleared.
 	if idx.File != nil {
 		refDataRefs = append(refDataRefs, idx.File.DataRefs...)
 	}
