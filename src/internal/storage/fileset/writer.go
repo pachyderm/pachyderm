@@ -118,7 +118,7 @@ func (w *Writer) Copy(file File, tag string) error {
 	if err := w.nextIdx(copyIdx); err != nil {
 		return err
 	}
-	// Copy the file data refs if they are resolved.
+	// Copy the file data refs.
 	for _, dataRef := range idx.File.DataRefs {
 		w.sizeBytes += dataRef.SizeBytes
 		if err := w.cw.Copy(dataRef); err != nil {

@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"modernc.org/mathutil"
@@ -65,6 +66,9 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			}
 			if r.tag == "" || r.tag == idx.File.Tag {
 				if err := cb(idx); err != nil {
+					if errors.Is(err, errutil.ErrBreak) {
+						return nil
+					}
 					return err
 				}
 			}

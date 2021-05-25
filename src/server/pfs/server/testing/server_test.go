@@ -39,10 +39,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/testing/load"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v2"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -5716,43 +5714,6 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 	})
 
-	suite.Run("LargeDeleteRepo", func(t *testing.T) {
-		// TODO(2.0 required): Reenable when repo metadata is in Postgres to test that large transactions are solved in 2.0.
-		t.Skip("Reenable when repo metadata is in Postgres")
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		numRepos := 10
-		numCommits := 1000
-		var repos []string
-		for i := 0; i < numRepos; i++ {
-			repo := fmt.Sprintf("repo-%d", i)
-			require.NoError(t, env.PachClient.CreateRepo(repo))
-			if i > 0 {
-				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", []*pfs.Branch{pclient.NewBranch(repos[i-1], "master")}))
-			}
-			repos = append(repos, repo)
-		}
-		for i := 0; i < numCommits; i++ {
-			_, err := env.PachClient.StartCommit(repos[0], "master")
-			require.NoError(t, err)
-			require.NoError(t, env.PachClient.FinishCommit(repos[0], "master", ""))
-		}
-		repo := repos[len(repos)-1]
-		ctx, cf := context.WithTimeout(context.Background(), time.Second)
-		defer cf()
-		require.YesError(t, env.PachClient.WithCtx(ctx).DeleteRepo(repo, false))
-		require.YesError(t, env.PachClient.CreateBranch(repo, "test", "", "", nil))
-		_, err := env.PachClient.StartCommit(repo, "master")
-		require.YesError(t, err)
-		for i := len(repos) - 1; i >= 0; i-- {
-			require.NoError(t, env.PachClient.DeleteRepo(repos[i], false))
-			require.NoError(t, env.PachClient.FsckFastExit())
-		}
-		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
-		require.NoError(t, err)
-	})
-
 	suite.Run("RegressionOrphanedFile", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -5874,18 +5835,6 @@ func TestPFS(suite *testing.T) {
 		})
 	})
 
-	suite.Run("TestLoad", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-		spec := &load.CommitsSpec{}
-		require.NoError(t, yaml.UnmarshalStrict([]byte(testLoad), spec))
-		msg := random.SeedRand()
-		c := env.PachClient
-		repo := "test"
-		require.NoError(t, c.CreateRepo(repo))
-		require.NoError(t, load.Commits(c, repo, "master", spec), msg)
-	})
-
 	suite.Run("TestPanicOnNilArgs", func(t *testing.T) {
 		// TODO(2.0 required): Add validation to all PFS endpoints.
 		t.Skip("PFS endpoints are not fully validated in V2")
@@ -5973,51 +5922,6 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 0, len(expected))
 	})
 }
-
-var testLoad = ` 
-count: 5
-operations:
-  - count: 5
-    fuzzOperations:
-      - operation:
-          putFile:
-              files:
-                  count: 5
-                  fuzzFile:
-                      - file:
-                          source: "random"
-                        prob: 1
-        prob: 0.7
-      - operation:
-          deleteFile:
-              count: 5
-              directoryProb: 0.2
-        prob: 0.3 
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      directory:
-        depth: 3 
-        run: 5
-      fuzzSize:
-        - size:
-            min: 1000
-            max: 10000
-          prob: 0.3
-        - size:
-            min: 10000
-            max: 100000
-          prob: 0.3
-        - size:
-            min: 1000000
-            max: 10000000
-          prob: 0.3
-        - size:
-            min: 10000000
-            max: 100000000
-          prob: 0.1
-`
 
 var (
 	randSeed = int64(0)

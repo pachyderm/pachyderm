@@ -2,7 +2,6 @@ package chunk
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -20,17 +19,6 @@ func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker, opts ...Storage
 	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))
 	return objC, NewStorage(objC, kv.NewMemCache(10), db, tr, opts...)
-}
-
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-// RandSeq generates a random sequence of data (n is number of bytes)
-func RandSeq(n int) []byte {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return []byte(string(b))
 }
 
 // Reference creates a data reference for the full chunk referenced by a data reference.

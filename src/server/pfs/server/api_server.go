@@ -13,16 +13,21 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"gopkg.in/yaml.v2"
 
 	"golang.org/x/net/context"
 )
@@ -760,4 +765,39 @@ func (a *apiServer) RenewFileset(ctx context.Context, req *pfs.RenewFilesetReque
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// RunLoadTest implements the pfs.RunLoadTest RPC
+func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.env.GetPachClient(ctx)
+	repo := "load_test"
+	if err := pachClient.CreateRepo(repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
+		return nil, err
+	}
+	branch := uuid.New()
+	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
+		return nil, err
+	}
+	seed := time.Now().UTC().UnixNano()
+	if req.Seed > 0 {
+		seed = req.Seed
+	}
+	resp := &pfs.RunLoadTestResponse{
+		Branch: client.NewBranch(repo, branch),
+		Seed:   seed,
+	}
+	if err := a.runLoadTest(pachClient, resp.Branch, req.Spec, seed); err != nil {
+		resp.Error = err.Error()
+	}
+	return resp, nil
+}
+
+func (a *apiServer) runLoadTest(pachClient *client.APIClient, branch *pfs.Branch, specBytes []byte, seed int64) error {
+	spec := &pfsload.CommitsSpec{}
+	if err := yaml.UnmarshalStrict(specBytes, spec); err != nil {
+		return err
+	}
+	return pfsload.Commits(pachClient, branch.Repo.Name, branch.Name, spec, seed)
 }
