@@ -21,7 +21,7 @@ type: application
 # each time you make changes to the chart and its templates, including
 # the app version.  Versions are expected to follow Semantic
 # Versioning (https://semver.org/)
-version: 2.0.0-alpha.2
+version: 2.0.0-alpha.3
 
 # This is the version number of the application being deployed. This
 # version number should be incremented each time you make changes to
@@ -40,7 +40,7 @@ annotations:
   artifacthub.io/links: |
     - name: "Pachyderm"
       url: https://www.pachyderm.com/
-    - name: "Pachyderm repo
+    - name: "Pachyderm repo"
       url: https://github.com/pachyderm/pachyderm
     - name: "Chart repo"
       url: https://github.com/pachyderm/helmchart
