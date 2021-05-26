@@ -22,6 +22,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -1314,6 +1316,36 @@ Objects are a low-level resource and should not be accessed directly by most use
 	}
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
+
+	var seed int64
+	runLoadTest := &cobra.Command{
+		Use:     "{{alias}} <spec>",
+		Short:   "Run a PFS load test.",
+		Long:    "Run a PFS load test.",
+		Example: pfsload.LoadSpecification,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := c.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
+			spec, err := ioutil.ReadFile(args[0])
+			if err != nil {
+				return err
+			}
+			resp, err := c.RunPFSLoadTest(spec, seed)
+			if err != nil {
+				return err
+			}
+			return marshaller.Marshal(os.Stdout, resp)
+		}),
+	}
+	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
+	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pfs-load-test"))
 
 	// Add the mount commands (which aren't available on Windows, so they're in
 	// their own file)

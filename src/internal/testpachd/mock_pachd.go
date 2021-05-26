@@ -426,6 +426,7 @@ type createFilesetFunc func(pfs.API_CreateFilesetServer) error
 type addFilesetFunc func(context.Context, *pfs.AddFilesetRequest) (*types.Empty, error)
 type getFilesetFunc func(context.Context, *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error)
 type renewFilesetFunc func(context.Context, *pfs.RenewFilesetRequest) (*types.Empty, error)
+type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -458,6 +459,7 @@ type mockCreateFileset struct{ handler createFilesetFunc }
 type mockAddFileset struct{ handler addFilesetFunc }
 type mockGetFileset struct{ handler getFilesetFunc }
 type mockRenewFileset struct{ handler renewFilesetFunc }
+type mockRunLoadTest struct{ handler runLoadTestFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc) { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)           { mock.handler = cb }
@@ -490,6 +492,7 @@ func (mock *mockCreateFileset) Use(cb createFilesetFunc)     { mock.handler = cb
 func (mock *mockAddFileset) Use(cb addFilesetFunc)           { mock.handler = cb }
 func (mock *mockGetFileset) Use(cb getFilesetFunc)           { mock.handler = cb }
 func (mock *mockRenewFileset) Use(cb renewFilesetFunc)       { mock.handler = cb }
+func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)         { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -528,6 +531,7 @@ type mockPFSServer struct {
 	AddFileset      mockAddFileset
 	GetFileset      mockGetFileset
 	RenewFileset    mockRenewFileset
+	RunLoadTest     mockRunLoadTest
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -715,6 +719,12 @@ func (api *pfsServerAPI) RenewFileset(ctx context.Context, req *pfs.RenewFileset
 		return api.mock.RenewFileset.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.RenewFileset")
+}
+func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error) {
+	if api.mock.RunLoadTest.handler != nil {
+		return api.mock.RunLoadTest.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.RunLoadTest")
 }
 
 /* PPS Server Mocks */

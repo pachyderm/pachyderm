@@ -404,6 +404,9 @@ func (c *pfsBuilderClient) AddFileset(ctx context.Context, req *pfs.AddFilesetRe
 func (c *pfsBuilderClient) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest, opts ...grpc.CallOption) (*pfs.CreateFilesetResponse, error) {
 	return nil, unsupportedError("GetFileset")
 }
+func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
+	return nil, unsupportedError("RunLoadTest")
+}
 
 func (c *ppsBuilderClient) CreatePipelineJob(ctx context.Context, req *pps.CreatePipelineJobRequest, opts ...grpc.CallOption) (*pps.PipelineJob, error) {
 	return nil, unsupportedError("CreatePipelineJob")

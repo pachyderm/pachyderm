@@ -10,6 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -109,8 +110,12 @@ func NewIterator(ctx context.Context, fs FileSet, deletive ...bool) *Iterator {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := fs.Iterate(ctx, func(f File) error {
-			fileChan <- f
-			return nil
+			select {
+			case fileChan <- f:
+				return nil
+			case <-ctx.Done():
+				return errutil.ErrBreak
+			}
 		}, deletive...); err != nil {
 			errChan <- err
 			return

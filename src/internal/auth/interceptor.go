@@ -150,6 +150,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs.API/GetFileset":      authDisabledOr(authenticated),
 	"/pfs.API/AddFileset":      authDisabledOr(authenticated),
 	"/pfs.API/RenewFileset":    authDisabledOr(authenticated),
+	"/pfs.API/RunLoadTest":     authDisabledOr(authenticated),
 
 	//
 	// PPS API
