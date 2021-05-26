@@ -27,13 +27,8 @@ func newValidatedAPIServer(embeddedServer *apiServer, env serviceenv.ServiceEnv)
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
-	// TODO(2.0 required): How should auth be applied when using all?
-	if !request.All {
-		repo := request.Repo
-		// Check if the caller is authorized to delete this repo
-		if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_DELETE); err != nil {
-			return err
-		}
+	if request.Repo == nil && !request.All {
+		return errors.New("either specify a repo to be deleted or request all repos to be deleted")
 	}
 	return a.apiServer.DeleteRepoInTransaction(txnCtx, request)
 }
@@ -151,6 +146,20 @@ func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearComm
 		return nil, err
 	}
 	return a.apiServer.ClearCommit(ctx, req)
+}
+
+func (a *validatedAPIServer) InspectCommit(ctx context.Context, req *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
+	if req.Commit == nil {
+		return nil, errors.New("commit cannot be nil")
+	}
+	return a.apiServer.InspectCommit(ctx, req)
+}
+
+func (a *validatedAPIServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) error {
+	if request.File == nil {
+		return errors.New("file cannot be nil")
+	}
+	return a.apiServer.GetFile(request, server)
 }
 
 func validateFile(file *pfs.File) error {

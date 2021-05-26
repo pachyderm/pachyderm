@@ -353,3 +353,39 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		"pachdAddress", "grpc://"+host+":30650", // assert that a localhost address is registered
 	).Run())
 }
+
+// tests that Cluster Registration is undone when enterprise service fails to activate in the `enterprise register` subcommand
+func TestRegisterRollback(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	id := tu.UniqueString("cluster")
+
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl enterprise activate
+		`,
+		"license", tu.GetTestEnterpriseCode(t),
+	).Run())
+
+	// passing an unreachable enterprise-server-address to the `enterprise register` command
+	// causes it to fail, and rollback cluster record creation
+	require.YesError(t, tu.BashCmd(`
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc:/bad-address:650 --pachd-address grpc://pachd.default:650
+		`,
+		"id", id,
+	).Run())
+
+	// verify the cluster id is not present in the license server's registered clusters
+	require.YesError(t, tu.BashCmd(`
+		pachctl license list-clusters \
+			| match 'id: {{.id}}' \
+		`,
+		"id", id,
+	).Run())
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
+		`,
+		"id", id,
+	).Run())
+}

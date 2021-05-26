@@ -7692,8 +7692,6 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 }
 
 func TestListDatumDuringJob(t *testing.T) {
-	// TODO(2.0 required): Change semantics of test to list datums that have been processed while the job is running.
-	t.Skip("Semantics need to be changed for V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7706,7 +7704,13 @@ func TestListDatumDuringJob(t *testing.T) {
 
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+
+	fileCount := 10
+	for i := 0; i < fileCount; i++ {
+		fileName := "file" + strconv.Itoa(i)
+		require.NoError(t, c.PutFile(commit1, fileName, strings.NewReader("foo")))
+	}
+
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 	timeout := 20
 	pipeline := tu.UniqueString("TestListDatumDuringJob_pipeline")
@@ -7719,13 +7723,16 @@ func TestListDatumDuringJob(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					"while true; do sleep 1; date; done",
+					"sleep 1;",
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			EnableStats:  true,
 			DatumTimeout: types.DurationProto(duration),
+			ChunkSpec: &pps.ChunkSpec{
+				Number: 2, // since we set the ChunkSpec number to 2, we expect our datums to be processed in 5 chunks (10 files / 2 files per chunk)
+			},
 		},
 	)
 	require.NoError(t, err)
@@ -7745,9 +7752,35 @@ func TestListDatumDuringJob(t *testing.T) {
 		}, backoff.NewTestingBackOff())
 	})
 
+	// initially since no datum chunks have been processed, we receive 0 datums
 	dis, err := c.ListDatumAll(pipelineJobInfo.PipelineJob.ID)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(dis))
+	require.Equal(t, 0, len(dis))
+
+	// test job progress by waiting until some datums are returned, and verify that it's not all of them
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		return backoff.Retry(func() error {
+			dis, err = c.ListDatumAll(pipelineJobInfo.PipelineJob.ID)
+			if err != nil {
+				return err
+			}
+			if len(dis) == 0 {
+				return errors.Errorf("expected some datums to be listed")
+			}
+			return nil
+		}, backoff.NewTestingBackOff())
+	})
+
+	// fewer than all the datums have been processed
+	require.True(t, len(dis) < fileCount)
+
+	// wait until all datums are processed
+	_, err = c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+
+	dis, err = c.ListDatumAll(pipelineJobInfo.PipelineJob.ID)
+	require.NoError(t, err)
+	require.Equal(t, fileCount, len(dis))
 }
 
 func TestPipelineWithDatumTimeoutControl(t *testing.T) {
