@@ -16,8 +16,9 @@
 }
 
 .base:disabled {
-  cursor: default;
+  cursor: not-allowed;
   color: var(--pachyderm-black);
+  opacity: 0.3;
 }
 
 .selected {
