@@ -97,22 +97,6 @@ func (gc *GarbageCollector) deleteEntry(ctx context.Context, chunkID ID, gen uin
 	return err
 }
 
-// ReduceObjectsPerChunk eliminates redundant objects
-func ReduceObjectsPerChunk(ctx context.Context, db *sqlx.DB) error {
-	_, err := db.ExecContext(ctx, `
-	WITH keep as (
-		SELECT chunk_id, max(gen) as gen
-		FROM storage.chunk_objects
-		WHERE tombstone = FALSE AND uploaded = TRUE
-		GROUP BY chunk_id
-	)
-	UPDATE storage.chunk_objects
-	SET tombstone = TRUE
-	WHERE (chunk_id, gen) NOT IN (SELECT * FROM keep)
-	`)
-	return err
-}
-
 // GCObjects walks store to delete untracked objects.
 func GCObjects(ctx context.Context, db *sqlx.DB, store kv.Store) error {
 	return store.Walk(ctx, []byte("chunk/"), func(key []byte) error {
