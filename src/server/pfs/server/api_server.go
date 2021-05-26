@@ -18,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -311,7 +310,6 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 		// the existing JobInfo structure.  As an escape hatch in case of an
 		// unexpected workload, this behavior can be overridden by setting
 		// NewJob=true in the request.
-		fmt.Printf("CreateBranch request.Head before: %s\n", pfsdb.CommitKey(request.Head))
 		if request.Head != nil && !request.NewJob {
 			commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Head)
 			if err != nil {
@@ -319,7 +317,6 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 			}
 			txnCtx.Job.ID = commitInfo.Commit.ID
 		}
-		fmt.Printf("CreateBranch request.Head after: %s\n", pfsdb.CommitKey(request.Head))
 		return a.CreateBranchInTransaction(txnCtx, request)
 	}); err != nil {
 		return nil, err

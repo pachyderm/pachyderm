@@ -239,7 +239,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, inCommitInfo.Commit.ID, outCommitInfo.Commit.ID)
 
 		// Toggle out@master provenance back on, creating a new output commit
-		require.NoError(t, env.PachClient.CreateBranch("out", "master", "master", "", []*pfs.Branch{
+		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{
 			pclient.NewBranch("in", "master"),
 		}))
 		cis, err = env.PachClient.ListCommit("out", "master", "", "", "", 0)
@@ -271,16 +271,8 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", commit1.ID, []*pfs.Branch{pclient.NewBranch("in", "master")}))
 		cis, err = env.PachClient.ListCommit("out", "", "", "", "", 0)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(cis))
-		require.Equal(t, commit1, cis[1].Commit)
-		commit2 := cis[0].Commit
-
-		// Verify that the upstream commits use the same job ID
-		cis, err = env.PachClient.ListCommit("in", "", "", "", "", 0)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(cis))
-		require.Equal(t, commit2.ID, cis[0].Commit.ID)
-		require.Equal(t, commit1.ID, cis[1].Commit.ID)
+		require.Equal(t, 1, len(cis))
+		require.Equal(t, commit1, cis[0].Commit)
 	})
 
 	suite.Run("CreateAndInspectRepo", func(t *testing.T) {
@@ -1026,8 +1018,8 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("input", masterCommit.Branch.Name, masterCommit.ID))
 
 		// Make two branches provenant on the same commit on the master branch
-		require.NoError(t, env.PachClient.CreateBranch("input", "A", "", masterCommit.ID, nil))
-		require.NoError(t, env.PachClient.CreateBranch("input", "B", "", masterCommit.ID, nil))
+		require.NoError(t, env.PachClient.CreateBranch("input", "A", masterCommit.Branch.Name, masterCommit.ID, nil))
+		require.NoError(t, env.PachClient.CreateBranch("input", "B", masterCommit.Branch.Name, masterCommit.ID, nil))
 
 		// Now create a branch provenant on both branches A and B
 		require.NoError(t, env.PachClient.CreateBranch("output", "C", "", "", []*pfs.Branch{pclient.NewBranch("input", "A"), pclient.NewBranch("input", "B")}))
@@ -1043,28 +1035,16 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, aHead.Commit.ID, ci.Commit.ID)
 		require.Equal(t, bHead.Commit.ID, ci.Commit.ID)
 
-		// We should also be able to squash both commit aliases in A
-		// Squash the parent first because otherwise the squash causes a new head
-		// commit to propagate in.
+		// We should be able to squash the parent commits of A and B Head
 		require.NoError(t, env.PachClient.SquashJob(aHead.ParentCommit.ID))
+
+		// Now, squashing the head of A and B and C should leave each of them headless
 		require.NoError(t, env.PachClient.SquashJob(aHead.Commit.ID))
 
-		// There should be no more head in A
+		_, err = env.PachClient.InspectCommit("output", "C", "")
+		require.YesError(t, err)
 		_, err = env.PachClient.InspectCommit("input", "A", "")
 		require.YesError(t, err)
-
-		// And the head of branch B should have a new commit for C without A
-		ci, err = env.PachClient.InspectCommit("output", "C", "")
-		require.NoError(t, err)
-		bHead, err = env.PachClient.InspectCommit("input", "B", "")
-		require.NoError(t, err)
-		require.Equal(t, bHead.Commit.ID, ci.Commit.ID)
-
-		// We should also be able to delete both commits in B, starting from the parent
-		require.NoError(t, env.PachClient.SquashJob(bHead.ParentCommit.ID))
-		require.NoError(t, env.PachClient.SquashJob(bHead.Commit.ID))
-
-		// There should be no more head in B
 		_, err = env.PachClient.InspectCommit("input", "B", "")
 		require.YesError(t, err)
 
@@ -2400,7 +2380,7 @@ func TestPFS(suite *testing.T) {
 		// branches should be returned newest-first
 		require.Equal(t, 2, len(branchInfos))
 		require.Equal(t, "master", branchInfos[0].Branch.Name)
-		require.NotEqual(t, commit2.ID, branchInfos[0].Head.ID) // aliased branch should have a new commit ID
+		require.Equal(t, commit2.ID, branchInfos[0].Head.ID) // aliased branch should have the same commit ID
 		require.Equal(t, "foo", branchInfos[1].Branch.Name)
 		require.Equal(t, commit2.ID, branchInfos[1].Head.ID) // original branch should remain unchanged
 	})
@@ -3675,8 +3655,13 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("repo", b.Branch.Name, b.ID))
 
-		// Create 'd' by aliasing 'b' into another branch
-		require.NoError(t, env.PachClient.CreateBranch("repo", "master2", "master", "", nil))
+		// Create 'd' by aliasing 'b' into another branch (force a new job rather than extending 'b')
+		_, err = env.PachClient.PfsAPIClient.CreateBranch(env.PachClient.Ctx(), &pfs.CreateBranchRequest{
+			Branch: client.NewBranch("repo", "master2"),
+			Head:   client.NewCommit("repo", "master", ""),
+			NewJob: true,
+		})
+		require.NoError(t, err)
 
 		// Create 'c'
 		c, err := env.PachClient.StartCommit("repo", "master")
@@ -4379,35 +4364,48 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch("output1", "staging", "", "", []*pfs.Branch{pclient.NewBranch("input", "master")}))
 		require.NoError(t, env.PachClient.CreateBranch("output2", "staging", "", "", []*pfs.Branch{pclient.NewBranch("output1", "master")}))
 		require.NoError(t, env.PachClient.PutFile(client.NewCommit("input", "staging", ""), "file", strings.NewReader("foo")))
-		commitInfo, err := env.PachClient.InspectCommit("input", "staging", "")
+		commitInfoA, err := env.PachClient.InspectCommit("input", "staging", "")
 		require.NoError(t, err)
+		job := commitInfoA.Commit.NewJob()
 
-		commitInfos, err := env.PachClient.FlushJobAll(commitInfo.Commit.NewJob(), nil)
+		commitInfos, err := env.PachClient.FlushJobAll(job, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, commitInfo.Commit, commitInfos[0].Commit)
+		require.Equal(t, commitInfoA.Commit, commitInfos[0].Commit)
 
 		require.NoError(t, env.PachClient.CreateBranch("input", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output1", "staging", ""))
-		commitInfo, err = env.PachClient.InspectCommit("input", "master", "")
+		commitInfoB, err := env.PachClient.InspectCommit("input", "master", "")
 		require.NoError(t, err)
+		require.Equal(t, job.ID, commitInfoB.Commit.ID)
 
-		commitInfos, err = env.PachClient.FlushJobAll(commitInfo.Commit.NewJob(), nil)
+		commitInfos, err = env.PachClient.FlushJobAll(job, nil)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
-		require.Equal(t, commitInfo.Commit, commitInfos[0].Commit)
-		require.Equal(t, pclient.NewCommit("output1", "staging", commitInfo.Commit.ID), commitInfos[1].Commit)
+		require.Equal(t, 3, len(commitInfos))
+
+		// The results _should_ be topologically sorted, but there are several
+		// branches with equivalent topological depth
+		expectedCommits := []string{
+			pfsdb.CommitKey(client.NewCommit("input", "staging", job.ID)),
+			pfsdb.CommitKey(client.NewCommit("input", "master", job.ID)),
+			pfsdb.CommitKey(client.NewCommit("output1", "staging", job.ID)),
+		}
+		require.ElementsEqualUnderFn(t, expectedCommits, commitInfos, CommitInfoToID)
 
 		require.NoError(t, env.PachClient.CreateBranch("output1", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output2", "staging", ""))
-		commitInfo, err = env.PachClient.InspectCommit("output1", "master", "")
+		commitInfoC, err := env.PachClient.InspectCommit("output1", "master", "")
 		require.NoError(t, err)
+		require.Equal(t, job.ID, commitInfoC.Commit.ID)
 
-		commitInfos, err = env.PachClient.FlushJobAll(commitInfo.Commit.NewJob(), nil)
+		commitInfos, err = env.PachClient.FlushJobAll(job, nil)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
-		require.Equal(t, commitInfo.Commit, commitInfos[0].Commit)
-		require.Equal(t, pclient.NewCommit("output2", "staging", commitInfo.Commit.ID), commitInfos[1].Commit)
+		require.Equal(t, 5, len(commitInfos))
+		expectedCommits = append(expectedCommits, []string{
+			pfsdb.CommitKey(client.NewCommit("output1", "master", job.ID)),
+			pfsdb.CommitKey(client.NewCommit("output2", "staging", job.ID)),
+		}...)
+		require.ElementsEqualUnderFn(t, expectedCommits, commitInfos, CommitInfoToID)
 	})
 
 	suite.Run("ListAll", func(t *testing.T) {

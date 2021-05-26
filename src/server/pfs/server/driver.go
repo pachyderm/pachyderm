@@ -1247,14 +1247,60 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	return nil
 }
 
-// TODO: hydrate jobInfo
 func (d *driver) inspectJob(txnCtx *txncontext.TransactionContext, job *pfs.Job) (*pfs.JobInfo, error) {
 	jobInfo := &pfs.StoredJobInfo{}
 	if err := d.jobs.ReadWrite(txnCtx.SqlTx).Get(job.ID, jobInfo); err != nil {
 		return nil, err
 	}
 
-	result := &pfs.JobInfo{}
+	result := &pfs.JobInfo{Job: jobInfo.Job}
+
+	// The JobInfo only stores direct provenance, build up the full provenance DAG
+	// from when each commit in the Job was created.  Note that this is not
+	// necessarily a snapshot in time as `CreateBranch` and triggers can add to an
+	// existing job.
+	provenanceMap := map[string]map[string]*pfs.Branch{}
+	for _, branchInfo := range jobInfo.Branches {
+		subMap, ok := provenanceMap[pfsdb.BranchKey(branchInfo.Branch)]
+		if !ok {
+			subMap = map[string]*pfs.Branch{}
+			provenanceMap[pfsdb.BranchKey(branchInfo.Branch)] = subMap
+		}
+
+		// The branches should already be topologically sorted, which makes this easier
+		for _, prov := range branchInfo.DirectProvenance {
+			provProvMap, ok := provenanceMap[pfsdb.BranchKey(prov)]
+			if !ok {
+				return nil, errors.Errorf("internal error: job %s has unsorted provenance", job.ID)
+			}
+			subMap[pfsdb.BranchKey(prov)] = prov
+			for key, provProv := range provProvMap {
+				subMap[key] = provProv
+			}
+		}
+	}
+
+	// Load the commit info and provenance list for each branch in the job
+	for _, branchInfo := range jobInfo.Branches {
+		commitInfo, err := d.resolveCommit(txnCtx.SqlTx, branchInfo.Branch.NewCommit(job.ID))
+		if err != nil {
+			return nil, err
+		}
+
+		provenance := []*pfs.Branch{}
+		subMap, ok := provenanceMap[pfsdb.BranchKey(branchInfo.Branch)]
+		if !ok {
+			return nil, errors.Errorf("internal error: missing provenance for branch %s", pfsdb.BranchKey(branchInfo.Branch))
+		}
+		for _, branch := range subMap {
+			provenance = append(provenance, branch)
+		}
+
+		result.Commits = append(result.Commits, &pfs.JobInfo_JobCommit{
+			Provenance: provenance,
+			Info:       commitInfo,
+		})
+	}
 
 	return result, nil
 }
@@ -1628,15 +1674,20 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return err
 	}
 
-	if commit != nil && (branchInfo.Head == nil || branchInfo.Head.ID != commit.ID) {
-		// Create an alias of the head commit onto this branch - this will move the
-		// head of the branch and update the repo size if necessary
-		aliasCommit, err := d.aliasCommit(txnCtx, commit, branch)
-		if err != nil {
-			return err
+	if commit != nil {
+		if branchInfo.Head == nil && proto.Equal(commit.Branch, branchInfo.Branch) {
+			// We can reuse the existing commit only if it is already on this branch
+			branchInfo.Head = commit
+		} else if branchInfo.Head == nil || branchInfo.Head.ID != commit.ID {
+			// Create an alias of the head commit onto this branch - this will move the
+			// head of the branch and update the repo size if necessary
+			aliasCommit, err := d.aliasCommit(txnCtx, commit, branch)
+			if err != nil {
+				return err
+			}
+			// Update the local branchInfo.Head
+			branchInfo.Head = aliasCommit
 		}
-		// Update the local branchInfo.Head
-		branchInfo.Head = aliasCommit
 	}
 
 	// Update (or create)
