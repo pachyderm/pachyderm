@@ -47,7 +47,7 @@ const attachWebServer = (app: Express) => {
 
 const attachDownloadHandler = (app: Express) => {
   app.use(cookieParser());
-  app.get('/download/:repoName/:branchId/:commitId/*', handleFileDownload);
+  app.get('/download/:repoName/:branchName/:commitId/*', handleFileDownload);
 };
 
 const createServer = () => {

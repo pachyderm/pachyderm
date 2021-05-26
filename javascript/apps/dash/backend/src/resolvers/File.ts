@@ -1,7 +1,10 @@
 import {FileInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 import {QueryResolvers} from '@dash-backend/generated/types';
+import formatBytes from '@dash-backend/lib/formatBytes';
 import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
+
+const FILE_DOWNLOAD_LIMIT = 2e8;
 
 interface FileResolver {
   Query: {
@@ -40,10 +43,12 @@ const fileResolver: FileResolver = {
         committed: file.committed,
         // TODO: This may eventually come from the S3 gateway or Pach's http server
         download: getDownloadLink(file, host),
+        downloadDisabled: file.sizeBytes > FILE_DOWNLOAD_LIMIT,
         hash: file.hash.toString(),
         path: file.file?.path || '/',
         repoName: file.file?.commit?.branch?.repo?.name || '',
         sizeBytes: file.sizeBytes,
+        sizeDisplay: formatBytes(file.sizeBytes),
         type: toGQLFileType(file.fileType),
       }));
     },

@@ -250,6 +250,8 @@ type File {
   path: String!
   repoName: String!
   sizeBytes: Float!
+  sizeDisplay: String!
+  downloadDisabled: Boolean
   type: FileType!
 }
 

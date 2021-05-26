@@ -8,6 +8,7 @@ import {
 
 import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
 import commits from '@dash-backend/mock/fixtures/commits';
+import files from '@dash-backend/mock/fixtures/files';
 import repos from '@dash-backend/mock/fixtures/repos';
 
 import repoAuthInfos from '../fixtures/repoAuthInfos';
@@ -33,7 +34,10 @@ const setAuthInfoForRepos = (repos: RepoInfo[], accountId = '') => {
   return repos;
 };
 
-const pfs: Pick<IAPIServer, 'listRepo' | 'inspectRepo' | 'listCommit'> = {
+const pfs: Pick<
+  IAPIServer,
+  'listRepo' | 'inspectRepo' | 'listCommit' | 'listFile'
+> = {
   listRepo: (call, callback) => {
     const [projectId] = call.metadata.get('project-id');
     const [accountId] = call.metadata.get('authn-token');
@@ -76,6 +80,13 @@ const pfs: Pick<IAPIServer, 'listRepo' | 'inspectRepo' | 'listCommit'> = {
       }
     });
 
+    call.end();
+  },
+  listFile: (call) => {
+    const [projectId] = call.metadata.get('project-id');
+    const replyFiles = projectId ? files[projectId.toString()] : files['1'];
+
+    replyFiles.forEach((file) => call.write(file));
     call.end();
   },
 };

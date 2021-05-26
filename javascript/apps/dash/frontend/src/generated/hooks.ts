@@ -339,6 +339,8 @@ export const GetFilesDocument = gql`
       repoName
       sizeBytes
       type
+      sizeDisplay
+      downloadDisabled
     }
   }
 `;

@@ -92,6 +92,8 @@ export type File = {
   path: Scalars['String'];
   repoName: Scalars['String'];
   sizeBytes: Scalars['Float'];
+  sizeDisplay: Scalars['String'];
+  downloadDisabled?: Maybe<Scalars['Boolean']>;
   type: FileType;
 };
 
@@ -546,6 +548,7 @@ export type ResolversTypes = ResolversObject<{
   DagQueryArgs: DagQueryArgs;
   File: ResolverTypeWrapper<File>;
   Float: ResolverTypeWrapper<Scalars['Float']>;
+  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   FileQueryArgs: FileQueryArgs;
   FileType: FileType;
   GitInput: ResolverTypeWrapper<GitInput>;
@@ -553,7 +556,6 @@ export type ResolversTypes = ResolversObject<{
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
   InputType: InputType;
   Link: ResolverTypeWrapper<Link>;
-  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Mutation: ResolverTypeWrapper<{}>;
   Node: ResolverTypeWrapper<Node>;
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
@@ -598,12 +600,12 @@ export type ResolversParentTypes = ResolversObject<{
   DagQueryArgs: DagQueryArgs;
   File: File;
   Float: Scalars['Float'];
+  Boolean: Scalars['Boolean'];
   FileQueryArgs: FileQueryArgs;
   GitInput: GitInput;
   Input: Input;
   InputPipeline: InputPipeline;
   Link: Link;
-  Boolean: Scalars['Boolean'];
   Mutation: {};
   Node: Node;
   NodeSelector: NodeSelector;
@@ -710,6 +712,12 @@ export type FileResolvers<
   path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  downloadDisabled?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType
+  >;
   type?: Resolver<ResolversTypes['FileType'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1294,6 +1302,8 @@ export type GetFilesQuery = {__typename?: 'Query'} & {
       | 'repoName'
       | 'sizeBytes'
       | 'type'
+      | 'sizeDisplay'
+      | 'downloadDisabled'
     > & {
         committed?: Maybe<
           {__typename?: 'Timestamp'} & Pick<Timestamp, 'nanos' | 'seconds'>

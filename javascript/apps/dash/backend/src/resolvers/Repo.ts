@@ -35,8 +35,8 @@ const repoResolver: RepoResolver = {
   Repo: {
     commits: async (repo, _args, {pachClient}) => {
       try {
-        return (await pachClient.pfs().listCommit(repo.id, NUM_COMMITS)).map(
-          (commit) => ({
+        return (await pachClient.pfs().listCommit(repo.id, NUM_COMMITS))
+          .map((commit) => ({
             branch: commit.commit?.branch && {
               id: commit.commit?.branch?.name,
               name: commit.commit?.branch?.name,
@@ -47,8 +47,8 @@ const repoResolver: RepoResolver = {
             started: commit.started?.seconds || 0,
             sizeBytes: commit.sizeBytes || 0,
             sizeDisplay: formatBytes(commit.sizeBytes || 0),
-          }),
-        );
+          }))
+          .reverse();
       } catch (err) {
         return [];
       }

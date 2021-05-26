@@ -14,6 +14,8 @@ export const GET_FILES_QUERY = gql`
       repoName
       sizeBytes
       type
+      sizeDisplay
+      downloadDisabled
     }
   }
 `;
