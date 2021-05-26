@@ -182,7 +182,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 			}
 		}
 
-		// every branch's provenant branches should have this branch in its subvenance
+		// every provenant branch should have this branch in its subvenance
 		for _, provBranch := range bi.Provenance {
 			provBranchInfo := branchInfos[pfsdb.BranchKey(provBranch)]
 			if !branchInSet(bi.Branch, provBranchInfo.Subvenance) {
@@ -194,6 +194,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 						return err
 					}
 				} else {
+					// TODO(global ids): fix branch subvenance
 				}
 			}
 		}

@@ -2937,6 +2937,8 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
+	return nil, errors.New("unimplemented")
+	/* TODO: rewrite run pipeline (use a new RPC in PFS, not StartCommit)
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = ctx // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
@@ -2980,10 +2982,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		if err != nil {
 			return nil, err
 		}
-		for _, jobCommitInfo := range jobInfo.JobCommits {
-			jobCommit := client.NewCommit(jobCommitInfo.Branch.Repo.Name, jobCommitInfo.Branch.Name, jobInfo.Job.ID)
-			if proto.Equal(jobCommit, pipelineJobInfo.OutputCommit) {
-				for _, provBranch := range jobCommitInfo.Provenance {
+		for _, jobCommitInfo := range jobInfo.Commits {
+			if proto.Equal(jobCommitInfo.Info.Commit, pipelineJobInfo.OutputCommit) {
+				for _, provBranch := range jobCommitInfo.Info.DirectProvenance {
 					provenanceMap[pfsdb.BranchKey(provBranch)] = client.NewCommitProvenance(provBranch.Repo.Name, provBranch.Name, jobInfo.Job.ID)
 				}
 				break
@@ -3050,6 +3051,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}); err != nil {
 		return nil, err
 	}
+	*/
 
 	return &types.Empty{}, nil
 }

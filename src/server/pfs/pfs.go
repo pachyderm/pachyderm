@@ -87,6 +87,13 @@ type ErrInconsistentCommit struct {
 	Commit *pfs.Commit
 }
 
+// ErrCommitOnOutputBranch represents an error where an attempt was made to start
+// a commit on an output branch (a branch that is provenant on other branches).
+// This should only be done internally in PFS.
+type ErrCommitOnOutputBranch struct {
+	Branch *pfs.Branch
+}
+
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo.Name, e.File.Commit.ID)
 }
@@ -141,7 +148,11 @@ func (e ErrAmbiguousCommit) Error() string {
 }
 
 func (e ErrInconsistentCommit) Error() string {
-	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", pfsdb.CommitKey(e.ParentCommit), e.Branch.Name)
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", pfsdb.CommitKey(e.Commit), e.Branch.Name)
+}
+
+func (e ErrCommitOnOutputBranch) Error() string {
+	return fmt.Sprintf("cannot start a commit on an output branch: %s", pfsdb.BranchKey(e.Branch))
 }
 
 var (
@@ -157,6 +168,7 @@ var (
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
 	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
 	inconsistentCommitRe      = regexp.MustCompile("branch already has a commit in this transaction")
+	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -266,4 +278,13 @@ func IsInconsistentCommitErr(err error) bool {
 		return false
 	}
 	return inconsistentCommitRe.MatchString(err.Error())
+}
+
+// IsCommitOnOutputBranchErr returns true if the err is due to an attempt to
+// start a commit on an output branch.
+func IsCommitOnOutputBranchErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitOnOutputBranchRe.MatchString(err.Error())
 }

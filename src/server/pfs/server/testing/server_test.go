@@ -788,32 +788,6 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 	})
 
-	suite.Run("StartCommitWithDuplicatedCommitProvenance", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		repoA := "a"
-		repoB := "b"
-		require.NoError(t, env.PachClient.CreateRepo(repoA))
-		require.NoError(t, env.PachClient.CreateRepo(repoB))
-
-		commit1, err := env.PachClient.StartCommit(repoA, "master")
-		require.NoError(t, err)
-
-		require.NoError(t, env.PachClient.FinishCommit(repoA, commit1.Branch.Name, commit1.ID))
-
-		commit2, err := env.PachClient.StartCommit(repoA, "master")
-		require.NoError(t, err)
-
-		// It should be an error to specify two provenances for the same repo@branch
-		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
-			Branch:     pclient.NewBranch(repoB, "master"),
-			Provenance: []*pfs.CommitProvenance{commit2.NewProvenance(), commit2.NewProvenance()},
-		})
-		require.YesError(t, err)
-		require.Matches(t, "provenance contains multiple commits from the same branch", err.Error())
-	})
-
 	suite.Run("ProvenanceWithinSingleRepoDisallowed", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -821,26 +795,9 @@ func TestPFS(suite *testing.T) {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit, err := env.PachClient.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
-
-		// Errors when linking provenance across branches of the same repo
-		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
-			Branch:     pclient.NewBranch(repo, "foo"),
-			Provenance: []*pfs.CommitProvenance{pclient.NewCommitProvenance(repo, "master", commit.ID)},
-		})
-		require.YesError(t, err)
-		require.Matches(t, "cannot be in the provenance of its own branch", err.Error())
-
-		// Errors when linking provenance within a single branch of the same repo
-		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
-			Branch:     pclient.NewBranch(repo, "master"),
-			Provenance: []*pfs.CommitProvenance{pclient.NewCommitProvenance(repo, "master", commit.ID)},
-		})
-		require.YesError(t, err)
-		// Error message is different for a branch which already exists
-		require.Matches(t, "provenance contains a branch which the branch is not provenant on", err.Error())
+		// TODO: implement in terms of branch provenance
+		// test: repo -> repo
+		// test: a -> b -> a
 	})
 
 	suite.Run("AncestrySyntax", func(t *testing.T) {
@@ -1025,51 +982,6 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, ECommit.ID, commitInfo.Commit.ID)
 	})
 
-	suite.Run("StartCommitWithBranchNameProvenance", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateRepo("C"))
-
-		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
-		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
-
-		masterCommit, err := env.PachClient.StartCommit("A", "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.FinishCommit("A", masterCommit.Branch.Name, masterCommit.ID))
-
-		masterCommitInfo, err := env.PachClient.InspectCommit(masterCommit.Branch.Repo.Name, masterCommit.Branch.Name, masterCommit.ID)
-		require.NoError(t, err)
-
-		bCommitInfo, err := env.PachClient.InspectCommit("B", "master", "")
-		require.NoError(t, err)
-
-		// We're specifying the same commit three times - once by branch name, once
-		// by commit ID, and once indirectly through B, these should be collapsed to
-		// one provenance entry.
-		newCommit, err := env.PachClient.PfsAPIClient.StartCommit(env.Context, &pfs.StartCommitRequest{
-			Branch: pclient.NewBranch("C", "foo"),
-			Provenance: []*pfs.CommitProvenance{
-				pclient.NewCommitProvenance("A", "master", ""),
-				masterCommitInfo.Commit.NewProvenance(),
-				bCommitInfo.Commit.NewProvenance(),
-			},
-		})
-		require.NoError(t, err)
-
-		newCommitInfoA, err := env.PachClient.InspectCommit("A", "master", "")
-		require.NoError(t, err)
-		require.Equal(t, newCommit.ID, newCommitInfoA.Commit.ID)
-		require.Equal(t, masterCommitInfo.Commit.ID, newCommitInfoA.ParentCommit.ID)
-
-		newCommitInfoB, err := env.PachClient.InspectCommit("B", "master", "")
-		require.NoError(t, err)
-		require.Equal(t, newCommit.ID, newCommitInfoB.Commit.ID)
-		require.Equal(t, bCommitInfo.Commit.ID, newCommitInfoB.ParentCommit.ID)
-	})
-
 	suite.Run("CommitBranch", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -1197,8 +1109,22 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(branchInfos))
 		require.Equal(t, "master", branchInfos[0].Branch.Name)
 
+		// Check that moving the commit to other branches uses the same Job.ID and extends the existing JobInfo
+		jobInfo, err := env.PachClient.InspectJob(commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobInfo.Commits))
+
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master2", commit.Branch.Name, commit.ID, nil))
-		require.NoError(t, env.PachClient.CreateBranch(repo, "master3", "", commit.ID, nil))
+
+		jobInfo, err = env.PachClient.InspectJob(commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(jobInfo.Commits))
+
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master3", commit.Branch.Name, commit.ID, nil))
+
+		jobInfo, err = env.PachClient.InspectJob(commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(jobInfo.Commits))
 
 		branchInfos, err = env.PachClient.ListBranch(repo)
 		require.NoError(t, err)
@@ -2492,18 +2418,18 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
 		require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
 
-		commitInfos, err := env.PachClient.FlushJobAll(ACommit.Job(), nil)
+		commitInfos, err := env.PachClient.FlushJobAll(ACommit.NewJob(), nil)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, ACommit, commitInfos[0].Commit)
 		require.Equal(t, BCommit, commitInfos[1].Commit)
 
-		commitInfos, err = env.PachClient.FlushJobAll(ACommit.Job(), []*pfs.Branch{ACommit.Branch})
+		commitInfos, err = env.PachClient.FlushJobAll(ACommit.NewJob(), []*pfs.Branch{ACommit.Branch})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, ACommit, commitInfos[0].Commit)
 
-		commitInfos, err = env.PachClient.FlushJobAll(ACommit.Job(), []*pfs.Branch{BCommit.Branch})
+		commitInfos, err = env.PachClient.FlushJobAll(ACommit.NewJob(), []*pfs.Branch{BCommit.Branch})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, BCommit, commitInfos[0].Commit)
@@ -2534,7 +2460,7 @@ func TestPFS(suite *testing.T) {
 		}()
 
 		// Flush ACommit
-		commitInfos, err := env.PachClient.FlushJobAll(ACommit.Job(), nil)
+		commitInfos, err := env.PachClient.FlushJobAll(ACommit.NewJob(), nil)
 		require.NoError(t, err)
 		BCommit := pclient.NewCommit("B", "master", ACommit.ID)
 		CCommit := pclient.NewCommit("C", "master", ACommit.ID)
@@ -2546,7 +2472,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, DCommit, commitInfos[3].Commit)
 
 		commitInfos, err = env.PachClient.FlushJobAll(
-			ACommit.Job(),
+			ACommit.NewJob(),
 			[]*pfs.Branch{pclient.NewBranch("C", "master")},
 		)
 		require.NoError(t, err)
@@ -2585,14 +2511,14 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("B", BCommit.Branch.Name, BCommit.ID))
 		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 
-		commitInfos, err := env.PachClient.FlushJobAll(ACommit.Job(), nil)
+		commitInfos, err := env.PachClient.FlushJobAll(ACommit.NewJob(), nil)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, ACommit, commitInfos[0].Commit)
 		require.Equal(t, pclient.NewCommit("C", "master", ACommit.ID), commitInfos[1].Commit)
 
 		// The first two commits will be A and B, but they aren't deterministically sorted
-		commitInfos, err = env.PachClient.FlushJobAll(BCommit.Job(), nil)
+		commitInfos, err = env.PachClient.FlushJobAll(BCommit.NewJob(), nil)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 		require.Equal(t, pclient.NewCommit("C", "master", BCommit.ID), commitInfos[2].Commit)
@@ -2607,7 +2533,7 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
-		commitInfos, err := env.PachClient.FlushJobAll(commit.Job(), nil)
+		commitInfos, err := env.PachClient.FlushJobAll(commit.NewJob(), nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
@@ -2638,7 +2564,7 @@ func TestPFS(suite *testing.T) {
 		})
 
 		// Flush commit
-		commitInfos, err := env.PachClient.FlushJobAll(commit.Job(), nil)
+		commitInfos, err := env.PachClient.FlushJobAll(commit.NewJob(), nil)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
@@ -2656,7 +2582,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// If a commit is not found on that branch for the job, it is ignored
-		commitInfos, err := env.PachClient.FlushJobAll(commit.Job(), []*pfs.Branch{pclient.NewBranch("B", "master")})
+		commitInfos, err := env.PachClient.FlushJobAll(commit.NewJob(), []*pfs.Branch{pclient.NewBranch("B", "master")})
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
 	})
@@ -2669,7 +2595,7 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 
-		_, err = env.PachClient.FlushJobAll(commit.Job(), []*pfs.Branch{pclient.NewBranch("A", "foo")})
+		_, err = env.PachClient.FlushJobAll(commit.NewJob(), []*pfs.Branch{pclient.NewBranch("A", "foo")})
 		require.YesError(t, err)
 	})
 
@@ -3411,7 +3337,7 @@ func TestPFS(suite *testing.T) {
 
 		jobInfo, err := env.PachClient.InspectJob(cCommitInfo.Commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 4, len(jobInfo.JobCommits))
+		require.Equal(t, 4, len(jobInfo.Commits))
 	})
 
 	suite.Run("BranchProvenance", func(t *testing.T) {
@@ -4456,7 +4382,7 @@ func TestPFS(suite *testing.T) {
 		commitInfo, err := env.PachClient.InspectCommit("input", "staging", "")
 		require.NoError(t, err)
 
-		commitInfos, err := env.PachClient.FlushJobAll(commitInfo.Commit.Job(), nil)
+		commitInfos, err := env.PachClient.FlushJobAll(commitInfo.Commit.NewJob(), nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commitInfo.Commit, commitInfos[0].Commit)
@@ -4466,7 +4392,7 @@ func TestPFS(suite *testing.T) {
 		commitInfo, err = env.PachClient.InspectCommit("input", "master", "")
 		require.NoError(t, err)
 
-		commitInfos, err = env.PachClient.FlushJobAll(commitInfo.Commit.Job(), nil)
+		commitInfos, err = env.PachClient.FlushJobAll(commitInfo.Commit.NewJob(), nil)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, commitInfo.Commit, commitInfos[0].Commit)
@@ -4477,7 +4403,7 @@ func TestPFS(suite *testing.T) {
 		commitInfo, err = env.PachClient.InspectCommit("output1", "master", "")
 		require.NoError(t, err)
 
-		commitInfos, err = env.PachClient.FlushJobAll(commitInfo.Commit.Job(), nil)
+		commitInfos, err = env.PachClient.FlushJobAll(commitInfo.Commit.NewJob(), nil)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, commitInfo.Commit, commitInfos[0].Commit)

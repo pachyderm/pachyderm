@@ -28,14 +28,14 @@ func (c *Commit) FullID() string {
 	return fmt.Sprintf("%s@%s", c.Branch.Repo.Name, c.ID)
 }
 
-func (c *Commit) Job() *Job {
+func (c *Commit) NewJob() *Job {
 	return &Job{ID: c.ID}
 }
 
-func (ji *JobInfo) Commit(jobCommitInfo *JobCommitInfo) *Commit {
+func (j *Job) NewCommit(branch *Branch) *Commit {
 	return &Commit{
-		Branch: proto.Clone(jobCommitInfo.Branch).(*Branch),
-		ID:     ji.Job.ID,
+		Branch: proto.Clone(branch).(*Branch),
+		ID:     j.ID,
 	}
 }
 
@@ -65,6 +65,13 @@ func (r *Repo) NewCommit(branch, id string) *Commit {
 	return &Commit{
 		ID:     id,
 		Branch: r.NewBranch(branch),
+	}
+}
+
+func (b *Branch) NewCommit(id string) *Commit {
+	return &Commit{
+		ID:     id,
+		Branch: proto.Clone(b).(*Branch),
 	}
 }
 

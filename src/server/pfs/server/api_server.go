@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -152,7 +153,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 // StartCommitInTransaction is identical to StartCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
-	return a.driver.startCommit(txnCtx, request.Parent, request.Branch, request.Provenance, request.Description)
+	return a.driver.startCommit(txnCtx, request.Parent, request.Branch, request.Description)
 }
 
 // StartCommit implements the protobuf pfs.StartCommit RPC
@@ -185,16 +186,19 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionCont
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// FinishCommit in a transaction by itself has special handling with regards
 		// to its job ID.  It is possible that this transaction will create new
 		// commits via triggers, but we want those commits to be associated with the
 		// same job that the finished commit is associated with.  Therefore, we
 		// override the txnCtx's Job field to point to the same commit.
-		txnCtx.Job.ID = request.Commit.ID
+		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
+		if err != nil {
+			return err
+		}
+		txnCtx.Job.ID = commitInfo.Commit.ID
 		return a.FinishCommitInTransaction(txnCtx, request)
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -297,8 +301,26 @@ func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionCont
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.CreateBranch(request)
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// CreateBranch in a transaction by itself has special handling with regards
+		// to its job ID.  In order to better support a 'deferred processing' workflow
+		// with global IDs, it is useful for moving a branch head to be done in the
+		// same Job as the parent commit of the new branch head - this is similar to
+		// how we handle triggers when finishing a commit.  Therefore we override
+		// the Job ID being used by this operation, and propagateCommits will update
+		// the existing JobInfo structure.  As an escape hatch in case of an
+		// unexpected workload, this behavior can be overridden by setting
+		// NewJob=true in the request.
+		fmt.Printf("CreateBranch request.Head before: %s\n", pfsdb.CommitKey(request.Head))
+		if request.Head != nil && !request.NewJob {
+			commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Head)
+			if err != nil {
+				return err
+			}
+			txnCtx.Job.ID = commitInfo.Commit.ID
+		}
+		fmt.Printf("CreateBranch request.Head after: %s\n", pfsdb.CommitKey(request.Head))
+		return a.CreateBranchInTransaction(txnCtx, request)
 	}); err != nil {
 		return nil, err
 	}

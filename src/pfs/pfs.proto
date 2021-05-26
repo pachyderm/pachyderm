@@ -137,19 +137,20 @@ message Job {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
 
-message JobCommitInfo {
-  Branch branch = 1;
-  repeated Branch provenance = 2;
-}
-
+// StoredJobInfo is what is stored in the database for a Job
 message StoredJobInfo {
   Job job = 1;
-  repeated JobCommitInfo job_commits = 3;
+  repeated BranchInfo branches = 2; // Only the 'branch' and 'direct_provenance' fields are stored
 }
 
+// JobInfo is what is returned to users when inspecting or listing Jobs
 message JobInfo {
+  message JobCommit {
+    repeated Branch provenance = 1;
+    CommitInfo info = 2;
+  }
   Job job = 1;
-  repeated JobCommitInfo job_commits = 3;
+  repeated JobCommit commits = 2;
 }
 
 enum FileType {
@@ -209,7 +210,6 @@ message StartCommitRequest {
   // description is a user-provided string describing this commit
   string description = 2;
   Branch branch = 3;
-  repeated CommitProvenance provenance = 4;
 }
 
 message FinishCommitRequest {
@@ -272,6 +272,7 @@ message CreateBranchRequest {
   Branch branch = 2;
   repeated Branch provenance = 3;
   Trigger trigger = 4;
+  bool new_job = 5; // overrides the default behavior of using the same Job as 'head'
 }
 
 message InspectBranchRequest {
@@ -493,6 +494,8 @@ service API {
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
+  // SubscribeCommit subscribes for new commits on a given branch.
+  rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
 
   // InspectJob returns the info about a job.
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
@@ -500,8 +503,6 @@ service API {
   rpc SquashJob(SquashJobRequest) returns (google.protobuf.Empty) {}
   // FlushJob waits for downstream commits to finish.
   rpc FlushJob(FlushJobRequest) returns (stream CommitInfo) {}
-  // SubscribeCommit subscribes for new commits on a given branch.
-  rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
