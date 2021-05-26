@@ -12,4 +12,5 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go-bindata -o src/server/cmd/worker/assets/assets.go -pkg assets /etc/ssl/certs/... && \
     CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o pachd "src/server/cmd/pachd/main.go" && \
     CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o worker "src/server/cmd/worker/main.go" && \
+    # TODO: remove when we stop building pachd from scratch
     mkdir -p /tmp/to-copy/tmp && chmod -R 777 /tmp/to-copy
