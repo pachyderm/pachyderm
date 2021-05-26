@@ -306,6 +306,18 @@ __custom_func() {
 }`
 )
 
+func newClient(enterprise bool, options ...client.Option) (*client.APIClient, error) {
+	if enterprise {
+		c, err := client.NewEnterpriseClientOnUserMachine("user", options...)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+		return c, nil
+	}
+	return client.NewOnUserMachine("user", options...)
+}
+
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() *cobra.Command {
@@ -362,6 +374,7 @@ Environment variables:
 
 	var clientOnly bool
 	var timeoutFlag string
+	var enterprise bool
 	versionCmd := &cobra.Command{
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
@@ -408,9 +421,9 @@ Environment variables:
 				if err != nil {
 					return errors.Wrapf(err, "could not parse timeout duration %q", timeout)
 				}
-				pachClient, err = client.NewOnUserMachine("user", client.WithDialTimeout(timeout))
+				pachClient, err = newClient(enterprise, client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine("user")
+				pachClient, err = newClient(enterprise)
 			}
 			if err != nil {
 				return err
@@ -450,6 +463,8 @@ Environment variables:
 		"golang time duration--a number followed by ns, us, ms, s, m, or h). If "+
 		"--client-only is set, this flag is ignored. If unset, pachctl will use a "+
 		"default timeout; if set to 0s, the call will never time out.")
+	versionCmd.Flags().BoolVar(&enterprise, "enterprise", false, "If set, "+
+		"'pachctl version' will run on the active enterprise context.")
 	versionCmd.Flags().AddFlagSet(rawFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 	exitCmd := &cobra.Command{
