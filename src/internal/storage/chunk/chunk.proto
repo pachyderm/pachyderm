@@ -21,7 +21,7 @@ enum CompressionAlgo {
 }
 
 enum EncryptionAlgo {
-  CHACHA20 = 0;
+  AES256_CTR = 0;
 }
 
 message Ref {

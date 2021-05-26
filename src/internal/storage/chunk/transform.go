@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/aes"
 	"crypto/cipher"
 	io "io"
 	"io/ioutil"
@@ -12,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/chacha20"
 )
 
 // CreateOptions affect how chunks are created.
@@ -41,7 +41,7 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 		SizeBytes:       int64(len(buf)),
 		Dek:             dek,
 		CompressionAlgo: compressAlgo,
-		EncryptionAlgo:  EncryptionAlgo_CHACHA20,
+		EncryptionAlgo:  EncryptionAlgo_AES256_CTR,
 	}, nil
 }
 
@@ -51,7 +51,7 @@ func Get(ctx context.Context, client Client, cache kv.GetPut, ref *Ref, cb kv.Va
 	if err := getFromCache(ctx, cache, ref, cb); err == nil {
 		return nil
 	}
-	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
+	if ref.EncryptionAlgo != EncryptionAlgo_AES256_CTR {
 		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
 	}
 	return client.Get(ctx, ref.Id, func(ctext []byte) error {
@@ -161,11 +161,7 @@ func decrypt(dek []byte, r io.Reader) (io.Reader, error) {
 	if len(dek) != 32 {
 		return nil, errors.Errorf("data encryption key is wrong length")
 	}
-	nonce := [chacha20.NonceSize]byte{}
-	ciph, err := chacha20.NewUnauthenticatedCipher(dek, nonce[:])
-	if err != nil {
-		return nil, err
-	}
+	ciph := newCipher(dek)
 	return cipher.StreamReader{S: ciph, R: r}, nil
 }
 
@@ -179,12 +175,17 @@ func deriveKey(secret, ptext []byte) []byte {
 
 // cryptoXOR setups up a stream cipher using key, and writes (src XOR keystream) to dst
 func cryptoXOR(key, dst, src []byte) {
-	nonce := [chacha20.NonceSize]byte{}
-	ciph, err := chacha20.NewUnauthenticatedCipher(key, nonce[:])
+	ciph := newCipher(key)
+	ciph.XORKeyStream(dst, src)
+}
+
+func newCipher(key []byte) cipher.Stream {
+	nonce := [aes.BlockSize]byte{}
+	blockCiph, err := aes.NewCipher(key)
 	if err != nil {
 		panic(err) // this only happens if you pass in an invalid key/nonce size, which we shouldn't do
 	}
-	ciph.XORKeyStream(dst, src)
+	return cipher.NewCTR(blockCiph, nonce[:])
 }
 
 func verifyData(id ID, x []byte) error {
