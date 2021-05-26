@@ -1475,7 +1475,7 @@ func TestDeleteAll(t *testing.T) {
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
-	// alice creates a repo
+	// admin creates a repo
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, adminClient.CreateRepo(repo))
 
@@ -1499,6 +1499,37 @@ func TestDeleteAll(t *testing.T) {
 
 	// admin calls DeleteAll and succeeds
 	require.NoError(t, adminClient.DeleteAll())
+}
+
+// TestDeleteAllRepos tests that when you delete all repos,
+// only the repos you are authorized to delete are deleted
+func TestDeleteAllRepos(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	alice := robot(tu.UniqueString("alice"))
+	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// admin creates a repo
+	adminRepo := tu.UniqueString(t.Name())
+	require.NoError(t, adminClient.CreateRepo(adminRepo))
+
+	// alice creates a repo
+	aliceRepo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(aliceRepo))
+
+	// alice calls DeleteAll. It passes, but only deletes the repos she was authorized to delete
+	_, err := aliceClient.PfsAPIClient.DeleteRepo(aliceClient.Ctx(), &pfs.DeleteRepoRequest{All: true})
+	require.NoError(t, err)
+
+	listResp, err := aliceClient.ListRepo()
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(listResp))
+	require.Equal(t, adminRepo, listResp[0].Repo.Name)
 }
 
 // TestListDatum tests that you must have READER access to all of job's
