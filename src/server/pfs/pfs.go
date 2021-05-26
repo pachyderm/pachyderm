@@ -137,7 +137,7 @@ func (e ErrCommitNotFinished) Error() string {
 }
 
 func (e ErrAmbiguousCommit) Error() string {
-	return fmt.Sprintf("commit %v is ambiguous (specify the commit branch to resolve)", e.Commit.ID)
+	return fmt.Sprintf("commit %v is ambiguous (specify the branch to resolve)", e.Commit.ID)
 }
 
 func (e ErrInconsistentCommit) Error() string {
