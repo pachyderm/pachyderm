@@ -231,13 +231,14 @@ func RegisterCmd() *cobra.Command {
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
 func GetStateCmd() *cobra.Command {
+	var isEnterprise bool
 	getState := &cobra.Command{
 		Short: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
 		Long: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient(isEnterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -260,6 +261,7 @@ func GetStateCmd() *cobra.Command {
 			return nil
 		}),
 	}
+	getState.PersistentFlags().BoolVar(&isEnterprise, "enterprise", false, "Activate auth on the active enterprise context")
 	return cmdutil.CreateAlias(getState, "enterprise get-state")
 }
 
