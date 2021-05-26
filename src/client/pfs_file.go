@@ -392,7 +392,7 @@ func (c APIClient) getFileTar(commit *pfs.Commit, path string) (_ io.Reader, ret
 	req := &pfs.GetFileRequest{
 		File: commit.NewFile(path),
 	}
-	client, err := c.PfsAPIClient.GetFile(c.Ctx(), req)
+	client, err := c.PfsAPIClient.GetTAR(c.Ctx(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -492,7 +492,7 @@ func (c APIClient) GetFileURL(commit *pfs.Commit, path, URL string) (retErr erro
 		File: commit.NewFile(path),
 		URL:  URL,
 	}
-	client, err := c.PfsAPIClient.GetFile(c.Ctx(), req)
+	client, err := c.PfsAPIClient.GetTAR(c.Ctx(), req)
 	if err != nil {
 		return err
 	}

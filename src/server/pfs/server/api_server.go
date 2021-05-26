@@ -532,8 +532,8 @@ func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
 	return nil
 }
 
-// GetFile implements the protobuf pfs.GetFile RPC
-func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
+// GetTAR implements the protobuf pfs.GetFile RPC
+func (a *apiServer) GetTAR(request *pfs.GetFileRequest, server pfs.API_GetTARServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
