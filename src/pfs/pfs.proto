@@ -106,13 +106,6 @@ message Commit {
   Branch branch = 2;
 }
 
-// CommitRange represents chain of commits with Lower being an ancestor of
-// Upper or, in the case of a range of size 1, the same commit.
-message CommitRange {
-  Commit lower = 1;
-  Commit upper = 2;
-}
-
 // CommitProvenance keeps track of where (i.e. which branch) a certain commit
 // originated from. A commit's provenance consists of the commits of
 // the commits which are in its causal history.

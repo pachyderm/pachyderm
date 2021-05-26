@@ -716,8 +716,6 @@ func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error)
 // starts downstream output commits (which trigger PPS jobs) when new input
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
-//
-// The isNewCommit flag indicates whether propagateCommits was called during the creation of a new commit.
 func (d *driver) propagateCommits(txnCtx *txncontext.TransactionContext, branches []*pfs.Branch) error {
 	branchInfoCache := map[string]*pfs.BranchInfo{}
 	getBranchInfo := func(branch *pfs.Branch) (*pfs.BranchInfo, error) {
