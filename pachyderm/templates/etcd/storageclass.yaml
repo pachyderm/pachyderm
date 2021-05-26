@@ -20,6 +20,7 @@ parameters:
 provisioner: {{ if eq .Values.pachd.storage.backend "GOOGLE" -}}
   kubernetes.io/gce-pd
   {{- else if eq .Values.pachd.storage.backend "AMAZON" -}}
-  kubernetes.io/aws-ebs
+  ebs.csi.aws.com
+  # https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
   {{- end }}
 {{ end -}}

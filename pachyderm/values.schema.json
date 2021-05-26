@@ -194,6 +194,9 @@
                 "serviceAccount": {
                     "type": "object",
                     "properties": {
+                        "additionalAnnotations": {
+                            "type": "object"
+                        },
                         "create": {
                             "type": "boolean"
                         },
@@ -400,6 +403,9 @@
                 "serviceAccount": {
                     "type": "object",
                     "properties": {
+                        "additionalAnnotations": {
+                            "type": "object"
+                        },
                         "create": {
                             "type": "boolean"
                         },

@@ -3,7 +3,7 @@
 
 apiVersion: v2
 name: pachyderm
-description: A Helm chart for Kubernetes
+description: Explainable, repeatable, scalable data science
 
 # A chart can be either an 'application' or a 'library' chart.
 #

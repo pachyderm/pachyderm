@@ -103,7 +103,8 @@ pachd:
   image:
     repository: "pachyderm/pachd"
     pullPolicy: "IfNotPresent"
-    tag: "2.0.0-alpha.15"
+    # tag defaults to the chart’s specified appVersion.
+    tag: ""
   logLevel: "info"
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
@@ -137,6 +138,7 @@ pachd:
     #  port: 30650
   serviceAccount:
     create: true
+    additionalAnnotations: {}
     name: "pachyderm" #TODO Set default in helpers / Wire up in templates
   storage:
     amazon:
@@ -288,6 +290,7 @@ worker:
     pullPolicy: "IfNotPresent"
   serviceAccount:
     create: true
+    additionalAnnotations: {}
     # name sets the name of the worker service account.  Analogous to
     # the --worker-service-account argument to pachctl deploy.
     name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
