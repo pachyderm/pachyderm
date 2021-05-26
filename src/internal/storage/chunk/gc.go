@@ -15,12 +15,13 @@ import (
 
 // GarbageCollector removes unused chunks from object storage
 type GarbageCollector struct {
-	s *Storage
+	s   *Storage
+	log *logrus.Logger
 }
 
 // NewGC returns a new garbage collector operating on s
 func NewGC(s *Storage) *GarbageCollector {
-	return &GarbageCollector{s: s}
+	return &GarbageCollector{s: s, log: logrus.StandardLogger()}
 }
 
 // RunForever calls RunOnce until the context is cancelled, logging any errors.
@@ -34,7 +35,7 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 				return err
 			default:
 			}
-			logrus.Errorf("during chunk GC: %v", err)
+			gc.log.Errorf("during chunk GC: %v", err)
 		}
 		select {
 		case <-ctx.Done():
@@ -46,7 +47,7 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 
 // RunOnce runs 1 cycle of garbage collection.
 func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
-	rows, err := gc.s.db.QueryContext(ctx, `
+	rows, err := gc.s.db.QueryxContext(ctx, `
 	SELECT chunk_id, gen, uploaded FROM storage.chunk_objects
 	WHERE tombstone = true
 	`)
@@ -60,15 +61,19 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 	}()
 	for rows.Next() {
 		var ent Entry
-		if err := sqlx.StructScan(rows, &ent); err != nil {
+		if err := rows.StructScan(&ent); err != nil {
 			return err
 		}
 		if !ent.Uploaded {
-			logrus.Warnf("possibility for untracked chunk %s", chunkPath(ent.ChunkID, ent.Gen))
+			gc.log.Warnf("possibility for untracked chunk %s", chunkPath(ent.ChunkID, ent.Gen))
 		}
 		if err := gc.deleteOne(ctx, ent); err != nil {
 			return err
 		}
+		gc.log.WithFields(logrus.Fields{
+			"chunk_id": ent.ChunkID,
+			"gen":      ent.Gen,
+		}).Infof("deleting object for chunk entry")
 	}
 	return rows.Err()
 }
@@ -98,6 +103,7 @@ func ReduceObjectsPerChunk(ctx context.Context, db *sqlx.DB) error {
 	WITH keep as (
 		SELECT chunk_id, max(gen) as gen
 		FROM storage.chunk_objects
+		WHERE tombstone = FALSE AND uploaded = TRUE
 		GROUP BY chunk_id
 	)
 	UPDATE storage.chunk_objects
