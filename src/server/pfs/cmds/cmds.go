@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -442,58 +443,73 @@ $ {{alias}} foo@master --from XXX`,
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
-	var repos cmdutil.RepeatedStringArg
+	var branches cmdutil.RepeatedStringArg
 	flushJob := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit> ...",
+		Use:   "{{alias}} ( <job> | <repo>@<branch> )",
 		Short: "Wait for all commits caused by the specified commits to finish and return them.",
 		Long:  "Wait for all commits caused by the specified commits to finish and return them.",
 		Example: `
-# return commits caused by foo@XXX and bar@YYY
-$ {{alias}} foo@XXX bar@YYY
+# return commits caused by foo@XXX
+$ {{alias}} XXX
 
-# return commits caused by foo@XXX leading to repos bar and baz
-$ {{alias}} foo@XXX -r bar -r baz`,
-		Run: cmdutil.Run(func(args []string) (retErr error) {
-			// TODO(global ids): implement flush job command
-			return errors.New("unimplemented")
-			/*
-				commits, err := cmdutil.ParseCommits(args)
+# return commits caused by foo@XXX leading to branch bar@baz
+$ {{alias}} XXX -b bar@baz`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			// Parse args before connecting
+			var job *pfs.Job
+			var branch *pfs.Branch
+			if uuid.IsUUIDWithoutDashes(args[0]) {
+				job = &pfs.Job{ID: args[0]}
+			} else {
+				var err error
+				branch, err = cmdutil.ParseBranch(args[0])
 				if err != nil {
 					return err
 				}
+			}
 
-				c, err := client.NewOnUserMachine("user")
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			if branch != nil {
+				ci, err := c.InspectCommit(branch.Repo.Name, branch.Name, "")
 				if err != nil {
 					return err
 				}
-				defer c.Close()
+				job = ci.Commit.Job()
+			}
 
-				var toRepos []*pfsclient.Repo
-				for _, repoName := range repos {
-					toRepos = append(toRepos, client.NewRepo(repoName))
+			var toBranches []*pfsclient.Branch
+			for _, arg := range branches {
+				branch, err := cmdutil.ParseBranch(arg)
+				if err != nil {
+					return err
 				}
+				toBranches = append(toBranches, branch)
+			}
 
-				w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-				defer func() {
-					if err := w.Flush(); retErr == nil {
-						retErr = err
-					}
-				}()
-				return c.FlushJob(commits, toRepos, func(ci *pfsclient.CommitInfo) error {
-					if raw {
-						return marshaller.Marshal(os.Stdout, ci)
-					}
-					pretty.PrintCommitInfo(w, ci, fullTimestamps)
-					return nil
-				})
-			*/
+			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
+			defer func() {
+				if err := w.Flush(); retErr == nil {
+					retErr = err
+				}
+			}()
+			return c.FlushJob(job, toBranches, func(ci *pfsclient.CommitInfo) error {
+				if raw {
+					return marshaller.Marshal(os.Stdout, ci)
+				}
+				pretty.PrintCommitInfo(w, ci, fullTimestamps)
+				return nil
+			})
 		}),
 	}
-	flushJob.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
-	flushJob.MarkFlagCustom("repos", "__pachctl_get_repo")
+	flushJob.Flags().VarP(&branches, "branch", "b", "Wait only for commits leading to a specific set of branches")
+	flushJob.MarkFlagCustom("branch", "__pachctl_get_branch")
 	flushJob.Flags().AddFlagSet(rawFlags)
 	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
-	shell.RegisterCompletionFunc(flushJob, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
 
 	var newCommits bool

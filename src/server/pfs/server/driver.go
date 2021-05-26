@@ -567,14 +567,6 @@ func (d *driver) startCommit(
 			return nil, err
 		}
 
-		/*
-			// there should only be one representative of each branch in the commit provenance
-			if _, ok := provenantBranches[pfsdb.BranchKey(prov.Commit.Branch)]; ok {
-				return nil, errors.Errorf("the commit provenance contains multiple commits from the same branch")
-			}
-			provenantBranches[pfsdb.BranchKey(prov.Commit.Branch)] = true
-		*/
-
 		// The new commit should not be provenant on any branches that the new
 		// commit's branch is not also provenant on.
 		if _, ok := branchProvMap[pfsdb.BranchKey(prov.Commit.Branch)]; !ok {
@@ -602,6 +594,9 @@ func (d *driver) startCommit(
 
 	// Finally, create the commit
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
+		if col.IsErrExists(err) {
+			return nil, pfsserver.ErrInconsistentCommit{Commit: newCommit, Branch: newCommit.Branch}
+		}
 		return nil, err
 	}
 	// Defer propagation of the commit until the end of the transaction so we can
@@ -728,8 +723,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 	} else {
 		// A commit at the current transaction's ID already exists - make sure it is an alias with the right parent
 		if newCommitInfo.Origin.Kind != pfs.OriginKind_AUTO || !proto.Equal(newCommitInfo.ParentCommit, parent) {
-			// TODO: real error type for this
-			return nil, errors.Errorf("inconsistent dependencies: cannot create alias for %s - branch (%s) is already aliased to %s", pfsdb.CommitKey(parent), pfsdb.BranchKey(branch), pfsdb.CommitKey(newCommitInfo.ParentCommit))
+			return nil, pfsserver.ErrInconsistentCommit{Commit: parent, Branch: branch)
 		}
 	}
 

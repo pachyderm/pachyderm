@@ -452,7 +452,6 @@ func (c APIClient) FlushJobAll(job *pfs.Job, toBranches []*pfs.Branch) ([]*pfs.C
 	}); err != nil {
 		return nil, err
 	}
-	// TODO: make sure cis are sorted according to the jobinfo?
 	return cis, nil
 }
 

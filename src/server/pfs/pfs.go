@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -78,6 +79,14 @@ type ErrAmbiguousCommit struct {
 	Commit *pfs.Commit
 }
 
+// ErrInconsistentCommit represents an error where a transaction attempts to
+// create a Job with multiple commits in the same branch, which would result in
+// inconsistent data dependencies.
+type ErrInconsistentCommit struct {
+	Branch *pfs.Branch
+	Commit *pfs.Commit
+}
+
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo.Name, e.File.Commit.ID)
 }
@@ -131,6 +140,10 @@ func (e ErrAmbiguousCommit) Error() string {
 	return fmt.Sprintf("commit %v is ambiguous (specify the commit branch to resolve)", e.Commit.ID)
 }
 
+func (e ErrInconsistentCommit) Error() string {
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", pfsdb.CommitKey(e.ParentCommit), e.Branch.Name)
+}
+
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
@@ -143,6 +156,7 @@ var (
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
 	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
+	inconsistentCommitRe      = regexp.MustCompile("branch already has a commit in this transaction")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -243,4 +257,13 @@ func IsAmbiguousCommitErr(err error) bool {
 		return false
 	}
 	return ambiguousCommitRe.MatchString(err.Error())
+}
+
+// IsInconsistentCommitErr returns true if the err is due to an attempt to have
+// multiple commits in a single branch within a transaction.
+func IsInconsistentCommitErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return inconsistentCommitRe.MatchString(err.Error())
 }
