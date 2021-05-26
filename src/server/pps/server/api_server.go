@@ -1117,7 +1117,7 @@ func (a *apiServer) collectDatums(ctx context.Context, pipelineJob *pps.Pipeline
 		return err
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	fsi := datum.NewCommitIterator(pachClient, pipelineJobInfo.StatsCommit.Branch.Repo.Name, pipelineJobInfo.StatsCommit.Branch.Name, pipelineJobInfo.StatsCommit.ID)
+	fsi := datum.NewCommitIterator(pachClient, pipelineJobInfo.StatsCommit)
 	return fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{

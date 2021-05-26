@@ -187,7 +187,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 		reg.jobChain = chain.NewJobChain(
 			pachClient,
 			hasher,
-			append(opts, chain.WithBase(datum.NewCommitIterator(pachClient, commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)))...,
+			append(opts, chain.WithBase(datum.NewCommitIterator(pachClient, commit)))...,
 		)
 	}
 	return nil
@@ -269,7 +269,7 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 	if err != nil {
 		return err
 	}
-	outputDit := datum.NewCommitIterator(pachClient, ppj.metaCommitInfo.Commit.Branch.Repo.Name, ppj.metaCommitInfo.Commit.Branch.Name, ppj.metaCommitInfo.Commit.ID)
+	outputDit := datum.NewCommitIterator(pachClient, ppj.metaCommitInfo.Commit)
 	ppj.jdit = reg.jobChain.CreateJob(ppj.driver.PachClient().Ctx(), ppj.pji.PipelineJob.ID, dit, outputDit)
 	var afterTime time.Duration
 	if ppj.pji.JobTimeout != nil {
