@@ -15,6 +15,7 @@ export type ButtonProps = React.ButtonHTMLAttributes<
   to?: LinkProps['to'];
   popIn?: boolean;
   'data-testid'?: string;
+  download?: boolean;
 };
 
 export const Button: FunctionComponent<ButtonProps> = ({

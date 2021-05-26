@@ -12,6 +12,7 @@ export interface LinkProps extends Omit<ReactRouterLinkProps, 'to'> {
   small?: boolean;
   inline?: boolean;
   to?: ReactRouterLinkProps['to'];
+  download?: boolean;
 }
 
 const Link: React.FC<LinkProps> = ({
@@ -20,6 +21,7 @@ const Link: React.FC<LinkProps> = ({
   externalLink = false,
   small = false,
   inline = false,
+  download = false,
   to,
   ...rest
 }) => {
@@ -36,13 +38,14 @@ const Link: React.FC<LinkProps> = ({
     );
   }
 
-  if (externalLink) {
+  if (externalLink || download) {
     return (
       <a
         href={to as string}
-        target="_blank"
+        target={download ? undefined : '_blank'}
         rel="noopener noreferrer"
         className={linkClassName}
+        download={download}
         {...rest}
       >
         {children}
