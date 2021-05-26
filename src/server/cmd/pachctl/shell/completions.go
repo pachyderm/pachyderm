@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -96,24 +97,29 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 	case repoPart:
 		return RepoCompletion(flag, text, maxCompletions)
 	case commitOrBranchPart:
-		bis, err := c.ListBranch(partialFile.Commit.Branch.Repo.Name)
+		bis, err := c.PfsAPIClient.ListBranch(
+			c.Ctx(),
+			&pfs.ListBranchRequest{
+				Repo: partialFile.Commit.Branch.Repo,
+			},
+		)
 		if err != nil {
 			return nil, CacheNone
 		}
-		for _, bi := range bis {
+		for _, bi := range bis.BranchInfo {
 			head := "-"
 			if bi.Head != nil {
 				head = bi.Head.ID
 			}
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Branch.Repo.Name, bi.Branch.Name),
+				Text:        fmt.Sprintf("%s@%s:", pfsdb.RepoKey(partialFile.Commit.Branch.Repo), bi.Branch.Name),
 				Description: fmt.Sprintf("(%s)", head),
 			})
 		}
 		if len(result) == 0 {
 			// Master should show up even if it doesn't exist yet
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Branch.Repo.Name),
+				Text:        fmt.Sprintf("%s@master", pfsdb.RepoKey(partialFile.Commit.Branch.Repo)),
 				Description: "(nil)",
 			})
 		}
@@ -153,7 +159,7 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 				return errutil.ErrBreak
 			}
 			result = append(result, prompt.Suggest{
-				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Branch.Repo.Name, partialFile.Commit.ID, fi.File.Path),
+				Text: fmt.Sprintf("%s@%s:%s", pfsdb.RepoKey(partialFile.Commit.Branch.Repo), partialFile.Commit.ID, fi.File.Path),
 			})
 			return nil
 		}); err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
@@ -55,9 +56,9 @@ Requests:
 
 func sprintCreateRepo(request *pfs.CreateRepoRequest) string {
 	if request.Update {
-		return fmt.Sprintf("update repo %s", request.Repo.Name)
+		return fmt.Sprintf("update repo %s", pfspretty.CompactPrintRepo(request.Repo))
 	}
-	return fmt.Sprintf("create repo %s", request.Repo.Name)
+	return fmt.Sprintf("create repo %s", pfspretty.CompactPrintRepo(request.Repo))
 }
 
 func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
@@ -68,7 +69,7 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 	if request.All {
 		return fmt.Sprintf("delete repo --all%s", force)
 	}
-	return fmt.Sprintf("delete repo %s %s", request.Repo.Name, force)
+	return fmt.Sprintf("delete repo %s %s", pfspretty.CompactPrintRepo(request.Repo), force)
 }
 
 func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.TransactionResponse) string {
@@ -78,11 +79,11 @@ func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.Tr
 	} else {
 		commit = response.Commit.ID
 	}
-	return fmt.Sprintf("start commit %s@%s (%s)", request.Branch.Repo.Name, request.Branch.Name, commit)
+	return fmt.Sprintf("start commit %s (%s)", pfspretty.CompactPrintBranch(request.Branch), commit)
 }
 
 func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
-	return fmt.Sprintf("finish commit %s@%s", request.Commit.Branch.Repo.Name, request.Commit.ID)
+	return fmt.Sprintf("finish commit %s", pfspretty.CompactPrintCommit(request.Commit))
 }
 
 // func sprintSquashCommit(request *pfs.SquashCommitRequest) string {
@@ -92,10 +93,10 @@ func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
 func sprintCreateBranch(request *pfs.CreateBranchRequest) string {
 	provenance := ""
 	for _, p := range request.Provenance {
-		provenance = fmt.Sprintf("%s -p %s@%s", provenance, p.Repo.Name, p.Name)
+		provenance = fmt.Sprintf("%s -p %s", provenance, pfspretty.CompactPrintBranch(p))
 	}
 
-	return fmt.Sprintf("create branch %s@%s", request.Branch.Repo.Name, request.Branch.Name)
+	return fmt.Sprintf("create branch %s", pfspretty.CompactPrintBranch(request.Branch))
 }
 
 func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
@@ -103,7 +104,7 @@ func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
 	if request.Force {
 		force = " --force"
 	}
-	return fmt.Sprintf("delete branch %s@%s%s", request.Branch.Repo.Name, request.Branch.Name, force)
+	return fmt.Sprintf("delete branch %s%s", pfspretty.CompactPrintBranch(request.Branch), force)
 }
 
 func sprintUpdatePipelineJobState(request *pps.UpdatePipelineJobStateRequest) string {

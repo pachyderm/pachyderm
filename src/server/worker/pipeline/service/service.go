@@ -85,7 +85,7 @@ func forEachCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo,
 	// TODO: Readd subscribe on spec commit provenance. Current code simplifies correctness in terms
 	// of commits being closed / pipeline jobs being finished.
 	return pachClient.SubscribeCommit(
-		pipelineInfo.Pipeline.Name,
+		client.NewRepo(pipelineInfo.Pipeline.Name),
 		"",
 		nil,
 		"",
