@@ -1,4 +1,5 @@
 import {SkeletonDisplayText, Tooltip} from '@pachyderm/components';
+import classnames from 'classnames';
 import React, {useCallback, useState} from 'react';
 import {Link} from 'react-router-dom';
 
@@ -11,7 +12,7 @@ import useProjectHeader from './hooks/useProjectHeader';
 import styles from './ProjectHeader.module.css';
 
 const ProjectHeader = () => {
-  const {projectName, numOfFailedJobs, seeJobsUrl, loading} =
+  const {projectName, numOfFailedJobs, seeJobsUrl, loading, seeJobsOpen} =
     useProjectHeader();
   const [showTooltip, setShowTooltip] = useState(false);
   const setProjectNameRef = useCallback((element: HTMLHeadingElement) => {
@@ -51,7 +52,12 @@ const ProjectHeader = () => {
       </div>
       <Search />
 
-      <Link className={styles.seeJobs} to={seeJobsUrl}>
+      <Link
+        className={classnames(styles.seeJobs, {
+          [styles.active]: seeJobsOpen,
+        })}
+        to={seeJobsUrl}
+      >
         <div className={styles.seeJobsContent}>
           {numOfFailedJobs > 0 && (
             <Badge
@@ -61,7 +67,7 @@ const ProjectHeader = () => {
               {numOfFailedJobs}
             </Badge>
           )}
-          <span className={styles.seeJobsText}>See Jobs</span>
+          <span className={styles.seeJobsText}>Show Jobs</span>
         </div>
       </Link>
     </Header>
