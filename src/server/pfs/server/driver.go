@@ -239,9 +239,16 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 		// New repo case
 		if authIsActivated {
-			// Create ACL for new repo. Make caller the sole owner. If the ACL already
-			// exists with a different owner, this will fail.
-			if err := d.env.AuthServer().CreateRoleBindingInTransaction(txnCtx, whoAmI.Username, []string{auth.RepoOwnerRole}, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil {
+			// Create ACL for new repo. Make caller the sole owner. If this is a user repo,
+			// and the ACL already exists with a different owner, this will fail.
+			// For now, we expect system repos to share auth info with their corresponding
+			// user repo, so the role binding should exist
+			if err := d.env.AuthServer().CreateRoleBindingInTransaction(
+				txnCtx,
+				whoAmI.Username,
+				[]string{auth.RepoOwnerRole},
+				&auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+			); err != nil && (!col.IsErrExists(err) || repo.Type == pfs.UserRepoType) {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo \"%s\"", pretty.CompactPrintRepo(repo))
 			}
 		}
@@ -454,8 +461,11 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		return errors.Wrapf(err, "repos.Delete")
 	}
 
-	if err := d.env.AuthServer().DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
+	// since system repos share a role binding, only delete it if this is the user repo, in which case the other repos will be deleted anyway
+	if repo.Type == pfs.UserRepoType {
+		if err := d.env.AuthServer().DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
+			return grpcutil.ScrubGRPC(err)
+		}
 	}
 	return nil
 }
@@ -1753,13 +1763,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 
 		// if branch is provided, make sure the commit was created on that branch
 		if branch != "" && commitInfo.Commit.Branch.Name != branch {
-			return nil
-		}
-		// For now, we don't want stats branches to have jobs triggered on them
-		// and this is the simplest way to achieve that. Once we have labels,
-		// we'll use those instead for a more principled approach.
-		// TODO: Address this sooner rather than later... - should be obsolete once we have stats in a system repo
-		if commitInfo.Commit.Branch.Name == "stats" {
 			return nil
 		}
 

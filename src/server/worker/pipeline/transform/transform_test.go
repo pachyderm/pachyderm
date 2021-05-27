@@ -79,13 +79,14 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	)
 	require.NoError(t, err)
 
-	err = env.PachClient.CreateBranch(
-		pipelineInfo.Pipeline.Name,
-		"stats",
-		"",
-		"",
-		[]*pfs.Branch{client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)},
-	)
+	metaRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
+	_, err = env.PachClient.PfsAPIClient.CreateBranch(
+		env.PachClient.Ctx(),
+		&pfs.CreateBranchRequest{
+			Head:       metaRepo.NewCommit("master", ""),
+			Branch:     metaRepo.NewBranch("master"),
+			Provenance: []*pfs.Branch{client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)},
+		})
 	require.NoError(t, err)
 
 	// Put the pipeline info into etcd (which is read by the master)
