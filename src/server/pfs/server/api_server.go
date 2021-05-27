@@ -235,11 +235,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 func (a *apiServer) InspectCommitset(ctx context.Context, request *pfs.InspectCommitsetRequest) (response *pfs.Commitset, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	commitset, err := a.driver.inspectCommitset(ctx, request.ID, request.Wait)
-	if err != nil {
-		return nil, err
-	}
-	return commitset, nil
+	return a.driver.inspectCommitset(ctx, request.ID, request.Wait)
 }
 
 // SquashCommitsetInTransaction is identical to SquashCommitset except that it can run
@@ -291,7 +287,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 		// done in the same Commitset as the parent commit of the new branch head -
 		// this is similar to how we handle triggers when finishing a commit.
 		// Therefore we override the Commitset ID being used by this operation, and
-		// propagateCommits will update the existing Commitset structure.  As an
+		// propagateBranches will update the existing Commitset structure.  As an
 		// escape hatch in case of an unexpected workload, this behavior can be
 		// overridden by setting NewCommitset=true in the request.
 		if request.Head != nil && !request.NewCommitset {

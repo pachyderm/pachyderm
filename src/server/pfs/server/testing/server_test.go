@@ -4374,7 +4374,6 @@ func TestPFS(suite *testing.T) {
 			pfsdb.CommitKey(client.NewCommit("input", "master", commitsetID)),
 			pfsdb.CommitKey(client.NewCommit("output1", "staging", commitsetID)),
 		}
-		fmt.Printf("commit infos: %v\n", commitset.CommitInfos())
 		require.ElementsEqualUnderFn(t, expectedCommits, commitset.CommitInfos(), CommitInfoToID)
 
 		require.NoError(t, env.PachClient.CreateBranch("output1", "master", "staging", "", nil))
@@ -4808,11 +4807,10 @@ func TestPFS(suite *testing.T) {
 	// off since it is based on the output size). The output size calculation is a bit questionable due to the compaction delay (a
 	// file may be accounted for in the size even if it is deleted).
 	suite.Run("Trigger", func(t *testing.T) {
-		t.Skip("Does not work with V2, needs investigation")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
 		c := env.PachClient
+
 		t.Run("Simple", func(t *testing.T) {
 			require.NoError(t, c.CreateRepo("test"))
 			require.NoError(t, c.CreateBranchTrigger("test", "master", "", "", &pfs.Trigger{
@@ -4821,7 +4819,10 @@ func TestPFS(suite *testing.T) {
 			}))
 			require.NoError(t, c.PutFile(client.NewCommit("test", "staging", ""), "file", strings.NewReader("small")))
 		})
+
 		t.Run("SizeWithProvenance", func(t *testing.T) {
+			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
+			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			require.NoError(t, c.CreateRepo("in"))
 			require.NoError(t, c.CreateBranchTrigger("in", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
@@ -4873,6 +4874,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
 		})
+
 		t.Run("Cron", func(t *testing.T) {
 			require.NoError(t, c.CreateRepo("cron"))
 			require.NoError(t, c.CreateBranchTrigger("cron", "trigger", "", "", &pfs.Trigger{
@@ -4901,6 +4903,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
+
 		t.Run("Count", func(t *testing.T) {
 			require.NoError(t, c.CreateRepo("count"))
 			require.NoError(t, c.CreateBranchTrigger("count", "trigger", "", "", &pfs.Trigger{
@@ -4933,7 +4936,10 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
+
 		t.Run("Or", func(t *testing.T) {
+			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
+			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			require.NoError(t, c.CreateRepo("or"))
 			require.NoError(t, c.CreateBranchTrigger("or", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
@@ -4990,7 +4996,10 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
+
 		t.Run("And", func(t *testing.T) {
+			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
+			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			require.NoError(t, c.CreateRepo("and"))
 			require.NoError(t, c.CreateBranchTrigger("and", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
@@ -5046,7 +5055,10 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
+
 		t.Run("Chain", func(t *testing.T) {
+			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
+			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			// a triggers b which triggers c
 			require.NoError(t, c.CreateRepo("chain"))
 			require.NoError(t, c.CreateBranchTrigger("chain", "b", "", "", &pfs.Trigger{
@@ -5110,7 +5122,10 @@ func TestPFS(suite *testing.T) {
 			require.NotNil(t, bi.Head)
 			require.Equal(t, cHead, bi.Head.ID)
 		})
+
 		t.Run("BranchMovement", func(t *testing.T) {
+			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
+			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			require.NoError(t, c.CreateRepo("branch-movement"))
 			require.NoError(t, c.CreateBranchTrigger("branch-movement", "c", "", "", &pfs.Trigger{
 				Branch: "b",

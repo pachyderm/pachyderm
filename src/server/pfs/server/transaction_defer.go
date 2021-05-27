@@ -45,7 +45,7 @@ func (t *Propagater) Run() error {
 	for _, branch := range t.branches {
 		branches = append(branches, branch)
 	}
-	return t.d.propagateCommits(t.txnCtx, branches)
+	return t.d.propagateBranches(t.txnCtx, branches)
 }
 
 // PipelineFinisher closes any open commits on a pipeline output branch,
