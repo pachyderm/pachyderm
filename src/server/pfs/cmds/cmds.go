@@ -443,6 +443,7 @@ $ {{alias}} foo@master --from XXX`,
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
+	// TODO(global ids): rename this command since we've dropped the 'flush' RPC
 	var branches cmdutil.RepeatedStringArg
 	flushJob := &cobra.Command{
 		Use:   "{{alias}} ( <job> | <repo>@<branch> )",
@@ -497,13 +498,20 @@ $ {{alias}} XXX -b bar@baz`,
 					retErr = err
 				}
 			}()
-			return c.FlushJob(job, toBranches, func(ci *pfs.CommitInfo) error {
+
+			jobInfo, err := c.BlockJob(job.ID, toBranches)
+			if err != nil {
+				return err
+			}
+
+			for _, jobCommit := range jobInfo.Commits {
 				if raw {
-					return marshaller.Marshal(os.Stdout, ci)
+					return marshaller.Marshal(os.Stdout, jobCommit.Info)
 				}
-				pretty.PrintCommitInfo(w, ci, fullTimestamps)
-				return nil
-			})
+				pretty.PrintCommitInfo(w, jobCommit.Info, fullTimestamps)
+			}
+
+			return nil
 		}),
 	}
 	flushJob.Flags().VarP(&branches, "branch", "b", "Wait only for commits leading to a specific set of branches")

@@ -39,6 +39,14 @@ func (j *Job) NewCommit(branch *Branch) *Commit {
 	}
 }
 
+func (j *JobInfo) CommitInfos() []*CommitInfo {
+	result := make([]*CommitInfo, len(j.Commits))
+	for _, c := range j.Commits {
+		result = append(result, c.Info)
+	}
+	return result
+}
+
 // NewHash returns a hash that PFS uses internally to compute checksums.
 func NewHash() hash.Hash {
 	return pachhash.New()

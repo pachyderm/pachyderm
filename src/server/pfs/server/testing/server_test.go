@@ -2385,7 +2385,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit2.ID, branchInfos[1].Head.ID) // original branch should remain unchanged
 	})
 
-	suite.Run("Flush", func(t *testing.T) {
+	suite.Run("BlockJob", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2398,26 +2398,16 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
 		require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
 
-		commitInfos, err := env.PachClient.FlushJobAll(ACommit.NewJob(), nil)
+		jobInfo, err := env.PachClient.BlockJob(ACommit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
-		require.Equal(t, ACommit, commitInfos[0].Commit)
-		require.Equal(t, BCommit, commitInfos[1].Commit)
-
-		commitInfos, err = env.PachClient.FlushJobAll(ACommit.NewJob(), []*pfs.Branch{ACommit.Branch})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, ACommit, commitInfos[0].Commit)
-
-		commitInfos, err = env.PachClient.FlushJobAll(ACommit.NewJob(), []*pfs.Branch{BCommit.Branch})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, BCommit, commitInfos[0].Commit)
+		require.Equal(t, 2, len(jobInfo.Commits))
+		require.Equal(t, ACommit, jobInfo.Commits[0].Info.Commit)
+		require.Equal(t, BCommit, jobInfo.Commits[1].Info.Commit)
 	})
 
-	// Flush2 implements the following DAG:
+	// BlockJob2 implements the following DAG:
 	// A ─▶ B ─▶ C ─▶ D
-	suite.Run("Flush2", func(t *testing.T) {
+	suite.Run("BlockJob2", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2439,25 +2429,17 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit("D", "master", ""))
 		}()
 
-		// Flush ACommit
-		commitInfos, err := env.PachClient.FlushJobAll(ACommit.NewJob(), nil)
+		// Wait for the commits to finish
+		jobInfo, err := env.PachClient.BlockJob(ACommit.ID)
 		require.NoError(t, err)
 		BCommit := pclient.NewCommit("B", "master", ACommit.ID)
 		CCommit := pclient.NewCommit("C", "master", ACommit.ID)
 		DCommit := pclient.NewCommit("D", "master", ACommit.ID)
-		require.Equal(t, 4, len(commitInfos))
-		require.Equal(t, ACommit, commitInfos[0].Commit)
-		require.Equal(t, BCommit, commitInfos[1].Commit)
-		require.Equal(t, CCommit, commitInfos[2].Commit)
-		require.Equal(t, DCommit, commitInfos[3].Commit)
-
-		commitInfos, err = env.PachClient.FlushJobAll(
-			ACommit.NewJob(),
-			[]*pfs.Branch{pclient.NewBranch("C", "master")},
-		)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, CCommit, commitInfos[0].Commit)
+		require.Equal(t, 4, len(jobInfo.Commits))
+		require.Equal(t, ACommit, jobInfo.Commits[0].Info.Commit)
+		require.Equal(t, BCommit, jobInfo.Commits[1].Info.Commit)
+		require.Equal(t, CCommit, jobInfo.Commits[2].Info.Commit)
+		require.Equal(t, DCommit, jobInfo.Commits[3].Info.Commit)
 	})
 
 	// A
@@ -2467,7 +2449,7 @@ func TestPFS(suite *testing.T) {
 	//   ◀
 	//  ╱
 	// B
-	suite.Run("Flush3", func(t *testing.T) {
+	suite.Run("BlockJob3", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2491,20 +2473,20 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("B", BCommit.Branch.Name, BCommit.ID))
 		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 
-		commitInfos, err := env.PachClient.FlushJobAll(ACommit.NewJob(), nil)
+		jobInfo, err := env.PachClient.BlockJob(ACommit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
-		require.Equal(t, ACommit, commitInfos[0].Commit)
-		require.Equal(t, pclient.NewCommit("C", "master", ACommit.ID), commitInfos[1].Commit)
+		require.Equal(t, 2, len(jobInfo.Commits))
+		require.Equal(t, ACommit, jobInfo.Commits[0].Info.Commit)
+		require.Equal(t, pclient.NewCommit("C", "master", ACommit.ID), jobInfo.Commits[1].Info.Commit)
 
 		// The first two commits will be A and B, but they aren't deterministically sorted
-		commitInfos, err = env.PachClient.FlushJobAll(BCommit.NewJob(), nil)
+		jobInfo, err = env.PachClient.BlockJob(BCommit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(commitInfos))
-		require.Equal(t, pclient.NewCommit("C", "master", BCommit.ID), commitInfos[2].Commit)
+		require.Equal(t, 3, len(jobInfo.Commits))
+		require.Equal(t, pclient.NewCommit("C", "master", BCommit.ID), jobInfo.Commits[2].Info.Commit)
 	})
 
-	suite.Run("FlushJobWithNoDownstreamRepos", func(t *testing.T) {
+	suite.Run("BlockJobWithNoDownstreamRepos", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2513,13 +2495,13 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
-		commitInfos, err := env.PachClient.FlushJobAll(commit.NewJob(), nil)
+		jobInfo, err := env.PachClient.BlockJob(commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, commit, commitInfos[0].Commit)
+		require.Equal(t, 1, len(jobInfo.Commits))
+		require.Equal(t, commit, jobInfo.Commits[0].Info.Commit)
 	})
 
-	suite.Run("FlushOpenCommit", func(t *testing.T) {
+	suite.Run("BlockOpenCommit", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2543,15 +2525,15 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, eg.Wait())
 		})
 
-		// Flush commit
-		commitInfos, err := env.PachClient.FlushJobAll(commit.NewJob(), nil)
+		// Wait for the commit to finish
+		jobInfo, err := env.PachClient.BlockJob(commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
-		require.Equal(t, commit, commitInfos[0].Commit)
-		require.Equal(t, pclient.NewCommit("B", "master", commit.ID), commitInfos[1].Commit)
+		require.Equal(t, 2, len(jobInfo.Commits))
+		require.Equal(t, commit, jobInfo.Commits[0].Info.Commit)
+		require.Equal(t, pclient.NewCommit("B", "master", commit.ID), jobInfo.Commits[1].Info.Commit)
 	})
 
-	suite.Run("FlushUninvolvedBranch", func(t *testing.T) {
+	suite.Run("BlockUninvolvedBranch", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2561,13 +2543,12 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 
-		// If a commit is not found on that branch for the job, it is ignored
-		commitInfos, err := env.PachClient.FlushJobAll(commit.NewJob(), []*pfs.Branch{pclient.NewBranch("B", "master")})
-		require.NoError(t, err)
-		require.Equal(t, 0, len(commitInfos))
+		// Blocking on a commit that doesn't exist does not work
+		_, err = env.PachClient.BlockCommit("B", "master", commit.ID)
+		require.YesError(t, err)
 	})
 
-	suite.Run("FlushNonExistentBranch", func(t *testing.T) {
+	suite.Run("BlockNonExistentBranch", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2575,23 +2556,27 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 
-		_, err = env.PachClient.FlushJobAll(commit.NewJob(), []*pfs.Branch{pclient.NewBranch("A", "foo")})
+		// Blocking on a branch that doesn't exist does not work
+		_, err = env.PachClient.BlockCommit("A", "foo", commit.ID)
+		require.YesError(t, err)
+
+		_, err = env.PachClient.BlockCommit("A", "foo", "")
 		require.YesError(t, err)
 	})
 
-	suite.Run("EmptyFlush", func(t *testing.T) {
+	suite.Run("EmptyBlock", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.FlushJobAll(nil, nil)
+		_, err := env.PachClient.BlockJob("")
 		require.YesError(t, err)
 	})
 
-	suite.Run("FlushNonExistentCommit", func(t *testing.T) {
+	suite.Run("BlockNonExistentJob", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.FlushJobAll(pclient.NewJob("fake-job"), nil)
+		_, err := env.PachClient.BlockJob("fake-job")
 		require.YesError(t, err)
 	})
 
@@ -4368,10 +4353,10 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		job := commitInfoA.Commit.NewJob()
 
-		commitInfos, err := env.PachClient.FlushJobAll(job, nil)
+		jobInfo, err := env.PachClient.BlockJob(job.ID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, commitInfoA.Commit, commitInfos[0].Commit)
+		require.Equal(t, 1, len(jobInfo.Commits))
+		require.Equal(t, commitInfoA.Commit, jobInfo.Commits[0].Info.Commit)
 
 		require.NoError(t, env.PachClient.CreateBranch("input", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output1", "staging", ""))
@@ -4379,9 +4364,9 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, job.ID, commitInfoB.Commit.ID)
 
-		commitInfos, err = env.PachClient.FlushJobAll(job, nil)
+		jobInfo, err = env.PachClient.BlockJob(job.ID)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(commitInfos))
+		require.Equal(t, 3, len(jobInfo.Commits))
 
 		// The results _should_ be topologically sorted, but there are several
 		// branches with equivalent topological depth
@@ -4390,7 +4375,7 @@ func TestPFS(suite *testing.T) {
 			pfsdb.CommitKey(client.NewCommit("input", "master", job.ID)),
 			pfsdb.CommitKey(client.NewCommit("output1", "staging", job.ID)),
 		}
-		require.ElementsEqualUnderFn(t, expectedCommits, commitInfos, CommitInfoToID)
+		require.ElementsEqualUnderFn(t, expectedCommits, jobInfo.CommitInfos(), CommitInfoToID)
 
 		require.NoError(t, env.PachClient.CreateBranch("output1", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output2", "staging", ""))
@@ -4398,14 +4383,14 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, job.ID, commitInfoC.Commit.ID)
 
-		commitInfos, err = env.PachClient.FlushJobAll(job, nil)
+		jobInfo, err = env.PachClient.BlockJob(job.ID)
 		require.NoError(t, err)
-		require.Equal(t, 5, len(commitInfos))
+		require.Equal(t, 5, len(jobInfo.Commits))
 		expectedCommits = append(expectedCommits, []string{
 			pfsdb.CommitKey(client.NewCommit("output1", "master", job.ID)),
 			pfsdb.CommitKey(client.NewCommit("output2", "staging", job.ID)),
 		}...)
-		require.ElementsEqualUnderFn(t, expectedCommits, commitInfos, CommitInfoToID)
+		require.ElementsEqualUnderFn(t, expectedCommits, jobInfo.CommitInfos(), CommitInfoToID)
 	})
 
 	suite.Run("ListAll", func(t *testing.T) {
@@ -5363,7 +5348,7 @@ func TestPFS(suite *testing.T) {
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.SquashJob(c.Ctx(), &pfs.SquashJobRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.FlushJob(c.Ctx(), &pfs.FlushJobRequest{})
+		_, err = c.PfsAPIClient.InspectJob(c.Ctx(), &pfs.InspectJobRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{})
 		requireNoPanic(err)

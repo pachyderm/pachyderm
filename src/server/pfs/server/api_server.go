@@ -230,22 +230,12 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	})
 }
 
-// InspectJobInTransaction is identical to InspectJob except that it can run
-// inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) InspectJobInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectJobRequest) (*pfs.JobInfo, error) {
-	return a.driver.inspectJob(txnCtx, request.Job)
-}
-
 // InspectJob implements the protobuf pfs.InspectJob RPC
 func (a *apiServer) InspectJob(ctx context.Context, request *pfs.InspectJobRequest) (response *pfs.JobInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	var jobInfo *pfs.JobInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		jobInfo, err = a.driver.inspectJob(txnCtx, request.Job)
-		return err
-	}); err != nil {
+	jobInfo, err := a.driver.inspectJob(ctx, request.Job, request.Wait)
+	if err != nil {
 		return nil, err
 	}
 	return jobInfo, nil
@@ -267,13 +257,6 @@ func (a *apiServer) SquashJob(ctx context.Context, request *pfs.SquashJobRequest
 		return nil, err
 	}
 	return &types.Empty{}, nil
-}
-
-// FlushJob implements the protobuf pfs.FlushJob RPC
-func (a *apiServer) FlushJob(request *pfs.FlushJobRequest, stream pfs.API_FlushJobServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.flushJob(stream.Context(), request.Job, request.ToBranches, stream.Send)
 }
 
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC

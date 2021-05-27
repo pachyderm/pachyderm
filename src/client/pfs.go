@@ -380,6 +380,22 @@ func (c APIClient) InspectJob(jobID string) (*pfs.JobInfo, error) {
 	return resp, nil
 }
 
+// BlockJob blocks until all of a job's commit are finished.  To wait for an
+// individual commit in the job, use BlockCommit instead.
+func (c APIClient) BlockJob(jobID string) (*pfs.JobInfo, error) {
+	resp, err := c.PfsAPIClient.InspectJob(
+		c.Ctx(),
+		&pfs.InspectJobRequest{
+			Job:  NewJob(jobID),
+			Wait: true,
+		},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return resp, nil
+}
+
 // SquashJob squashes the commits of a job into their children.
 func (c APIClient) SquashJob(jobID string) error {
 	_, err := c.PfsAPIClient.SquashJob(
@@ -389,70 +405,6 @@ func (c APIClient) SquashJob(jobID string) error {
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
-}
-
-// FlushJob calls cb with commits that are part of the specified Job.  Note that
-// it can block if jobs have not successfully completed. This in effect waits
-// for all of the jobs that are triggered by a set of commits to complete.
-//
-// If toBranches is not nil then only the commits up to and including those
-// branches will be considered, otherwise all branches affected by the job are
-// considered.
-//
-// Note that it's never necessary to call FlushJob to run PipelineJobs, they'll
-// run no matter what, FlushJob just allows you to wait for them to complete and
-// see their output once they do.
-func (c APIClient) FlushJob(job *pfs.Job, toBranches []*pfs.Branch, cb func(*pfs.CommitInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	client, err := c.PfsAPIClient.FlushJob(
-		c.Ctx(),
-		&pfs.FlushJobRequest{
-			Job:        job,
-			ToBranches: toBranches,
-		},
-	)
-	if err != nil {
-		return err
-	}
-	for {
-		ci, err := client.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		if err := cb(ci); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-	}
-}
-
-// FlushJobAll returns commits that have the specified `commits` as
-// provenance. Note that it can block if jobs have not successfully
-// completed. This in effect waits for all of the jobs that are triggered by a
-// set of commits to complete.
-//
-// If toRepos is not nil then only the commits up to and including those repos
-// will be considered, otherwise all repos are considered.
-//
-// Note that it's never necessary to call FlushJob to run jobs, they'll run
-// no matter what, FlushJobAll just allows you to wait for them to complete and
-// see their output once they do.
-func (c APIClient) FlushJobAll(job *pfs.Job, toBranches []*pfs.Branch) ([]*pfs.CommitInfo, error) {
-	var cis []*pfs.CommitInfo
-	if err := c.FlushJob(job, toBranches, func(ci *pfs.CommitInfo) error {
-		cis = append(cis, ci)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return cis, nil
 }
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as

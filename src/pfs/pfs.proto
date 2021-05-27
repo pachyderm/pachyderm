@@ -236,15 +236,11 @@ message CommitInfos {
 
 message InspectJobRequest {
   Job job = 1;
+  bool wait = 2;
 }
 
 message SquashJobRequest {
   Job job = 1;
-}
-
-message FlushJobRequest {
-  Job job = 1;
-  repeated Branch to_branches = 2;
 }
 
 message SubscribeCommitRequest {
@@ -494,8 +490,6 @@ service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   // SquashJob squashes the commits of a job into their children.
   rpc SquashJob(SquashJobRequest) returns (google.protobuf.Empty) {}
-  // FlushJob waits for downstream commits to finish.
-  rpc FlushJob(FlushJobRequest) returns (stream CommitInfo) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}

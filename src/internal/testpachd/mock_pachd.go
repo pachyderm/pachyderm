@@ -406,7 +406,6 @@ type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.Co
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
 type squashCommitFunc func(context.Context, *pfs.SquashJobRequest) (*types.Empty, error)
 type inspectJobFunc func(context.Context, *pfs.InspectJobRequest) (*pfs.JobInfo, error)
-type flushJobFunc func(*pfs.FlushJobRequest, pfs.API_FlushJobServer) error
 type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeCommitServer) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
 type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Empty, error)
@@ -439,7 +438,6 @@ type mockInspectCommit struct{ handler inspectCommitFunc }
 type mockListCommit struct{ handler listCommitFunc }
 type mockSquashJob struct{ handler squashCommitFunc }
 type mockInspectJob struct{ handler inspectJobFunc }
-type mockFlushJob struct{ handler flushJobFunc }
 type mockSubscribeCommit struct{ handler subscribeCommitFunc }
 type mockClearCommit struct{ handler clearCommitFunc }
 type mockCreateBranch struct{ handler createBranchFunc }
@@ -472,7 +470,6 @@ func (mock *mockInspectCommit) Use(cb inspectCommitFunc)     { mock.handler = cb
 func (mock *mockListCommit) Use(cb listCommitFunc)           { mock.handler = cb }
 func (mock *mockSquashJob) Use(cb squashCommitFunc)          { mock.handler = cb }
 func (mock *mockInspectJob) Use(cb inspectJobFunc)           { mock.handler = cb }
-func (mock *mockFlushJob) Use(cb flushJobFunc)               { mock.handler = cb }
 func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc) { mock.handler = cb }
 func (mock *mockClearCommit) Use(cb clearCommitFunc)         { mock.handler = cb }
 func (mock *mockCreateBranch) Use(cb createBranchFunc)       { mock.handler = cb }
@@ -511,7 +508,6 @@ type mockPFSServer struct {
 	ListCommit      mockListCommit
 	SquashJob       mockSquashJob
 	InspectJob      mockInspectJob
-	FlushJob        mockFlushJob
 	SubscribeCommit mockSubscribeCommit
 	ClearCommit     mockClearCommit
 	CreateBranch    mockCreateBranch
@@ -599,12 +595,6 @@ func (api *pfsServerAPI) InspectJob(ctx context.Context, req *pfs.InspectJobRequ
 		return api.mock.InspectJob.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.InspectJob")
-}
-func (api *pfsServerAPI) FlushJob(req *pfs.FlushJobRequest, serv pfs.API_FlushJobServer) error {
-	if api.mock.FlushJob.handler != nil {
-		return api.mock.FlushJob.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock pfs.FlushJob")
 }
 func (api *pfsServerAPI) SubscribeCommit(req *pfs.SubscribeCommitRequest, serv pfs.API_SubscribeCommitServer) error {
 	if api.mock.SubscribeCommit.handler != nil {

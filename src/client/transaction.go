@@ -350,9 +350,6 @@ func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRe
 func (c *pfsBuilderClient) InspectJob(ctx context.Context, req *pfs.InspectJobRequest, opts ...grpc.CallOption) (*pfs.JobInfo, error) {
 	return nil, unsupportedError("InspectJob")
 }
-func (c *pfsBuilderClient) FlushJob(ctx context.Context, req *pfs.FlushJobRequest, opts ...grpc.CallOption) (pfs.API_FlushJobClient, error) {
-	return nil, unsupportedError("FlushJob")
-}
 func (c *pfsBuilderClient) SubscribeCommit(ctx context.Context, req *pfs.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs.API_SubscribeCommitClient, error) {
 	return nil, unsupportedError("SubscribeCommit")
 }

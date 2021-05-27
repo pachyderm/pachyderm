@@ -53,6 +53,15 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
 }
 
+// InspectJobInTransaction is identical to InspectJob except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *validatedAPIServer) InspectJob(ctx context.Context, request *pfs.InspectJobRequest) (*pfs.JobInfo, error) {
+	if request.Job == nil {
+		return nil, errors.New("job cannot be nil")
+	}
+	return a.apiServer.InspectJob(ctx, request)
+}
+
 // SquashJobInTransaction is identical to SquashJob except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *validatedAPIServer) SquashJobInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashJobRequest) error {
@@ -109,14 +118,6 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 		return err
 	}
 	return a.apiServer.WalkFile(request, server)
-}
-
-// FlushJob implements the protobuf pfs.FlushJob RPC
-func (a *validatedAPIServer) FlushJob(request *pfs.FlushJobRequest, server pfs.API_FlushJobServer) error {
-	if request.Job == nil {
-		return errors.New("job cannot be nil")
-	}
-	return a.apiServer.FlushJob(request, server)
 }
 
 // GlobFile implements the protobuf pfs.GlobFile RPC

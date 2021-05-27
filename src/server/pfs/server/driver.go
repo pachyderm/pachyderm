@@ -1245,13 +1245,43 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	return nil
 }
 
-func (d *driver) inspectJob(txnCtx *txncontext.TransactionContext, job *pfs.Job) (*pfs.JobInfo, error) {
-	jobInfo := &pfs.StoredJobInfo{}
-	if err := d.jobs.ReadWrite(txnCtx.SqlTx).Get(job.ID, jobInfo); err != nil {
-		return nil, err
-	}
+func (d *driver) inspectJob(ctx context.Context, job *pfs.Job, wait bool) (*pfs.JobInfo, error) {
+	var jobInfo *pfs.StoredJobInfo
+	result := &pfs.JobInfo{Job: job}
 
-	result := &pfs.JobInfo{Job: jobInfo.Job}
+	if wait {
+		var err error
+		var commitInfos []*pfs.CommitInfo
+		jobInfo, commitInfos, err = d.blockJob(ctx, job)
+		if err != nil {
+			return nil, err
+		}
+		for _, commitInfo := range commitInfos {
+			result.Commits = append(result.Commits, &pfs.JobInfo_JobCommit{
+				Info: commitInfo,
+			})
+		}
+	} else {
+		jobInfo = &pfs.StoredJobInfo{}
+		if err := d.jobs.ReadOnly(ctx).Get(job.ID, jobInfo); err != nil {
+			return nil, err
+		}
+
+		if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			for _, branchInfo := range jobInfo.Branches {
+				commitInfo, err := d.resolveCommit(txnCtx.SqlTx, branchInfo.Branch.NewCommit(job.ID))
+				if err != nil {
+					return err
+				}
+				result.Commits = append(result.Commits, &pfs.JobInfo_JobCommit{
+					Info: commitInfo,
+				})
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	}
 
 	// The JobInfo only stores direct provenance, build up the full provenance DAG
 	// from when each commit in the Job was created.  Note that this is not
@@ -1279,28 +1309,72 @@ func (d *driver) inspectJob(txnCtx *txncontext.TransactionContext, job *pfs.Job)
 	}
 
 	// Load the commit info and provenance list for each branch in the job
-	for _, branchInfo := range jobInfo.Branches {
-		commitInfo, err := d.resolveCommit(txnCtx.SqlTx, branchInfo.Branch.NewCommit(job.ID))
-		if err != nil {
-			return nil, err
-		}
-
-		provenance := []*pfs.Branch{}
-		subMap, ok := provenanceMap[pfsdb.BranchKey(branchInfo.Branch)]
+	for _, jobCommit := range result.Commits {
+		jobCommit.Provenance = []*pfs.Branch{}
+		branchKey := pfsdb.BranchKey(jobCommit.Info.Commit.Branch)
+		subMap, ok := provenanceMap[branchKey]
 		if !ok {
-			return nil, errors.Errorf("internal error: missing provenance for branch %s", pfsdb.BranchKey(branchInfo.Branch))
+			return nil, errors.Errorf("internal error: missing provenance for branch %s", branchKey)
 		}
 		for _, branch := range subMap {
-			provenance = append(provenance, branch)
+			jobCommit.Provenance = append(jobCommit.Provenance, branch)
 		}
-
-		result.Commits = append(result.Commits, &pfs.JobInfo_JobCommit{
-			Provenance: provenance,
-			Info:       commitInfo,
-		})
 	}
 
 	return result, nil
+}
+
+func (d *driver) blockJob(ctx context.Context, job *pfs.Job) (*pfs.StoredJobInfo, []*pfs.CommitInfo, error) {
+	commitInfos := map[string]*pfs.CommitInfo{}
+	enqueued := map[string]struct{}{}
+	branchQueue := []*pfs.Branch{}
+
+	// The set of branches in the job may change if any commits are triggered,
+	// so reload it after each wait.
+	jobInfo := &pfs.StoredJobInfo{}
+	collectBranches := func() error {
+		if err := d.jobs.ReadOnly(ctx).Get(job.ID, jobInfo); err != nil {
+			return err
+		}
+		for _, branchInfo := range jobInfo.Branches {
+			if _, ok := enqueued[pfsdb.BranchKey(branchInfo.Branch)]; !ok {
+				branchQueue = append(branchQueue, branchInfo.Branch)
+				enqueued[pfsdb.BranchKey(branchInfo.Branch)] = struct{}{}
+			}
+		}
+		return nil
+	}
+
+	if err := collectBranches(); err != nil {
+		return nil, nil, err
+	}
+
+	for len(branchQueue) > 0 {
+		branch := branchQueue[0]
+		branchQueue = branchQueue[1:]
+
+		commit := client.NewCommit(branch.Repo.Name, branch.Name, job.ID)
+		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
+		if err != nil {
+			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
+				continue // just skip this
+			}
+			return nil, nil, err
+		}
+		commitInfos[pfsdb.BranchKey(commitInfo.Commit.Branch)] = commitInfo
+		if err := collectBranches(); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	// Due to triggered branches, the result set may not have come in the same
+	// order as in the JobInfo, so sort it here.
+	result := []*pfs.CommitInfo{}
+	for _, branchInfo := range jobInfo.Branches {
+		result = append(result, commitInfos[pfsdb.BranchKey(branchInfo.Branch)])
+	}
+
+	return jobInfo, result, nil
 }
 
 func (d *driver) squashJob(txnCtx *txncontext.TransactionContext, job *pfs.Job) error {
@@ -1490,87 +1564,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		}
 		return nil
 	}, watch.WithSort(col.SortByCreateRevision, col.SortAscend), watch.IgnoreDelete)
-}
-
-func (d *driver) flushJob(ctx context.Context, job *pfs.Job, toBranches []*pfs.Branch, cb func(*pfs.CommitInfo) error) error {
-	waitForBranch := func(branch *pfs.Branch) error {
-		commit := client.NewCommit(branch.Repo.Name, branch.Name, job.ID)
-		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
-		if err != nil {
-			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
-				return nil // just skip this
-			}
-			return err
-		}
-		return cb(commitInfo)
-	}
-
-	enqueued := map[string]struct{}{}
-	branchQueue := []*pfs.Branch{}
-
-	enqueueBranch := func(branch *pfs.Branch) {
-		if _, ok := enqueued[pfsdb.BranchKey(branch)]; !ok {
-			branchQueue = append(branchQueue, branch)
-			enqueued[pfsdb.BranchKey(branch)] = struct{}{}
-		}
-	}
-
-	// If no branches were specified, load the set of branches from the job
-	if toBranches == nil {
-		// The set of branches in the job may change if any commits are triggered,
-		// so reload it after each wait.
-		collectBranches := func() error {
-			jobInfo := &pfs.StoredJobInfo{}
-			if err := d.jobs.ReadOnly(ctx).Get(job.ID, jobInfo); err != nil {
-				return err
-			}
-			for _, branchInfo := range jobInfo.Branches {
-				enqueueBranch(branchInfo.Branch)
-			}
-			return nil
-		}
-		if err := collectBranches(); err != nil {
-			return err
-		}
-		for len(branchQueue) > 0 {
-			if err := waitForBranch(branchQueue[0]); err != nil {
-				return err
-			}
-			branchQueue = branchQueue[1:]
-			if err := collectBranches(); err != nil {
-				return err
-			}
-		}
-	} else {
-		// Otherwise we know exactly which commits to wait on, except that they may
-		// be downstream of a trigger.  Wait on trigger sources first, then try to
-		// wait on the specified branch commits.  If the trigger does not happen,
-		// those commits will not exist.
-		for _, branch := range toBranches {
-			enqueueBranch(branch)
-		}
-
-		// Check if each branch has a trigger
-		for i := 0; i < len(branchQueue); i++ {
-			branch := branchQueue[i]
-			branchInfo := &pfs.BranchInfo{}
-			if err := d.branches.ReadOnly(ctx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
-				return err
-			}
-			if branchInfo.Trigger != nil {
-				enqueueBranch(client.NewBranch(branchInfo.Branch.Repo.Name, branchInfo.Trigger.Branch))
-			}
-		}
-
-		// The queue is reverse-topologically sorted, so wait on it in reverse
-		for i := len(branchQueue) - 1; i >= 0; i-- {
-			if err := waitForBranch(branchQueue[i]); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
