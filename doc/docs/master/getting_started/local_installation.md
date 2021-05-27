@@ -74,7 +74,7 @@ by following these steps:
 1. In the Docker Desktop Preferences, enable Kubernetes:
    ![Docker Desktop Enable K8s](../images/k8s_docker_desktop.png)
 
-1. From the command prompt, confirm that Kubernetes is running:
+2. From the command prompt, confirm that Kubernetes is running:
    ```shell
    kubectl get all
    ```
@@ -86,6 +86,31 @@ by following these steps:
    * To reset your Kubernetes cluster that runs on Docker Desktop, click
    the **Reset Kubernetes cluster** button. See image above. 
 
+### Using Kind (https://kind.sigs.k8s.io/)
+
+If you want to use Kind please note that this is experimental still.
+
+1. Install Kind according to https://kind.sigs.k8s.io/
+
+2. Install pachctl as per instructions below (Deploy Pachyderm), please note NOT to deploy just yet!
+
+3.  Deploy pachd in kind 
+    ```shell
+      pachctl deploy local --no-expose-docker-socket
+      ```
+      
+4. Continue as given below (in Deploy Pachyderm) until you reach 
+      ```shell
+      pachctl config ...
+      ```
+      
+5. Configure Pachyderm to connect directly to the Kind instance:
+
+      ```shell
+      pachctl config update context `pachctl config get active-context` --pachd-address=127.0.0.1
+      ```
+      
+6. Again - note that this IS experimental and for example GPU support is unverified.
 
 ### Install `pachctl`
 
