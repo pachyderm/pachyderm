@@ -1,30 +1,18 @@
 import {ButtonLink} from '@pachyderm/components';
 import escapeRegExp from 'lodash/escapeRegExp';
-import React from 'react';
+import React, {useCallback} from 'react';
 
 import styles from './SearchResultItem.module.css';
 
 type SearchResultItemProps = {
   title: string;
   searchValue: string;
-  linkText: string;
   onClick: () => void;
 };
 
-const SearchResultItem: React.FC<SearchResultItemProps> = ({
-  title,
-  linkText,
-  searchValue,
-  onClick,
-}) => {
-  return (
-    <div className={styles.base}>
-      <Underline text={title} search={searchValue} />
-      <ButtonLink onClick={onClick} small>
-        {linkText}
-      </ButtonLink>
-    </div>
-  );
+type SecondaryActionProps = {
+  linkText?: string;
+  onClick?: () => void;
 };
 
 const Underline = ({text = '', search = ''}) => {
@@ -45,4 +33,41 @@ const Underline = ({text = '', search = ''}) => {
   );
 };
 
-export default SearchResultItem;
+export const SearchResultItem: React.FC<SearchResultItemProps> = ({
+  title,
+  searchValue,
+  onClick,
+  children,
+}) => {
+  return (
+    <div className={styles.base} onClick={onClick}>
+      <Underline text={title} search={searchValue} />
+      {children}
+    </div>
+  );
+};
+
+export const SecondaryAction: React.FC<SecondaryActionProps> = ({
+  linkText,
+  onClick,
+}) => {
+  const onClickHandler = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+      if (onClick) {
+        e.stopPropagation();
+        onClick();
+      }
+    },
+    [onClick],
+  );
+
+  return (
+    <ButtonLink
+      small
+      onClick={onClickHandler}
+      className={styles.secondaryAction}
+    >
+      {linkText}
+    </ButtonLink>
+  );
+};

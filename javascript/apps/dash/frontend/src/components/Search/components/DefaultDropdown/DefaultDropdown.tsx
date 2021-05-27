@@ -10,8 +10,9 @@ import {NotFoundMessage, SectionHeader} from '../Messaging';
 import styles from './DefaultDropdown.module.css';
 
 const DefaultDropdown: React.FC = () => {
-  const {setSearchValue, history, clearSearchHistory} = useSearch();
-  const {stateCounts, allJobs, handleJobChipClick} = useDefaultDropdown();
+  const {history, clearSearchHistory} = useSearch();
+  const {stateCounts, allJobs, handleHistoryChipClick, handleJobChipClick} =
+    useDefaultDropdown();
 
   const recentSearch = () => {
     if (history.length > 0) {
@@ -25,14 +26,13 @@ const DefaultDropdown: React.FC = () => {
           </div>
           <div className={styles.recentSearchGroup}>
             <ChipGroup>
-              {history.map((item, i) => (
+              {history.map((searchValue) => (
                 <Chip
-                  key={item}
-                  onClick={() => {
-                    setSearchValue(item);
-                  }}
+                  key={searchValue}
+                  onClickValue={searchValue}
+                  onClick={handleHistoryChipClick}
                 >
-                  {item}
+                  {searchValue}
                 </Chip>
               ))}
             </ChipGroup>

@@ -17,7 +17,11 @@ interface SearchResolver {
 
 const searchResolver: SearchResolver = {
   Query: {
-    searchResults: async (_parent, {args: {query}}, {pachClient, log}) => {
+    searchResults: async (
+      _parent,
+      {args: {query, limit}},
+      {pachClient, log},
+    ) => {
       if (query) {
         //Check if query is commit or job id
         if (UUID_WITHOUT_DASHES_REGEX.test(query)) {
@@ -58,9 +62,13 @@ const searchResolver: SearchResolver = {
 
         return {
           pipelines: pipelines
-            ? pipelines.map((p) => pipelineInfoToGQLPipeline(p))
+            ? pipelines
+                .slice(0, limit || pipelines.length)
+                .map((p) => pipelineInfoToGQLPipeline(p))
             : [],
-          repos: filteredRepos.map((r) => repoInfoToGQLRepo(r)),
+          repos: filteredRepos
+            .slice(0, limit || repos.length)
+            .map((r) => repoInfoToGQLRepo(r)),
           job: null,
         };
       }

@@ -17,7 +17,7 @@ export const useDefaultDropdown = () => {
   const {pipelineJobs} = useJobList({projectId});
   const browserHistory = useHistory();
   const {setUrlFromViewState} = useUrlQueryState();
-  const {closeDropdown} = useSearch();
+  const {closeDropdown, setSearchValue} = useSearch();
 
   const stateCounts = useMemo(
     () => countBy(pipelineJobs, (job) => job.state),
@@ -40,5 +40,14 @@ export const useDefaultDropdown = () => {
     [browserHistory, closeDropdown, projectId, setUrlFromViewState],
   );
 
-  return {stateCounts, allJobs, handleJobChipClick};
+  const handleHistoryChipClick = useCallback(
+    (value?: string) => {
+      if (value) {
+        setSearchValue(value);
+      }
+    },
+    [setSearchValue],
+  );
+
+  return {stateCounts, allJobs, handleHistoryChipClick, handleJobChipClick};
 };

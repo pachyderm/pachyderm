@@ -303,6 +303,7 @@ input RepoQueryArgs {
 input SearchResultQueryArgs {
   projectId: String!
   query: String!
+  limit: Int
 }
 
 type Query {

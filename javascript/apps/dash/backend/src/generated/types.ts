@@ -380,6 +380,7 @@ export type SchedulingSpec = {
 export type SearchResultQueryArgs = {
   projectId: Scalars['String'];
   query: Scalars['String'];
+  limit?: Maybe<Scalars['Int']>;
 };
 
 export type SearchResults = {

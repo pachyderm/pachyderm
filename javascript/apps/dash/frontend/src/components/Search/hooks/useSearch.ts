@@ -25,11 +25,16 @@ export const useSearch = () => {
 
   const addToSearchHistory = useCallback(
     (value: string) => {
-      if (
-        history.length < MAX_HISTORY &&
-        !history.find((item) => item === value)
-      ) {
-        setHistory((prevHistory) => [...prevHistory, value]);
+      const index = history.findIndex((i) => i === value);
+      if (index < 0) {
+        if (history.length < MAX_HISTORY) {
+          setHistory([value, ...history]);
+        } else {
+          setHistory([value, ...history].slice(0, -1));
+        }
+      } else {
+        history.splice(index, 1);
+        setHistory([value, ...history]);
       }
     },
     [history, setHistory],
