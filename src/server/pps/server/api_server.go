@@ -24,7 +24,6 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/metadata"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1623,17 +1622,6 @@ func (a *apiServer) sudo(ctx context.Context, f func(*client.APIClient) error) e
 	return f(superUserClient)
 }
 
-// sudoTransaction is a convenience wrapper around sudo for api calls in a transaction
-func (a *apiServer) sudoTransaction(txnCtx *txncontext.TransactionContext, f func(*txncontext.TransactionContext) error) error {
-	return a.sudo(txnCtx.ClientContext, func(superUserClient *client.APIClient) error {
-		superCtx := *txnCtx
-		// simulate the GRPC setting outgoing as incoming - this should only change the auth token
-		outMD, _ := metadata.FromOutgoingContext(superUserClient.Ctx())
-		superCtx.ClientContext = metadata.NewIncomingContext(superUserClient.Ctx(), outMD)
-		return f(&superCtx)
-	})
-}
-
 // writePipelineInfo is a helper for CreatePipeline that creates a commit with
 // 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where a
 // user is updating a pipeline and the case where a user is creating a new
@@ -2705,47 +2693,13 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	return a.deletePipeline(ctx, request)
 }
 
-// cleanUpSpecBranch handles the corner case where a spec branch was created for
-// a new pipeline, but the etcdPipelineInfo was never created successfully (and
-// the pipeline is in an inconsistent state). It's called if a pipeline's
-// etcdPipelineInfo wasn't found, checks if an orphaned branch exists, and if
-// so, deletes the orphaned branch.
-func (a *apiServer) cleanUpSpecBranch(ctx context.Context, pipeline string) error {
-	pachClient := a.env.GetPachClient(ctx)
-	specBranch := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewBranch("master")
-	specBranchInfo, err := pachClient.PfsAPIClient.InspectBranch(
-		ctx,
-		&pfs.InspectBranchRequest{
-			Branch: specBranch,
-		},
-	)
-	if err != nil && (specBranchInfo != nil && specBranchInfo.Head != nil) {
-		// No spec branch (and no etcd pointer) => the pipeline doesn't exist
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "pipeline %v was not found", pipeline)
-	}
-	// branch exists but head is nil => pipeline creation never finished/
-	// pps state is invalid. Delete nil branch
-	_, err = pachClient.PfsAPIClient.DeleteBranch(
-		ctx,
-		&pfs.DeleteBranchRequest{
-			Branch: specBranch,
-			Force:  true,
-		},
-	)
-	return grpcutil.ScrubGRPC(err)
-}
-
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	// Check if there's an StoredPipelineInfo for this pipeline. If not, we can't
 	// authorize, and must return something here
 	pipelinePtr := pps.StoredPipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
-			if err := a.cleanUpSpecBranch(ctx, request.Pipeline.Name); err != nil {
-				return nil, err
-			}
 			return &types.Empty{}, nil
-
 		}
 		return nil, err
 	}

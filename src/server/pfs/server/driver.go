@@ -196,7 +196,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 		if existingRepoInfo.Description == description {
 			// Don't overwrite the stored proto with an identical value. This
-			// optimization is impactful because pps will frequently update the __spec__
+			// optimization is impactful because pps will frequently update the spec
 			// repo to make sure it exists.
 			return nil
 		}
@@ -319,6 +319,31 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	return result, nil
 }
 
+func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []pfs.RepoInfo, force bool) error {
+	var branchInfos []*pfs.BranchInfo
+	for _, repo := range repos {
+		for _, branch := range repo.Branches {
+			bi, err := d.inspectBranch(txnCtx, branch)
+			if err != nil {
+				return errors.Wrapf(err, "error inspecting branch %s", pretty.CompactPrintBranch(branch))
+			}
+			branchInfos = append(branchInfos, bi)
+		}
+	}
+	// sort ascending provenance
+	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
+	for i := range branchInfos {
+		// delete branches from most provenance to least, that way if one
+		// branch is provenant on another (such as with stats branches) we
+		// delete them in the right order.
+		branch := branchInfos[len(branchInfos)-1-i].Branch
+		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
+			return errors.Wrapf(err, "delete branch %s", pretty.CompactPrintBranch(branch))
+		}
+	}
+	return nil
+}
+
 func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
@@ -340,22 +365,32 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 	// if this is a user repo, delete any dependent repos
 	if repo.Type == pfs.UserRepoType {
-		var dependentRepos []pfs.Repo
+		var dependentRepos []pfs.RepoInfo
 		var otherRepo pfs.RepoInfo
 		if err := repos.GetByIndex(pfsdb.ReposNameIndex, repo.Name, &otherRepo, col.DefaultOptions(), func(key string) error {
 			if otherRepo.Repo.Type != repo.Type {
-				dependentRepos = append(dependentRepos, *otherRepo.Repo)
+				dependentRepos = append(dependentRepos, otherRepo)
 			}
 			return nil
 		}); err != nil && !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
 		}
 
+		// we expect potentially complicated provenance relationships between dependent repos
+		// deleting all branches at once allows for topological sorting, avoiding deletion order issues
+		if err := d.deleteAllBranchesFromRepos(txnCtx, append(dependentRepos, repoInfo), force); err != nil {
+			return errors.Wrap(err, "error deleting branches")
+		}
+
 		// delete the repos we found
 		for _, dep := range dependentRepos {
-			if err := d.deleteRepo(txnCtx, &dep, force); err != nil {
-				return errors.Wrapf(err, "error deleting dependent repo %q", pfsdb.RepoKey(&dep))
+			if err := d.deleteRepo(txnCtx, dep.Repo, force); err != nil {
+				return errors.Wrapf(err, "error deleting dependent repo %q", pfsdb.RepoKey(dep.Repo))
 			}
+		}
+	} else {
+		if err := d.deleteAllBranchesFromRepos(txnCtx, []pfs.RepoInfo{repoInfo}, force); err != nil {
+			return err
 		}
 	}
 
@@ -374,16 +409,18 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	for _, ci := range commitInfos {
 		// Remove the deleted commit from the upstream commits' subvenance.
 		for _, prov := range ci.Provenance {
-			// Check if we've fixed prov already (or if it's in this repo and
-			// doesn't need to be fixed
-			if visited[prov.Commit.ID] || proto.Equal(prov.Commit.Branch.Repo, repo) {
+			// Check if we've fixed prov already (or if it's in this repo or another dependent one
+			// and so doesn't need to be fixed
+			provRepo := prov.Commit.Branch.Repo
+			fromDependentRepo := proto.Equal(provRepo, repo) || (repo.Type == pfs.UserRepoType && provRepo.Name == repo.Name)
+			if visited[prov.Commit.ID] || fromDependentRepo {
 				continue
 			}
 			// or if the repo has already been deleted
 			ri := new(pfs.RepoInfo)
 			if err := repos.Get(pfsdb.RepoKey(prov.Commit.Branch.Repo), ri); err != nil {
 				if !col.IsErrNotFound(err) {
-					return errors.Wrapf(err, "repo %v was not found", pretty.CompactPrintRepo(prov.Commit.Branch.Repo))
+					return errors.Wrapf(err, "repo %s was not found", pretty.CompactPrintRepo(prov.Commit.Branch.Repo))
 				}
 				continue
 			}
@@ -403,7 +440,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 				provCI.Subvenance = provCI.Subvenance[:subvTo]
 				return nil
 			}); err != nil {
-				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s@%s", pretty.CompactPrintRepo(prov.Commit.Branch.Repo), prov.Commit.ID)
+				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s", pretty.CompactPrintCommit(prov.Commit))
 			}
 		}
 		if err := d.commitStore.DropFilesetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
@@ -411,25 +448,6 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		}
 	}
 
-	var branchInfos []*pfs.BranchInfo
-	for _, branch := range repoInfo.Branches {
-		bi, err := d.inspectBranch(txnCtx, branch)
-		if err != nil {
-			return errors.Wrapf(err, "error inspecting branch %s", branch)
-		}
-		branchInfos = append(branchInfos, bi)
-	}
-	// sort ascending provenance
-	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
-	for i := range branchInfos {
-		// delete branches from most provenance to least, that way if one
-		// branch is provenant on another (such as with stats branches) we
-		// delete them in the right order.
-		branch := branchInfos[len(branchInfos)-1-i].Branch
-		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
-			return errors.Wrapf(err, "delete branch %s", branch)
-		}
-	}
 	// Despite the fact that we already deleted each branch with
 	// deleteBranch, we also do branches.DeleteAll(), this insulates us
 	// against certain corruption situations where the RepoInfo doesn't
@@ -542,7 +560,7 @@ func (d *driver) makeCommit(
 	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
 	if ok1 && ok2 {
 		log.Infof("Appending provenance for spout: %v %v", spoutName, spoutCommit)
-		provenance = append(provenance, client.NewSystemRepo(spoutName, pfs.SpecRepoType).NewCommit(spoutName, spoutCommit).NewProvenance())
+		provenance = append(provenance, client.NewSystemRepo(spoutName, pfs.SpecRepoType).NewCommit("master", spoutCommit).NewProvenance())
 	}
 
 	// Set newCommitInfo.Started and possibly newCommitInfo.Finished. Enforce:
@@ -621,8 +639,8 @@ func (d *driver) makeCommit(
 				branchProvMap[pfsdb.BranchKey(prov.Commit.Branch)] = true
 			}
 		}
-		// Don't count the __spec__ repo towards the provenance count
-		// since spouts will have __spec__ as provenance, but need to accept commits
+		// Don't count the spec repo towards the provenance count
+		// since spouts will have spec as provenance, but need to accept commits
 		provenanceCount := len(branchInfo.Provenance)
 		for _, p := range branchInfo.Provenance {
 			if p.Repo.Type == pfs.SpecRepoType {

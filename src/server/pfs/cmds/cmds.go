@@ -633,6 +633,13 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				trigger.Branch == "" {
 				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
 			}
+			if trigger.Branch == "" {
+				trigger = nil
+			}
+			var headCommit *pfs.Commit
+			if head != "" {
+				headCommit = branch.Repo.NewCommit("", head)
+			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -643,7 +650,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				_, err := c.PfsAPIClient.CreateBranch(
 					c.Ctx(),
 					&pfsclient.CreateBranchRequest{
-						Head:       branch.Repo.NewCommit("", head),
+						Head:       headCommit,
 						Branch:     branch,
 						Provenance: provenance,
 						Trigger:    trigger,

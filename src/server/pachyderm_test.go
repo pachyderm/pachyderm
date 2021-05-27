@@ -10441,50 +10441,6 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	require.Matches(t, "outside of transaction", err.Error())
 }
 
-func TestPipelineSpecCommitCleanup(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	input := tu.UniqueString("in")
-	pipeline := tu.UniqueString("pipeline")
-
-	createPipeline := func(c *client.APIClient) error {
-		return c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
-			client.NewPFSInput(input, "/*"),
-			"",
-			false,
-		)
-	}
-	require.NoError(t, c.CreateRepo(input))
-
-	txn, err := c.StartTransaction()
-	require.NoError(t, err)
-	require.NoError(t, createPipeline(c.WithTransaction(txn)))
-	require.NoError(t, c.DeleteTransaction(txn))
-
-	commits, err := c.ListCommitByRepo(client.NewSystemRepo(pipeline, pfs.SpecRepoType))
-	require.NoError(t, err)
-	require.Equal(t, len(commits), 0)
-
-	require.NoError(t, createPipeline(c))
-	// creating again should error
-	require.YesError(t, createPipeline(c))
-	// resulting in any temporary spec commit being deleted
-	commits, err = c.ListCommitByRepo(client.NewSystemRepo(pipeline, pfs.SpecRepoType))
-	require.NoError(t, err)
-	require.Equal(t, len(commits), 1)
-}
-
 //lint:ignore U1000 false positive from staticcheck
 func restartAll(t *testing.T) {
 	k := tu.GetKubeClient(t)
