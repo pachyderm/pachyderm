@@ -462,6 +462,9 @@ lint:
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
 
+check-buckets:
+	./etc/testing/circle/check_buckets.sh
+
 .PHONY: \
 	install \
 	install-clean \
@@ -490,6 +493,7 @@ spellcheck:
 	docker-tag \
 	docker-push \
 	docker-push-pipeline-build \
+	check-buckets \
 	check-kubectl \
 	check-kubectl-connection \
 	launch-kube \
