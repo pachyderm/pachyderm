@@ -75,10 +75,10 @@ type driver struct {
 	prefix     string
 
 	// collections
-	repos    col.PostgresCollection
-	commits  col.PostgresCollection
-	branches col.PostgresCollection
-	jobs     col.PostgresCollection
+	repos      col.PostgresCollection
+	commits    col.PostgresCollection
+	branches   col.PostgresCollection
+	commitsets col.PostgresCollection
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -95,7 +95,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	repos := pfsdb.Repos(env.GetDBClient(), env.GetPostgresListener())
 	commits := pfsdb.Commits(env.GetDBClient(), env.GetPostgresListener())
 	branches := pfsdb.Branches(env.GetDBClient(), env.GetPostgresListener())
-	jobs := pfsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
+	commitsets := pfsdb.Commitsets(env.GetDBClient(), env.GetPostgresListener())
 
 	// Setup driver struct.
 	d := &driver{
@@ -106,7 +106,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		repos:      repos,
 		commits:    commits,
 		branches:   branches,
-		jobs:       jobs,
+		commitsets: commitsets,
 		// TODO: set maxFanIn based on downward API.
 	}
 	// Setup tracker and chunk / fileset storage.
@@ -380,17 +380,17 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 			return err
 		}
 
-		// Also delete the entry for this commit from its job
-		jobInfo := &pfs.StoredJobInfo{}
-		if err := d.jobs.ReadWrite(txnCtx.SqlTx).Update(ci.Commit.ID, jobInfo, func() error {
+		// Also delete the entry for this commit from its Commitset
+		commitset := &pfs.StoredCommitset{}
+		if err := d.commitsets.ReadWrite(txnCtx.SqlTx).Update(ci.Commit.ID, commitset, func() error {
 			idx := -1
-			for i, branchInfo := range jobInfo.Branches {
+			for i, branchInfo := range commitset.Branches {
 				if proto.Equal(branchInfo.Branch, ci.Commit.Branch) {
 					idx = i
 				}
 			}
 			if idx != -1 {
-				jobInfo.Branches = append(jobInfo.Branches[:idx], jobInfo.Branches[idx+1:]...)
+				commitset.Branches = append(commitset.Branches[:idx], commitset.Branches[idx+1:]...)
 			}
 			return nil
 		}); err != nil {
@@ -461,7 +461,7 @@ func (d *driver) startCommit(
 	// New commit and commitInfo
 	newCommit := &pfs.Commit{
 		Branch: branch,
-		ID:     txnCtx.Job.ID,
+		ID:     txnCtx.CommitsetID,
 	}
 	newCommitInfo := &pfs.CommitInfo{
 		Commit:      newCommit,
@@ -511,7 +511,7 @@ func (d *driver) startCommit(
 	if ok1 && ok2 {
 		specBranch := client.NewBranch(ppsconsts.SpecRepo, spoutName)
 		specCommit := specBranch.NewCommit(spoutCommit)
-		log.Infof("Adding spout spec commit to current job: %s", pfsdb.CommitKey(specCommit))
+		log.Infof("Adding spout spec commit to current commitset: %s", pfsdb.CommitKey(specCommit))
 		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
 			return nil, err
 		}
@@ -586,17 +586,17 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 }
 
 func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.Commit, branch *pfs.Branch) (*pfs.Commit, error) {
-	// It is considered an error if the Job attempts to use two different commits
-	// from the same branch.  Therefore, if there is already a row for the given
-	// branch and it doesn't reference the same parent commit, we fail.
-	// In the future it might be useful to be able to start and finish multiple
+	// It is considered an error if the Commitset attempts to use two different
+	// commits from the same branch.  Therefore, if there is already a row for the
+	// given branch and it doesn't reference the same parent commit, we fail.  In
+	// the future it might be useful to be able to start and finish multiple
 	// commits on the same branch within a transaction, but this should have the
 	// same end result as starting and finshing a single commit on that branch, so
 	// there isn't a clear use case, so it is treated like an error for now to
 	// simplify PFS logic.
 	commit := &pfs.Commit{
 		Branch: proto.Clone(branch).(*pfs.Branch),
-		ID:     txnCtx.Job.ID,
+		ID:     txnCtx.CommitsetID,
 	}
 
 	// Update the branch head to point to the alias
@@ -730,16 +730,16 @@ func (d *driver) propagateCommits(txnCtx *txncontext.TransactionContext, branche
 		return branchInfo, nil
 	}
 
-	jobBranchProvLengths := map[string]int{}
-	jobBranchMap := map[string]*pfs.BranchInfo{}
-	addJobBranch := func(branchInfo *pfs.BranchInfo) {
-		// We only store the 'Branch' and 'DirectProvenance' fields in the job structure
-		jobBranchMap[pfsdb.BranchKey(branchInfo.Branch)] = &pfs.BranchInfo{
+	branchProvLengths := map[string]int{}
+	branchMap := map[string]*pfs.BranchInfo{}
+	addBranch := func(branchInfo *pfs.BranchInfo) {
+		// We only store the 'Branch' and 'DirectProvenance' fields in the Commitset structure
+		branchMap[pfsdb.BranchKey(branchInfo.Branch)] = &pfs.BranchInfo{
 			Branch:           branchInfo.Branch,
 			DirectProvenance: branchInfo.DirectProvenance,
 		}
 		// Save the length of the provenance for topological sorting at the end
-		jobBranchProvLengths[pfsdb.BranchKey(branchInfo.Branch)] = len(branchInfo.Provenance)
+		branchProvLengths[pfsdb.BranchKey(branchInfo.Branch)] = len(branchInfo.Provenance)
 	}
 
 	// subvBIMap = ( ⋃{b.subvenance | b ∈ branches} ) ∪ branches
@@ -775,7 +775,7 @@ func (d *driver) propagateCommits(txnCtx *txncontext.TransactionContext, branche
 	// Iterate through downstream branches and determine which need a new commit.
 	for _, subvBI := range subvBIs {
 		// Check the commits we would be provenant on
-		needsJob := false
+		needsCommit := false
 		for _, provOfSubvB := range subvBI.Provenance {
 			provOfSubvBI, err := getBranchInfo(provOfSubvB)
 			if err != nil {
@@ -785,41 +785,41 @@ func (d *driver) propagateCommits(txnCtx *txncontext.TransactionContext, branche
 				continue
 			}
 			if subvBI.Head == nil || provOfSubvBI.Head.ID != subvBI.Head.ID {
-				needsJob = true
+				needsCommit = true
 				break
 			}
 		}
 
-		// If there are no upstream commits for this job and no commit in this branch, we can skip
-		if !needsJob && (subvBI.Head == nil || subvBI.Head.ID != txnCtx.Job.ID) {
+		// If there are no upstream commits for this Commitset and no commit in this branch, we can skip
+		if !needsCommit && (subvBI.Head == nil || subvBI.Head.ID != txnCtx.CommitsetID) {
 			continue
 		}
 
-		// Create aliases for any provenant branches which are not already part of this job
+		// Create aliases for any provenant branches which are not already part of this Commitset
 		for _, provOfSubvB := range subvBI.Provenance {
 			provOfSubvBI, err := getBranchInfo(provOfSubvB)
 			if err != nil {
 				return err
 			}
-			// If one of the provenances has a nil head, skip adding it to this job
+			// If one of the provenances has a nil head, skip adding it to this Commitset
 			if provOfSubvBI.Head != nil {
-				if provOfSubvBI.Head.ID != txnCtx.Job.ID {
+				if provOfSubvBI.Head.ID != txnCtx.CommitsetID {
 					if _, err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
 						return err
 					}
 					// Update the cached branch head
-					provOfSubvBI.Head.ID = txnCtx.Job.ID
+					provOfSubvBI.Head.ID = txnCtx.CommitsetID
 				}
-				// Generate the new job commit info for this branch
-				addJobBranch(provOfSubvBI)
+				// Generate the new Commitset commit info for this branch
+				addBranch(provOfSubvBI)
 			}
 		}
 
-		if subvBI.Head == nil || subvBI.Head.ID != txnCtx.Job.ID {
-			// This branch has no commit for this job, start a new output commit in 'subvBI.Branch'
+		if subvBI.Head == nil || subvBI.Head.ID != txnCtx.CommitsetID {
+			// This branch has no commit for this Commitset, start a new output commit in 'subvBI.Branch'
 			newCommit := &pfs.Commit{
 				Branch: subvBI.Branch,
-				ID:     txnCtx.Job.ID,
+				ID:     txnCtx.CommitsetID,
 			}
 			newCommitInfo := &pfs.CommitInfo{
 				Commit:  newCommit,
@@ -849,37 +849,37 @@ func (d *driver) propagateCommits(txnCtx *txncontext.TransactionContext, branche
 				return err
 			}
 		}
-		// Make sure we add the job commit to the job
-		addJobBranch(subvBI)
+		// Make sure we add the branch to the Commitset
+		addBranch(subvBI)
 	}
 
-	// If we have any PFS changes in this transaction, write out the job info
-	if len(jobBranchMap) > 0 {
-		jobInfo := &pfs.StoredJobInfo{}
-		if err := d.jobs.ReadWrite(txnCtx.SqlTx).Upsert(txnCtx.Job.ID, jobInfo, func() error {
-			if jobInfo.Job == nil {
-				// Job does not already exist
-				jobInfo.Job = txnCtx.Job
+	// If we have any PFS changes in this transaction, write out the Commitset
+	if len(branchMap) > 0 {
+		commitset := &pfs.StoredCommitset{}
+		if err := d.commitsets.ReadWrite(txnCtx.SqlTx).Upsert(txnCtx.CommitsetID, commitset, func() error {
+			if commitset.ID == "" {
+				// Commitset does not already exist
+				commitset.ID = txnCtx.CommitsetID
 			} else {
-				// Job already exists
+				// Commitset already exists
 				// This should _only_ happen when this transaction is comprised solely
-				// of a FinishCommit which reuses an existing Job ID.  Some branches may
-				// have changed since this job was created, so we want to leave those
-				// alone - remove any extant BranchInfos.
-				for _, branchInfo := range jobInfo.Branches {
-					delete(jobBranchMap, pfsdb.BranchKey(branchInfo.Branch))
+				// of a FinishCommit which reuses an existing Commitset ID.  Some
+				// branches may have changed since this Commitset was created, so we
+				// want to leave those alone - remove any extant BranchInfos.
+				for _, branchInfo := range commitset.Branches {
+					delete(branchMap, pfsdb.BranchKey(branchInfo.Branch))
 				}
 			}
 
 			// Copy over all remaining BranchInfos
-			for _, branchInfo := range jobBranchMap {
-				jobInfo.Branches = append(jobInfo.Branches, branchInfo)
+			for _, branchInfo := range branchMap {
+				commitset.Branches = append(commitset.Branches, branchInfo)
 			}
 
 			// Topologically sort the BranchInfos
-			sort.Slice(jobInfo.Branches, func(i, j int) bool {
-				iLen := jobBranchProvLengths[pfsdb.BranchKey(jobInfo.Branches[i].Branch)]
-				jLen := jobBranchProvLengths[pfsdb.BranchKey(jobInfo.Branches[j].Branch)]
+			sort.Slice(commitset.Branches, func(i, j int) bool {
+				iLen := branchProvLengths[pfsdb.BranchKey(commitset.Branches[i].Branch)]
+				jLen := branchProvLengths[pfsdb.BranchKey(commitset.Branches[j].Branch)]
 				return iLen < jLen
 			})
 			return nil
@@ -924,19 +924,19 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 	if commitInfo.Finished == nil {
 		switch blockState {
 		case pfs.CommitState_READY:
-			// Load the jobInfo so we can wait on provenant commits (we can't use the
+			// Load the commitset so we can wait on provenant commits (we can't use the
 			// branchInfo.Provenance since it may have changed since then).
-			jobInfo := &pfs.StoredJobInfo{}
-			if err := d.jobs.ReadOnly(ctx).Get(commitInfo.Commit.ID, jobInfo); err != nil {
+			commitset := &pfs.StoredCommitset{}
+			if err := d.commitsets.ReadOnly(ctx).Get(commitInfo.Commit.ID, commitset); err != nil {
 				return nil, err
 			}
 
-			// Wait for each provenant commit to be finished - the StoredJobInfo only
+			// Wait for each provenant commit to be finished - the StoredCommitset only
 			// stores direct provenance, but we only want to wait for those inputs.
-			for _, branchInfo := range jobInfo.Branches {
+			for _, branchInfo := range commitset.Branches {
 				if proto.Equal(branchInfo.Branch, commitInfo.Commit.Branch) {
 					for _, branch := range branchInfo.DirectProvenance {
-						commit := client.NewCommit(branch.Repo.Name, branch.Name, jobInfo.Job.ID)
+						commit := client.NewCommit(branch.Repo.Name, branch.Name, commitset.ID)
 						if _, err := d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED); err != nil {
 							return nil, err
 						}
@@ -1165,7 +1165,7 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		var cis []*pfs.CommitInfo
 		// sendCis sorts cis and passes them to f
 		sendCis := func() error {
-			// TODO(global ids): sort based off of sorting in JobInfo - or actually,
+			// TODO(global ids): sort based off of sorting in Commitset - or actually,
 			// do we even need to sort if we ban intra-repo provenance?
 			// Sort in reverse provenance order, i.e. commits come before their provenance
 			// sort.Slice(cis, func(i, j int) bool { return len(cis[i].Provenance) > len(cis[j].Provenance) })
@@ -1245,35 +1245,35 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	return nil
 }
 
-func (d *driver) inspectJob(ctx context.Context, job *pfs.Job, wait bool) (*pfs.JobInfo, error) {
-	var jobInfo *pfs.StoredJobInfo
-	result := &pfs.JobInfo{Job: job}
+func (d *driver) inspectCommitset(ctx context.Context, commitsetID string, wait bool) (*pfs.Commitset, error) {
+	var commitset *pfs.StoredCommitset
+	result := &pfs.Commitset{ID: commitsetID}
 
 	if wait {
 		var err error
 		var commitInfos []*pfs.CommitInfo
-		jobInfo, commitInfos, err = d.blockJob(ctx, job)
+		commitset, commitInfos, err = d.blockCommitset(ctx, commitsetID)
 		if err != nil {
 			return nil, err
 		}
 		for _, commitInfo := range commitInfos {
-			result.Commits = append(result.Commits, &pfs.JobInfo_JobCommit{
+			result.Commits = append(result.Commits, &pfs.Commitset_Entry{
 				Info: commitInfo,
 			})
 		}
 	} else {
-		jobInfo = &pfs.StoredJobInfo{}
-		if err := d.jobs.ReadOnly(ctx).Get(job.ID, jobInfo); err != nil {
+		commitset = &pfs.StoredCommitset{}
+		if err := d.commitsets.ReadOnly(ctx).Get(commitsetID, commitset); err != nil {
 			return nil, err
 		}
 
 		if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			for _, branchInfo := range jobInfo.Branches {
-				commitInfo, err := d.resolveCommit(txnCtx.SqlTx, branchInfo.Branch.NewCommit(job.ID))
+			for _, branchInfo := range commitset.Branches {
+				commitInfo, err := d.resolveCommit(txnCtx.SqlTx, branchInfo.Branch.NewCommit(commitsetID))
 				if err != nil {
 					return err
 				}
-				result.Commits = append(result.Commits, &pfs.JobInfo_JobCommit{
+				result.Commits = append(result.Commits, &pfs.Commitset_Entry{
 					Info: commitInfo,
 				})
 			}
@@ -1283,12 +1283,12 @@ func (d *driver) inspectJob(ctx context.Context, job *pfs.Job, wait bool) (*pfs.
 		}
 	}
 
-	// The JobInfo only stores direct provenance, build up the full provenance DAG
-	// from when each commit in the Job was created.  Note that this is not
+	// The Commitset only stores direct provenance, build up the full provenance DAG
+	// from when each commit in the Commitset was created.  Note that this is not
 	// necessarily a snapshot in time as `CreateBranch` and triggers can add to an
-	// existing job.
+	// existing Commitset.
 	provenanceMap := map[string]map[string]*pfs.Branch{}
-	for _, branchInfo := range jobInfo.Branches {
+	for _, branchInfo := range commitset.Branches {
 		subMap, ok := provenanceMap[pfsdb.BranchKey(branchInfo.Branch)]
 		if !ok {
 			subMap = map[string]*pfs.Branch{}
@@ -1299,7 +1299,7 @@ func (d *driver) inspectJob(ctx context.Context, job *pfs.Job, wait bool) (*pfs.
 		for _, prov := range branchInfo.DirectProvenance {
 			provProvMap, ok := provenanceMap[pfsdb.BranchKey(prov)]
 			if !ok {
-				return nil, errors.Errorf("internal error: job %s has unsorted provenance", job.ID)
+				return nil, errors.Errorf("internal error: commitset %s has unsorted provenance", commitsetID)
 			}
 			subMap[pfsdb.BranchKey(prov)] = prov
 			for key, provProv := range provProvMap {
@@ -1308,35 +1308,35 @@ func (d *driver) inspectJob(ctx context.Context, job *pfs.Job, wait bool) (*pfs.
 		}
 	}
 
-	// Load the commit info and provenance list for each branch in the job
-	for _, jobCommit := range result.Commits {
-		jobCommit.Provenance = []*pfs.Branch{}
-		branchKey := pfsdb.BranchKey(jobCommit.Info.Commit.Branch)
+	// Fill the provenance list for each branch in the Commitset
+	for _, entry := range result.Commits {
+		entry.Provenance = []*pfs.Branch{}
+		branchKey := pfsdb.BranchKey(entry.Info.Commit.Branch)
 		subMap, ok := provenanceMap[branchKey]
 		if !ok {
 			return nil, errors.Errorf("internal error: missing provenance for branch %s", branchKey)
 		}
 		for _, branch := range subMap {
-			jobCommit.Provenance = append(jobCommit.Provenance, branch)
+			entry.Provenance = append(entry.Provenance, branch)
 		}
 	}
 
 	return result, nil
 }
 
-func (d *driver) blockJob(ctx context.Context, job *pfs.Job) (*pfs.StoredJobInfo, []*pfs.CommitInfo, error) {
+func (d *driver) blockCommitset(ctx context.Context, commitsetID string) (*pfs.StoredCommitset, []*pfs.CommitInfo, error) {
 	commitInfos := map[string]*pfs.CommitInfo{}
 	enqueued := map[string]struct{}{}
 	branchQueue := []*pfs.Branch{}
 
-	// The set of branches in the job may change if any commits are triggered,
+	// The set of branches in the Commitset may change if any commits are triggered,
 	// so reload it after each wait.
-	jobInfo := &pfs.StoredJobInfo{}
+	commitset := &pfs.StoredCommitset{}
 	collectBranches := func() error {
-		if err := d.jobs.ReadOnly(ctx).Get(job.ID, jobInfo); err != nil {
+		if err := d.commitsets.ReadOnly(ctx).Get(commitsetID, commitset); err != nil {
 			return err
 		}
-		for _, branchInfo := range jobInfo.Branches {
+		for _, branchInfo := range commitset.Branches {
 			if _, ok := enqueued[pfsdb.BranchKey(branchInfo.Branch)]; !ok {
 				branchQueue = append(branchQueue, branchInfo.Branch)
 				enqueued[pfsdb.BranchKey(branchInfo.Branch)] = struct{}{}
@@ -1353,7 +1353,7 @@ func (d *driver) blockJob(ctx context.Context, job *pfs.Job) (*pfs.StoredJobInfo
 		branch := branchQueue[0]
 		branchQueue = branchQueue[1:]
 
-		commit := client.NewCommit(branch.Repo.Name, branch.Name, job.ID)
+		commit := client.NewCommit(branch.Repo.Name, branch.Name, commitsetID)
 		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
 		if err != nil {
 			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
@@ -1368,28 +1368,28 @@ func (d *driver) blockJob(ctx context.Context, job *pfs.Job) (*pfs.StoredJobInfo
 	}
 
 	// Due to triggered branches, the result set may not have come in the same
-	// order as in the JobInfo, so sort it here.
+	// order as in the Commitset, so sort it here.
 	result := []*pfs.CommitInfo{}
-	for _, branchInfo := range jobInfo.Branches {
+	for _, branchInfo := range commitset.Branches {
 		result = append(result, commitInfos[pfsdb.BranchKey(branchInfo.Branch)])
 	}
 
-	return jobInfo, result, nil
+	return commitset, result, nil
 }
 
-func (d *driver) squashJob(txnCtx *txncontext.TransactionContext, job *pfs.Job) error {
+func (d *driver) squashCommitset(txnCtx *txncontext.TransactionContext, commitsetID string) error {
 	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
 
-	// 1) Look up the job info
-	jobInfo := &pfs.StoredJobInfo{}
-	if err := d.jobs.ReadWrite(txnCtx.SqlTx).Get(job.ID, jobInfo); err != nil {
+	// 1) Look up the Commitset info
+	commitset := &pfs.StoredCommitset{}
+	if err := d.commitsets.ReadWrite(txnCtx.SqlTx).Get(commitsetID, commitset); err != nil {
 		return err
 	}
 
-	// 2) Delete each commit in the job
+	// 2) Delete each commit in the Commitset
 	affectedBranches := []*pfs.Branch{}
-	for _, branchInfo := range jobInfo.Branches {
-		commit := jobInfo.Job.NewCommit(branchInfo.Branch)
+	for _, branchInfo := range commitset.Branches {
+		commit := commitset.NewCommit(branchInfo.Branch)
 
 		// Store commitInfo in 'deleted' and remove commit from etcd
 		commitInfo := &pfs.CommitInfo{}
@@ -1508,8 +1508,8 @@ func (d *driver) squashJob(txnCtx *txncontext.TransactionContext, job *pfs.Job) 
 		}
 	}
 
-	// 5) Delete the job
-	if err := d.jobs.ReadWrite(txnCtx.SqlTx).Delete(job.ID); err != nil {
+	// 5) Delete the Commitset
+	if err := d.commitsets.ReadWrite(txnCtx.SqlTx).Delete(commitsetID); err != nil {
 		return err
 	}
 
@@ -1623,22 +1623,22 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Branch.Repo.Name && branch.Repo.Type == commit.Branch.Repo.Type && (branch.Name == commit.Branch.Name || branch.Name == commit.ID)
 		if !sameTarget && provenance != nil {
-			jobInfo := &pfs.StoredJobInfo{}
-			if err := d.jobs.ReadWrite(txnCtx.SqlTx).Get(ci.Commit.ID, jobInfo); err != nil {
+			commitset := &pfs.StoredCommitset{}
+			if err := d.commitsets.ReadWrite(txnCtx.SqlTx).Get(ci.Commit.ID, commitset); err != nil {
 				return err
 			}
 			for _, provBranch := range provenance {
-				// Check that the job for the given commit has values for every branch in provenance
-				for _, branchInfo := range jobInfo.Branches {
+				// Check that the Commitset for the given commit has values for every branch in provenance
+				for _, branchInfo := range commitset.Branches {
 					if proto.Equal(provBranch, branchInfo.Branch) {
 						provBranchInfo := &pfs.BranchInfo{}
 						if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(provBranch), provBranchInfo); err != nil {
 							return err
 						}
 
-						if provBranchInfo.Head.ID != jobInfo.Job.ID {
-							jobCommit := jobInfo.Job.NewCommit(branchInfo.Branch)
-							return errors.Errorf("cannot create branch %q with commit %q as head because commit has %s as provenance but that commit is not the head of branch %s", branch.Name, commit.ID, pfsdb.CommitKey(jobCommit), pfsdb.CommitKey(provBranchInfo.Head))
+						if provBranchInfo.Head.ID != commitset.ID {
+							branchCommit := commitset.NewCommit(branchInfo.Branch)
+							return errors.Errorf("cannot create branch %q with commit %q as head because commit has %s as provenance but that commit is not the head of branch %s", branch.Name, commit.ID, pfsdb.CommitKey(branchCommit), pfsdb.CommitKey(provBranchInfo.Head))
 						}
 					}
 				}

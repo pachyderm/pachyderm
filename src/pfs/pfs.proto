@@ -126,24 +126,20 @@ message CommitInfo {
   uint64 size_bytes = 8;
 }
 
-message Job {
+// StoredCommitset is what is stored in the database for a Commitset
+message StoredCommitset {
   string id = 1 [(gogoproto.customname) = "ID"];
-}
-
-// StoredJobInfo is what is stored in the database for a Job
-message StoredJobInfo {
-  Job job = 1;
   repeated BranchInfo branches = 2; // Only the 'branch' and 'direct_provenance' fields are stored
 }
 
-// JobInfo is what is returned to users when inspecting or listing Jobs
-message JobInfo {
-  message JobCommit {
+// Commitset is what is returned to users when inspecting or listing Commitsets
+message Commitset {
+  message Entry {
     repeated Branch provenance = 1;
     CommitInfo info = 2;
   }
-  Job job = 1;
-  repeated JobCommit commits = 2;
+  string id = 1 [(gogoproto.customname) = "ID"];
+  repeated Entry commits = 2;
 }
 
 enum FileType {
@@ -234,13 +230,13 @@ message CommitInfos {
   repeated CommitInfo commit_info = 1;
 }
 
-message InspectJobRequest {
-  Job job = 1;
+message InspectCommitsetRequest {
+  string id = 1 [(gogoproto.customname) = "ID"];
   bool wait = 2;
 }
 
-message SquashJobRequest {
-  Job job = 1;
+message SquashCommitsetRequest {
+  string id = 1 [(gogoproto.customname) = "ID"];
 }
 
 message SubscribeCommitRequest {
@@ -261,7 +257,7 @@ message CreateBranchRequest {
   Branch branch = 2;
   repeated Branch provenance = 3;
   Trigger trigger = 4;
-  bool new_job = 5; // overrides the default behavior of using the same Job as 'head'
+  bool new_commitset = 5; // overrides the default behavior of using the same Commitset as 'head'
 }
 
 message InspectBranchRequest {
@@ -486,10 +482,10 @@ service API {
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
 
-  // InspectJob returns the info about a job.
-  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
-  // SquashJob squashes the commits of a job into their children.
-  rpc SquashJob(SquashJobRequest) returns (google.protobuf.Empty) {}
+  // InspectCommitset returns the info about a Commitset.
+  rpc InspectCommitset(InspectCommitsetRequest) returns (Commitset) {}
+  // SquashCommitset squashes the commits of a Commitset into their children.
+  rpc SquashCommitset(SquashCommitsetRequest) returns (google.protobuf.Empty) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}

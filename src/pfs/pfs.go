@@ -28,25 +28,6 @@ func (c *Commit) FullID() string {
 	return fmt.Sprintf("%s@%s", c.Branch.Repo.Name, c.ID)
 }
 
-func (c *Commit) NewJob() *Job {
-	return &Job{ID: c.ID}
-}
-
-func (j *Job) NewCommit(branch *Branch) *Commit {
-	return &Commit{
-		Branch: proto.Clone(branch).(*Branch),
-		ID:     j.ID,
-	}
-}
-
-func (j *JobInfo) CommitInfos() []*CommitInfo {
-	result := make([]*CommitInfo, len(j.Commits))
-	for _, c := range j.Commits {
-		result = append(result, c.Info)
-	}
-	return result
-}
-
 // NewHash returns a hash that PFS uses internally to compute checksums.
 func NewHash() hash.Hash {
 	return pachhash.New()
@@ -94,4 +75,26 @@ func (c *Commit) NewProvenance() *CommitProvenance {
 	return &CommitProvenance{
 		Commit: proto.Clone(c).(*Commit),
 	}
+}
+
+func (cs *StoredCommitset) NewCommit(branch *Branch) *Commit {
+	return &Commit{
+		Branch: proto.Clone(branch).(*Branch),
+		ID:     cs.ID,
+	}
+}
+
+func (cs *Commitset) NewCommit(branch *Branch) *Commit {
+	return &Commit{
+		Branch: proto.Clone(branch).(*Branch),
+		ID:     cs.ID,
+	}
+}
+
+func (cs *Commitset) CommitInfos() []*CommitInfo {
+	result := make([]*CommitInfo, len(cs.Commits))
+	for _, c := range cs.Commits {
+		result = append(result, c.Info)
+	}
+	return result
 }

@@ -51,11 +51,6 @@ func NewFile(repoName string, branchName string, commitID string, path string) *
 	}
 }
 
-// NewJob creates a pfs.Job.
-func NewJob(jobID string) *pfs.Job {
-	return &pfs.Job{ID: jobID}
-}
-
 // CreateRepo creates a new Repo object in pfs with the given name. Repos are
 // the top level data object in pfs and should be used to store data of a
 // similar type. For example rather than having a single Repo for an entire
@@ -366,12 +361,12 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
-// InspectJob returns info about a specific Job.
-func (c APIClient) InspectJob(jobID string) (*pfs.JobInfo, error) {
-	resp, err := c.PfsAPIClient.InspectJob(
+// InspectCommitset returns info about a specific Commitset.
+func (c APIClient) InspectCommitset(id string) (*pfs.Commitset, error) {
+	resp, err := c.PfsAPIClient.InspectCommitset(
 		c.Ctx(),
-		&pfs.InspectJobRequest{
-			Job: NewJob(jobID),
+		&pfs.InspectCommitsetRequest{
+			ID: id,
 		},
 	)
 	if err != nil {
@@ -380,13 +375,13 @@ func (c APIClient) InspectJob(jobID string) (*pfs.JobInfo, error) {
 	return resp, nil
 }
 
-// BlockJob blocks until all of a job's commit are finished.  To wait for an
-// individual commit in the job, use BlockCommit instead.
-func (c APIClient) BlockJob(jobID string) (*pfs.JobInfo, error) {
-	resp, err := c.PfsAPIClient.InspectJob(
+// BlockCommitset blocks until all of a Commitset's commits are finished.  To
+// wait for an individual commit, use BlockCommit instead.
+func (c APIClient) BlockCommitset(id string) (*pfs.Commitset, error) {
+	resp, err := c.PfsAPIClient.InspectCommitset(
 		c.Ctx(),
-		&pfs.InspectJobRequest{
-			Job:  NewJob(jobID),
+		&pfs.InspectCommitsetRequest{
+			ID:   id,
 			Wait: true,
 		},
 	)
@@ -396,12 +391,12 @@ func (c APIClient) BlockJob(jobID string) (*pfs.JobInfo, error) {
 	return resp, nil
 }
 
-// SquashJob squashes the commits of a job into their children.
-func (c APIClient) SquashJob(jobID string) error {
-	_, err := c.PfsAPIClient.SquashJob(
+// SquashCommitset squashes the commits of a Commitset into their children.
+func (c APIClient) SquashCommitset(id string) error {
+	_, err := c.PfsAPIClient.SquashCommitset(
 		c.Ctx(),
-		&pfs.SquashJobRequest{
-			Job: NewJob(jobID),
+		&pfs.SquashCommitsetRequest{
+			ID: id,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

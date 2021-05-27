@@ -15,7 +15,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
@@ -143,9 +142,9 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
 	}
 
-	// Set the transaction's JobID to be the same as the transaction ID, which
+	// Set the transaction's CommitsetID to be the same as the transaction ID, which
 	// will be used for any newly made commits.
-	txnCtx.Job = &pfs.Job{ID: info.Transaction.ID}
+	txnCtx.CommitsetID = info.Transaction.ID
 
 	directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
 	for i, request := range info.Requests {
@@ -160,8 +159,8 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 			response.Commit, err = directTxn.StartCommit(request.StartCommit)
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
-		} else if request.SquashJob != nil {
-			err = directTxn.SquashJob(request.SquashJob)
+		} else if request.SquashCommitset != nil {
+			err = directTxn.SquashCommitset(request.SquashCommitset)
 		} else if request.CreateBranch != nil {
 			err = directTxn.CreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {

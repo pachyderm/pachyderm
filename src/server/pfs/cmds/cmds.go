@@ -444,7 +444,6 @@ $ {{alias}} foo@master --from XXX`,
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
 	// TODO(global ids): rename this command since we've dropped the 'flush' RPC
-	var branches cmdutil.RepeatedStringArg
 	flushJob := &cobra.Command{
 		Use:   "{{alias}} ( <job> | <repo>@<branch> )",
 		Short: "Wait for all commits caused by the specified commits to finish and return them.",
@@ -457,10 +456,10 @@ $ {{alias}} XXX
 $ {{alias}} XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			// Parse args before connecting
-			var job *pfs.Job
+			var commitsetID string
 			var branch *pfs.Branch
 			if uuid.IsUUIDWithoutDashes(args[0]) {
-				job = &pfs.Job{ID: args[0]}
+				commitsetID = args[0]
 			} else {
 				var err error
 				branch, err = cmdutil.ParseBranch(args[0])
@@ -480,16 +479,7 @@ $ {{alias}} XXX -b bar@baz`,
 				if err != nil {
 					return err
 				}
-				job = ci.Commit.NewJob()
-			}
-
-			var toBranches []*pfs.Branch
-			for _, arg := range branches {
-				branch, err := cmdutil.ParseBranch(arg)
-				if err != nil {
-					return err
-				}
-				toBranches = append(toBranches, branch)
+				commitsetID = ci.Commit.ID
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
@@ -499,22 +489,21 @@ $ {{alias}} XXX -b bar@baz`,
 				}
 			}()
 
-			jobInfo, err := c.BlockJob(job.ID, toBranches)
+			commitset, err := c.BlockCommitset(commitsetID)
 			if err != nil {
 				return err
 			}
 
-			for _, jobCommit := range jobInfo.Commits {
+			for _, entry := range commitset.Commits {
 				if raw {
-					return marshaller.Marshal(os.Stdout, jobCommit.Info)
+					return marshaller.Marshal(os.Stdout, entry.Info)
 				}
-				pretty.PrintCommitInfo(w, jobCommit.Info, fullTimestamps)
+				pretty.PrintCommitInfo(w, entry.Info, fullTimestamps)
 			}
 
 			return nil
 		}),
 	}
-	flushJob.Flags().VarP(&branches, "branch", "b", "Wait only for commits leading to a specific set of branches")
 	flushJob.MarkFlagCustom("branch", "__pachctl_get_branch")
 	flushJob.Flags().AddFlagSet(rawFlags)
 	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
@@ -588,7 +577,7 @@ $ {{alias}} test@master --new`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.SquashJob(args[0])
+				return c.SquashCommitset(args[0])
 			})
 		}),
 	}

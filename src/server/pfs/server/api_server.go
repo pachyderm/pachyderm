@@ -187,15 +187,16 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// FinishCommit in a transaction by itself has special handling with regards
-		// to its job ID.  It is possible that this transaction will create new
-		// commits via triggers, but we want those commits to be associated with the
-		// same job that the finished commit is associated with.  Therefore, we
-		// override the txnCtx's Job field to point to the same commit.
+		// to its Commitset ID.  It is possible that this transaction will create
+		// new commits via triggers, but we want those commits to be associated with
+		// the same Commitset that the finished commit is associated with.
+		// Therefore, we override the txnCtx's CommitsetID field to point to the
+		// same commit.
 		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
 		if err != nil {
 			return err
 		}
-		txnCtx.Job.ID = commitInfo.Commit.ID
+		txnCtx.CommitsetID = commitInfo.Commit.ID
 		return a.FinishCommitInTransaction(txnCtx, request)
 	}); err != nil {
 		return nil, err
@@ -230,29 +231,29 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	})
 }
 
-// InspectJob implements the protobuf pfs.InspectJob RPC
-func (a *apiServer) InspectJob(ctx context.Context, request *pfs.InspectJobRequest) (response *pfs.JobInfo, retErr error) {
+// InspectCommitset implements the protobuf pfs.InspectCommitset RPC
+func (a *apiServer) InspectCommitset(ctx context.Context, request *pfs.InspectCommitsetRequest) (response *pfs.Commitset, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	jobInfo, err := a.driver.inspectJob(ctx, request.Job, request.Wait)
+	commitset, err := a.driver.inspectCommitset(ctx, request.ID, request.Wait)
 	if err != nil {
 		return nil, err
 	}
-	return jobInfo, nil
+	return commitset, nil
 }
 
-// SquashJobInTransaction is identical to SquashJob except that it can run
+// SquashCommitsetInTransaction is identical to SquashCommitset except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) SquashJobInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashJobRequest) error {
-	return a.driver.squashJob(txnCtx, request.Job)
+func (a *apiServer) SquashCommitsetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitsetRequest) error {
+	return a.driver.squashCommitset(txnCtx, request.ID)
 }
 
-// SquashJob implements the protobuf pfs.SquashJob RPC
-func (a *apiServer) SquashJob(ctx context.Context, request *pfs.SquashJobRequest) (response *types.Empty, retErr error) {
+// SquashCommitset implements the protobuf pfs.SquashCommitset RPC
+func (a *apiServer) SquashCommitset(ctx context.Context, request *pfs.SquashCommitsetRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.SquashJob(request)
+		return txn.SquashCommitset(request)
 	}); err != nil {
 		return nil, err
 	}
@@ -285,20 +286,20 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// CreateBranch in a transaction by itself has special handling with regards
-		// to its job ID.  In order to better support a 'deferred processing' workflow
-		// with global IDs, it is useful for moving a branch head to be done in the
-		// same Job as the parent commit of the new branch head - this is similar to
-		// how we handle triggers when finishing a commit.  Therefore we override
-		// the Job ID being used by this operation, and propagateCommits will update
-		// the existing JobInfo structure.  As an escape hatch in case of an
-		// unexpected workload, this behavior can be overridden by setting
-		// NewJob=true in the request.
-		if request.Head != nil && !request.NewJob {
+		// to its Commitset ID.  In order to better support a 'deferred processing'
+		// workflow with global IDs, it is useful for moving a branch head to be
+		// done in the same Commitset as the parent commit of the new branch head -
+		// this is similar to how we handle triggers when finishing a commit.
+		// Therefore we override the Commitset ID being used by this operation, and
+		// propagateCommits will update the existing Commitset structure.  As an
+		// escape hatch in case of an unexpected workload, this behavior can be
+		// overridden by setting NewCommitset=true in the request.
+		if request.Head != nil && !request.NewCommitset {
 			commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Head)
 			if err != nil {
 				return err
 			}
-			txnCtx.Job.ID = commitInfo.Commit.ID
+			txnCtx.CommitsetID = commitInfo.Commit.ID
 		}
 		return a.CreateBranchInTransaction(txnCtx, request)
 	}); err != nil {

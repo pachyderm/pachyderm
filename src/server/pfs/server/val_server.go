@@ -53,29 +53,6 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
 }
 
-// InspectJobInTransaction is identical to InspectJob except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) InspectJob(ctx context.Context, request *pfs.InspectJobRequest) (*pfs.JobInfo, error) {
-	if request.Job == nil {
-		return nil, errors.New("job cannot be nil")
-	}
-	return a.apiServer.InspectJob(ctx, request)
-}
-
-// SquashJobInTransaction is identical to SquashJob except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) SquashJobInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashJobRequest) error {
-	// Validate arguments
-	if request.Job == nil {
-		return errors.New("job cannot be nil")
-	}
-	// TODO(global ids): how to verify that a user is allowed to squash a job given that it can touch several repos
-	// if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_DELETE_COMMIT); err != nil {
-	//	return err
-	//}
-	return a.apiServer.SquashJobInTransaction(txnCtx, request)
-}
-
 // InspectFile implements the protobuf pfs.InspectFile RPC
 func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	if err := validateFile(request.File); err != nil {

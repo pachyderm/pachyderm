@@ -27,7 +27,7 @@ type PfsWrites interface {
 
 	StartCommit(*pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
-	SquashJob(*pfs.SquashJobRequest) error
+	SquashCommitset(*pfs.SquashCommitsetRequest) error
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
@@ -133,9 +133,9 @@ func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) erro
 	return t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) SquashJob(original *pfs.SquashJobRequest) error {
-	req := proto.Clone(original).(*pfs.SquashJobRequest)
-	return t.txnEnv.serviceEnv.PfsServer().SquashJobInTransaction(t.txnCtx, req)
+func (t *directTransaction) SquashCommitset(original *pfs.SquashCommitsetRequest) error {
+	req := proto.Clone(original).(*pfs.SquashCommitsetRequest)
+	return t.txnEnv.serviceEnv.PfsServer().SquashCommitsetInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
@@ -210,8 +210,8 @@ func (t *appendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
 	return err
 }
 
-func (t *appendTransaction) SquashJob(req *pfs.SquashJobRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashJob: req})
+func (t *appendTransaction) SquashCommitset(req *pfs.SquashCommitsetRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommitset: req})
 	return err
 }
 
@@ -278,7 +278,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 		txnCtx := &txncontext.TransactionContext{
 			ClientContext: ctx,
 			SqlTx:         sqlTx,
-			Job:           &pfs.Job{ID: uuid.NewWithoutDashes()},
+			CommitsetID:   uuid.NewWithoutDashes(),
 		}
 		if env.serviceEnv.PfsServer() != nil {
 			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
@@ -301,7 +301,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 		txnCtx := &txncontext.TransactionContext{
 			ClientContext:  ctx,
 			SqlTx:          sqlTx,
-			Job:            &pfs.Job{ID: uuid.NewWithoutDashes()},
+			CommitsetID:    uuid.NewWithoutDashes(),
 			CommitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 		}
 		if env.serviceEnv.PfsServer() != nil {

@@ -864,7 +864,7 @@ func (a *apiServer) FlushPipelineJob(request *pps.FlushPipelineJobRequest, resp 
 		a.Log(request, fmt.Sprintf("stream containing %d PipelineJobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 
-	// TODO(global ids): implement whatever use case this is trying to solve (maybe pfs.InspectJob with wait can do most of the work?)
+	// TODO(global ids): implement whatever use case this is trying to solve (maybe pfs.InspectCommitset with wait can do most of the work?)
 	/*
 		var toRepos []*pfs.Repo
 		for _, pipeline := range request.ToPipelines {
@@ -2976,8 +2976,8 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			return nil, err
 		}
 		// Load the Job for the PipelineJob and determine the provenance
-		jobInfo, err := pfsClient.InspectJob(ctx, &pfs.InspectJobRequest{
-			Job: client.NewJob(pipelineJobInfo.OutputCommit.ID),
+		jobInfo, err := pfsClient.InspectCommitset(ctx, &pfs.InspectCommitsetRequest{
+			ID: pipelineJobInfo.OutputCommit.ID,
 		})
 		if err != nil {
 			return nil, err

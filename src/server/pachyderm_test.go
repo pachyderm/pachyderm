@@ -8244,10 +8244,10 @@ func TestCancelManyPipelineJobs(t *testing.T) {
 	}
 }
 
-// TestSquashJobPropagation deletes an input commit and makes sure all
+// TestSquashCommitsetPropagation deletes an input commit and makes sure all
 // downstream commits are also deleted.
 // DAG in this test: repo -> pipeline[0] -> pipeline[1]
-func TestSquashJobPropagation(t *testing.T) {
+func TestSquashCommitsetPropagation(t *testing.T) {
 	// TODO(2.0 optional): Implement put file split in V2.
 	t.Skip("Put file split not implemented in V2")
 	// 	if testing.Short() {
@@ -8258,7 +8258,7 @@ func TestSquashJobPropagation(t *testing.T) {
 	// 	require.NoError(t, c.DeleteAll())
 
 	// 	// Create an input repo
-	// 	repo := tu.UniqueString("TestSquashJobPropagation")
+	// 	repo := tu.UniqueString("TestSquashCommitsetPropagation")
 	// 	require.NoError(t, c.CreateRepo(repo))
 	// 	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
 	// 		strings.NewReader(tu.TestPGDump))
@@ -8312,12 +8312,12 @@ func TestSquashJobPropagation(t *testing.T) {
 	// 		})
 }
 
-// TestSquashJobRunsJob creates an input repo, commits several times, and
+// TestSquashCommitsetRunsJob creates an input repo, commits several times, and
 // then creates a pipeline. Creating the pipeline will spawn a job and while
 // that job is running, this test deletes the HEAD commit of the input branch,
 // which deletes the job's output commit and cancels the job. This should start
 // another job that processes the original input HEAD commit's parent.
-func TestSquashJobRunsJob(t *testing.T) {
+func TestSquashCommitsetRunsJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8326,7 +8326,7 @@ func TestSquashJobRunsJob(t *testing.T) {
 	c := tu.GetPachClient(t)
 
 	// Create an input repo
-	repo := tu.UniqueString("TestSquashJobRunsJob")
+	repo := tu.UniqueString("TestSquashCommitsetRunsJob")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Create two input commits. The input commit has two files: 'time' which
@@ -8392,7 +8392,7 @@ func TestSquashJobRunsJob(t *testing.T) {
 	})
 
 	// Delete the second commit in the input repo
-	require.NoError(t, c.SquashJob(commit2.Job())
+	require.NoError(t, c.SquashCommitset(commit2.ID))
 
 	// Wait until PPS has started processing commit1
 	require.NoErrorWithinT(t, 30*time.Second, func() error {

@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	reposCollectionName    = "repos"
-	branchesCollectionName = "branches"
-	commitsCollectionName  = "commits"
-	jobsCollectionName     = "jobs"
+	reposCollectionName      = "repos"
+	branchesCollectionName   = "branches"
+	commitsCollectionName    = "commits"
+	commitsetsCollectionName = "commitsets"
 )
 
 var ReposTypeIndex = &col.Index{
@@ -130,16 +130,16 @@ func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollectio
 	)
 }
 
-var jobsIndexes = []*col.Index{}
+var commitsetsIndexes = []*col.Index{}
 
-// Jobs returns a collection of jobs
-func Jobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+// Commitsets returns a collection of Commitsets
+func Commitsets(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		jobsCollectionName,
+		commitsetsCollectionName,
 		db,
 		listener,
-		&pfs.StoredJobInfo{},
-		jobsIndexes,
+		&pfs.StoredCommitset{},
+		commitsetsIndexes,
 		nil,
 	)
 }
@@ -152,6 +152,6 @@ func AllCollections() []col.PostgresCollection {
 		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes, nil),
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes, nil),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes, nil),
-		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes, nil),
+		col.NewPostgresCollection(commitsetsCollectionName, nil, nil, nil, commitsetsIndexes, nil),
 	}
 }

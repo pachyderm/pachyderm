@@ -17,8 +17,8 @@ type TransactionContext struct {
 	ClientContext context.Context
 	// SqlTx is the ongoing database transaction.
 	SqlTx *sqlx.Tx
-	// Job is the PFS Job corresponding to PFS changes in this transaction.
-	Job *pfs.Job
+	// CommitsetID is the ID of the Commitset corresponding to PFS changes in this transaction.
+	CommitsetID string
 	// PfsPropagater applies commits at the end of the transaction.
 	PfsPropagater PfsPropagater
 	// CommitFinisher finishes commits for a pipeline at the end of a transaction

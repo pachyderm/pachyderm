@@ -96,9 +96,9 @@ func (mpts *MockPfsTransactionServer) FinishCommitInTransaction(*txncontext.Tran
 	return unimplementedError("PfsTransactionServer.FinishCommitInTransaction")
 }
 
-// SquashJobInTransaction always errors
-func (mpts *MockPfsTransactionServer) SquashJobInTransaction(*txncontext.TransactionContext, *pfs.SquashJobRequest) error {
-	return unimplementedError("PfsTransactionServer.SquashJobInTransaction")
+// SquashCommitsetInTransaction always errors
+func (mpts *MockPfsTransactionServer) SquashCommitsetInTransaction(*txncontext.TransactionContext, *pfs.SquashCommitsetRequest) error {
+	return unimplementedError("PfsTransactionServer.SquashCommitsetInTransaction")
 }
 
 // CreateBranchInTransaction always errors
