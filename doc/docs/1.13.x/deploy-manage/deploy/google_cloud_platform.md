@@ -106,7 +106,7 @@ To deploy Pachyderm we will need to:
 1. [Create storage resources](#set-up-the-storage-resources), 
 2. [Install the Pachyderm CLI tool, `pachctl`](#install-pachctl), and
 3. [Deploy Pachyderm on the Kubernetes cluster](#deploy-pachyderm-on-the-kubernetes-cluster)
-
+4. [Point your CLI `pachctl` to your cluster](#have-pachctl-and-your-cluster-communicate)
 ### Set up the Storage Resources
 
 Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object store)
@@ -215,15 +215,46 @@ If you see a few restarts on the `pachd` pod, you can safely ignore them.
 That simply means that Kubernetes tried to bring up those containers
 before other components were ready, so it restarted them.
 
-Finally, assuming your `pachd` is running as shown above, set up
-forward a port so that `pachctl` can talk to the cluster.
+### Have 'pachctl' and your Cluster Communicate
+
+Finally, assuming your `pachd` is running as shown above, 
+make sure that `pachctl` can talk to the cluster by:
+
+- Running a port-forward:
 
 ```shell
-# Forward the ports. We background this process because it blocks.
+# Background this process because it blocks.
 pachctl port-forward   
 ```
 
-And you're done! You can test to make sure the cluster is working
+- Exposing your cluster to the internet by setting up a LoadBalancer as follow:
+
+!!! Warning 
+    The following setup of a LoadBalancer only applies to pachd.
+
+1. To get an external IP address for a Cluster, edit its k8s service, 
+```shell
+kubectl edit service pachd
+```
+and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
+
+1. Retrieve the external IP address of the edited service.
+When listing your services again, you should see an external IP address allocated to the service you just edited. 
+```shell
+kubectl get service
+```
+1. Update the context of your cluster with their direct url, using the external IP address above:
+```shell
+echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
+```
+1. Check that your are using the right context: 
+```shell
+pachctl config get active-context`
+```
+Your cluster context name set above should show up. 
+    
+
+You are done! You can test to make sure the cluster is working
 by running `pachctl version` or even creating a new repo.
 
 ```shell
@@ -238,7 +269,8 @@ pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
 
-### Increasing Ingress Throughput
+## Advanced Setups
+### Increase Ingress Throughput
 
 One way to improve Ingress performance is to restrict Pachd to
 a specific, more powerful node in the cluster. This is
@@ -258,7 +290,7 @@ tolerations:
   effect: "NoSchedule"
 ```
 
-### Increasing upload performance
+### Increase upload performance
 
 The most straightfoward approach to increasing upload performance is
 to [leverage SSD’s as the boot disk](https://cloud.google.com/kubernetes-engine/docs/how-to/custom-boot-disks) in
@@ -267,7 +299,7 @@ HDD disks. Additionally, you can increase the size of the SSD for
 further performance gains because the number of IOPS increases with
 disk size.
 
-### Increasing merge performance
+### Increase merge performance
 
 Performance tweaks when it comes to merges can be done directly in
 the [Pachyderm pipeline spec](../../../reference/pipeline_spec/).

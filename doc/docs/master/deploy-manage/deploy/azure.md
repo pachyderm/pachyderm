@@ -8,6 +8,7 @@ To deploy Pachyderm to AKS, you need to:
 1. [Install Prerequisites](#install-prerequisites)
 2. [Deploy Kubernetes](#deploy-kubernetes)
 3. [Deploy Pachyderm](#deploy-pachyderm)
+4. [Point your CLI `pachctl` to your cluster](#have-pachctl-and-your-cluster-communicate)
 
 ## Install Prerequisites
 
@@ -374,56 +375,57 @@ you might accidentally deploy your cluster on Minikube.
     the `etcd` nodes are ready which might result in the `pachd` nodes
     restarting. You can safely ignore those restarts.
 
-1. Finally, assuming your `pachd` is running as shown above, 
+## Have 'pachctl' and your Cluster Communicate
+
+Finally, assuming your `pachd` is running as shown above, 
 make sure that `pachctl` can talk to the cluster by:
 
 - Running a port-forward:
 
-    ```shell
-    # Forward the ports. We background this process because it blocks.
-    pachctl port-forward   
-    ```
+```shell
+# Background this process because it blocks.
+pachctl port-forward   
+```
 
-- Or exposing your cluster to the internet by setting up a LoadBalancer as follow:
+- Exposing your cluster to the internet by setting up a LoadBalancer as follow:
 
 !!! Warning 
     The following setup of a LoadBalancer only applies to pachd.
 
-    1. To get an external IP address for a Cluster, edit its k8s service 
-    ```shell
-    kubectl edit service pachd
-    ```
-    and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
-    1. Retrieve the external IP address of the edited services.
-    When listing your services again, you should see an external IP address allocated to the service you just edited. 
-    ```shell
-    kubectl get service
-    ```
-    1. Update the context of your cluster with their direct url, using the external IP address above:
-    ```shell
-    echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
-    ```
+1. To get an external IP address for a Cluster, edit its k8s service, 
+```shell
+kubectl edit service pachd
+```
+and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
 
-    1. Check that your are using the right contexts: 
-    ```shell
-    pachctl config get active-context`
-    ```
-    or
-    ```shell
-    pachctl config get active-enterprise-context
-    ```
-    ```
+1. Retrieve the external IP address of the edited service.
+When listing your services again, you should see an external IP address allocated to the service you just edited. 
+```shell
+kubectl get service
+```
+1. Update the context of your cluster with their direct url, using the external IP address above:
+```shell
+echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
+```
+1. Check that your are using the right context: 
+```shell
+pachctl config get active-context`
+```
+Your cluster context name set above should show up. 
+    
 
-1. Verify that the cluster is up and running:
+You are done! You can test to make sure the cluster is working
+by running `pachctl version` or even creating a new repo.
 
-    ```shell
-    pachctl version
-    ```
+```shell
+pachctl version
+```
 
-    **System Response:**
+**System Response:**
 
-    ```shell
-    COMPONENT           VERSION
-    pachctl             {{ config.pach_latest_version }}
-    pachd               {{ config.pach_latest_version }}
-    ```
+```shell
+COMPONENT           VERSION
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
+```
+
