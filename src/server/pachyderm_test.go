@@ -10383,7 +10383,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	require.NoError(t, err)
 	commits, err := c.ListCommitByRepo(repoB)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commits))
+	require.Equal(t, 2, len(commits))
 
 	pipelineJobInfos, err := c.ListPipelineJob(pipelineB, nil, nil, -1, false)
 	require.NoError(t, err)
