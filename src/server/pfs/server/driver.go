@@ -1301,7 +1301,9 @@ func (d *driver) inspectCommitset(ctx context.Context, commitsetID string, wait 
 		for _, prov := range branchInfo.DirectProvenance {
 			provProvMap, ok := provenanceMap[pfsdb.BranchKey(prov)]
 			if !ok {
-				return nil, errors.Errorf("internal error: commitset %s has unsorted provenance", commitsetID)
+				// If a branch is missing, that means there was no head commit when this
+				// commitset was propagated.
+				continue
 			}
 			subMap[pfsdb.BranchKey(prov)] = prov
 			for key, provProv := range provProvMap {
