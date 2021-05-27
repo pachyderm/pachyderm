@@ -92,7 +92,7 @@ func (cs *Commitset) NewCommit(branch *Branch) *Commit {
 }
 
 func (cs *Commitset) CommitInfos() []*CommitInfo {
-	result := make([]*CommitInfo, len(cs.Commits))
+	result := make([]*CommitInfo, 0, len(cs.Commits))
 	for _, c := range cs.Commits {
 		result = append(result, c.Info)
 	}

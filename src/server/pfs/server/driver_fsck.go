@@ -283,7 +283,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		}
 	}
 
-	// TODO(global ids): is there any verification we can do for jobs?
+	// TODO(global ids): is there any verification we can do for commitsets?
 
 	if fix {
 		return col.NewSQLTx(ctx, d.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {

@@ -443,13 +443,13 @@ $ {{alias}} foo@master --from XXX`,
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
-	// TODO(global ids): rename this command since we've dropped the 'flush' RPC
-	flushJob := &cobra.Command{
-		Use:   "{{alias}} ( <job> | <repo>@<branch> )",
-		Short: "Wait for all commits caused by the specified commits to finish and return them.",
-		Long:  "Wait for all commits caused by the specified commits to finish and return them.",
+	var branches cmdutil.RepeatedStringArg
+	waitCommit := &cobra.Command{
+		Use:   "{{alias}} ( <commitset-id> | <repo>@<branch-or-commit> )",
+		Short: "Wait for the specified commit(s) to finish and return them.",
+		Long:  "Wait for the specified commit(s) to finish and return them.",
 		Example: `
-# return commits caused by foo@XXX
+# return commits in the same commit set as foo@XXX
 $ {{alias}} XXX
 
 # return commits caused by foo@XXX leading to branch bar@baz
@@ -457,15 +457,24 @@ $ {{alias}} XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			// Parse args before connecting
 			var commitsetID string
-			var branch *pfs.Branch
+			var commit *pfs.Commit
 			if uuid.IsUUIDWithoutDashes(args[0]) {
 				commitsetID = args[0]
 			} else {
 				var err error
-				branch, err = cmdutil.ParseBranch(args[0])
+				commit, err = cmdutil.ParseCommit(args[0])
 				if err != nil {
 					return err
 				}
+			}
+
+			toBranches := []*pfs.Branch{}
+			for _, arg := range branches {
+				branch, err := cmdutil.ParseBranch(arg)
+				if err != nil {
+					return err
+				}
+				toBranches = append(toBranches, branch)
 			}
 
 			c, err := client.NewOnUserMachine("user")
@@ -474,40 +483,75 @@ $ {{alias}} XXX -b bar@baz`,
 			}
 			defer c.Close()
 
-			if branch != nil {
-				ci, err := c.InspectCommit(branch.Repo.Name, branch.Name, "")
-				if err != nil {
-					return err
-				}
-				commitsetID = ci.Commit.ID
-			}
-
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
+			writeCommitInfo := func(ci *pfs.CommitInfo) error {
+				if raw {
+					return marshaller.Marshal(os.Stdout, ci)
+				}
+				pretty.PrintCommitInfo(w, ci, fullTimestamps)
+				return nil
+			}
 			defer func() {
 				if err := w.Flush(); retErr == nil {
 					retErr = err
 				}
 			}()
 
-			commitset, err := c.BlockCommitset(commitsetID)
-			if err != nil {
-				return err
+			blockCommit := func(commit *pfs.Commit) error {
+				ci, err := c.BlockCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+				if err != nil {
+					return err
+				}
+				return writeCommitInfo(ci)
 			}
 
-			for _, entry := range commitset.Commits {
-				if raw {
-					return marshaller.Marshal(os.Stdout, entry.Info)
+			blockBranches := func(commitsetID string) error {
+				for _, branch := range toBranches {
+					if err := blockCommit(client.NewCommit(branch.Repo.Name, branch.Name, commitsetID)); err != nil {
+						return err
+					}
 				}
-				pretty.PrintCommitInfo(w, entry.Info, fullTimestamps)
+				return nil
+			}
+
+			// There are separate codepaths for whether or not we are waiting on a
+			// commit or commitset and whether we are interested in all the commits in
+			// the set or only specific branches.
+			if commit != nil {
+				if len(toBranches) != 0 {
+					// We just want to use the commitset ID and wait on the downstream branches
+					ci, err := c.InspectCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+					if err != nil {
+						return err
+					}
+					return blockBranches(ci.Commit.ID)
+				}
+				// We are just waiting on a single commit, block on it and exit
+				return blockCommit(commit)
+			} else {
+				if len(toBranches) == 0 {
+					return blockBranches(commitsetID)
+				}
+				// We are waiting for the entire commitset to finish
+				commitset, err := c.BlockCommitset(commitsetID)
+				if err != nil {
+					return err
+				}
+				for _, entry := range commitset.Commits {
+					if err := writeCommitInfo(entry.Info); err != nil {
+						return err
+					}
+				}
 			}
 
 			return nil
 		}),
 	}
-	flushJob.MarkFlagCustom("branch", "__pachctl_get_branch")
-	flushJob.Flags().AddFlagSet(rawFlags)
-	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
+	waitCommit.Flags().VarP(&branches, "branch", "b", "Wait only for commits in the specified set of branches")
+	waitCommit.MarkFlagCustom("branch", "__pachctl_get_branch")
+	waitCommit.Flags().AddFlagSet(rawFlags)
+	waitCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(waitCommit, "wait commit"))
 
 	var newCommits bool
 	subscribeCommit := &cobra.Command{

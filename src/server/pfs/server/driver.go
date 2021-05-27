@@ -585,7 +585,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	return nil
 }
 
-func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.Commit, branch *pfs.Branch) (*pfs.Commit, error) {
+func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.Commit, branch *pfs.Branch) (*pfs.CommitInfo, error) {
 	// It is considered an error if the Commitset attempts to use two different
 	// commits from the same branch.  Therefore, if there is already a row for the
 	// given branch and it doesn't reference the same parent commit, we fail.  In
@@ -612,8 +612,8 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 	}
 
 	// Check if the alias already exists
-	newCommitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), newCommitInfo); err != nil {
+	commitInfo := &pfs.CommitInfo{}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
 		if !col.IsErrNotFound(err) {
 			return nil, err
 		}
@@ -637,7 +637,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			return nil, err
 		}
 
-		newCommitInfo = &pfs.CommitInfo{
+		commitInfo = &pfs.CommitInfo{
 			Commit:       commit,
 			Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
 			ParentCommit: parent,
@@ -646,19 +646,19 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			SizeBytes:    parentCommitInfo.SizeBytes,
 		}
 		if parentCommitInfo.Finished != nil {
-			newCommitInfo.Finished = types.TimestampNow()
+			commitInfo.Finished = types.TimestampNow()
 		}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommitInfo.Commit), newCommitInfo); err != nil {
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
 			return nil, err
 		}
 	} else {
 		// A commit at the current transaction's ID already exists - make sure it is an alias with the right parent
-		if newCommitInfo.Origin.Kind != pfs.OriginKind_AUTO || !proto.Equal(newCommitInfo.ParentCommit, parent) {
+		if commitInfo.Origin.Kind != pfs.OriginKind_AUTO || !proto.Equal(commitInfo.ParentCommit, parent) {
 			return nil, pfsserver.ErrInconsistentCommit{Commit: parent, Branch: branch}
 		}
 	}
 
-	return commit, nil
+	return commitInfo, nil
 }
 
 // writeFinishedCommit writes these changes to etcd:
@@ -911,6 +911,10 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 		return nil, err
 	}
 
+	// TODO(global ids): it's possible the commit doesn't exist yet (but will
+	// following a trigger).  If the commit isn't found, check if the associated
+	// job _could_ reach the requested branch or ID via a trigger and wait to find
+	// out.
 	// Resolve the commit in case it specifies a branch head or commit ancestry
 	var commitInfo *pfs.CommitInfo
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -1165,10 +1169,8 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		var cis []*pfs.CommitInfo
 		// sendCis sorts cis and passes them to f
 		sendCis := func() error {
-			// TODO(global ids): sort based off of sorting in Commitset - or actually,
-			// do we even need to sort if we ban intra-repo provenance?
-			// Sort in reverse provenance order, i.e. commits come before their provenance
-			// sort.Slice(cis, func(i, j int) bool { return len(cis[i].Provenance) > len(cis[j].Provenance) })
+			// We don't sort these because there is no provenance between commits
+			// within a repo, so there is no topological sort necessary.
 			for i, ci := range cis {
 				if number == 0 {
 					return errutil.ErrBreak
@@ -1672,12 +1674,12 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		} else if branchInfo.Head == nil || branchInfo.Head.ID != commit.ID {
 			// Create an alias of the head commit onto this branch - this will move the
 			// head of the branch and update the repo size if necessary
-			aliasCommit, err := d.aliasCommit(txnCtx, commit, branch)
+			aliasCommitInfo, err := d.aliasCommit(txnCtx, commit, branch)
 			if err != nil {
 				return err
 			}
 			// Update the local branchInfo.Head
-			branchInfo.Head = aliasCommit
+			branchInfo.Head = aliasCommitInfo.Commit
 		}
 	}
 

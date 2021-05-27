@@ -4374,6 +4374,7 @@ func TestPFS(suite *testing.T) {
 			pfsdb.CommitKey(client.NewCommit("input", "master", commitsetID)),
 			pfsdb.CommitKey(client.NewCommit("output1", "staging", commitsetID)),
 		}
+		fmt.Printf("commit infos: %v\n", commitset.CommitInfos())
 		require.ElementsEqualUnderFn(t, expectedCommits, commitset.CommitInfos(), CommitInfoToID)
 
 		require.NoError(t, env.PachClient.CreateBranch("output1", "master", "staging", "", nil))
