@@ -2,6 +2,11 @@
 set -e
 IFS=
 
+function fail {
+    echo "$1"
+    exit 1
+}
+
 # child field_name finds a the first top-level YAML field named field_name in the input
 # and sends through any lines under that field, stripped of extra leading space
 function child {
@@ -31,5 +36,5 @@ count=$(cat .circleci/config.yml | child jobs | child circleci | child environme
 echo "should be $count buckets, checking for PPS$count"
 
 cat .circleci/config.yml | child workflows | child circleci | child jobs \
-    | child circleci | child matrix | child parameters | grep "PPS$count"
+    | child circleci | child matrix | child parameters | grep "PPS$count" || fail "PPS bucket number mismatch"
 
