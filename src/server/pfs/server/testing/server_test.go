@@ -274,6 +274,71 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit1, cis[0].Commit)
 	})
 
+	suite.Run("RewindBranch", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		require.NoError(t, env.PachClient.CreateRepo("a"))
+		require.NoError(t, env.PachClient.CreateRepo("b"))
+		require.NoError(t, env.PachClient.CreateRepo("c"))
+		provB := []*pfs.Branch{client.NewBranch("a", "master")}
+		require.NoError(t, env.PachClient.CreateBranch("b", "master", "", "", provB))
+		provC := []*pfs.Branch{client.NewBranch("b", "master")}
+		require.NoError(t, env.PachClient.CreateBranch("c", "master", "", "", provC))
+
+		commit1, err := env.PachClient.StartCommit("a", "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit1, "file", strings.NewReader("1")))
+		require.NoError(t, env.PachClient.FinishCommit(commit1.Branch.Repo.Name, commit1.Branch.Name, commit1.ID))
+		commit2, err := env.PachClient.StartCommit("a", "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit2, "file", strings.NewReader("2")))
+		require.NoError(t, env.PachClient.FinishCommit(commit2.Branch.Repo.Name, commit1.Branch.Name, commit2.ID))
+		commit3, err := env.PachClient.StartCommit("a", "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit3, "file", strings.NewReader("3")))
+		require.NoError(t, env.PachClient.FinishCommit(commit3.Branch.Repo.Name, commit1.Branch.Name, commit3.ID))
+
+		checkRepoCommits := func(commits []*pfs.Commit) {
+			ids := []string{}
+			for _, c := range commits {
+				ids = append(ids, c.ID)
+			}
+			for _, repo := range []string{"a", "b", "c"} {
+				cis, err := env.PachClient.ListCommit(repo, "", "", "", "", 0)
+				require.NoError(t, err)
+				require.Equal(t, len(ids), len(cis))
+				for i, ci := range cis {
+					require.Equal(t, ids[i], ci.Commit.ID)
+				}
+			}
+		}
+
+		checkRepoCommits([]*pfs.Commit{commit3, commit2, commit1})
+
+		// Rewind branch b.master to commit2 - fails because this commitset already has an entry on 'master'
+		require.YesError(t, env.PachClient.CreateBranch("b", "master", "master", commit2.ID, provB))
+		// But we can create a new commit by aliasing the old commit and setting it as the head
+		_, err = env.PachClient.PfsAPIClient.CreateBranch(env.PachClient.Ctx(), &pfs.CreateBranchRequest{
+			Head:         client.NewCommit("b", "master", commit2.ID),
+			Branch:       client.NewBranch("b", "master"),
+			NewCommitset: true,
+			Provenance:   provB,
+		})
+		require.NoError(t, err)
+		ci, err := env.PachClient.InspectCommit("b", "master", "")
+		require.NoError(t, err)
+		commit4 := ci.Commit
+
+		checkRepoCommits([]*pfs.Commit{commit4, commit3, commit2, commit1})
+
+		// The commit4 data in "a" should be the same as what we wrote into commit2 (as that's the source data in "b")
+		commit4a := client.NewCommit("a", "master", commit4.ID)
+		var b bytes.Buffer
+		require.NoError(t, env.PachClient.GetFile(commit4a, "file", &b))
+		require.Equal(t, "2", b.String())
+	})
+
 	suite.Run("CreateAndInspectRepo", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))

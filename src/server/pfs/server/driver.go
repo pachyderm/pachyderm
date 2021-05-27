@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -1623,29 +1624,25 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 	}
 
-	if commit != nil {
-		// Determine if this is a provenance update
-		sameTarget := branch.Repo.Name == commit.Branch.Repo.Name && branch.Repo.Type == commit.Branch.Repo.Type && (branch.Name == commit.Branch.Name || branch.Name == commit.ID)
-		if !sameTarget && provenance != nil {
-			commitset := &pfs.StoredCommitset{}
-			if err := d.commitsets.ReadWrite(txnCtx.SqlTx).Get(ci.Commit.ID, commitset); err != nil {
-				return err
-			}
-			for _, provBranch := range provenance {
-				// Check that the Commitset for the given commit has values for every branch in provenance
-				for _, branchInfo := range commitset.Branches {
-					if proto.Equal(provBranch, branchInfo.Branch) {
-						provBranchInfo := &pfs.BranchInfo{}
-						if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(provBranch), provBranchInfo); err != nil {
-							return err
-						}
-
-						if provBranchInfo.Head.ID != commitset.ID {
-							branchCommit := commitset.NewCommit(branchInfo.Branch)
-							return errors.Errorf("cannot create branch %q with commit %q as head because commit has %s as provenance but that commit is not the head of branch %s", branch.Name, commit.ID, pfsdb.CommitKey(branchCommit), pfsdb.CommitKey(provBranchInfo.Head))
-						}
+	if commit != nil && provenance != nil {
+		// Verify the provenance of the new branch head and lock in its upstream commits
+		commitset := &pfs.StoredCommitset{}
+		if err := d.commitsets.ReadWrite(txnCtx.SqlTx).Get(ci.Commit.ID, commitset); err != nil {
+			return err
+		}
+		for _, provBranch := range provenance {
+			// Check that the Commitset for the given commit has values for every branch in provenance and alias them
+			found := false
+			for _, branchInfo := range commitset.Branches {
+				if proto.Equal(provBranch, branchInfo.Branch) {
+					found = true
+					if _, err := d.aliasCommit(txnCtx, provBranch.NewCommit(ci.Commit.ID), provBranch); err != nil {
+						return err
 					}
 				}
+			}
+			if !found {
+				return errors.Errorf("cannot create branch %s with commit %s as head because it does not have provenance in the %s branch", pfsdb.BranchKey(branch), pfsdb.CommitKey(ci.Commit), pfsdb.BranchKey(provBranch))
 			}
 		}
 	}

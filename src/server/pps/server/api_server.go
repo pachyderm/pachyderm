@@ -2741,12 +2741,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 			return nil, err
 		}
 		if request.KeepRepo {
-			// Remove branch provenance (pass branch twice so that it continues to point
-			// at the same commit, but also pass empty provenance slice)
+			// Remove branch provenance
 			if err := pachClient.CreateBranch(
 				request.Pipeline.Name,
 				pipelineInfo.OutputBranch,
-				pipelineInfo.OutputBranch,
+				"",
 				"",
 				nil,
 			); err != nil {
@@ -2876,7 +2875,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	if err := pachClient.CreateBranch(
 		request.Pipeline.Name,
 		pipelineInfo.OutputBranch,
-		pipelineInfo.OutputBranch,
+		"",
 		"",
 		provenance,
 	); err != nil {
@@ -2908,12 +2907,11 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	pachClient := a.env.GetPachClient(ctx)
-	// Remove branch provenance (pass branch twice so that it continues to point
-	// at the same commit, but also pass empty provenance slice)
+	// Remove branch provenance
 	if err := pachClient.CreateBranch(
 		request.Pipeline.Name,
 		pipelineInfo.OutputBranch,
-		pipelineInfo.OutputBranch,
+		"",
 		"",
 		nil,
 	); err != nil {
