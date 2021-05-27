@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -524,7 +523,6 @@ func (d *driver) makeCommit(
 	finished time.Time,
 	sizeBytes uint64,
 ) (*pfs.Commit, error) {
-	fmt.Printf("makeCommit %s %+v %+v %+v\n", ID, parent, branch, provenance)
 	// Validate arguments:
 	if branch == nil || branch.Name == "" {
 		return nil, errors.Errorf("branch must be specified")
@@ -1895,7 +1893,6 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
 func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
-	fmt.Printf("createBranch %+v %+v %+v\n", branch, commit, provenance)
 	// Validate arguments
 	if branch == nil {
 		return errors.New("branch cannot be nil")
