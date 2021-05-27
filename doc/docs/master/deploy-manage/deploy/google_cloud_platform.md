@@ -215,15 +215,46 @@ If you see a few restarts on the `pachd` pod, you can safely ignore them.
 That simply means that Kubernetes tried to bring up those containers
 before other components were ready, so it restarted them.
 
-Finally, assuming your `pachd` is running as shown above, set up
-forward a port so that `pachctl` can talk to the cluster.
+Finally, assuming your `pachd` is running as shown above, 
+make sure that `pachctl` can talk to the cluster by:
 
-```shell
-# Forward the ports. We background this process because it blocks.
-pachctl port-forward   
-```
+- Running a port-forward:
 
-And you're done! You can test to make sure the cluster is working
+    ```shell
+    # Forward the ports. We background this process because it blocks.
+    pachctl port-forward   
+    ```
+
+- Or exposing your cluster to the internet by setting up a LoadBalancer as follow:
+
+!!! Warning 
+    The following setup of a LoadBalancer only applies to pachd.
+
+    1. To get an external IP address for a Cluster, edit its k8s service 
+    ```shell
+    kubectl edit service pachd
+    ```
+    and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
+    1. Retrieve the external IP address of the edited services.
+    When listing your services again, you should see an external IP address allocated to the service you just edited. 
+    ```shell
+    kubectl get service
+    ```
+    1. Update the context of your cluster with their direct url, using the external IP address above:
+    ```shell
+    echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
+    ```
+
+    1. Check that your are using the right contexts: 
+    ```shell
+    pachctl config get active-context`
+    ```
+    or
+    ```shell
+    pachctl config get active-enterprise-context
+    ```
+
+You are done! You can test to make sure the cluster is working
 by running `pachctl version` or even creating a new repo.
 
 ```shell
