@@ -78,17 +78,16 @@ func (c APIClient) UpdateRepo(repoName string) error {
 }
 
 // InspectRepo returns info about a specific Repo.
-func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
-	resp, err := c.PfsAPIClient.InspectRepo(
+func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	return c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
 			Repo: NewRepo(repoName),
 		},
 	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return resp, nil
 }
 
 // ListRepo returns info about user Repos
@@ -138,17 +137,16 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 // alias for the created Commit. This enables a more intuitive access pattern.
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
-func (c APIClient) StartCommit(repoName string, branchName string) (*pfs.Commit, error) {
-	commit, err := c.PfsAPIClient.StartCommit(
+func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commit, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	return c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
 			Branch: NewBranch(repoName, branchName),
 		},
 	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return commit, nil
 }
 
 // StartCommitParent begins the process of committing data to a Repo. Once started
@@ -362,33 +360,31 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 }
 
 // InspectCommitset returns info about a specific Commitset.
-func (c APIClient) InspectCommitset(id string) (*pfs.Commitset, error) {
-	resp, err := c.PfsAPIClient.InspectCommitset(
+func (c APIClient) InspectCommitset(id string) (_ *pfs.Commitset, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	return c.PfsAPIClient.InspectCommitset(
 		c.Ctx(),
 		&pfs.InspectCommitsetRequest{
 			ID: id,
 		},
 	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return resp, nil
 }
 
 // BlockCommitset blocks until all of a Commitset's commits are finished.  To
 // wait for an individual commit, use BlockCommit instead.
-func (c APIClient) BlockCommitset(id string) (*pfs.Commitset, error) {
-	resp, err := c.PfsAPIClient.InspectCommitset(
+func (c APIClient) BlockCommitset(id string) (_ *pfs.Commitset, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	return c.PfsAPIClient.InspectCommitset(
 		c.Ctx(),
 		&pfs.InspectCommitsetRequest{
 			ID:   id,
 			Wait: true,
 		},
 	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return resp, nil
 }
 
 // SquashCommitset squashes the commits of a Commitset into their children.
