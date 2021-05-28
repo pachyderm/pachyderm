@@ -16,7 +16,6 @@ package ppsutil
 import (
 	"bytes"
 	"fmt"
-	"path"
 	"strings"
 	"time"
 
@@ -268,30 +267,17 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 
 // PipelineJobInput fills in the commits for an Input
 func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
-	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
-	branchToCommit := make(map[string]*pfs.Commit)
-	key := path.Join
-	// for a given branch, the commit assigned to it will be the latest commit on that branch
-	// this is ensured by the way we sort the commit provenance when creating the outputCommit
-	for _, prov := range outputCommitInfo.Provenance {
-		branchToCommit[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)] = prov.Commit
-	}
+	jobID := outputCommitInfo.Commit.ID
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
-			if commit, ok := branchToCommit[key(input.Pfs.Repo, input.Pfs.Branch)]; ok {
-				input.Pfs.Commit = commit.ID
-			}
+			input.Pfs.Commit = jobID
 		}
 		if input.Cron != nil {
-			if commit, ok := branchToCommit[key(input.Cron.Repo, "master")]; ok {
-				input.Cron.Commit = commit.ID
-			}
+			input.Cron.Commit = jobID
 		}
 		if input.Git != nil {
-			if commit, ok := branchToCommit[key(input.Git.Name, input.Git.Branch)]; ok {
-				input.Git.Commit = commit.ID
-			}
+			input.Git.Commit = jobID
 		}
 		return nil
 	})
@@ -424,14 +410,8 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 	return err
 }
 
-func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
-	for _, commitRange := range commitInfo.Subvenance {
-		if commitRange.Lower.Branch.Repo.Name == commitInfo.Commit.Branch.Repo.Name {
-			return commitRange.Lower
-		}
-	}
-	// TODO: Getting here would be a bug in 2.0, log?
-	return nil
+func StatsCommit(commit *pfs.Commit) *pfs.Commit {
+	return client.NewSystemRepo(commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with

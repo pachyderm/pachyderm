@@ -61,7 +61,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 // TODO: Cleanup after failure?
 func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) (retErr error) {
-		commit, err := d.startCommit(txnCtx, "", nil, client.NewBranch(repo, branch), nil, "")
+		commit, err := d.startCommit(txnCtx, nil, client.NewBranch(repo, branch), "")
 		if err != nil {
 			return err
 		}

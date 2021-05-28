@@ -170,7 +170,7 @@ func (s *gitHookServer) commitPayload(repoName string, branchName string, rawPay
 	}
 	defer func() {
 		if retErr != nil {
-			if err := client.SquashCommit(repoName, branchName, commit.ID); err != nil {
+			if err := client.SquashCommitset(commit.ID); err != nil {
 				logrus.Errorf("git webhook failed to delete partial commit (%v) on repo (%v) with error %v", commit.ID, repoName, err)
 			}
 			return

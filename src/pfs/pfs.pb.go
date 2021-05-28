@@ -805,63 +805,6 @@ func (m *Commit) GetBranch() *Branch {
 	return nil
 }
 
-// CommitRange represents chain of commits with Lower being an ancestor of
-// Upper or, in the case of a range of size 1, the same commit.
-type CommitRange struct {
-	Lower                *Commit  `protobuf:"bytes,1,opt,name=lower,proto3" json:"lower,omitempty"`
-	Upper                *Commit  `protobuf:"bytes,2,opt,name=upper,proto3" json:"upper,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *CommitRange) Reset()         { *m = CommitRange{} }
-func (m *CommitRange) String() string { return proto.CompactTextString(m) }
-func (*CommitRange) ProtoMessage()    {}
-func (*CommitRange) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{10}
-}
-func (m *CommitRange) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *CommitRange) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_CommitRange.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *CommitRange) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CommitRange.Merge(m, src)
-}
-func (m *CommitRange) XXX_Size() int {
-	return m.Size()
-}
-func (m *CommitRange) XXX_DiscardUnknown() {
-	xxx_messageInfo_CommitRange.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_CommitRange proto.InternalMessageInfo
-
-func (m *CommitRange) GetLower() *Commit {
-	if m != nil {
-		return m.Lower
-	}
-	return nil
-}
-
-func (m *CommitRange) GetUpper() *Commit {
-	if m != nil {
-		return m.Upper
-	}
-	return nil
-}
-
 // CommitProvenance keeps track of where (i.e. which branch) a certain commit
 // originated from. A commit's provenance consists of the commits of
 // the commits which are in its causal history.
@@ -876,7 +819,7 @@ func (m *CommitProvenance) Reset()         { *m = CommitProvenance{} }
 func (m *CommitProvenance) String() string { return proto.CompactTextString(m) }
 func (*CommitProvenance) ProtoMessage()    {}
 func (*CommitProvenance) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{11}
+	return fileDescriptor_21a7b2476cbc6216, []int{10}
 }
 func (m *CommitProvenance) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -917,32 +860,22 @@ type CommitInfo struct {
 	Commit *Commit       `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
 	Origin *CommitOrigin `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
 	// description is a user-provided script describing this commit
-	Description  string           `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	ParentCommit *Commit          `protobuf:"bytes,4,opt,name=parent_commit,json=parentCommit,proto3" json:"parent_commit,omitempty"`
-	ChildCommits []*Commit        `protobuf:"bytes,5,rep,name=child_commits,json=childCommits,proto3" json:"child_commits,omitempty"`
-	Started      *types.Timestamp `protobuf:"bytes,6,opt,name=started,proto3" json:"started,omitempty"`
-	Finished     *types.Timestamp `protobuf:"bytes,7,opt,name=finished,proto3" json:"finished,omitempty"`
-	SizeBytes    uint64           `protobuf:"varint,8,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	// the commits and their original branches on which this commit is provenant
-	Provenance []*CommitProvenance `protobuf:"bytes,9,rep,name=provenance,proto3" json:"provenance,omitempty"`
-	// ReadyProvenance is the number of provenant commits which have been
-	// finished, if ReadyProvenance == len(Provenance) then the commit is ready
-	// to be processed by pps.
-	ReadyProvenance         int64          `protobuf:"varint,10,opt,name=ready_provenance,json=readyProvenance,proto3" json:"ready_provenance,omitempty"`
-	Subvenance              []*CommitRange `protobuf:"bytes,11,rep,name=subvenance,proto3" json:"subvenance,omitempty"`
-	SubvenantCommitsSuccess int64          `protobuf:"varint,12,opt,name=subvenant_commits_success,json=subvenantCommitsSuccess,proto3" json:"subvenant_commits_success,omitempty"`
-	SubvenantCommitsFailure int64          `protobuf:"varint,13,opt,name=subvenant_commits_failure,json=subvenantCommitsFailure,proto3" json:"subvenant_commits_failure,omitempty"`
-	SubvenantCommitsTotal   int64          `protobuf:"varint,14,opt,name=subvenant_commits_total,json=subvenantCommitsTotal,proto3" json:"subvenant_commits_total,omitempty"`
-	XXX_NoUnkeyedLiteral    struct{}       `json:"-"`
-	XXX_unrecognized        []byte         `json:"-"`
-	XXX_sizecache           int32          `json:"-"`
+	Description          string           `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	ParentCommit         *Commit          `protobuf:"bytes,4,opt,name=parent_commit,json=parentCommit,proto3" json:"parent_commit,omitempty"`
+	ChildCommits         []*Commit        `protobuf:"bytes,5,rep,name=child_commits,json=childCommits,proto3" json:"child_commits,omitempty"`
+	Started              *types.Timestamp `protobuf:"bytes,6,opt,name=started,proto3" json:"started,omitempty"`
+	Finished             *types.Timestamp `protobuf:"bytes,7,opt,name=finished,proto3" json:"finished,omitempty"`
+	SizeBytes            uint64           `protobuf:"varint,8,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
 }
 
 func (m *CommitInfo) Reset()         { *m = CommitInfo{} }
 func (m *CommitInfo) String() string { return proto.CompactTextString(m) }
 func (*CommitInfo) ProtoMessage()    {}
 func (*CommitInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{12}
+	return fileDescriptor_21a7b2476cbc6216, []int{11}
 }
 func (m *CommitInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1027,67 +960,27 @@ func (m *CommitInfo) GetSizeBytes() uint64 {
 	return 0
 }
 
-func (m *CommitInfo) GetProvenance() []*CommitProvenance {
-	if m != nil {
-		return m.Provenance
-	}
-	return nil
+// StoredCommitset is what is stored in the database for a Commitset
+type StoredCommitset struct {
+	ID                   string        `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Branches             []*BranchInfo `protobuf:"bytes,2,rep,name=branches,proto3" json:"branches,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
-func (m *CommitInfo) GetReadyProvenance() int64 {
-	if m != nil {
-		return m.ReadyProvenance
-	}
-	return 0
+func (m *StoredCommitset) Reset()         { *m = StoredCommitset{} }
+func (m *StoredCommitset) String() string { return proto.CompactTextString(m) }
+func (*StoredCommitset) ProtoMessage()    {}
+func (*StoredCommitset) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21a7b2476cbc6216, []int{12}
 }
-
-func (m *CommitInfo) GetSubvenance() []*CommitRange {
-	if m != nil {
-		return m.Subvenance
-	}
-	return nil
-}
-
-func (m *CommitInfo) GetSubvenantCommitsSuccess() int64 {
-	if m != nil {
-		return m.SubvenantCommitsSuccess
-	}
-	return 0
-}
-
-func (m *CommitInfo) GetSubvenantCommitsFailure() int64 {
-	if m != nil {
-		return m.SubvenantCommitsFailure
-	}
-	return 0
-}
-
-func (m *CommitInfo) GetSubvenantCommitsTotal() int64 {
-	if m != nil {
-		return m.SubvenantCommitsTotal
-	}
-	return 0
-}
-
-type Job struct {
-	ID                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *Job) Reset()         { *m = Job{} }
-func (m *Job) String() string { return proto.CompactTextString(m) }
-func (*Job) ProtoMessage()    {}
-func (*Job) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{13}
-}
-func (m *Job) XXX_Unmarshal(b []byte) error {
+func (m *StoredCommitset) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *Job) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *StoredCommitset) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_Job.Marshal(b, m, deterministic)
+		return xxx_messageInfo_StoredCommitset.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -1097,46 +990,53 @@ func (m *Job) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *Job) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Job.Merge(m, src)
+func (m *StoredCommitset) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StoredCommitset.Merge(m, src)
 }
-func (m *Job) XXX_Size() int {
+func (m *StoredCommitset) XXX_Size() int {
 	return m.Size()
 }
-func (m *Job) XXX_DiscardUnknown() {
-	xxx_messageInfo_Job.DiscardUnknown(m)
+func (m *StoredCommitset) XXX_DiscardUnknown() {
+	xxx_messageInfo_StoredCommitset.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Job proto.InternalMessageInfo
+var xxx_messageInfo_StoredCommitset proto.InternalMessageInfo
 
-func (m *Job) GetID() string {
+func (m *StoredCommitset) GetID() string {
 	if m != nil {
 		return m.ID
 	}
 	return ""
 }
 
-type StoredJobInfo struct {
-	Job                  *Job          `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
-	Origin               *CommitOrigin `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
-	Commits              []*Commit     `protobuf:"bytes,3,rep,name=commits,proto3" json:"commits,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+func (m *StoredCommitset) GetBranches() []*BranchInfo {
+	if m != nil {
+		return m.Branches
+	}
+	return nil
 }
 
-func (m *StoredJobInfo) Reset()         { *m = StoredJobInfo{} }
-func (m *StoredJobInfo) String() string { return proto.CompactTextString(m) }
-func (*StoredJobInfo) ProtoMessage()    {}
-func (*StoredJobInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{14}
+// Commitset is what is returned to users when inspecting or listing Commitsets
+type Commitset struct {
+	ID                   string             `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Commits              []*Commitset_Entry `protobuf:"bytes,2,rep,name=commits,proto3" json:"commits,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
 }
-func (m *StoredJobInfo) XXX_Unmarshal(b []byte) error {
+
+func (m *Commitset) Reset()         { *m = Commitset{} }
+func (m *Commitset) String() string { return proto.CompactTextString(m) }
+func (*Commitset) ProtoMessage()    {}
+func (*Commitset) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21a7b2476cbc6216, []int{13}
+}
+func (m *Commitset) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *StoredJobInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *Commitset) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_StoredJobInfo.Marshal(b, m, deterministic)
+		return xxx_messageInfo_Commitset.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -1146,60 +1046,52 @@ func (m *StoredJobInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return b[:n], nil
 	}
 }
-func (m *StoredJobInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StoredJobInfo.Merge(m, src)
+func (m *Commitset) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Commitset.Merge(m, src)
 }
-func (m *StoredJobInfo) XXX_Size() int {
+func (m *Commitset) XXX_Size() int {
 	return m.Size()
 }
-func (m *StoredJobInfo) XXX_DiscardUnknown() {
-	xxx_messageInfo_StoredJobInfo.DiscardUnknown(m)
+func (m *Commitset) XXX_DiscardUnknown() {
+	xxx_messageInfo_Commitset.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_StoredJobInfo proto.InternalMessageInfo
+var xxx_messageInfo_Commitset proto.InternalMessageInfo
 
-func (m *StoredJobInfo) GetJob() *Job {
+func (m *Commitset) GetID() string {
 	if m != nil {
-		return m.Job
+		return m.ID
 	}
-	return nil
+	return ""
 }
 
-func (m *StoredJobInfo) GetOrigin() *CommitOrigin {
-	if m != nil {
-		return m.Origin
-	}
-	return nil
-}
-
-func (m *StoredJobInfo) GetCommits() []*Commit {
+func (m *Commitset) GetCommits() []*Commitset_Entry {
 	if m != nil {
 		return m.Commits
 	}
 	return nil
 }
 
-type JobInfo struct {
-	Job                  *Job          `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
-	Origin               *CommitOrigin `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
-	Commits              []*CommitInfo `protobuf:"bytes,3,rep,name=commits,proto3" json:"commits,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+type Commitset_Entry struct {
+	Provenance           []*Branch   `protobuf:"bytes,1,rep,name=provenance,proto3" json:"provenance,omitempty"`
+	Info                 *CommitInfo `protobuf:"bytes,2,opt,name=info,proto3" json:"info,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
-func (m *JobInfo) Reset()         { *m = JobInfo{} }
-func (m *JobInfo) String() string { return proto.CompactTextString(m) }
-func (*JobInfo) ProtoMessage()    {}
-func (*JobInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{15}
+func (m *Commitset_Entry) Reset()         { *m = Commitset_Entry{} }
+func (m *Commitset_Entry) String() string { return proto.CompactTextString(m) }
+func (*Commitset_Entry) ProtoMessage()    {}
+func (*Commitset_Entry) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21a7b2476cbc6216, []int{13, 0}
 }
-func (m *JobInfo) XXX_Unmarshal(b []byte) error {
+func (m *Commitset_Entry) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *JobInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *Commitset_Entry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_JobInfo.Marshal(b, m, deterministic)
+		return xxx_messageInfo_Commitset_Entry.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -1209,35 +1101,28 @@ func (m *JobInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *JobInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_JobInfo.Merge(m, src)
+func (m *Commitset_Entry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Commitset_Entry.Merge(m, src)
 }
-func (m *JobInfo) XXX_Size() int {
+func (m *Commitset_Entry) XXX_Size() int {
 	return m.Size()
 }
-func (m *JobInfo) XXX_DiscardUnknown() {
-	xxx_messageInfo_JobInfo.DiscardUnknown(m)
+func (m *Commitset_Entry) XXX_DiscardUnknown() {
+	xxx_messageInfo_Commitset_Entry.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_JobInfo proto.InternalMessageInfo
+var xxx_messageInfo_Commitset_Entry proto.InternalMessageInfo
 
-func (m *JobInfo) GetJob() *Job {
+func (m *Commitset_Entry) GetProvenance() []*Branch {
 	if m != nil {
-		return m.Job
+		return m.Provenance
 	}
 	return nil
 }
 
-func (m *JobInfo) GetOrigin() *CommitOrigin {
+func (m *Commitset_Entry) GetInfo() *CommitInfo {
 	if m != nil {
-		return m.Origin
-	}
-	return nil
-}
-
-func (m *JobInfo) GetCommits() []*CommitInfo {
-	if m != nil {
-		return m.Commits
+		return m.Info
 	}
 	return nil
 }
@@ -1257,7 +1142,7 @@ func (m *FileInfo) Reset()         { *m = FileInfo{} }
 func (m *FileInfo) String() string { return proto.CompactTextString(m) }
 func (*FileInfo) ProtoMessage()    {}
 func (*FileInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{16}
+	return fileDescriptor_21a7b2476cbc6216, []int{14}
 }
 func (m *FileInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1334,7 +1219,7 @@ func (m *CreateRepoRequest) Reset()         { *m = CreateRepoRequest{} }
 func (m *CreateRepoRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateRepoRequest) ProtoMessage()    {}
 func (*CreateRepoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{17}
+	return fileDescriptor_21a7b2476cbc6216, []int{15}
 }
 func (m *CreateRepoRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1395,7 +1280,7 @@ func (m *InspectRepoRequest) Reset()         { *m = InspectRepoRequest{} }
 func (m *InspectRepoRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectRepoRequest) ProtoMessage()    {}
 func (*InspectRepoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{18}
+	return fileDescriptor_21a7b2476cbc6216, []int{16}
 }
 func (m *InspectRepoRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1444,7 +1329,7 @@ func (m *ListRepoRequest) Reset()         { *m = ListRepoRequest{} }
 func (m *ListRepoRequest) String() string { return proto.CompactTextString(m) }
 func (*ListRepoRequest) ProtoMessage()    {}
 func (*ListRepoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{19}
+	return fileDescriptor_21a7b2476cbc6216, []int{17}
 }
 func (m *ListRepoRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1491,7 +1376,7 @@ func (m *ListRepoResponse) Reset()         { *m = ListRepoResponse{} }
 func (m *ListRepoResponse) String() string { return proto.CompactTextString(m) }
 func (*ListRepoResponse) ProtoMessage()    {}
 func (*ListRepoResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{20}
+	return fileDescriptor_21a7b2476cbc6216, []int{18}
 }
 func (m *ListRepoResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1540,7 +1425,7 @@ func (m *DeleteRepoRequest) Reset()         { *m = DeleteRepoRequest{} }
 func (m *DeleteRepoRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteRepoRequest) ProtoMessage()    {}
 func (*DeleteRepoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{21}
+	return fileDescriptor_21a7b2476cbc6216, []int{19}
 }
 func (m *DeleteRepoRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1595,19 +1480,18 @@ type StartCommitRequest struct {
 	// If the branch does not exist, the commit will have no parent.
 	Parent *Commit `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
 	// description is a user-provided string describing this commit
-	Description          string              `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	Branch               *Branch             `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
-	Provenance           []*CommitProvenance `protobuf:"bytes,4,rep,name=provenance,proto3" json:"provenance,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
+	Description          string   `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Branch               *Branch  `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *StartCommitRequest) Reset()         { *m = StartCommitRequest{} }
 func (m *StartCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*StartCommitRequest) ProtoMessage()    {}
 func (*StartCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{22}
+	return fileDescriptor_21a7b2476cbc6216, []int{20}
 }
 func (m *StartCommitRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1657,13 +1541,6 @@ func (m *StartCommitRequest) GetBranch() *Branch {
 	return nil
 }
 
-func (m *StartCommitRequest) GetProvenance() []*CommitProvenance {
-	if m != nil {
-		return m.Provenance
-	}
-	return nil
-}
-
 type FinishCommitRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
 	// description is a user-provided string describing this commit. Setting this
@@ -1682,7 +1559,7 @@ func (m *FinishCommitRequest) Reset()         { *m = FinishCommitRequest{} }
 func (m *FinishCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*FinishCommitRequest) ProtoMessage()    {}
 func (*FinishCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{23}
+	return fileDescriptor_21a7b2476cbc6216, []int{21}
 }
 func (m *FinishCommitRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1752,7 +1629,7 @@ func (m *InspectCommitRequest) Reset()         { *m = InspectCommitRequest{} }
 func (m *InspectCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectCommitRequest) ProtoMessage()    {}
 func (*InspectCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{24}
+	return fileDescriptor_21a7b2476cbc6216, []int{22}
 }
 func (m *InspectCommitRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1810,7 +1687,7 @@ func (m *ListCommitRequest) Reset()         { *m = ListCommitRequest{} }
 func (m *ListCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*ListCommitRequest) ProtoMessage()    {}
 func (*ListCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{25}
+	return fileDescriptor_21a7b2476cbc6216, []int{23}
 }
 func (m *ListCommitRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1885,7 +1762,7 @@ func (m *CommitInfos) Reset()         { *m = CommitInfos{} }
 func (m *CommitInfos) String() string { return proto.CompactTextString(m) }
 func (*CommitInfos) ProtoMessage()    {}
 func (*CommitInfos) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{26}
+	return fileDescriptor_21a7b2476cbc6216, []int{24}
 }
 func (m *CommitInfos) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1921,25 +1798,26 @@ func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
 	return nil
 }
 
-type SquashCommitRequest struct {
-	Commit               *Commit  `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
+type InspectCommitsetRequest struct {
+	ID                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Block                bool     `protobuf:"varint,2,opt,name=block,proto3" json:"block,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SquashCommitRequest) Reset()         { *m = SquashCommitRequest{} }
-func (m *SquashCommitRequest) String() string { return proto.CompactTextString(m) }
-func (*SquashCommitRequest) ProtoMessage()    {}
-func (*SquashCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{27}
+func (m *InspectCommitsetRequest) Reset()         { *m = InspectCommitsetRequest{} }
+func (m *InspectCommitsetRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectCommitsetRequest) ProtoMessage()    {}
+func (*InspectCommitsetRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21a7b2476cbc6216, []int{25}
 }
-func (m *SquashCommitRequest) XXX_Unmarshal(b []byte) error {
+func (m *InspectCommitsetRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *SquashCommitRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *InspectCommitsetRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_SquashCommitRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_InspectCommitsetRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -1949,45 +1827,51 @@ func (m *SquashCommitRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return b[:n], nil
 	}
 }
-func (m *SquashCommitRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SquashCommitRequest.Merge(m, src)
+func (m *InspectCommitsetRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_InspectCommitsetRequest.Merge(m, src)
 }
-func (m *SquashCommitRequest) XXX_Size() int {
+func (m *InspectCommitsetRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *SquashCommitRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SquashCommitRequest.DiscardUnknown(m)
+func (m *InspectCommitsetRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_InspectCommitsetRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SquashCommitRequest proto.InternalMessageInfo
+var xxx_messageInfo_InspectCommitsetRequest proto.InternalMessageInfo
 
-func (m *SquashCommitRequest) GetCommit() *Commit {
+func (m *InspectCommitsetRequest) GetID() string {
 	if m != nil {
-		return m.Commit
+		return m.ID
 	}
-	return nil
+	return ""
 }
 
-type FlushCommitRequest struct {
-	Commits              []*Commit `protobuf:"bytes,1,rep,name=commits,proto3" json:"commits,omitempty"`
-	ToRepos              []*Repo   `protobuf:"bytes,2,rep,name=to_repos,json=toRepos,proto3" json:"to_repos,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
-	XXX_unrecognized     []byte    `json:"-"`
-	XXX_sizecache        int32     `json:"-"`
+func (m *InspectCommitsetRequest) GetBlock() bool {
+	if m != nil {
+		return m.Block
+	}
+	return false
 }
 
-func (m *FlushCommitRequest) Reset()         { *m = FlushCommitRequest{} }
-func (m *FlushCommitRequest) String() string { return proto.CompactTextString(m) }
-func (*FlushCommitRequest) ProtoMessage()    {}
-func (*FlushCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{28}
+type SquashCommitsetRequest struct {
+	ID                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
-func (m *FlushCommitRequest) XXX_Unmarshal(b []byte) error {
+
+func (m *SquashCommitsetRequest) Reset()         { *m = SquashCommitsetRequest{} }
+func (m *SquashCommitsetRequest) String() string { return proto.CompactTextString(m) }
+func (*SquashCommitsetRequest) ProtoMessage()    {}
+func (*SquashCommitsetRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21a7b2476cbc6216, []int{26}
+}
+func (m *SquashCommitsetRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *FlushCommitRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *SquashCommitsetRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_FlushCommitRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_SquashCommitsetRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -1997,40 +1881,32 @@ func (m *FlushCommitRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return b[:n], nil
 	}
 }
-func (m *FlushCommitRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FlushCommitRequest.Merge(m, src)
+func (m *SquashCommitsetRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SquashCommitsetRequest.Merge(m, src)
 }
-func (m *FlushCommitRequest) XXX_Size() int {
+func (m *SquashCommitsetRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *FlushCommitRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_FlushCommitRequest.DiscardUnknown(m)
+func (m *SquashCommitsetRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SquashCommitsetRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_FlushCommitRequest proto.InternalMessageInfo
+var xxx_messageInfo_SquashCommitsetRequest proto.InternalMessageInfo
 
-func (m *FlushCommitRequest) GetCommits() []*Commit {
+func (m *SquashCommitsetRequest) GetID() string {
 	if m != nil {
-		return m.Commits
+		return m.ID
 	}
-	return nil
-}
-
-func (m *FlushCommitRequest) GetToRepos() []*Repo {
-	if m != nil {
-		return m.ToRepos
-	}
-	return nil
+	return ""
 }
 
 type SubscribeCommitRequest struct {
-	Repo   *Repo             `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
-	Branch string            `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
-	Prov   *CommitProvenance `protobuf:"bytes,3,opt,name=prov,proto3" json:"prov,omitempty"`
+	Repo   *Repo  `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
+	Branch string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
 	// only commits created since this commit are returned
-	From *Commit `protobuf:"bytes,4,opt,name=from,proto3" json:"from,omitempty"`
+	From *Commit `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`
 	// Don't return commits until they're in (at least) the desired state.
-	State                CommitState `protobuf:"varint,5,opt,name=state,proto3,enum=pfs.CommitState" json:"state,omitempty"`
+	State                CommitState `protobuf:"varint,4,opt,name=state,proto3,enum=pfs.CommitState" json:"state,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -2040,7 +1916,7 @@ func (m *SubscribeCommitRequest) Reset()         { *m = SubscribeCommitRequest{}
 func (m *SubscribeCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*SubscribeCommitRequest) ProtoMessage()    {}
 func (*SubscribeCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{29}
+	return fileDescriptor_21a7b2476cbc6216, []int{27}
 }
 func (m *SubscribeCommitRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2083,13 +1959,6 @@ func (m *SubscribeCommitRequest) GetBranch() string {
 	return ""
 }
 
-func (m *SubscribeCommitRequest) GetProv() *CommitProvenance {
-	if m != nil {
-		return m.Prov
-	}
-	return nil
-}
-
 func (m *SubscribeCommitRequest) GetFrom() *Commit {
 	if m != nil {
 		return m.From
@@ -2115,7 +1984,7 @@ func (m *ClearCommitRequest) Reset()         { *m = ClearCommitRequest{} }
 func (m *ClearCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*ClearCommitRequest) ProtoMessage()    {}
 func (*ClearCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{30}
+	return fileDescriptor_21a7b2476cbc6216, []int{28}
 }
 func (m *ClearCommitRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2156,6 +2025,7 @@ type CreateBranchRequest struct {
 	Branch               *Branch   `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
 	Provenance           []*Branch `protobuf:"bytes,3,rep,name=provenance,proto3" json:"provenance,omitempty"`
 	Trigger              *Trigger  `protobuf:"bytes,4,opt,name=trigger,proto3" json:"trigger,omitempty"`
+	NewCommitset         bool      `protobuf:"varint,5,opt,name=new_commitset,json=newCommitset,proto3" json:"new_commitset,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
@@ -2165,7 +2035,7 @@ func (m *CreateBranchRequest) Reset()         { *m = CreateBranchRequest{} }
 func (m *CreateBranchRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateBranchRequest) ProtoMessage()    {}
 func (*CreateBranchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{31}
+	return fileDescriptor_21a7b2476cbc6216, []int{29}
 }
 func (m *CreateBranchRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2222,6 +2092,13 @@ func (m *CreateBranchRequest) GetTrigger() *Trigger {
 	return nil
 }
 
+func (m *CreateBranchRequest) GetNewCommitset() bool {
+	if m != nil {
+		return m.NewCommitset
+	}
+	return false
+}
+
 type InspectBranchRequest struct {
 	Branch               *Branch  `protobuf:"bytes,1,opt,name=branch,proto3" json:"branch,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -2233,7 +2110,7 @@ func (m *InspectBranchRequest) Reset()         { *m = InspectBranchRequest{} }
 func (m *InspectBranchRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectBranchRequest) ProtoMessage()    {}
 func (*InspectBranchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{32}
+	return fileDescriptor_21a7b2476cbc6216, []int{30}
 }
 func (m *InspectBranchRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2281,7 +2158,7 @@ func (m *ListBranchRequest) Reset()         { *m = ListBranchRequest{} }
 func (m *ListBranchRequest) String() string { return proto.CompactTextString(m) }
 func (*ListBranchRequest) ProtoMessage()    {}
 func (*ListBranchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{33}
+	return fileDescriptor_21a7b2476cbc6216, []int{31}
 }
 func (m *ListBranchRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2336,7 +2213,7 @@ func (m *DeleteBranchRequest) Reset()         { *m = DeleteBranchRequest{} }
 func (m *DeleteBranchRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteBranchRequest) ProtoMessage()    {}
 func (*DeleteBranchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{34}
+	return fileDescriptor_21a7b2476cbc6216, []int{32}
 }
 func (m *DeleteBranchRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2396,7 +2273,7 @@ func (m *PutFile) Reset()         { *m = PutFile{} }
 func (m *PutFile) String() string { return proto.CompactTextString(m) }
 func (*PutFile) ProtoMessage()    {}
 func (*PutFile) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{35}
+	return fileDescriptor_21a7b2476cbc6216, []int{33}
 }
 func (m *PutFile) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2509,7 +2386,7 @@ func (m *RawFileSource) Reset()         { *m = RawFileSource{} }
 func (m *RawFileSource) String() string { return proto.CompactTextString(m) }
 func (*RawFileSource) ProtoMessage()    {}
 func (*RawFileSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{36}
+	return fileDescriptor_21a7b2476cbc6216, []int{34}
 }
 func (m *RawFileSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2570,7 +2447,7 @@ func (m *TarFileSource) Reset()         { *m = TarFileSource{} }
 func (m *TarFileSource) String() string { return proto.CompactTextString(m) }
 func (*TarFileSource) ProtoMessage()    {}
 func (*TarFileSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{37}
+	return fileDescriptor_21a7b2476cbc6216, []int{35}
 }
 func (m *TarFileSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2619,7 +2496,7 @@ func (m *URLFileSource) Reset()         { *m = URLFileSource{} }
 func (m *URLFileSource) String() string { return proto.CompactTextString(m) }
 func (*URLFileSource) ProtoMessage()    {}
 func (*URLFileSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{38}
+	return fileDescriptor_21a7b2476cbc6216, []int{36}
 }
 func (m *URLFileSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2681,7 +2558,7 @@ func (m *DeleteFile) Reset()         { *m = DeleteFile{} }
 func (m *DeleteFile) String() string { return proto.CompactTextString(m) }
 func (*DeleteFile) ProtoMessage()    {}
 func (*DeleteFile) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{39}
+	return fileDescriptor_21a7b2476cbc6216, []int{37}
 }
 func (m *DeleteFile) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2738,7 +2615,7 @@ func (m *CopyFile) Reset()         { *m = CopyFile{} }
 func (m *CopyFile) String() string { return proto.CompactTextString(m) }
 func (*CopyFile) ProtoMessage()    {}
 func (*CopyFile) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{40}
+	return fileDescriptor_21a7b2476cbc6216, []int{38}
 }
 func (m *CopyFile) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2811,7 +2688,7 @@ func (m *ModifyFileRequest) Reset()         { *m = ModifyFileRequest{} }
 func (m *ModifyFileRequest) String() string { return proto.CompactTextString(m) }
 func (*ModifyFileRequest) ProtoMessage()    {}
 func (*ModifyFileRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{41}
+	return fileDescriptor_21a7b2476cbc6216, []int{39}
 }
 func (m *ModifyFileRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2916,7 +2793,7 @@ func (m *GetFileRequest) Reset()         { *m = GetFileRequest{} }
 func (m *GetFileRequest) String() string { return proto.CompactTextString(m) }
 func (*GetFileRequest) ProtoMessage()    {}
 func (*GetFileRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{42}
+	return fileDescriptor_21a7b2476cbc6216, []int{40}
 }
 func (m *GetFileRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2970,7 +2847,7 @@ func (m *InspectFileRequest) Reset()         { *m = InspectFileRequest{} }
 func (m *InspectFileRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectFileRequest) ProtoMessage()    {}
 func (*InspectFileRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{43}
+	return fileDescriptor_21a7b2476cbc6216, []int{41}
 }
 func (m *InspectFileRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3022,7 +2899,7 @@ func (m *ListFileRequest) Reset()         { *m = ListFileRequest{} }
 func (m *ListFileRequest) String() string { return proto.CompactTextString(m) }
 func (*ListFileRequest) ProtoMessage()    {}
 func (*ListFileRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{44}
+	return fileDescriptor_21a7b2476cbc6216, []int{42}
 }
 func (m *ListFileRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3076,7 +2953,7 @@ func (m *WalkFileRequest) Reset()         { *m = WalkFileRequest{} }
 func (m *WalkFileRequest) String() string { return proto.CompactTextString(m) }
 func (*WalkFileRequest) ProtoMessage()    {}
 func (*WalkFileRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{45}
+	return fileDescriptor_21a7b2476cbc6216, []int{43}
 }
 func (m *WalkFileRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3124,7 +3001,7 @@ func (m *GlobFileRequest) Reset()         { *m = GlobFileRequest{} }
 func (m *GlobFileRequest) String() string { return proto.CompactTextString(m) }
 func (*GlobFileRequest) ProtoMessage()    {}
 func (*GlobFileRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{46}
+	return fileDescriptor_21a7b2476cbc6216, []int{44}
 }
 func (m *GlobFileRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3182,7 +3059,7 @@ func (m *DiffFileRequest) Reset()         { *m = DiffFileRequest{} }
 func (m *DiffFileRequest) String() string { return proto.CompactTextString(m) }
 func (*DiffFileRequest) ProtoMessage()    {}
 func (*DiffFileRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{47}
+	return fileDescriptor_21a7b2476cbc6216, []int{45}
 }
 func (m *DiffFileRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3244,7 +3121,7 @@ func (m *DiffFileResponse) Reset()         { *m = DiffFileResponse{} }
 func (m *DiffFileResponse) String() string { return proto.CompactTextString(m) }
 func (*DiffFileResponse) ProtoMessage()    {}
 func (*DiffFileResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{48}
+	return fileDescriptor_21a7b2476cbc6216, []int{46}
 }
 func (m *DiffFileResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3298,7 +3175,7 @@ func (m *FsckRequest) Reset()         { *m = FsckRequest{} }
 func (m *FsckRequest) String() string { return proto.CompactTextString(m) }
 func (*FsckRequest) ProtoMessage()    {}
 func (*FsckRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{49}
+	return fileDescriptor_21a7b2476cbc6216, []int{47}
 }
 func (m *FsckRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3346,7 +3223,7 @@ func (m *FsckResponse) Reset()         { *m = FsckResponse{} }
 func (m *FsckResponse) String() string { return proto.CompactTextString(m) }
 func (*FsckResponse) ProtoMessage()    {}
 func (*FsckResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{50}
+	return fileDescriptor_21a7b2476cbc6216, []int{48}
 }
 func (m *FsckResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3400,7 +3277,7 @@ func (m *CreateFilesetResponse) Reset()         { *m = CreateFilesetResponse{} }
 func (m *CreateFilesetResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateFilesetResponse) ProtoMessage()    {}
 func (*CreateFilesetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{51}
+	return fileDescriptor_21a7b2476cbc6216, []int{49}
 }
 func (m *CreateFilesetResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3447,7 +3324,7 @@ func (m *GetFilesetRequest) Reset()         { *m = GetFilesetRequest{} }
 func (m *GetFilesetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetFilesetRequest) ProtoMessage()    {}
 func (*GetFilesetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{52}
+	return fileDescriptor_21a7b2476cbc6216, []int{50}
 }
 func (m *GetFilesetRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3495,7 +3372,7 @@ func (m *AddFilesetRequest) Reset()         { *m = AddFilesetRequest{} }
 func (m *AddFilesetRequest) String() string { return proto.CompactTextString(m) }
 func (*AddFilesetRequest) ProtoMessage()    {}
 func (*AddFilesetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{53}
+	return fileDescriptor_21a7b2476cbc6216, []int{51}
 }
 func (m *AddFilesetRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3550,7 +3427,7 @@ func (m *RenewFilesetRequest) Reset()         { *m = RenewFilesetRequest{} }
 func (m *RenewFilesetRequest) String() string { return proto.CompactTextString(m) }
 func (*RenewFilesetRequest) ProtoMessage()    {}
 func (*RenewFilesetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{54}
+	return fileDescriptor_21a7b2476cbc6216, []int{52}
 }
 func (m *RenewFilesetRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3603,7 +3480,7 @@ func (m *ActivateAuthRequest) Reset()         { *m = ActivateAuthRequest{} }
 func (m *ActivateAuthRequest) String() string { return proto.CompactTextString(m) }
 func (*ActivateAuthRequest) ProtoMessage()    {}
 func (*ActivateAuthRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{55}
+	return fileDescriptor_21a7b2476cbc6216, []int{53}
 }
 func (m *ActivateAuthRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3642,7 +3519,7 @@ func (m *ActivateAuthResponse) Reset()         { *m = ActivateAuthResponse{} }
 func (m *ActivateAuthResponse) String() string { return proto.CompactTextString(m) }
 func (*ActivateAuthResponse) ProtoMessage()    {}
 func (*ActivateAuthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{56}
+	return fileDescriptor_21a7b2476cbc6216, []int{54}
 }
 func (m *ActivateAuthResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3683,7 +3560,7 @@ func (m *RunLoadTestRequest) Reset()         { *m = RunLoadTestRequest{} }
 func (m *RunLoadTestRequest) String() string { return proto.CompactTextString(m) }
 func (*RunLoadTestRequest) ProtoMessage()    {}
 func (*RunLoadTestRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{57}
+	return fileDescriptor_21a7b2476cbc6216, []int{55}
 }
 func (m *RunLoadTestRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3739,7 +3616,7 @@ func (m *RunLoadTestResponse) Reset()         { *m = RunLoadTestResponse{} }
 func (m *RunLoadTestResponse) String() string { return proto.CompactTextString(m) }
 func (*RunLoadTestResponse) ProtoMessage()    {}
 func (*RunLoadTestResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21a7b2476cbc6216, []int{58}
+	return fileDescriptor_21a7b2476cbc6216, []int{56}
 }
 func (m *RunLoadTestResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3804,12 +3681,11 @@ func init() {
 	proto.RegisterType((*Trigger)(nil), "pfs.Trigger")
 	proto.RegisterType((*CommitOrigin)(nil), "pfs.CommitOrigin")
 	proto.RegisterType((*Commit)(nil), "pfs.Commit")
-	proto.RegisterType((*CommitRange)(nil), "pfs.CommitRange")
 	proto.RegisterType((*CommitProvenance)(nil), "pfs.CommitProvenance")
 	proto.RegisterType((*CommitInfo)(nil), "pfs.CommitInfo")
-	proto.RegisterType((*Job)(nil), "pfs.Job")
-	proto.RegisterType((*StoredJobInfo)(nil), "pfs.StoredJobInfo")
-	proto.RegisterType((*JobInfo)(nil), "pfs.JobInfo")
+	proto.RegisterType((*StoredCommitset)(nil), "pfs.StoredCommitset")
+	proto.RegisterType((*Commitset)(nil), "pfs.Commitset")
+	proto.RegisterType((*Commitset_Entry)(nil), "pfs.Commitset.Entry")
 	proto.RegisterType((*FileInfo)(nil), "pfs.FileInfo")
 	proto.RegisterType((*CreateRepoRequest)(nil), "pfs.CreateRepoRequest")
 	proto.RegisterType((*InspectRepoRequest)(nil), "pfs.InspectRepoRequest")
@@ -3821,8 +3697,8 @@ func init() {
 	proto.RegisterType((*InspectCommitRequest)(nil), "pfs.InspectCommitRequest")
 	proto.RegisterType((*ListCommitRequest)(nil), "pfs.ListCommitRequest")
 	proto.RegisterType((*CommitInfos)(nil), "pfs.CommitInfos")
-	proto.RegisterType((*SquashCommitRequest)(nil), "pfs.SquashCommitRequest")
-	proto.RegisterType((*FlushCommitRequest)(nil), "pfs.FlushCommitRequest")
+	proto.RegisterType((*InspectCommitsetRequest)(nil), "pfs.InspectCommitsetRequest")
+	proto.RegisterType((*SquashCommitsetRequest)(nil), "pfs.SquashCommitsetRequest")
 	proto.RegisterType((*SubscribeCommitRequest)(nil), "pfs.SubscribeCommitRequest")
 	proto.RegisterType((*ClearCommitRequest)(nil), "pfs.ClearCommitRequest")
 	proto.RegisterType((*CreateBranchRequest)(nil), "pfs.CreateBranchRequest")
@@ -3858,177 +3734,169 @@ func init() {
 func init() { proto.RegisterFile("pfs/pfs.proto", fileDescriptor_21a7b2476cbc6216) }
 
 var fileDescriptor_21a7b2476cbc6216 = []byte{
-	// 2714 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x59, 0x4b, 0x73, 0xdc, 0xc6,
-	0xf1, 0x27, 0x16, 0xcb, 0x7d, 0xf4, 0xee, 0x8a, 0xcb, 0x21, 0x45, 0xaf, 0x57, 0x7f, 0x3d, 0xfe,
-	0x23, 0xdb, 0xa1, 0xe4, 0x14, 0xc9, 0x50, 0xb1, 0x2c, 0x5b, 0x7e, 0xf1, 0xb1, 0xb4, 0x28, 0x33,
-	0x92, 0x8c, 0xa5, 0xec, 0xc4, 0x97, 0x2d, 0x2c, 0x30, 0x4b, 0x22, 0x02, 0x17, 0x30, 0x30, 0x90,
-	0xc2, 0xa4, 0x92, 0x8f, 0x90, 0xaa, 0x9c, 0x73, 0xcb, 0x27, 0x48, 0x55, 0x0e, 0xb9, 0x27, 0x97,
-	0x1c, 0x73, 0xc9, 0x35, 0x95, 0xd2, 0x97, 0x48, 0xe5, 0x96, 0x9a, 0x07, 0x80, 0x01, 0xb0, 0x0f,
-	0x52, 0x95, 0x0b, 0x77, 0xd0, 0xd3, 0xdd, 0xd3, 0xd3, 0xdd, 0xd3, 0xf3, 0xeb, 0x21, 0xb4, 0xfc,
-	0x51, 0xb8, 0xe9, 0x8f, 0xc2, 0x0d, 0x3f, 0xf0, 0xa8, 0x87, 0x74, 0x7f, 0x14, 0x76, 0xaf, 0x9d,
-	0x78, 0xde, 0x89, 0x4b, 0x36, 0x39, 0x69, 0x18, 0x8d, 0x36, 0xc9, 0x99, 0x4f, 0xcf, 0x05, 0x47,
-	0xf7, 0x66, 0x7e, 0x92, 0x3a, 0x67, 0x24, 0xa4, 0xe6, 0x99, 0x2f, 0x19, 0x6e, 0xe4, 0x19, 0x5e,
-	0x05, 0xa6, 0xef, 0x93, 0x40, 0x2e, 0xd1, 0x5d, 0x3d, 0xf1, 0x4e, 0x3c, 0x3e, 0xdc, 0x64, 0x23,
-	0x49, 0x5d, 0x32, 0x23, 0x7a, 0xba, 0xc9, 0xfe, 0x08, 0x02, 0xde, 0x80, 0xb2, 0x41, 0x7c, 0x0f,
-	0x21, 0x28, 0x8f, 0xcd, 0x33, 0xd2, 0xd1, 0x6e, 0x69, 0xeb, 0x75, 0x83, 0x8f, 0x19, 0x8d, 0x9e,
-	0xfb, 0xa4, 0x53, 0x12, 0x34, 0x36, 0xc6, 0x0f, 0xa1, 0xb2, 0x1b, 0x98, 0x63, 0xeb, 0x14, 0x5d,
-	0x87, 0x72, 0x40, 0x7c, 0x8f, 0x4b, 0x34, 0xb6, 0xeb, 0x1b, 0x6c, 0x77, 0x4c, 0x95, 0xc1, 0xc9,
-	0x89, 0xc2, 0x52, 0xaa, 0x10, 0x7f, 0x0d, 0xe5, 0x03, 0xc7, 0x25, 0xe8, 0x36, 0x54, 0x2c, 0xef,
-	0xec, 0xcc, 0xa1, 0x52, 0xb8, 0xc1, 0x85, 0xf7, 0x38, 0xc9, 0x90, 0x53, 0x4c, 0x81, 0x6f, 0xd2,
-	0xd3, 0x58, 0x01, 0x1b, 0xa3, 0x36, 0xe8, 0xd4, 0x3c, 0xe9, 0xe8, 0x9c, 0xc4, 0x86, 0xf8, 0x3f,
-	0x1a, 0xd4, 0xd8, 0xaa, 0x87, 0xe3, 0x91, 0x37, 0xcf, 0xa4, 0x1f, 0x43, 0xd5, 0x0a, 0x88, 0x49,
-	0x89, 0xcd, 0x95, 0x36, 0xb6, 0xbb, 0x1b, 0xc2, 0x89, 0x1b, 0xb1, 0x13, 0x37, 0x8e, 0x63, 0x2f,
-	0x1b, 0x31, 0x2b, 0xba, 0x0e, 0x10, 0x3a, 0xbf, 0x24, 0x83, 0xe1, 0x39, 0x25, 0x21, 0x5f, 0xba,
-	0x6c, 0xd4, 0x19, 0x65, 0x97, 0x11, 0xd0, 0x2d, 0x68, 0xd8, 0x24, 0xb4, 0x02, 0xc7, 0xa7, 0x8e,
-	0x37, 0xee, 0x94, 0xb9, 0x69, 0x2a, 0x09, 0xfd, 0x00, 0x6a, 0x43, 0xee, 0x32, 0x12, 0x76, 0x16,
-	0x6f, 0xe9, 0xc9, 0x7e, 0x85, 0x1f, 0x8d, 0x64, 0x12, 0x6d, 0x40, 0x9d, 0x45, 0x66, 0xe0, 0x8c,
-	0x47, 0x5e, 0xa7, 0xc2, 0x2d, 0x5c, 0x4e, 0xf6, 0xb0, 0x13, 0xd1, 0x53, 0xb6, 0x49, 0xa3, 0x66,
-	0xca, 0x11, 0xfe, 0x29, 0x34, 0xd5, 0x19, 0xb4, 0x0d, 0x0d, 0x9f, 0x04, 0x67, 0x4e, 0x18, 0x3a,
-	0xde, 0x38, 0xec, 0x68, 0xb7, 0xf4, 0xf5, 0x2b, 0xdb, 0xed, 0x0d, 0x1e, 0xed, 0x67, 0xc9, 0x84,
-	0xa1, 0x32, 0xa1, 0x55, 0x58, 0x0c, 0x3c, 0x97, 0x84, 0x9d, 0xd2, 0x2d, 0x7d, 0xbd, 0x6e, 0x88,
-	0x0f, 0xfc, 0xdb, 0x12, 0x80, 0x30, 0x8f, 0x2b, 0xbe, 0x0d, 0x15, 0x61, 0x64, 0x26, 0x5e, 0xd2,
-	0x7e, 0x39, 0x85, 0x6e, 0x42, 0xf9, 0x94, 0x98, 0xb1, 0x6b, 0x33, 0x21, 0xe5, 0x13, 0xe8, 0x7d,
-	0x00, 0x3f, 0xf0, 0x5e, 0x92, 0xb1, 0x39, 0xb6, 0x48, 0x47, 0x2f, 0x7a, 0x42, 0x99, 0x66, 0xcc,
-	0x61, 0x34, 0x8c, 0x99, 0xcb, 0x13, 0x98, 0xd3, 0x69, 0xf4, 0x00, 0x96, 0x6d, 0x27, 0x20, 0x16,
-	0x1d, 0x28, 0x0b, 0x4c, 0x70, 0x75, 0x5b, 0x70, 0x3d, 0x4b, 0x97, 0x79, 0x0f, 0xaa, 0x34, 0x70,
-	0x4e, 0x4e, 0x48, 0x20, 0x1d, 0xde, 0xe4, 0xfc, 0xc7, 0x82, 0x66, 0xc4, 0x93, 0xf8, 0x73, 0x68,
-	0xa4, 0xfe, 0x08, 0xd1, 0x16, 0x34, 0xc4, 0xae, 0x45, 0xac, 0x34, 0xbe, 0xd4, 0x92, 0xb2, 0x14,
-	0x8f, 0x14, 0x0c, 0x93, 0x31, 0xfe, 0x0d, 0x54, 0xa5, 0x52, 0xb4, 0x96, 0xf1, 0x66, 0x3d, 0x71,
-	0x60, 0x1b, 0x74, 0xd3, 0x75, 0xb9, 0xff, 0x6a, 0x06, 0x1b, 0xa2, 0x6b, 0x50, 0xb7, 0x02, 0x6f,
-	0x3c, 0x08, 0x7d, 0x62, 0xc9, 0xa4, 0xaf, 0x31, 0x42, 0xdf, 0x27, 0x16, 0x3b, 0x1f, 0x2c, 0x0b,
-	0x65, 0xc6, 0xf1, 0x31, 0xea, 0x40, 0x55, 0x9c, 0x1e, 0x96, 0x69, 0xda, 0xba, 0x6e, 0xc4, 0x9f,
-	0xf8, 0x1e, 0x34, 0x45, 0x30, 0x9e, 0x06, 0xce, 0x89, 0x33, 0x46, 0xb7, 0xa1, 0xfc, 0xc2, 0x19,
-	0xdb, 0xdc, 0x84, 0x2b, 0xd2, 0x74, 0x31, 0xf5, 0x95, 0x33, 0xb6, 0x0d, 0x3e, 0x89, 0x7b, 0x50,
-	0x11, 0x42, 0x68, 0x0d, 0x4a, 0x8e, 0x60, 0xae, 0xef, 0x56, 0x5e, 0xff, 0xf3, 0x66, 0xe9, 0x70,
-	0xdf, 0x28, 0x39, 0xb6, 0x92, 0x19, 0xa5, 0xa9, 0x99, 0x81, 0xfb, 0xd0, 0x90, 0x89, 0x60, 0x8e,
-	0x4f, 0x08, 0xfa, 0x7f, 0x58, 0x74, 0xbd, 0x57, 0x24, 0x98, 0x74, 0xf8, 0xc5, 0x0c, 0x63, 0x89,
-	0x58, 0x31, 0x9b, 0x94, 0x4c, 0x62, 0x06, 0x7f, 0x08, 0x6d, 0x41, 0x50, 0xa2, 0x79, 0x91, 0xba,
-	0x82, 0xff, 0xb4, 0x08, 0x20, 0x48, 0x71, 0x6e, 0xcf, 0xaf, 0x45, 0x77, 0xa0, 0xe2, 0x71, 0xe7,
-	0x48, 0x83, 0x96, 0x15, 0x26, 0xe1, 0x35, 0x43, 0x32, 0xe4, 0xeb, 0x81, 0x5e, 0xac, 0x07, 0x5b,
-	0xd0, 0xf2, 0xcd, 0x80, 0x8c, 0xe9, 0x40, 0x2e, 0x5c, 0x2e, 0x2e, 0xdc, 0x14, 0x1c, 0xd2, 0xfb,
-	0x5b, 0xd0, 0xb2, 0x4e, 0x1d, 0xd7, 0x1e, 0xa4, 0xc1, 0xd5, 0x0b, 0x12, 0x9c, 0x43, 0x7c, 0x84,
-	0xac, 0xd4, 0x85, 0xd4, 0x0c, 0x58, 0xa9, 0xab, 0xcc, 0x2f, 0x75, 0x92, 0x15, 0xdd, 0x87, 0xda,
-	0xc8, 0x19, 0x3b, 0xe1, 0x29, 0xb1, 0x3b, 0xd5, 0xb9, 0x62, 0x09, 0x6f, 0xae, 0x44, 0xd6, 0xf2,
-	0x25, 0xf2, 0x83, 0xcc, 0xc1, 0xaf, 0x73, 0xdb, 0xaf, 0x2a, 0xb6, 0xa7, 0x11, 0xcc, 0x94, 0x80,
-	0x3b, 0xd0, 0x0e, 0x88, 0x69, 0x9f, 0xab, 0x87, 0x1a, 0x78, 0x56, 0x2f, 0x71, 0xba, 0x12, 0xf8,
-	0xad, 0x4c, 0xb5, 0x68, 0xf0, 0x15, 0xda, 0xaa, 0x77, 0x58, 0xe2, 0x65, 0x4a, 0xc6, 0xc7, 0xf0,
-	0x76, 0xfc, 0x15, 0xc7, 0x21, 0x1c, 0x84, 0x91, 0x65, 0x91, 0x30, 0xec, 0x34, 0xf9, 0x2a, 0x6f,
-	0x25, 0x0c, 0xd2, 0xab, 0x7d, 0x31, 0x3d, 0x59, 0x76, 0x64, 0x3a, 0x6e, 0x14, 0x90, 0x4e, 0x6b,
-	0xb2, 0xec, 0x81, 0x98, 0x46, 0xf7, 0xe1, 0xad, 0xa2, 0x2c, 0xf5, 0xa8, 0xe9, 0x76, 0xae, 0x70,
-	0xc9, 0xab, 0x79, 0xc9, 0x63, 0x36, 0x89, 0xaf, 0x83, 0xfe, 0xd8, 0x1b, 0x4e, 0x3b, 0x87, 0xf8,
-	0xd7, 0xd0, 0xea, 0x53, 0x2f, 0x20, 0xf6, 0x63, 0x6f, 0xc8, 0xd3, 0xba, 0x0b, 0xfa, 0xcf, 0xbd,
-	0xa1, 0xcc, 0xe9, 0x1a, 0x77, 0xc5, 0x63, 0x6f, 0x68, 0x30, 0xe2, 0x65, 0xb2, 0xf9, 0xdd, 0xb4,
-	0xa0, 0xe8, 0xc5, 0x9c, 0x4b, 0xaa, 0xcb, 0xaf, 0xa0, 0xfa, 0x3f, 0x5e, 0xf8, 0x4e, 0x7e, 0xe1,
-	0x25, 0x85, 0x97, 0x57, 0xd7, 0x64, 0xf1, 0xbf, 0x68, 0x50, 0x63, 0xb0, 0x22, 0x86, 0x00, 0x23,
-	0xc7, 0x25, 0x19, 0x08, 0xc0, 0x26, 0x0d, 0x4e, 0x46, 0x77, 0xa1, 0xce, 0x7e, 0x07, 0x09, 0xae,
-	0xb9, 0xb2, 0xdd, 0x4a, 0x78, 0x8e, 0xcf, 0x7d, 0xc2, 0xb2, 0x5a, 0x8c, 0xe6, 0x5d, 0xfc, 0x0f,
-	0xa0, 0x2e, 0x2c, 0x60, 0x87, 0xac, 0x3c, 0xf7, 0xb4, 0xa4, 0xcc, 0xac, 0x72, 0x9f, 0x9a, 0xe1,
-	0x29, 0x2f, 0xd1, 0x4d, 0x83, 0x8f, 0xb1, 0x0b, 0xcb, 0x7b, 0x1c, 0x70, 0x70, 0xbc, 0x42, 0xbe,
-	0x8f, 0x48, 0x48, 0xe7, 0xe1, 0x99, 0x5c, 0xa9, 0x29, 0x15, 0x4b, 0xcd, 0x1a, 0x54, 0x22, 0xdf,
-	0x36, 0x29, 0xe1, 0xe6, 0xd7, 0x0c, 0xf9, 0x85, 0xef, 0x01, 0x3a, 0x1c, 0xb3, 0x5b, 0x85, 0x5e,
-	0x7c, 0x39, 0xfc, 0x2e, 0x2c, 0x1d, 0x39, 0x61, 0x46, 0x22, 0x46, 0x88, 0x9a, 0x82, 0x10, 0x3f,
-	0x83, 0x76, 0xca, 0x16, 0xfa, 0xde, 0x38, 0xe4, 0x6e, 0x67, 0x2a, 0xd4, 0xdb, 0xb2, 0x95, 0xa8,
-	0x17, 0xa8, 0x26, 0x90, 0x23, 0xfc, 0x1d, 0x2c, 0xef, 0x13, 0x97, 0x5c, 0xca, 0x13, 0xab, 0xb0,
-	0x38, 0xf2, 0x02, 0x8b, 0xc8, 0xcb, 0x53, 0x7c, 0xc4, 0x17, 0xaa, 0x9e, 0x5c, 0xa8, 0xf8, 0xcf,
-	0x1a, 0xa0, 0x3e, 0x2b, 0x76, 0x32, 0x81, 0xa5, 0xf6, 0xdb, 0x50, 0x11, 0xf5, 0x76, 0xe2, 0x1d,
-	0x20, 0xa6, 0x2e, 0xe0, 0xed, 0xf4, 0x32, 0xd4, 0xa7, 0xc3, 0xa4, 0x6c, 0x31, 0x2c, 0x5f, 0xb0,
-	0x18, 0xe2, 0xdf, 0x69, 0xb0, 0x72, 0xc0, 0xeb, 0x6d, 0xc1, 0xf4, 0xf9, 0xd7, 0xd7, 0x7c, 0xd3,
-	0xe7, 0xe4, 0xfa, 0x2a, 0x2c, 0xf2, 0xe6, 0x84, 0xe7, 0x79, 0xcd, 0x10, 0x1f, 0x78, 0x0c, 0xab,
-	0x32, 0x8b, 0xde, 0xc0, 0xa6, 0x1f, 0x41, 0x63, 0xe8, 0x7a, 0xd6, 0x8b, 0x41, 0x48, 0x59, 0x7e,
-	0x8a, 0xb3, 0xa8, 0xd6, 0xec, 0x3e, 0xa3, 0x1b, 0xc0, 0x99, 0xf8, 0x18, 0xff, 0x41, 0x83, 0x65,
-	0x96, 0x5a, 0xd9, 0xd5, 0xe6, 0xa4, 0xc6, 0x4d, 0x28, 0x8f, 0x02, 0xef, 0x6c, 0x22, 0x2c, 0x65,
-	0x13, 0xe8, 0x1a, 0x94, 0xa8, 0x97, 0x89, 0x98, 0x9c, 0x2e, 0x51, 0x8f, 0x1d, 0xa0, 0x71, 0x74,
-	0x36, 0x24, 0x01, 0xdf, 0x79, 0xd9, 0x90, 0x5f, 0x0c, 0x68, 0x05, 0xe4, 0x25, 0x09, 0x42, 0xc2,
-	0x4f, 0x71, 0xcd, 0x88, 0x3f, 0x19, 0x52, 0x4c, 0x8b, 0x14, 0x47, 0x8a, 0x62, 0xc3, 0x45, 0xa4,
-	0xa8, 0xd4, 0x32, 0xb0, 0x92, 0x31, 0xfe, 0x18, 0x56, 0xfa, 0xdf, 0x47, 0xe6, 0x9b, 0x04, 0x1a,
-	0x9b, 0x80, 0x0e, 0xdc, 0x28, 0x2f, 0xaa, 0x14, 0x71, 0x6d, 0x7a, 0x11, 0x47, 0xef, 0x40, 0x8d,
-	0x7a, 0x03, 0xe6, 0x34, 0xd1, 0x0d, 0x64, 0x9c, 0x59, 0xa5, 0x1e, 0xfb, 0x0d, 0xf1, 0x5f, 0x35,
-	0x58, 0xeb, 0x47, 0x43, 0x96, 0x3a, 0x43, 0x72, 0xa9, 0x48, 0xac, 0x65, 0xb0, 0x62, 0x8a, 0x7b,
-	0xef, 0x40, 0x99, 0x25, 0xba, 0x0c, 0xc1, 0x94, 0xb3, 0xc0, 0x59, 0x92, 0x60, 0x96, 0xa7, 0x05,
-	0xf3, 0x3d, 0x58, 0x14, 0xf9, 0xb4, 0x38, 0x25, 0x9f, 0xc4, 0x34, 0xfe, 0x08, 0xd0, 0x9e, 0x4b,
-	0xcc, 0xe0, 0x0d, 0x7c, 0xfc, 0x47, 0x0d, 0x56, 0x44, 0xa9, 0x96, 0x27, 0x5b, 0x0a, 0xc7, 0xfd,
-	0x8f, 0x36, 0xad, 0xff, 0xb9, 0x08, 0x56, 0xbe, 0x5c, 0x93, 0xa4, 0x74, 0x2f, 0xe5, 0x59, 0xdd,
-	0xcb, 0xc3, 0xe4, 0xa0, 0x66, 0x4d, 0xbe, 0x48, 0x5f, 0x87, 0x8f, 0xc4, 0xa1, 0xcb, 0x4a, 0xce,
-	0x09, 0xb5, 0x72, 0x3c, 0x4a, 0xd9, 0xe3, 0xf1, 0x0c, 0x56, 0x44, 0x75, 0xbf, 0xbc, 0x25, 0x93,
-	0xab, 0x3c, 0xfe, 0xb7, 0x06, 0xd5, 0x67, 0x11, 0xe5, 0x0f, 0x0b, 0x6b, 0x50, 0x31, 0x7d, 0x9f,
-	0xc8, 0xbe, 0xa6, 0x66, 0xc8, 0xaf, 0xf8, 0xdd, 0xa0, 0x94, 0xbc, 0x1b, 0xa0, 0x4f, 0x60, 0x29,
-	0x30, 0x5f, 0x0d, 0x38, 0x18, 0x08, 0xbd, 0x28, 0xb0, 0x88, 0xcc, 0x3f, 0x24, 0xf6, 0x62, 0xbe,
-	0x62, 0x0a, 0xfb, 0x7c, 0xe6, 0xd1, 0x82, 0xd1, 0x0a, 0x54, 0x02, 0x93, 0xa6, 0x66, 0x90, 0x91,
-	0x2e, 0x2b, 0xd2, 0xc7, 0x66, 0x90, 0x95, 0xa6, 0x2a, 0x81, 0x49, 0x47, 0x81, 0x9b, 0x91, 0x5e,
-	0x54, 0xa4, 0x9f, 0x1b, 0x47, 0x59, 0xe9, 0x28, 0x70, 0x53, 0xc2, 0x6e, 0x0d, 0x2a, 0x42, 0x08,
-	0x1f, 0x42, 0x2b, 0x63, 0x67, 0xf2, 0x64, 0xa2, 0x29, 0x4f, 0x26, 0x08, 0xca, 0xb6, 0x49, 0x4d,
-	0xbe, 0xf7, 0xa6, 0xc1, 0xc7, 0xcc, 0x1d, 0xbd, 0xa7, 0x07, 0xf1, 0xc5, 0xd8, 0x7b, 0x7a, 0x80,
-	0x6f, 0x43, 0x2b, 0x63, 0x74, 0x22, 0xa6, 0xa5, 0x62, 0xb8, 0x0f, 0xad, 0x8c, 0x6d, 0x13, 0xd7,
-	0x6b, 0x83, 0xfe, 0xdc, 0x38, 0x8a, 0x5d, 0xfd, 0xdc, 0x38, 0x42, 0xff, 0xc7, 0x2e, 0x7f, 0x2b,
-	0x0a, 0x42, 0xe7, 0x65, 0x8c, 0x43, 0x52, 0x02, 0xde, 0x06, 0x10, 0x09, 0xc1, 0x03, 0x88, 0x14,
-	0xf8, 0x56, 0x97, 0x98, 0xad, 0x10, 0x3c, 0x6c, 0x41, 0x6d, 0xcf, 0xf3, 0xcf, 0x2f, 0x19, 0xf2,
-	0x36, 0xe8, 0x76, 0x48, 0xe3, 0xc7, 0x23, 0x3b, 0xa4, 0xe8, 0x1a, 0xe8, 0x61, 0x60, 0xc9, 0xd0,
-	0x29, 0x58, 0x91, 0x51, 0xf1, 0x3f, 0x34, 0x58, 0xfe, 0x89, 0x67, 0x3b, 0x23, 0xbe, 0xce, 0xa5,
-	0xee, 0xb6, 0x3b, 0x50, 0xf3, 0x23, 0xca, 0x03, 0x2c, 0xcf, 0xba, 0x38, 0x98, 0x32, 0x4d, 0x1f,
-	0x2d, 0x18, 0x55, 0x5f, 0x66, 0xec, 0x36, 0xbb, 0x9a, 0xd9, 0xf6, 0x05, 0xb7, 0xc8, 0x41, 0x71,
-	0x3f, 0xa4, 0x6e, 0x79, 0xb4, 0x60, 0x80, 0x9d, 0x3a, 0xe9, 0x87, 0x0c, 0x79, 0xfa, 0xe7, 0x42,
-	0x42, 0x18, 0xdf, 0x92, 0x66, 0x08, 0xa7, 0x3c, 0x5a, 0x30, 0x6a, 0x96, 0x1c, 0xef, 0x5e, 0x81,
-	0xe6, 0x19, 0xdb, 0x86, 0x63, 0x99, 0xec, 0xaa, 0xc7, 0x3b, 0x70, 0xe5, 0x4b, 0x42, 0xd5, 0x3d,
-	0xcd, 0xc1, 0xcc, 0x85, 0x88, 0x2a, 0xf0, 0xf1, 0xe2, 0x6a, 0xf0, 0xbe, 0x80, 0x8f, 0x97, 0x58,
-	0x98, 0x25, 0x43, 0x94, 0xbc, 0x88, 0xf0, 0x31, 0xde, 0x82, 0xa5, 0x6f, 0x4d, 0xf7, 0xc5, 0x25,
-	0xd6, 0x7d, 0x06, 0x4b, 0x5f, 0xba, 0xde, 0xf0, 0xd2, 0x41, 0xec, 0x40, 0xd5, 0x37, 0x29, 0x25,
-	0x41, 0x0c, 0x98, 0xe2, 0x4f, 0xfc, 0x0a, 0x96, 0xf6, 0x9d, 0xd1, 0x48, 0xd5, 0xf8, 0x0e, 0xd4,
-	0xc6, 0x44, 0x94, 0x93, 0xa2, 0x1d, 0xd5, 0x31, 0xe1, 0xa7, 0x94, 0x71, 0x79, 0xae, 0xad, 0xe6,
-	0x85, 0xca, 0xe5, 0xb9, 0x36, 0xe7, 0xea, 0x40, 0x35, 0x3c, 0x35, 0x5d, 0xd7, 0x7b, 0x25, 0x4f,
-	0x4b, 0xfc, 0x89, 0x47, 0xd0, 0x4e, 0x17, 0x96, 0xd0, 0x7a, 0xbd, 0xb0, 0x72, 0xda, 0xd0, 0x88,
-	0x3e, 0x29, 0x5e, 0x7d, 0xbd, 0xb0, 0x7a, 0x9e, 0x53, 0x5a, 0x80, 0x6f, 0x42, 0xe3, 0x20, 0xb4,
-	0x5e, 0xc4, 0x9b, 0x6b, 0x83, 0x3e, 0x72, 0x7e, 0x21, 0xcf, 0x17, 0x1b, 0xe2, 0xfb, 0xd0, 0x14,
-	0x0c, 0xd2, 0x08, 0x85, 0xa3, 0xce, 0x39, 0x38, 0x62, 0x0c, 0x02, 0x2f, 0x90, 0xbe, 0x13, 0x1f,
-	0xf8, 0x3e, 0x5c, 0x15, 0x57, 0x27, 0x5b, 0x26, 0x24, 0x34, 0x51, 0x70, 0x1d, 0x60, 0x24, 0x48,
-	0x83, 0xb8, 0xbf, 0x35, 0xea, 0x92, 0x72, 0x68, 0xe3, 0x07, 0xb0, 0x2c, 0x73, 0x96, 0x0b, 0x5d,
-	0xe2, 0xb6, 0xfe, 0x16, 0x96, 0x77, 0x6c, 0xfb, 0x0d, 0x24, 0x73, 0x26, 0x95, 0xf2, 0x26, 0x3d,
-	0x87, 0x15, 0x83, 0x48, 0xd7, 0x2a, 0xaa, 0x67, 0x6f, 0x04, 0xdd, 0x84, 0x06, 0xa5, 0xee, 0x20,
-	0x24, 0x96, 0x37, 0xb6, 0x43, 0xae, 0x55, 0x37, 0x80, 0x52, 0xb7, 0x2f, 0x28, 0xf8, 0x2a, 0xac,
-	0xec, 0x58, 0xd4, 0x79, 0x69, 0x52, 0xb2, 0x13, 0xd1, 0xf8, 0x7e, 0xc4, 0x6b, 0xb0, 0x9a, 0x25,
-	0x0b, 0xbf, 0xe1, 0x4f, 0x00, 0x19, 0xd1, 0xf8, 0xc8, 0x33, 0xed, 0x63, 0x12, 0x52, 0xa5, 0x2d,
-	0xe3, 0x4f, 0x86, 0xb2, 0x78, 0x87, 0xf1, 0x73, 0x21, 0x91, 0x2f, 0xdf, 0xba, 0xc1, 0xc7, 0xd8,
-	0x86, 0x95, 0x8c, 0xb4, 0x0c, 0xc6, 0x85, 0x2e, 0xe3, 0x09, 0xfa, 0xd2, 0xa0, 0xeb, 0x4a, 0xd0,
-	0xef, 0xde, 0x05, 0x48, 0x5f, 0x16, 0x51, 0x0d, 0xca, 0xcf, 0xfb, 0x3d, 0xa3, 0xbd, 0xc0, 0x46,
-	0x3b, 0xcf, 0x8f, 0x9f, 0xb6, 0x35, 0x36, 0x3a, 0xe8, 0xef, 0x7d, 0xd5, 0x2e, 0xdd, 0x7d, 0x5f,
-	0xb4, 0xf2, 0xbc, 0xff, 0x6e, 0x42, 0xcd, 0xe8, 0xf5, 0x7b, 0xc6, 0x37, 0xbd, 0x7d, 0xc1, 0x7d,
-	0x70, 0x78, 0xd4, 0x6b, 0x6b, 0xa8, 0x0a, 0xfa, 0xfe, 0xa1, 0xd1, 0x2e, 0xdd, 0xbd, 0x17, 0x43,
-	0x6d, 0x0e, 0xed, 0x50, 0x03, 0xaa, 0xfd, 0xe3, 0x1d, 0xe3, 0x98, 0xb3, 0xd7, 0x61, 0xd1, 0xe8,
-	0xed, 0xec, 0xff, 0xac, 0xad, 0x31, 0x3d, 0x07, 0x87, 0x4f, 0x0e, 0xfb, 0x8f, 0x7a, 0xfb, 0xed,
-	0xd2, 0xdd, 0x87, 0x50, 0xdf, 0x27, 0xae, 0x73, 0xe6, 0x50, 0x12, 0x30, 0xa5, 0x4f, 0x9e, 0x3e,
-	0xe9, 0x09, 0xf5, 0x8f, 0xfb, 0x4f, 0x9f, 0x08, 0x63, 0x8e, 0x0e, 0x9f, 0xf4, 0xda, 0x25, 0xb6,
-	0x50, 0xff, 0xeb, 0xa3, 0xb6, 0xce, 0x06, 0x7b, 0xfd, 0x6f, 0xda, 0xe5, 0xed, 0xdf, 0x2f, 0x81,
-	0xbe, 0xf3, 0xec, 0x10, 0x7d, 0x06, 0x90, 0x76, 0xeb, 0x68, 0x4d, 0xa4, 0x4f, 0xbe, 0x7d, 0xef,
-	0xae, 0x15, 0x9e, 0x03, 0x7a, 0xbc, 0x6f, 0x5a, 0x40, 0x1f, 0x42, 0x43, 0xe9, 0xbf, 0xd1, 0x5b,
-	0x5c, 0x41, 0xb1, 0x23, 0xef, 0x66, 0x9b, 0x64, 0xbc, 0x80, 0x3e, 0x82, 0x5a, 0xdc, 0x5c, 0xa3,
-	0x55, 0x3e, 0x99, 0x6b, 0xc9, 0xbb, 0x57, 0x73, 0x54, 0x99, 0x28, 0x0b, 0xcc, 0xe6, 0xb4, 0xaf,
-	0x96, 0x36, 0x17, 0x1a, 0xed, 0x19, 0x36, 0x7f, 0x00, 0x0d, 0xa5, 0x75, 0x96, 0x36, 0x17, 0x9b,
-	0xe9, 0xae, 0x7a, 0x98, 0xf0, 0x02, 0xda, 0x85, 0xa6, 0xda, 0xb7, 0xa2, 0x8e, 0xac, 0x39, 0x85,
-	0x56, 0x76, 0xc6, 0xd2, 0x9f, 0x42, 0x2b, 0xd3, 0x68, 0xa2, 0xb7, 0x55, 0x87, 0x65, 0xb5, 0xe4,
-	0x7b, 0x2b, 0xee, 0x34, 0x48, 0xdb, 0x46, 0xb9, 0xf3, 0x42, 0x1f, 0x39, 0x41, 0x70, 0x4b, 0x63,
-	0xd6, 0xab, 0xcd, 0x98, 0xb4, 0x7e, 0x42, 0x7f, 0x36, 0xc3, 0xfa, 0x87, 0xd0, 0x50, 0x9a, 0x32,
-	0xe9, 0xb8, 0x62, 0x9b, 0x36, 0xd9, 0x80, 0x3d, 0x58, 0xca, 0x75, 0x5b, 0xe8, 0x9a, 0xb0, 0x61,
-	0x62, 0x0f, 0x36, 0x59, 0xc9, 0x17, 0xd0, 0x50, 0xba, 0x1d, 0x69, 0x41, 0xb1, 0xff, 0x99, 0xb1,
-	0x87, 0x5d, 0x68, 0xaa, 0x3d, 0x8f, 0xf4, 0xc3, 0x84, 0x36, 0xe8, 0x42, 0x51, 0x94, 0x4a, 0x32,
-	0x51, 0xcc, 0x6a, 0xc9, 0xff, 0x2f, 0x05, 0x2f, 0xa0, 0x07, 0x22, 0x8a, 0x52, 0x36, 0x8d, 0x62,
-	0x56, 0xb0, 0x9d, 0x13, 0x0c, 0x85, 0xf1, 0x6a, 0xcf, 0x21, 0x8d, 0x9f, 0xd0, 0x86, 0xcc, 0x30,
-	0xfe, 0x0b, 0x80, 0x14, 0x0c, 0xca, 0xd5, 0x0b, 0xe8, 0x70, 0xba, 0xfc, 0xba, 0x86, 0x3e, 0x87,
-	0xaa, 0xbc, 0xc3, 0xd0, 0x0a, 0x17, 0xcf, 0xa2, 0xb0, 0xee, 0xb5, 0x82, 0x2c, 0x7f, 0x7b, 0xf9,
-	0xc6, 0x74, 0x23, 0xc2, 0xa3, 0x98, 0x16, 0x0d, 0xae, 0x24, 0x53, 0x34, 0x54, 0x45, 0xd9, 0x5b,
-	0x1d, 0x2f, 0xa0, 0x7b, 0xa2, 0x68, 0x70, 0xa9, 0xb4, 0x68, 0xcc, 0x12, 0xd9, 0xd2, 0x98, 0x50,
-	0x0c, 0xb4, 0xa4, 0x50, 0x0e, 0x77, 0x4d, 0x11, 0x8a, 0xb1, 0x96, 0x14, 0xca, 0x41, 0xaf, 0x49,
-	0x42, 0x0f, 0xa1, 0x16, 0xa3, 0x1a, 0x29, 0x94, 0x43, 0x57, 0xb2, 0xa6, 0xe5, 0xa1, 0x0f, 0x17,
-	0xee, 0x41, 0x53, 0xbd, 0x18, 0x65, 0x6c, 0x27, 0x5c, 0xa1, 0xdd, 0xb7, 0x27, 0xcc, 0x24, 0xc5,
-	0xf1, 0x53, 0x7e, 0x2b, 0x10, 0x4a, 0x76, 0x5c, 0x17, 0x4d, 0x89, 0xe2, 0x8c, 0xec, 0xd8, 0x84,
-	0x32, 0xc3, 0x43, 0x48, 0x64, 0x9f, 0x82, 0x9d, 0xba, 0xcb, 0x0a, 0x45, 0x31, 0xfb, 0x4b, 0x68,
-	0x65, 0x80, 0xd0, 0xd4, 0x8c, 0xea, 0x2a, 0x07, 0x2d, 0x07, 0x9a, 0x78, 0x56, 0xed, 0x02, 0xa4,
-	0xc8, 0x48, 0x6a, 0x29, 0x40, 0xa5, 0xd9, 0x5a, 0xd8, 0xcd, 0x90, 0x62, 0x24, 0xa9, 0xa3, 0x00,
-	0x9a, 0x66, 0x17, 0x07, 0x15, 0x0a, 0xc9, 0x18, 0x4c, 0x40, 0x47, 0x33, 0x75, 0x34, 0x14, 0x28,
-	0x22, 0x93, 0xbb, 0x08, 0x6d, 0xba, 0x9d, 0xe2, 0x44, 0xbc, 0x8f, 0xdd, 0x0f, 0xff, 0xf6, 0xfa,
-	0x86, 0xf6, 0xf7, 0xd7, 0x37, 0xb4, 0x7f, 0xbd, 0xbe, 0xa1, 0x7d, 0x77, 0xe7, 0xc4, 0xa1, 0xa7,
-	0xd1, 0x70, 0xc3, 0xf2, 0xce, 0x36, 0x7d, 0xd3, 0x3a, 0x3d, 0xb7, 0x49, 0xa0, 0x8e, 0x5e, 0x6e,
-	0x6f, 0x86, 0x81, 0xb5, 0xe9, 0x8f, 0xc2, 0x61, 0x85, 0x9b, 0x73, 0xef, 0xbf, 0x01, 0x00, 0x00,
-	0xff, 0xff, 0xf2, 0xcb, 0xb4, 0x75, 0xa6, 0x21, 0x00, 0x00,
+	// 2579 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x58, 0x4b, 0x73, 0xe3, 0xc6,
+	0xf1, 0x27, 0x08, 0x8a, 0x8f, 0x26, 0xb9, 0xa4, 0x46, 0xb2, 0x4c, 0x73, 0xed, 0xdd, 0xad, 0xd1,
+	0xff, 0xef, 0xc8, 0xeb, 0x94, 0xa4, 0x68, 0x13, 0xef, 0xba, 0xd6, 0x8f, 0xe8, 0x41, 0xed, 0x2a,
+	0x56, 0x76, 0x65, 0x50, 0x5a, 0xc7, 0xbe, 0xa8, 0x40, 0x70, 0x28, 0xa2, 0x16, 0x04, 0x60, 0x60,
+	0xb8, 0x8a, 0x72, 0x48, 0xe5, 0x13, 0xa4, 0x2a, 0xb7, 0x9c, 0x73, 0xca, 0x29, 0x1f, 0x22, 0xa7,
+	0x1c, 0x73, 0xc9, 0x35, 0x95, 0xda, 0x2f, 0x90, 0x63, 0x2a, 0xb7, 0xd4, 0x3c, 0x00, 0x0c, 0x00,
+	0x8a, 0x94, 0x7c, 0x91, 0x06, 0x3d, 0xdd, 0x3d, 0x3d, 0xdd, 0x3d, 0xdd, 0xbf, 0x26, 0x34, 0xfd,
+	0x51, 0xb8, 0xe5, 0x8f, 0xc2, 0x4d, 0x3f, 0xf0, 0xa8, 0x87, 0x74, 0x7f, 0x14, 0x76, 0xef, 0x5e,
+	0x78, 0xde, 0x85, 0x43, 0xb6, 0x38, 0x69, 0x30, 0x1d, 0x6d, 0x91, 0x89, 0x4f, 0xaf, 0x04, 0x47,
+	0xf7, 0x7e, 0x76, 0x93, 0xda, 0x13, 0x12, 0x52, 0x73, 0xe2, 0x4b, 0x86, 0x7b, 0x59, 0x86, 0xcb,
+	0xc0, 0xf4, 0x7d, 0x12, 0xc8, 0x23, 0xba, 0xab, 0x17, 0xde, 0x85, 0xc7, 0x97, 0x5b, 0x6c, 0x25,
+	0xa9, 0x2d, 0x73, 0x4a, 0xc7, 0x5b, 0xec, 0x8f, 0x20, 0xe0, 0x4d, 0x28, 0x19, 0xc4, 0xf7, 0x10,
+	0x82, 0x92, 0x6b, 0x4e, 0x48, 0x47, 0x7b, 0xa0, 0x6d, 0xd4, 0x0c, 0xbe, 0x66, 0x34, 0x7a, 0xe5,
+	0x93, 0x4e, 0x51, 0xd0, 0xd8, 0x1a, 0x3f, 0x85, 0xf2, 0x5e, 0x60, 0xba, 0xd6, 0x18, 0x7d, 0x00,
+	0xa5, 0x80, 0xf8, 0x1e, 0x97, 0xa8, 0xef, 0xd4, 0x36, 0xd9, 0xed, 0x98, 0x2a, 0x83, 0x93, 0x63,
+	0x85, 0xc5, 0x44, 0x21, 0xfe, 0x1a, 0x4a, 0x87, 0xb6, 0x43, 0xd0, 0x3a, 0x94, 0x2d, 0x6f, 0x32,
+	0xb1, 0xa9, 0x14, 0xae, 0x73, 0xe1, 0x7d, 0x4e, 0x32, 0xe4, 0x16, 0x53, 0xe0, 0x9b, 0x74, 0x1c,
+	0x29, 0x60, 0x6b, 0xd4, 0x06, 0x9d, 0x9a, 0x17, 0x1d, 0x9d, 0x93, 0xd8, 0x12, 0xff, 0x57, 0x83,
+	0x2a, 0x3b, 0xf5, 0xc8, 0x1d, 0x79, 0x8b, 0x4c, 0xfa, 0x29, 0x54, 0xac, 0x80, 0x98, 0x94, 0x0c,
+	0xb9, 0xd2, 0xfa, 0x4e, 0x77, 0x53, 0x38, 0x71, 0x33, 0x72, 0xe2, 0xe6, 0x69, 0xe4, 0x65, 0x23,
+	0x62, 0x45, 0x1f, 0x00, 0x84, 0xf6, 0x6f, 0xc8, 0xf9, 0xe0, 0x8a, 0x92, 0x90, 0x1f, 0x5d, 0x32,
+	0x6a, 0x8c, 0xb2, 0xc7, 0x08, 0xe8, 0x01, 0xd4, 0x87, 0x24, 0xb4, 0x02, 0xdb, 0xa7, 0xb6, 0xe7,
+	0x76, 0x4a, 0xdc, 0x34, 0x95, 0x84, 0x7e, 0x04, 0xd5, 0x01, 0x77, 0x19, 0x09, 0x3b, 0x4b, 0x0f,
+	0xf4, 0xf8, 0xbe, 0xc2, 0x8f, 0x46, 0xbc, 0x89, 0x36, 0xa1, 0xc6, 0x22, 0x73, 0x6e, 0xbb, 0x23,
+	0xaf, 0x53, 0xe6, 0x16, 0x2e, 0xc7, 0x77, 0xd8, 0x9d, 0xd2, 0x31, 0xbb, 0xa4, 0x51, 0x35, 0xe5,
+	0x0a, 0xff, 0x0a, 0x1a, 0xea, 0x0e, 0xda, 0x81, 0xba, 0x4f, 0x82, 0x89, 0x1d, 0x86, 0xb6, 0xe7,
+	0x86, 0x1d, 0xed, 0x81, 0xbe, 0x71, 0x67, 0xa7, 0xbd, 0xc9, 0xa3, 0x7d, 0x12, 0x6f, 0x18, 0x2a,
+	0x13, 0x5a, 0x85, 0xa5, 0xc0, 0x73, 0x48, 0xd8, 0x29, 0x3e, 0xd0, 0x37, 0x6a, 0x86, 0xf8, 0xc0,
+	0xbf, 0x2f, 0x02, 0x08, 0xf3, 0xb8, 0xe2, 0x75, 0x28, 0x0b, 0x23, 0x53, 0xf1, 0x92, 0xf6, 0xcb,
+	0x2d, 0x74, 0x1f, 0x4a, 0x63, 0x62, 0x46, 0xae, 0x4d, 0x85, 0x94, 0x6f, 0xa0, 0x8f, 0x01, 0xfc,
+	0xc0, 0x7b, 0x43, 0x5c, 0xd3, 0xb5, 0x48, 0x47, 0xcf, 0x7b, 0x42, 0xd9, 0x66, 0xcc, 0xe1, 0x74,
+	0x10, 0x31, 0x97, 0x66, 0x30, 0x27, 0xdb, 0xe8, 0x09, 0x2c, 0x0f, 0xed, 0x80, 0x58, 0xf4, 0x5c,
+	0x39, 0x60, 0x86, 0xab, 0xdb, 0x82, 0xeb, 0x24, 0x39, 0xe6, 0x43, 0xa8, 0xd0, 0xc0, 0xbe, 0xb8,
+	0x20, 0x81, 0x74, 0x78, 0x83, 0xf3, 0x9f, 0x0a, 0x9a, 0x11, 0x6d, 0xe2, 0x2f, 0xa1, 0x9e, 0xf8,
+	0x23, 0x44, 0xdb, 0x50, 0x17, 0xb7, 0x16, 0xb1, 0xd2, 0xf8, 0x51, 0x2d, 0xe5, 0x28, 0x1e, 0x29,
+	0x18, 0xc4, 0x6b, 0xfc, 0x5b, 0xa8, 0x48, 0xa5, 0x68, 0x2d, 0xe5, 0xcd, 0x5a, 0xec, 0xc0, 0x36,
+	0xe8, 0xa6, 0xe3, 0x70, 0xff, 0x55, 0x0d, 0xb6, 0x44, 0x77, 0xa1, 0x66, 0x05, 0x9e, 0x7b, 0x1e,
+	0xfa, 0xc4, 0x92, 0x49, 0x5f, 0x65, 0x84, 0xbe, 0x4f, 0x2c, 0xf6, 0x3e, 0x58, 0x16, 0xca, 0x8c,
+	0xe3, 0x6b, 0xd4, 0x81, 0x8a, 0x78, 0x3d, 0x2c, 0xd3, 0xb4, 0x0d, 0xdd, 0x88, 0x3e, 0xf1, 0x23,
+	0x68, 0x88, 0x60, 0xbc, 0x0c, 0xec, 0x0b, 0xdb, 0x45, 0xeb, 0x50, 0x7a, 0x6d, 0xbb, 0x43, 0x6e,
+	0xc2, 0x1d, 0x69, 0xba, 0xd8, 0xfa, 0xca, 0x76, 0x87, 0x06, 0xdf, 0xc4, 0x3d, 0x28, 0x0b, 0x21,
+	0xb4, 0x06, 0x45, 0x5b, 0x30, 0xd7, 0xf6, 0xca, 0x6f, 0xff, 0x79, 0xbf, 0x78, 0x74, 0x60, 0x14,
+	0xed, 0xa1, 0x92, 0x19, 0xc5, 0x6b, 0x33, 0x03, 0x3f, 0x86, 0xb6, 0x50, 0xa3, 0x38, 0xfe, 0x26,
+	0x25, 0x00, 0xff, 0xbb, 0x08, 0x20, 0x48, 0x51, 0x1a, 0x2e, 0x2e, 0x1b, 0x1f, 0x41, 0xd9, 0xe3,
+	0xf7, 0x90, 0x16, 0x2d, 0x2b, 0x4c, 0xe2, 0x82, 0x86, 0x64, 0xc8, 0x3e, 0x5d, 0x3d, 0xff, 0x74,
+	0xb7, 0xa1, 0xe9, 0x9b, 0x01, 0x71, 0xe9, 0xb9, 0x3c, 0xb8, 0x94, 0x3f, 0xb8, 0x21, 0x38, 0xa4,
+	0xa3, 0xb6, 0xa1, 0x69, 0x8d, 0x6d, 0x67, 0x78, 0x9e, 0xc4, 0x41, 0xcf, 0x49, 0x70, 0x0e, 0xf1,
+	0x11, 0xb2, 0xaa, 0x14, 0x52, 0x33, 0x60, 0x55, 0xa9, 0xbc, 0xb8, 0x2a, 0x49, 0x56, 0xf4, 0x09,
+	0x54, 0x47, 0xb6, 0x6b, 0x87, 0x63, 0x32, 0xec, 0x54, 0x16, 0x8a, 0xc5, 0xbc, 0x99, 0x6a, 0x56,
+	0xcd, 0x54, 0x33, 0xfc, 0x0a, 0x5a, 0x7d, 0xea, 0x05, 0x24, 0xb2, 0x8e, 0x5c, 0x1f, 0xfa, 0x8f,
+	0x95, 0xb2, 0x56, 0x9c, 0xfd, 0x00, 0x62, 0x06, 0xfc, 0x17, 0x0d, 0x6a, 0x8b, 0x55, 0x6e, 0x26,
+	0xe9, 0x2b, 0x34, 0xae, 0x2a, 0x6e, 0x0b, 0x09, 0xdd, 0xec, 0xb9, 0x34, 0xb8, 0x8a, 0x93, 0xba,
+	0xfb, 0x2d, 0x2c, 0x71, 0x4a, 0xa6, 0xb4, 0x68, 0xf3, 0x4b, 0xcb, 0x3a, 0x94, 0xf8, 0xab, 0x15,
+	0xf9, 0xd1, 0x52, 0x8e, 0xe0, 0x46, 0xf3, 0x4d, 0xfc, 0x57, 0x0d, 0xaa, 0xac, 0x57, 0x45, 0x7d,
+	0x65, 0x64, 0x3b, 0x24, 0xd5, 0x57, 0xd8, 0xa6, 0xc1, 0xc9, 0xe8, 0x21, 0xd4, 0xd8, 0xff, 0xf3,
+	0xb8, 0x59, 0xde, 0xd9, 0x69, 0xc6, 0x3c, 0xa7, 0x57, 0x3e, 0x61, 0xfe, 0x17, 0xab, 0x45, 0xdd,
+	0xe4, 0x09, 0xd4, 0xc4, 0xe5, 0x58, 0x3a, 0x94, 0x16, 0xc6, 0x35, 0x61, 0x66, 0xe5, 0x60, 0x6c,
+	0x86, 0x63, 0xfe, 0xee, 0x1b, 0x06, 0x5f, 0x63, 0x07, 0x96, 0xf7, 0x79, 0x17, 0xe3, 0x4d, 0x90,
+	0x7c, 0x3f, 0x25, 0x21, 0x5d, 0xd4, 0x24, 0x33, 0x8f, 0xa2, 0x98, 0x7f, 0x14, 0x6b, 0x50, 0x9e,
+	0xfa, 0x43, 0x93, 0x12, 0x6e, 0x7e, 0xd5, 0x90, 0x5f, 0xf8, 0x11, 0xa0, 0x23, 0x97, 0x95, 0x2a,
+	0x7a, 0xf3, 0xe3, 0xf0, 0xff, 0x43, 0xeb, 0xd8, 0x0e, 0x53, 0x12, 0x11, 0xec, 0xd0, 0x14, 0xd8,
+	0xf1, 0x05, 0xb4, 0x13, 0xb6, 0xd0, 0xf7, 0xdc, 0x90, 0xbb, 0x9d, 0xa9, 0x50, 0x4b, 0x70, 0x33,
+	0x56, 0x2f, 0xf2, 0x2f, 0x90, 0x2b, 0xfc, 0x1d, 0x2c, 0x1f, 0x10, 0x87, 0xdc, 0xca, 0x13, 0xab,
+	0xb0, 0x34, 0xf2, 0x02, 0x8b, 0xc8, 0x8a, 0x2c, 0x3e, 0xa2, 0x2a, 0xad, 0xc7, 0x55, 0x1a, 0xff,
+	0x4e, 0x03, 0xd4, 0x67, 0xcf, 0x52, 0x3e, 0x6f, 0xa9, 0x7d, 0x1d, 0xca, 0xa2, 0x32, 0xcc, 0xac,
+	0x56, 0x62, 0xeb, 0x06, 0xde, 0x4e, 0x2a, 0xac, 0x7e, 0x7d, 0x85, 0xfd, 0x83, 0x06, 0x2b, 0x87,
+	0xfc, 0x89, 0xe7, 0x6c, 0x58, 0x5c, 0x31, 0x17, 0xdb, 0xb0, 0x20, 0x69, 0x57, 0x61, 0x89, 0x43,
+	0x57, 0x9e, 0xb0, 0x55, 0x43, 0x7c, 0x60, 0x17, 0x56, 0x65, 0x3a, 0xfc, 0x00, 0x9b, 0x7e, 0x02,
+	0xf5, 0x81, 0xe3, 0x59, 0xaf, 0xcf, 0x43, 0xca, 0x12, 0x4d, 0x3c, 0xaa, 0xb6, 0xc2, 0xd9, 0x67,
+	0x74, 0x03, 0x38, 0x13, 0x5f, 0xe3, 0x3f, 0x69, 0xb0, 0xcc, 0x72, 0x24, 0x7d, 0xda, 0x82, 0x18,
+	0xdf, 0x87, 0xd2, 0x28, 0xf0, 0x26, 0x33, 0x41, 0x0b, 0xdb, 0x40, 0x77, 0xa1, 0x48, 0xbd, 0x94,
+	0xeb, 0xe5, 0x76, 0x91, 0x7a, 0xec, 0x25, 0xb8, 0xd3, 0xc9, 0x80, 0x04, 0xfc, 0xe6, 0x25, 0x43,
+	0x7e, 0xb1, 0x36, 0x1c, 0x90, 0x37, 0x24, 0x08, 0x09, 0x7f, 0x8e, 0x55, 0x23, 0xfa, 0x64, 0x38,
+	0x22, 0x29, 0x35, 0x1c, 0x47, 0x88, 0x0b, 0xe7, 0x71, 0x84, 0x52, 0x91, 0xc0, 0x8a, 0xd7, 0xf8,
+	0x19, 0xbc, 0x9b, 0xf2, 0x6a, 0x48, 0xe2, 0xab, 0x5e, 0x57, 0x55, 0x57, 0x61, 0x89, 0xbb, 0x29,
+	0xca, 0x63, 0xfe, 0x81, 0xb7, 0x61, 0xad, 0xff, 0xfd, 0xd4, 0x8c, 0x32, 0x66, 0xb1, 0x1e, 0xfc,
+	0x47, 0x0d, 0xd6, 0xfa, 0xd3, 0x01, 0x4b, 0x8b, 0x01, 0xb9, 0x95, 0x97, 0xd7, 0x52, 0x28, 0xa1,
+	0xa6, 0x42, 0x46, 0xee, 0x7d, 0xfd, 0x3a, 0xef, 0x7f, 0x08, 0x4b, 0x22, 0x01, 0x4a, 0xd7, 0x24,
+	0x80, 0xd8, 0xc6, 0x9f, 0x02, 0xda, 0x77, 0x88, 0x19, 0xdc, 0x3e, 0xd3, 0xf0, 0x3f, 0x34, 0x58,
+	0x11, 0x45, 0x52, 0xbe, 0x29, 0x29, 0x1c, 0xc1, 0x59, 0xed, 0x3a, 0x38, 0x7b, 0x13, 0xe8, 0x73,
+	0x3b, 0xcc, 0xab, 0x80, 0xd1, 0xd2, 0x1c, 0x30, 0x8a, 0xd6, 0xa1, 0xe9, 0x92, 0xcb, 0x08, 0x61,
+	0x10, 0x2a, 0x93, 0xac, 0xe1, 0x92, 0xcb, 0x38, 0x98, 0xf8, 0x69, 0xfc, 0xfc, 0xd2, 0xf7, 0xba,
+	0x09, 0x96, 0xc7, 0xc7, 0xe2, 0x29, 0xa5, 0x25, 0x17, 0x04, 0x59, 0x49, 0xfa, 0x62, 0x3a, 0xe9,
+	0x4f, 0x60, 0x45, 0x14, 0xdf, 0xdb, 0x5b, 0x32, 0xbb, 0x08, 0xe3, 0xff, 0x68, 0x50, 0x39, 0x99,
+	0x52, 0x3e, 0x4c, 0xae, 0x41, 0x99, 0x0d, 0xbe, 0x12, 0xcb, 0x56, 0x0d, 0xf9, 0x15, 0xcd, 0x8a,
+	0xc5, 0x78, 0x56, 0x44, 0x9f, 0x41, 0x2b, 0x30, 0x2f, 0xcf, 0x79, 0xaf, 0x0e, 0xbd, 0x69, 0x60,
+	0x11, 0x99, 0x79, 0x48, 0xdc, 0xc5, 0xbc, 0x64, 0x0a, 0xfb, 0x7c, 0xe7, 0x79, 0xc1, 0x68, 0x06,
+	0x2a, 0x81, 0x49, 0x53, 0x33, 0x48, 0x49, 0x97, 0x14, 0xe9, 0x53, 0x33, 0x48, 0x4b, 0x53, 0x95,
+	0xc0, 0xa4, 0xa7, 0x81, 0x93, 0x92, 0x5e, 0x52, 0xa4, 0xcf, 0x8c, 0xe3, 0xb4, 0xf4, 0x34, 0x70,
+	0x12, 0xc2, 0x5e, 0x15, 0xca, 0x42, 0x08, 0x1f, 0x41, 0x33, 0x65, 0x67, 0x3c, 0x26, 0x6b, 0xca,
+	0x98, 0x8c, 0xa0, 0x34, 0x34, 0xa9, 0xc9, 0xef, 0xde, 0x30, 0xf8, 0x9a, 0xb9, 0xa3, 0xf7, 0xf2,
+	0x30, 0xea, 0x5b, 0xbd, 0x97, 0x87, 0x78, 0x1d, 0x9a, 0x29, 0xa3, 0x63, 0x31, 0x2d, 0x11, 0xc3,
+	0x7d, 0x68, 0xa6, 0x6c, 0x9b, 0x79, 0x5e, 0x1b, 0xf4, 0x33, 0xe3, 0x38, 0x72, 0xf5, 0x99, 0x71,
+	0x8c, 0xde, 0x67, 0xbd, 0xd9, 0x9a, 0x06, 0xa1, 0xfd, 0x26, 0x82, 0x09, 0x09, 0x01, 0xef, 0x00,
+	0x88, 0x84, 0xe0, 0x01, 0x44, 0x0a, 0xba, 0xaa, 0x49, 0x48, 0x95, 0x0b, 0x1e, 0xb6, 0xa0, 0xba,
+	0xef, 0xf9, 0x57, 0xb7, 0x0c, 0x79, 0x1b, 0xf4, 0x61, 0x48, 0xa3, 0x1f, 0x0c, 0x86, 0x21, 0x45,
+	0x77, 0x41, 0x0f, 0x03, 0x4b, 0x86, 0x4e, 0x81, 0x72, 0x8c, 0xca, 0x8a, 0xc1, 0xf2, 0x2f, 0xbd,
+	0xa1, 0x3d, 0xe2, 0xe7, 0xdc, 0xaa, 0x63, 0x7d, 0x04, 0x55, 0x7f, 0x4a, 0x79, 0x80, 0x65, 0x41,
+	0x10, 0xaf, 0x57, 0xa6, 0xe9, 0xf3, 0x82, 0x51, 0xf1, 0x65, 0xc6, 0xee, 0xb0, 0x86, 0xcb, 0xae,
+	0x2f, 0xb8, 0x75, 0x05, 0x87, 0x26, 0x6e, 0x79, 0x5e, 0x30, 0x60, 0x98, 0x38, 0xe9, 0xc7, 0x0c,
+	0x18, 0xfa, 0x57, 0x42, 0x42, 0x18, 0xdf, 0x94, 0x66, 0x08, 0xa7, 0x3c, 0x2f, 0x18, 0x55, 0x4b,
+	0xae, 0xf7, 0xee, 0x40, 0x63, 0xc2, 0xae, 0x61, 0x5b, 0x26, 0x6b, 0xe0, 0x78, 0x17, 0xee, 0x3c,
+	0x23, 0x54, 0xbd, 0xd3, 0x02, 0x48, 0x9b, 0x8b, 0xa8, 0x82, 0xee, 0x6e, 0xae, 0x06, 0x1f, 0x08,
+	0x74, 0x77, 0x8b, 0x83, 0x59, 0x32, 0x4c, 0xe3, 0x29, 0x98, 0xaf, 0xf1, 0x36, 0xb4, 0xbe, 0x31,
+	0x9d, 0xd7, 0xb7, 0x38, 0xf7, 0x04, 0x5a, 0xcf, 0x1c, 0x6f, 0x70, 0xeb, 0x20, 0x76, 0xa0, 0xe2,
+	0x9b, 0x94, 0x92, 0x20, 0x82, 0x41, 0xd1, 0x27, 0xbe, 0x84, 0xd6, 0x81, 0x3d, 0x1a, 0xa9, 0x1a,
+	0xff, 0x0f, 0xaa, 0xac, 0x0c, 0xcf, 0xb6, 0xa3, 0xe2, 0x12, 0xfe, 0x4a, 0x19, 0x97, 0xe7, 0x0c,
+	0xd5, 0xbc, 0x50, 0xb9, 0x3c, 0x67, 0xc8, 0xb9, 0x3a, 0x50, 0x09, 0xc7, 0xa6, 0xe3, 0x78, 0x97,
+	0xf2, 0xb5, 0x44, 0x9f, 0x78, 0x04, 0xed, 0xe4, 0x60, 0x89, 0x7c, 0x37, 0x72, 0x27, 0x27, 0xf3,
+	0x06, 0x47, 0x0c, 0xf1, 0xe9, 0x1b, 0xb9, 0xd3, 0xb3, 0x9c, 0xd2, 0x02, 0x7c, 0x1f, 0xea, 0x87,
+	0xa1, 0xf5, 0x3a, 0xba, 0x5c, 0x1b, 0xf4, 0x91, 0xfd, 0x6b, 0xf9, 0xbe, 0xd8, 0x12, 0x7f, 0x02,
+	0x0d, 0xc1, 0x20, 0x8d, 0x50, 0x38, 0x6a, 0x9c, 0x83, 0xe3, 0xc0, 0x20, 0xf0, 0x02, 0xe9, 0x3b,
+	0xf1, 0x81, 0x3f, 0x81, 0x77, 0x44, 0x7f, 0x65, 0xc7, 0x70, 0x98, 0x21, 0x15, 0x7c, 0x00, 0x30,
+	0x12, 0xa4, 0xf3, 0x08, 0x6f, 0x18, 0x35, 0x49, 0x39, 0x1a, 0xe2, 0x27, 0xb0, 0x2c, 0x73, 0x56,
+	0xc1, 0x26, 0x37, 0x6a, 0xe9, 0xdf, 0xc0, 0xf2, 0xee, 0x70, 0xf8, 0x03, 0x24, 0x33, 0x26, 0x15,
+	0xb3, 0x26, 0x9d, 0xc1, 0x8a, 0x41, 0xa4, 0x6b, 0x15, 0xd5, 0xf3, 0x2f, 0x82, 0xee, 0x43, 0x9d,
+	0x52, 0xe7, 0x3c, 0x24, 0x96, 0xe7, 0x0e, 0x43, 0xae, 0x55, 0x37, 0x80, 0x52, 0xa7, 0x2f, 0x28,
+	0xf8, 0x1d, 0x58, 0xd9, 0xb5, 0xa8, 0xfd, 0xc6, 0xa4, 0x64, 0x77, 0x4a, 0xa3, 0xfe, 0x88, 0xd7,
+	0x60, 0x35, 0x4d, 0x16, 0x7e, 0xc3, 0x9f, 0x01, 0x32, 0xa6, 0xee, 0xb1, 0x67, 0x0e, 0x4f, 0x49,
+	0x48, 0x95, 0xa9, 0x89, 0xff, 0x4c, 0x24, 0x8b, 0x77, 0x18, 0xfd, 0x44, 0x44, 0xe4, 0xaf, 0x9d,
+	0xba, 0xc1, 0xd7, 0x78, 0x08, 0x2b, 0x29, 0x69, 0x19, 0x8c, 0x1b, 0x35, 0xe3, 0x19, 0xfa, 0x92,
+	0xa0, 0xeb, 0x4a, 0xd0, 0x1f, 0x3e, 0x04, 0x48, 0x7e, 0x4d, 0x42, 0x55, 0x28, 0x9d, 0xf5, 0x7b,
+	0x46, 0xbb, 0xc0, 0x56, 0xbb, 0x67, 0xa7, 0x2f, 0xdb, 0x1a, 0x5b, 0x1d, 0xf6, 0xf7, 0xbf, 0x6a,
+	0x17, 0x1f, 0x7e, 0x2c, 0x26, 0x6d, 0x3e, 0x1e, 0x37, 0xa0, 0x6a, 0xf4, 0xfa, 0x3d, 0xe3, 0x55,
+	0xef, 0x40, 0x70, 0x1f, 0x1e, 0x1d, 0xf7, 0xda, 0x1a, 0xaa, 0x80, 0x7e, 0x70, 0x64, 0xb4, 0x8b,
+	0x0f, 0x1f, 0x45, 0x00, 0x9a, 0xe3, 0x3f, 0x54, 0x87, 0x4a, 0xff, 0x74, 0xd7, 0x38, 0xe5, 0xec,
+	0x35, 0x58, 0x32, 0x7a, 0xbb, 0x07, 0xdf, 0xb6, 0x35, 0xa6, 0xe7, 0xf0, 0xe8, 0xc5, 0x51, 0xff,
+	0x79, 0xef, 0xa0, 0x5d, 0x7c, 0xf8, 0x14, 0x6a, 0x07, 0xc4, 0xb1, 0x27, 0x36, 0x25, 0x01, 0x53,
+	0xfa, 0xe2, 0xe5, 0x8b, 0x9e, 0x50, 0xff, 0x8b, 0xfe, 0xcb, 0x17, 0xc2, 0x98, 0xe3, 0xa3, 0x17,
+	0xbd, 0x76, 0x91, 0x1d, 0xd4, 0xff, 0xfa, 0xb8, 0xad, 0xb3, 0xc5, 0x7e, 0xff, 0x55, 0xbb, 0xb4,
+	0xf3, 0xe7, 0x16, 0xe8, 0xbb, 0x27, 0x47, 0xe8, 0x0b, 0x80, 0x64, 0x98, 0x46, 0x6b, 0x22, 0x7d,
+	0xb2, 0xd3, 0x75, 0x77, 0x2d, 0x37, 0xad, 0xf7, 0xf8, 0x34, 0x54, 0x40, 0x8f, 0xa1, 0xae, 0x8c,
+	0xc7, 0xe8, 0x5d, 0xae, 0x20, 0x3f, 0x30, 0x77, 0xd3, 0x33, 0x2c, 0x2e, 0xa0, 0x4f, 0xa1, 0x1a,
+	0xcd, 0xbe, 0x48, 0xfc, 0x20, 0x92, 0x99, 0x98, 0xbb, 0xef, 0x64, 0xa8, 0x32, 0x51, 0x0a, 0xcc,
+	0xe6, 0x64, 0xec, 0x95, 0x36, 0xe7, 0xe6, 0xe0, 0x39, 0x36, 0xff, 0x0c, 0xea, 0xca, 0x64, 0x2b,
+	0x6d, 0xce, 0xcf, 0xba, 0x5d, 0xf5, 0x31, 0xe1, 0x02, 0xda, 0x83, 0x86, 0x3a, 0x8d, 0xa2, 0x8e,
+	0xac, 0x39, 0xb9, 0x01, 0x75, 0xce, 0xd1, 0x3f, 0x87, 0xba, 0x02, 0xe9, 0xe5, 0xd1, 0x79, 0x90,
+	0x3f, 0x47, 0xc3, 0xe7, 0xd0, 0x4c, 0x8d, 0x4a, 0xe8, 0x3d, 0xd5, 0xe5, 0x69, 0x2d, 0xd9, 0x99,
+	0x8b, 0xbb, 0x1d, 0x92, 0x71, 0x52, 0xfa, 0x2e, 0x37, 0x5f, 0xce, 0x10, 0xdc, 0xd6, 0xd0, 0x3e,
+	0xb4, 0x32, 0x83, 0x12, 0xba, 0x2b, 0x5c, 0x37, 0x73, 0x7c, 0x9a, 0xad, 0x64, 0x0f, 0xda, 0xd9,
+	0x49, 0x0f, 0xbd, 0x9f, 0xbf, 0x41, 0x52, 0x87, 0xba, 0x77, 0xd2, 0xbf, 0x96, 0xe1, 0x02, 0x7a,
+	0x0e, 0xad, 0xcc, 0x90, 0x17, 0x19, 0x32, 0x73, 0xf4, 0x9b, 0xe3, 0xcc, 0x3d, 0x68, 0xa8, 0x53,
+	0x92, 0x0c, 0xe9, 0x8c, 0xc1, 0xe9, 0x46, 0x01, 0x91, 0x4a, 0x52, 0x01, 0x49, 0x6b, 0xc9, 0xfe,
+	0x96, 0x88, 0x0b, 0xe8, 0x89, 0x08, 0x88, 0x94, 0x4d, 0x02, 0x92, 0x16, 0x6c, 0x67, 0x04, 0x43,
+	0x61, 0xbc, 0x3a, 0x80, 0x48, 0xe3, 0x67, 0xcc, 0x24, 0x73, 0xf3, 0x11, 0x12, 0x64, 0x28, 0x4f,
+	0xcf, 0x41, 0xc5, 0xeb, 0xe5, 0x37, 0x34, 0xf4, 0x25, 0x54, 0x64, 0x43, 0x43, 0x2b, 0x5c, 0x3c,
+	0x0d, 0xc9, 0xba, 0x77, 0x73, 0xb2, 0xfc, 0xe7, 0x95, 0x57, 0xa6, 0x33, 0x25, 0x3c, 0x23, 0x92,
+	0x0a, 0xc2, 0x95, 0xa4, 0x2a, 0x88, 0xaa, 0x28, 0xdd, 0xe2, 0x71, 0x01, 0x3d, 0x12, 0x15, 0x84,
+	0x4b, 0x25, 0x15, 0x64, 0x9e, 0xc8, 0xb6, 0xc6, 0x84, 0x22, 0xd4, 0x25, 0x85, 0x32, 0x20, 0xec,
+	0x1a, 0xa1, 0x08, 0x78, 0x49, 0xa1, 0x0c, 0x0e, 0x9b, 0x25, 0xf4, 0x14, 0xaa, 0x11, 0xc4, 0x91,
+	0x42, 0x19, 0xa8, 0x25, 0x0b, 0x5c, 0x16, 0x07, 0x71, 0xe1, 0x1e, 0x34, 0xd4, 0x2e, 0x29, 0x63,
+	0x3b, 0xa3, 0x9f, 0x76, 0xdf, 0x9b, 0xb1, 0x13, 0x57, 0xca, 0xcf, 0x79, 0x8b, 0x20, 0x94, 0xec,
+	0x3a, 0x0e, 0xba, 0x26, 0x8a, 0x73, 0xb2, 0x63, 0x0b, 0x4a, 0x0c, 0x1c, 0x21, 0x91, 0x7d, 0x0a,
+	0x90, 0xea, 0x2e, 0x2b, 0x14, 0xc5, 0xec, 0x67, 0xd0, 0x4c, 0xa1, 0xa2, 0x6b, 0x33, 0xaa, 0xab,
+	0x3c, 0xb4, 0x0c, 0x82, 0xe2, 0x59, 0xb5, 0x07, 0x90, 0xc0, 0x24, 0xa9, 0x25, 0x87, 0x9b, 0xe6,
+	0x6b, 0x61, 0x6d, 0x22, 0x01, 0x4c, 0x52, 0x47, 0x0e, 0x41, 0xcd, 0x2f, 0x0e, 0x2a, 0x2e, 0x92,
+	0x31, 0x98, 0x01, 0x95, 0xe6, 0xea, 0xa8, 0x2b, 0xb8, 0x44, 0x26, 0x77, 0x1e, 0xe7, 0x74, 0x3b,
+	0xf9, 0x8d, 0xe8, 0x1e, 0x7b, 0x8f, 0xff, 0xf6, 0xf6, 0x9e, 0xf6, 0xf7, 0xb7, 0xf7, 0xb4, 0x7f,
+	0xbd, 0xbd, 0xa7, 0x7d, 0xf7, 0xd1, 0x85, 0x4d, 0xc7, 0xd3, 0xc1, 0xa6, 0xe5, 0x4d, 0xb6, 0x7c,
+	0xd3, 0x1a, 0x5f, 0x0d, 0x49, 0xa0, 0xae, 0xde, 0xec, 0x6c, 0x85, 0x81, 0xb5, 0xe5, 0x8f, 0xc2,
+	0x41, 0x99, 0x9b, 0xf3, 0xe8, 0x7f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x66, 0x4c, 0x38, 0xcf, 0xa7,
+	0x1f, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -4055,18 +3923,18 @@ type APIClient interface {
 	StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*Commit, error)
 	// FinishCommit turns a write commit into a read commit.
 	FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	// ClearCommit removes all data from the commit.
+	ClearCommit(ctx context.Context, in *ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error)
 	// InspectCommit returns the info about a commit.
 	InspectCommit(ctx context.Context, in *InspectCommitRequest, opts ...grpc.CallOption) (*CommitInfo, error)
 	// ListCommit returns info about all commits.
 	ListCommit(ctx context.Context, in *ListCommitRequest, opts ...grpc.CallOption) (API_ListCommitClient, error)
-	// SquashCommit squashes a commit into it's parent.
-	SquashCommit(ctx context.Context, in *SquashCommitRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	// FlushCommit waits for downstream commits to finish.
-	FlushCommit(ctx context.Context, in *FlushCommitRequest, opts ...grpc.CallOption) (API_FlushCommitClient, error)
 	// SubscribeCommit subscribes for new commits on a given branch.
 	SubscribeCommit(ctx context.Context, in *SubscribeCommitRequest, opts ...grpc.CallOption) (API_SubscribeCommitClient, error)
-	// ClearCommit removes all data from the commit.
-	ClearCommit(ctx context.Context, in *ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	// InspectCommitset returns the info about a Commitset.
+	InspectCommitset(ctx context.Context, in *InspectCommitsetRequest, opts ...grpc.CallOption) (*Commitset, error)
+	// SquashCommitset squashes the commits of a Commitset into their children.
+	SquashCommitset(ctx context.Context, in *SquashCommitsetRequest, opts ...grpc.CallOption) (*types.Empty, error)
 	// CreateBranch creates a new branch.
 	CreateBranch(ctx context.Context, in *CreateBranchRequest, opts ...grpc.CallOption) (*types.Empty, error)
 	// InspectBranch returns info about a branch.
@@ -4170,6 +4038,15 @@ func (c *aPIClient) FinishCommit(ctx context.Context, in *FinishCommitRequest, o
 	return out, nil
 }
 
+func (c *aPIClient) ClearCommit(ctx context.Context, in *ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	out := new(types.Empty)
+	err := c.cc.Invoke(ctx, "/pfs.API/ClearCommit", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *aPIClient) InspectCommit(ctx context.Context, in *InspectCommitRequest, opts ...grpc.CallOption) (*CommitInfo, error) {
 	out := new(CommitInfo)
 	err := c.cc.Invoke(ctx, "/pfs.API/InspectCommit", in, out, opts...)
@@ -4211,49 +4088,8 @@ func (x *aPIListCommitClient) Recv() (*CommitInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) SquashCommit(ctx context.Context, in *SquashCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
-	err := c.cc.Invoke(ctx, "/pfs.API/SquashCommit", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *aPIClient) FlushCommit(ctx context.Context, in *FlushCommitRequest, opts ...grpc.CallOption) (API_FlushCommitClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[1], "/pfs.API/FlushCommit", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &aPIFlushCommitClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type API_FlushCommitClient interface {
-	Recv() (*CommitInfo, error)
-	grpc.ClientStream
-}
-
-type aPIFlushCommitClient struct {
-	grpc.ClientStream
-}
-
-func (x *aPIFlushCommitClient) Recv() (*CommitInfo, error) {
-	m := new(CommitInfo)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *aPIClient) SubscribeCommit(ctx context.Context, in *SubscribeCommitRequest, opts ...grpc.CallOption) (API_SubscribeCommitClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[2], "/pfs.API/SubscribeCommit", opts...)
+	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[1], "/pfs.API/SubscribeCommit", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4284,9 +4120,18 @@ func (x *aPISubscribeCommitClient) Recv() (*CommitInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) ClearCommit(ctx context.Context, in *ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *aPIClient) InspectCommitset(ctx context.Context, in *InspectCommitsetRequest, opts ...grpc.CallOption) (*Commitset, error) {
+	out := new(Commitset)
+	err := c.cc.Invoke(ctx, "/pfs.API/InspectCommitset", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) SquashCommitset(ctx context.Context, in *SquashCommitsetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	out := new(types.Empty)
-	err := c.cc.Invoke(ctx, "/pfs.API/ClearCommit", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/pfs.API/SquashCommitset", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4330,7 +4175,7 @@ func (c *aPIClient) DeleteBranch(ctx context.Context, in *DeleteBranchRequest, o
 }
 
 func (c *aPIClient) ModifyFile(ctx context.Context, opts ...grpc.CallOption) (API_ModifyFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[3], "/pfs.API/ModifyFile", opts...)
+	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[2], "/pfs.API/ModifyFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4364,7 +4209,7 @@ func (x *aPIModifyFileClient) CloseAndRecv() (*types.Empty, error) {
 }
 
 func (c *aPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (API_GetFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[4], "/pfs.API/GetFile", opts...)
+	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[3], "/pfs.API/GetFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4405,7 +4250,7 @@ func (c *aPIClient) InspectFile(ctx context.Context, in *InspectFileRequest, opt
 }
 
 func (c *aPIClient) ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (API_ListFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[5], "/pfs.API/ListFile", opts...)
+	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[4], "/pfs.API/ListFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4437,7 +4282,7 @@ func (x *aPIListFileClient) Recv() (*FileInfo, error) {
 }
 
 func (c *aPIClient) WalkFile(ctx context.Context, in *WalkFileRequest, opts ...grpc.CallOption) (API_WalkFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[6], "/pfs.API/WalkFile", opts...)
+	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[5], "/pfs.API/WalkFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4469,7 +4314,7 @@ func (x *aPIWalkFileClient) Recv() (*FileInfo, error) {
 }
 
 func (c *aPIClient) GlobFile(ctx context.Context, in *GlobFileRequest, opts ...grpc.CallOption) (API_GlobFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[7], "/pfs.API/GlobFile", opts...)
+	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[6], "/pfs.API/GlobFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4501,7 +4346,7 @@ func (x *aPIGlobFileClient) Recv() (*FileInfo, error) {
 }
 
 func (c *aPIClient) DiffFile(ctx context.Context, in *DiffFileRequest, opts ...grpc.CallOption) (API_DiffFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[8], "/pfs.API/DiffFile", opts...)
+	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[7], "/pfs.API/DiffFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4551,7 +4396,7 @@ func (c *aPIClient) DeleteAll(ctx context.Context, in *types.Empty, opts ...grpc
 }
 
 func (c *aPIClient) Fsck(ctx context.Context, in *FsckRequest, opts ...grpc.CallOption) (API_FsckClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[9], "/pfs.API/Fsck", opts...)
+	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[8], "/pfs.API/Fsck", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4583,7 +4428,7 @@ func (x *aPIFsckClient) Recv() (*FsckResponse, error) {
 }
 
 func (c *aPIClient) CreateFileset(ctx context.Context, opts ...grpc.CallOption) (API_CreateFilesetClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[10], "/pfs.API/CreateFileset", opts...)
+	stream, err := c.cc.NewStream(ctx, &_API_serviceDesc.Streams[9], "/pfs.API/CreateFileset", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4666,18 +4511,18 @@ type APIServer interface {
 	StartCommit(context.Context, *StartCommitRequest) (*Commit, error)
 	// FinishCommit turns a write commit into a read commit.
 	FinishCommit(context.Context, *FinishCommitRequest) (*types.Empty, error)
+	// ClearCommit removes all data from the commit.
+	ClearCommit(context.Context, *ClearCommitRequest) (*types.Empty, error)
 	// InspectCommit returns the info about a commit.
 	InspectCommit(context.Context, *InspectCommitRequest) (*CommitInfo, error)
 	// ListCommit returns info about all commits.
 	ListCommit(*ListCommitRequest, API_ListCommitServer) error
-	// SquashCommit squashes a commit into it's parent.
-	SquashCommit(context.Context, *SquashCommitRequest) (*types.Empty, error)
-	// FlushCommit waits for downstream commits to finish.
-	FlushCommit(*FlushCommitRequest, API_FlushCommitServer) error
 	// SubscribeCommit subscribes for new commits on a given branch.
 	SubscribeCommit(*SubscribeCommitRequest, API_SubscribeCommitServer) error
-	// ClearCommit removes all data from the commit.
-	ClearCommit(context.Context, *ClearCommitRequest) (*types.Empty, error)
+	// InspectCommitset returns the info about a Commitset.
+	InspectCommitset(context.Context, *InspectCommitsetRequest) (*Commitset, error)
+	// SquashCommitset squashes the commits of a Commitset into their children.
+	SquashCommitset(context.Context, *SquashCommitsetRequest) (*types.Empty, error)
 	// CreateBranch creates a new branch.
 	CreateBranch(context.Context, *CreateBranchRequest) (*types.Empty, error)
 	// InspectBranch returns info about a branch.
@@ -4741,23 +4586,23 @@ func (*UnimplementedAPIServer) StartCommit(ctx context.Context, req *StartCommit
 func (*UnimplementedAPIServer) FinishCommit(ctx context.Context, req *FinishCommitRequest) (*types.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FinishCommit not implemented")
 }
+func (*UnimplementedAPIServer) ClearCommit(ctx context.Context, req *ClearCommitRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ClearCommit not implemented")
+}
 func (*UnimplementedAPIServer) InspectCommit(ctx context.Context, req *InspectCommitRequest) (*CommitInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectCommit not implemented")
 }
 func (*UnimplementedAPIServer) ListCommit(req *ListCommitRequest, srv API_ListCommitServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListCommit not implemented")
 }
-func (*UnimplementedAPIServer) SquashCommit(ctx context.Context, req *SquashCommitRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SquashCommit not implemented")
-}
-func (*UnimplementedAPIServer) FlushCommit(req *FlushCommitRequest, srv API_FlushCommitServer) error {
-	return status.Errorf(codes.Unimplemented, "method FlushCommit not implemented")
-}
 func (*UnimplementedAPIServer) SubscribeCommit(req *SubscribeCommitRequest, srv API_SubscribeCommitServer) error {
 	return status.Errorf(codes.Unimplemented, "method SubscribeCommit not implemented")
 }
-func (*UnimplementedAPIServer) ClearCommit(ctx context.Context, req *ClearCommitRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ClearCommit not implemented")
+func (*UnimplementedAPIServer) InspectCommitset(ctx context.Context, req *InspectCommitsetRequest) (*Commitset, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectCommitset not implemented")
+}
+func (*UnimplementedAPIServer) SquashCommitset(ctx context.Context, req *SquashCommitsetRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SquashCommitset not implemented")
 }
 func (*UnimplementedAPIServer) CreateBranch(ctx context.Context, req *CreateBranchRequest) (*types.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateBranch not implemented")
@@ -4929,6 +4774,24 @@ func _API_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_ClearCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClearCommitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).ClearCommit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/ClearCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ClearCommit(ctx, req.(*ClearCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _API_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectCommitRequest)
 	if err := dec(in); err != nil {
@@ -4968,45 +4831,6 @@ func (x *aPIListCommitServer) Send(m *CommitInfo) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _API_SquashCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SquashCommitRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(APIServer).SquashCommit(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pfs.API/SquashCommit",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).SquashCommit(ctx, req.(*SquashCommitRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _API_FlushCommit_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(FlushCommitRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(APIServer).FlushCommit(m, &aPIFlushCommitServer{stream})
-}
-
-type API_FlushCommitServer interface {
-	Send(*CommitInfo) error
-	grpc.ServerStream
-}
-
-type aPIFlushCommitServer struct {
-	grpc.ServerStream
-}
-
-func (x *aPIFlushCommitServer) Send(m *CommitInfo) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 func _API_SubscribeCommit_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeCommitRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -5028,20 +4852,38 @@ func (x *aPISubscribeCommitServer) Send(m *CommitInfo) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _API_ClearCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ClearCommitRequest)
+func _API_InspectCommitset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InspectCommitsetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).ClearCommit(ctx, in)
+		return srv.(APIServer).InspectCommitset(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/pfs.API/ClearCommit",
+		FullMethod: "/pfs.API/InspectCommitset",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).ClearCommit(ctx, req.(*ClearCommitRequest))
+		return srv.(APIServer).InspectCommitset(ctx, req.(*InspectCommitsetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_SquashCommitset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SquashCommitsetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).SquashCommitset(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/SquashCommitset",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).SquashCommitset(ctx, req.(*SquashCommitsetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -5451,16 +5293,20 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_FinishCommit_Handler,
 		},
 		{
+			MethodName: "ClearCommit",
+			Handler:    _API_ClearCommit_Handler,
+		},
+		{
 			MethodName: "InspectCommit",
 			Handler:    _API_InspectCommit_Handler,
 		},
 		{
-			MethodName: "SquashCommit",
-			Handler:    _API_SquashCommit_Handler,
+			MethodName: "InspectCommitset",
+			Handler:    _API_InspectCommitset_Handler,
 		},
 		{
-			MethodName: "ClearCommit",
-			Handler:    _API_ClearCommit_Handler,
+			MethodName: "SquashCommitset",
+			Handler:    _API_SquashCommitset_Handler,
 		},
 		{
 			MethodName: "CreateBranch",
@@ -5511,11 +5357,6 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListCommit",
 			Handler:       _API_ListCommit_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "FlushCommit",
-			Handler:       _API_FlushCommit_Handler,
 			ServerStreams: true,
 		},
 		{
@@ -6137,57 +5978,6 @@ func (m *Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *CommitRange) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *CommitRange) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *CommitRange) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.Upper != nil {
-		{
-			size, err := m.Upper.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintPfs(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.Lower != nil {
-		{
-			size, err := m.Lower.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintPfs(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
 func (m *CommitProvenance) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -6250,54 +6040,6 @@ func (m *CommitInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.SubvenantCommitsTotal != 0 {
-		i = encodeVarintPfs(dAtA, i, uint64(m.SubvenantCommitsTotal))
-		i--
-		dAtA[i] = 0x70
-	}
-	if m.SubvenantCommitsFailure != 0 {
-		i = encodeVarintPfs(dAtA, i, uint64(m.SubvenantCommitsFailure))
-		i--
-		dAtA[i] = 0x68
-	}
-	if m.SubvenantCommitsSuccess != 0 {
-		i = encodeVarintPfs(dAtA, i, uint64(m.SubvenantCommitsSuccess))
-		i--
-		dAtA[i] = 0x60
-	}
-	if len(m.Subvenance) > 0 {
-		for iNdEx := len(m.Subvenance) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Subvenance[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintPfs(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x5a
-		}
-	}
-	if m.ReadyProvenance != 0 {
-		i = encodeVarintPfs(dAtA, i, uint64(m.ReadyProvenance))
-		i--
-		dAtA[i] = 0x50
-	}
-	if len(m.Provenance) > 0 {
-		for iNdEx := len(m.Provenance) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Provenance[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintPfs(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x4a
-		}
 	}
 	if m.SizeBytes != 0 {
 		i = encodeVarintPfs(dAtA, i, uint64(m.SizeBytes))
@@ -6388,7 +6130,7 @@ func (m *CommitInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *Job) Marshal() (dAtA []byte, err error) {
+func (m *StoredCommitset) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -6398,12 +6140,12 @@ func (m *Job) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *Job) MarshalTo(dAtA []byte) (int, error) {
+func (m *StoredCommitset) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *Job) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *StoredCommitset) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -6411,6 +6153,20 @@ func (m *Job) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Branches) > 0 {
+		for iNdEx := len(m.Branches) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Branches[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPfs(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
 	}
 	if len(m.ID) > 0 {
 		i -= len(m.ID)
@@ -6422,7 +6178,7 @@ func (m *Job) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *StoredJobInfo) Marshal() (dAtA []byte, err error) {
+func (m *Commitset) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -6432,12 +6188,12 @@ func (m *StoredJobInfo) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *StoredJobInfo) MarshalTo(dAtA []byte) (int, error) {
+func (m *Commitset) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *StoredJobInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *Commitset) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -6457,37 +6213,20 @@ func (m *StoredJobInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 				i = encodeVarintPfs(dAtA, i, uint64(size))
 			}
 			i--
-			dAtA[i] = 0x1a
+			dAtA[i] = 0x12
 		}
 	}
-	if m.Origin != nil {
-		{
-			size, err := m.Origin.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintPfs(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.Job != nil {
-		{
-			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintPfs(dAtA, i, uint64(size))
-		}
+	if len(m.ID) > 0 {
+		i -= len(m.ID)
+		copy(dAtA[i:], m.ID)
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.ID)))
 		i--
 		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
 
-func (m *JobInfo) Marshal() (dAtA []byte, err error) {
+func (m *Commitset_Entry) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -6497,12 +6236,12 @@ func (m *JobInfo) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *JobInfo) MarshalTo(dAtA []byte) (int, error) {
+func (m *Commitset_Entry) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *JobInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *Commitset_Entry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -6511,23 +6250,9 @@ func (m *JobInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Commits) > 0 {
-		for iNdEx := len(m.Commits) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Commits[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintPfs(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x1a
-		}
-	}
-	if m.Origin != nil {
+	if m.Info != nil {
 		{
-			size, err := m.Origin.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.Info.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -6537,17 +6262,19 @@ func (m *JobInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x12
 	}
-	if m.Job != nil {
-		{
-			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
+	if len(m.Provenance) > 0 {
+		for iNdEx := len(m.Provenance) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Provenance[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPfs(dAtA, i, uint64(size))
 			}
-			i -= size
-			i = encodeVarintPfs(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0xa
 		}
-		i--
-		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -6873,20 +6600,6 @@ func (m *StartCommitRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Provenance) > 0 {
-		for iNdEx := len(m.Provenance) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Provenance[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintPfs(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x22
-		}
-	}
 	if m.Branch != nil {
 		{
 			size, err := m.Branch.MarshalToSizedBuffer(dAtA[:i])
@@ -7145,7 +6858,7 @@ func (m *CommitInfos) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *SquashCommitRequest) Marshal() (dAtA []byte, err error) {
+func (m *InspectCommitsetRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -7155,12 +6868,12 @@ func (m *SquashCommitRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *SquashCommitRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *InspectCommitsetRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *SquashCommitRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *InspectCommitsetRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -7169,22 +6882,27 @@ func (m *SquashCommitRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Commit != nil {
-		{
-			size, err := m.Commit.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintPfs(dAtA, i, uint64(size))
+	if m.Block {
+		i--
+		if m.Block {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.ID) > 0 {
+		i -= len(m.ID)
+		copy(dAtA[i:], m.ID)
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.ID)))
 		i--
 		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
 
-func (m *FlushCommitRequest) Marshal() (dAtA []byte, err error) {
+func (m *SquashCommitsetRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -7194,12 +6912,12 @@ func (m *FlushCommitRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *FlushCommitRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *SquashCommitsetRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *FlushCommitRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *SquashCommitsetRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -7208,33 +6926,12 @@ func (m *FlushCommitRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.ToRepos) > 0 {
-		for iNdEx := len(m.ToRepos) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.ToRepos[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintPfs(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x12
-		}
-	}
-	if len(m.Commits) > 0 {
-		for iNdEx := len(m.Commits) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Commits[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintPfs(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0xa
-		}
+	if len(m.ID) > 0 {
+		i -= len(m.ID)
+		copy(dAtA[i:], m.ID)
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.ID)))
+		i--
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -7266,23 +6963,11 @@ func (m *SubscribeCommitRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	if m.State != 0 {
 		i = encodeVarintPfs(dAtA, i, uint64(m.State))
 		i--
-		dAtA[i] = 0x28
+		dAtA[i] = 0x20
 	}
 	if m.From != nil {
 		{
 			size, err := m.From.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintPfs(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x22
-	}
-	if m.Prov != nil {
-		{
-			size, err := m.Prov.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -7376,6 +7061,16 @@ func (m *CreateBranchRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.NewCommitset {
+		i--
+		if m.NewCommitset {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
 	}
 	if m.Trigger != nil {
 		{
@@ -9007,26 +8702,6 @@ func (m *Commit) Size() (n int) {
 	return n
 }
 
-func (m *CommitRange) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Lower != nil {
-		l = m.Lower.Size()
-		n += 1 + l + sovPfs(uint64(l))
-	}
-	if m.Upper != nil {
-		l = m.Upper.Size()
-		n += 1 + l + sovPfs(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
 func (m *CommitProvenance) Size() (n int) {
 	if m == nil {
 		return 0
@@ -9082,37 +8757,13 @@ func (m *CommitInfo) Size() (n int) {
 	if m.SizeBytes != 0 {
 		n += 1 + sovPfs(uint64(m.SizeBytes))
 	}
-	if len(m.Provenance) > 0 {
-		for _, e := range m.Provenance {
-			l = e.Size()
-			n += 1 + l + sovPfs(uint64(l))
-		}
-	}
-	if m.ReadyProvenance != 0 {
-		n += 1 + sovPfs(uint64(m.ReadyProvenance))
-	}
-	if len(m.Subvenance) > 0 {
-		for _, e := range m.Subvenance {
-			l = e.Size()
-			n += 1 + l + sovPfs(uint64(l))
-		}
-	}
-	if m.SubvenantCommitsSuccess != 0 {
-		n += 1 + sovPfs(uint64(m.SubvenantCommitsSuccess))
-	}
-	if m.SubvenantCommitsFailure != 0 {
-		n += 1 + sovPfs(uint64(m.SubvenantCommitsFailure))
-	}
-	if m.SubvenantCommitsTotal != 0 {
-		n += 1 + sovPfs(uint64(m.SubvenantCommitsTotal))
-	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
 
-func (m *Job) Size() (n int) {
+func (m *StoredCommitset) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -9122,24 +8773,26 @@ func (m *Job) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovPfs(uint64(l))
 	}
+	if len(m.Branches) > 0 {
+		for _, e := range m.Branches {
+			l = e.Size()
+			n += 1 + l + sovPfs(uint64(l))
+		}
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
 
-func (m *StoredJobInfo) Size() (n int) {
+func (m *Commitset) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Job != nil {
-		l = m.Job.Size()
-		n += 1 + l + sovPfs(uint64(l))
-	}
-	if m.Origin != nil {
-		l = m.Origin.Size()
+	l = len(m.ID)
+	if l > 0 {
 		n += 1 + l + sovPfs(uint64(l))
 	}
 	if len(m.Commits) > 0 {
@@ -9154,25 +8807,21 @@ func (m *StoredJobInfo) Size() (n int) {
 	return n
 }
 
-func (m *JobInfo) Size() (n int) {
+func (m *Commitset_Entry) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Job != nil {
-		l = m.Job.Size()
-		n += 1 + l + sovPfs(uint64(l))
-	}
-	if m.Origin != nil {
-		l = m.Origin.Size()
-		n += 1 + l + sovPfs(uint64(l))
-	}
-	if len(m.Commits) > 0 {
-		for _, e := range m.Commits {
+	if len(m.Provenance) > 0 {
+		for _, e := range m.Provenance {
 			l = e.Size()
 			n += 1 + l + sovPfs(uint64(l))
 		}
+	}
+	if m.Info != nil {
+		l = m.Info.Size()
+		n += 1 + l + sovPfs(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -9323,12 +8972,6 @@ func (m *StartCommitRequest) Size() (n int) {
 		l = m.Branch.Size()
 		n += 1 + l + sovPfs(uint64(l))
 	}
-	if len(m.Provenance) > 0 {
-		for _, e := range m.Provenance {
-			l = e.Size()
-			n += 1 + l + sovPfs(uint64(l))
-		}
-	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -9428,15 +9071,18 @@ func (m *CommitInfos) Size() (n int) {
 	return n
 }
 
-func (m *SquashCommitRequest) Size() (n int) {
+func (m *InspectCommitsetRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Commit != nil {
-		l = m.Commit.Size()
+	l = len(m.ID)
+	if l > 0 {
 		n += 1 + l + sovPfs(uint64(l))
+	}
+	if m.Block {
+		n += 2
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -9444,23 +9090,15 @@ func (m *SquashCommitRequest) Size() (n int) {
 	return n
 }
 
-func (m *FlushCommitRequest) Size() (n int) {
+func (m *SquashCommitsetRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if len(m.Commits) > 0 {
-		for _, e := range m.Commits {
-			l = e.Size()
-			n += 1 + l + sovPfs(uint64(l))
-		}
-	}
-	if len(m.ToRepos) > 0 {
-		for _, e := range m.ToRepos {
-			l = e.Size()
-			n += 1 + l + sovPfs(uint64(l))
-		}
+	l = len(m.ID)
+	if l > 0 {
+		n += 1 + l + sovPfs(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -9480,10 +9118,6 @@ func (m *SubscribeCommitRequest) Size() (n int) {
 	}
 	l = len(m.Branch)
 	if l > 0 {
-		n += 1 + l + sovPfs(uint64(l))
-	}
-	if m.Prov != nil {
-		l = m.Prov.Size()
 		n += 1 + l + sovPfs(uint64(l))
 	}
 	if m.From != nil {
@@ -9538,6 +9172,9 @@ func (m *CreateBranchRequest) Size() (n int) {
 	if m.Trigger != nil {
 		l = m.Trigger.Size()
 		n += 1 + l + sovPfs(uint64(l))
+	}
+	if m.NewCommitset {
+		n += 2
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -11635,129 +11272,6 @@ func (m *Commit) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *CommitRange) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowPfs
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: CommitRange: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CommitRange: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Lower", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthPfs
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Lower == nil {
-				m.Lower = &Commit{}
-			}
-			if err := m.Lower.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Upper", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthPfs
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Upper == nil {
-				m.Upper = &Commit{}
-			}
-			if err := m.Upper.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipPfs(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
 func (m *CommitProvenance) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -12139,150 +11653,6 @@ func (m *CommitInfo) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 9:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Provenance", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthPfs
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Provenance = append(m.Provenance, &CommitProvenance{})
-			if err := m.Provenance[len(m.Provenance)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 10:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ReadyProvenance", wireType)
-			}
-			m.ReadyProvenance = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.ReadyProvenance |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 11:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Subvenance", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthPfs
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Subvenance = append(m.Subvenance, &CommitRange{})
-			if err := m.Subvenance[len(m.Subvenance)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 12:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SubvenantCommitsSuccess", wireType)
-			}
-			m.SubvenantCommitsSuccess = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.SubvenantCommitsSuccess |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 13:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SubvenantCommitsFailure", wireType)
-			}
-			m.SubvenantCommitsFailure = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.SubvenantCommitsFailure |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 14:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SubvenantCommitsTotal", wireType)
-			}
-			m.SubvenantCommitsTotal = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.SubvenantCommitsTotal |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPfs(dAtA[iNdEx:])
@@ -12305,7 +11675,7 @@ func (m *CommitInfo) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *Job) Unmarshal(dAtA []byte) error {
+func (m *StoredCommitset) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -12328,10 +11698,10 @@ func (m *Job) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Job: wiretype end group for non-group")
+			return fmt.Errorf("proto: StoredCommitset: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Job: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: StoredCommitset: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -12366,6 +11736,40 @@ func (m *Job) Unmarshal(dAtA []byte) error {
 			}
 			m.ID = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Branches", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPfs
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Branches = append(m.Branches, &BranchInfo{})
+			if err := m.Branches[len(m.Branches)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPfs(dAtA[iNdEx:])
@@ -12388,7 +11792,7 @@ func (m *Job) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *StoredJobInfo) Unmarshal(dAtA []byte) error {
+func (m *Commitset) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -12411,17 +11815,17 @@ func (m *StoredJobInfo) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: StoredJobInfo: wiretype end group for non-group")
+			return fmt.Errorf("proto: Commitset: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: StoredJobInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Commitset: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Job", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ID", wireType)
 			}
-			var msglen int
+			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowPfs
@@ -12431,65 +11835,25 @@ func (m *StoredJobInfo) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= int(b&0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			if msglen < 0 {
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
 				return ErrInvalidLengthPfs
 			}
-			postIndex := iNdEx + msglen
+			postIndex := iNdEx + intStringLen
 			if postIndex < 0 {
 				return ErrInvalidLengthPfs
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Job == nil {
-				m.Job = &Job{}
-			}
-			if err := m.Job.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
+			m.ID = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Origin", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthPfs
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Origin == nil {
-				m.Origin = &CommitOrigin{}
-			}
-			if err := m.Origin.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Commits", wireType)
 			}
@@ -12518,7 +11882,7 @@ func (m *StoredJobInfo) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Commits = append(m.Commits, &Commit{})
+			m.Commits = append(m.Commits, &Commitset_Entry{})
 			if err := m.Commits[len(m.Commits)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -12545,7 +11909,7 @@ func (m *StoredJobInfo) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *JobInfo) Unmarshal(dAtA []byte) error {
+func (m *Commitset_Entry) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -12568,15 +11932,15 @@ func (m *JobInfo) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: JobInfo: wiretype end group for non-group")
+			return fmt.Errorf("proto: Entry: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: JobInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Entry: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Job", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Provenance", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -12603,16 +11967,14 @@ func (m *JobInfo) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Job == nil {
-				m.Job = &Job{}
-			}
-			if err := m.Job.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.Provenance = append(m.Provenance, &Branch{})
+			if err := m.Provenance[len(m.Provenance)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Origin", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Info", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -12639,44 +12001,10 @@ func (m *JobInfo) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Origin == nil {
-				m.Origin = &CommitOrigin{}
+			if m.Info == nil {
+				m.Info = &CommitInfo{}
 			}
-			if err := m.Origin.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Commits", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthPfs
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Commits = append(m.Commits, &CommitInfo{})
-			if err := m.Commits[len(m.Commits)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.Info.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -13551,40 +12879,6 @@ func (m *StartCommitRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Provenance", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthPfs
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Provenance = append(m.Provenance, &CommitProvenance{})
-			if err := m.Provenance[len(m.Provenance)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPfs(dAtA[iNdEx:])
@@ -14154,7 +13448,7 @@ func (m *CommitInfos) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *SquashCommitRequest) Unmarshal(dAtA []byte) error {
+func (m *InspectCommitsetRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -14177,17 +13471,17 @@ func (m *SquashCommitRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: SquashCommitRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: InspectCommitsetRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: SquashCommitRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: InspectCommitsetRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Commit", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ID", wireType)
 			}
-			var msglen int
+			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowPfs
@@ -14197,28 +13491,44 @@ func (m *SquashCommitRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= int(b&0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			if msglen < 0 {
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
 				return ErrInvalidLengthPfs
 			}
-			postIndex := iNdEx + msglen
+			postIndex := iNdEx + intStringLen
 			if postIndex < 0 {
 				return ErrInvalidLengthPfs
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Commit == nil {
-				m.Commit = &Commit{}
-			}
-			if err := m.Commit.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
+			m.ID = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Block", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Block = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPfs(dAtA[iNdEx:])
@@ -14241,7 +13551,7 @@ func (m *SquashCommitRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *FlushCommitRequest) Unmarshal(dAtA []byte) error {
+func (m *SquashCommitsetRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -14264,17 +13574,17 @@ func (m *FlushCommitRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: FlushCommitRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: SquashCommitsetRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: FlushCommitRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: SquashCommitsetRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Commits", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ID", wireType)
 			}
-			var msglen int
+			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowPfs
@@ -14284,59 +13594,23 @@ func (m *FlushCommitRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= int(b&0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			if msglen < 0 {
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
 				return ErrInvalidLengthPfs
 			}
-			postIndex := iNdEx + msglen
+			postIndex := iNdEx + intStringLen
 			if postIndex < 0 {
 				return ErrInvalidLengthPfs
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Commits = append(m.Commits, &Commit{})
-			if err := m.Commits[len(m.Commits)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ToRepos", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthPfs
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.ToRepos = append(m.ToRepos, &Repo{})
-			if err := m.ToRepos[len(m.ToRepos)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
+			m.ID = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -14459,42 +13733,6 @@ func (m *SubscribeCommitRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Prov", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthPfs
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfs
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Prov == nil {
-				m.Prov = &CommitProvenance{}
-			}
-			if err := m.Prov.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field From", wireType)
 			}
 			var msglen int
@@ -14529,7 +13767,7 @@ func (m *SubscribeCommitRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 5:
+		case 4:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
 			}
@@ -14828,6 +14066,26 @@ func (m *CreateBranchRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NewCommitset", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.NewCommitset = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPfs(dAtA[iNdEx:])

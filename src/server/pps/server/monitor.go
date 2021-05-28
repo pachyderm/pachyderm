@@ -197,12 +197,10 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
 				pachClient := m.a.env.GetPachClient(ctx)
-				return pachClient.SubscribeCommit(pipeline, "",
-					pipelineInfo.SpecCommit.NewProvenance(),
-					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
-						ciChan <- ci
-						return nil
-					})
+				return pachClient.SubscribeCommit(pipeline, "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+					ciChan <- ci
+					return nil
+				})
 			}, backoff.NewInfiniteBackOff(),
 				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipeline))
 		})
@@ -376,7 +374,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
-		if err = pachClient.SquashCommit(in.Cron.Repo, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID); err != nil {
+		if err = pachClient.SquashCommitset(commitInfo.Commit.ID); err != nil {
 			return err
 		}
 	}

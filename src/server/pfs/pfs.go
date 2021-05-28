@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -72,6 +73,27 @@ type ErrCommitNotFinished struct {
 	Commit *pfs.Commit
 }
 
+// ErrAmbiguousCommit represents an error where a user-specified commit did not
+// specify a branch and resolved to multiple commits on different branches.
+type ErrAmbiguousCommit struct {
+	Commit *pfs.Commit
+}
+
+// ErrInconsistentCommit represents an error where a transaction attempts to
+// create a Commitset with multiple commits in the same branch, which would
+// result in inconsistent data dependencies.
+type ErrInconsistentCommit struct {
+	Branch *pfs.Branch
+	Commit *pfs.Commit
+}
+
+// ErrCommitOnOutputBranch represents an error where an attempt was made to start
+// a commit on an output branch (a branch that is provenant on other branches).
+// This should only be done internally in PFS.
+type ErrCommitOnOutputBranch struct {
+	Branch *pfs.Branch
+}
+
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo.Name, e.File.Commit.ID)
 }
@@ -121,6 +143,18 @@ func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit.ID)
 }
 
+func (e ErrAmbiguousCommit) Error() string {
+	return fmt.Sprintf("commit %v is ambiguous (specify the branch to resolve)", e.Commit.ID)
+}
+
+func (e ErrInconsistentCommit) Error() string {
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", pfsdb.CommitKey(e.Commit), e.Branch.Name)
+}
+
+func (e ErrCommitOnOutputBranch) Error() string {
+	return fmt.Sprintf("cannot start a commit on an output branch: %s", pfsdb.BranchKey(e.Branch))
+}
+
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
@@ -132,6 +166,9 @@ var (
 	hasNoHeadRe               = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
+	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
+	inconsistentCommitRe      = regexp.MustCompile("branch already has a commit in this transaction")
+	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -222,4 +259,32 @@ func IsCommitNotFinishedErr(err error) bool {
 		return false
 	}
 	return commitNotFinishedRe.MatchString(err.Error())
+}
+
+// IsAmbiguousCommitErr returns true if the err is due to attempting to resolve
+// a commit without specifying a branch when it is required to uniquely identify
+// the commit.
+func IsAmbiguousCommitErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return ambiguousCommitRe.MatchString(err.Error())
+}
+
+// IsInconsistentCommitErr returns true if the err is due to an attempt to have
+// multiple commits in a single branch within a transaction.
+func IsInconsistentCommitErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return inconsistentCommitRe.MatchString(err.Error())
+}
+
+// IsCommitOnOutputBranchErr returns true if the err is due to an attempt to
+// start a commit on an output branch.
+func IsCommitOnOutputBranchErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitOnOutputBranchRe.MatchString(err.Error())
 }

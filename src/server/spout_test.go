@@ -64,7 +64,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// since the spout should be appending to that file on each commit
 		countBreakFunc := newCountBreakFunc(5)
 		var prevLength uint64
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
@@ -80,8 +80,9 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 
 		// make sure we can delete commits
-		err = c.SquashCommit(pipeline, "master", "")
+		commit, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
+		require.NoError(t, c.SquashCommitset(commit.ID))
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
@@ -120,7 +121,7 @@ func TestSpoutPachctl(t *testing.T) {
 
 		// get 5 succesive commits
 		countBreakFunc := newCountBreakFunc(5)
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
@@ -134,8 +135,9 @@ func TestSpoutPachctl(t *testing.T) {
 		defer tu.DeleteAll(t)
 
 		// make sure we can delete commits
-		err = c.SquashCommit(pipeline, "master", "")
+		commit, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
+		require.NoError(t, c.SquashCommitset(commit.ID))
 
 		// now let's update the pipeline and make sure it works again
 		_, err = c.PpsAPIClient.CreatePipeline(
@@ -160,7 +162,7 @@ func TestSpoutPachctl(t *testing.T) {
 
 		// get 5 succesive commits
 		countBreakFunc = newCountBreakFunc(5)
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
@@ -224,7 +226,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// since the spout should be appending to that file on each commit
 		countBreakFunc := newCountBreakFunc(5)
 		var prevLength uint64
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
@@ -238,9 +240,11 @@ func testSpout(t *testing.T, usePachctl bool) {
 				return nil
 			})
 		}))
+
 		// make sure we can delete commits
-		err = c.SquashCommit(pipeline, "master", "")
+		commit, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
+		require.NoError(t, c.SquashCommitset(commit.ID))
 
 		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
@@ -308,7 +312,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		countBreakFunc := newCountBreakFunc(5)
 		var count int
 		var prevLength uint64
-		require.NoError(t, c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)

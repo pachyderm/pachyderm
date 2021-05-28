@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -25,9 +26,9 @@ type PfsWrites interface {
 	CreateRepo(*pfs.CreateRepoRequest) error
 	DeleteRepo(*pfs.DeleteRepoRequest) error
 
-	StartCommit(*pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
+	StartCommit(*pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
-	SquashCommit(*pfs.SquashCommitRequest) error
+	SquashCommitset(*pfs.SquashCommitsetRequest) error
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
@@ -123,9 +124,9 @@ func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
 	return t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
+func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	req := proto.Clone(original).(*pfs.StartCommitRequest)
-	return t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req, commit)
+	return t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) error {
@@ -133,9 +134,9 @@ func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) erro
 	return t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) SquashCommit(original *pfs.SquashCommitRequest) error {
-	req := proto.Clone(original).(*pfs.SquashCommitRequest)
-	return t.txnEnv.serviceEnv.PfsServer().SquashCommitInTransaction(t.txnCtx, req)
+func (t *directTransaction) SquashCommitset(original *pfs.SquashCommitsetRequest) error {
+	req := proto.Clone(original).(*pfs.SquashCommitsetRequest)
+	return t.txnEnv.serviceEnv.PfsServer().SquashCommitsetInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
@@ -197,7 +198,7 @@ func (t *appendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
 	return err
 }
 
-func (t *appendTransaction) StartCommit(req *pfs.StartCommitRequest, _ *pfs.Commit) (*pfs.Commit, error) {
+func (t *appendTransaction) StartCommit(req *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	res, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StartCommit: req})
 	if err != nil {
 		return nil, err
@@ -210,8 +211,8 @@ func (t *appendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
 	return err
 }
 
-func (t *appendTransaction) SquashCommit(req *pfs.SquashCommitRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommit: req})
+func (t *appendTransaction) SquashCommitset(req *pfs.SquashCommitsetRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommitset: req})
 	return err
 }
 
@@ -278,9 +279,11 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 		txnCtx := &txncontext.TransactionContext{
 			ClientContext: ctx,
 			SqlTx:         sqlTx,
+			CommitsetID:   uuid.NewWithoutDashes(),
+			Timestamp:     types.TimestampNow(),
 		}
 		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
+			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
 			txnCtx.CommitFinisher = env.serviceEnv.PfsServer().NewPipelineFinisher(txnCtx)
 		}
 
@@ -300,10 +303,12 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 		txnCtx := &txncontext.TransactionContext{
 			ClientContext:  ctx,
 			SqlTx:          sqlTx,
+			CommitsetID:    uuid.NewWithoutDashes(),
+			Timestamp:      types.TimestampNow(),
 			CommitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 		}
 		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
+			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
 		}
 
 		err := cb(txnCtx)

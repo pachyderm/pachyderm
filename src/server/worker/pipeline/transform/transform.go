@@ -24,7 +24,6 @@ func forEachCommit(driver driver.Driver, cb func(*pfs.CommitInfo) error) error {
 	return pachClient.SubscribeCommit(
 		pipelineInfo.Pipeline.Name,
 		"",
-		pipelineInfo.SpecCommit.NewProvenance(),
 		"",
 		pfs.CommitState_READY,
 		func(commitInfo *pfs.CommitInfo) error {

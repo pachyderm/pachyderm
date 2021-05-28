@@ -6,6 +6,7 @@ import (
 	"hash"
 
 	"github.com/gogo/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 )
 
@@ -56,6 +57,13 @@ func (r *Repo) NewCommit(branch, id string) *Commit {
 	}
 }
 
+func (b *Branch) NewCommit(id string) *Commit {
+	return &Commit{
+		ID:     id,
+		Branch: proto.Clone(b).(*Branch),
+	}
+}
+
 func (c *Commit) NewFile(path string) *File {
 	return &File{
 		Commit: proto.Clone(c).(*Commit),
@@ -67,4 +75,26 @@ func (c *Commit) NewProvenance() *CommitProvenance {
 	return &CommitProvenance{
 		Commit: proto.Clone(c).(*Commit),
 	}
+}
+
+func (cs *StoredCommitset) NewCommit(branch *Branch) *Commit {
+	return &Commit{
+		Branch: proto.Clone(branch).(*Branch),
+		ID:     cs.ID,
+	}
+}
+
+func (cs *Commitset) NewCommit(branch *Branch) *Commit {
+	return &Commit{
+		Branch: proto.Clone(branch).(*Branch),
+		ID:     cs.ID,
+	}
+}
+
+func (cs *Commitset) CommitInfos() []*CommitInfo {
+	result := make([]*CommitInfo, 0, len(cs.Commits))
+	for _, c := range cs.Commits {
+		result = append(result, c.Info)
+	}
+	return result
 }

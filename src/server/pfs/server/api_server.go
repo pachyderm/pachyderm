@@ -150,16 +150,9 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 }
 
 // StartCommitInTransaction is identical to StartCommit except that it can run
-// inside an existing postgres transaction.  This is not an RPC.  The target
-// commit can be specified but is optional.  This is so that the transaction can
-// report the commit ID back to the client before the transaction has finished
-// and it can be used in future commands inside the same transaction.
-func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
-	id := ""
-	if commit != nil {
-		id = commit.ID
-	}
-	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
+	return a.driver.startCommit(txnCtx, request.Parent, request.Branch, request.Description)
 }
 
 // StartCommit implements the protobuf pfs.StartCommit RPC
@@ -169,7 +162,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	var err error
 	commit := &pfs.Commit{}
 	if err = a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		commit, err = txn.StartCommit(request, nil)
+		commit, err = txn.StartCommit(request)
 		return err
 	}); err != nil {
 		return nil, err
@@ -192,16 +185,28 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionCont
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.FinishCommit(request)
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// FinishCommit in a transaction by itself has special handling with regards
+		// to its Commitset ID.  It is possible that this transaction will create
+		// new commits via triggers, but we want those commits to be associated with
+		// the same Commitset that the finished commit is associated with.
+		// Therefore, we override the txnCtx's CommitsetID field to point to the
+		// same commit.
+		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
+		if err != nil {
+			return err
+		}
+		txnCtx.CommitsetID = commitInfo.Commit.ID
+		return a.FinishCommitInTransaction(txnCtx, request)
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-// InspectCommitInTransaction is identical to InspectCommit (some features excluded) except that it can run
-// inside an existing postgres transaction.  This is not an RPC.
+// InspectCommitInTransaction is identical to InspectCommit (some features
+// excluded) except that it can run inside an existing postgres transaction.
+// This is not an RPC.
 func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	return a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
 }
@@ -226,36 +231,36 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	})
 }
 
-// SquashCommitInTransaction is identical to SquashCommit except that it can run
-// inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) SquashCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitRequest) error {
-	return a.driver.squashCommit(txnCtx, request.Commit)
+// InspectCommitset implements the protobuf pfs.InspectCommitset RPC
+func (a *apiServer) InspectCommitset(ctx context.Context, request *pfs.InspectCommitsetRequest) (response *pfs.Commitset, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	return a.driver.inspectCommitset(ctx, request.ID, request.Block)
 }
 
-// SquashCommit implements the protobuf pfs.SquashCommit RPC
-func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *types.Empty, retErr error) {
+// SquashCommitsetInTransaction is identical to SquashCommitset except that it can run
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) SquashCommitsetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitsetRequest) error {
+	return a.driver.squashCommitset(txnCtx, request.ID)
+}
+
+// SquashCommitset implements the protobuf pfs.SquashCommitset RPC
+func (a *apiServer) SquashCommitset(ctx context.Context, request *pfs.SquashCommitsetRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.SquashCommit(request)
+		return txn.SquashCommitset(request)
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-// FlushCommit implements the protobuf pfs.FlushCommit RPC
-func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.flushCommit(stream.Context(), request.Commits, request.ToRepos, stream.Send)
-}
-
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.Prov, request.From, request.State, stream.Send)
+	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, stream.Send)
 }
 
 // ClearCommit deletes all data in the commit.
@@ -275,8 +280,24 @@ func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionCont
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.CreateBranch(request)
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// CreateBranch in a transaction by itself has special handling with regards
+		// to its Commitset ID.  In order to better support a 'deferred processing'
+		// workflow with global IDs, it is useful for moving a branch head to be
+		// done in the same Commitset as the parent commit of the new branch head -
+		// this is similar to how we handle triggers when finishing a commit.
+		// Therefore we override the Commitset ID being used by this operation, and
+		// propagateBranches will update the existing Commitset structure.  As an
+		// escape hatch in case of an unexpected workload, this behavior can be
+		// overridden by setting NewCommitset=true in the request.
+		if request.Head != nil && !request.NewCommitset {
+			commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Head)
+			if err != nil {
+				return err
+			}
+			txnCtx.CommitsetID = commitInfo.Commit.ID
+		}
+		return a.CreateBranchInTransaction(txnCtx, request)
 	}); err != nil {
 		return nil, err
 	}

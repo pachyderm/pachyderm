@@ -53,26 +53,6 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
 }
 
-// SquashCommitInTransaction is identical to SquashCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) SquashCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitRequest) error {
-	userCommit := request.Commit
-	// Validate arguments
-	if userCommit == nil {
-		return errors.New("commit cannot be nil")
-	}
-	if userCommit.Branch == nil {
-		return errors.New("commit branch cannot be nil")
-	}
-	if userCommit.Branch.Repo == nil {
-		return errors.New("commit repo cannot be nil")
-	}
-	if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_DELETE_COMMIT); err != nil {
-		return err
-	}
-	return a.apiServer.SquashCommitInTransaction(txnCtx, request)
-}
-
 // InspectFile implements the protobuf pfs.InspectFile RPC
 func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	if err := validateFile(request.File); err != nil {

@@ -23,9 +23,9 @@ func NewMockPfsPropagater() *MockPfsPropagater {
 	return &MockPfsPropagater{}
 }
 
-// PropagateCommit always errors
-func (mpp *MockPfsPropagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error {
-	return unimplementedError("PfsPropagater.PropagateCommit")
+// PropagateBranch always errors
+func (mpp *MockPfsPropagater) PropagateBranch(branch *pfs.Branch) error {
+	return unimplementedError("PfsPropagater.PropagateBranch")
 }
 
 // Run always errors
@@ -87,7 +87,7 @@ func (mpts *MockPfsTransactionServer) DeleteRepoInTransaction(*txncontext.Transa
 }
 
 // StartCommitInTransaction always errors
-func (mpts *MockPfsTransactionServer) StartCommitInTransaction(*txncontext.TransactionContext, *pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error) {
+func (mpts *MockPfsTransactionServer) StartCommitInTransaction(*txncontext.TransactionContext, *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	return nil, unimplementedError("PfsTransactionServer.StartCommitInTransaction")
 }
 
@@ -96,9 +96,9 @@ func (mpts *MockPfsTransactionServer) FinishCommitInTransaction(*txncontext.Tran
 	return unimplementedError("PfsTransactionServer.FinishCommitInTransaction")
 }
 
-// SquashCommitInTransaction always errors
-func (mpts *MockPfsTransactionServer) SquashCommitInTransaction(*txncontext.TransactionContext, *pfs.SquashCommitRequest) error {
-	return unimplementedError("PfsTransactionServer.SquashCommitInTransaction")
+// SquashCommitsetInTransaction always errors
+func (mpts *MockPfsTransactionServer) SquashCommitsetInTransaction(*txncontext.TransactionContext, *pfs.SquashCommitsetRequest) error {
+	return unimplementedError("PfsTransactionServer.SquashCommitsetInTransaction")
 }
 
 // CreateBranchInTransaction always errors

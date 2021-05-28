@@ -404,8 +404,8 @@ type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Empty, error)
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
-type squashCommitFunc func(context.Context, *pfs.SquashCommitRequest) (*types.Empty, error)
-type flushCommitFunc func(*pfs.FlushCommitRequest, pfs.API_FlushCommitServer) error
+type squashCommitsetFunc func(context.Context, *pfs.SquashCommitsetRequest) (*types.Empty, error)
+type inspectCommitsetFunc func(context.Context, *pfs.InspectCommitsetRequest) (*pfs.Commitset, error)
 type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeCommitServer) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
 type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Empty, error)
@@ -436,8 +436,8 @@ type mockStartCommit struct{ handler startCommitFunc }
 type mockFinishCommit struct{ handler finishCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
 type mockListCommit struct{ handler listCommitFunc }
-type mockSquashCommit struct{ handler squashCommitFunc }
-type mockFlushCommit struct{ handler flushCommitFunc }
+type mockSquashCommitset struct{ handler squashCommitsetFunc }
+type mockInspectCommitset struct{ handler inspectCommitsetFunc }
 type mockSubscribeCommit struct{ handler subscribeCommitFunc }
 type mockClearCommit struct{ handler clearCommitFunc }
 type mockCreateBranch struct{ handler createBranchFunc }
@@ -459,75 +459,75 @@ type mockGetFileset struct{ handler getFilesetFunc }
 type mockRenewFileset struct{ handler renewFilesetFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 
-func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc) { mock.handler = cb }
-func (mock *mockCreateRepo) Use(cb createRepoFunc)           { mock.handler = cb }
-func (mock *mockInspectRepo) Use(cb inspectRepoFunc)         { mock.handler = cb }
-func (mock *mockListRepo) Use(cb listRepoFunc)               { mock.handler = cb }
-func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)           { mock.handler = cb }
-func (mock *mockStartCommit) Use(cb startCommitFunc)         { mock.handler = cb }
-func (mock *mockFinishCommit) Use(cb finishCommitFunc)       { mock.handler = cb }
-func (mock *mockInspectCommit) Use(cb inspectCommitFunc)     { mock.handler = cb }
-func (mock *mockListCommit) Use(cb listCommitFunc)           { mock.handler = cb }
-func (mock *mockSquashCommit) Use(cb squashCommitFunc)       { mock.handler = cb }
-func (mock *mockFlushCommit) Use(cb flushCommitFunc)         { mock.handler = cb }
-func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc) { mock.handler = cb }
-func (mock *mockClearCommit) Use(cb clearCommitFunc)         { mock.handler = cb }
-func (mock *mockCreateBranch) Use(cb createBranchFunc)       { mock.handler = cb }
-func (mock *mockInspectBranch) Use(cb inspectBranchFunc)     { mock.handler = cb }
-func (mock *mockListBranch) Use(cb listBranchFunc)           { mock.handler = cb }
-func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)       { mock.handler = cb }
-func (mock *mockModifyFile) Use(cb modifyFileFunc)           { mock.handler = cb }
-func (mock *mockGetFile) Use(cb getFileFunc)                 { mock.handler = cb }
-func (mock *mockInspectFile) Use(cb inspectFileFunc)         { mock.handler = cb }
-func (mock *mockListFile) Use(cb listFileFunc)               { mock.handler = cb }
-func (mock *mockWalkFile) Use(cb walkFileFunc)               { mock.handler = cb }
-func (mock *mockGlobFile) Use(cb globFileFunc)               { mock.handler = cb }
-func (mock *mockDiffFile) Use(cb diffFileFunc)               { mock.handler = cb }
-func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)       { mock.handler = cb }
-func (mock *mockFsck) Use(cb fsckFunc)                       { mock.handler = cb }
-func (mock *mockCreateFileset) Use(cb createFilesetFunc)     { mock.handler = cb }
-func (mock *mockAddFileset) Use(cb addFilesetFunc)           { mock.handler = cb }
-func (mock *mockGetFileset) Use(cb getFilesetFunc)           { mock.handler = cb }
-func (mock *mockRenewFileset) Use(cb renewFilesetFunc)       { mock.handler = cb }
-func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)         { mock.handler = cb }
+func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)   { mock.handler = cb }
+func (mock *mockCreateRepo) Use(cb createRepoFunc)             { mock.handler = cb }
+func (mock *mockInspectRepo) Use(cb inspectRepoFunc)           { mock.handler = cb }
+func (mock *mockListRepo) Use(cb listRepoFunc)                 { mock.handler = cb }
+func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)             { mock.handler = cb }
+func (mock *mockStartCommit) Use(cb startCommitFunc)           { mock.handler = cb }
+func (mock *mockFinishCommit) Use(cb finishCommitFunc)         { mock.handler = cb }
+func (mock *mockInspectCommit) Use(cb inspectCommitFunc)       { mock.handler = cb }
+func (mock *mockListCommit) Use(cb listCommitFunc)             { mock.handler = cb }
+func (mock *mockSquashCommitset) Use(cb squashCommitsetFunc)   { mock.handler = cb }
+func (mock *mockInspectCommitset) Use(cb inspectCommitsetFunc) { mock.handler = cb }
+func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc)   { mock.handler = cb }
+func (mock *mockClearCommit) Use(cb clearCommitFunc)           { mock.handler = cb }
+func (mock *mockCreateBranch) Use(cb createBranchFunc)         { mock.handler = cb }
+func (mock *mockInspectBranch) Use(cb inspectBranchFunc)       { mock.handler = cb }
+func (mock *mockListBranch) Use(cb listBranchFunc)             { mock.handler = cb }
+func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)         { mock.handler = cb }
+func (mock *mockModifyFile) Use(cb modifyFileFunc)             { mock.handler = cb }
+func (mock *mockGetFile) Use(cb getFileFunc)                   { mock.handler = cb }
+func (mock *mockInspectFile) Use(cb inspectFileFunc)           { mock.handler = cb }
+func (mock *mockListFile) Use(cb listFileFunc)                 { mock.handler = cb }
+func (mock *mockWalkFile) Use(cb walkFileFunc)                 { mock.handler = cb }
+func (mock *mockGlobFile) Use(cb globFileFunc)                 { mock.handler = cb }
+func (mock *mockDiffFile) Use(cb diffFileFunc)                 { mock.handler = cb }
+func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)         { mock.handler = cb }
+func (mock *mockFsck) Use(cb fsckFunc)                         { mock.handler = cb }
+func (mock *mockCreateFileset) Use(cb createFilesetFunc)       { mock.handler = cb }
+func (mock *mockAddFileset) Use(cb addFilesetFunc)             { mock.handler = cb }
+func (mock *mockGetFileset) Use(cb getFilesetFunc)             { mock.handler = cb }
+func (mock *mockRenewFileset) Use(cb renewFilesetFunc)         { mock.handler = cb }
+func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)           { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
 }
 
 type mockPFSServer struct {
-	api             pfsServerAPI
-	ActivateAuth    mockActivateAuthPFS
-	CreateRepo      mockCreateRepo
-	InspectRepo     mockInspectRepo
-	ListRepo        mockListRepo
-	DeleteRepo      mockDeleteRepo
-	StartCommit     mockStartCommit
-	FinishCommit    mockFinishCommit
-	InspectCommit   mockInspectCommit
-	ListCommit      mockListCommit
-	SquashCommit    mockSquashCommit
-	FlushCommit     mockFlushCommit
-	SubscribeCommit mockSubscribeCommit
-	ClearCommit     mockClearCommit
-	CreateBranch    mockCreateBranch
-	InspectBranch   mockInspectBranch
-	ListBranch      mockListBranch
-	DeleteBranch    mockDeleteBranch
-	ModifyFile      mockModifyFile
-	GetFile         mockGetFile
-	InspectFile     mockInspectFile
-	ListFile        mockListFile
-	WalkFile        mockWalkFile
-	GlobFile        mockGlobFile
-	DiffFile        mockDiffFile
-	DeleteAll       mockDeleteAllPFS
-	Fsck            mockFsck
-	CreateFileset   mockCreateFileset
-	AddFileset      mockAddFileset
-	GetFileset      mockGetFileset
-	RenewFileset    mockRenewFileset
-	RunLoadTest     mockRunLoadTest
+	api              pfsServerAPI
+	ActivateAuth     mockActivateAuthPFS
+	CreateRepo       mockCreateRepo
+	InspectRepo      mockInspectRepo
+	ListRepo         mockListRepo
+	DeleteRepo       mockDeleteRepo
+	StartCommit      mockStartCommit
+	FinishCommit     mockFinishCommit
+	InspectCommit    mockInspectCommit
+	ListCommit       mockListCommit
+	SquashCommitset  mockSquashCommitset
+	InspectCommitset mockInspectCommitset
+	SubscribeCommit  mockSubscribeCommit
+	ClearCommit      mockClearCommit
+	CreateBranch     mockCreateBranch
+	InspectBranch    mockInspectBranch
+	ListBranch       mockListBranch
+	DeleteBranch     mockDeleteBranch
+	ModifyFile       mockModifyFile
+	GetFile          mockGetFile
+	InspectFile      mockInspectFile
+	ListFile         mockListFile
+	WalkFile         mockWalkFile
+	GlobFile         mockGlobFile
+	DiffFile         mockDiffFile
+	DeleteAll        mockDeleteAllPFS
+	Fsck             mockFsck
+	CreateFileset    mockCreateFileset
+	AddFileset       mockAddFileset
+	GetFileset       mockGetFileset
+	RenewFileset     mockRenewFileset
+	RunLoadTest      mockRunLoadTest
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -584,17 +584,17 @@ func (api *pfsServerAPI) ListCommit(req *pfs.ListCommitRequest, serv pfs.API_Lis
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListCommit")
 }
-func (api *pfsServerAPI) SquashCommit(ctx context.Context, req *pfs.SquashCommitRequest) (*types.Empty, error) {
-	if api.mock.SquashCommit.handler != nil {
-		return api.mock.SquashCommit.handler(ctx, req)
+func (api *pfsServerAPI) SquashCommitset(ctx context.Context, req *pfs.SquashCommitsetRequest) (*types.Empty, error) {
+	if api.mock.SquashCommitset.handler != nil {
+		return api.mock.SquashCommitset.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommitset")
 }
-func (api *pfsServerAPI) FlushCommit(req *pfs.FlushCommitRequest, serv pfs.API_FlushCommitServer) error {
-	if api.mock.FlushCommit.handler != nil {
-		return api.mock.FlushCommit.handler(req, serv)
+func (api *pfsServerAPI) InspectCommitset(ctx context.Context, req *pfs.InspectCommitsetRequest) (*pfs.Commitset, error) {
+	if api.mock.InspectCommitset.handler != nil {
+		return api.mock.InspectCommitset.handler(ctx, req)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.FlushCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.InspectCommitset")
 }
 func (api *pfsServerAPI) SubscribeCommit(req *pfs.SubscribeCommitRequest, serv pfs.API_SubscribeCommitServer) error {
 	if api.mock.SubscribeCommit.handler != nil {

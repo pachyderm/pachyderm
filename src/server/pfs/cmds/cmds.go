@@ -23,11 +23,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
@@ -83,7 +82,7 @@ or type (e.g. csv, binary, images, etc).`,
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
-					&pfsclient.CreateRepoRequest{
+					&pfs.CreateRepoRequest{
 						Repo:        client.NewRepo(args[0]),
 						Description: description,
 					},
@@ -110,7 +109,7 @@ or type (e.g. csv, binary, images, etc).`,
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
-					&pfsclient.CreateRepoRequest{
+					&pfs.CreateRepoRequest{
 						Repo:        client.NewRepo(args[0]),
 						Description: description,
 						Update:      true,
@@ -173,7 +172,7 @@ or type (e.g. csv, binary, images, etc).`,
 			defer c.Close()
 
 			if repoType == "" && !all {
-				repoType = pfsclient.UserRepoType // default to user
+				repoType = pfs.UserRepoType // default to user
 			}
 			repoInfos, err := c.ListRepoByType(repoType)
 			if err != nil {
@@ -217,7 +216,7 @@ or type (e.g. csv, binary, images, etc).`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.DeleteRepoRequest{
+			request := &pfs.DeleteRepoRequest{
 				Force: force,
 				All:   all,
 			}
@@ -285,7 +284,7 @@ $ {{alias}} test -p XXX`,
 			}
 			defer c.Close()
 
-			var parentCommit *pfsclient.Commit
+			var parentCommit *pfs.Commit
 			if parent != "" {
 				// We don't know if the parent is a commit ID, branch, or ancestry, so
 				// construct a string to parse.
@@ -295,12 +294,12 @@ $ {{alias}} test -p XXX`,
 				}
 			}
 
-			var commit *pfsclient.Commit
+			var commit *pfs.Commit
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				var err error
 				commit, err = c.PfsAPIClient.StartCommit(
 					c.Ctx(),
-					&pfsclient.StartCommitRequest{
+					&pfs.StartCommitRequest{
 						Branch:      branch,
 						Parent:      parentCommit,
 						Description: description,
@@ -339,7 +338,7 @@ $ {{alias}} test -p XXX`,
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.FinishCommit(
 					c.Ctx(),
-					&pfsclient.FinishCommitRequest{
+					&pfs.FinishCommitRequest{
 						Commit:      commit,
 						Description: description,
 					},
@@ -422,12 +421,12 @@ $ {{alias}} foo@master --from XXX`,
 			}
 
 			if raw {
-				return c.ListCommitF(branch.Repo.Name, branch.Name, "", "", from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
+				return c.ListCommitF(branch.Repo.Name, branch.Name, "", "", from, uint64(number), false, func(ci *pfs.CommitInfo) error {
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(branch.Repo.Name, branch.Name, "", "", from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
+			if err := c.ListCommitF(branch.Repo.Name, branch.Name, "", "", from, uint64(number), false, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -444,21 +443,38 @@ $ {{alias}} foo@master --from XXX`,
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
-	var repos cmdutil.RepeatedStringArg
-	flushCommit := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit> ...",
-		Short: "Wait for all commits caused by the specified commits to finish and return them.",
-		Long:  "Wait for all commits caused by the specified commits to finish and return them.",
+	var branches cmdutil.RepeatedStringArg
+	waitCommit := &cobra.Command{
+		Use:   "{{alias}} ( <commitset-id> | <repo>@<branch-or-commit> )",
+		Short: "Wait for the specified commit(s) to finish and return them.",
+		Long:  "Wait for the specified commit(s) to finish and return them.",
 		Example: `
-# return commits caused by foo@XXX and bar@YYY
-$ {{alias}} foo@XXX bar@YYY
+# return commits in the same commit set as foo@XXX
+$ {{alias}} XXX
 
-# return commits caused by foo@XXX leading to repos bar and baz
-$ {{alias}} foo@XXX -r bar -r baz`,
-		Run: cmdutil.Run(func(args []string) (retErr error) {
-			commits, err := cmdutil.ParseCommits(args)
-			if err != nil {
-				return err
+# return commits caused by foo@XXX leading to branch bar@baz
+$ {{alias}} XXX -b bar@baz`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			// Parse args before connecting
+			var commitsetID string
+			var commit *pfs.Commit
+			if uuid.IsUUIDWithoutDashes(args[0]) {
+				commitsetID = args[0]
+			} else {
+				var err error
+				commit, err = cmdutil.ParseCommit(args[0])
+				if err != nil {
+					return err
+				}
+			}
+
+			toBranches := []*pfs.Branch{}
+			for _, arg := range branches {
+				branch, err := cmdutil.ParseBranch(arg)
+				if err != nil {
+					return err
+				}
+				toBranches = append(toBranches, branch)
 			}
 
 			c, err := client.NewOnUserMachine("user")
@@ -467,35 +483,77 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 			}
 			defer c.Close()
 
-			var toRepos []*pfsclient.Repo
-			for _, repoName := range repos {
-				toRepos = append(toRepos, client.NewRepo(repoName))
-			}
-
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			defer func() {
-				if err := w.Flush(); retErr == nil {
-					retErr = err
-				}
-			}()
-			return c.FlushCommit(commits, toRepos, func(ci *pfsclient.CommitInfo) error {
+			writeCommitInfo := func(ci *pfs.CommitInfo) error {
 				if raw {
 					return marshaller.Marshal(os.Stdout, ci)
 				}
 				pretty.PrintCommitInfo(w, ci, fullTimestamps)
 				return nil
-			})
+			}
+			defer func() {
+				if err := w.Flush(); retErr == nil {
+					retErr = err
+				}
+			}()
+
+			blockCommit := func(commit *pfs.Commit) error {
+				ci, err := c.BlockCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+				if err != nil {
+					return err
+				}
+				return writeCommitInfo(ci)
+			}
+
+			blockBranches := func(commitsetID string) error {
+				for _, branch := range toBranches {
+					if err := blockCommit(client.NewCommit(branch.Repo.Name, branch.Name, commitsetID)); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
+			// There are separate codepaths for whether or not we are waiting on a
+			// commit or commitset and whether we are interested in all the commits in
+			// the set or only specific branches.
+			if commit != nil {
+				if len(toBranches) != 0 {
+					// We just want to use the commitset ID and wait on the downstream branches
+					ci, err := c.InspectCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+					if err != nil {
+						return err
+					}
+					return blockBranches(ci.Commit.ID)
+				}
+				// We are just waiting on a single commit, block on it and exit
+				return blockCommit(commit)
+			} else {
+				if len(toBranches) == 0 {
+					return blockBranches(commitsetID)
+				}
+				// We are waiting for the entire commitset to finish
+				commitset, err := c.BlockCommitset(commitsetID)
+				if err != nil {
+					return err
+				}
+				for _, entry := range commitset.Commits {
+					if err := writeCommitInfo(entry.Info); err != nil {
+						return err
+					}
+				}
+			}
+
+			return nil
 		}),
 	}
-	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
-	flushCommit.MarkFlagCustom("repos", "__pachctl_get_repo")
-	flushCommit.Flags().AddFlagSet(rawFlags)
-	flushCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	shell.RegisterCompletionFunc(flushCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(flushCommit, "flush commit"))
+	waitCommit.Flags().VarP(&branches, "branch", "b", "Wait only for commits in the specified set of branches")
+	waitCommit.MarkFlagCustom("branch", "__pachctl_get_branch")
+	waitCommit.Flags().AddFlagSet(rawFlags)
+	waitCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(waitCommit, "wait commit"))
 
 	var newCommits bool
-	var pipeline string
 	subscribeCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Print commits as they are created (finished).",
@@ -528,22 +586,13 @@ $ {{alias}} test@master --new`,
 				from = branch.Name
 			}
 
-			var prov *pfsclient.CommitProvenance
-			if pipeline != "" {
-				pipelineInfo, err := c.InspectPipeline(pipeline)
-				if err != nil {
-					return err
-				}
-				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
-			}
-
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 			defer func() {
 				if err := w.Flush(); retErr == nil {
 					retErr = err
 				}
 			}()
-			return c.SubscribeCommit(branch.Repo.Name, branch.Name, prov, from, pfsclient.CommitState_STARTED, func(ci *pfsclient.CommitInfo) error {
+			return c.SubscribeCommit(branch.Repo.Name, branch.Name, from, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 				if raw {
 					return marshaller.Marshal(os.Stdout, ci)
 				}
@@ -553,7 +602,6 @@ $ {{alias}} test@master --new`,
 		}),
 	}
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
-	subscribeCommit.Flags().StringVar(&pipeline, "pipeline", "", "subscribe to all commits created by this pipeline")
 	subscribeCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
 	subscribeCommit.Flags().AddFlagSet(rawFlags)
@@ -561,15 +609,11 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	deleteCommit := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>",
-		Short: "Delete an input commit.",
-		Long:  "Delete an input commit. An input is a commit which is not the output of a pipeline.",
+	deleteCommitset := &cobra.Command{
+		Use:   "{{alias}} <commitset>",
+		Short: "Delete the commits of a commitset.",
+		Long:  "Delete the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			commit, err := cmdutil.ParseCommit(args[0])
-			if err != nil {
-				return err
-			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -577,12 +621,12 @@ $ {{alias}} test@master --new`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.SquashCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+				return c.SquashCommitset(args[0])
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
+	shell.RegisterCompletionFunc(deleteCommitset, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(deleteCommitset, "delete commitset"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
@@ -598,7 +642,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 
 	var branchProvenance cmdutil.RepeatedStringArg
 	var head string
-	trigger := &pfsclient.Trigger{}
+	trigger := &pfs.Trigger{}
 	createBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Create a new branch, or update an existing branch, on a repo.",
@@ -1077,7 +1121,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			}
 			defer c.Close()
 			if raw {
-				return c.ListFile(file.Commit, file.Path, func(fi *pfsclient.FileInfo) error {
+				return c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
@@ -1086,7 +1130,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 				header = pretty.FileHeaderWithCommit
 			}
 			writer := tabwriter.NewWriter(os.Stdout, header)
-			if err := c.ListFile(file.Commit, file.Path, func(fi *pfsclient.FileInfo) error {
+			if err := c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
 			}); err != nil {
@@ -1200,7 +1244,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					return err
 				}
 				diffCmd := diffCommand(diffCmdArg)
-				return forEachDiffFile(newFiles, oldFiles, func(nFI, oFI *pfsclient.FileInfo) error {
+				return forEachDiffFile(newFiles, oldFiles, func(nFI, oFI *pfs.FileInfo) error {
 					if nameOnly {
 						if nFI != nil {
 							pretty.PrintDiffFileInfo(writer, true, nFI, fullTimestamps)
@@ -1292,7 +1336,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 			}
 			defer c.Close()
 			errors := false
-			if err = c.Fsck(fix, func(resp *pfsclient.FsckResponse) error {
+			if err = c.Fsck(fix, func(resp *pfs.FsckResponse) error {
 				if resp.Error != "" {
 					errors = true
 					fmt.Printf("Error: %s\n", resp.Error)
@@ -1416,7 +1460,7 @@ func joinPaths(prefix, filePath string) string {
 	return filepath.Join(prefix, filePath)
 }
 
-func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr error) {
+func dlFile(pachClient *client.APIClient, f *pfs.File) (_ string, retErr error) {
 	if err := os.MkdirAll(filepath.Join(os.TempDir(), filepath.Dir(f.Path)), 0777); err != nil {
 		return "", err
 	}
@@ -1446,14 +1490,14 @@ func diffCommand(cmdArg string) []string {
 	return []string{"diff"}
 }
 
-func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, oldFile *pfsclient.FileInfo) error) error {
+func forEachDiffFile(newFiles, oldFiles []*pfs.FileInfo, f func(newFile, oldFile *pfs.FileInfo) error) error {
 	nI, oI := 0, 0
 	for {
 		if nI == len(newFiles) && oI == len(oldFiles) {
 			return nil
 		}
-		var oFI *pfsclient.FileInfo
-		var nFI *pfsclient.FileInfo
+		var oFI *pfs.FileInfo
+		var nFI *pfs.FileInfo
 		switch {
 		case oI == len(oldFiles) || (nI < len(newFiles) && newFiles[nI].File.Path < oldFiles[oI].File.Path):
 			nFI = newFiles[nI]

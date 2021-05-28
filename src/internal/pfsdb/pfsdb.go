@@ -14,11 +14,10 @@ import (
 )
 
 const (
-	reposCollectionName       = "repos"
-	branchesCollectionName    = "branches"
-	commitsCollectionName     = "commits"
-	openCommitsCollectionName = "open_commits"
-	jobsCollectionName        = "jobs"
+	reposCollectionName      = "repos"
+	branchesCollectionName   = "branches"
+	commitsCollectionName    = "commits"
+	commitsetsCollectionName = "commitsets"
 )
 
 var ReposTypeIndex = &col.Index{
@@ -68,9 +67,20 @@ var CommitsRepoIndex = &col.Index{
 	},
 }
 
-var commitsIndexes = []*col.Index{CommitsRepoIndex}
+var CommitsBranchlessIndex = &col.Index{
+	Name: "branchless",
+	Extract: func(val proto.Message) string {
+		return CommitBranchlessKey(val.(*pfs.CommitInfo).Commit)
+	},
+}
+
+var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex}
 
 func CommitKey(commit *pfs.Commit) string {
+	return BranchKey(commit.Branch) + "=" + commit.ID
+}
+
+func CommitBranchlessKey(commit *pfs.Commit) string {
 	return RepoKey(commit.Branch.Repo) + "@" + commit.ID
 }
 
@@ -120,30 +130,16 @@ func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollectio
 	)
 }
 
-var openCommitsIndexes = []*col.Index{}
+var commitsetsIndexes = []*col.Index{}
 
-// OpenCommits returns a collection of open commits
-func OpenCommits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+// Commitsets returns a collection of Commitsets
+func Commitsets(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
-		openCommitsCollectionName,
+		commitsetsCollectionName,
 		db,
 		listener,
-		&pfs.Commit{},
-		openCommitsIndexes,
-		nil,
-	)
-}
-
-var jobsIndexes = []*col.Index{}
-
-// Jobs returns a collection of jobs
-func Jobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
-	return col.NewPostgresCollection(
-		jobsCollectionName,
-		db,
-		listener,
-		&pfs.StoredJobInfo{},
-		jobsIndexes,
+		&pfs.StoredCommitset{},
+		commitsetsIndexes,
 		nil,
 	)
 }
@@ -156,7 +152,6 @@ func AllCollections() []col.PostgresCollection {
 		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes, nil),
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes, nil),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes, nil),
-		col.NewPostgresCollection(openCommitsCollectionName, nil, nil, nil, openCommitsIndexes, nil),
-		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes, nil),
+		col.NewPostgresCollection(commitsetsCollectionName, nil, nil, nil, commitsetsIndexes, nil),
 	}
 }

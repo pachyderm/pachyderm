@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"io"
-	"sort"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -79,17 +78,16 @@ func (c APIClient) UpdateRepo(repoName string) error {
 }
 
 // InspectRepo returns info about a specific Repo.
-func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
-	resp, err := c.PfsAPIClient.InspectRepo(
+func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	return c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
 			Repo: NewRepo(repoName),
 		},
 	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return resp, nil
 }
 
 // ListRepo returns info about user Repos
@@ -139,17 +137,16 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 // alias for the created Commit. This enables a more intuitive access pattern.
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
-func (c APIClient) StartCommit(repoName string, branchName string) (*pfs.Commit, error) {
-	commit, err := c.PfsAPIClient.StartCommit(
+func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commit, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	return c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
 			Branch: NewBranch(repoName, branchName),
 		},
 	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return commit, nil
 }
 
 // StartCommitParent begins the process of committing data to a Repo. Once started
@@ -362,96 +359,54 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
-// SquashCommit deletes a commit.
-func (c APIClient) SquashCommit(repoName string, branchName string, commitID string) error {
-	_, err := c.PfsAPIClient.SquashCommit(
+// InspectCommitset returns info about a specific Commitset.
+func (c APIClient) InspectCommitset(id string) (_ *pfs.Commitset, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	return c.PfsAPIClient.InspectCommitset(
 		c.Ctx(),
-		&pfs.SquashCommitRequest{
-			Commit: NewCommit(repoName, branchName, commitID),
+		&pfs.InspectCommitsetRequest{
+			ID: id,
+		},
+	)
+}
+
+// BlockCommitset blocks until all of a Commitset's commits are finished.  To
+// wait for an individual commit, use BlockCommit instead.
+func (c APIClient) BlockCommitset(id string) (_ *pfs.Commitset, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	return c.PfsAPIClient.InspectCommitset(
+		c.Ctx(),
+		&pfs.InspectCommitsetRequest{
+			ID:    id,
+			Block: true,
+		},
+	)
+}
+
+// SquashCommitset squashes the commits of a Commitset into their children.
+func (c APIClient) SquashCommitset(id string) error {
+	_, err := c.PfsAPIClient.SquashCommitset(
+		c.Ctx(),
+		&pfs.SquashCommitsetRequest{
+			ID: id,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
-// FlushCommit calls cb with commits that have the specified `commits` as
-// provenance. Note that it can block if jobs have not successfully
-// completed. This in effect waits for all of the jobs that are triggered by a
-// set of commits to complete.
-//
-// If toRepos is not nil then only the commits up to and including those repos
-// will be considered, otherwise all repos are considered.
-//
-// Note that it's never necessary to call FlushCommit to run jobs, they'll run
-// no matter what, FlushCommitF just allows you to wait for them to complete and
-// see their output once they do.
-func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo, cb func(*pfs.CommitInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	client, err := c.PfsAPIClient.FlushCommit(
-		c.Ctx(),
-		&pfs.FlushCommitRequest{
-			Commits: commits,
-			ToRepos: toRepos,
-		},
-	)
-	if err != nil {
-		return err
-	}
-	for {
-		ci, err := client.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		if err := cb(ci); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-	}
-}
-
-// FlushCommitAll returns commits that have the specified `commits` as
-// provenance. Note that it can block if jobs have not successfully
-// completed. This in effect waits for all of the jobs that are triggered by a
-// set of commits to complete.
-//
-// If toRepos is not nil then only the commits up to and including those repos
-// will be considered, otherwise all repos are considered.
-//
-// Note that it's never necessary to call FlushCommit to run jobs, they'll run
-// no matter what, FlushCommitAll just allows you to wait for them to complete and
-// see their output once they do.
-func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
-	var cis []*pfs.CommitInfo
-	if err := c.FlushCommit(commits, toRepos, func(ci *pfs.CommitInfo) error {
-		cis = append(cis, ci)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	if len(cis) > 0 {
-		sort.Slice(cis, func(i, j int) bool {
-			return len(cis[i].Provenance) < len(cis[j].Provenance)
-		})
-	}
-	return cis, nil
-}
-
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
-func (c APIClient) SubscribeCommit(repoName string, branchName string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
+func (c APIClient) SubscribeCommit(repoName string, branchName string, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   NewRepo(repoName),
 		Branch: branchName,
-		Prov:   prov,
 		State:  state,
 	}
 	if from != "" {
