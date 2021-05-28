@@ -22,7 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -233,7 +233,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		}
 	}
 
-	env.MockPPSTransactionServer.UpdatePipelineJobStateInTransaction.Use(func(txnctx *txncontext.TransactionContext, request *pps.UpdatePipelineJobStateRequest) error {
+	env.MockPPSTransactionServer.UpdatePipelineJobStateInTransaction.Use(func(txnctx *txnenv.TransactionContext, request *pps.UpdatePipelineJobStateRequest) error {
 		updateJobState(request)
 		return nil
 	})
