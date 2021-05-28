@@ -1,15 +1,9 @@
 package chunk
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
-	"strconv"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/sirupsen/logrus"
 )
 
@@ -95,44 +89,4 @@ func (gc *GarbageCollector) deleteEntry(ctx context.Context, chunkID ID, gen uin
 	WHERE chunk_id = $1 AND gen = $2 AND tombstone = TRUE
 	`, chunkID, gen)
 	return err
-}
-
-// GCObjects walks store to delete untracked objects.
-func GCObjects(ctx context.Context, db *sqlx.DB, store kv.Store) error {
-	return store.Walk(ctx, []byte("chunk/"), func(key []byte) error {
-
-		chunkID, gen, err := parseKey(key)
-		if err != nil {
-			logrus.Error(err)
-			return nil
-		}
-		var count int
-		if err := db.GetContext(ctx, &count, `
-		SELECT count(1) FROM storage.chunk_objects
-		WHERE chunkID = $1 AND gen = $2 AND tombstone = FALSE
-		`, chunkID, gen); err != nil {
-			return err
-		}
-		if count > 0 {
-			return nil
-		}
-		return store.Delete(ctx, key)
-	})
-}
-
-func parseKey(x []byte) (ID, uint64, error) {
-	parts := bytes.SplitN(x, []byte("."), 2)
-	if len(parts) < 2 {
-		return nil, 0, errors.Errorf("invalid key")
-	}
-	id := make([]byte, hex.DecodedLen(len(parts[0])))
-	_, err := hex.Decode(id, parts[0])
-	if err != nil {
-		return nil, 0, err
-	}
-	gen, err := strconv.ParseUint(string(parts[1]), 16, 64)
-	if err != nil {
-		return nil, 0, err
-	}
-	return id, gen, nil
 }

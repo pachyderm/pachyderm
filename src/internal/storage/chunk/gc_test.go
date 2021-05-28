@@ -73,12 +73,5 @@ func writeRandom(ctx context.Context, t testing.TB, s *Storage) {
 	require.NoError(t, w.Annotate(&Annotation{}))
 	_, err := io.Copy(w, io.LimitReader(rng, size))
 	require.NoError(t, err)
-	// for i := 0; i < 100; i++ {
-	// 	require.NoError(t, w.Annotate(&Annotation{}))
-	// 	n, err := rng.Read(buf[:])
-	// 	require.NoError(t, err)
-	// 	_, err = w.Write(buf[:n])
-	// 	require.NoError(t, err)
-	// }
 	require.NoError(t, w.Close())
 }
