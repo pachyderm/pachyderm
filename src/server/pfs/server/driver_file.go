@@ -84,7 +84,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, commit *pfs.Comm
 }
 
 func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
-	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}, opts...)
+	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(validate)}, opts...)
 	uw, err := d.storage.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
 		return nil, err

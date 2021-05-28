@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
@@ -56,4 +57,22 @@ func cleanPath(p string) string {
 		return "/"
 	}
 	return "/" + strings.Trim(p, "/")
+}
+
+var validRangeRegex = regexp.MustCompile("^[ -~]+$")
+
+func validate(p string) error {
+	pBytes := []byte(p)
+	if !validRangeRegex.Match(pBytes) {
+		return errors.Errorf("path (%v) invalid: only printable ASCII characters allowed", p)
+	}
+	if globRegex.Match(pBytes) {
+		return errors.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", p, globRegex.FindString(p))
+	}
+	for _, elem := range strings.Split(p, "/") {
+		if elem == "." || elem == ".." {
+			return errors.Errorf("path (%v) invalid: relative file paths are not allowed", p)
+		}
+	}
+	return nil
 }

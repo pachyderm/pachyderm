@@ -2299,21 +2299,18 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileValidCharacters", func(t *testing.T) {
-		// TODO(2.0 required): Decide what characters are valid.
-		t.Skip("Need to spend some time deciding what characters are valid / invalid in V2")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit, err := env.PachClient.StartCommit(repo, "")
+		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
-		require.NoError(t, env.PachClient.PutFile(commit, "foo\x00bar", strings.NewReader("foobar\n")))
 		// null characters error because when you `ls` files with null characters
 		// they truncate things after the null character leading to strange results
-		require.YesError(t, err)
+		require.YesError(t, env.PachClient.PutFile(commit, "foo\x00bar", strings.NewReader("foobar\n")))
 
 		// Boundary tests for valid character range
 		require.YesError(t, env.PachClient.PutFile(commit, "\x1ffoobar", strings.NewReader("foobar\n")))
@@ -2324,7 +2321,9 @@ func TestPFS(suite *testing.T) {
 		// Random character tests outside and inside valid character range
 		require.YesError(t, env.PachClient.PutFile(commit, "foobar\x0b", strings.NewReader("foobar\n")))
 		require.NoError(t, env.PachClient.PutFile(commit, "\x41foobar", strings.NewReader("foobar\n")))
-		require.YesError(t, env.PachClient.PutFile(commit, "foo\x90bar", strings.NewReader("foobar\n")))
+
+		// Glob character test
+		require.YesError(t, env.PachClient.PutFile(commit, "foobar*", strings.NewReader("foobar\n")))
 	})
 
 	suite.Run("BigListFile", func(t *testing.T) {
