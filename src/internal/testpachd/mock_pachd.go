@@ -413,7 +413,7 @@ type inspectBranchFunc func(context.Context, *pfs.InspectBranchRequest) (*pfs.Br
 type listBranchFunc func(context.Context, *pfs.ListBranchRequest) (*pfs.BranchInfos, error)
 type deleteBranchFunc func(context.Context, *pfs.DeleteBranchRequest) (*types.Empty, error)
 type modifyFileFunc func(pfs.API_ModifyFileServer) error
-type getTARFunc func(*pfs.GetFileRequest, pfs.API_GetTARServer) error
+type getTARFunc func(*pfs.GetFileRequest, pfs.API_GetFileTARServer) error
 type inspectFileFunc func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
 type listFileFunc func(*pfs.ListFileRequest, pfs.API_ListFileServer) error
 type walkFileFunc func(*pfs.WalkFileRequest, pfs.API_WalkFileServer) error
@@ -445,7 +445,7 @@ type mockInspectBranch struct{ handler inspectBranchFunc }
 type mockListBranch struct{ handler listBranchFunc }
 type mockDeleteBranch struct{ handler deleteBranchFunc }
 type mockModifyFile struct{ handler modifyFileFunc }
-type mockGetTAR struct{ handler getTARFunc }
+type mockGetFileTAR struct{ handler getTARFunc }
 type mockInspectFile struct{ handler inspectFileFunc }
 type mockListFile struct{ handler listFileFunc }
 type mockWalkFile struct{ handler walkFileFunc }
@@ -477,7 +477,7 @@ func (mock *mockInspectBranch) Use(cb inspectBranchFunc)     { mock.handler = cb
 func (mock *mockListBranch) Use(cb listBranchFunc)           { mock.handler = cb }
 func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)       { mock.handler = cb }
 func (mock *mockModifyFile) Use(cb modifyFileFunc)           { mock.handler = cb }
-func (mock *mockGetTAR) Use(cb getTARFunc)                   { mock.handler = cb }
+func (mock *mockGetFileTAR) Use(cb getTARFunc)               { mock.handler = cb }
 func (mock *mockInspectFile) Use(cb inspectFileFunc)         { mock.handler = cb }
 func (mock *mockListFile) Use(cb listFileFunc)               { mock.handler = cb }
 func (mock *mockWalkFile) Use(cb walkFileFunc)               { mock.handler = cb }
@@ -515,7 +515,7 @@ type mockPFSServer struct {
 	ListBranch      mockListBranch
 	DeleteBranch    mockDeleteBranch
 	ModifyFile      mockModifyFile
-	GetTAR          mockGetTAR
+	GetFileTAR      mockGetFileTAR
 	InspectFile     mockInspectFile
 	ListFile        mockListFile
 	WalkFile        mockWalkFile
@@ -638,11 +638,11 @@ func (api *pfsServerAPI) ModifyFile(serv pfs.API_ModifyFileServer) error {
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ModifyFile")
 }
-func (api *pfsServerAPI) GetTAR(req *pfs.GetFileRequest, serv pfs.API_GetTARServer) error {
-	if api.mock.GetTAR.handler != nil {
-		return api.mock.GetTAR.handler(req, serv)
+func (api *pfsServerAPI) GetFileTAR(req *pfs.GetFileRequest, serv pfs.API_GetFileTARServer) error {
+	if api.mock.GetFileTAR.handler != nil {
+		return api.mock.GetFileTAR.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.GetFile")
+	return errors.Errorf("unhandled pachd mock pfs.GetFileTAR")
 }
 func (api *pfsServerAPI) InspectFile(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	if api.mock.InspectFile.handler != nil {

@@ -5901,7 +5901,7 @@ func TestPFS(suite *testing.T) {
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.GetTAR(c.Ctx(), &pfs.GetFileRequest{})
+		_, err = c.PfsAPIClient.GetFileTAR(c.Ctx(), &pfs.GetFileRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.InspectFile(c.Ctx(), &pfs.InspectFileRequest{})
 		requireNoPanic(err)

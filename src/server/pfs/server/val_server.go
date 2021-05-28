@@ -153,11 +153,11 @@ func (a *validatedAPIServer) InspectCommit(ctx context.Context, req *pfs.Inspect
 	return a.apiServer.InspectCommit(ctx, req)
 }
 
-func (a *validatedAPIServer) GetTAR(request *pfs.GetFileRequest, server pfs.API_GetTARServer) error {
+func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) error {
 	if request.File == nil {
 		return errors.New("file cannot be nil")
 	}
-	return a.apiServer.GetTAR(request, server)
+	return a.apiServer.GetFileTAR(request, server)
 }
 
 func validateFile(file *pfs.File) error {
