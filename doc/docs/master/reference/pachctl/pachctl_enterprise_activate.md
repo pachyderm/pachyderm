@@ -1,4 +1,4 @@
-## pachctl enterprise activate
+## pachctl license activate
 
 Activate the enterprise features of Pachyderm with an activation code
 
@@ -7,7 +7,7 @@ Activate the enterprise features of Pachyderm with an activation code
 Activate the enterprise features of Pachyderm with an activation code
 
 ```
-pachctl enterprise activate [flags]
+pachctl license activate [flags]
 ```
 
 ### Options

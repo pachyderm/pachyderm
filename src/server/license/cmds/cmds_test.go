@@ -16,7 +16,7 @@ func TestActivate(t *testing.T) {
 	defer tu.DeleteAll(t)
 	code := tu.GetTestEnterpriseCode(t)
 
-	require.NoError(t, tu.BashCmd(`echo {{.license}} | pachctl license activate`,
+	require.NoError(t, tu.BashCmd(`echo {{.license}} | pachctl license activate --activate-only`,
 		"license", code).Run())
 
 	require.NoError(t, tu.BashCmd(`pachctl license get-state | match ACTIVE`).Run())
