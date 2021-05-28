@@ -17,34 +17,48 @@
   align-items: center;
 }
 
-.rotate {
+.controlButton {
   border: none;
   background-color: transparent;
   margin-left: 1.875rem;
 }
 
-.rotate.UP {
+.controlButton.UP {
   transform: scaleX(-1) rotate(0deg);
 }
 
-.rotate.RIGHT {
+.controlButton.RIGHT {
   transform: scaleX(-1) rotate(270deg);
 }
 
-.rotate.DOWN {
+.controlButton.DOWN {
   transform: scaleX(-1) rotate(180deg);
 }
 
-.rotate.LEFT {
+.controlButton.LEFT {
   transform: scaleX(-1) rotate(90deg);
 }
 
-.rotateSvg {
+.svgControl {
   fill: var(--pachyderm-black);
-  width: 2rem;
-  height: 2rem;
 }
 
-.rotate:hover .rotateSvg {
-  fill: var(--selected-grey);
+.rotateSvg {
+  width: 1.4375rem;
+  height: 1.5625rem;
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.zoomOutSvg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.controlButton:hover .svgControl {
+  fill: var(--pachyderm-plum);
+}
+
+.tooltip {
+  white-space: pre-line;
 }

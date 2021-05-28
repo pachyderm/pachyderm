@@ -13,6 +13,7 @@ type NodeProps = {
   isInteractive: boolean;
   nodeWidth: number;
   nodeHeight: number;
+  offset: {x: number; y: number};
 };
 
 const NODE_ICON_X_OFFSET = 12;
@@ -30,6 +31,7 @@ const Node: React.FC<NodeProps> = ({
   isInteractive,
   nodeHeight,
   nodeWidth,
+  offset,
 }) => {
   const {
     hoveredNode,
@@ -42,7 +44,7 @@ const Node: React.FC<NodeProps> = ({
     isEgress,
     normalizedNodeName,
     showSuccess,
-  } = useNode(node, isInteractive);
+  } = useNode(node, isInteractive, offset);
 
   const classes = classNames(styles.nodeGroup, {
     [styles.interactive]: isInteractive,
@@ -80,7 +82,7 @@ const Node: React.FC<NodeProps> = ({
     <g
       className={classes}
       id={groupName}
-      transform={`translate (${node.x}, ${node.y})`}
+      transform={`translate (${node.x + offset.x}, ${node.y + offset.y})`}
       onClick={onClick}
       onMouseOver={onMouseOver}
       onMouseOut={onMouseOut}

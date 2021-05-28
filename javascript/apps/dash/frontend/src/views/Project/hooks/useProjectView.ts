@@ -1,18 +1,13 @@
 import {extent} from 'd3-array';
 import {select} from 'd3-selection';
-import {
-  D3ZoomEvent,
-  zoom as d3Zoom,
-  zoomIdentity,
-  ZoomTransform,
-} from 'd3-zoom';
+import {D3ZoomEvent, zoom as d3Zoom} from 'd3-zoom';
 import flatten from 'lodash/flatten';
-import {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {useParams, useHistory} from 'react-router';
 
 import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {DagDirection} from '@graphqlTypes';
+import {DagDirection, Node} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 
 const SIDEBAR_WIDTH = 384;
@@ -27,6 +22,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const {viewState, setUrlFromViewState} = useUrlQueryState();
   const browserHistory = useHistory();
   const [sliderZoomValue, setSliderZoomValue] = useState(1);
+  const [minScale, setMinScale] = useState(0.6);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   const dagDirection = viewState.dagDirection || DagDirection.RIGHT;
@@ -86,48 +82,87 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     const yMax = yExtent[1] || svgSize.height;
     const xScale = svgSize.width / (xMax - xMin);
     const yScale = svgSize.height / 2 / (yMax - yMin);
-    const minScale = Math.max(0.6, Math.min(xScale, yScale, 1.5));
+    const startScale = Math.max(0.6, Math.min(xScale, yScale, 1.5));
     const svg = select<SVGSVGElement, unknown>('#Svg');
-    let transform: ZoomTransform;
-
-    if (!zoomRef.current) {
+    const dagsNode = select<SVGGElement, unknown>('#Dags').node();
+    if (dagsNode) {
+      const {x, y, width, height} = dagsNode.getBBox();
       zoomRef.current = d3Zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.6, 1.5])
+        .scaleExtent([Math.min(startScale, 0.6), 1.5])
+        .extent([
+          [0, 0],
+          [svgSize.width, svgSize.height],
+        ])
+        .translateExtent([
+          [x, y],
+          [x + width, y + height],
+        ])
+        .constrain((transform, extent, translateExtent) => {
+          const dx0 =
+              transform.invertX(extent[0][0]) -
+              (translateExtent[0][0] - width / 2),
+            dx1 =
+              transform.invertX(extent[1][0]) -
+              (translateExtent[1][0] + width / 2),
+            dy0 =
+              transform.invertY(extent[0][1]) -
+              (translateExtent[0][1] - height / 2),
+            dy1 =
+              transform.invertY(extent[1][1]) -
+              (translateExtent[1][1] + height / 2);
+
+          return transform.translate(
+            dx1 > dx0 ? (dx0 + dx1) / 2 : Math.min(0, dx0) || Math.max(0, dx1),
+            dy1 > dy0 ? (dy0 + dy1) / 2 : Math.min(0, dy0) || Math.max(0, dy1),
+          );
+        })
         .on('zoom', applyZoom);
+
+      svg.call(zoomRef.current);
+
+      if (selectedNode) {
+        const centerNodeSelection = select<SVGGElement, Node>(
+          `#${selectedNode}GROUP`,
+        );
+        if (!centerNodeSelection.empty()) {
+          const centerNode = select<SVGGElement, Node>(
+            `#${selectedNode}GROUP`,
+          ).data()[0];
+          const selectedNodeCenterX =
+            (svgSize.width - SIDEBAR_WIDTH) / 2 - centerNode.x * 1.5;
+          const selectedNodeCenterY =
+            svgSize.height / 2 - centerNode.y * 1.5 - nodeHeight;
+
+          zoomRef.current.scaleTo(svg, 1.5, [
+            selectedNodeCenterX,
+            selectedNodeCenterY,
+          ]);
+
+          zoomRef.current.translateTo(
+            svg.transition().duration(250),
+            centerNode.x,
+            centerNode.y,
+            [(svgSize.width - SIDEBAR_WIDTH) / 2, svgSize.height / 2],
+          );
+        }
+      } else {
+        zoomRef.current.scaleTo(svg, startScale);
+        zoomRef.current.translateTo(svg, 0, 0, [
+          horizontal ? nodeWidth : svgSize.width / 2,
+          horizontal ? svgSize.height / 2 : nodeHeight,
+        ]);
+        zoomRef.current.translateBy(
+          svg,
+          horizontal ? 0 : -(xMin + xMax) / 2 - nodeWidth,
+          horizontal ? -(yMin + yMax) / 2 : 0,
+        );
+
+        setSliderZoomValue(startScale);
+        setMinScale(Math.min(startScale, 0.6));
+      }
     }
-
-    svg.call(zoomRef.current);
-
-    if (selectedNode) {
-      const centerNode = nodes.find((n) => n.name === selectedNode);
-      const selectedNodeCenterX =
-        (svgSize.width - SIDEBAR_WIDTH) / 2 - (centerNode?.x || 0) * 1.5;
-      const selectedNodeCenterY =
-        svgSize.height / 2 - (centerNode?.y || 0) * 1.5 - nodeHeight;
-
-      transform = zoomIdentity
-        .translate(selectedNodeCenterX, selectedNodeCenterY)
-        .scale(1.5);
-    } else {
-      transform = zoomIdentity
-        .translate(
-          horizontal ? 0 : svgSize.width / 2,
-          horizontal ? svgSize.height / 2 : 0,
-        )
-        .translate(
-          horizontal ? 0 : -(xMin * minScale + xMax * minScale) / 2 - nodeWidth,
-          horizontal ? -(yMin * minScale + yMax * minScale) / 2 : 0,
-        )
-        .scale(minScale);
-    }
-
-    svg
-      .transition()
-      .duration(selectedNode ? 250 : 0)
-      .call(zoomRef.current.transform, transform);
-
-    setSliderZoomValue(minScale);
   }, [
+    setMinScale,
     setSliderZoomValue,
     dags,
     svgSize,
@@ -146,14 +181,35 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
       );
   };
 
+  const zoomOut = useCallback(() => {
+    zoomRef.current &&
+      select<SVGSVGElement, unknown>('#Svg')
+        .transition()
+        .duration(250)
+        .call(zoomRef.current.scaleTo, minScale);
+  }, [minScale]);
+
+  useEffect(() => {
+    const zoomOutListener = (event: KeyboardEvent) => {
+      if (event.key === '@') {
+        zoomOut();
+      }
+    };
+    window.addEventListener('keydown', zoomOutListener);
+
+    return () => window.removeEventListener('keydown', zoomOutListener);
+  }, [zoomOut]);
+
   return {
     applySliderZoom,
     dagDirection,
     dags,
     error,
     loading,
+    minScale,
     rotateDag,
     sliderZoomValue,
     svgSize,
+    zoomOut,
   };
 };

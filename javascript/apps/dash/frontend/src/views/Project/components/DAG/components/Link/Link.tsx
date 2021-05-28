@@ -11,10 +11,11 @@ import styles from './Link.module.css';
 type LinkProps = {
   link: LinkType;
   isInteractive: boolean;
+  offset: {x: number; y: number};
 };
 
-const Link: React.FC<LinkProps> = ({link, isInteractive}) => {
-  const {d, hoveredNode, selectedNode, transferring} = useLink(link);
+const Link: React.FC<LinkProps> = ({link, isInteractive, offset}) => {
+  const {d, hoveredNode, selectedNode, transferring} = useLink(link, offset);
 
   const classes = classNames(
     styles.link,

@@ -1,6 +1,4 @@
 import {extent} from 'd3-array';
-import {select} from 'd3-selection';
-import {zoomIdentity} from 'd3-zoom';
 import {useCallback, useEffect, useState} from 'react';
 
 import {Dag, DagDirection} from '@graphqlTypes';
@@ -25,6 +23,7 @@ const useDag = ({
 }: useDagProps) => {
   const {selectedNode, navigateToNode} = useRouteController();
   const [rectBox, setRectBox] = useState({x: 0, y: 0, width: 0, height: 0});
+  const [offset, setOffset] = useState({x: 0, y: 0});
 
   const handleRectClick = useCallback(() => {
     const errorNode = data.nodes.find(
@@ -40,11 +39,6 @@ const useDag = ({
 
   // left align dag or vertically align dag
   useEffect(() => {
-    const graph = select<SVGGElement, unknown>(`#${id}`);
-
-    const containsSelectedNode = data.nodes.some(
-      (n) => n.name === selectedNode,
-    );
     const horizontal =
       dagDirection === DagDirection.LEFT || dagDirection === DagDirection.RIGHT;
     const yExtent = extent(data.nodes, (d) => d.y);
@@ -53,13 +47,10 @@ const useDag = ({
     const maxY = yExtent[yExtent.length - 1] || 0;
     const minX = xExtent[0] || 0;
     const maxX = xExtent[xExtent.length - 1] || 0;
+    const x = horizontal ? -minX : 0;
+    const y = !horizontal ? -minY : 0;
 
-    const transform = zoomIdentity.translate(
-      horizontal && !containsSelectedNode ? -minX + nodeWidth : 0,
-      !horizontal && !containsSelectedNode ? -minY + nodeHeight : 0,
-    );
-
-    graph.attr('transform', transform.toString());
+    setOffset({x, y});
 
     // adjust rect for hover state and dag selection
     setRectBox({
@@ -78,7 +69,7 @@ const useDag = ({
     setRectBox,
   ]);
 
-  return {handleRectClick, rectBox};
+  return {handleRectClick, offset, rectBox};
 };
 
 export default useDag;

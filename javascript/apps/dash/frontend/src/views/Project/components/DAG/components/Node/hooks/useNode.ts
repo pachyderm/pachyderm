@@ -9,7 +9,11 @@ import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 
 import convertNodeStateToDagState from '../../../utils/convertNodeStateToDagState';
 
-const useNode = (node: Node, isInteractive: boolean) => {
+const useNode = (
+  node: Node,
+  isInteractive: boolean,
+  offset: {x: number; y: number},
+) => {
   const {navigateToNode, selectedNode} = useRouteController();
   const {hoveredNode, setHoveredNode} = useHoveredNode();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -72,6 +76,12 @@ const useNode = (node: Node, isInteractive: boolean) => {
       timeout && clearTimeout(timeout);
     };
   }, [copied, reset]);
+
+  useEffect(() => {
+    select<SVGGElement, Node>(`#${groupName}`).data([
+      {...node, x: node.x + offset.x, y: node.y + offset.y},
+    ]);
+  }, [groupName, node, offset]);
 
   const state = convertNodeStateToDagState(node.state);
 
