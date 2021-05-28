@@ -62,7 +62,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		defer retryCancel()
 		if err := a.sudo(retryCtx, func(superUserClient *client.APIClient) error {
 			buf := bytes.Buffer{}
-			if err := superUserClient.GetFile(client.NewCommit(ppsconsts.SpecRepo, pipelineName, specCommit), ppsconsts.SpecFile, &buf); err != nil {
+			if err := superUserClient.GetFile(client.NewCommit(ppsconsts.SpecRepo, "", specCommit), ppsconsts.SpecFile, &buf); err != nil {
 				return errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
 			}
 			if err := proto.Unmarshal(buf.Bytes(), s.pipelineInfo); err != nil {
