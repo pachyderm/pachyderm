@@ -3124,6 +3124,33 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) propagateJobs(txnCtx txncontext.TransactionContext, commitset *pfs.StoredCommitset) error {
+	for _, branchInfo := range commitset.Branches {
+		pipelineInfo := &pps.StoredPipelineInfo{}
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(branchInfo.Branch.Repo.Name, &pipelineInfo); err != nil {
+			if col.IsErrNotFound(err) {
+				continue
+			}
+			return err
+		}
+
+		// TODO: don't create the jobs for certain states or for spouts (can't detect spouts without loading pipeline spec?)
+
+		// Check if there is an existing job for the output commit
+		outputCommit := commitset.NewCommit(branchInfo.Branch)
+		pipelineJob := &pps.StoredPipelineJobInfo{}
+		if err := a.pipelineJobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.PipelineJobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJob, col.DefaultOptions(), func(string) error {
+			return nil
+		}); err != nil {
+			if !col.IsErrNotFound(err) {
+				return err
+			}
+			// If the pipeline is valid and there's no job, create one
+		}
+	}
+	return nil
+}
+
 // CreateSecret implements the protobuf pps.CreateSecret RPC
 func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()

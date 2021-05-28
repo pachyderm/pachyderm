@@ -896,6 +896,9 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}); err != nil {
 			return err
 		}
+		if err := txnCtx.PropagateCommitset(commitset); err != nil {
+			return err
+		}
 	}
 
 	return nil
