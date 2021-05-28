@@ -609,10 +609,10 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	deleteJob := &cobra.Command{
-		Use:   "{{alias}} <job>",
-		Short: "Delete the commits of a job.",
-		Long:  "Delete the commits of a job.  The data in the commits will remain in their child commits unless there are no children.",
+	deleteCommitset := &cobra.Command{
+		Use:   "{{alias}} <commitset>",
+		Short: "Delete the commits of a commitset.",
+		Long:  "Delete the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -625,8 +625,8 @@ $ {{alias}} test@master --new`,
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(deleteJob, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteJob, "delete job"))
+	shell.RegisterCompletionFunc(deleteCommitset, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(deleteCommitset, "delete commitset"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",

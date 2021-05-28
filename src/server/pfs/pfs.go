@@ -80,8 +80,8 @@ type ErrAmbiguousCommit struct {
 }
 
 // ErrInconsistentCommit represents an error where a transaction attempts to
-// create a Job with multiple commits in the same branch, which would result in
-// inconsistent data dependencies.
+// create a Commitset with multiple commits in the same branch, which would
+// result in inconsistent data dependencies.
 type ErrInconsistentCommit struct {
 	Branch *pfs.Branch
 	Commit *pfs.Commit

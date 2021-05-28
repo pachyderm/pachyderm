@@ -604,10 +604,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 	// doing a 'run pipeline' with explicit provenance (to make off-head commits
 	// in the branch).
 	branchInfo := &pfs.BranchInfo{}
-	if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(branch), branchInfo, func() error {
-		branchInfo.Head = commit
-		return nil
-	}); err != nil {
+	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
 		return nil, err
 	}
 
@@ -652,10 +649,18 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			return nil, err
 		}
 	} else {
-		// A commit at the current transaction's ID already exists - make sure it is an alias with the right parent
-		if commitInfo.Origin.Kind != pfs.OriginKind_AUTO || !proto.Equal(commitInfo.ParentCommit, parent) {
+		if commit.ID == txnCtx.CommitsetID && proto.Equal(commit.Branch, branchInfo.Branch) {
+			// We can reuse the existing commit only if it is already on this branch
+		} else if commitInfo.Origin.Kind != pfs.OriginKind_AUTO || !proto.Equal(commitInfo.ParentCommit, parent) {
+			// A commit at the current transaction's ID already exists - make sure it is an alias with the right parent
 			return nil, pfsserver.ErrInconsistentCommit{Commit: parent, Branch: branch}
 		}
+	}
+
+	// Update the branch head
+	branchInfo.Head = commit
+	if err := d.branches.ReadWrite(txnCtx.SqlTx).Put(pfsdb.BranchKey(branch), branchInfo); err != nil {
+		return nil, err
 	}
 
 	return commitInfo, nil
@@ -913,8 +918,8 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 
 	// TODO(global ids): it's possible the commit doesn't exist yet (but will
 	// following a trigger).  If the commit isn't found, check if the associated
-	// job _could_ reach the requested branch or ID via a trigger and wait to find
-	// out.
+	// commitset _could_ reach the requested branch or ID via a trigger and wait
+	// to find out.
 	// Resolve the commit in case it specifies a branch head or commit ancestry
 	var commitInfo *pfs.CommitInfo
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -1609,43 +1614,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return err
 	}
 
-	var ci *pfs.CommitInfo
-	// resolve the given commit
-	if commit != nil {
-		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
-		if err != nil {
-			// possible that branch exists but has no head commit. This is fine, but
-			// branchInfo.Head must also be nil
-			if !isNoHeadErr(err) {
-				return errors.Wrapf(err, "unable to inspect %s", pfsdb.CommitKey(commit))
-			}
-			commit = nil
-		}
-	}
-
-	if commit != nil && provenance != nil {
-		// Verify the provenance of the new branch head and lock in its upstream commits
-		commitset := &pfs.StoredCommitset{}
-		if err := d.commitsets.ReadWrite(txnCtx.SqlTx).Get(ci.Commit.ID, commitset); err != nil {
-			return err
-		}
-		for _, provBranch := range provenance {
-			// Check that the Commitset for the given commit has values for every branch in provenance and alias them
-			found := false
-			for _, branchInfo := range commitset.Branches {
-				if proto.Equal(provBranch, branchInfo.Branch) {
-					found = true
-					if _, err := d.aliasCommit(txnCtx, provBranch.NewCommit(ci.Commit.ID), provBranch); err != nil {
-						return err
-					}
-				}
-			}
-			if !found {
-				return errors.Errorf("cannot create branch %s with commit %s as head because it does not have provenance in the %s branch", pfsdb.BranchKey(branch), pfsdb.CommitKey(ci.Commit), pfsdb.BranchKey(provBranch))
-			}
-		}
-	}
-
 	// Retrieve (and create, if necessary) the current version of this branch
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(pfsdb.BranchKey(branch), branchInfo, func() error {
@@ -1665,8 +1633,43 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return err
 	}
 
+	var ci *pfs.CommitInfo
+	// resolve the given commit
 	if commit != nil {
-		if branchInfo.Head == nil && proto.Equal(commit.Branch, branchInfo.Branch) {
+		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
+		if err != nil {
+			// possible that branch exists but has no head commit. This is fine, but
+			// branchInfo.Head must also be nil
+			if !isNoHeadErr(err) {
+				return errors.Wrapf(err, "unable to inspect %s", pfsdb.CommitKey(commit))
+			}
+			commit = nil
+		}
+
+		if provenance != nil {
+			// Verify the provenance of the new branch head and lock in its upstream commits
+			commitset := &pfs.StoredCommitset{}
+			if err := d.commitsets.ReadWrite(txnCtx.SqlTx).Get(ci.Commit.ID, commitset); err != nil {
+				return err
+			}
+			for _, provBranch := range provenance {
+				// Check that the Commitset for the given commit has values for every branch in provenance and alias them
+				found := false
+				for _, branchInfo := range commitset.Branches {
+					if proto.Equal(provBranch, branchInfo.Branch) {
+						found = true
+						if _, err := d.aliasCommit(txnCtx, provBranch.NewCommit(ci.Commit.ID), provBranch); err != nil {
+							return err
+						}
+					}
+				}
+				if !found {
+					return errors.Errorf("cannot create branch %s with commit %s as head because it does not have provenance in the %s branch", pfsdb.BranchKey(branch), pfsdb.CommitKey(ci.Commit), pfsdb.BranchKey(provBranch))
+				}
+			}
+		}
+
+		if commit.ID == txnCtx.CommitsetID && proto.Equal(commit.Branch, branchInfo.Branch) {
 			// We can reuse the existing commit only if it is already on this branch
 			branchInfo.Head = commit
 		} else if branchInfo.Head == nil || branchInfo.Head.ID != commit.ID {
