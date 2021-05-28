@@ -5891,6 +5891,8 @@ func TestCronPipeline(t *testing.T) {
 
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
+		// TODO(2.0 required): Investigate flakiness.
+		t.Skip("Investigate flakiness")
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 20s")
 		overwriteInput.Cron.Overwrite = true
