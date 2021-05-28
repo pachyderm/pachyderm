@@ -1,4 +1,5 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
+import {Permission} from '@pachyderm/proto/pb/auth/auth_pb';
 import {IAPIServer} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {
   ListRepoResponse,
@@ -10,6 +11,7 @@ import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
 import commits from '@dash-backend/mock/fixtures/commits';
 import files from '@dash-backend/mock/fixtures/files';
 import repos from '@dash-backend/mock/fixtures/repos';
+import {createServiceError} from '@dash-backend/testHelpers';
 
 import repoAuthInfos from '../fixtures/repoAuthInfos';
 
@@ -71,7 +73,23 @@ const pfs: Pick<
   },
   listCommit: (call) => {
     const [projectId] = call.metadata.get('project-id');
+    const [accountId] = call.metadata.get('authn-token');
+
     const repoName = call.request.getRepo()?.getName();
+
+    if (repoName && accountId) {
+      const authInfo = repoAuthInfos[accountId.toString()][repoName];
+
+      if (
+        !authInfo.getPermissionsList().includes(Permission.REPO_LIST_COMMIT)
+      ) {
+        call.emit(
+          'error',
+          createServiceError({code: Status.UNKNOWN, details: 'not authorized'}),
+        );
+      }
+    }
+
     const allCommits = commits[projectId.toString()] || commits['1'];
 
     allCommits.forEach((commit) => {

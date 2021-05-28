@@ -63,7 +63,8 @@ const deriveVertices = (
   repos: RepoInfo.AsObject[],
   pipelines: PipelineInfo.AsObject[],
 ) => {
-  const pipelineMap = keyBy(pipelines, (p) => p.pipeline?.name);
+  const pipelineMap = keyBy(pipelines, (p) => p.pipeline?.name || '');
+  const repoMap = keyBy(repos, (r) => r.repo?.name || '');
 
   const repoNodes = repos.map((r) => ({
     name: `${r.repo?.name}_repo`,
@@ -85,7 +86,11 @@ const deriveVertices = (
         name: pipelineName,
         type: NodeType.PIPELINE,
         state,
-        access: true,
+        access: p.pipeline
+          ? hasRepoReadPermissions(
+              repoMap[p.pipeline.name].authInfo?.permissionsList,
+            )
+          : false,
         jobState,
         parents: p.input ? flattenPipelineInput(p.input) : [],
       },

@@ -32,7 +32,7 @@ const TooltipContent: React.FC<TooltipContentProps> = ({
     // other than repos.
     return (
       <>
-        In order to view this repo, you must have the &quot;repoReader&quot;
+        In order to view this resource, you must have the &quot;repoReader&quot;
         role.
       </>
     );

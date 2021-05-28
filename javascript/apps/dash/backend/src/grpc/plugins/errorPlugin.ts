@@ -8,6 +8,11 @@ import isServiceError from '../utils/isServiceError';
 const TOKEN_EXPIRED_MESSAGE = 'token expiration';
 const NO_AUTHENTICATION_METADATA_MESSAGE = 'no authentication metadata';
 
+// The pach error implementation is unstructured due to
+// issues with sending structured errors across rpc boundaries.
+// see: https://github.com/pachyderm/pachyderm/blob/a2d9ffbff33597be6038decc7c022bdc953dc8b6/src/auth/auth.go#L206-L223
+const NOT_AUTHORIZED_MESSAGE = 'not authorized';
+
 const errorPlugin: GRPCPlugin = {
   onError: ({error, requestName}) => {
     // grpc has a set of "canonical" error codes that we use in pachd,
@@ -36,6 +41,16 @@ const errorPlugin: GRPCPlugin = {
         error.details.includes('not found')
       ) {
         throw new NotFoundError(error.details);
+      }
+
+      if (
+        // Note: core pach does not yet return a true "permission_denied" error,
+        // this was put in place for future proofing.
+        error.code === Status.PERMISSION_DENIED ||
+        (error.code === Status.UNKNOWN &&
+          error.details.includes(NOT_AUTHORIZED_MESSAGE))
+      ) {
+        throw new NotFoundError('resource not found');
       }
 
       // We can transform additional error types below.

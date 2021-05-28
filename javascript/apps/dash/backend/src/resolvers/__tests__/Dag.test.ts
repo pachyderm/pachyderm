@@ -92,11 +92,16 @@ describe('Dag resolver', () => {
       },
     });
 
-    const montageNode = data?.dag.nodes.find(
+    const montageRepo = data?.dag.nodes.find(
       (node) => node.name === 'montage_repo',
     );
 
-    expect(montageNode?.access).toBe(false);
+    const montagePipeline = data?.dag.nodes.find(
+      (node) => node.name === 'montage',
+    );
+
+    expect(montageRepo?.access).toBe(false);
+    expect(montagePipeline?.access).toBe(false);
   });
 
   it('should resolve disconnected components of a dag', async () => {
