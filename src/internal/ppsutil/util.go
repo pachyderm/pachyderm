@@ -384,7 +384,7 @@ func FinishPipelineJob(pachClient *client.APIClient, pipelineJobInfo *pps.Pipeli
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: pipelineJobInfo.StatsCommit,
+			Commit: StatsCommit(pipelineJobInfo.OutputCommit),
 			Empty:  empty,
 		}); err != nil {
 			return err

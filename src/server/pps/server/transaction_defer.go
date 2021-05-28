@@ -39,7 +39,7 @@ func (t *Propagater) PropagateCommitset(commitset *pfs.StoredCommitset) error {
 // Run creates any jobs for the modified Commitsets
 func (t *Propagater) Run() error {
 	for _, commitset := range t.commitsets {
-		if err := t.a.propagateJobs(txnCtx, commitset); err != nil {
+		if err := t.a.propagateJobs(t.txnCtx, commitset); err != nil {
 			return err
 		}
 	}

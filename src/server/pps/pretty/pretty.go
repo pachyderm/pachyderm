@@ -172,8 +172,7 @@ ParallelismSpec: {{.ParallelismSpec}}
 {{jobInput .}}
 Transform:
 {{prettyTransform .Transform}} {{if .OutputCommit}}
-Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .StatsCommit }}
-Stats Commit: {{.StatsCommit.ID}} {{end}} {{ if .Egress }}
+Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Egress }}
 Egress: {{.Egress.URL}} {{end}}
 `)
 	if err != nil {

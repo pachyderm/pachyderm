@@ -782,7 +782,6 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *
 		DataFailed:    pipelineJobPtr.DataFailed,
 		DataRecovered: pipelineJobPtr.DataRecovered,
 		Stats:         pipelineJobPtr.Stats,
-		StatsCommit:   pipelineJobPtr.StatsCommit,
 		State:         pipelineJobPtr.State,
 		Reason:        pipelineJobPtr.Reason,
 		Started:       pipelineJobPtr.Started,
@@ -1112,11 +1111,12 @@ func (a *apiServer) collectDatums(ctx context.Context, pipelineJob *pps.Pipeline
 		return err
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	fsi := datum.NewCommitIterator(pachClient, pipelineJobInfo.StatsCommit)
+	statsCommit := ppsutil.StatsCommit(pipelineJobInfo.OutputCommit)
+	fsi := datum.NewCommitIterator(pachClient, statsCommit)
 	return fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{
-			Commit: pipelineJobInfo.StatsCommit,
+			Commit: statsCommit,
 			Path:   "/" + path.Join(datum.PFSPrefix, common.DatumID(meta.Inputs)),
 		}
 		return cb(meta, pfsState)
@@ -3124,10 +3124,10 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) propagateJobs(txnCtx txncontext.TransactionContext, commitset *pfs.StoredCommitset) error {
+func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext, commitset *pfs.StoredCommitset) error {
 	for _, branchInfo := range commitset.Branches {
 		pipelineInfo := &pps.StoredPipelineInfo{}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(branchInfo.Branch.Repo.Name, &pipelineInfo); err != nil {
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(branchInfo.Branch.Repo.Name, pipelineInfo); err != nil {
 			if col.IsErrNotFound(err) {
 				continue
 			}
@@ -3145,7 +3145,30 @@ func (a *apiServer) propagateJobs(txnCtx txncontext.TransactionContext, commitse
 			if !col.IsErrNotFound(err) {
 				return err
 			}
+
 			// If the pipeline is valid and there's no job, create one
+			commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+				Commit: outputCommit,
+			})
+			if err != nil {
+				return err
+			}
+			if commitInfo.Finished != nil {
+				return pfsServer.ErrCommitFinished{commitInfo.Commit}
+			}
+			if request.Stats == nil {
+				request.Stats = &pps.ProcessStats{}
+			}
+			pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
+			pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
+			pipelineJobPtr := &pps.StoredPipelineJobInfo{
+				Pipeline:     client.NewPipeline(branchInfo.Branch.Repo.Name),
+				PipelineJob:  client.NewPipelineJob(uuid.NewWithoutDashes()),
+				OutputCommit: commitInfo.Commit,
+				Stats:        &pps.ProcessStats{},
+			}
+			result = pipelineJobPtr.PipelineJob
+			return ppsutil.UpdatePipelineJobState(pipelines, pipelineJobs, pipelineJobPtr, pps.PipelineJobState_JOB_CREATED, "")
 		}
 	}
 	return nil

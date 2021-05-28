@@ -167,7 +167,6 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		etcdJobInfo.DataTotal = request.DataTotal
 		etcdJobInfo.DataFailed = request.DataFailed
 		etcdJobInfo.DataRecovered = request.DataRecovered
-		etcdJobInfo.StatsCommit = request.StatsCommit
 		etcdJobInfo.Started = request.Started
 		etcdJobInfo.Finished = request.Finished
 		return etcdJobInfo.PipelineJob, nil
@@ -192,7 +191,6 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 			DataFailed:       etcdJobInfo.DataFailed,
 			DataRecovered:    etcdJobInfo.DataRecovered,
 			Stats:            etcdJobInfo.Stats,
-			StatsCommit:      etcdJobInfo.StatsCommit,
 			State:            etcdJobInfo.State,
 			Reason:           etcdJobInfo.Reason,
 			Started:          etcdJobInfo.Started,

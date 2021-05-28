@@ -234,7 +234,7 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 	metaCommitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     pipelineJobInfo.StatsCommit,
+			Commit:     ppsutil.StatsCommit(pipelineJobInfo.OutputCommit),
 			BlockState: pfs.CommitState_STARTED,
 		})
 	if err != nil {

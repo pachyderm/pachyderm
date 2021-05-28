@@ -202,21 +202,6 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
 }
 
-// CreatePipelineJob creates and runs a job in PPS.
-// This function is mostly useful internally, users should generally run work
-// by creating pipelines as well.
-func (c APIClient) CreatePipelineJob(pipeline string, outputCommit, statsCommit *pfs.Commit) (*pps.PipelineJob, error) {
-	job, err := c.PpsAPIClient.CreatePipelineJob(
-		c.Ctx(),
-		&pps.CreatePipelineJobRequest{
-			Pipeline:     NewPipeline(pipeline),
-			OutputCommit: outputCommit,
-			StatsCommit:  statsCommit,
-		},
-	)
-	return job, grpcutil.ScrubGRPC(err)
-}
-
 // InspectPipelineJob returns info about a specific job.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
 // full indicates that the full job info should be returned.

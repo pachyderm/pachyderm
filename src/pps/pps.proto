@@ -59,12 +59,13 @@ message PipelineJob {
 }
 
 enum PipelineJobState {
-  JOB_STARTING = 0;
-  JOB_RUNNING = 1;
-  JOB_FAILURE = 2;
-  JOB_SUCCESS = 3;
-  JOB_KILLED = 4;
-  JOB_EGRESSING = 5;
+  JOB_CREATED = 0;
+  JOB_STARTING = 1;
+  JOB_RUNNING = 2;
+  JOB_FAILURE = 3;
+  JOB_SUCCESS = 4;
+  JOB_KILLED = 5;
+  JOB_EGRESSING = 6;
 }
 
 message Metadata {
@@ -275,7 +276,6 @@ message StoredPipelineJobInfo {
   // Download/process/upload time and download/upload bytes
   ProcessStats stats = 10;
 
-  pfs.Commit stats_commit = 11;
   PipelineJobState state = 12;
   string reason = 13;
   google.protobuf.Timestamp started = 14;
@@ -313,7 +313,6 @@ message PipelineJobInfo {
   ResourceSpec sidecar_resource_limits = 28;   // requires ListPipelineJobRequest.Full
   Input input = 29;                            // requires ListPipelineJobRequest.Full
   pfs.BranchInfo new_branch = 30;
-  pfs.Commit stats_commit = 31;
   bool enable_stats = 32;                      // requires ListPipelineJobRequest.Full
   string salt = 33;                            // requires ListPipelineJobRequest.Full
   ChunkSpec chunk_spec = 34;                   // requires ListPipelineJobRequest.Full
@@ -451,30 +450,6 @@ message PipelineInfo {
 
 message PipelineInfos {
   repeated PipelineInfo pipeline_info = 1;
-}
-
-message CreatePipelineJobRequest {
-  Pipeline pipeline = 1;
-  pfs.Commit output_commit = 2;
-
-  // Fields below should only be set when restoring an extracted job.
-  uint64 restart = 3;
-
-  // Counts of how many times we processed or skipped a datum
-  int64 data_processed = 4;
-  int64 data_skipped = 5;
-  int64 data_total = 6;
-  int64 data_failed = 7;
-  int64 data_recovered = 8;
-
-  // Download/process/upload time and download/upload bytes
-  ProcessStats stats = 9;
-
-  pfs.Commit stats_commit = 10;
-  PipelineJobState state = 11;
-  string reason = 12;
-  google.protobuf.Timestamp started = 13;
-  google.protobuf.Timestamp finished = 14;
 }
 
 message InspectPipelineJobRequest {
@@ -761,7 +736,6 @@ message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
 service API {
-  rpc CreatePipelineJob(CreatePipelineJobRequest) returns (PipelineJob) {}
   rpc InspectPipelineJob(InspectPipelineJobRequest) returns (PipelineJobInfo) {}
   // ListPipelineJob returns information about current and past Pachyderm jobs.
   rpc ListPipelineJob(ListPipelineJobRequest) returns (stream PipelineJobInfo) {}
