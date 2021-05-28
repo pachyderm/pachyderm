@@ -25,16 +25,12 @@ import (
 func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	pachClient := driver.PachClient()
 	pipelineInfo := driver.PipelineInfo()
-	return forEachCommit(pachClient, pipelineInfo, logger, func(ctx context.Context, commitInfo *pfs.CommitInfo) (retErr error) {
+	return forEachPipelineJob(pachClient, pipelineInfo, logger, func(ctx context.Context, pipelineJobInfo *pps.PipelineJobInfo) (retErr error) {
 		driver := driver.WithContext(ctx)
-		pipelineJobInfo, err := ensurePipelineJob(pachClient, pipelineInfo.Pipeline.Name, commitInfo.Commit, logger)
-		if err != nil {
-			return err
-		}
 		if err := driver.UpdatePipelineJobState(pipelineJobInfo.PipelineJob.ID, pps.PipelineJobState_JOB_RUNNING, ""); err != nil {
 			return err
 		}
-		pipelineJobInput := ppsutil.PipelineJobInput(pipelineInfo, commitInfo)
+		pipelineJobInput := ppsutil.PipelineJobInput(pipelineInfo, pipelineJobInfo.OutputCommit)
 		di, err := datum.NewIterator(pachClient, pipelineJobInput)
 		if err != nil {
 			return err
@@ -61,7 +57,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
 			inputs := meta.Inputs
 			logger = logger.WithData(inputs)
-			env := driver.UserCodeEnv(logger.PipelineJobID(), commitInfo.Commit, inputs)
+			env := driver.UserCodeEnv(logger.PipelineJobID(), pipelineJobInfo.OutputCommit, inputs)
 			return s.WithDatum(ctx, meta, func(d *datum.Datum) error {
 				return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
 					return d.Run(ctx, func(runCtx context.Context) error {
@@ -74,20 +70,15 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	})
 }
 
-// Repeatedly runs the given callback with the latest commit for the pipeline.
+// Repeatedly runs the given callback with the latest pipelineJob for the pipeline.
 // The given context will be canceled if a newer commit is ready, then this will
 // wait for the previous callback to return before calling the callback again
 // with the latest commit.
-func forEachCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, cb func(context.Context, *pfs.CommitInfo) error) error {
+func forEachPipelineJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, cb func(context.Context, *pps.PipelineJobInfo) error) error {
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
-	return pachClient.SubscribeCommit(
-		client.NewRepo(pipelineInfo.Pipeline.Name),
-		"",
-		"",
-		pfs.CommitState_READY,
-		func(ci *pfs.CommitInfo) error {
+	return pachClient.SubscribePipelineJob(pipelineInfo.Pipeline.Name, false, func(pji *pps.PipelineJobInfo) error {
 			if cancel != nil {
 				logger.Logf("canceling previous service, new commit ready")
 				cancel()
@@ -95,39 +86,14 @@ func forEachCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo,
 					return err
 				}
 			}
-			logger.Logf("starting new service, commit: %s", ci.Commit.ID)
+			logger.Logf("starting new service, commit: %s", pji.OutputCommit.ID)
 			var ctx context.Context
 			ctx, cancel = context.WithCancel(pachClient.Ctx())
 			eg, ctx = errgroup.WithContext(ctx)
-			eg.Go(func() error { return cb(ctx, ci) })
+			eg.Go(func() error { return cb(ctx, pji) })
 			return nil
 		},
 	)
-}
-
-func ensurePipelineJob(pachClient *client.APIClient, pipeline string, commit *pfs.Commit, logger logs.TaggedLogger) (*pps.PipelineJobInfo, error) {
-	// Check if a job was previously created for this commit. If not, make one
-	pipelineJobInfos, err := pachClient.ListPipelineJob("", nil, commit, -1, true)
-	if err != nil {
-		return nil, err
-	}
-	if len(pipelineJobInfos) > 1 {
-		return nil, errors.Errorf("multiple pipeline jobs found for commit: %s@%s", commit.Branch.Repo.Name, commit.ID)
-	} else if len(pipelineJobInfos) < 1 {
-		pipelineJob, err := pachClient.CreatePipelineJob(pipeline, commit, nil)
-		if err != nil {
-			return nil, err
-		}
-		logger.Logf("created new pipeline job %q for output commit %q", pipelineJob.ID, commit.ID)
-		// get PipelineJobInfo to look up spec commit, pipeline version, etc (if this
-		// worker is stale and about to be killed, the new job may have a newer
-		// pipeline version than the master. Or if the commit is stale, it may
-		// have an older pipeline version than the master)
-		return pachClient.InspectPipelineJob(pipelineJob.ID, false)
-	}
-	// Get latest pipeline job state.
-	logger.Logf("found existing pipeline job %q for output commit %q", pipelineJobInfos[0].PipelineJob.ID, commit.ID)
-	return pachClient.InspectPipelineJob(pipelineJobInfos[0].PipelineJob.ID, false)
 }
 
 func finishPipelineJob(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo) error {

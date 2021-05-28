@@ -314,6 +314,34 @@ func (c APIClient) ListPipelineJobFilterF(pipelineName string, inputCommit []*pf
 	}
 }
 
+// SubscribePipelineJob calls the given callback with each open job in the given
+// pipeline until canceled.
+func (c APIClient) SubscribePipelineJob(pipelineName string, includePipelineInfo bool, cb func(*pps.PipelineJobInfo) error) error {
+	client, err := c.PpsAPIClient.SubscribePipelineJob(
+		c.Ctx(),
+		&pps.SubscribePipelineJobRequest{
+			Pipeline: NewPipeline(pipelineName),
+			Full:     includePipelineInfo,
+		})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		pji, err := client.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := cb(pji); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
 // FlushPipelineJob calls f with all the jobs which were triggered by commits.
 // If toPipelines is non-nil then only the jobs between commits and those
 // pipelines in the DAG will be returned.

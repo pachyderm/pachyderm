@@ -405,14 +405,14 @@ func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTest
 	return nil, unsupportedError("RunLoadTest")
 }
 
-func (c *ppsBuilderClient) CreatePipelineJob(ctx context.Context, req *pps.CreatePipelineJobRequest, opts ...grpc.CallOption) (*pps.PipelineJob, error) {
-	return nil, unsupportedError("CreatePipelineJob")
-}
 func (c *ppsBuilderClient) InspectPipelineJob(ctx context.Context, req *pps.InspectPipelineJobRequest, opts ...grpc.CallOption) (*pps.PipelineJobInfo, error) {
 	return nil, unsupportedError("InspectPipelineJob")
 }
 func (c *ppsBuilderClient) ListPipelineJob(ctx context.Context, req *pps.ListPipelineJobRequest, opts ...grpc.CallOption) (pps.API_ListPipelineJobClient, error) {
 	return nil, unsupportedError("ListPipelineJob")
+}
+func (c *ppsBuilderClient) SubscribePipelineJob(ctx context.Context, req *pps.SubscribePipelineJobRequest, opts ...grpc.CallOption) (pps.API_SubscribePipelineJobClient, error) {
+	return nil, unsupportedError("SubscribePipelineJob")
 }
 func (c *ppsBuilderClient) FlushPipelineJob(ctx context.Context, req *pps.FlushPipelineJobRequest, opts ...grpc.CallOption) (pps.API_FlushPipelineJobClient, error) {
 	return nil, unsupportedError("FlushPipelineJob")

@@ -266,8 +266,8 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 }
 
 // PipelineJobInput fills in the commits for an Input
-func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
-	commitsetID := outputCommitInfo.Commit.ID
+func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
+	commitsetID := outputCommit.ID
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
@@ -384,7 +384,7 @@ func FinishPipelineJob(pachClient *client.APIClient, pipelineJobInfo *pps.Pipeli
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: StatsCommit(pipelineJobInfo.OutputCommit),
+			Commit: MetaCommit(pipelineJobInfo.OutputCommit),
 			Empty:  empty,
 		}); err != nil {
 			return err
@@ -410,7 +410,7 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 	return err
 }
 
-func StatsCommit(commit *pfs.Commit) *pfs.Commit {
+func MetaCommit(commit *pfs.Commit) *pfs.Commit {
 	return client.NewSystemRepo(commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
 }
 

@@ -485,6 +485,12 @@ message ListPipelineJobRequest {
   string jqFilter = 6;
 }
 
+// Streams active pipeline jobs until canceled
+message SubscribePipelineJobRequest {
+  Pipeline pipeline = 1;
+  bool full = 2; // Same as ListPipelineJobRequest.Full
+}
+
 message FlushPipelineJobRequest {
   repeated pfs.Commit commits = 1;
   repeated Pipeline to_pipelines = 2;
@@ -739,6 +745,7 @@ service API {
   rpc InspectPipelineJob(InspectPipelineJobRequest) returns (PipelineJobInfo) {}
   // ListPipelineJob returns information about current and past Pachyderm jobs.
   rpc ListPipelineJob(ListPipelineJobRequest) returns (stream PipelineJobInfo) {}
+  rpc SubscribePipelineJob(SubscribePipelineJobRequest) returns (stream PipelineJobInfo) {}
   rpc FlushPipelineJob(FlushPipelineJobRequest) returns (stream PipelineJobInfo) {}
   rpc DeletePipelineJob(DeletePipelineJobRequest) returns (google.protobuf.Empty) {}
   rpc StopPipelineJob(StopPipelineJobRequest) returns (google.protobuf.Empty) {}
