@@ -237,7 +237,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		}
 		return repos.Create(pfsdb.RepoKey(repo), &pfs.RepoInfo{
 			Repo:        repo,
-			Created:     types.TimestampNow(),
+			Created:     txnCtx.Timestamp,
 			Description: description,
 		})
 	}
@@ -467,7 +467,7 @@ func (d *driver) startCommit(
 		Commit:      newCommit,
 		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
 		Description: description,
-		Started:     types.TimestampNow(),
+		Started:     txnCtx.Timestamp,
 	}
 	if err := ancestry.ValidateName(branch.Name); err != nil {
 		return nil, err
@@ -575,7 +575,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if description != "" {
 		commitInfo.Description = description
 	}
-	commitInfo.Finished = types.TimestampNow()
+	commitInfo.Finished = txnCtx.Timestamp
 	if err := d.writeFinishedCommit(txnCtx.SqlTx, commitInfo); err != nil {
 		return err
 	}
@@ -639,11 +639,11 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
 			ParentCommit: parent,
 			ChildCommits: []*pfs.Commit{},
-			Started:      types.TimestampNow(),
+			Started:      txnCtx.Timestamp,
 			SizeBytes:    parentCommitInfo.SizeBytes,
 		}
 		if parentCommitInfo.Finished != nil {
-			commitInfo.Finished = types.TimestampNow()
+			commitInfo.Finished = txnCtx.Timestamp
 		}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
 			return nil, err
@@ -829,7 +829,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			newCommitInfo := &pfs.CommitInfo{
 				Commit:  newCommit,
 				Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-				Started: types.TimestampNow(),
+				Started: txnCtx.Timestamp,
 			}
 
 			// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'

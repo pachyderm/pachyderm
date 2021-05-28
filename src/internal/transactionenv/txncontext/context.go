@@ -3,6 +3,7 @@ package txncontext
 import (
 	"context"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -19,6 +20,8 @@ type TransactionContext struct {
 	SqlTx *sqlx.Tx
 	// CommitsetID is the ID of the Commitset corresponding to PFS changes in this transaction.
 	CommitsetID string
+	// Timestamp is the canonical timestamp to be used for writes in this transaction.
+	Timestamp *types.Timestamp
 	// PfsPropagater applies commits at the end of the transaction.
 	PfsPropagater PfsPropagater
 	// CommitFinisher finishes commits for a pipeline at the end of a transaction

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -279,6 +280,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 			ClientContext: ctx,
 			SqlTx:         sqlTx,
 			CommitsetID:   uuid.NewWithoutDashes(),
+			Timestamp:     types.TimestampNow(),
 		}
 		if env.serviceEnv.PfsServer() != nil {
 			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
@@ -302,6 +304,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 			ClientContext:  ctx,
 			SqlTx:          sqlTx,
 			CommitsetID:    uuid.NewWithoutDashes(),
+			Timestamp:      types.TimestampNow(),
 			CommitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 		}
 		if env.serviceEnv.PfsServer() != nil {
