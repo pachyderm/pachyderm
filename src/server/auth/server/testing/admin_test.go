@@ -1004,10 +1004,6 @@ func TestRevokePachUserToken(t *testing.T) {
 	_, err := rootClient.RevokeAuthTokensForUser(rootClient.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: auth.RootUser})
 	require.YesError(t, err)
 	require.Matches(t, "cannot revoke tokens for pach: users", err.Error())
-
-	_, err = rootClient.RevokeAuthTokensForUser(rootClient.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: auth.PpsUser})
-	require.YesError(t, err)
-	require.Matches(t, "cannot revoke tokens for pach: users", err.Error())
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)

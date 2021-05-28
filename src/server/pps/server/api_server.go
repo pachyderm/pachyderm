@@ -33,7 +33,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -1577,51 +1576,6 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-var (
-	// superUserToken is the cached auth token used by PPS to write to the spec
-	// repo, create pipeline subjects, and
-	superUserToken string
-
-	// superUserTokenOnce ensures that ppsToken is only read from etcd once. These are
-	// read/written by apiServer#sudo()
-	superUserTokenOnce sync.Once
-)
-
-// sudo is a helper function that copies 'pachClient' grants it PPS's superuser
-// token, and calls 'f' with the superuser client. This helps isolate PPS's use
-// of its superuser token so that it's not widely copied and is unlikely to
-// leak authority to parts of the code that aren't supposed to have it.
-//
-// Note that because the argument to 'f' is a superuser client, it should not
-// be used to make any calls with unvalidated user input. Any such use could be
-// exploited to make PPS a confused deputy
-func (a *apiServer) sudo(ctx context.Context, f func(*client.APIClient) error) error {
-	// Get PPS auth token
-	superUserTokenOnce.Do(func() {
-		b := backoff.NewExponentialBackOff()
-		b.MaxElapsedTime = 60 * time.Second
-		b.MaxInterval = 5 * time.Second
-		if err := backoff.Retry(func() error {
-			superUserTokenCol := col.NewEtcdCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadOnly(ctx)
-			var result types.StringValue
-			if err := superUserTokenCol.Get("", &result); err != nil {
-				return err
-			}
-			superUserToken = result.Value
-			return nil
-		}, b); err != nil {
-			panic(fmt.Sprintf("couldn't get PPS superuser token: %v", err))
-		}
-	})
-
-	// Copy pach client, but keep ctx (to propagate cancellation). Replace token
-	// with superUserToken
-	pachClient := a.env.GetPachClient(ctx)
-	superUserClient := pachClient.WithCtx(ctx)
-	superUserClient.SetAuthToken(superUserToken)
-	return f(superUserClient)
-}
-
 // writePipelineInfo is a helper for CreatePipeline that creates a commit with
 // 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where a
 // user is updating a pipeline and the case where a user is creating a new
@@ -2111,14 +2065,16 @@ func (a *apiServer) CreatePipelineInTransaction(
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewRepo(pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
-			}); err != nil && !isAlreadyExistsErr(err) {
+				Update:      true,
+			}); err != nil {
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
 		}
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
 				Description: fmt.Sprintf("Spec repo for pipeline %s.", request.Pipeline.Name),
-			}); err != nil && !isAlreadyExistsErr(err) {
+				Update:      true,
+			}); err != nil {
 			return errors.Wrapf(err, "error creating spec repo for %s", pipelineName)
 		}
 	}
@@ -2634,8 +2590,10 @@ func (a *apiServer) listPipelinePtr(ctx context.Context,
 			}
 			// Get parent commit
 			pachClient := a.env.GetPachClient(ctx)
+			// allow reading spec commit regardless of calling user
+			pachClient.SetAuthToken(p.AuthToken)
 			ci, err := pachClient.PfsAPIClient.InspectCommit(
-				ctx,
+				pachClient.Ctx(),
 				&pfs.InspectCommitRequest{
 					Commit:     p.SpecCommit,
 					BlockState: pfs.CommitState_STARTED,
