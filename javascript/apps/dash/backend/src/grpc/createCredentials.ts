@@ -1,10 +1,9 @@
 import {credentials} from '@grpc/grpc-js';
 
-const createCredentials = (address: string) => {
-  if (
-    address.includes('localhost') ||
-    address.includes('host.docker.internal')
-  ) {
+const createCredentials = () => {
+  const {GRPC_SSL} = process.env;
+
+  if (GRPC_SSL === 'false') {
     return credentials.createInsecure();
   }
 

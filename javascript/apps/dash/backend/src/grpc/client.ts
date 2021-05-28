@@ -62,7 +62,7 @@ const client = ({
   log: baseLogger,
   plugins: userPlugins = [],
 }: ClientArgs) => {
-  const channelCredentials = createCredentials(pachdAddress);
+  const channelCredentials = createCredentials();
 
   const credentialMetadata = new Metadata();
   credentialMetadata.add('authn-token', authToken);
