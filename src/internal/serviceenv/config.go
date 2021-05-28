@@ -36,8 +36,6 @@ type GlobalConfiguration struct {
 	// sidecar so that it can serve the S3 gateway) it's stored in the
 	// GlobalConfiguration, but it isn't set in a cluster's main pachd containers.
 	PPSSpecCommitID string `env:"PPS_SPEC_COMMIT"`
-	// The name of the pipeline that this worker belongs to
-	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
@@ -105,6 +103,8 @@ type WorkerSpecificConfiguration struct {
 	// Worker gets its own IP here, via the k8s downward API. It then writes that
 	// IP back to etcd so that pachd can discover it
 	PPSWorkerIP string `env:"PPS_WORKER_IP,required"`
+	// The name of the pipeline that this worker belongs to
+	PPSPipelineName string `env:"PPS_PIPELINE_NAME,required"`
 	// The name of this pod
 	PodName string `env:"PPS_POD_NAME,required"`
 }

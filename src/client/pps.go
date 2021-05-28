@@ -260,8 +260,8 @@ func (c APIClient) InspectJobOutputCommit(repoName, branchName, commitID string,
 func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, history int64, includePipelineInfo bool) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
 	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, history,
-		includePipelineInfo, func(pji *pps.JobInfo) error {
-			result = append(result, pji)
+		includePipelineInfo, func(ji *pps.JobInfo) error {
+			result = append(result, ji)
 			return nil
 		}); err != nil {
 		return nil, err
@@ -314,13 +314,13 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 		return grpcutil.ScrubGRPC(err)
 	}
 	for {
-		pji, err := client.Recv()
+		ji, err := client.Recv()
 		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
-		if err := f(pji); err != nil {
+		if err := f(ji); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
@@ -362,8 +362,8 @@ func (c APIClient) FlushJob(commits []*pfs.Commit, toPipelines []string, f func(
 // pipelines in the DAG will be returned.
 func (c APIClient) FlushJobAll(commits []*pfs.Commit, toPipelines []string) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
-	if err := c.FlushJob(commits, toPipelines, func(pji *pps.JobInfo) error {
-		result = append(result, pji)
+	if err := c.FlushJob(commits, toPipelines, func(ji *pps.JobInfo) error {
+		result = append(result, ji)
 		return nil
 	}); err != nil {
 		return nil, err

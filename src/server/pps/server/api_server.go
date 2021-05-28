@@ -574,11 +574,11 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		if err != nil {
 			return nil, err
 		}
-		if err := a.listJob(ctx, nil, ci.Commit, nil, -1, false, "", func(pji *pps.JobInfo) error {
+		if err := a.listJob(ctx, nil, ci.Commit, nil, -1, false, "", func(ji *pps.JobInfo) error {
 			if request.Job != nil {
 				return errors.Errorf("internal error, more than 1 Job has output commit: %v (this is likely a bug)", request.OutputCommit)
 			}
-			request.Job = pji.Job
+			request.Job = ji.Job
 			return nil
 		}); err != nil {
 			return nil, err
@@ -648,9 +648,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	return jobInfo, nil
 }
 
-// listJob is the internal implementation of ListJob shared
-// between ListJob and ListJobStream. When ListJob is
-// removed, this should be inlined into ListJobStream.
+// listJob is the internal implementation of ListJob shared between ListJob and
+// ListJobStream. When ListJob is removed, this should be inlined into
+// ListJobStream.
 func (a *apiServer) listJob(
 	ctx context.Context,
 	pipeline *pps.Pipeline,
@@ -833,6 +833,7 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.StoredJobInf
 		result.Egress = pipelineInfo.Egress
 		result.Service = pipelineInfo.Service
 		result.Spout = pipelineInfo.Spout
+		result.OutputBranch = pipelineInfo.OutputBranch
 		result.ResourceRequests = pipelineInfo.ResourceRequests
 		result.ResourceLimits = pipelineInfo.ResourceLimits
 		result.SidecarResourceLimits = pipelineInfo.SidecarResourceLimits
@@ -857,8 +858,8 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.listJob(resp.Context(), request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, request.JqFilter, func(pji *pps.JobInfo) error {
-		if err := resp.Send(pji); err != nil {
+	return a.listJob(resp.Context(), request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, request.JqFilter, func(ji *pps.JobInfo) error {
+		if err := resp.Send(ji); err != nil {
 			return err
 		}
 		sent++
@@ -880,16 +881,16 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 
 	pachClient := a.env.GetPachClient(resp.Context())
 	return pachClient.FlushCommit(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
-		var pjis []*pps.JobInfo
+		var jis []*pps.JobInfo
 		// FlushJob passes -1 for history because we don't know which version
 		// of the pipeline created the output commit.
-		if err := a.listJob(resp.Context(), nil, ci.Commit, nil, -1, false, "", func(pji *pps.JobInfo) error {
-			pjis = append(pjis, pji)
+		if err := a.listJob(resp.Context(), nil, ci.Commit, nil, -1, false, "", func(ji *pps.JobInfo) error {
+			jis = append(jis, ji)
 			return nil
 		}); err != nil {
 			return err
 		}
-		if len(pjis) == 0 {
+		if len(jis) == 0 {
 			// This is possible because the commit may be part of the stats
 			// branch of a pipeline, in which case it's not the output commit
 			// of any job, thus we ignore it, the job will be returned in
@@ -897,16 +898,16 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 			// commit.
 			return nil
 		}
-		if len(pjis) > 1 {
-			return errors.Errorf("found too many jobs (%d) for output commit: %s", len(pjis), pfsdb.CommitKey(ci.Commit))
+		if len(jis) > 1 {
+			return errors.Errorf("found too many jobs (%d) for output commit: %s", len(jis), pfsdb.CommitKey(ci.Commit))
 		}
 		// Even though the commit has been finished the job isn't necessarily
 		// finished yet, so we block on its state as well.
-		pji, err := a.InspectJob(resp.Context(), &pps.InspectJobRequest{Job: pjis[0].Job, BlockState: true})
+		ji, err := a.InspectJob(resp.Context(), &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
 		if err != nil {
 			return err
 		}
-		return resp.Send(pji)
+		return resp.Send(ji)
 	})
 }
 
@@ -986,11 +987,11 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 		}
 	}
 
-	handleJob := func(pji *pps.StoredJobInfo) error {
+	handleJob := func(ji *pps.StoredJobInfo) error {
 		// TODO: We can still not update a job's state if we fail here. This is
 		// probably fine for now since we are likely to have a more comprehensive
 		// solution to this with global ids.
-		if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, pji, pps.JobState_JOB_KILLED, reason); err != nil && !ppsServer.IsJobFinishedErr(err) {
+		if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, ji, pps.JobState_JOB_KILLED, reason); err != nil && !ppsServer.IsJobFinishedErr(err) {
 			return err
 		}
 		return nil
@@ -1109,7 +1110,9 @@ func convertDatumState(state datum.State) pps.DatumState {
 }
 
 func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*datum.Meta, *pfs.File) error) error {
-	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{Job: job})
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+		Job: client.NewJob(job.ID),
+	})
 	if err != nil {
 		return err
 	}
@@ -2091,9 +2094,9 @@ func (a *apiServer) CreatePipelineInTransaction(
 		provenance = append(branchProvenance(newPipelineInfo.Input),
 			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 		outputBranch     = client.NewBranch(pipelineName, newPipelineInfo.OutputBranch)
-		metaBranch       = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch("master")
+		statsBranch      = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch("master")
 		outputBranchHead *pfs.Commit
-		metaBranchHead   *pfs.Commit
+		statsBranchHead  *pfs.Commit
 		specCommit       *pfs.Commit
 	)
 
@@ -2134,7 +2137,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		specCommit = commitInfo.Commit
 		// We also use the existing head for the branches, rather than making a new one.
 		outputBranchHead = client.NewCommit(pipelineName, newPipelineInfo.OutputBranch, "")
-		metaBranchHead = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewCommit("master", "")
+		statsBranchHead = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewCommit("master", "")
 	} else {
 		specCommit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineName, *specFilesetID, *prevSpecCommit)
 		if err != nil {
@@ -2207,11 +2210,11 @@ func (a *apiServer) CreatePipelineInTransaction(
 				outputBranchHead = client.NewCommit(pipelineName, newPipelineInfo.OutputBranch, "")
 			}
 
-			_, err = a.env.PfsServer().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: metaBranch})
+			_, err = a.env.PfsServer().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: statsBranch})
 			if err != nil && !isNotFoundErr(err) {
 				return err
 			} else if err == nil {
-				metaBranchHead = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewCommit("master", "")
+				statsBranchHead = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewCommit("master", "")
 			}
 		}
 
@@ -2312,16 +2315,16 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 	if newPipelineInfo.EnableStats {
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
-			Repo:        metaBranch.Repo,
+			Repo:        statsBranch.Repo,
 			Description: fmt.Sprint("Meta repo for", pipelineName),
 			Update:      true, // don't error if it already exists
 		}); err != nil {
 			return errors.Wrap(err, "could not create meta repo")
 		}
 		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     metaBranch,
+			Branch:     statsBranch,
 			Provenance: []*pfs.Branch{outputBranch},
-			Head:       metaBranchHead,
+			Head:       statsBranchHead,
 		}); err != nil {
 			return errors.Wrapf(err, "could not create/update meta branch")
 		}

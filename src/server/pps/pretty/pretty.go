@@ -44,14 +44,10 @@ func safeTrim(s string, l int) string {
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	fmt.Fprintf(w, "%s\t", jobInfo.Pipeline.Name)
-	if jobInfo.Started != nil {
-		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
-		} else {
-			fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
-		}
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
 	} else {
-		fmt.Fprintf(w, "-\t")
+		fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
 	}
 	if jobInfo.Finished != nil {
 		fmt.Fprintf(w, "%s\t", pretty.TimeDifference(jobInfo.Started, jobInfo.Finished))
@@ -126,9 +122,9 @@ type PrintableJobInfo struct {
 }
 
 // NewPrintableJobInfo constructs a PrintableJobInfo from just a JobInfo.
-func NewPrintableJobInfo(pji *ppsclient.JobInfo) *PrintableJobInfo {
+func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
 	return &PrintableJobInfo{
-		JobInfo: pji,
+		JobInfo: ji,
 	}
 }
 
@@ -372,11 +368,11 @@ func JobState(jobState ppsclient.JobState) string {
 }
 
 // Progress pretty prints the datum progress of a job.
-func Progress(pji *ppsclient.JobInfo) string {
-	if pji.DataRecovered != 0 {
-		return fmt.Sprintf("%d + %d + %d / %d", pji.DataProcessed, pji.DataSkipped, pji.DataRecovered, pji.DataTotal)
+func Progress(ji *ppsclient.JobInfo) string {
+	if ji.DataRecovered != 0 {
+		return fmt.Sprintf("%d + %d + %d / %d", ji.DataProcessed, ji.DataSkipped, ji.DataRecovered, ji.DataTotal)
 	}
-	return fmt.Sprintf("%d + %d / %d", pji.DataProcessed, pji.DataSkipped, pji.DataTotal)
+	return fmt.Sprintf("%d + %d / %d", ji.DataProcessed, ji.DataSkipped, ji.DataTotal)
 }
 
 func pipelineState(pipelineState ppsclient.PipelineState) string {
@@ -399,23 +395,23 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 	return "-"
 }
 
-func jobInput(ppji PrintableJobInfo) string {
-	if ppji.Input == nil {
+func jobInput(pji PrintableJobInfo) string {
+	if pji.Input == nil {
 		return ""
 	}
-	input, err := json.MarshalIndent(ppji.Input, "", "  ")
+	input, err := json.MarshalIndent(pji.Input, "", "  ")
 	if err != nil {
 		panic(errors.Wrapf(err, "error marshalling input"))
 	}
 	return string(input) + "\n"
 }
 
-func workerStatus(ppji PrintableJobInfo) string {
+func workerStatus(pji PrintableJobInfo) string {
 	var buffer bytes.Buffer
 	writer := ansiterm.NewTabWriter(&buffer, 20, 1, 3, ' ', 0)
 	PrintWorkerStatusHeader(writer)
-	for _, workerStatus := range ppji.WorkerStatus {
-		PrintWorkerStatus(writer, workerStatus, ppji.FullTimestamps)
+	for _, workerStatus := range pji.WorkerStatus {
+		PrintWorkerStatus(writer, workerStatus, pji.FullTimestamps)
 	}
 	// can't error because buffer can't error on Write
 	writer.Flush()

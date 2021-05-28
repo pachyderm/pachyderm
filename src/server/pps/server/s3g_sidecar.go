@@ -53,7 +53,6 @@ func (a *apiServer) ServeSidecarS3G() {
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
 	specCommit := a.env.Config().PPSSpecCommitID
-	pipelineName := a.env.Config().PPSPipelineName
 	if specCommit == "" {
 		// This error is not recoverable
 		panic("cannot serve sidecar S3 gateway if no spec commit is set")

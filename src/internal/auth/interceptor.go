@@ -161,7 +161,6 @@ var authHandlers = map[string]authHandler{
 	"/pps.API/InspectJob":      authDisabledOr(authenticated),
 	"/pps.API/ListJob":         authDisabledOr(authenticated),
 	"/pps.API/ListJobStream":   authDisabledOr(authenticated),
-	"/pps.API/SubscribeJob":    authDisabledOr(authenticated),
 	"/pps.API/FlushJob":        authDisabledOr(authenticated),
 	"/pps.API/DeleteJob":       authDisabledOr(authenticated),
 	"/pps.API/StopJob":         authDisabledOr(authenticated),

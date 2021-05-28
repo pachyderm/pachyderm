@@ -129,11 +129,11 @@ If the job fails, the output commit will not be populated with data.`,
 			} else if output != "" {
 				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
-			ppji := &pretty.PrintableJobInfo{
+			pji := &pretty.PrintableJobInfo{
 				JobInfo:        jobInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedJobInfo(os.Stdout, ppji)
+			return pretty.PrintDetailedJobInfo(os.Stdout, pji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
@@ -198,15 +198,15 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(pji *ppsclient.JobInfo) error {
-						return e.EncodeProto(pji)
+					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(ji *ppsclient.JobInfo) error {
+						return e.EncodeProto(ji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(pji *ppsclient.JobInfo) error {
-					pretty.PrintJobInfo(writer, pji, fullTimestamps)
+				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(ji *ppsclient.JobInfo) error {
+					pretty.PrintJobInfo(writer, ji, fullTimestamps)
 					return nil
 				}); err != nil {
 					return err
@@ -266,14 +266,14 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			}
 			e := encoder(output)
-			if err := c.FlushJob(commits, pipelines, func(pji *ppsclient.JobInfo) error {
+			if err := c.FlushJob(commits, pipelines, func(ji *ppsclient.JobInfo) error {
 				if raw {
-					if err := e.EncodeProto(pji); err != nil {
+					if err := e.EncodeProto(ji); err != nil {
 						return err
 					}
 					return nil
 				}
-				pretty.PrintJobInfo(writer, pji, fullTimestamps)
+				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
 				return err
