@@ -4015,7 +4015,6 @@ func TestManyLogs(t *testing.T) {
 }
 
 func TestLokiLogs(t *testing.T) {
-	// TODO(2.0 required): This test is taking too long to complete due to slow pipelines
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
