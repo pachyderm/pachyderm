@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -1196,9 +1197,23 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 
 	// make sure the pipeline is failed
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := aliceClient.InspectPipeline(pipeline)
+		// use list pipeline instead of inspect pipeline because we expect
+		// the spec repo to be gone, which will cause GetPipelineInfo to fail
+		resp, err := aliceClient.PpsAPIClient.ListPipeline(
+			aliceClient.Ctx(),
+			&pps.ListPipelineRequest{
+				AllowIncomplete: true,
+			},
+		)
 		if err != nil {
-			return err
+			return grpcutil.ScrubGRPC(err)
+		}
+		var pi *pps.PipelineInfo
+		for _, info := range resp.PipelineInfo {
+			if info.Pipeline.Name == pipeline {
+				pi = info
+				break
+			}
 		}
 		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
 			return errors.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
@@ -1218,7 +1233,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	// the pipeline either restarts the RC and recreates the output repo, or fails
 	err = aliceClient.PutFile(masterCommit, "/file.2", strings.NewReader("2"))
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, time.Minute, func() error {
 		// TODO(msteffen): While not currently possible, PFS could return
 		// CommitDeleted here. This should detect that error, but first:
 		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
@@ -1247,7 +1262,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		"", // default output branch: master
 		false,
 	))
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, time.Minute, func() error {
 		_, err := aliceClient.FlushCommitAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
 			[]*pfs.Repo{client.NewRepo(pipeline2)})

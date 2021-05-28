@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -9347,9 +9348,23 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 
 	// make sure the pipeline is failed
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline)
+		// use list pipeline instead of inspect pipeline because we expect
+		// the spec repo to be gone, which will cause GetPipelineInfo to fail
+		resp, err := c.PpsAPIClient.ListPipeline(
+			c.Ctx(),
+			&pps.ListPipelineRequest{
+				AllowIncomplete: true,
+			},
+		)
 		if err != nil {
-			return err
+			return grpcutil.ScrubGRPC(err)
+		}
+		var pi *pps.PipelineInfo
+		for _, info := range resp.PipelineInfo {
+			if info.Pipeline.Name == pipeline {
+				pi = info
+				break
+			}
 		}
 		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
 			return errors.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
