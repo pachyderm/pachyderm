@@ -78,21 +78,21 @@ func forEachPipelineJob(pachClient *client.APIClient, pipelineInfo *pps.Pipeline
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
-	return pachClient.SubscribePipelineJob(pipelineInfo.Pipeline.Name, false, func(pji *pps.PipelineJobInfo) error {
-			if cancel != nil {
-				logger.Logf("canceling previous service, new commit ready")
-				cancel()
-				if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-					return err
-				}
+	return pachClient.SubscribePipelineJob(pipelineInfo.Pipeline.Name, true, func(pji *pps.PipelineJobInfo) error {
+		if cancel != nil {
+			logger.Logf("canceling previous service, new commit ready")
+			cancel()
+			if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+				return err
 			}
-			logger.Logf("starting new service, commit: %s", pji.OutputCommit.ID)
-			var ctx context.Context
-			ctx, cancel = context.WithCancel(pachClient.Ctx())
-			eg, ctx = errgroup.WithContext(ctx)
-			eg.Go(func() error { return cb(ctx, pji) })
-			return nil
-		},
+		}
+		logger.Logf("starting new service, commit: %s", pji.OutputCommit.ID)
+		var ctx context.Context
+		ctx, cancel = context.WithCancel(pachClient.Ctx())
+		eg, ctx = errgroup.WithContext(ctx)
+		eg.Go(func() error { return cb(ctx, pji) })
+		return nil
+	},
 	)
 }
 

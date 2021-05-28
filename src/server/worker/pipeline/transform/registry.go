@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -205,7 +206,7 @@ func (reg *registry) startPipelineJob(pipelineJobInfo *pps.PipelineJobInfo) erro
 	commitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit: pipelineJobInfo.OutputCommit,
+			Commit:     pipelineJobInfo.OutputCommit,
 			BlockState: pfs.CommitState_STARTED,
 		})
 	if err != nil {
@@ -612,14 +613,14 @@ func (reg *registry) processJobEgressing(ppj *pendingPipelineJob) error {
 func failedInputs(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo) ([]string, error) {
 	var failed []string
 	blockCommit := func(name string, commit *pfs.Commit) error {
-		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
-			&pfs.InspectCommitRequest{
-				Commit:     commit,
-				BlockState: pfs.CommitState_FINISHED,
-			})
+		ci, err := pachClient.BlockCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
-			return errors.Wrapf(err, "error blocking on commit %s@%s",
-				commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			if pfsserver.IsCommitNotFoundErr(err) {
+				// If there is no commit from that repo for this commitset, it can be considered empty
+				// TODO(global ids): don't need this is we guarantee branches always have a head commit
+				return nil
+			}
+			return errors.Wrapf(err, "error blocking on commit %s", pfsdb.CommitKey(commit))
 		}
 		if strings.Contains(ci.Description, pfs.EmptyStr) {
 			failed = append(failed, name)

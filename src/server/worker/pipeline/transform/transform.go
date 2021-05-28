@@ -16,7 +16,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 
 	return driver.PachClient().SubscribePipelineJob(
 		driver.PipelineInfo().Pipeline.Name,
-		false,
+		true,
 		func(pipelineJobInfo *pps.PipelineJobInfo) error {
 			// TODO: check that this is for the right version of the pipeline
 			return reg.startPipelineJob(pipelineJobInfo)

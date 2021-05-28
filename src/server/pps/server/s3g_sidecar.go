@@ -53,6 +53,7 @@ func (a *apiServer) ServeSidecarS3G() {
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
 	specCommit := a.env.Config().PPSSpecCommitID
+	pipelineName := a.env.Config().PPSPipelineName
 	if specCommit == "" {
 		// This error is not recoverable
 		panic("cannot serve sidecar S3 gateway if no spec commit is set")
@@ -62,7 +63,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		defer retryCancel()
 		if err := a.sudo(retryCtx, func(superUserClient *client.APIClient) error {
 			buf := bytes.Buffer{}
-			if err := superUserClient.GetFile(client.NewCommit(ppsconsts.SpecRepo, "", specCommit), ppsconsts.SpecFile, &buf); err != nil {
+			if err := superUserClient.GetFile(client.NewCommit(ppsconsts.SpecRepo, pipelineName, specCommit), ppsconsts.SpecFile, &buf); err != nil {
 				return errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
 			}
 			if err := proto.Unmarshal(buf.Bytes(), s.pipelineInfo); err != nil {
@@ -78,7 +79,6 @@ func (a *apiServer) ServeSidecarS3G() {
 
 		// Set auth token for s.pachClient (pipelinePtr.AuthToken will be empty if
 		// auth is off)
-		pipelineName := s.pipelineInfo.Pipeline.Name
 		pipelinePtr := &pps.StoredPipelineInfo{}
 		err := a.pipelines.ReadOnly(retryCtx).Get(pipelineName, pipelinePtr)
 		if err != nil {

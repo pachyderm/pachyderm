@@ -214,6 +214,31 @@ func (c *postgresReadWriteCollection) GetByIndex(index *Index, indexVal string, 
 	return c.getByIndex(context.Background(), c.tx, index, indexVal, val, opts, true, f)
 }
 
+func (c *postgresCollection) getUniqueByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message) error {
+	found := false
+	if err := c.getByIndex(ctx, q, index, indexVal, val, DefaultOptions(), false, func(string) error {
+		if found {
+			return ErrNotUnique{Index: index.Name, Value: indexVal}
+		}
+		found = true
+		return nil
+	}); err != nil {
+		return err
+	}
+	if !found {
+		return ErrNotFound{c.table, indexVal}
+	}
+	return nil
+}
+
+func (c *postgresReadOnlyCollection) GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error {
+	return c.getUniqueByIndex(c.ctx, c.db, index, indexVal, val)
+}
+
+func (c *postgresReadWriteCollection) GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error {
+	return c.getUniqueByIndex(context.Background(), c.tx, index, indexVal, val)
+}
+
 func orderToSQL(order etcd.SortOrder) (string, error) {
 	switch order {
 	case SortAscend:

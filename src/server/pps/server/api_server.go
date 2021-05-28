@@ -819,12 +819,17 @@ func (a *apiServer) SubscribePipelineJob(request *pps.SubscribePipelineJobReques
 	// keep track of the jobs that have been sent
 	seen := map[string]struct{}{}
 
-	pipelineJobPtr := &pps.StoredPipelineJobInfo{}
 	return a.pipelineJobs.ReadOnly(ctx).WatchByIndexF(ppsdb.PipelineJobsTerminalIndex, ppsdb.PipelineJobTerminalKey(request.Pipeline, false), func(ev *watch.Event) error {
-		if _, ok := seen[pipelineJobPtr.PipelineJob.ID]; ok {
+		var key string
+		pipelineJobPtr := &pps.StoredPipelineJobInfo{}
+		if err := ev.Unmarshal(&key, pipelineJobPtr); err != nil {
+			return errors.Wrapf(err, "unmarshal")
+		}
+
+		if _, ok := seen[key]; ok {
 			return nil
 		}
-		seen[pipelineJobPtr.PipelineJob.ID] = struct{}{}
+		seen[key] = struct{}{}
 
 		result, err := a.pipelineJobInfoFromPtr(ctx, pipelineJobPtr, request.Full)
 		if err != nil {
@@ -3118,34 +3123,36 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext, commits
 		// Check if there is an existing job for the output commit
 		outputCommit := commitset.NewCommit(branchInfo.Branch)
 		pipelineJob := &pps.StoredPipelineJobInfo{}
-		if err := a.pipelineJobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.PipelineJobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJob, col.DefaultOptions(), func(string) error {
-			return nil
-		}); err != nil {
-			if !col.IsErrNotFound(err) {
-				return err
-			}
+		err := a.pipelineJobs.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelineJobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJob)
+		if err == nil {
+			// Job already exists, skip it
+			continue
+		}
+		if !col.IsErrNotFound(err) {
+			return err
+		}
 
-			// If the pipeline is valid and there's no job, create one
-			commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
-				Commit: outputCommit,
-			})
-			if err != nil {
-				return err
-			}
-			if commitInfo.Finished != nil {
-				return pfsServer.ErrCommitFinished{commitInfo.Commit}
-			}
-			pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
-			pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
-			pipelineJobPtr := &pps.StoredPipelineJobInfo{
-				Pipeline:     client.NewPipeline(branchInfo.Branch.Repo.Name),
-				PipelineJob:  client.NewPipelineJob(uuid.NewWithoutDashes()),
-				OutputCommit: commitInfo.Commit,
-				Stats:        &pps.ProcessStats{},
-			}
-			if err := ppsutil.UpdatePipelineJobState(pipelines, pipelineJobs, pipelineJobPtr, pps.PipelineJobState_JOB_CREATED, ""); err != nil {
-				return err
-			}
+		// If the pipeline is valid and there's no job, create one
+		commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+			Commit: outputCommit,
+		})
+		if err != nil {
+			return err
+		}
+		if commitInfo.Finished != nil {
+			// Skip any commits which have already been finished
+			return nil
+		}
+		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
+		pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
+		pipelineJobPtr := &pps.StoredPipelineJobInfo{
+			Pipeline:     client.NewPipeline(branchInfo.Branch.Repo.Name),
+			PipelineJob:  client.NewPipelineJob(uuid.NewWithoutDashes()),
+			OutputCommit: commitInfo.Commit,
+			Stats:        &pps.ProcessStats{},
+		}
+		if err := ppsutil.UpdatePipelineJobState(pipelines, pipelineJobs, pipelineJobPtr, pps.PipelineJobState_JOB_CREATED, ""); err != nil {
+			return err
 		}
 	}
 	return nil

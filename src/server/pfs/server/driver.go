@@ -1621,7 +1621,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		branchInfo.Branch = branch
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
-			if provBranch.Repo.Name == branch.Repo.Name {
+			if proto.Equal(provBranch.Repo, branch.Repo) {
 				return errors.Errorf("repo %s cannot be in the provenance of its own branch", pfsdb.RepoKey(branch.Repo))
 			}
 			add(&branchInfo.DirectProvenance, provBranch)
