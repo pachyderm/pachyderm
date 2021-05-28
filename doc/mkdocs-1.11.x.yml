@@ -156,6 +156,7 @@ nav:
             - CI/CD Integration: how-tos/developer-workflow/ci-cd-integration.md
             - Create a Machine Learning Workflow: how-tos/developer-workflow/create-ml-workflow.md
          - Basic Data Operations:
+            - Overview: how-tos/basic-data-operations/index.md
             - Load Your Data Into Pachyderm: how-tos/basic-data-operations/load-data-into-pachyderm.md
             - Export Your Data From Pachyderm:
                 - Overview: how-tos/basic-data-operations/export-data-out-pachyderm/index.md
