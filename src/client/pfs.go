@@ -381,8 +381,8 @@ func (c APIClient) BlockCommitset(id string) (_ *pfs.Commitset, retErr error) {
 	return c.PfsAPIClient.InspectCommitset(
 		c.Ctx(),
 		&pfs.InspectCommitsetRequest{
-			ID:   id,
-			Wait: true,
+			ID:    id,
+			Block: true,
 		},
 	)
 }

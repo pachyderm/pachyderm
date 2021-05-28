@@ -1252,11 +1252,11 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	return nil
 }
 
-func (d *driver) inspectCommitset(ctx context.Context, commitsetID string, wait bool) (*pfs.Commitset, error) {
+func (d *driver) inspectCommitset(ctx context.Context, commitsetID string, block bool) (*pfs.Commitset, error) {
 	var commitset *pfs.StoredCommitset
 	result := &pfs.Commitset{ID: commitsetID}
 
-	if wait {
+	if block {
 		var err error
 		var commitInfos []*pfs.CommitInfo
 		commitset, commitInfos, err = d.blockCommitset(ctx, commitsetID)

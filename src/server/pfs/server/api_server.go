@@ -235,7 +235,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 func (a *apiServer) InspectCommitset(ctx context.Context, request *pfs.InspectCommitsetRequest) (response *pfs.Commitset, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectCommitset(ctx, request.ID, request.Wait)
+	return a.driver.inspectCommitset(ctx, request.ID, request.Block)
 }
 
 // SquashCommitsetInTransaction is identical to SquashCommitset except that it can run

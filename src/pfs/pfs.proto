@@ -232,7 +232,7 @@ message CommitInfos {
 
 message InspectCommitsetRequest {
   string id = 1 [(gogoproto.customname) = "ID"];
-  bool wait = 2;
+  bool block = 2; // When true, block until all commits in the set are finished
 }
 
 message SquashCommitsetRequest {
