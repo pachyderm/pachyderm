@@ -3,6 +3,7 @@ package chunk
 import (
 	"context"
 	"encoding/hex"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -18,9 +19,21 @@ func Hash(data []byte) ID {
 	return sum[:]
 }
 
+// ParseTrackerID parses a trackerID into a chunk
+func ParseTrackerID(trackerID string) (ID, error) {
+	if !strings.HasPrefix(trackerID, TrackerPrefix) {
+		return nil, errors.Errorf("tracker ID is not for chunk: %q", trackerID)
+	}
+	return IDFromHex(trackerID[len(TrackerPrefix):])
+}
+
 // IDFromHex parses a hex string into an ID
 func IDFromHex(h string) (ID, error) {
 	return hex.DecodeString(h)
+}
+
+func (id ID) String() string {
+	return id.HexString()
 }
 
 // HexString hex encodes the ID
