@@ -14,17 +14,17 @@ import (
 
 var (
 	// format strings for state name parsing errors
-	errInvalidPipelineJobStateName string
+	errInvalidJobStateName string
 	errInvalidPipelineStateName    string
 )
 
 func init() {
 	// construct error messages from all current job and pipeline state names
 	var states []string
-	for i := int32(0); PipelineJobState_name[i] != ""; i++ {
-		states = append(states, strings.ToLower(strings.TrimPrefix(PipelineJobState_name[i], "JOB_")))
+	for i := int32(0); JobState_name[i] != ""; i++ {
+		states = append(states, strings.ToLower(strings.TrimPrefix(JobState_name[i], "JOB_")))
 	}
-	errInvalidPipelineJobStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), PipelineJobState_name[0])
+	errInvalidJobStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), JobState_name[0])
 	states = states[:0]
 	for i := int32(0); PipelineState_name[i] != ""; i++ {
 		states = append(states, strings.ToLower(strings.TrimPrefix(PipelineState_name[i], "PIPELINE_")))
@@ -179,15 +179,15 @@ func ValidateGitCloneURL(url string) error {
 	return nil
 }
 
-// PipelineJobStateFromName attempts to interpret a string as a
-// PipelineJobState, accepting either the enum names or the pretty printed state
+// JobStateFromName attempts to interpret a string as a
+// JobState, accepting either the enum names or the pretty printed state
 // names
-func PipelineJobStateFromName(name string) (PipelineJobState, error) {
+func JobStateFromName(name string) (JobState, error) {
 	canonical := "JOB_" + strings.TrimPrefix(strings.ToUpper(name), "JOB_")
-	if value, ok := PipelineJobState_value[canonical]; ok {
-		return PipelineJobState(value), nil
+	if value, ok := JobState_value[canonical]; ok {
+		return JobState(value), nil
 	}
-	return 0, fmt.Errorf(errInvalidPipelineJobStateName, name)
+	return 0, fmt.Errorf(errInvalidJobStateName, name)
 }
 
 // PipelineStateFromName attempts to interpret a string as a PipelineState,

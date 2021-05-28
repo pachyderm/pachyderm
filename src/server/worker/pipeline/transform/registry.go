@@ -33,7 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform/chain"
 )
 
-// TODO: PipelineJob failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
+// TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
 
 type hasher struct {
 	name string
@@ -44,23 +44,23 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 	return common.HashDatum(h.name, h.salt, inputs)
 }
 
-type pendingPipelineJob struct {
+type pendingJob struct {
 	driver                     driver.Driver
 	logger                     logs.TaggedLogger
-	pji                        *pps.PipelineJobInfo
+	pji                        *pps.JobInfo
 	commitInfo, metaCommitInfo *pfs.CommitInfo
 	jdit                       *chain.JobDatumIterator
 	taskMaster                 *work.Master
 	cancel                     context.CancelFunc
 }
 
-func (ppj *pendingPipelineJob) writeJobInfo() error {
+func (ppj *pendingJob) writeJobInfo() error {
 	ppj.logger.Logf("updating job info, state: %s", ppj.pji.State)
 	return ppsutil.WriteJobInfo(ppj.driver.PachClient(), ppj.pji)
 }
 
 // TODO: The job info should eventually just have a field with type *datum.Stats
-func (ppj *pendingPipelineJob) saveJobStats(stats *datum.Stats) {
+func (ppj *pendingJob) saveJobStats(stats *datum.Stats) {
 	// TODO: Need to clean up the setup of process stats.
 	if ppj.pji.Stats == nil {
 		ppj.pji.Stats = &pps.ProcessStats{}
@@ -73,7 +73,7 @@ func (ppj *pendingPipelineJob) saveJobStats(stats *datum.Stats) {
 	ppj.pji.DataTotal += stats.Processed + stats.Skipped + stats.Failed + stats.Recovered
 }
 
-func (ppj *pendingPipelineJob) withDeleter(pachClient *client.APIClient, cb func() error) error {
+func (ppj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error) error {
 	defer ppj.jdit.SetDeleter(nil)
 	// Setup file operation client for output Meta commit.
 	metaCommit := ppj.metaCommitInfo.Commit
@@ -131,29 +131,29 @@ func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, err
 	}, nil
 }
 
-func (reg *registry) succeedPipelineJob(ppj *pendingPipelineJob) error {
+func (reg *registry) succeedJob(ppj *pendingJob) error {
 	ppj.logger.Logf("pipeline job successful, closing commits")
 	defer ppj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return ppsutil.FinishPipelineJob(reg.driver.PachClient(), ppj.pji, pps.PipelineJobState_JOB_SUCCESS, "")
+	return ppsutil.FinishJob(reg.driver.PachClient(), ppj.pji, pps.JobState_JOB_SUCCESS, "")
 }
 
-func (reg *registry) failPipelineJob(ppj *pendingPipelineJob, reason string) error {
+func (reg *registry) failJob(ppj *pendingJob, reason string) error {
 	ppj.logger.Logf("failing pipeline job with reason: %s", reason)
 	defer ppj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return ppsutil.FinishPipelineJob(reg.driver.PachClient(), ppj.pji, pps.PipelineJobState_JOB_FAILURE, reason)
+	return ppsutil.FinishJob(reg.driver.PachClient(), ppj.pji, pps.JobState_JOB_FAILURE, reason)
 }
 
-func (reg *registry) killPipelineJob(ppj *pendingPipelineJob, reason string) error {
+func (reg *registry) killJob(ppj *pendingJob, reason string) error {
 	ppj.logger.Logf("killing pipeline job with reason: %s", reason)
 	defer ppj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	_, err := reg.driver.PachClient().PpsAPIClient.StopPipelineJob(
+	_, err := reg.driver.PachClient().PpsAPIClient.StopJob(
 		reg.driver.PachClient().Ctx(),
-		&pps.StopPipelineJobRequest{
-			PipelineJob: ppj.pji.PipelineJob,
-			Reason:      reason,
+		&pps.StopJobRequest{
+			Job:    ppj.pji.Job,
+			Reason: reason,
 		},
 	)
 	return err
@@ -193,31 +193,31 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 	return nil
 }
 
-func (reg *registry) ensurePipelineJob(commitInfo *pfs.CommitInfo) (*pps.PipelineJobInfo, error) {
+func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.JobInfo, error) {
 	pachClient := reg.driver.PachClient()
 	pipelineInfo := reg.driver.PipelineInfo()
-	pipelineJobInfo, err := pachClient.InspectPipelineJobOutputCommit(pipelineInfo.Pipeline.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID, false)
+	jobInfo, err := pachClient.InspectJobOutputCommit(pipelineInfo.Pipeline.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID, false)
 	if err != nil {
 		// TODO: It would be better for this to be a structured error.
 		if strings.Contains(err.Error(), "not found") {
-			pipelineJob, err := pachClient.CreatePipelineJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, ppsutil.GetStatsCommit(commitInfo))
+			job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, ppsutil.GetStatsCommit(commitInfo))
 			if err != nil {
 				return nil, err
 			}
-			pipelineJobInfo, err = pachClient.InspectPipelineJob(pipelineJob.ID, false)
+			jobInfo, err = pachClient.InspectJob(job.ID, false)
 			if err != nil {
 				return nil, err
 			}
-			reg.logger.Logf("created new pipeline job %q for output commit %q", pipelineJobInfo.PipelineJob.ID, pipelineJobInfo.OutputCommit.ID)
-			return pipelineJobInfo, nil
+			reg.logger.Logf("created new pipeline job %q for output commit %q", jobInfo.Job.ID, jobInfo.OutputCommit.ID)
+			return jobInfo, nil
 		}
 		return nil, err
 	}
-	reg.logger.Logf("found existing pipeline job %q for output commit %q", pipelineJobInfo.PipelineJob.ID, commitInfo.Commit.ID)
-	return pipelineJobInfo, nil
+	reg.logger.Logf("found existing pipeline job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
+	return jobInfo, nil
 }
 
-func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
+func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 	var asyncEg *errgroup.Group
 	reg.limiter.Acquire()
 	defer func() {
@@ -226,14 +226,14 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 			reg.limiter.Release()
 		}
 	}()
-	pipelineJobInfo, err := reg.ensurePipelineJob(commitInfo)
+	jobInfo, err := reg.ensureJob(commitInfo)
 	if err != nil {
 		return err
 	}
 	metaCommitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     pipelineJobInfo.StatsCommit,
+			Commit:     jobInfo.StatsCommit,
 			BlockState: pfs.CommitState_STARTED,
 		})
 	if err != nil {
@@ -246,10 +246,10 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 	driver := reg.driver.WithContext(jobCtx)
 	// Build the pending pipeline job to send out to workers - this will block if
 	// we have too many already
-	ppj := &pendingPipelineJob{
+	ppj := &pendingJob{
 		driver:         driver,
-		pji:            pipelineJobInfo,
-		logger:         reg.logger.WithPipelineJob(pipelineJobInfo.PipelineJob.ID),
+		pji:            jobInfo,
+		logger:         reg.logger.WithJob(jobInfo.Job.ID),
 		commitInfo:     commitInfo,
 		metaCommitInfo: metaCommitInfo,
 		cancel:         cancel,
@@ -270,7 +270,7 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 		return err
 	}
 	outputDit := datum.NewCommitIterator(pachClient, ppj.metaCommitInfo.Commit)
-	ppj.jdit = reg.jobChain.CreateJob(ppj.driver.PachClient().Ctx(), ppj.pji.PipelineJob.ID, dit, outputDit)
+	ppj.jdit = reg.jobChain.CreateJob(ppj.driver.PachClient().Ctx(), ppj.pji.Job.ID, dit, outputDit)
 	var afterTime time.Duration
 	if ppj.pji.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(ppj.pji.Started)
@@ -290,7 +290,7 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 		if ppj.pji.JobTimeout != nil {
 			ppj.logger.Logf("cancelling job at: %+v", afterTime)
 			timer := time.AfterFunc(afterTime, func() {
-				reg.killPipelineJob(ppj, "job timed out")
+				reg.killJob(ppj, "job timed out")
 			})
 			defer timer.Stop()
 		}
@@ -328,13 +328,13 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 					err = errors.Unwrap(err)
 				}
 				// Get job state, increment restarts, write job state
-				ppj.pji, err = ppj.driver.PachClient().InspectPipelineJob(ppj.pji.PipelineJob.ID, false)
+				ppj.pji, err = ppj.driver.PachClient().InspectJob(ppj.pji.Job.ID, false)
 				if err != nil {
 					return err
 				}
 				ppj.pji.Restart++
 				if err := ppj.writeJobInfo(); err != nil {
-					ppj.logger.Logf("error incrementing restart count for job (%s): %v", ppj.pji.PipelineJob.ID, err)
+					ppj.logger.Logf("error incrementing restart count for job (%s): %v", ppj.pji.Job.ID, err)
 				}
 				// Reload the job's commitInfo(s) as they may have changed and clear the state of the commit(s).
 				pachClient := reg.driver.PachClient()
@@ -391,7 +391,7 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 
 // superviseJob watches for the output commit closing and cancels the job, or
 // deletes it if the output commit is removed.
-func (reg *registry) superviseJob(ppj *pendingPipelineJob) error {
+func (reg *registry) superviseJob(ppj *pendingJob) error {
 	defer ppj.cancel()
 	ci, err := ppj.driver.PachClient().PfsAPIClient.InspectCommit(ppj.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
@@ -401,17 +401,17 @@ func (reg *registry) superviseJob(ppj *pendingPipelineJob) error {
 	if err != nil {
 		if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
 			// Stop the job and clean up any job state in the registry
-			if err := reg.killPipelineJob(ppj, "output commit missing"); err != nil {
+			if err := reg.killJob(ppj, "output commit missing"); err != nil {
 				return err
 			}
 			// Output commit was deleted. Delete job as well
 			if err := ppj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 				// Delete the job if no other worker has deleted it yet
-				jobPtr := &pps.StoredPipelineJobInfo{}
-				if err := ppj.driver.PipelineJobs().ReadWrite(sqlTx).Get(ppj.pji.PipelineJob.ID, jobPtr); err != nil {
+				jobPtr := &pps.StoredJobInfo{}
+				if err := ppj.driver.Jobs().ReadWrite(sqlTx).Get(ppj.pji.Job.ID, jobPtr); err != nil {
 					return err
 				}
-				return ppj.driver.DeletePipelineJob(sqlTx, jobPtr)
+				return ppj.driver.DeleteJob(sqlTx, jobPtr)
 			}); err != nil && !col.IsErrNotFound(err) {
 				return err
 			}
@@ -420,25 +420,25 @@ func (reg *registry) superviseJob(ppj *pendingPipelineJob) error {
 		return err
 	}
 	if strings.Contains(ci.Description, pfs.EmptyStr) {
-		return reg.killPipelineJob(ppj, "output commit closed")
+		return reg.killJob(ppj, "output commit closed")
 	}
 	return nil
 
 }
 
-func (reg *registry) processJob(ppj *pendingPipelineJob) error {
+func (reg *registry) processJob(ppj *pendingJob) error {
 	state := ppj.pji.State
 	if ppsutil.IsTerminal(state) {
 		return errutil.ErrBreak
 	}
 	switch state {
-	case pps.PipelineJobState_JOB_STARTING:
+	case pps.JobState_JOB_STARTING:
 		return errors.New("job should have been moved out of the STARTING state before processJob")
-	case pps.PipelineJobState_JOB_RUNNING:
+	case pps.JobState_JOB_RUNNING:
 		return ppj.logger.LogStep("processing job running", func() error {
 			return reg.processJobRunning(ppj)
 		})
-	case pps.PipelineJobState_JOB_EGRESSING:
+	case pps.JobState_JOB_EGRESSING:
 		return ppj.logger.LogStep("processing job egressing", func() error {
 			return reg.processJobEgressing(ppj)
 		})
@@ -446,7 +446,7 @@ func (reg *registry) processJob(ppj *pendingPipelineJob) error {
 	panic(fmt.Sprintf("unrecognized job state: %s", state))
 }
 
-func (reg *registry) processJobStarting(ppj *pendingPipelineJob) error {
+func (reg *registry) processJobStarting(ppj *pendingJob) error {
 	// block until job inputs are ready
 	failed, err := failedInputs(ppj.driver.PachClient(), ppj.pji)
 	if err != nil {
@@ -454,15 +454,15 @@ func (reg *registry) processJobStarting(ppj *pendingPipelineJob) error {
 	}
 	if len(failed) > 0 {
 		reason := fmt.Sprintf("inputs failed: %s", strings.Join(failed, ", "))
-		return reg.failPipelineJob(ppj, reason)
+		return reg.failJob(ppj, reason)
 	}
-	ppj.pji.State = pps.PipelineJobState_JOB_RUNNING
+	ppj.pji.State = pps.JobState_JOB_RUNNING
 	return ppj.writeJobInfo()
 }
 
 // TODO:
 // Need to put some more thought into the context use.
-func (reg *registry) processJobRunning(ppj *pendingPipelineJob) error {
+func (reg *registry) processJobRunning(ppj *pendingJob) error {
 	pachClient := ppj.driver.PachClient()
 	eg, ctx := errgroup.WithContext(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
@@ -570,16 +570,16 @@ func (reg *registry) processJobRunning(ppj *pendingPipelineJob) error {
 	ppj.saveJobStats(ppj.jdit.Stats())
 	ppj.saveJobStats(stats)
 	if stats.FailedID != "" {
-		return reg.failPipelineJob(ppj, fmt.Sprintf("datum %v failed", stats.FailedID))
+		return reg.failJob(ppj, fmt.Sprintf("datum %v failed", stats.FailedID))
 	}
 	if ppj.pji.Egress != nil {
-		ppj.pji.State = pps.PipelineJobState_JOB_EGRESSING
+		ppj.pji.State = pps.JobState_JOB_EGRESSING
 		return ppj.writeJobInfo()
 	}
-	return reg.succeedPipelineJob(ppj)
+	return reg.succeedJob(ppj)
 }
 
-func createDatumSetSubtask(pachClient *client.APIClient, ppj *pendingPipelineJob, upload func(client.ModifyFile) error, renewer *renew.StringSet) (*work.Task, error) {
+func createDatumSetSubtask(pachClient *client.APIClient, ppj *pendingJob, upload func(client.ModifyFile) error, renewer *renew.StringSet) (*work.Task, error) {
 	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
 		return upload(mf)
 	})
@@ -588,8 +588,8 @@ func createDatumSetSubtask(pachClient *client.APIClient, ppj *pendingPipelineJob
 	}
 	renewer.Add(resp.FilesetId)
 	data, err := serializeDatumSet(&DatumSet{
-		PipelineJobID: ppj.pji.PipelineJob.ID,
-		OutputCommit:  ppj.commitInfo.Commit,
+		JobID:        ppj.pji.Job.ID,
+		OutputCommit: ppj.commitInfo.Commit,
 		// TODO: It might make sense for this to be a hash of the constituent datums?
 		// That could make it possible to recover from a master restart.
 		FilesetId: resp.FilesetId,
@@ -620,15 +620,15 @@ func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 	return data, nil
 }
 
-func (reg *registry) processJobEgressing(ppj *pendingPipelineJob) error {
+func (reg *registry) processJobEgressing(ppj *pendingJob) error {
 	url := ppj.pji.Egress.URL
 	if err := ppj.driver.PachClient().GetFileURL(ppj.commitInfo.Commit, "/", url); err != nil {
 		return err
 	}
-	return reg.succeedPipelineJob(ppj)
+	return reg.succeedJob(ppj)
 }
 
-func failedInputs(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo) ([]string, error) {
+func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
 	var failed []string
 	blockCommit := func(name string, commit *pfs.Commit) error {
 		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
@@ -645,7 +645,7 @@ func failedInputs(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 		}
 		return nil
 	}
-	visitErr := pps.VisitInput(pipelineJobInfo.Input, func(input *pps.Input) error {
+	visitErr := pps.VisitInput(jobInfo.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Commit != "" {
 			if err := blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit)); err != nil {
 				return err

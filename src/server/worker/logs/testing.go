@@ -16,10 +16,10 @@ import (
 // (or some other location) for debugging purposes.
 type MockLogger struct {
 	// These fields are exposed so that tests can set them or make assertions
-	Writer      io.Writer
-	PipelineJob string
-	Data        []*common.Input
-	UserCode    bool
+	Writer   io.Writer
+	Job      string
+	Data     []*common.Input
+	UserCode bool
 }
 
 // Not used - forces a compile-time error in this file if MockLogger does not
@@ -43,7 +43,7 @@ func (ml *MockLogger) Write(p []byte) (_ int, retErr error) {
 // Logf optionally logs a statement using string formatting
 func (ml *MockLogger) Logf(formatString string, args ...interface{}) {
 	if ml.Writer != nil {
-		params := []interface{}{time.Now().Format(time.StampMilli), ml.PipelineJob, ml.Data, ml.UserCode}
+		params := []interface{}{time.Now().Format(time.StampMilli), ml.Job, ml.Data, ml.UserCode}
 		params = append(params, args...)
 		str := fmt.Sprintf("LOGF %s (%v, %v, %v): "+formatString+"\n", params...)
 		ml.Writer.Write([]byte(str))
@@ -53,7 +53,7 @@ func (ml *MockLogger) Logf(formatString string, args ...interface{}) {
 // Errf optionally logs an error statement using string formatting
 func (ml *MockLogger) Errf(formatString string, args ...interface{}) {
 	if ml.Writer != nil {
-		params := []interface{}{time.Now().Format(time.StampMilli), ml.PipelineJob, ml.Data, ml.UserCode}
+		params := []interface{}{time.Now().Format(time.StampMilli), ml.Job, ml.Data, ml.UserCode}
 		params = append(params, args...)
 		str := fmt.Sprintf("ERRF %s (%v, %v, %v): "+formatString+"\n", params...)
 		ml.Writer.Write([]byte(str))
@@ -82,11 +82,11 @@ func (ml *MockLogger) clone() *MockLogger {
 	return result
 }
 
-// WithPipelineJob duplicates the MockLogger and returns a new one tagged with
+// WithJob duplicates the MockLogger and returns a new one tagged with
 // the given pipeline job ID.
-func (ml *MockLogger) WithPipelineJob(pipelineJobID string) TaggedLogger {
+func (ml *MockLogger) WithJob(jobID string) TaggedLogger {
 	result := ml.clone()
-	result.PipelineJob = pipelineJobID
+	result.Job = jobID
 	return result
 }
 
@@ -106,9 +106,9 @@ func (ml *MockLogger) WithUserCode() TaggedLogger {
 	return result
 }
 
-// PipelineJobID returns the currently tagged pipeline job ID for the logger.
-// This is redundant for MockLogger, as you can access ml.PipelineJob directly,
+// JobID returns the currently tagged pipeline job ID for the logger.
+// This is redundant for MockLogger, as you can access ml.Job directly,
 // but it is needed for the TaggedLogger interface.
-func (ml *MockLogger) PipelineJobID() string {
-	return ml.PipelineJob
+func (ml *MockLogger) JobID() string {
+	return ml.Job
 }

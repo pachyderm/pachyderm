@@ -1008,8 +1008,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestStopPipelineJob just confirms that the StopPipelineJob API works when auth is on
-func TestStopPipelineJob(t *testing.T) {
+// TestStopJob just confirms that the StopJob API works when auth is on
+func TestStopJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1044,27 +1044,27 @@ func TestStopPipelineJob(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
 
 	// Stop the first job in 'pipeline'
-	var pipelineJobID string
+	var jobID string
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pipelineJobs, err := aliceClient.ListPipelineJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true /* full */)
+		jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true /* full */)
 		if err != nil {
 			return err
 		}
-		if len(pipelineJobs) != 1 {
-			return errors.Errorf("expected one job but got %d", len(pipelineJobs))
+		if len(jobs) != 1 {
+			return errors.Errorf("expected one job but got %d", len(jobs))
 		}
-		pipelineJobID = pipelineJobs[0].PipelineJob.ID
+		jobID = jobs[0].Job.ID
 		return nil
 	})
 
-	require.NoError(t, aliceClient.StopPipelineJob(pipelineJobID))
+	require.NoError(t, aliceClient.StopJob(jobID))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pji, err := aliceClient.InspectPipelineJob(pipelineJobID, false)
+		pji, err := aliceClient.InspectJob(jobID, false)
 		if err != nil {
-			return errors.Wrapf(err, "could not inspect job %q", pipelineJobID)
+			return errors.Wrapf(err, "could not inspect job %q", jobID)
 		}
-		if pji.State != pps.PipelineJobState_JOB_KILLED {
-			return errors.Errorf("expected job %q to be in JOB_KILLED but was in %s", pipelineJobID, pji.State.String())
+		if pji.State != pps.JobState_JOB_KILLED {
+			return errors.Errorf("expected job %q to be in JOB_KILLED but was in %s", jobID, pji.State.String())
 		}
 		return nil
 	})
@@ -1579,19 +1579,19 @@ func TestListDatum(t *testing.T) {
 		)
 		return err
 	})
-	pipelineJobs, err := aliceClient.ListPipelineJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true /* full */)
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true /* full */)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(pipelineJobs))
-	pipelineJobID := pipelineJobs[0].PipelineJob.ID
+	require.Equal(t, 2, len(jobs))
+	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListDatum
-	_, err = bobClient.ListDatumAll(pipelineJobID)
+	_, err = bobClient.ListDatumAll(jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, but bob still can't call GetLogs
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(pipelineJobID)
+	_, err = bobClient.ListDatumAll(jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
@@ -1599,19 +1599,19 @@ func TestListDatum(t *testing.T) {
 	// call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{}))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoB, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(pipelineJobID)
+	_, err = bobClient.ListDatumAll(jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(pipelineJobID)
+	_, err = bobClient.ListDatumAll(jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole}))
-	dis, err := bobClient.ListDatumAll(pipelineJobID)
+	dis, err := bobClient.ListDatumAll(jobID)
 	require.NoError(t, err)
 	files := make(map[string]struct{})
 	for _, di := range dis {
@@ -1625,11 +1625,11 @@ func TestListDatum(t *testing.T) {
 	}, files)
 }
 
-// TestListPipelineJob tests that you must have READER access to a pipeline's output
-// repo to call ListPipelineJob on that pipeline, but a blank ListPipelineJob always succeeds
+// TestListJob tests that you must have READER access to a pipeline's output
+// repo to call ListJob on that pipeline, but a blank ListJob always succeeds
 // (but doesn't return a given job if you don't have access to the job's output
 // repo)
-func TestListPipelineJob(t *testing.T) {
+func TestListJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1666,43 +1666,43 @@ func TestListPipelineJob(t *testing.T) {
 		)
 		return err
 	})
-	pipelineJobs, err := aliceClient.ListPipelineJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pipelineJobs))
-	pipelineJobID := pipelineJobs[0].PipelineJob.ID
+	require.Equal(t, 1, len(jobs))
+	jobID := jobs[0].Job.ID
 
-	// bob cannot call ListPipelineJob on 'pipeline'
-	_, err = bobClient.ListPipelineJob(pipeline, nil, nil, -1 /*history*/, true)
+	// bob cannot call ListJob on 'pipeline'
+	_, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-	// bob can call blank ListPipelineJob, but gets no results
-	pipelineJobs, err = bobClient.ListPipelineJob("", nil, nil, -1 /*history*/, true)
+	// bob can call blank ListJob, but gets no results
+	jobs, err = bobClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(pipelineJobs))
+	require.Equal(t, 0, len(jobs))
 
-	// alice adds bob to repo, but bob still can't call ListPipelineJob on 'pipeline' or
+	// alice adds bob to repo, but bob still can't call ListJob on 'pipeline' or
 	// get any output
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListPipelineJob(pipeline, nil, nil, -1 /*history*/, true)
+	_, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-	pipelineJobs, err = bobClient.ListPipelineJob("", nil, nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(pipelineJobs))
+	require.Equal(t, 0, len(jobs))
 
 	// alice removes bob from repo and adds bob to 'pipeline', and now bob can
 	// call listJob on 'pipeline', and gets results back from blank listJob
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{}))
 	err = aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole})
 	require.NoError(t, err)
-	pipelineJobs, err = bobClient.ListPipelineJob(pipeline, nil, nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pipelineJobs))
-	require.Equal(t, pipelineJobID, pipelineJobs[0].PipelineJob.ID)
-	pipelineJobs, err = bobClient.ListPipelineJob("", nil, nil, -1 /*history*/, true)
+	require.Equal(t, 1, len(jobs))
+	require.Equal(t, jobID, jobs[0].Job.ID)
+	jobs, err = bobClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pipelineJobs))
-	require.Equal(t, pipelineJobID, pipelineJobs[0].PipelineJob.ID)
+	require.Equal(t, 1, len(jobs))
+	require.Equal(t, jobID, jobs[0].Job.ID)
 }
 
 // TestInspectDatum tests InspectDatum runs even when auth is activated
@@ -1745,20 +1745,20 @@ func TestInspectDatum(t *testing.T) {
 		)
 		return err
 	})
-	pipelineJobs, err := aliceClient.ListPipelineJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pipelineJobs))
-	pipelineJobID := pipelineJobs[0].PipelineJob.ID
+	require.Equal(t, 1, len(jobs))
+	jobID := jobs[0].Job.ID
 
 	// ListDatum seems like it may return inconsistent results, so sleep until
 	// the /stats branch is written
 	// TODO(msteffen): verify if this is true, and if so, why
 	time.Sleep(5 * time.Second)
-	dis, err := aliceClient.ListDatumAll(pipelineJobID)
+	dis, err := aliceClient.ListDatumAll(jobID)
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		for _, di := range dis {
-			if _, err := aliceClient.InspectDatum(pipelineJobID, di.Datum.ID); err != nil {
+			if _, err := aliceClient.InspectDatum(jobID, di.Datum.ID); err != nil {
 				continue
 			}
 		}
@@ -1907,16 +1907,16 @@ func TestInspectDatum(t *testing.T) {
 //		_, err := commitItr.Next()
 //		return err
 //	})
-//	pipelineJobs, err := aliceClient.ListPipelineJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
+//	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
 //	require.NoError(t, err)
-//	require.Equal(t, 1, len(pipelineJobs))
-//	pipelineJobID := pipelineJobs[0].PipelineJob.ID
+//	require.Equal(t, 1, len(jobs))
+//	jobID := jobs[0].Job.ID
 //
-//	iter := aliceClient.GetLogs("", pipelineJobID, nil, "", false, false, 0)
+//	iter := aliceClient.GetLogs("", jobID, nil, "", false, false, 0)
 //	require.True(t, iter.Next())
 //	require.NoError(t, iter.Err())
 //
-//	iter = aliceClient.GetLogs("", pipelineJobID, nil, "", true, false, 0)
+//	iter = aliceClient.GetLogs("", jobID, nil, "", true, false, 0)
 //	iter.Next()
 //	require.NoError(t, iter.Err())
 //}
@@ -2257,7 +2257,7 @@ func TestGetOwnGroups(t *testing.T) {
 }
 
 // TestGetJobsBugFix tests the fix for https://github.com/pachyderm/pachyderm/v2/issues/2879
-// where calling pps.ListPipelineJob when not logged in would delete all old jobs
+// where calling pps.ListJob when not logged in would delete all old jobs
 func TestGetJobsBugFix(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2296,20 +2296,20 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.NoError(t, err)
 
 	// alice calls 'list job'
-	pipelineJobs, err := aliceClient.ListPipelineJob("", nil, nil, -1 /*history*/, true)
+	jobs, err := aliceClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pipelineJobs))
+	require.Equal(t, 1, len(jobs))
 
 	// anonClient calls 'list job'
-	_, err = anonClient.ListPipelineJob("", nil, nil, -1 /*history*/, true)
+	_, err = anonClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 
 	// alice calls 'list job' again, and the existing job must still be present
-	jobs2, err := aliceClient.ListPipelineJob("", nil, nil, -1 /*history*/, true)
+	jobs2, err := aliceClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs2))
-	require.Equal(t, pipelineJobs[0].PipelineJob.ID, jobs2[0].PipelineJob.ID)
+	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
 }
 
 func TestS3GatewayAuthRequests(t *testing.T) {

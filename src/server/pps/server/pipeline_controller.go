@@ -453,7 +453,7 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 	pachClient.SetAuthToken(op.ptr.AuthToken)
 
 	if err := pachClient.ListCommitF(client.NewRepo(op.ptr.Pipeline.Name), client.NewCommit(op.ptr.Pipeline.Name, op.pipelineInfo.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopPipelineJobOutputCommit(commitInfo.Commit)
+		return pachClient.StopJobOutputCommit(commitInfo.Commit)
 	}); err != nil {
 		if isNotFoundErr(err) {
 			return nil // already deleted

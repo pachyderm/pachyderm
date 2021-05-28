@@ -109,6 +109,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
 	}, {
+		Name:  client.PPSPipelineNameEnv,
+		Value: pipelineInfo.Pipeline.Name,
+	}, {
 		Name: "PACHD_POD_NAME",
 		ValueFrom: &v1.EnvVarSource{
 			FieldRef: &v1.ObjectFieldSelector{

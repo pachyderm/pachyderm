@@ -19,8 +19,8 @@ func NewHasher(jobModulus uint64, pipelineModulus uint64) *Hasher {
 }
 
 // HashJob computes and returns the hash of a pipeline job.
-func (s *Hasher) HashJob(pipelineJobID string) uint64 {
-	return uint64(adler32.Checksum([]byte(pipelineJobID))) % s.JobModulus
+func (s *Hasher) HashJob(jobID string) uint64 {
+	return uint64(adler32.Checksum([]byte(jobID))) % s.JobModulus
 }
 
 // HashPipeline computes and returns the hash of a pipeline.
