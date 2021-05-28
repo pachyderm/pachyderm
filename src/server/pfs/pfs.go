@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
 // ErrFileNotFound represents a file-not-found error.
@@ -95,23 +96,23 @@ type ErrCommitOnOutputBranch struct {
 }
 
 func (e ErrFileNotFound) Error() string {
-	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo.Name, e.File.Commit.ID)
+	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, pretty.CompactPrintRepo(e.File.Commit.Branch.Repo), e.File.Commit.ID)
 }
 
 func (e ErrRepoNotFound) Error() string {
-	return fmt.Sprintf("repo %v not found", e.Repo.Name)
+	return fmt.Sprintf("repo %v not found", pretty.CompactPrintRepo(e.Repo))
 }
 
 func (e ErrRepoExists) Error() string {
-	return fmt.Sprintf("repo %v already exists", e.Repo.Name)
+	return fmt.Sprintf("repo %v already exists", pretty.CompactPrintRepo(e.Repo))
 }
 
 func (e ErrRepoDeleted) Error() string {
-	return fmt.Sprintf("repo %v was deleted", e.Repo.Name)
+	return fmt.Sprintf("repo %v was deleted", pretty.CompactPrintRepo(e.Repo))
 }
 
 func (e ErrCommitNotFound) Error() string {
-	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
 func (e ErrNoHead) Error() string {
@@ -120,19 +121,19 @@ func (e ErrNoHead) Error() string {
 }
 
 func (e ErrCommitExists) Error() string {
-	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
 func (e ErrCommitFinished) Error() string {
-	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
 func (e ErrCommitDeleted) Error() string {
-	return fmt.Sprintf("commit %v@%v was deleted", e.Commit.Branch.Repo.Name, e.Commit.ID)
+	return fmt.Sprintf("commit %v@%v was deleted", pretty.CompactPrintRepo(e.Commit.Branch.Repo), e.Commit.ID)
 }
 
 func (e ErrParentCommitNotFound) Error() string {
-	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
 func (e ErrOutputCommitNotFinished) Error() string {

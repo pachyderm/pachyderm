@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -190,7 +191,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	var existingRepoInfo pfs.RepoInfo
 	err = repos.Get(pfsdb.RepoKey(repo), &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
-		return errors.Wrapf(err, "error checking whether \"%s\" exists", repo.Name)
+		return errors.Wrapf(err, "error checking whether \"%s\" exists", pretty.CompactPrintRepo(repo))
 	} else if err == nil {
 		// Existing repo case--just update the repo description.
 		if !update {
@@ -229,10 +230,17 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 		// New repo case
 		if authIsActivated {
-			// Create ACL for new repo. Make caller the sole owner. If the ACL already
-			// exists with a different owner, this will fail.
-			if err := d.env.AuthServer().CreateRoleBindingInTransaction(txnCtx, whoAmI.Username, []string{auth.RepoOwnerRole}, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo \"%s\"", repo.Name)
+			// Create ACL for new repo. Make caller the sole owner. If this is a user repo,
+			// and the ACL already exists with a different owner, this will fail.
+			// For now, we expect system repos to share auth info with their corresponding
+			// user repo, so the role binding should exist
+			if err := d.env.AuthServer().CreateRoleBindingInTransaction(
+				txnCtx,
+				whoAmI.Username,
+				[]string{auth.RepoOwnerRole},
+				&auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+			); err != nil && (!col.IsErrExists(err) || repo.Type == pfs.UserRepoType) {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo \"%s\"", pretty.CompactPrintRepo(repo))
 			}
 		}
 		return repos.Create(pfsdb.RepoKey(repo), &pfs.RepoInfo{
@@ -258,7 +266,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 			if auth.IsErrNotActivated(err) {
 				return result, nil
 			}
-			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repo.Name)
+			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", pretty.CompactPrintRepo(repo))
 		}
 		result.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
 	}
@@ -297,7 +305,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repoInfo.Repo.Name)
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", pretty.CompactPrintRepo(repoInfo.Repo))
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, proto.Clone(repoInfo).(*pfs.RepoInfo))
@@ -319,12 +327,6 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 }
 
 func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
-	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
-	// recreate the PPS spec repo, then uncomment this block to prevent users from
-	// deleting it and breaking their cluster
-	// if repo.Name == ppsconsts.SpecRepo {
-	// 	return errors.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
-	// }
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
 	// check if 'repo' is already gone. If so, return that error. Otherwise,
@@ -334,7 +336,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	err := repos.Get(pfsdb.RepoKey(repo), &repoInfo)
 	if err != nil {
 		if !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "error checking whether \"%s\" exists", repo.Name)
+			return errors.Wrapf(err, "error checking whether \"%s\" exists", pretty.CompactPrintRepo(repo))
 		}
 	}
 
@@ -432,8 +434,11 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		return errors.Wrapf(err, "repos.Delete")
 	}
 
-	if err := d.env.AuthServer().DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
+	// since system repos share a role binding, only delete it if this is the user repo, in which case the other repos will be deleted anyway
+	if repo.Type == pfs.UserRepoType {
+		if err := d.env.AuthServer().DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
+			return grpcutil.ScrubGRPC(err)
+		}
 	}
 	return nil
 }
@@ -1016,7 +1021,7 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 	// Now that ancestry has been parsed out, check if the ID is a branch name
 	if commit.ID != "" && !uuid.IsUUIDWithoutDashes(commit.ID) {
 		if commit.Branch.Name != "" {
-			return nil, errors.Errorf("invalid commit ID given with a branch (%s@%s): %s\n", commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			return nil, errors.Errorf("invalid commit ID given with a branch (%s): %s\n", pretty.CompactPrintBranch(commit.Branch), commit.ID)
 		}
 		commit.Branch.Name = commit.ID
 		commit.ID = ""
@@ -1131,8 +1136,8 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, repo.Name, auth.Permission_REPO_LIST_COMMIT); err != nil {
 		return err
 	}
-	if from != nil && from.Branch.Repo.Name != repo.Name || to != nil && to.Branch.Repo.Name != repo.Name {
-		return errors.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
+	if from != nil && !proto.Equal(from.Branch.Repo, repo) || to != nil && !proto.Equal(to.Branch.Repo, repo) {
+		return errors.Errorf("`from` and `to` commits need to be from repo %s", pretty.CompactPrintRepo(repo))
 	}
 
 	// Make sure that the repo exists
@@ -1530,8 +1535,8 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
-	if from != nil && from.Branch.Repo.Name != repo.Name {
-		return errors.Errorf("the `from` commit needs to be from repo %s", repo.Name)
+	if from != nil && !proto.Equal(from.Branch.Repo, repo) {
+		return errors.Errorf("the `from` commit needs to be from repo %s", pretty.CompactPrintRepo(repo))
 	}
 
 	// keep track of the commits that have been sent
@@ -1549,13 +1554,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 
 		// if branch is provided, make sure the commit was created on that branch
 		if branch != "" && commitInfo.Commit.Branch.Name != branch {
-			return nil
-		}
-		// For now, we don't want stats branches to have jobs triggered on them
-		// and this is the simplest way to achieve that. Once we have labels,
-		// we'll use those instead for a more principled approach.
-		// TODO: Address this sooner rather than later... - should be obsolete once we have stats in a system repo
-		if commitInfo.Commit.Branch.Name == "stats" {
 			return nil
 		}
 
@@ -1922,8 +1920,8 @@ func isNoHeadErr(err error) bool {
 }
 
 func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, sqlTx *sqlx.Tx) error {
-	if provBranch.Repo.Name == branchInfo.Branch.Repo.Name && provBranch.Name == branchInfo.Branch.Name {
-		return errors.Errorf("provenance loop, branch %s@%s cannot be provenant on itself", provBranch.Repo.Name, provBranch.Name)
+	if pfsdb.BranchKey(provBranch) == pfsdb.BranchKey(branchInfo.Branch) {
+		return errors.Errorf("provenance loop, branch %s cannot be provenant on itself", pfsdb.BranchKey(provBranch))
 	}
 	add(&branchInfo.Provenance, provBranch)
 	provBranchInfo := &pfs.BranchInfo{}

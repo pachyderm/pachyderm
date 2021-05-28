@@ -2,7 +2,6 @@ package pfs
 
 import (
 	"encoding/hex"
-	"fmt"
 	"hash"
 
 	"github.com/gogo/protobuf/proto"
@@ -22,11 +21,6 @@ const (
 	BuildRepoType = "build"
 	SpecRepoType  = "spec"
 )
-
-// FullID prints repoName@CommitID
-func (c *Commit) FullID() string {
-	return fmt.Sprintf("%s@%s", c.Branch.Repo.Name, c.ID)
-}
 
 // NewHash returns a hash that PFS uses internally to compute checksums.
 func NewHash() hash.Hash {
@@ -57,13 +51,6 @@ func (r *Repo) NewCommit(branch, id string) *Commit {
 	}
 }
 
-func (b *Branch) NewCommit(id string) *Commit {
-	return &Commit{
-		ID:     id,
-		Branch: proto.Clone(b).(*Branch),
-	}
-}
-
 func (c *Commit) NewFile(path string) *File {
 	return &File{
 		Commit: proto.Clone(c).(*Commit),
@@ -74,6 +61,13 @@ func (c *Commit) NewFile(path string) *File {
 func (c *Commit) NewProvenance() *CommitProvenance {
 	return &CommitProvenance{
 		Commit: proto.Clone(c).(*Commit),
+	}
+}
+
+func (b *Branch) NewCommit(id string) *Commit {
+	return &Commit{
+		Branch: proto.Clone(b).(*Branch),
+		ID:     id,
 	}
 }
 

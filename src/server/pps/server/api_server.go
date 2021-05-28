@@ -1112,7 +1112,7 @@ func (a *apiServer) collectDatums(ctx context.Context, pipelineJob *pps.Pipeline
 		return err
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	fsi := datum.NewCommitIterator(pachClient, pipelineJobInfo.StatsCommit.Branch.Repo.Name, pipelineJobInfo.StatsCommit.Branch.Name, pipelineJobInfo.StatsCommit.ID)
+	fsi := datum.NewCommitIterator(pachClient, pipelineJobInfo.StatsCommit)
 	return fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{
@@ -2089,7 +2089,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		provenance = append(branchProvenance(newPipelineInfo.Input),
 			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 		outputBranch     = client.NewBranch(pipelineName, newPipelineInfo.OutputBranch)
-		statsBranch      = client.NewBranch(pipelineName, "stats")
+		statsBranch      = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch("master")
 		outputBranchHead *pfs.Commit
 		statsBranchHead  *pfs.Commit
 		specCommit       *pfs.Commit
@@ -2132,7 +2132,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		specCommit = commitInfo.Commit
 		// We also use the existing head for the branches, rather than making a new one.
 		outputBranchHead = client.NewCommit(pipelineName, newPipelineInfo.OutputBranch, "")
-		statsBranchHead = client.NewCommit(pipelineName, "stats", "")
+		statsBranchHead = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewCommit("master", "")
 	} else {
 		specCommit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineName, *specFilesetID, *prevSpecCommit)
 		if err != nil {
@@ -2209,7 +2209,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			if err != nil && !isNotFoundErr(err) {
 				return err
 			} else if err == nil {
-				statsBranchHead = client.NewCommit(pipelineName, "stats", "")
+				statsBranchHead = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewCommit("master", "")
 			}
 		}
 
@@ -2225,9 +2225,9 @@ func (a *apiServer) CreatePipelineInTransaction(
 				Repo:        client.NewRepo(pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
 			}); err != nil && !isAlreadyExistsErr(err) {
-			return err
-		}
+			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
 
+		}
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
 		// auth token
 		pipelinePtr := &pps.StoredPipelineInfo{
@@ -2309,12 +2309,19 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return errors.Wrapf(visitErr, "could not create/update trigger branch")
 	}
 	if newPipelineInfo.EnableStats {
+		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
+			Repo:        statsBranch.Repo,
+			Description: fmt.Sprint("Meta repo for", pipelineName),
+			Update:      true, // don't error if it already exists
+		}); err != nil {
+			return errors.Wrap(err, "could not create meta repo")
+		}
 		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewBranch(pipelineName, "stats"),
+			Branch:     statsBranch,
 			Provenance: []*pfs.Branch{outputBranch},
 			Head:       statsBranchHead,
 		}); err != nil {
-			return errors.Wrapf(err, "could not create/update stats branch")
+			return errors.Wrapf(err, "could not create/update meta branch")
 		}
 	}
 	return nil
@@ -3038,7 +3045,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		if pipelineInfo.EnableStats {
 			// it needs to additionally be provenant on the commit we just created
 			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
-				Branch:     client.NewBranch(request.Pipeline.Name, "stats"),
+				Branch:     client.NewSystemRepo(request.Pipeline.Name, pfs.MetaRepoType).NewBranch("master"),
 				Provenance: append(provenance, newCommit.NewProvenance()),
 			})
 			if err != nil {
@@ -3360,9 +3367,14 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 
 func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit, error) {
 	pachClient := a.env.GetPachClient(ctx)
-	ci, err := pachClient.InspectCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+	ci, err := pachClient.PfsAPIClient.InspectCommit(
+		pachClient.Ctx(),
+		&pfs.InspectCommitRequest{
+			Commit:     commit,
+			BlockState: pfs.CommitState_STARTED,
+		})
 	if err != nil {
-		return nil, err
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return ci.Commit, nil
 }

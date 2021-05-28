@@ -267,17 +267,17 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 
 // PipelineJobInput fills in the commits for an Input
 func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
-	jobID := outputCommitInfo.Commit.ID
+	commitsetID := outputCommitInfo.Commit.ID
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
-			input.Pfs.Commit = jobID
+			input.Pfs.Commit = commitsetID
 		}
 		if input.Cron != nil {
-			input.Cron.Commit = jobID
+			input.Cron.Commit = commitsetID
 		}
 		if input.Git != nil {
-			input.Git.Commit = jobID
+			input.Git.Commit = commitsetID
 		}
 		return nil
 	})

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -21,19 +21,18 @@ import (
 
 func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	// Store the originally-requested parameters because they will be overwritten by inspectCommit
-	repo := commit.Branch.Repo.Name
-	branch := commit.Branch.Name
+	branch := proto.Clone(commit.Branch).(*pfs.Branch)
 	commitID := commit.ID
-	if branch == "" && !uuid.IsUUIDWithoutDashes(commitID) {
-		branch = commitID
+	if branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
+		branch.Name = commitID
 		commitID = ""
 	}
 	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 	if err != nil {
-		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
+		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch.Name == "" {
 			return err
 		}
-		return d.oneOffModifyFile(ctx, repo, branch, cb)
+		return d.oneOffModifyFile(ctx, branch, cb)
 	}
 	if commitInfo.Finished != nil {
 		// The commit is already finished - if the commit was explicitly specified,
@@ -49,7 +48,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 			}
 			opts = append(opts, fileset.WithParentID(parentFilesetID))
 		}
-		return d.oneOffModifyFile(ctx, repo, branch, cb, opts...)
+		return d.oneOffModifyFile(ctx, branch, cb, opts...)
 	}
 	filesetID, err := d.getFileset(ctx, commitInfo.Commit)
 	if err != nil {
@@ -59,9 +58,9 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 }
 
 // TODO: Cleanup after failure?
-func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
+func (d *driver) oneOffModifyFile(ctx context.Context, branch *pfs.Branch, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) (retErr error) {
-		commit, err := d.startCommit(txnCtx, nil, client.NewBranch(repo, branch), "")
+		commit, err := d.startCommit(txnCtx, nil, branch, "")
 		if err != nil {
 			return err
 		}

@@ -148,17 +148,17 @@ type Hasher interface {
 }
 
 type pipelineJobIterator struct {
-	iterator Iterator
-	pipelineJobID    string
-	hasher   Hasher
+	iterator      Iterator
+	pipelineJobID string
+	hasher        Hasher
 }
 
 // NewPipelineJobIterator creates a new job iterator.
 func NewPipelineJobIterator(iterator Iterator, pipelineJobID string, hasher Hasher) Iterator {
 	return &pipelineJobIterator{
-		iterator: iterator,
-		pipelineJobID:    pipelineJobID,
-		hasher:   hasher,
+		iterator:      iterator,
+		pipelineJobID: pipelineJobID,
+		hasher:        hasher,
 	}
 }
 
@@ -171,16 +171,14 @@ func (ji *pipelineJobIterator) Iterate(cb func(*Meta) error) error {
 }
 
 type fileSetIterator struct {
-	pachClient           *client.APIClient
-	repo, branch, commit string
+	pachClient *client.APIClient
+	commit     *pfs.Commit
 }
 
 // NewCommitIterator creates an iterator for the specified commit and repo.
-func NewCommitIterator(pachClient *client.APIClient, repo, branch, commit string) Iterator {
+func NewCommitIterator(pachClient *client.APIClient, commit *pfs.Commit) Iterator {
 	return &fileSetIterator{
 		pachClient: pachClient,
-		repo:       repo,
-		branch:     branch,
 		commit:     commit,
 	}
 }
@@ -189,14 +187,12 @@ func NewCommitIterator(pachClient *client.APIClient, repo, branch, commit string
 func NewFileSetIterator(pachClient *client.APIClient, fsID string) Iterator {
 	return &fileSetIterator{
 		pachClient: pachClient,
-		repo:       client.FileSetsRepoName,
-		branch:     "",
-		commit:     fsID,
+		commit:     client.NewRepo(client.FileSetsRepoName).NewCommit("", fsID),
 	}
 }
 
 func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
-	r, err := fsi.pachClient.GetFileTar(client.NewCommit(fsi.repo, "", fsi.commit), path.Join("/", MetaPrefix, "*", MetaFileName))
+	r, err := fsi.pachClient.GetFileTar(fsi.commit, path.Join("/", MetaPrefix, "*", MetaFileName))
 	if err != nil {
 		return err
 	}

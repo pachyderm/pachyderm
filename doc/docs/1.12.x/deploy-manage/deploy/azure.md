@@ -8,6 +8,7 @@ To deploy Pachyderm to AKS, you need to:
 1. [Install Prerequisites](#install-prerequisites)
 2. [Deploy Kubernetes](#deploy-kubernetes)
 3. [Deploy Pachyderm](#deploy-pachyderm)
+4. [Point your CLI `pachctl` to your cluster](#have-pachctl-and-your-cluster-communicate)
 
 ## Install Prerequisites
 
@@ -39,11 +40,10 @@ Install the following prerequisites:
     ```shell
     brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
     ```
-   
  - To install on Linux 64-bit or Windows 10 or later, run the following command:
 
     ```shell
-    curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
+    $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
     ```
 
  - Verify your installation by running `pachctl version`:
@@ -87,13 +87,13 @@ To deploy Kubernetes on Azure, complete the following steps:
     Note, we have launched a browser for you to login. For old experience with
     device code, use "az login --use-device-code"
     ```
-    If you have not already logged in, this command opens a browser window. Log in with your Azure credentials.
+
+    If you have not already logged in this command opens a browser window. Log in with your Azure credentials.
     After you log in, the following message appears in the command prompt:
-    
+
     ```shell
     You have logged in. Now let us find all the subscriptions to which you have access...
     ```
-    
     ```json
     [
       {
@@ -109,9 +109,9 @@ To deploy Kubernetes on Azure, complete the following steps:
         }
       }
     ]
-    ```  
-  
-1. Create an Azure resource group:
+    ```
+
+1. Create an Azure resource group.
 
     ```shell
     az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
@@ -375,23 +375,57 @@ you might accidentally deploy your cluster on Minikube.
     the `etcd` nodes are ready which might result in the `pachd` nodes
     restarting. You can safely ignore those restarts.
 
-1. To connect to the cluster from your local machine, such as your laptop,
-set up port forwarding to enable `pachctl` and cluster communication:
+## Have 'pachctl' and your Cluster Communicate
 
-    ```shell
-    pachctl port-forward
-    ```
+Finally, assuming your `pachd` is running as shown above, 
+make sure that `pachctl` can talk to the cluster by:
 
-1. Verify that the cluster is up and running:
+- Running a port-forward:
 
-    ```shell
-    pachctl version
-    ```
+```shell
+# Background this process because it blocks.
+pachctl port-forward   
+```
 
-    **System Response:**
+- Exposing your cluster to the internet by setting up a LoadBalancer as follow:
 
-    ```shell
-    COMPONENT           VERSION
-    pachctl             {{ config.pach_latest_version }}
-    pachd               {{ config.pach_latest_version }}
-    ```
+!!! Warning 
+    The following setup of a LoadBalancer only applies to pachd.
+
+1. To get an external IP address for a Cluster, edit its k8s service, 
+```shell
+kubectl edit service pachd
+```
+and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
+
+1. Retrieve the external IP address of the edited service.
+When listing your services again, you should see an external IP address allocated to the service you just edited. 
+```shell
+kubectl get service
+```
+1. Update the context of your cluster with their direct url, using the external IP address above:
+```shell
+echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
+```
+1. Check that your are using the right context: 
+```shell
+pachctl config get active-context`
+```
+Your cluster context name set above should show up. 
+    
+
+You are done! You can test to make sure the cluster is working
+by running `pachctl version` or even creating a new repo.
+
+```shell
+pachctl version
+```
+
+**System Response:**
+
+```shell
+COMPONENT           VERSION
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
+```
+

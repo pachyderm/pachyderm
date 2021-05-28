@@ -1,7 +1,6 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -87,10 +86,10 @@ func (f *PipelineFinisher) Run() error {
 		if err := f.d.listCommit(
 			f.txnCtx.ClientContext,
 			branch.Repo,
-			client.NewCommit(branch.Repo.Name, branch.Name, ""), // to
-			nil,   // from
-			0,     // number
-			false, // reverse
+			branch.NewCommit(""), // to
+			nil,                  // from
+			0,                    // number
+			false,                // reverse
 			func(commitInfo *pfs.CommitInfo) error {
 				return f.d.env.PpsServer().StopPipelineJobInTransaction(f.txnCtx, &pps.StopPipelineJobRequest{
 					OutputCommit: commitInfo.Commit,

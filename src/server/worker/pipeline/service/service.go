@@ -83,7 +83,7 @@ func forEachCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo,
 	var cancel func()
 	var eg *errgroup.Group
 	return pachClient.SubscribeCommit(
-		pipelineInfo.Pipeline.Name,
+		client.NewRepo(pipelineInfo.Pipeline.Name),
 		"",
 		"",
 		pfs.CommitState_READY,
