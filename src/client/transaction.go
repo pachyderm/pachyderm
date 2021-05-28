@@ -338,7 +338,7 @@ func (c *pfsBuilderClient) ActivateAuth(ctx context.Context, req *pfs.ActivateAu
 func (c *pfsBuilderClient) InspectRepo(ctx context.Context, req *pfs.InspectRepoRequest, opts ...grpc.CallOption) (*pfs.RepoInfo, error) {
 	return nil, unsupportedError("InspectRepo")
 }
-func (c *pfsBuilderClient) ListRepo(ctx context.Context, req *pfs.ListRepoRequest, opts ...grpc.CallOption) (*pfs.ListRepoResponse, error) {
+func (c *pfsBuilderClient) ListRepo(ctx context.Context, req *pfs.ListRepoRequest, opts ...grpc.CallOption) (pfs.API_ListRepoClient, error) {
 	return nil, unsupportedError("ListRepo")
 }
 func (c *pfsBuilderClient) InspectCommit(ctx context.Context, req *pfs.InspectCommitRequest, opts ...grpc.CallOption) (*pfs.CommitInfo, error) {
@@ -359,7 +359,7 @@ func (c *pfsBuilderClient) ClearCommit(ctx context.Context, req *pfs.ClearCommit
 func (c *pfsBuilderClient) InspectBranch(ctx context.Context, req *pfs.InspectBranchRequest, opts ...grpc.CallOption) (*pfs.BranchInfo, error) {
 	return nil, unsupportedError("InspectBranch")
 }
-func (c *pfsBuilderClient) ListBranch(ctx context.Context, req *pfs.ListBranchRequest, opts ...grpc.CallOption) (*pfs.BranchInfos, error) {
+func (c *pfsBuilderClient) ListBranch(ctx context.Context, req *pfs.ListBranchRequest, opts ...grpc.CallOption) (pfs.API_ListBranchClient, error) {
 	return nil, unsupportedError("ListBranch")
 }
 func (c *pfsBuilderClient) ModifyFile(ctx context.Context, opts ...grpc.CallOption) (pfs.API_ModifyFileClient, error) {
@@ -432,7 +432,7 @@ func (c *ppsBuilderClient) RestartDatum(ctx context.Context, req *pps.RestartDat
 func (c *ppsBuilderClient) InspectPipeline(ctx context.Context, req *pps.InspectPipelineRequest, opts ...grpc.CallOption) (*pps.PipelineInfo, error) {
 	return nil, unsupportedError("InspectPipeline")
 }
-func (c *ppsBuilderClient) ListPipeline(ctx context.Context, req *pps.ListPipelineRequest, opts ...grpc.CallOption) (*pps.PipelineInfos, error) {
+func (c *ppsBuilderClient) ListPipeline(ctx context.Context, req *pps.ListPipelineRequest, opts ...grpc.CallOption) (pps.API_ListPipelineClient, error) {
 	return nil, unsupportedError("ListPipeline")
 }
 func (c *ppsBuilderClient) DeletePipeline(ctx context.Context, req *pps.DeletePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {

@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
@@ -96,7 +97,7 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 	case repoPart:
 		return RepoCompletion(flag, text, maxCompletions)
 	case commitOrBranchPart:
-		bis, err := c.PfsAPIClient.ListBranch(
+		client, err := c.PfsAPIClient.ListBranch(
 			c.Ctx(),
 			&pfs.ListBranchRequest{
 				Repo: partialFile.Commit.Branch.Repo,
@@ -105,7 +106,11 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 		if err != nil {
 			return nil, CacheNone
 		}
-		for _, bi := range bis.BranchInfo {
+		bis, err := clientsdk.ListBranchInfo(client)
+		if err != nil {
+			return nil, CacheNone
+		}
+		for _, bi := range bis {
 			head := "-"
 			if bi.Head != nil {
 				head = bi.Head.ID
