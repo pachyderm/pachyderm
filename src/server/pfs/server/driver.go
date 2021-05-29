@@ -580,8 +580,21 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if description != "" {
 		commitInfo.Description = description
 	}
+	// Check that the parent commit is not still open (which can happen in output branches)
+	if commitInfo.ParentCommit != nil {
+		parentCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, commitInfo.ParentCommit)
+		if err != nil {
+			return err
+		}
+		if parentCommitInfo.Finished == nil {
+			return pfsserver.ErrParentNotFinished{
+				ChildCommit:  commitInfo.Commit,
+				ParentCommit: parentCommitInfo.Commit,
+			}
+		}
+	}
 	commitInfo.Finished = txnCtx.Timestamp
-	if err := d.writeFinishedCommit(txnCtx.SqlTx, commitInfo); err != nil {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
 		return err
 	}
 	if err := d.triggerCommit(txnCtx, commitInfo.Commit); err != nil {
@@ -669,23 +682,6 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 	}
 
 	return commitInfo, nil
-}
-
-// writeFinishedCommit writes these changes to etcd:
-// 1) it closes the input commit (i.e., it writes any changes made to it and
-//    removes it from the open commits)
-// 2) if the commit is the new HEAD of master, it updates the repo size
-func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commitInfo *pfs.CommitInfo) error {
-	commit := commitInfo.Commit
-	if err := d.commits.ReadWrite(sqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
-		return err
-	}
-	// update the repo size if this is the head of master
-	repoInfo := new(pfs.RepoInfo)
-	if err := d.repos.ReadWrite(sqlTx).Get(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
@@ -1420,7 +1416,8 @@ func (d *driver) squashCommitset(txnCtx *txncontext.TransactionContext, commitse
 				if commitInfo.ParentCommit == nil || !proto.Equal(commitInfo.ParentCommit.Branch, commit.Branch) {
 					// Create a new empty commit for the branch head
 					var err error
-					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch)
+					closed := len(branchInfo.Provenance) == 0 // For input branches, we make a closed default head commit
+					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch, closed)
 					if err != nil {
 						return err
 					}
@@ -1678,7 +1675,8 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// If the branch still has no head, create an empty commit on it so that we
 	// can maintain an invariant that branches always have a head commit.
 	if branchInfo.Head == nil {
-		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch)
+		closed := len(provenance) == 0 // For input branches, we make a closed default head commit
+		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch, closed)
 		if err != nil {
 			return err
 		}
@@ -1928,7 +1926,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 			// We are creating this branch for the first time, set the Branch and Head
 			provBranchInfo.Branch = provBranch
 
-			head, err := d.makeEmptyCommit(txnCtx, provBranch)
+			head, err := d.makeEmptyCommit(txnCtx, provBranch, true)
 			if err != nil {
 				return err
 			}
@@ -1961,13 +1959,15 @@ func (d *driver) deleteAll(txnCtx *txncontext.TransactionContext) error {
 	return nil
 }
 
-func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) (*pfs.Commit, error) {
+func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, closed bool) (*pfs.Commit, error) {
 	commit := branch.NewCommit(txnCtx.CommitsetID)
 	commitInfo := &pfs.CommitInfo{
-		Commit:   commit,
-		Origin:   &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-		Started:  txnCtx.Timestamp,
-		Finished: txnCtx.Timestamp,
+		Commit:  commit,
+		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Started: txnCtx.Timestamp,
+	}
+	if closed {
+		commitInfo.Finished = txnCtx.Timestamp
 	}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(commit), commitInfo); err != nil {
 		return nil, err
