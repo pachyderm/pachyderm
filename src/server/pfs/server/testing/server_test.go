@@ -260,6 +260,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo("in"))
 		require.NoError(t, env.PachClient.CreateRepo("out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewBranch("in", "master")}))
+		require.NoError(t, env.PachClient.FinishCommit("out", "master", ""))
 		require.NoError(t, env.PachClient.PutFile(client.NewCommit("in", "master", ""), "foo", strings.NewReader("foo")))
 		outRepo := client.NewRepo("out")
 		cis, err := env.PachClient.ListCommit(outRepo, nil, nil, 0)
@@ -3353,6 +3354,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo("C"))
 		require.NoError(t, env.PachClient.CreateRepo("D"))
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewBranch("A", "master"), client.NewBranch("B", "master")}))
+		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 		_, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
@@ -3663,7 +3665,6 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateBranch("A", "master", "", "", nil))
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 		env.PachClient.FinishCommit("A", commit.Branch.Name, commit.ID)
@@ -3675,7 +3676,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("A", commit2.Branch.Name, commit2.ID))
 
 		aRepo := client.NewRepo("A")
-		commitInfos, err := env.PachClient.ListCommit(aRepo, aRepo.NewCommit("master2", ""), nil, 0)
+		commitInfos, err := env.PachClient.ListCommit(aRepo, nil, nil, 0)
 		require.NoError(t, err)
 		commits := []*pfs.Commit{}
 		for _, ci := range commitInfos {
@@ -4033,7 +4034,9 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo("C"))
 
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewBranch("A", "master")}))
+		require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewBranch("B", "master")}))
+		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 
 		ctx, cancel := context.WithCancel(env.PachClient.Ctx())
 		defer cancel()
