@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -796,8 +795,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			//	// A spec repo doesn't contribute datums so ignore it?
 			//	continue
 			//}
-			fmt.Printf("ProvOfSubvB: %s\n", pfsdb.BranchKey(provOfSubvB))
-			fmt.Printf("  Head: %v\n", provOfSubvBI.Head)
 			if provOfSubvBI.Head.ID != subvBI.Head.ID {
 				needsCommit = true
 				break
@@ -1709,7 +1706,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		branchInfo.Provenance = nil
 		// Re-compute Provenance
 		for _, provBranch := range branchInfo.DirectProvenance {
-			if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.SqlTx); err != nil {
+			if err := d.addBranchProvenance(txnCtx, branchInfo, provBranch); err != nil {
 				return err
 			}
 			provBranchInfo := &pfs.BranchInfo{}
@@ -1719,7 +1716,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			for _, provBranch := range provBranchInfo.Provenance {
 				// add provBranch to branchInfo.Provenance, and branchInfo.Branch to
 				// provBranch subvenance
-				if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.SqlTx); err != nil {
+				if err := d.addBranchProvenance(txnCtx, branchInfo, provBranch); err != nil {
 					return err
 				}
 			}
@@ -1920,22 +1917,30 @@ func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
-func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, sqlTx *sqlx.Tx) error {
+func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, provBranch *pfs.Branch) error {
 	if pfsdb.BranchKey(provBranch) == pfsdb.BranchKey(branchInfo.Branch) {
 		return errors.Errorf("provenance loop, branch %s cannot be provenant on itself", pfsdb.BranchKey(provBranch))
 	}
 	add(&branchInfo.Provenance, provBranch)
 	provBranchInfo := &pfs.BranchInfo{}
-	if err := d.branches.ReadWrite(sqlTx).Upsert(pfsdb.BranchKey(provBranch), provBranchInfo, func() error {
-		// Set provBranch, we may be creating this branch for the first time
-		provBranchInfo.Branch = provBranch
+	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(pfsdb.BranchKey(provBranch), provBranchInfo, func() error {
+		if provBranchInfo.Branch == nil {
+			// We are creating this branch for the first time, set the Branch and Head
+			provBranchInfo.Branch = provBranch
+
+			head, err := d.makeEmptyCommit(txnCtx, provBranch)
+			if err != nil {
+				return err
+			}
+			provBranchInfo.Head = head
+		}
 		add(&provBranchInfo.Subvenance, branchInfo.Branch)
 		return nil
 	}); err != nil {
 		return err
 	}
 	repoInfo := &pfs.RepoInfo{}
-	return d.repos.ReadWrite(sqlTx).Update(pfsdb.RepoKey(provBranch.Repo), repoInfo, func() error {
+	return d.repos.ReadWrite(txnCtx.SqlTx).Update(pfsdb.RepoKey(provBranch.Repo), repoInfo, func() error {
 		add(&repoInfo.Branches, provBranch)
 		return nil
 	})
