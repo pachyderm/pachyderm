@@ -13,7 +13,7 @@ import (
 type APIServer interface {
 	pfs_client.APIServer
 
-	NewPropagater(*sqlx.Tx, *pfs_client.Job) txncontext.PfsPropagater
+	NewPropagater(*sqlx.Tx, string) txncontext.PfsPropagater
 	NewPipelineFinisher(*txncontext.TransactionContext) txncontext.PipelineCommitFinisher
 
 	CreateRepoInTransaction(*txncontext.TransactionContext, *pfs_client.CreateRepoRequest) error

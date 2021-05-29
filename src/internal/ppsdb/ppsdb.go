@@ -31,7 +31,7 @@ func Pipelines(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollecti
 
 // JobsPipelineIndex maps pipeline to Jobs started by the pipeline
 var JobsPipelineIndex = &col.Index{
-	Name: "Pipeline",
+	Name: "pipeline",
 	Extract: func(val proto.Message) string {
 		return val.(*pps.StoredJobInfo).Pipeline.Name
 	},
@@ -39,7 +39,7 @@ var JobsPipelineIndex = &col.Index{
 
 // JobsOutputIndex maps job outputs to the Job that create them.
 var JobsOutputIndex = &col.Index{
-	Name: "OutputCommit",
+	Name: "output_commit",
 	Extract: func(val proto.Message) string {
 		return pfsdb.CommitKey(val.(*pps.StoredJobInfo).OutputCommit)
 	},

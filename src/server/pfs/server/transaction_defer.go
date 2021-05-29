@@ -13,20 +13,20 @@ import (
 // a transaction.  The transactionenv package provides the interface for this
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
-	d     *driver
-	sqlTx *sqlx.Tx
-	job   *pfs.Job
+	d           *driver
+	sqlTx       *sqlx.Tx
+	commitsetID string
 
 	// Branches to propagate when the transaction completes
 	branches    []*pfs.Branch
 	isNewCommit bool
 }
 
-func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx, job *pfs.Job) txncontext.PfsPropagater {
+func (a *apiServer) NewPropagater(sqlTx *sqlx.Tx, commitsetID string) txncontext.PfsPropagater {
 	return &Propagater{
-		d:     a.driver,
-		sqlTx: sqlTx,
-		job:   job,
+		d:           a.driver,
+		sqlTx:       sqlTx,
+		commitsetID: commitsetID,
 	}
 }
 
@@ -44,7 +44,7 @@ func (t *Propagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error
 // Run performs any final tasks and cleanup tasks in the transaction, such as
 // propagating branches
 func (t *Propagater) Run() error {
-	return t.d.propagateCommits(t.sqlTx, t.job, t.branches, t.isNewCommit)
+	return t.d.propagateCommits(t.sqlTx, t.commitsetID, t.branches, t.isNewCommit)
 }
 
 // PipelineFinisher closes any open commits on a pipeline output branch,

@@ -280,7 +280,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 			SqlTx:         sqlTx,
 		}
 		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
+			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, uuid.NewWithoutDashes())
 			txnCtx.CommitFinisher = env.serviceEnv.PfsServer().NewPipelineFinisher(txnCtx)
 		}
 
@@ -303,7 +303,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 			CommitFinisher: nil, // don't alter any pipeline commits in a read-only setting
 		}
 		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, &pfs.Job{ID: uuid.NewWithoutDashes()})
+			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, uuid.NewWithoutDashes())
 		}
 
 		err := cb(txnCtx)
