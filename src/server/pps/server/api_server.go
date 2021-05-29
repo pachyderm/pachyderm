@@ -2601,7 +2601,11 @@ func (a *apiServer) listPipelinePtr(ctx context.Context,
 			)
 			switch {
 			case err != nil:
-				return grpcutil.ScrubGRPC(err)
+				err = grpcutil.ScrubGRPC(err)
+				if auth.IsErrNoRoleBinding(err) {
+					return nil // a missing role binding suggests the spec repo is gone
+				}
+				return err
 			case ci.ParentCommit == nil:
 				return nil
 			default:
