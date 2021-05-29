@@ -35,12 +35,6 @@ type ErrCommitNotFound struct {
 	Commit *pfs.Commit
 }
 
-// ErrNoHead represents an error encountered because a branch has no head (e.g.
-// inspectCommit(master) when 'master' has no commits)
-type ErrNoHead struct {
-	Branch *pfs.Branch
-}
-
 // ErrCommitExists represents an error where the commit already exists.
 type ErrCommitExists struct {
 	Commit *pfs.Commit
@@ -115,11 +109,6 @@ func (e ErrCommitNotFound) Error() string {
 	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
-func (e ErrNoHead) Error() string {
-	// the dashboard is matching on this message in stats. Please open an issue on the dash before changing this
-	return fmt.Sprintf("the branch \"%s\" has no head (create one with 'start commit')", e.Branch.Name)
-}
-
 func (e ErrCommitExists) Error() string {
 	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
@@ -164,7 +153,6 @@ var (
 	repoExistsRe              = regexp.MustCompile(`repo ?[a-zA-Z0-9.\-_]{1,255} already exists`)
 	branchNotFoundRe          = regexp.MustCompile(`branches [a-zA-Z0-9.\-_@]{1,255} not found`)
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
-	hasNoHeadRe               = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
 	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
@@ -233,15 +221,6 @@ func IsFileNotFoundErr(err error) bool {
 		return false
 	}
 	return fileNotFoundRe.MatchString(err.Error())
-}
-
-// IsNoHeadErr returns true if the err is due to an operation that cannot be
-// performed on a headless branch
-func IsNoHeadErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	return hasNoHeadRe.MatchString(err.Error())
 }
 
 // IsOutputCommitNotFinishedErr returns true if the err is due to an operation

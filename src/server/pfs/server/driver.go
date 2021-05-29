@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -500,7 +501,7 @@ func (d *driver) startCommit(
 			branchInfo.Branch = branch
 		}
 		// If the parent is unspecified, use the current head of the branch
-		if parent == nil && branchInfo.Head != nil {
+		if parent == nil {
 			parent = branchInfo.Head
 		}
 		// Point 'branch' at the new commit
@@ -791,17 +792,20 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			if err != nil {
 				return err
 			}
-			if provOfSubvBI.Head == nil || provOfSubvBI.Branch.Repo.Type == pfs.SpecRepoType {
-				continue
-			}
-			if subvBI.Head == nil || provOfSubvBI.Head.ID != subvBI.Head.ID {
+			//if provOfSubvBI.Branch.Repo.Type == pfs.SpecRepoType {
+			//	// A spec repo doesn't contribute datums so ignore it?
+			//	continue
+			//}
+			fmt.Printf("ProvOfSubvB: %s\n", pfsdb.BranchKey(provOfSubvB))
+			fmt.Printf("  Head: %v\n", provOfSubvBI.Head)
+			if provOfSubvBI.Head.ID != subvBI.Head.ID {
 				needsCommit = true
 				break
 			}
 		}
 
 		// If there are no upstream commits for this Commitset and no commit in this branch, we can skip
-		if !needsCommit && (subvBI.Head == nil || subvBI.Head.ID != txnCtx.CommitsetID) {
+		if !needsCommit && subvBI.Head.ID != txnCtx.CommitsetID {
 			continue
 		}
 
@@ -825,7 +829,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			}
 		}
 
-		if subvBI.Head == nil || subvBI.Head.ID != txnCtx.CommitsetID {
+		if subvBI.Head.ID != txnCtx.CommitsetID {
 			// This branch has no commit for this Commitset, start a new output commit in 'subvBI.Branch'
 			newCommit := &pfs.Commit{
 				Branch: subvBI.Branch,
@@ -1033,9 +1037,6 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 		if err := d.branches.ReadWrite(sqlTx).Get(pfsdb.BranchKey(commit.Branch), branchInfo); err != nil {
 			return nil, err
 		}
-		if branchInfo.Head == nil {
-			return nil, pfsserver.ErrNoHead{branchInfo.Branch}
-		}
 		commit.ID = branchInfo.Head.ID
 	} else if commit.Branch.Name == "" {
 		// If the branch is unspecified, make sure the ID is unique (a repo may have
@@ -1152,17 +1153,12 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		_, err := d.inspectCommit(ctx, from, pfs.CommitState_STARTED)
-		if err != nil {
+		if _, err := d.inspectCommit(ctx, from, pfs.CommitState_STARTED); err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		_, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
-		if err != nil {
-			if isNoHeadErr(err) {
-				return nil
-			}
+		if _, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED); err != nil {
 			return err
 		}
 	}
@@ -1425,7 +1421,12 @@ func (d *driver) squashCommitset(txnCtx *txncontext.TransactionContext, commitse
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(commit.Branch), &branchInfo, func() error {
 			if branchInfo.Head.ID == commit.ID {
 				if commitInfo.ParentCommit == nil || !proto.Equal(commitInfo.ParentCommit.Branch, commit.Branch) {
-					branchInfo.Head = nil
+					// Create a new empty commit for the branch head
+					var err error
+					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch)
+					if err != nil {
+						return err
+					}
 				} else {
 					branchInfo.Head = commitInfo.ParentCommit
 				}
@@ -1636,12 +1637,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	if commit != nil {
 		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
 		if err != nil {
-			// possible that branch exists but has no head commit. This is fine, but
-			// branchInfo.Head must also be nil
-			if !isNoHeadErr(err) {
-				return errors.Wrapf(err, "unable to inspect %s", pfsdb.CommitKey(commit))
-			}
-			commit = nil
+			return errors.Wrapf(err, "unable to inspect %s", pfsdb.CommitKey(commit))
 		}
 
 		if provenance != nil {
@@ -1679,6 +1675,15 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			}
 			// Update the local branchInfo.Head
 			branchInfo.Head = aliasCommitInfo.Commit
+		}
+	}
+
+	// If the branch still has no head, create an empty commit on it so that we
+	// can maintain an invariant that branches always have a head commit.
+	if branchInfo.Head == nil {
+		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -1915,10 +1920,6 @@ func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
-func isNoHeadErr(err error) bool {
-	return errors.As(err, &pfsserver.ErrNoHead{})
-}
-
 func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, sqlTx *sqlx.Tx) error {
 	if pfsdb.BranchKey(provBranch) == pfsdb.BranchKey(branchInfo.Branch) {
 		return errors.Errorf("provenance loop, branch %s cannot be provenant on itself", pfsdb.BranchKey(provBranch))
@@ -1953,6 +1954,20 @@ func (d *driver) deleteAll(txnCtx *txncontext.TransactionContext) error {
 		}
 	}
 	return nil
+}
+
+func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) (*pfs.Commit, error) {
+	commit := branch.NewCommit(txnCtx.CommitsetID)
+	commitInfo := &pfs.CommitInfo{
+		Commit:   commit,
+		Origin:   &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Started:  txnCtx.Timestamp,
+		Finished: txnCtx.Timestamp,
+	}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(commit), commitInfo); err != nil {
+		return nil, err
+	}
+	return commit, nil
 }
 
 // TODO: Is this really necessary?
