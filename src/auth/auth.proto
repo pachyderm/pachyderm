@@ -108,6 +108,10 @@ message AuthenticateResponse {
   // Pachyderm operations after auth has been activated as themselves, you must
   // present this token along with your regular request)
   string pach_token = 1;
+
+  // id_token is the token returned from the OAuth2 Flow exchange. 
+  // It is short lived, and can also be used to authenticate the user
+  string id_token = 2;
 }
 
 message WhoAmIRequest {}
@@ -152,10 +156,11 @@ enum Permission {
   CLUSTER_AUTH_REVOKE_USER_TOKENS                  = 142;
   CLUSTER_AUTH_ROTATE_ROOT_TOKEN                   = 147;
 
-  CLUSTER_ENTERPRISE_ACTIVATE            = 114;
-  CLUSTER_ENTERPRISE_HEARTBEAT           = 115;
-  CLUSTER_ENTERPRISE_GET_CODE            = 116;
-  CLUSTER_ENTERPRISE_DEACTIVATE          = 117;
+  CLUSTER_ENTERPRISE_ACTIVATE                        = 114;
+  CLUSTER_ENTERPRISE_HEARTBEAT                       = 115;
+  CLUSTER_ENTERPRISE_GET_CODE                        = 116;
+  CLUSTER_ENTERPRISE_DEACTIVATE                      = 117;
+  CLUSTER_ENTERPRISE_REVOKE_USER_TOKENS_ALL_CLUSTERS = 148;
 
   CLUSTER_IDENTITY_SET_CONFIG            = 118;
   CLUSTER_IDENTITY_GET_CONFIG            = 119;
@@ -328,11 +333,17 @@ message SessionInfo {
   // information to a user who has network access to Pachyderm but not an
   // account in the OIDC provider.
   bool conversion_err = 3;
+  // raw_id_token is the ID token returned by the OAuth2 Flow when exchanged with the user's auth_code
+  string raw_id_token = 4;
 }
 
 //// OIDC API
-
+enum OIDCLoginType {
+  STANDARD = 0;
+  PRIVILEDGED = 1;
+}
 message GetOIDCLoginRequest {
+  OIDCLoginType login_type = 1;
 }
 
 message GetOIDCLoginResponse {

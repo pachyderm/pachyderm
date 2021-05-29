@@ -186,7 +186,6 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get identity server issuer")
 				}
-
 				oidcClient, err := ec.CreateOIDCClient(ec.Ctx(), &identity.CreateOIDCClientRequest{
 					Client: &identity.OIDCClient{
 						Id:           clientId,

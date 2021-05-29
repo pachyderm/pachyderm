@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -24,7 +25,8 @@ import (
 )
 
 const (
-	licenseRecordKey = "license"
+	licenseRecordKey         = "license"
+	fanoutTimeoutSeconds int = 10
 )
 
 var defaultRecord = &ec.LicenseRecord{}
@@ -389,4 +391,141 @@ func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserCluste
 	return &lc.ListUserClustersResponse{
 		Clusters: clusters,
 	}, nil
+}
+
+func (a *apiServer) RevokeTokensForUserAcrossClusters(ctx context.Context, req *lc.RevokeTokensForUserAcrossClustersRequest) (resp *lc.RevokeTokensForUserAcrossClustersResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	result, err := a.clusterFanout(ctx, req.IdToken, func(pachClient *client.APIClient) error {
+		_, err := pachClient.AuthAPIClient.RevokeAuthTokensForUser(pachClient.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: req.Username})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	// transform FanoutResult into a Response pb
+	failures := make([]*lc.DelegatedCallFailure, len(result.failures))
+	for i, r := range result.failures {
+		failures[i] = &lc.DelegatedCallFailure{ReceiverId: r.id, Err: r.err.Error()}
+	}
+	return &lc.RevokeTokensForUserAcrossClustersResponse{
+		SuccessClusters:  result.successes,
+		FailureClusters:  failures,
+		TimedoutClusters: result.timeouts,
+	}, nil
+}
+
+type fanoutError struct {
+	id  string
+	err error
+}
+
+type fanoutReport struct {
+	successes []string
+	failures  []*fanoutError
+	timeouts  []string
+}
+
+// cluster fanout uses an ID Token permitted to make requests on behalf of the User to Authenticate to each cluster
+func (a *apiServer) clusterFanout(ctx context.Context, idToken string, cb func(*client.APIClient) error) (*fanoutReport, error) {
+	res, err := a.ListClusters(ctx, &lc.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return ClusterFanout(ctx, res.Clusters, idToken, cb)
+}
+
+// breaking out this public for now in an effort to test it
+func ClusterFanout(ctx context.Context, clusters []*lc.ClusterStatus, idToken string, cb func(*client.APIClient) error) (*fanoutReport, error) {
+	waitingOnClusters := make(map[string]bool) // a set of IDs for clusters yet to respond
+	successChan := make(chan string)
+	failureChan := make(chan *fanoutError)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	for _, cluster := range clusters {
+		waitingOnClusters[cluster.Id] = true
+
+		// kickoff goroutine to make request to a pachd cluster
+		go func(ctx context.Context, address string, id string) {
+			// login with id token
+			c, err := client.NewFromURI(address)
+			if err != nil {
+				result := &fanoutError{id: id, err: errors.Wrapf(err, "unable to create client for %q", address)}
+				submitToFailureChan(ctx.Done(), failureChan, result)
+				return
+			}
+			authResp, err := c.AuthAPIClient.Authenticate(ctx, &auth.AuthenticateRequest{IdToken: idToken})
+			if err != nil {
+				result := &fanoutError{id: id, err: errors.Wrapf(err, "unable to authenticate to client: %q", address)}
+				submitToFailureChan(ctx.Done(), failureChan, result)
+				return
+			}
+			c.SetAuthToken(authResp.PachToken)
+
+			// apply client-defined function
+			err = cb(c)
+			if err != nil {
+				submitToFailureChan(ctx.Done(), failureChan, &fanoutError{id: id, err: err})
+			} else {
+				submitToStrChan(ctx.Done(), successChan, id)
+			}
+		}(ctx, cluster.GetAddress(), cluster.Id)
+	}
+	return collectFanoutResults(successChan, failureChan, waitingOnClusters), nil
+}
+
+func collectFanoutResults(successChan <-chan string, failureChan <-chan *fanoutError, waitingOnClusters map[string]bool) *fanoutReport {
+	successes := make([]string, 0)
+	failures := make([]*fanoutError, 0)
+	timeouts := make([]string, 0)
+	for len(waitingOnClusters) > 0 {
+		select {
+		case successClusterId := <-successChan:
+			delete(waitingOnClusters, successClusterId)
+			successes = append(successes, successClusterId)
+		case failure := <-failureChan:
+			delete(waitingOnClusters, failure.id)
+			failures = append(failures, failure)
+		case <-time.After(time.Second * time.Duration(fanoutTimeoutSeconds)):
+			// empties waitingOnClusters which will close our for loop
+			for id := range waitingOnClusters {
+				delete(waitingOnClusters, id)
+				timeouts = append(timeouts, id)
+			}
+		}
+	}
+	return &fanoutReport{
+		successes: successes,
+		failures:  failures,
+		timeouts:  timeouts,
+	}
+}
+
+// is there an already existing pattern to use instead of these functions?
+func submitToStrChan(done <-chan struct{}, failures chan<- string, s string) {
+	for {
+		select {
+		case failures <- s:
+			return
+		case <-done:
+			return
+		}
+	}
+}
+
+func submitToFailureChan(done <-chan struct{}, failures chan<- *fanoutError, fe *fanoutError) {
+	for {
+		select {
+		case failures <- fe:
+			return
+		case <-done:
+			return
+		}
+	}
 }

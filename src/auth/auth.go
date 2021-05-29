@@ -87,6 +87,9 @@ const (
 
 	// AllClusterUsersSubject is a subject which applies a role binding to all authenticated users
 	AllClusterUsersSubject = "allClusterUsers"
+
+	// see dex's doc: https://dexidp.io/docs/custom-scopes-claims-clients/#cross-client-trust-and-authorized-party
+	TrustedPeerAudienceScopePrefix = "audience:server:client_id:"
 )
 
 var (

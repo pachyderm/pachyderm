@@ -111,8 +111,9 @@ var authHandlers = map[string]authHandler{
 	"/license.API/ListClusters":      authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LICENSE_LIST_CLUSTERS)),
 	"/license.API/DeleteAll":         authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DELETE_ALL)),
 	// Heartbeat relies on the shared secret generated at cluster registration-time
-	"/license.API/Heartbeat":        unauthenticated,
-	"/license.API/ListUserClusters": authenticated,
+	"/license.API/Heartbeat":                      unauthenticated,
+	"/license.API/ListUserClusters":               authenticated,
+	"/license.API/RevokeUserTokensAcrossClusters": clusterPermissions(auth.Permission_CLUSTER_ENTERPRISE_REVOKE_USER_TOKENS_ALL_CLUSTERS),
 
 	//
 	// PFS API
