@@ -1,6 +1,8 @@
 package transform
 
 import (
+	"github.com/gogo/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
@@ -19,7 +21,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		true,
 		func(pipelineJobInfo *pps.PipelineJobInfo) error {
 			// TODO: check that this is for the right version of the pipeline
-			return reg.startPipelineJob(pipelineJobInfo)
+			return reg.startPipelineJob(proto.Clone(pipelineJobInfo).(*pps.PipelineJobInfo))
 		},
 	)
 }

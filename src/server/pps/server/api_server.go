@@ -3110,6 +3110,10 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext, commitset *pfs.StoredCommitset) error {
 	for _, branchInfo := range commitset.Branches {
+		if branchInfo.Branch.Repo.Type != pfs.UserRepoType {
+			continue
+		}
+
 		pipelineInfo := &pps.StoredPipelineInfo{}
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(branchInfo.Branch.Repo.Name, pipelineInfo); err != nil {
 			if col.IsErrNotFound(err) {
@@ -3139,9 +3143,9 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext, commits
 		if err != nil {
 			return err
 		}
-		if commitInfo.Finished != nil {
-			// Skip any commits which have already been finished
-			return nil
+		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS || commitInfo.Finished != nil {
+			// Skip alias commits and any commits which have already been finished
+			continue
 		}
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
 		pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
