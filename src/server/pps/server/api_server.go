@@ -3087,7 +3087,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 			if cron.Overwrite {
 				// get rid of any files, so the new file "overwrites" previous runs
 				err = mf.DeleteFile("/")
-				if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+				if err != nil && !isNotFoundErr(err) {
 					return errors.Wrapf(err, "delete error")
 				}
 			}

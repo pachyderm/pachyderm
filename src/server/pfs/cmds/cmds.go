@@ -15,7 +15,11 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/mattn/go-isatty"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -30,9 +34,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 const (
@@ -669,9 +670,11 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			if len(provenance) != 0 && trigger.Branch != "" {
 				return errors.Errorf("cannot use provenance and triggers on the same branch")
 			}
-			if (trigger.CronSpec != "" || trigger.Size_ != "" || trigger.Commits != 0) &&
-				trigger.Branch == "" {
+			if (trigger.CronSpec != "" || trigger.Size_ != "" || trigger.Commits != 0) && trigger.Branch == "" {
 				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
+			}
+			if proto.Equal(trigger, &pfs.Trigger{}) {
+				trigger = nil
 			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -679,11 +682,23 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			defer c.Close()
 
+			var headCommit *pfs.Commit
+			if head != "" {
+				if uuid.IsUUIDWithoutDashes(head) {
+					headCommit = branch.Repo.NewCommit("", head)
+				} else {
+					headCommit, err = cmdutil.ParseCommit(head)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.CreateBranch(
 					c.Ctx(),
 					&pfs.CreateBranchRequest{
-						Head:       branch.Repo.NewCommit("", head),
+						Head:       headCommit,
 						Branch:     branch,
 						Provenance: provenance,
 						Trigger:    trigger,
