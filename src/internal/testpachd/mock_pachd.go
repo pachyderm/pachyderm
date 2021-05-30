@@ -719,7 +719,6 @@ func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRe
 
 /* PPS Server Mocks */
 
-type createPipelineJobFunc func(context.Context, *pps.CreatePipelineJobRequest) (*pps.PipelineJob, error)
 type inspectPipelineJobFunc func(context.Context, *pps.InspectPipelineJobRequest) (*pps.PipelineJobInfo, error)
 type listPipelineJobFunc func(*pps.ListPipelineJobRequest, pps.API_ListPipelineJobServer) error
 type flushPipelineJobFunc func(*pps.FlushPipelineJobRequest, pps.API_FlushPipelineJobServer) error
@@ -745,7 +744,6 @@ type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 
-type mockCreatePipelineJob struct{ handler createPipelineJobFunc }
 type mockInspectPipelineJob struct{ handler inspectPipelineJobFunc }
 type mockListPipelineJob struct{ handler listPipelineJobFunc }
 type mockFlushPipelineJob struct{ handler flushPipelineJobFunc }
@@ -771,7 +769,6 @@ type mockDeleteAllPPS struct{ handler deleteAllPPSFunc }
 type mockGetLogs struct{ handler getLogsFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 
-func (mock *mockCreatePipelineJob) Use(cb createPipelineJobFunc)           { mock.handler = cb }
 func (mock *mockInspectPipelineJob) Use(cb inspectPipelineJobFunc)         { mock.handler = cb }
 func (mock *mockListPipelineJob) Use(cb listPipelineJobFunc)               { mock.handler = cb }
 func (mock *mockFlushPipelineJob) Use(cb flushPipelineJobFunc)             { mock.handler = cb }
@@ -803,7 +800,6 @@ type ppsServerAPI struct {
 
 type mockPPSServer struct {
 	api                    ppsServerAPI
-	CreatePipelineJob      mockCreatePipelineJob
 	InspectPipelineJob     mockInspectPipelineJob
 	ListPipelineJob        mockListPipelineJob
 	FlushPipelineJob       mockFlushPipelineJob
@@ -830,12 +826,6 @@ type mockPPSServer struct {
 	ActivateAuth           mockActivateAuthPPS
 }
 
-func (api *ppsServerAPI) CreatePipelineJob(ctx context.Context, req *pps.CreatePipelineJobRequest) (*pps.PipelineJob, error) {
-	if api.mock.CreatePipelineJob.handler != nil {
-		return api.mock.CreatePipelineJob.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock pps.CreatePipelineJob")
-}
 func (api *ppsServerAPI) InspectPipelineJob(ctx context.Context, req *pps.InspectPipelineJobRequest) (*pps.PipelineJobInfo, error) {
 	if api.mock.InspectPipelineJob.handler != nil {
 		return api.mock.InspectPipelineJob.handler(ctx, req)
