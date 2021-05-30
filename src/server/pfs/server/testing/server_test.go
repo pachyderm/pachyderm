@@ -1940,7 +1940,13 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, len(fileInfos))
 
-		// TODO: test deleting "."
+		// One-off commit directory deletion
+		masterCommit := client.NewCommit(repo, "master", "")
+		require.NoError(t, env.PachClient.PutFile(masterCommit, "/dir/foo", strings.NewReader("foo")))
+		require.NoError(t, env.PachClient.DeleteFile(masterCommit, "/"))
+		fileInfos, err = env.PachClient.ListFileAll(masterCommit, "/")
+		require.NoError(t, err)
+		require.Equal(t, 0, len(fileInfos))
 	})
 
 	suite.Run("ListCommit", func(t *testing.T) {
@@ -4390,10 +4396,6 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileCommit", func(t *testing.T) {
-		// TODO(2.0 required): Concurrent one-off commits are not safe in V2. We should either make them safe through
-		// a transactional create & finish (probably create a fileset then transactionally create & finish commit),
-		// or block concurrent operations until it completes.
-		t.Skip("Concurrent one-off commits are not safe in V2")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 

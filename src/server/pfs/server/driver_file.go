@@ -20,52 +20,50 @@ import (
 )
 
 func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
-	// Store the originally-requested parameters because they will be overwritten by inspectCommit
-	repo := commit.Branch.Repo.Name
-	branch := commit.Branch.Name
-	commitID := commit.ID
-	if branch == "" && !uuid.IsUUIDWithoutDashes(commitID) {
-		branch = commitID
-		commitID = ""
-	}
-	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
-	if err != nil {
-		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
-			return err
+	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
+		// Store the originally-requested parameters because they will be overwritten by inspectCommit
+		repo := commit.Branch.Repo.Name
+		branch := commit.Branch.Name
+		commitID := commit.ID
+		if branch == "" && !uuid.IsUUIDWithoutDashes(commitID) {
+			branch = commitID
+			commitID = ""
 		}
-		return d.oneOffModifyFile(ctx, repo, branch, cb)
-	}
-	if commitInfo.Finished != nil {
-		// The commit is already finished - if the commit was explicitly specified,
-		// error out, otherwise we can make a child commit since this is the branch head.
-		if commitID != "" {
-			return pfsserver.ErrCommitFinished{commitInfo.Commit}
+		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
+		if err != nil {
+			if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
+				return err
+			}
+			return d.oneOffModifyFile(ctx, renewer, repo, branch, cb)
 		}
-		var opts []fileset.UnorderedWriterOption
-		if commitInfo.ParentCommit != nil {
-			parentFilesetID, err := d.getFileset(ctx, commitInfo.ParentCommit)
+		if commitInfo.Finished != nil {
+			// The commit is already finished - if the commit was explicitly specified,
+			// error out, otherwise we can make a child commit since this is the branch head.
+			if commitID != "" {
+				return pfsserver.ErrCommitFinished{commitInfo.Commit}
+			}
+			parentID, err := d.getFileset(ctx, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
-			opts = append(opts, fileset.WithParentID(parentFilesetID))
+			renewer.Add(parentID.HexString())
+			return d.oneOffModifyFile(ctx, renewer, repo, branch, cb, fileset.WithParentID(parentID))
 		}
-		return d.oneOffModifyFile(ctx, repo, branch, cb, opts...)
-	}
-	filesetID, err := d.getFileset(ctx, commitInfo.Commit)
+		return d.withCommitUnorderedWriter(ctx, renewer, commitInfo.Commit, cb)
+	})
+}
+
+func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet, repo, branch string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
+	id, err := d.withUnorderedWriter(ctx, renewer, false, cb, opts...)
 	if err != nil {
 		return err
 	}
-	return d.withCommitUnorderedWriter(ctx, commitInfo.Commit, cb, fileset.WithParentID(filesetID))
-}
-
-// TODO: Cleanup after failure?
-func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) (retErr error) {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		commit, err := d.startCommit(txnCtx, "", nil, client.NewBranch(repo, branch), nil, "")
 		if err != nil {
 			return err
 		}
-		if err := d.withCommitUnorderedWriter(ctx, commit, cb, opts...); err != nil {
+		if err := d.commitStore.AddFilesetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return err
 		}
 		return d.finishCommit(txnCtx, commit, "")
@@ -73,14 +71,17 @@ func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb f
 }
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
-func (d *driver) withCommitUnorderedWriter(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (retErr error) {
-	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
-		id, err := d.withUnorderedWriter(ctx, renewer, false, cb, opts...)
-		if err != nil {
-			return err
-		}
-		return d.commitStore.AddFileset(ctx, commit, *id)
-	})
+func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *renew.StringSet, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
+	parentID, err := d.getFileset(ctx, commit)
+	if err != nil {
+		return err
+	}
+	renewer.Add(parentID.HexString())
+	id, err := d.withUnorderedWriter(ctx, renewer, false, cb, fileset.WithParentID(parentID))
+	if err != nil {
+		return err
+	}
+	return d.commitStore.AddFileset(ctx, commit, *id)
 }
 
 func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
