@@ -122,6 +122,7 @@ func (rds *randomDirectorySource) nextPath() string {
 	rds.run++
 	if rds.run == rds.spec.Run {
 		rds.next = ""
+		rds.run = 0
 	}
 	return dir
 
