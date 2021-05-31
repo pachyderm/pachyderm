@@ -45,6 +45,7 @@ type ServiceEnv interface {
 	SetPpsServer(pps_server.APIServer)
 
 	Config() *Configuration
+	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
