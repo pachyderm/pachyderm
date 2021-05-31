@@ -1259,7 +1259,12 @@ func (d *driver) inspectCommitsetImmediate(txnCtx *txncontext.TransactionContext
 	for i := 0; i < len(result); i++ {
 		commitInfo := result[i]
 		for _, provKey := range provMap[pfsdb.BranchKey(commitInfo.Commit.Branch)] {
-			result = append(result, commitMap[provKey])
+			if ci, ok := commitMap[provKey]; ok {
+				if _, ok := added[provKey]; !ok {
+					result = append(result, ci)
+					added[provKey] = struct{}{}
+				}
+			}
 		}
 	}
 
