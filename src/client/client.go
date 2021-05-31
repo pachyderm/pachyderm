@@ -646,7 +646,7 @@ func (c APIClient) DeleteAll() error {
 // SetMaxConcurrentStreams Sets the maximum number of concurrent streams the
 // client can have. It is not safe to call this operations while operations are
 // outstanding.
-func (c APIClient) SetMaxConcurrentStreams(n int) {
+func (c *APIClient) SetMaxConcurrentStreams(n int) {
 	c.limiter = limit.New(n)
 }
 
