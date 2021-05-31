@@ -490,6 +490,9 @@ func (d *driver) startCommit(
 		return nil, err
 	}
 
+	// Snapshot the branch's direct provenance into the new commit
+	newCommitInfo.DirectProvenance = branchInfo.DirectProvenance
+
 	// check if this is happening in a spout pipeline, and alias the spec commit
 	spoutName, ok1 := os.LookupEnv("SPOUT_PIPELINE_NAME")
 	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
@@ -671,12 +674,13 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 		}
 
 		commitInfo = &pfs.CommitInfo{
-			Commit:       commit,
-			Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_ALIAS},
-			ParentCommit: parent,
-			ChildCommits: []*pfs.Commit{},
-			Started:      txnCtx.Timestamp,
-			SizeBytes:    parentCommitInfo.SizeBytes,
+			Commit:           commit,
+			Origin:           &pfs.CommitOrigin{Kind: pfs.OriginKind_ALIAS},
+			ParentCommit:     parent,
+			ChildCommits:     []*pfs.Commit{},
+			Started:          txnCtx.Timestamp,
+			SizeBytes:        parentCommitInfo.SizeBytes,
+			DirectProvenance: branchInfo.DirectProvenance,
 		}
 		if parentCommitInfo.Finished != nil {
 			commitInfo.Finished = txnCtx.Timestamp
@@ -847,9 +851,10 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				ID:     txnCtx.CommitsetID,
 			}
 			newCommitInfo := &pfs.CommitInfo{
-				Commit:  newCommit,
-				Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-				Started: txnCtx.Timestamp,
+				Commit:           newCommit,
+				Origin:           &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+				Started:          txnCtx.Timestamp,
+				DirectProvenance: subvBI.DirectProvenance,
 			}
 
 			// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
@@ -1331,14 +1336,14 @@ func (d *driver) squashCommitset(txnCtx *txncontext.TransactionContext, commitse
 		}
 
 		// Update the commit's branch's branchInfo in case this was the head of the branch
-		var branchInfo pfs.BranchInfo
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(commitInfo.Commit.Branch), &branchInfo, func() error {
+		branchInfo := &pfs.BranchInfo{}
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(commitInfo.Commit.Branch), branchInfo, func() error {
 			if branchInfo.Head.ID == commitInfo.Commit.ID {
 				if commitInfo.ParentCommit == nil || !proto.Equal(commitInfo.ParentCommit.Branch, commitInfo.Commit.Branch) {
 					// Create a new empty commit for the branch head
 					var err error
 					closed := len(branchInfo.Provenance) == 0 // For input branches, we make a closed default head commit
-					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch, closed)
+					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo, closed)
 					if err != nil {
 						return err
 					}
@@ -1581,7 +1586,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// can maintain an invariant that branches always have a head commit.
 	if branchInfo.Head == nil {
 		closed := len(provenance) == 0 // For input branches, we make a closed default head commit
-		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch, closed)
+		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo, closed)
 		if err != nil {
 			return err
 		}
@@ -1831,7 +1836,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 			// We are creating this branch for the first time, set the Branch and Head
 			provBranchInfo.Branch = provBranch
 
-			head, err := d.makeEmptyCommit(txnCtx, provBranch, true)
+			head, err := d.makeEmptyCommit(txnCtx, provBranchInfo, true)
 			if err != nil {
 				return err
 			}
@@ -1864,12 +1869,13 @@ func (d *driver) deleteAll(txnCtx *txncontext.TransactionContext) error {
 	return nil
 }
 
-func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, closed bool) (*pfs.Commit, error) {
-	commit := branch.NewCommit(txnCtx.CommitsetID)
+func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, closed bool) (*pfs.Commit, error) {
+	commit := branchInfo.Branch.NewCommit(txnCtx.CommitsetID)
 	commitInfo := &pfs.CommitInfo{
-		Commit:  commit,
-		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-		Started: txnCtx.Timestamp,
+		Commit:           commit,
+		Origin:           &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Started:          txnCtx.Timestamp,
+		DirectProvenance: branchInfo.DirectProvenance,
 	}
 	if closed {
 		commitInfo.Finished = txnCtx.Timestamp
