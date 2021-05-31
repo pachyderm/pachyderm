@@ -37,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 )
@@ -2687,6 +2688,7 @@ func TestPFS(suite *testing.T) {
 
 		_, err := env.PachClient.BlockCommitsetAll("fake-commitset")
 		require.YesError(t, err)
+		require.True(t, pfsserver.IsCommitsetNotFoundErr(err))
 	})
 
 	suite.Run("PutFileSplit", func(t *testing.T) {

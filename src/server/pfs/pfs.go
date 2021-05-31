@@ -35,6 +35,11 @@ type ErrCommitNotFound struct {
 	Commit *pfs.Commit
 }
 
+// ErrCommitsetNotFound represents a commitset-not-found error.
+type ErrCommitsetNotFound struct {
+	Commitset *pfs.Commitset
+}
+
 // ErrCommitExists represents an error where the commit already exists.
 type ErrCommitExists struct {
 	Commit *pfs.Commit
@@ -119,6 +124,10 @@ func (e ErrCommitNotFound) Error() string {
 	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
+func (e ErrCommitsetNotFound) Error() string {
+	return fmt.Sprintf("no commits found for commitset %v", e.Commitset.ID)
+}
+
 func (e ErrCommitExists) Error() string {
 	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
@@ -161,6 +170,7 @@ func (e ErrParentNotFinished) Error() string {
 
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
+	commitsetNotFoundRe       = regexp.MustCompile("no commits found for commitset")
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
 	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
 	repoNotFoundRe            = regexp.MustCompile(`repos [a-zA-Z0-9.\-_]{1,255} not found`)
@@ -182,6 +192,15 @@ func IsCommitNotFoundErr(err error) bool {
 		return false
 	}
 	return commitNotFoundRe.MatchString(grpcutil.ScrubGRPC(err).Error())
+}
+
+// IsCommitsetNotFoundErr returns true if 'err' has an error message that matches
+// ErrCommitsetNotFound
+func IsCommitsetNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitsetNotFoundRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }
 
 // IsCommitDeletedErr returns true if 'err' has an error message that matches

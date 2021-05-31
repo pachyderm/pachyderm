@@ -1235,6 +1235,10 @@ func (d *driver) inspectCommitsetImmediate(txnCtx *txncontext.TransactionContext
 		return nil, err
 	}
 
+	if len(commitMap) == 0 {
+		return nil, pfsserver.ErrCommitsetNotFound{Commitset: commitset}
+	}
+
 	// Do a topological sort of the commitInfos (note that this isn't a stable
 	// sort, but we could do it if that becomes a problem)
 	result := []*pfs.CommitInfo{}
