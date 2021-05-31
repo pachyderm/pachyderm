@@ -347,7 +347,7 @@ func (c *pfsBuilderClient) InspectCommit(ctx context.Context, req *pfs.InspectCo
 func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (pfs.API_ListCommitClient, error) {
 	return nil, unsupportedError("ListCommit")
 }
-func (c *pfsBuilderClient) InspectCommitset(ctx context.Context, req *pfs.InspectCommitsetRequest, opts ...grpc.CallOption) (*pfs.Commitset, error) {
+func (c *pfsBuilderClient) InspectCommitset(ctx context.Context, req *pfs.InspectCommitsetRequest, opts ...grpc.CallOption) (pfs.API_InspectCommitsetClient, error) {
 	return nil, unsupportedError("InspectCommitset")
 }
 func (c *pfsBuilderClient) SubscribeCommit(ctx context.Context, req *pfs.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs.API_SubscribeCommitClient, error) {

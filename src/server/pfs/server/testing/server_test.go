@@ -1182,21 +1182,21 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, "master", branchInfos[0].Branch.Name)
 
 		// Check that moving the commit to other branches uses the same Commitset ID and extends the existing Commitset
-		commitset, err := env.PachClient.InspectCommitset(commit.ID)
+		commitInfos, err := env.PachClient.InspectCommitset(commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(commitset.Commits))
+		require.Equal(t, 1, len(commitInfos))
 
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master2", commit.Branch.Name, commit.ID, nil))
 
-		commitset, err = env.PachClient.InspectCommitset(commit.ID)
+		commitInfos, err = env.PachClient.InspectCommitset(commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitset.Commits))
+		require.Equal(t, 2, len(commitInfos))
 
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master3", commit.Branch.Name, commit.ID, nil))
 
-		commitset, err = env.PachClient.InspectCommitset(commit.ID)
+		commitInfos, err = env.PachClient.InspectCommitset(commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(commitset.Commits))
+		require.Equal(t, 3, len(commitInfos))
 
 		branchInfos, err = env.PachClient.ListBranch(repo)
 		require.NoError(t, err)
@@ -2494,11 +2494,11 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
 		require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
 
-		commitset, err := env.PachClient.BlockCommitset(ACommit.ID)
+		commitInfos, err := env.PachClient.BlockCommitsetAll(ACommit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitset.Commits))
-		require.Equal(t, ACommit, commitset.Commits[0].Info.Commit)
-		require.Equal(t, BCommit, commitset.Commits[1].Info.Commit)
+		require.Equal(t, 2, len(commitInfos))
+		require.Equal(t, ACommit, commitInfos[0].Commit)
+		require.Equal(t, BCommit, commitInfos[1].Commit)
 	})
 
 	// BlockCommitset2 implements the following DAG:
@@ -2532,16 +2532,16 @@ func TestPFS(suite *testing.T) {
 		}()
 
 		// Wait for the commits to finish
-		commitset, err := env.PachClient.BlockCommitset(ACommit.ID)
+		commitInfos, err := env.PachClient.BlockCommitsetAll(ACommit.ID)
 		require.NoError(t, err)
 		BCommit := client.NewCommit("B", "master", ACommit.ID)
 		CCommit := client.NewCommit("C", "master", ACommit.ID)
 		DCommit := client.NewCommit("D", "master", ACommit.ID)
-		require.Equal(t, 4, len(commitset.Commits))
-		require.Equal(t, ACommit, commitset.Commits[0].Info.Commit)
-		require.Equal(t, BCommit, commitset.Commits[1].Info.Commit)
-		require.Equal(t, CCommit, commitset.Commits[2].Info.Commit)
-		require.Equal(t, DCommit, commitset.Commits[3].Info.Commit)
+		require.Equal(t, 4, len(commitInfos))
+		require.Equal(t, ACommit, commitInfos[0].Commit)
+		require.Equal(t, BCommit, commitInfos[1].Commit)
+		require.Equal(t, CCommit, commitInfos[2].Commit)
+		require.Equal(t, DCommit, commitInfos[3].Commit)
 	})
 
 	// A
@@ -2577,21 +2577,21 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 
 		// The first two commits will be A and B, but they aren't deterministically sorted
-		commitset, err := env.PachClient.BlockCommitset(ACommit.ID)
+		commitInfos, err := env.PachClient.BlockCommitsetAll(ACommit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(commitset.Commits))
+		require.Equal(t, 3, len(commitInfos))
 		expected := []*pfs.Commit{ACommit, client.NewCommit("B", "master", ACommit.ID)}
-		actual := []*pfs.Commit{commitset.Commits[0].Info.Commit, commitset.Commits[1].Info.Commit}
+		actual := []*pfs.Commit{commitInfos[0].Commit, commitInfos[1].Commit}
 		require.ImagesEqual(t, expected, actual, CommitToID)
-		require.Equal(t, client.NewCommit("C", "master", ACommit.ID), commitset.Commits[2].Info.Commit)
+		require.Equal(t, client.NewCommit("C", "master", ACommit.ID), commitInfos[2].Commit)
 
-		commitset, err = env.PachClient.BlockCommitset(BCommit.ID)
+		commitInfos, err = env.PachClient.BlockCommitsetAll(BCommit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(commitset.Commits))
+		require.Equal(t, 3, len(commitInfos))
 		expected = []*pfs.Commit{client.NewCommit("A", "master", BCommit.ID), BCommit}
-		actual = []*pfs.Commit{commitset.Commits[0].Info.Commit, commitset.Commits[1].Info.Commit}
+		actual = []*pfs.Commit{commitInfos[0].Commit, commitInfos[1].Commit}
 		require.ImagesEqual(t, expected, actual, CommitToID)
-		require.Equal(t, client.NewCommit("C", "master", BCommit.ID), commitset.Commits[2].Info.Commit)
+		require.Equal(t, client.NewCommit("C", "master", BCommit.ID), commitInfos[2].Commit)
 	})
 
 	suite.Run("BlockCommitsetWithNoDownstreamRepos", func(t *testing.T) {
@@ -2603,10 +2603,10 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
-		commitset, err := env.PachClient.BlockCommitset(commit.ID)
+		commitInfos, err := env.PachClient.BlockCommitsetAll(commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(commitset.Commits))
-		require.Equal(t, commit, commitset.Commits[0].Info.Commit)
+		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, commit, commitInfos[0].Commit)
 	})
 
 	suite.Run("BlockOpenCommit", func(t *testing.T) {
@@ -2635,11 +2635,11 @@ func TestPFS(suite *testing.T) {
 		})
 
 		// Wait for the commit to finish
-		commitset, err := env.PachClient.BlockCommitset(commit.ID)
+		commitInfos, err := env.PachClient.BlockCommitsetAll(commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitset.Commits))
-		require.Equal(t, commit, commitset.Commits[0].Info.Commit)
-		require.Equal(t, client.NewCommit("B", "master", commit.ID), commitset.Commits[1].Info.Commit)
+		require.Equal(t, 2, len(commitInfos))
+		require.Equal(t, commit, commitInfos[0].Commit)
+		require.Equal(t, client.NewCommit("B", "master", commit.ID), commitInfos[1].Commit)
 	})
 
 	suite.Run("BlockUninvolvedBranch", func(t *testing.T) {
@@ -2677,7 +2677,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.BlockCommitset("")
+		_, err := env.PachClient.BlockCommitsetAll("")
 		require.YesError(t, err)
 	})
 
@@ -2685,7 +2685,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.BlockCommitset("fake-commitset")
+		_, err := env.PachClient.BlockCommitsetAll("fake-commitset")
 		require.YesError(t, err)
 	})
 
@@ -3413,9 +3413,9 @@ func TestPFS(suite *testing.T) {
 		cCommitInfo, err := env.PachClient.InspectCommit("C", "master", "")
 		require.NoError(t, err)
 
-		commitset, err := env.PachClient.InspectCommitset(cCommitInfo.Commit.ID)
+		commitInfos, err := env.PachClient.InspectCommitset(cCommitInfo.Commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 4, len(commitset.Commits))
+		require.Equal(t, 4, len(commitInfos))
 	})
 
 	suite.Run("BranchProvenance", func(t *testing.T) {
@@ -4477,10 +4477,10 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		commitsetID := commitInfoA.Commit.ID
 
-		commitset, err := env.PachClient.BlockCommitset(commitsetID)
+		commitInfos, err := env.PachClient.BlockCommitsetAll(commitsetID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(commitset.Commits))
-		require.Equal(t, commitInfoA.Commit, commitset.Commits[0].Info.Commit)
+		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, commitInfoA.Commit, commitInfos[0].Commit)
 
 		require.NoError(t, env.PachClient.CreateBranch("input", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output1", "staging", ""))
@@ -4488,9 +4488,9 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, commitsetID, commitInfoB.Commit.ID)
 
-		commitset, err = env.PachClient.BlockCommitset(commitsetID)
+		commitInfos, err = env.PachClient.BlockCommitsetAll(commitsetID)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(commitset.Commits))
+		require.Equal(t, 3, len(commitInfos))
 
 		// The results _should_ be topologically sorted, but there are several
 		// branches with equivalent topological depth
@@ -4499,7 +4499,7 @@ func TestPFS(suite *testing.T) {
 			pfsdb.CommitKey(client.NewCommit("input", "master", commitsetID)),
 			pfsdb.CommitKey(client.NewCommit("output1", "staging", commitsetID)),
 		}
-		require.ElementsEqualUnderFn(t, expectedCommits, commitset.CommitInfos(), CommitInfoToID)
+		require.ElementsEqualUnderFn(t, expectedCommits, commitInfos, CommitInfoToID)
 
 		require.NoError(t, env.PachClient.CreateBranch("output1", "master", "staging", "", nil))
 		require.NoError(t, env.PachClient.FinishCommit("output2", "staging", ""))
@@ -4507,14 +4507,14 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, commitsetID, commitInfoC.Commit.ID)
 
-		commitset, err = env.PachClient.BlockCommitset(commitsetID)
+		commitInfos, err = env.PachClient.BlockCommitsetAll(commitsetID)
 		require.NoError(t, err)
-		require.Equal(t, 5, len(commitset.Commits))
+		require.Equal(t, 5, len(commitInfos))
 		expectedCommits = append(expectedCommits, []string{
 			pfsdb.CommitKey(client.NewCommit("output1", "master", commitsetID)),
 			pfsdb.CommitKey(client.NewCommit("output2", "staging", commitsetID)),
 		}...)
-		require.ElementsEqualUnderFn(t, expectedCommits, commitset.CommitInfos(), CommitInfoToID)
+		require.ElementsEqualUnderFn(t, expectedCommits, commitInfos, CommitInfoToID)
 	})
 
 	suite.Run("ListAll", func(t *testing.T) {

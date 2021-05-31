@@ -535,7 +535,7 @@ $ {{alias}} XXX -b bar@baz`,
 			// the set or only specific branches.
 			if commit != nil {
 				if len(toBranches) != 0 {
-					// We just want to use the commitset ID and wait on the downstream branches
+					// We just want to resolve the commit to get the ID and wait on the downstream branches
 					ci, err := c.InspectCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 					if err != nil {
 						return err
@@ -549,12 +549,12 @@ $ {{alias}} XXX -b bar@baz`,
 					return blockBranches(commitsetID)
 				}
 				// We are waiting for the entire commitset to finish
-				commitset, err := c.BlockCommitset(commitsetID)
+				commitInfos, err := c.BlockCommitsetAll(commitsetID)
 				if err != nil {
 					return err
 				}
-				for _, entry := range commitset.Commits {
-					if err := writeCommitInfo(entry.Info); err != nil {
+				for _, commitInfo := range commitInfos {
+					if err := writeCommitInfo(commitInfo); err != nil {
 						return err
 					}
 				}
