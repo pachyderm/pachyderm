@@ -237,8 +237,7 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) error) error {
 	// Check that the user is logged in (user doesn't need any access level to
 	// fsck, but they must be authenticated if auth is active)
-	pachClient := d.env.GetPachClient(ctx)
-	if _, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil {
+	if _, err := d.env.AuthServer().WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil {
 		if !auth.IsErrNotActivated(err) {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to run fsck)")
 		}
