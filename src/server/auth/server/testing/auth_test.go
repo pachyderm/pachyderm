@@ -2752,26 +2752,32 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	require.NoError(t, err)
 	authToken := authResp.Token
 
+	vmIP := os.Getenv("VM_IP")
+	if vmIP == "" {
+		vmIP = "127.0.0.1"
+	}
+	s3Addr = fmt.Sprintf("%v:30600", vmIP)
+
 	// anon login via V2 - should fail
-	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	minioClientV2, err := minio.NewV2(s3Addr, "", "", false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.YesError(t, err)
 
 	// anon login via V4 - should fail
-	minioClientV4, err := minio.NewV4("127.0.0.1:30600", "", "", false)
+	minioClientV4, err := minio.NewV4(s3Addr, "", "", false)
 	require.NoError(t, err)
 	_, err = minioClientV4.ListBuckets()
 	require.YesError(t, err)
 
 	// proper login via V2 - should succeed
-	minioClientV2, err = minio.NewV2("127.0.0.1:30600", authToken, authToken, false)
+	minioClientV2, err = minio.NewV2(s3Addr, authToken, authToken, false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.NoError(t, err)
 
 	// proper login via V4 - should succeed
-	minioClientV2, err = minio.NewV4("127.0.0.1:30600", authToken, authToken, false)
+	minioClientV2, err = minio.NewV4(s3Addr, authToken, authToken, false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.NoError(t, err)

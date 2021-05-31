@@ -62,6 +62,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func vmIP() string {
+	ip := os.Getenv("VM_IP")
+	if ip == "" {
+		return "127.0.0.1"
+	}
+	return ip
+}
+
 func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
 	var commitInfos []*pfs.CommitInfo
 	for {
@@ -10449,7 +10457,7 @@ func TestPachdPrometheusStats(t *testing.T) {
 
 	port := os.Getenv("PROM_PORT")
 	promClient, err := prom_api.NewClient(prom_api.Config{
-		Address: fmt.Sprintf("http://127.0.0.1:%v", port),
+		Address: fmt.Sprintf("http://%v:%v", vmIP(), port),
 	})
 	require.NoError(t, err)
 	promAPI := prom_api_v1.NewAPI(promClient)
@@ -13850,7 +13858,7 @@ func simulateGitPush(t *testing.T, pathToPayload string) {
 	require.NoError(t, err)
 	req, err := http.NewRequest(
 		"POST",
-		fmt.Sprintf("http://127.0.0.1:%v/v1/handle/push", githook.GitHookPort+30000),
+		fmt.Sprintf("http://%v:%v/v1/handle/push", vmIP(), githook.GitHookPort+30000),
 		bytes.NewBuffer(payload),
 	)
 	require.NoError(t, err)
