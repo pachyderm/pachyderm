@@ -99,10 +99,16 @@ func TestSimplePipeline(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err := c.BlockCommitsetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	require.Equal(t, 4, len(commitInfos))
+	// First two are not deterministically ordered
+	require.Equal(t, pipeline, commitInfos[2].Commit.Branch.Repo.Name)
+	require.Equal(t, pfs.UserRepoType, commitInfos[2].Commit.Branch.Repo.Type)
+	require.Equal(t, pipeline, commitInfos[3].Commit.Branch.Repo.Name)
+	require.Equal(t, pfs.MetaRepoType, commitInfos[3].Commit.Branch.Repo.Type)
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit, "file", &buf))
+	require.NoError(t, c.GetFile(commitInfos[2].Commit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 }
 
