@@ -2,6 +2,7 @@ package dbutil
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -25,7 +26,12 @@ const (
 // then calls cb with a sqlx.DB configured to use the newly created database.
 // After cb returns the database is dropped.
 func NewTestDB(t testing.TB) *sqlx.DB {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s sslmode=disable", DefaultPostgresHost, DefaultPostgresPort, TestPostgresUser)
+	host := os.Getenv("POSTGRES_SERVICE_HOST")
+	if host == "" {
+		host = DefaultPostgresHost
+	}
+
+	dsn := fmt.Sprintf("host=%s port=%d user=%s sslmode=disable", host, DefaultPostgresPort, TestPostgresUser)
 	db := sqlx.MustOpen("postgres", dsn)
 	dbName := fmt.Sprintf("test_%d", time.Now().UnixNano())
 	db.MustExec("CREATE DATABASE " + dbName)
