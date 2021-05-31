@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
+	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
 
@@ -38,12 +39,12 @@ type ServiceEnv interface {
 	AuthServer() auth_server.APIServer
 	PfsServer() pfs_server.APIServer
 	PpsServer() pps_server.APIServer
+	EnterpriseServer() enterprise_server.APIServer
 	SetAuthServer(auth_server.APIServer)
 	SetPfsServer(pfs_server.APIServer)
 	SetPpsServer(pps_server.APIServer)
 
 	Config() *Configuration
-	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
@@ -111,9 +112,10 @@ type NonblockingServiceEnv struct {
 	// listenerEg coordinates the initialization of listener (see pachdEg)
 	listenerEg errgroup.Group
 
-	authServer auth_server.APIServer
-	ppsServer  pps_server.APIServer
-	pfsServer  pfs_server.APIServer
+	authServer       auth_server.APIServer
+	ppsServer        pps_server.APIServer
+	pfsServer        pfs_server.APIServer
+	enterpriseServer enterprise_server.APIServer
 
 	// ctx is the background context for the environment that will be canceled
 	// when the ServiceEnv is closed - this typically only happens for orderly
@@ -432,4 +434,14 @@ func (env *NonblockingServiceEnv) PfsServer() pfs_server.APIServer {
 // SetPfsServer registers a Pfs APIServer with this service env
 func (env *NonblockingServiceEnv) SetPfsServer(s pfs_server.APIServer) {
 	env.pfsServer = s
+}
+
+// EnterpriseServer returns the registered PFS APIServer
+func (env *NonblockingServiceEnv) EnterpriseServer() enterprise_server.APIServer {
+	return env.enterpriseServer
+}
+
+// SetEnterpriseServer registers a Enterprise APIServer with this service env
+func (env *NonblockingServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
+	env.enterpriseServer = s
 }
