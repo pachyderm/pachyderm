@@ -38,6 +38,11 @@ import (
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 )
 
+// JobKey is the string representation of a Job suitable for use as an indexing key
+func JobKey(pipelineJob *pps.PipelineJob) string {
+	return fmt.Sprintf("%s@%s", pipelineJob.Pipeline.Name, pipelineJob.ID)
+}
+
 // PipelineRepo creates a pfs repo for a given pipeline.
 func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
 	return client.NewRepo(pipeline.Name)
@@ -339,7 +344,7 @@ func UpdatePipelineJobState(pipelines col.ReadWriteCollection, pipelineJobs col.
 
 	// Update pipeline
 	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := pipelines.Get(pipelineJobPtr.Pipeline.Name, pipelinePtr); err != nil {
+	if err := pipelines.Get(pipelineJobPtr.PipelineJob.Pipeline.Name, pipelinePtr); err != nil {
 		return err
 	}
 	if pipelinePtr.JobCounts == nil {
@@ -350,7 +355,7 @@ func UpdatePipelineJobState(pipelines col.ReadWriteCollection, pipelineJobs col.
 	}
 	pipelinePtr.JobCounts[int32(state)]++
 	pipelinePtr.LastJobState = state
-	if err := pipelines.Put(pipelineJobPtr.Pipeline.Name, pipelinePtr); err != nil {
+	if err := pipelines.Put(pipelineJobPtr.PipelineJob.Pipeline.Name, pipelinePtr); err != nil {
 		return err
 	}
 
@@ -366,7 +371,7 @@ func UpdatePipelineJobState(pipelines col.ReadWriteCollection, pipelineJobs col.
 	}
 	pipelineJobPtr.State = state
 	pipelineJobPtr.Reason = reason
-	return pipelineJobs.Put(pipelineJobPtr.PipelineJob.ID, pipelineJobPtr)
+	return pipelineJobs.Put(JobKey(pipelineJobPtr.PipelineJob), pipelineJobPtr)
 }
 
 func FinishPipelineJob(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo, state pps.PipelineJobState, reason string) error {
