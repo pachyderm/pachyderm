@@ -24,6 +24,8 @@ export TESTFLAGS
 minikube status
 kubectl version
 
+eval "$(minikube docker-env)"
+
 echo "Running test suite based on BUCKET=$BUCKET"
 
 function test_bucket {

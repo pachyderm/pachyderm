@@ -2756,7 +2756,7 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	if vmIP == "" {
 		vmIP = "127.0.0.1"
 	}
-	s3Addr = fmt.Sprintf("%v:30600", vmIP)
+	s3Addr := fmt.Sprintf("%v:30600", vmIP)
 
 	// anon login via V2 - should fail
 	minioClientV2, err := minio.NewV2(s3Addr, "", "", false)
