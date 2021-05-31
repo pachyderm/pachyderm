@@ -9,10 +9,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -235,14 +232,6 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 // 4. Commit provenance and commit subvenance are dual relations
 // If fix is true it will attempt to fix as many of these issues as it can.
 func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) error) error {
-	// Check that the user is logged in (user doesn't need any access level to
-	// fsck, but they must be authenticated if auth is active)
-	if _, err := d.env.AuthServer().WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil {
-		if !auth.IsErrNotActivated(err) {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to run fsck)")
-		}
-	}
-
 	onError := func(err error) error { return cb(&pfs.FsckResponse{Error: err.Error()}) }
 	onFix := func(fix string) error { return cb(&pfs.FsckResponse{Fix: fix}) }
 
