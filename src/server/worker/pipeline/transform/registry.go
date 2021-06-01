@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -390,7 +391,7 @@ func (reg *registry) superviseJob(ppj *pendingPipelineJob) error {
 			if err := ppj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobPtr := &pps.StoredPipelineJobInfo{}
-				if err := ppj.driver.PipelineJobs().ReadWrite(sqlTx).Get(ppj.pji.PipelineJob.ID, jobPtr); err != nil {
+				if err := ppj.driver.PipelineJobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(ppj.pji.PipelineJob), jobPtr); err != nil {
 					return err
 				}
 				return ppj.driver.DeletePipelineJob(sqlTx, jobPtr)

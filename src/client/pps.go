@@ -514,13 +514,13 @@ func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) 
 }
 
 // InspectDatum returns info about a single datum
-func (c APIClient) InspectDatum(pipelineName string, pipelineJobID string, datumID string) (*pps.DatumInfo, error) {
+func (c APIClient) InspectDatum(pipelineJobID string, datumID string) (*pps.DatumInfo, error) {
 	datumInfo, err := c.PpsAPIClient.InspectDatum(
 		c.Ctx(),
 		&pps.InspectDatumRequest{
 			Datum: &pps.Datum{
-				ID:          datumID,
-				PipelineJob: NewPipelineJob(pipelineName, pipelineJobID),
+				ID:            datumID,
+				PipelineJobID: pipelineJobID,
 			},
 		},
 	)

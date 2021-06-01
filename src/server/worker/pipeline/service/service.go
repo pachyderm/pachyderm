@@ -27,7 +27,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	pipelineInfo := driver.PipelineInfo()
 	return forEachPipelineJob(pachClient, pipelineInfo, logger, func(ctx context.Context, pipelineJobInfo *pps.PipelineJobInfo) (retErr error) {
 		driver := driver.WithContext(ctx)
-		if err := driver.UpdatePipelineJobState(pipelineJobInfo.PipelineJob.ID, pps.PipelineJobState_JOB_RUNNING, ""); err != nil {
+		if err := driver.UpdatePipelineJobState(pipelineJobInfo.PipelineJob, pps.PipelineJobState_JOB_RUNNING, ""); err != nil {
 			return err
 		}
 		pipelineJobInput := ppsutil.PipelineJobInput(pipelineInfo, pipelineJobInfo.OutputCommit)
