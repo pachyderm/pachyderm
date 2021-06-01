@@ -19,7 +19,7 @@ const (
 	// DefaultPostgresPort for tests
 	DefaultPostgresPort = 32228
 	// TestPostgresUser is the default postgres user
-	TestPostgresUser = "postgres"
+	TestPostgresUser = "pachyderm"
 )
 
 // NewTestDB connects to postgres using the default settings, creates a database with a unique name
