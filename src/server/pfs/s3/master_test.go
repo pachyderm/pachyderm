@@ -430,7 +430,11 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 
 func masterAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	// The other tests use auth V4, versus this which checks auth V2
-	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	host := os.Getenv("VM_IP")
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	minioClientV2, err := minio.NewV2(fmt.Sprintf("%v:30600", host), "", "", false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.NoError(t, err)
