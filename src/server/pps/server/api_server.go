@@ -1062,8 +1062,8 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
 	di := &pps.DatumInfo{
 		Datum: &pps.Datum{
-			PipelineJobID: meta.PipelineJobID,
-			ID:            common.DatumID(meta.Inputs),
+			PipelineJob: meta.PipelineJob,
+			ID:          common.DatumID(meta.Inputs),
 		},
 		State: convertDatumState(meta.State),
 		Stats: meta.Stats,

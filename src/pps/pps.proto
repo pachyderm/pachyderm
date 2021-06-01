@@ -176,7 +176,7 @@ message InputFile {
 message Datum {
   // ID is the hash computed from all the files
   string id = 1 [(gogoproto.customname) = "ID"];
-  string pipeline_job_id = 2 [(gogoproto.customname) = "PipelineJobID"];
+  PipelineJob pipeline_job = 2;
 }
 
 enum DatumState {

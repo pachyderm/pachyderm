@@ -253,7 +253,7 @@ func (reg *registry) startPipelineJob(pipelineJobInfo *pps.PipelineJobInfo) erro
 		return err
 	}
 	outputDit := datum.NewCommitIterator(pachClient, ppj.metaCommitInfo.Commit)
-	ppj.jdit = reg.jobChain.CreateJob(ppj.driver.PachClient().Ctx(), ppj.pji.PipelineJob.ID, dit, outputDit)
+	ppj.jdit = reg.jobChain.CreateJob(ppj.driver.PachClient().Ctx(), ppj.pji.PipelineJob, dit, outputDit)
 	var afterTime time.Duration
 	if ppj.pji.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(ppj.pji.Started)
@@ -311,7 +311,7 @@ func (reg *registry) startPipelineJob(pipelineJobInfo *pps.PipelineJobInfo) erro
 					err = errors.Unwrap(err)
 				}
 				// Get job state, increment restarts, write job state
-				ppj.pji, err = ppj.driver.PachClient().InspectPipelineJob(ppj.pji.PipelineJob.ID, false)
+				ppj.pji, err = ppj.driver.PachClient().InspectPipelineJob(ppj.pji.PipelineJob.Pipeline.Name, ppj.pji.PipelineJob.ID, false)
 				if err != nil {
 					return err
 				}

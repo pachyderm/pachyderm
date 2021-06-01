@@ -216,7 +216,7 @@ func jobDesc(pji *pps.PipelineJobInfo) string {
 	} else {
 		statusString = fmt.Sprintf("%s %s", pps_pretty.JobState(pji.State), pretty.Ago(pji.Finished))
 	}
-	return fmt.Sprintf("%s: %s - %s", pji.Pipeline.Name, pps_pretty.Progress(pji), statusString)
+	return fmt.Sprintf("%s: %s - %s", pji.PipelineJob.Pipeline.Name, pps_pretty.Progress(pji), statusString)
 }
 
 // JobCompletion completes job parameters of the form <job>
