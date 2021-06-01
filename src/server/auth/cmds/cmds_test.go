@@ -276,26 +276,25 @@ func TestGetAndUseRobotToken(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
-	// TODO(2.0 required): Investigate test not passing.
-	t.Skip("Test not passing")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.ActivateAuth(t)
+	tu.ConfigureOIDCProvider(t)
 	defer tu.DeleteAll(t)
 
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth set-config <<EOF
-		{
-		   "issuer": "http://localhost:658",
-                   "localhost_issuer": true,
-                   "client_id": localhost,
-                   "redirect_uri": "http://localhost:650"
-		}
-		EOF
+        pachctl auth set-config <<EOF
+        {
+            "issuer": "http://localhost:30658/",
+            "localhost_issuer": true,
+            "client_id": "localhost",
+            "redirect_uri": "http://localhost:650"
+        }
+EOF
 		pachctl auth get-config \
-		  | match '"issuer": "localhost:658"' \
-		  | match '"localhost_issuer": true,' \
+		  | match '"issuer": "http://localhost:30658/"' \
+		  | match '"localhost_issuer": true' \
 		  | match '"client_id": "localhost"' \
 		  | match '"redirect_uri": "http://localhost:650"' \
 		  | match '}'
@@ -303,10 +302,10 @@ func TestConfig(t *testing.T) {
 
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth get-config -o yaml \
-                  | match 'issuer: "localhost:658"' \
-		  | match 'localhost_issuer: true,' \
+		  | match 'issuer: http://localhost:30658/' \
+		  | match 'localhost_issuer: true' \
 		  | match 'client_id: localhost' \
-		  | match 'redirect_uri: "http://localhost:650"' \
+		  | match 'redirect_uri: http://localhost:650' \
 		`).Run())
 }
 
