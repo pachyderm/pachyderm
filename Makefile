@@ -192,16 +192,20 @@ clean-launch-kube:
 	sudo minikube ip 2>/dev/null && sudo minikube delete || true
 	killall kubectl || true
 
-launch: install check-kubectl
+launch: check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	$(PACHCTL) deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
+	helm repo add pachyderm https://pachyderm.github.io/helmchart
+	helm repo update
+	helm install pachd pachyderm/pachyderm --set pachd.storage.backend=LOCAL,pachd.image.tag=local,pachd.service.type=NodePort --version 2.0.0-alpha.3
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-dev: check-kubectl check-kubectl-connection install
+launch-dev: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
-	$(PACHCTL) deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	helm repo add pachyderm https://pachyderm.github.io/helmchart
+	helm repo update
+	helm install pachd pachyderm/pachyderm --set pachd.storage.backend=LOCAL,pachd.image.tag=local,pachd.service.type=NodePort --version 2.0.0-alpha.3
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
