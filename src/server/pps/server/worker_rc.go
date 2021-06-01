@@ -562,7 +562,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *
 	annotations := map[string]string{
 		pipelineNameLabel:         pipelineName,
 		pachVersionAnnotation:     version.PrettyVersion(),
-		specCommitAnnotation:      ptr.SpecCommit.ID,
+		specCommitAnnotation:      ptr.OriginalSpecCommit.ID,
 		hashedAuthTokenAnnotation: hashAuthToken(ptr.AuthToken),
 	}
 	if a.iamRole != "" {
@@ -604,7 +604,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *
 	return &workerOptions{
 		rcName:                rcName,
 		s3GatewayPort:         s3GatewayPort,
-		specCommit:            ptr.SpecCommit.ID,
+		specCommit:            ptr.OriginalSpecCommit.ID,
 		labels:                labels,
 		annotations:           annotations,
 		parallelism:           int32(0), // pipelines start w/ 0 workers & are scaled up

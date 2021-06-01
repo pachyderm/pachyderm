@@ -37,7 +37,7 @@ message TransactionResponse {
 
 message CreatePipelineTransactionResponse {
   string fileset_id = 1; // The fileset ID that the pipeline info was written to outside of the transaction
-  pfs.Commit prev_spec_commit = 2; // The commit of the pipeline spec that the fileset was based off of
+  uint64 prev_pipeline_version = 2; // The version of the pipeline spec that the fileset was based off of
 }
 
 message Transaction {

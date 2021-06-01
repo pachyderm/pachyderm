@@ -631,6 +631,7 @@ func (a *apiServer) listPipelineJob(
 			return err
 		}
 	}
+
 	var err error
 	if outputCommit != nil {
 		outputCommit, err = a.resolveCommit(ctx, outputCommit)
@@ -644,6 +645,7 @@ func (a *apiServer) listPipelineJob(
 			return err
 		}
 	}
+
 	var jqCode *gojq.Code
 	var enc serde.Encoder
 	var jsonBuffer bytes.Buffer
@@ -659,15 +661,20 @@ func (a *apiServer) listPipelineJob(
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
-	// specCommits holds the specCommits of pipelines that we're interested in
-	specCommits := make(map[string]bool)
+
+	// pipelineVersions holds the versions of pipelines that we're interested in
+	versionKey := func(name string, version uint64) string {
+		return fmt.Sprintf("%s-%v", name, version)
+	}
+	pipelineVersions := make(map[string]bool)
 	if err := a.listPipelinePtr(ctx, pipeline, history,
 		func(ptr *pps.StoredPipelineInfo) error {
-			specCommits[ptr.SpecCommit.ID] = true
+			pipelineVersions[versionKey(ptr.Pipeline.Name, ptr.Version)] = true
 			return nil
 		}); err != nil {
 		return err
 	}
+
 	pipelineJobs := a.pipelineJobs.ReadOnly(ctx)
 	pipelineJobPtr := &pps.StoredPipelineJobInfo{}
 	_f := func(string) error {
@@ -684,6 +691,7 @@ func (a *apiServer) listPipelineJob(
 			}
 			return err
 		}
+
 		if len(inputCommits) > 0 {
 			found := make([]bool, len(inputCommits))
 			pps.VisitInput(pipelineJobInfo.Input, func(in *pps.Input) error {
@@ -702,9 +710,11 @@ func (a *apiServer) listPipelineJob(
 				}
 			}
 		}
-		if !specCommits[pipelineJobInfo.SpecCommit.ID] {
+
+		if !pipelineVersions[versionKey(pipelineJobInfo.PipelineJob.Pipeline.Name, pipelineJobInfo.PipelineVersion)] {
 			return nil
 		}
+
 		if jqCode != nil {
 			jsonBuffer.Reset()
 			// convert pipelineJobInfo to a map[string]interface{} for use with gojq
@@ -717,6 +727,7 @@ func (a *apiServer) listPipelineJob(
 				return nil
 			}
 		}
+
 		return f(pipelineJobInfo)
 	}
 	if pipeline != nil {
@@ -730,24 +741,24 @@ func (a *apiServer) listPipelineJob(
 
 func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *pps.StoredPipelineJobInfo, full bool) (*pps.PipelineJobInfo, error) {
 	result := &pps.PipelineJobInfo{
-		PipelineJob:   pipelineJobPtr.PipelineJob,
-		OutputRepo:    client.NewRepo(pipelineJobPtr.PipelineJob.Pipeline.Name),
-		OutputCommit:  pipelineJobPtr.OutputCommit,
-		Restart:       pipelineJobPtr.Restart,
-		DataProcessed: pipelineJobPtr.DataProcessed,
-		DataSkipped:   pipelineJobPtr.DataSkipped,
-		DataTotal:     pipelineJobPtr.DataTotal,
-		DataFailed:    pipelineJobPtr.DataFailed,
-		DataRecovered: pipelineJobPtr.DataRecovered,
-		Stats:         pipelineJobPtr.Stats,
-		State:         pipelineJobPtr.State,
-		Reason:        pipelineJobPtr.Reason,
-		Started:       pipelineJobPtr.Started,
-		Finished:      pipelineJobPtr.Finished,
+		PipelineJob:     pipelineJobPtr.PipelineJob,
+		PipelineVersion: pipelineJobPtr.PipelineVersion,
+		OutputRepo:      client.NewRepo(pipelineJobPtr.PipelineJob.Pipeline.Name),
+		OutputCommit:    pipelineJobPtr.OutputCommit,
+		Restart:         pipelineJobPtr.Restart,
+		DataProcessed:   pipelineJobPtr.DataProcessed,
+		DataSkipped:     pipelineJobPtr.DataSkipped,
+		DataTotal:       pipelineJobPtr.DataTotal,
+		DataFailed:      pipelineJobPtr.DataFailed,
+		DataRecovered:   pipelineJobPtr.DataRecovered,
+		Stats:           pipelineJobPtr.Stats,
+		State:           pipelineJobPtr.State,
+		Reason:          pipelineJobPtr.Reason,
+		Started:         pipelineJobPtr.Started,
+		Finished:        pipelineJobPtr.Finished,
 	}
 
 	pachClient := a.env.GetPachClient(ctx)
-	result.SpecCommit = client.NewCommit(ppsconsts.SpecRepo, result.PipelineJob.Pipeline.Name, result.OutputCommit.ID)
 	pipelinePtr := &pps.StoredPipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).Get(result.PipelineJob.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
@@ -755,7 +766,8 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *
 	// Override the SpecCommit for the pipeline to be what it was when this job
 	// was created, this prevents races between updating a pipeline and
 	// previous jobs running.
-	pipelinePtr.SpecCommit = result.SpecCommit
+	specCommit := client.NewCommit(ppsconsts.SpecRepo, result.PipelineJob.Pipeline.Name, result.OutputCommit.ID)
+	pipelinePtr.OriginalSpecCommit = specCommit
 	if full {
 		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 		if err != nil {
@@ -1613,14 +1625,9 @@ func (a *apiServer) sudoTransaction(txnCtx *txncontext.TransactionContext, f fun
 	})
 }
 
-// writePipelineInfo is a helper for CreatePipeline that creates a commit with
-// 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where a
-// user is updating a pipeline and the case where a user is creating a new
-// pipeline.
-// pipelineInfo.SpecCommit is used to ensure that (in the absence of
-// transactionality) the new pipelineInfo is only applied on top of the previous
-// pipelineInfo - if the head of the spec branch has changed, this operation
-// will error out.
+// writePipelineInfo is a helper for StartPipeline and StopPipeline that writes
+// out an updated pipeline info (without changing the version).  It is an error
+// if the pipeline has been updated and is no longer the expected version.
 func (a *apiServer) writePipelineInfo(ctx context.Context, pipelineInfo *pps.PipelineInfo) (*pfs.Commit, error) {
 	filesetID, err := a.writePipelineInfoToFileset(ctx, pipelineInfo)
 	if err != nil {
@@ -1630,7 +1637,7 @@ func (a *apiServer) writePipelineInfo(ctx context.Context, pipelineInfo *pps.Pip
 	var commit *pfs.Commit
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		commit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineInfo.Pipeline.Name, filesetID, pipelineInfo.SpecCommit)
+		commit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineInfo.Pipeline.Name, filesetID, pipelineInfo.Version)
 		return err
 	}); err != nil {
 		return nil, err
@@ -1655,17 +1662,35 @@ func (a *apiServer) writePipelineInfoToFileset(ctx context.Context, pipelineInfo
 	return resp.FilesetId, nil
 }
 
+// commitPipelineInfoFromFileset is a helper for all pipeline updates that
+// creates a commit with 'pipelineInfo' in SpecRepo (in PFS). It's called in
+// both the case where a user is updating a pipeline and the case where a user
+// is creating a new pipeline.
+// pipelineInfo.Version is used to ensure that (in the absence of
+// transactionality) the new pipelineInfo is only applied on top of the previous
+// pipelineInfo - if the version of the pipeline has changed, this operation
+// will error out.
 func (a *apiServer) commitPipelineInfoFromFileset(
 	txnCtx *txncontext.TransactionContext,
 	pipelineName string,
 	filesetID string,
-	prevSpecCommit *pfs.Commit,
+	prevPipelineVersion uint64,
 ) (*pfs.Commit, error) {
+	// Make sure the StoredPipelineInfo is the same version we expect so we don't clobber another pipeline update
+	if prevPipelineVersion != 0 {
+		latestPipelineInfo, err := a.latestPipelineInfo(txnCtx, pipelineName)
+		if err != nil {
+			return nil, err
+		}
+		if prevPipelineVersion != latestPipelineInfo.Version {
+			return nil, errors.Errorf("pipeline operation aborted due to concurrent pipeline update")
+		}
+	}
+
 	var commit *pfs.Commit
 	if err := a.sudoTransaction(txnCtx, func(superCtx *txncontext.TransactionContext) error {
 		var err error
 		commit, err = a.env.PfsServer().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
-			Parent: prevSpecCommit,
 			Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineName),
 		})
 		if err != nil {
@@ -1856,9 +1881,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	// Don't provide a fileset and the transaction env will generate it
 	filesetID := ""
-	var prevSpecCommit *pfs.Commit
+	prevPipelineVersion := uint64(0)
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.CreatePipeline(request, &filesetID, &prevSpecCommit)
+		return txn.CreatePipeline(request, &filesetID, &prevPipelineVersion)
 	}); err != nil {
 		return nil, err
 	}
@@ -1978,7 +2003,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	txnCtx *txncontext.TransactionContext,
 	request *pps.CreatePipelineRequest,
 	specFilesetID *string,
-	prevSpecCommit **pfs.Commit,
+	prevPipelineVersion *uint64,
 ) error {
 	oldPipelineInfo, newPipelineInfo, err := a.pipelineInfosForUpdate(txnCtx, request)
 	if err != nil {
@@ -1993,13 +2018,13 @@ func (a *apiServer) CreatePipelineInTransaction(
 		}
 	}
 
-	// If the expected spec commit doesn't match up with oldPipelineInfo, we need
-	// to recreate the fileset
+	// If the expected pipeline version doesn't match up with oldPipelineInfo, we
+	// need to recreate the fileset
 	staleFileset := false
 	if oldPipelineInfo == nil {
-		staleFileset = (*prevSpecCommit != nil)
+		staleFileset = (*prevPipelineVersion != 0)
 	} else {
-		staleFileset = !proto.Equal(oldPipelineInfo.SpecCommit, *prevSpecCommit)
+		staleFileset = oldPipelineInfo.Version != *prevPipelineVersion
 	}
 
 	if staleFileset || *specFilesetID == "" {
@@ -2010,7 +2035,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			return err
 		}
 		if oldPipelineInfo != nil {
-			*prevSpecCommit = oldPipelineInfo.SpecCommit
+			*prevPipelineVersion = oldPipelineInfo.Version
 		}
 
 		// The transaction cannot continue because it cannot see the fileset - abort and retry
@@ -2118,7 +2143,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		outputBranchHead = client.NewCommit(pipelineName, newPipelineInfo.OutputBranch, "")
 		statsBranchHead = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewCommit("master", "")
 	} else {
-		specCommit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineName, *specFilesetID, *prevSpecCommit)
+		specCommit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineName, *specFilesetID, *prevPipelineVersion)
 		if err != nil {
 			return err
 		}
@@ -2128,15 +2153,15 @@ func (a *apiServer) CreatePipelineInTransaction(
 		// finish any open output commits at the end of the transaction
 		txnCtx.FinishPipelineCommits(client.NewBranch(pipelineName, newPipelineInfo.OutputBranch))
 
-		// Update the existing StoredPipelineInfo in postgres
+		// Update the existing StoredPipelineInfo in the collection
 		pipelinePtr := &pps.StoredPipelineInfo{}
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineName, pipelinePtr, func() error {
 			if oldPipelineInfo.Stopped {
 				provenance = nil // CreateBranch() below shouldn't create new output
 			}
 
-			// Update pipelinePtr to point to new commit
-			pipelinePtr.SpecCommit = specCommit
+			// Update pipelinePtr to point to the new commit
+			pipelinePtr.OriginalSpecCommit = specCommit
 			// Reset pipeline state (PPS master/pipeline controller recreates RC)
 			pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
 			// Clear any failure reasons
@@ -2212,18 +2237,18 @@ func (a *apiServer) CreatePipelineInTransaction(
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
 
 		}
-		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
-		// auth token
+		// pipelinePtr will be written to the collection, pointing at 'commit'. May
+		// include an auth token
 		pipelinePtr := &pps.StoredPipelineInfo{
-			Pipeline:    request.Pipeline,
-			SpecCommit:  specCommit,
-			State:       pps.PipelineState_PIPELINE_STARTING,
-			Parallelism: uint64(parallelism),
+			Pipeline:           request.Pipeline,
+			Version:            newPipelineInfo.Version,
+			OriginalSpecCommit: specCommit,
+			State:              pps.PipelineState_PIPELINE_STARTING,
+			Parallelism:        uint64(parallelism),
 		}
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
 		// repos
-
 		if err := func() error {
 			token, err := a.env.AuthServer().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
 			if err != nil {
@@ -2238,7 +2263,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 		}(); err != nil {
 			return err
 		}
-		// Put a pointer to the new PipelineInfo commit into etcd
+
+		// Put a pointer to the new PipelineInfo commit into the collection
 		err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(pipelineName, pipelinePtr)
 		if isAlreadyExistsErr(err) {
 			return newErrPipelineExists(pipelineName)
@@ -2427,7 +2453,8 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		}
 		return nil, err
 	}
-	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
+	// TODO(global ids): how should we treat ancestry here?  Alias commits are going to gum it up.
+	pipelinePtr.OriginalSpecCommit.ID = ancestry.Add(pipelinePtr.OriginalSpecCommit.ID, ancestors)
 	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
 	pachClient := a.env.GetPachClient(txnCtx.ClientContext)
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
@@ -2608,28 +2635,18 @@ func (a *apiServer) listPipelinePtr(ctx context.Context,
 	pipeline *pps.Pipeline, history int64, f func(*pps.StoredPipelineInfo) error) error {
 	p := &pps.StoredPipelineInfo{}
 	forEachPipeline := func() error {
-		for i := int64(0); ; i++ {
-			// call f() if i <= history (esp. if history == 0, call f() once)
+		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
+		lastVersionToSend := int64(p.Version) - history
+		if history == -1 || lastVersionToSend < 1 {
+			lastVersionToSend = 1
+		}
+		for int64(p.Version) >= lastVersionToSend {
 			if err := f(p); err != nil {
 				return err
 			}
-			// however, only call InspectCommit if i < history (i.e. don't call it on
-			// the last iteration, and if history == 0, don't call it at all)
-			if history >= 0 && i >= history {
-				return nil
-			}
-			// Get parent commit
-			pachClient := a.env.GetPachClient(ctx)
-			ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, p.SpecCommit.Branch.Name, p.SpecCommit.ID)
-			switch {
-			case err != nil:
-				return err
-			case ci.ParentCommit == nil:
-				return nil
-			default:
-				p.SpecCommit = ci.ParentCommit
-			}
+			p.Version -= 1
 		}
+		return nil
 	}
 	if pipeline == nil {
 		if err := a.pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), func(string) error {
@@ -2851,11 +2868,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 
 	// Remove 'Stopped' from the pipeline spec
 	pipelineInfo.Stopped = false
-	commit, err := a.writePipelineInfo(ctx, pipelineInfo)
-	if err != nil {
-		return nil, err
-	}
-	if a.updatePipelineSpecCommit(ctx, request.Pipeline.Name, commit); err != nil {
+	if _, err := a.writePipelineInfo(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
 
@@ -2911,11 +2924,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 
 	// Update PipelineInfo with new state
 	pipelineInfo.Stopped = true
-	commit, err := a.writePipelineInfo(ctx, pipelineInfo)
-	if err != nil {
-		return nil, err
-	}
-	if a.updatePipelineSpecCommit(ctx, request.Pipeline.Name, commit); err != nil {
+	if _, err := a.writePipelineInfo(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -3150,9 +3159,10 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
 		pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
 		pipelineJobPtr := &pps.StoredPipelineJobInfo{
-			PipelineJob:  client.NewPipelineJob(pipelineInfo.Pipeline.Name, txnCtx.CommitsetID),
-			OutputCommit: commitInfo.Commit,
-			Stats:        &pps.ProcessStats{},
+			PipelineJob:     client.NewPipelineJob(pipelineInfo.Pipeline.Name, txnCtx.CommitsetID),
+			PipelineVersion: pipelineInfo.Version,
+			OutputCommit:    commitInfo.Commit,
+			Stats:           &pps.ProcessStats{},
 		}
 		if err := ppsutil.UpdatePipelineJobState(pipelines, pipelineJobs, pipelineJobPtr, pps.PipelineJobState_JOB_CREATED, ""); err != nil {
 			return err
@@ -3364,22 +3374,6 @@ func isAlreadyExistsErr(err error) bool {
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func (a *apiServer) updatePipelineSpecCommit(ctx context.Context, pipelineName string, commit *pfs.Commit) error {
-	err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		pipelines := a.pipelines.ReadWrite(sqlTx)
-		pipelinePtr := &pps.StoredPipelineInfo{}
-		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
-			return err
-		}
-		pipelinePtr.SpecCommit = commit
-		return pipelines.Put(pipelineName, pipelinePtr)
-	})
-	if isNotFoundErr(err) {
-		return newErrPipelineNotFound(pipelineName)
-	}
-	return err
 }
 
 // RepoNameToEnvString is a helper which uppercases a repo name for

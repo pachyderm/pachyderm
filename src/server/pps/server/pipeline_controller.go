@@ -122,7 +122,7 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	// Update trace with any new pipeline info from getPipelineInfo()
 	tracing.TagAnySpan(ctx,
 		"current-state", op.ptr.State.String(),
-		"spec-commit", pretty.CompactPrintCommitSafe(op.ptr.SpecCommit))
+		"spec-commit", pretty.CompactPrintCommitSafe(op.ptr.OriginalSpecCommit))
 	// set op.pipelineInfo
 	if err := op.getPipelineInfo(); err != nil {
 		return nil, err
@@ -359,9 +359,10 @@ func (op *pipelineOp) rcIsFresh() bool {
 		log.Errorf("PPS master: auth token in %q is stale %s != %s",
 			op.ptr.Pipeline.Name, rcAuthTokenHash, hashAuthToken(op.ptr.AuthToken))
 		return false
-	case rcSpecCommit != op.ptr.SpecCommit.ID:
+	// TODO(global ids): this won't trigger properly on start/stop pipeline which no longer updates the pipeline's OriginalSpecCommit
+	case rcSpecCommit != op.ptr.OriginalSpecCommit.ID:
 		log.Errorf("PPS master: spec commit in %q looks stale %s != %s",
-			op.ptr.Pipeline.Name, rcSpecCommit, op.ptr.SpecCommit.ID)
+			op.ptr.Pipeline.Name, rcSpecCommit, op.ptr.OriginalSpecCommit.ID)
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Errorf("PPS master: %q is using stale pachd v%s != current v%s",

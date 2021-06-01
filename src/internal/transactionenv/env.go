@@ -41,7 +41,7 @@ type PfsWrites interface {
 type PpsWrites interface {
 	StopPipelineJob(*pps.StopPipelineJobRequest) error
 	UpdatePipelineJobState(*pps.UpdatePipelineJobStateRequest) error
-	CreatePipeline(*pps.CreatePipelineRequest, *string, **pfs.Commit) error
+	CreatePipeline(*pps.CreatePipelineRequest, *string, *uint64) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -164,9 +164,9 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 	return t.txnEnv.serviceEnv.AuthServer().ModifyRoleBindingInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, filesetID *string, prevSpecCommit **pfs.Commit) error {
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, filesetID *string, prevPipelineVersion *uint64) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevSpecCommit)
+	return t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevPipelineVersion)
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
@@ -236,7 +236,7 @@ func (t *appendTransaction) UpdatePipelineJobState(req *pps.UpdatePipelineJobSta
 	return err
 }
 
-func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ *string, _ **pfs.Commit) error {
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ *string, _ *uint64) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
 	return err
 }
