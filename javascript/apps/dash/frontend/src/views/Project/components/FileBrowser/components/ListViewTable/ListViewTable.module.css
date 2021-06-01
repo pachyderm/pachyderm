@@ -1,0 +1,4 @@
+.base {
+  overflow: auto;
+  max-height: calc(100vh - var(--header-height));
+}

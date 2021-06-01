@@ -15,7 +15,7 @@ const tutorial = [
     sizeBytes: 80588,
   }),
   fileInfoFromObject({
-    committed: {seconds: 1614126189, nanos: 0},
+    committed: {seconds: 1610126189, nanos: 0},
     file: {
       commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
       path: '/liberty.png',
@@ -26,7 +26,7 @@ const tutorial = [
     sizeBytes: 58644,
   }),
   fileInfoFromObject({
-    committed: {seconds: 1614126189, nanos: 0},
+    committed: {seconds: 1612126189, nanos: 0},
     file: {
       commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
       path: '/kitten.png',
@@ -37,7 +37,7 @@ const tutorial = [
     sizeBytes: 104836,
   }),
   fileInfoFromObject({
-    committed: {seconds: 1614126189, nanos: 0},
+    committed: {seconds: 1616126189, nanos: 0},
     file: {
       commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
       path: '/cats/',

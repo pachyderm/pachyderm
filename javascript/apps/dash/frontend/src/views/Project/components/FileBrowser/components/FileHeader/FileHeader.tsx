@@ -80,7 +80,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
         <Search
           value={fileFilter}
           className={styles.search}
-          placeholder="Search a folder or file by name"
+          placeholder="Filter current folder by name"
           onSearch={setFileFilter}
           aria-label="search files"
         />

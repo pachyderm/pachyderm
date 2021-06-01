@@ -1,0 +1,27 @@
+.base {
+  padding: 0 2rem;
+  text-align: center;
+  height: calc(100vh - var(--header-height) - var(--subheader-height));
+}
+
+.fileInfo {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  text-align: left;
+}
+
+.fileText {
+  flex: 1;
+  font-size: var(--font-size-body-large);
+}
+
+.download, .download:hover {
+  text-decoration: none;
+  color: var(--white);
+}
+
+.preview {
+  margin: 2rem;
+  height: calc(100vh - var(--header-height) - var(--subheader-height) - 6.25rem);
+}

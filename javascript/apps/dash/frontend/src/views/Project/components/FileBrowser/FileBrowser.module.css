@@ -11,6 +11,13 @@
     align-items: center;
 }
 
+.fileIcons {
+    padding: 1rem;
+    overflow: auto;
+    max-height: calc(100vh - var(--header-height));
+    padding-top: 0;
+}
+
 .emptyResults {
     text-align: center;
     padding-top: 8rem;

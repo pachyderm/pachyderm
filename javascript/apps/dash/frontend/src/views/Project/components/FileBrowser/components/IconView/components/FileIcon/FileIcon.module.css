@@ -1,0 +1,10 @@
+.base {
+  background-color: var(--background-blue);
+  padding: 0.5rem 1rem;
+  margin-right: 1rem;
+  border-radius: 0.125rem;
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  width: 4rem;
+}

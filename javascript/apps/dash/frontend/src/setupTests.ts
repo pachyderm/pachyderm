@@ -40,6 +40,18 @@ Object.defineProperty(global, 'IntersectionObserver', {
   value: MockIntersectionObserver,
 });
 
+Object.defineProperty(window.document, 'queryCommandSupported', {
+  value: jest.fn(() => true),
+  configurable: true,
+  writable: true,
+});
+
+Object.defineProperty(window.document, 'execCommand', {
+  value: jest.fn(),
+  configurable: true,
+  writable: true,
+});
+
 beforeAll(async () => {
   const [grpcPort, authPort] = await mockServer.start();
   const graphqlPort = await server.start();

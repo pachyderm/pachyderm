@@ -8,21 +8,28 @@ import {
   IconViewSVG,
 } from '@pachyderm/components';
 import React, {useState, useMemo} from 'react';
-import {useHistory} from 'react-router';
+import {Route, Switch, useHistory} from 'react-router';
 
 import Breadcrumb from '@dash-frontend/components/Breadcrumb';
 import {useFiles} from '@dash-frontend/hooks/useFiles';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 
+import {
+  FILE_BROWSER_DIR_PATH,
+  FILE_BROWSER_FILE_PATH,
+} from './../../constants/projectPaths';
 import FileHeader from './components/FileHeader';
+import FilePreview from './components/FilePreview';
+import IconView from './components/IconView';
+import ListViewTable from './components/ListViewTable';
 import styles from './FileBrowser.module.css';
 
 const FileBrowser: React.FC = () => {
   const {repoId, commitId, branchId, projectId, filePath} = useUrlState();
   const browserHistory = useHistory();
   const [fileFilter, setFileFilter] = useState('');
-  const [fileView, setFileView] = useState('icon');
+  const [fileView, setFileView] = useState<'list' | 'icon'>('list');
   const {closeModal, isOpen} = useModal(true);
   const {files, loading} = useFiles({
     commitId,
@@ -62,38 +69,58 @@ const FileBrowser: React.FC = () => {
         <FileHeader fileFilter={fileFilter} setFileFilter={setFileFilter} />
         <div className={styles.subHeader}>
           <Breadcrumb />
-          {!fileAtLocation && (
-            <Tooltip
-              tooltipText="Icon View"
-              placement="left"
-              tooltipKey="Icon View"
-            >
-              <ButtonLink
-                onClick={() => setFileView('icon')}
-                disabled={fileView === 'icon'}
-                aria-label="switch to icon view"
+          <Switch>
+            <Route path={FILE_BROWSER_DIR_PATH} exact>
+              <Tooltip
+                tooltipText="List View"
+                placement="left"
+                tooltipKey="List View"
               >
-                <IconViewSVG />
-              </ButtonLink>
-            </Tooltip>
-          )}
-          {!fileAtLocation && (
-            <Tooltip
-              tooltipText="List View"
-              placement="left"
-              tooltipKey="List View"
-            >
-              <ButtonLink
-                onClick={() => setFileView('list')}
-                disabled={fileView === 'list'}
-                aria-label="switch to list view"
+                <ButtonLink
+                  onClick={() => setFileView('list')}
+                  disabled={fileView === 'list'}
+                  aria-label="switch to list view"
+                >
+                  <ListViewSVG />
+                </ButtonLink>
+              </Tooltip>
+              <Tooltip
+                tooltipText="Icon View"
+                placement="left"
+                tooltipKey="Icon View"
               >
-                <ListViewSVG />
-              </ButtonLink>
-            </Tooltip>
-          )}
+                <ButtonLink
+                  onClick={() => setFileView('icon')}
+                  disabled={fileView === 'icon'}
+                  aria-label="switch to icon view"
+                >
+                  <IconViewSVG />
+                </ButtonLink>
+              </Tooltip>
+            </Route>
+          </Switch>
         </div>
-        {!loading && filteredFiles?.length === 0 && (
+        <Switch>
+          <Route path={FILE_BROWSER_DIR_PATH} exact>
+            {fileView === 'icon' && filteredFiles.length > 0 && (
+              <div
+                className={styles.fileIcons}
+                data-testid="FileBrowser__iconView"
+              >
+                {filteredFiles.map((file) => (
+                  <IconView key={file.path} file={file} />
+                ))}
+              </div>
+            )}
+            {fileView === 'list' && filteredFiles.length > 0 && (
+              <ListViewTable files={filteredFiles} />
+            )}
+          </Route>
+          <Route path={FILE_BROWSER_FILE_PATH} exact>
+            {fileAtLocation && <FilePreview file={fileAtLocation} />}
+          </Route>
+        </Switch>
+        {!loading && filteredFiles?.length === 0 && !fileAtLocation && (
           <div className={styles.emptyResults}>
             <GenericErrorSVG />
             <h4 className={styles.emptyHeading}>No Matching Results Found.</h4>

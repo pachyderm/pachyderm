@@ -7,3 +7,11 @@ export interface ProjectRouteParams {
   commitId?: string;
   filePath?: string;
 }
+
+export type FileMajorType =
+  | 'document'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'folder'
+  | 'unknown';

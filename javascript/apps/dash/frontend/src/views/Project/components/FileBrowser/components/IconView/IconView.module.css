@@ -1,0 +1,41 @@
+.base {
+  border: solid 2px var(--line-grey);
+  background-color: var(--white);
+  margin: 0.5rem;
+  width: 23.8125rem;
+  border-radius: 0.1875rem;
+  display: inline-block;
+}
+
+.content {
+  display: inline-flex;
+  width: 100%;
+  padding: 1rem;
+}
+
+.fileInfo {
+  flex: 1;
+  font-size: var(--font-size-body-medium);
+  line-height: var(--font-size-body-medium);
+  overflow: hidden;
+}
+
+.fileName {
+  text-transform: capitalize;
+  font-size: var(--font-size-body-large);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fileText {
+  margin: 0;
+  margin-top: var(--font-size-body-large);
+}
+
+.actions {
+  padding: 0.75rem 1rem;
+  border-top: solid 1px var(--line-grey);
+  width: 100%;
+  justify-content: flex-end;
+  font-size: var(--font-size-body-medium);;
+}
