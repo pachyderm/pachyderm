@@ -87,6 +87,9 @@ const (
 
 	// AllClusterUsersSubject is a subject which applies a role binding to all authenticated users
 	AllClusterUsersSubject = "allClusterUsers"
+
+	// SecretAdminRole is a role which grants the ability to manage secrets
+	SecretAdminRole = "secretAdmin"
 )
 
 var (
