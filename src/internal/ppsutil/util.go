@@ -399,6 +399,7 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 		PipelineJob:   pipelineJobInfo.PipelineJob,
 		State:         pipelineJobInfo.State,
 		Reason:        pipelineJobInfo.Reason,
+		Started:       pipelineJobInfo.Started,
 		Restart:       pipelineJobInfo.Restart,
 		DataProcessed: pipelineJobInfo.DataProcessed,
 		DataSkipped:   pipelineJobInfo.DataSkipped,
