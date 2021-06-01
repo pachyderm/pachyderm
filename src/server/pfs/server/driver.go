@@ -809,10 +809,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			if err != nil {
 				return err
 			}
-			//if provOfSubvBI.Branch.Repo.Type == pfs.SpecRepoType {
-			//	// A spec repo doesn't contribute datums so ignore it?
-			//	continue
-			//}
 			if provOfSubvBI.Head.ID != subvBI.Head.ID {
 				needsCommit = true
 				break
