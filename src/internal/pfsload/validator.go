@@ -98,6 +98,22 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 	}); err != nil {
 		return err
 	}
+	if err := validate(client, commit, files); err != nil {
+		return err
+	}
+	// TODO: Make this more generally useful after the global ID change is in.
+	// We should validate all of the commits and filter out system repo commits.
+	cis, err := client.FlushCommitAll(commit)
+	if err != nil {
+		return err
+	}
+	if len(cis) == 0 {
+		return nil
+	}
+	return validate(client, cis[0].Commit, files)
+}
+
+func validate(client Client, commit *pfs.Commit, files []*file) (retErr error) {
 	defer func() {
 		if retErr == nil {
 			if len(files) != 0 {
