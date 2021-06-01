@@ -122,6 +122,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "POSTGRES_DATABASE_NAME",
 		Value: a.env.Config().PostgresDBName,
+	}, {
+		Name:  "METRICS",
+		Value: strconv.FormatBool(a.env.Config().Metrics),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
@@ -178,6 +181,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  client.PeerPortEnv,
 			Value: strconv.FormatUint(uint64(a.peerPort), 10),
+		},
+		{
+			Name:  "METRICS",
+			Value: strconv.FormatBool(a.env.Config().Metrics),
 		},
 	}...)
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)

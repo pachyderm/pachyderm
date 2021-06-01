@@ -4015,8 +4015,6 @@ func TestManyLogs(t *testing.T) {
 }
 
 func TestLokiLogs(t *testing.T) {
-	// TODO(2.0 required): This test is taking too long to complete due to slow pipelines
-	t.Skip("Skipping flaky test")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -4063,6 +4061,8 @@ func TestLokiLogs(t *testing.T) {
 		return nil
 	})
 
+	time.Sleep(5 * time.Second)
+
 	iter := c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, false, 0)
 	foundFoos := 0
 	for iter.Next() {
@@ -4072,9 +4072,6 @@ func TestLokiLogs(t *testing.T) {
 	}
 	require.NoError(t, iter.Err())
 	require.Equal(t, numFiles, foundFoos, "didn't receive enough log lines containing foo")
-
-	// Sleep for a 30 seconds give us some spacing to test from parameter.
-	time.Sleep(time.Second * 30)
 }
 
 func TestAllDatumsAreProcessed(t *testing.T) {
@@ -5891,6 +5888,8 @@ func TestCronPipeline(t *testing.T) {
 
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
+		// TODO(2.0 required): Investigate flakiness.
+		t.Skip("Investigate flakiness")
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 20s")
 		overwriteInput.Cron.Overwrite = true

@@ -365,8 +365,8 @@ func (c *pfsBuilderClient) ListBranch(ctx context.Context, req *pfs.ListBranchRe
 func (c *pfsBuilderClient) ModifyFile(ctx context.Context, opts ...grpc.CallOption) (pfs.API_ModifyFileClient, error) {
 	return nil, unsupportedError("ModifyFile")
 }
-func (c *pfsBuilderClient) GetFile(ctx context.Context, req *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileClient, error) {
-	return nil, unsupportedError("GetFile")
+func (c *pfsBuilderClient) GetFileTAR(ctx context.Context, req *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error) {
+	return nil, unsupportedError("GetFileTAR")
 }
 func (c *pfsBuilderClient) InspectFile(ctx context.Context, req *pfs.InspectFileRequest, opts ...grpc.CallOption) (*pfs.FileInfo, error) {
 	return nil, unsupportedError("InspectFile")
