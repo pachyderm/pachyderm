@@ -18,7 +18,7 @@ const (
 	// DefaultDBName is the default DB name.
 	DefaultDBName = "pgc"
 	// DefaultMaxOpenConns is the argument passed to SetMaxOpenConns
-	DefaultMaxOpenConns = 10
+	DefaultMaxOpenConns = 50
 )
 
 type dbConfig struct {

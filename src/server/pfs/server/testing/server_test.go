@@ -4407,10 +4407,6 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileCommit", func(t *testing.T) {
-		// TODO(2.0 required): Concurrent one-off commits are not safe in V2. We should either make them safe through
-		// a transactional create & finish (probably create a fileset then transactionally create & finish commit),
-		// or block concurrent operations until it completes.
-		t.Skip("Concurrent one-off commits are not safe in V2")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
