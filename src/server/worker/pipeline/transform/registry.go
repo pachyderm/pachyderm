@@ -618,11 +618,6 @@ func failedInputs(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 	blockCommit := func(name string, commit *pfs.Commit) error {
 		ci, err := pachClient.BlockCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
-			if pfsserver.IsCommitNotFoundErr(err) {
-				// If there is no commit from that repo for this commitset, it can be considered empty
-				// TODO(global ids): don't need this is we guarantee branches always have a head commit
-				return nil
-			}
 			return errors.Wrapf(err, "error blocking on commit %s", pfsdb.CommitKey(commit))
 		}
 		if strings.Contains(ci.Description, pfs.EmptyStr) {

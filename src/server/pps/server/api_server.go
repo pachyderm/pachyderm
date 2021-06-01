@@ -3123,7 +3123,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext, commits
 			return err
 		}
 
-		// TODO: don't create the jobs for certain states or for spouts (can't detect spouts without loading pipeline spec?)
+		// TODO(global ids): don't create the jobs for certain states or for spouts (can't detect spouts without loading pipeline spec?)
 
 		// Check if there is an existing job for the output commit
 		outputCommit := commitset.NewCommit(branchInfo.Branch)
