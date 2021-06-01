@@ -131,9 +131,6 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
-	if request.All {
-		return a.driver.deleteAll(txnCtx)
-	}
 	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
 }
 
