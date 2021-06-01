@@ -28,6 +28,9 @@ spec:
       name: etcd
       namespace: {{ .Release.Namespace }}
     spec:
+      {{-  if .Values.etcd.affinity }}
+      affinity: {{ toYaml .Values.etcd.affinity | nindent 8 }}
+      {{- end }}
       containers:
       - args:
         - '"/usr/local/bin/etcd" "--listen-client-urls=http://0.0.0.0:2379" "--advertise-client-urls=http://0.0.0.0:2379"

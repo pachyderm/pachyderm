@@ -29,6 +29,9 @@ spec:
       name: pachd
       namespace: {{ .Release.Namespace }}
     spec:
+      {{-  if .Values.pachd.affinity }}
+      affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
+      {{- end }}
       containers:
       - command:
         - /pachd

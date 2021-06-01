@@ -66,6 +66,9 @@
         "etcd": {
             "type": "object",
             "properties": {
+                "affinity": {
+                    "type": "object"
+                },
                 "dynamicNodes": {
                     "type": "integer"
                 },
@@ -122,6 +125,9 @@
         "pachd": {
             "type": "object",
             "properties": {
+                "affinity": {
+                    "type": "object"
+                },
                 "authenticationDisabledForTesting": {
                     "type": "boolean"
                 },

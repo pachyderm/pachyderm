@@ -53,6 +53,7 @@ dash:
 
 
 etcd:
+  affinity: {}
   # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
   # is analogous to the --dynamic-etcd-nodes argument to pachctl
   # deploy.
@@ -88,6 +89,7 @@ imageCredentials: {}
   #email: ""
 
 pachd:
+  affinity: {}
   # blockCacheBytes sets the size of the block cache.  It is analogous
   # to the --block-cache-size argument passed to pachctl deploy.
   blockCacheBytes: "1G"
