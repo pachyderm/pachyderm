@@ -503,6 +503,7 @@ func (a *apiServer) UpdatePipelineJobStateInTransaction(txnCtx *txncontext.Trans
 		return ppsServer.ErrPipelineJobFinished{pipelineJobPtr.PipelineJob}
 	}
 
+	pipelineJobPtr.Started = request.Started
 	pipelineJobPtr.Restart = request.Restart
 	pipelineJobPtr.DataProcessed = request.DataProcessed
 	pipelineJobPtr.DataSkipped = request.DataSkipped

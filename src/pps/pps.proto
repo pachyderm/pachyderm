@@ -510,13 +510,14 @@ message UpdatePipelineJobStateRequest {
   PipelineJob pipeline_job = 1;
   PipelineJobState state = 2;
   string reason = 3;
-  uint64 restart = 4;
-  int64 data_processed = 5;
-  int64 data_skipped = 6;
-  int64 data_failed = 7;
-  int64 data_recovered = 8;
-  int64 data_total = 9;
-  ProcessStats stats = 10;
+  google.protobuf.Timestamp started = 4;
+  uint64 restart = 5;
+  int64 data_processed = 6;
+  int64 data_skipped = 7;
+  int64 data_failed = 8;
+  int64 data_recovered = 9;
+  int64 data_total = 10;
+  ProcessStats stats = 11;
 }
 
 message GetLogsRequest {
