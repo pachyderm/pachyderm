@@ -269,7 +269,7 @@ func ListIDPConnectorsCmd() *cobra.Command {
 			}
 
 			for _, conn := range resp.Connectors {
-				fmt.Printf("%v - %v (%v)", conn.Id, conn.Name, conn.Type)
+				fmt.Printf("%v - %v (%v)\n", conn.Id, conn.Name, conn.Type)
 			}
 			return nil
 		}),
@@ -403,7 +403,7 @@ func ListOIDCClientsCmd() *cobra.Command {
 			}
 
 			for _, client := range resp.Clients {
-				fmt.Printf("%v", client.Id)
+				fmt.Printf("%v\n", client.Id)
 			}
 			return nil
 		}),
