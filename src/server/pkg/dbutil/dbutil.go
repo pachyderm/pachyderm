@@ -18,6 +18,8 @@ const (
 	DefaultPostgresHost = "127.0.0.1"
 	// DefaultPostgresPort for tests
 	DefaultPostgresPort = 32228
+	// DefaultPostgresDatabase for tests
+	DefaultPostgresDatabase = "pgc"
 	// TestPostgresUser is the default postgres user
 	TestPostgresUser = "pachyderm"
 )
@@ -31,7 +33,7 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 		host = DefaultPostgresHost
 	}
 
-	dsn := fmt.Sprintf("host=%s port=%d user=%s sslmode=disable", host, DefaultPostgresPort, TestPostgresUser)
+	dsn := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable", host, DefaultPostgresPort, TestPostgresUser, DefaultPostgresDatabase)
 	db := sqlx.MustOpen("postgres", dsn)
 	dbName := fmt.Sprintf("test_%d", time.Now().UnixNano())
 	db.MustExec("CREATE DATABASE " + dbName)
