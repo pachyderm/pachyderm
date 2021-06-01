@@ -98,6 +98,12 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 	}); err != nil {
 		return err
 	}
+	return client.BlockCommitset(commit.ID, func(ci *pfs.CommitInfo) error {
+		return validate(client, ci.Commit, files)
+	})
+}
+
+func validate(client Client, commit *pfs.Commit, files []*file) (retErr error) {
 	defer func() {
 		if retErr == nil {
 			if len(files) != 0 {
