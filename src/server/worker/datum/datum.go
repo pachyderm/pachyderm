@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -143,7 +142,7 @@ func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) err
 // UploadMeta uploads the meta file for a datum.
 func (s *Set) UploadMeta(meta *Meta, opts ...Option) error {
 	d := newDatum(s, meta, opts...)
-	return d.uploadMetaOutput()
+	return d.uploadMetaFile(d.set.metaOutputClient)
 }
 
 // WithDatum provides a scoped environment for a datum within the datum set.
@@ -324,18 +323,22 @@ func (d *Datum) uploadMetaOutput() (retErr error) {
 				retErr = errors.EnsureStack(err)
 			}
 		}()
-		marshaler := &jsonpb.Marshaler{}
-		buf := &bytes.Buffer{}
-		if err := marshaler.Marshal(buf, d.meta); err != nil {
-			return err
-		}
-		fullPath := path.Join(d.MetaStorageRoot(), MetaFileName)
-		if err := ioutil.WriteFile(fullPath, buf.Bytes(), 0700); err != nil {
+		if err := d.uploadMetaFile(d.set.metaOutputClient); err != nil {
 			return err
 		}
 		return d.upload(d.set.metaOutputClient, d.storageRoot)
 	}
 	return nil
+}
+
+func (d *Datum) uploadMetaFile(mf client.ModifyFile) error {
+	marshaler := &jsonpb.Marshaler{}
+	buf := &bytes.Buffer{}
+	if err := marshaler.Marshal(buf, d.meta); err != nil {
+		return err
+	}
+	fullPath := path.Join(MetaPrefix, d.ID, MetaFileName)
+	return mf.PutFile(fullPath, buf, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
 }
 
 func (d *Datum) uploadOutput() error {
@@ -353,12 +356,17 @@ func (d *Datum) uploadOutput() error {
 	return d.uploadMetaOutput()
 }
 
-func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar.Header) error) error {
+func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar.Header) error) (retErr error) {
 	// TODO: Might make more sense to convert to tar on the fly.
 	f, err := os.Create(path.Join(d.set.storageRoot, TmpFileName))
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
+	defer func() {
+		if err := f.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
 	opts := []tarutil.ExportOption{
 		tarutil.WithSymlinkCallback(func(dst, src string, copyFunc func() error) error {
 			return d.handleSymlink(mf, dst, src, copyFunc)
