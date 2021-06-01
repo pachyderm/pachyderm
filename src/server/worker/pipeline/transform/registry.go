@@ -204,6 +204,9 @@ func (reg *registry) startPipelineJob(pipelineJobInfo *pps.PipelineJobInfo) erro
 			reg.limiter.Release()
 		}
 	}()
+	if pipelineJobInfo.Started == nil {
+		pipelineJobInfo.Started = types.TimestampNow()
+	}
 	commitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
