@@ -14,6 +14,10 @@ import PipelineDetails from './components/PipelineDetails';
 import RepoDetails from './components/RepoDetails';
 import useProjectSidebar from './hooks/useProjectSidebar';
 
+const emptyStateTitle = "Let's Start :)";
+const emptyJobListMessage =
+  'Create your first job! If there are any pipeline errors, fix those before you create a job.';
+
 const ProjectSidebar = () => {
   const {projectId, handleClose} = useProjectSidebar();
 
@@ -26,7 +30,13 @@ const ProjectSidebar = () => {
       >
         <Switch>
           <Route path={JOBS_PATH} exact>
-            <JobList projectId={projectId} expandActions showStatusFilter />
+            <JobList
+              projectId={projectId}
+              expandActions
+              showStatusFilter
+              emptyStateTitle={emptyStateTitle}
+              emptyStateMessage={emptyJobListMessage}
+            />
           </Route>
           <Route path={REPO_PATH}>
             <RepoDetails />

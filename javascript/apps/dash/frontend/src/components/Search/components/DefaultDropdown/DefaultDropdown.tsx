@@ -58,7 +58,11 @@ const DefaultDropdown: React.FC = () => {
               {jobStates.map((state) => {
                 const stateCount = stateCounts[state.value];
                 if (!stateCount) {
-                  return null;
+                  return (
+                    <Chip key={state.value} disabled>
+                      {state.label} (0)
+                    </Chip>
+                  );
                 }
                 return (
                   <Chip

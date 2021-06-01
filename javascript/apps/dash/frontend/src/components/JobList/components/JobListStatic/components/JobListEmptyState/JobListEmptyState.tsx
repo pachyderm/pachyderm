@@ -1,16 +1,22 @@
+import {ElephantEmptyState} from '@pachyderm/components';
 import React from 'react';
 
 import styles from './JobListEmptyState.module.css';
 
-const JobListEmptyState: React.FC = () => {
+type JobListEmptyStateProps = {
+  title: string;
+  message: string;
+};
+
+const JobListEmptyState: React.FC<JobListEmptyStateProps> = ({
+  title,
+  message,
+}) => {
   return (
     <div className={styles.base}>
-      <div className={styles.circle} />
-      <span className={styles.start}>Let&apos;s Start</span>
-      <span className={styles.create}>
-        Create your first job on this project! First, fix any crashing pipelines
-        before you create a job.
-      </span>
+      <ElephantEmptyState className={styles.elephantSvg} />
+      <span className={styles.title}>{title}</span>
+      <span className={styles.message}>{message}</span>
     </div>
   );
 };

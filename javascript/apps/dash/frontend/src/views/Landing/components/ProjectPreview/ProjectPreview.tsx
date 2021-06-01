@@ -13,6 +13,10 @@ import ProjectStatus from '../ProjectStatus';
 
 import styles from './ProjectPreview.module.css';
 
+const emptyStateTitle = "Let's Start :)";
+const emptyJobListMessage =
+  'Create your first job! If there are any pipeline errors, fix those before you create a job.';
+
 type ProjectPreviewProps = {
   project: Project;
 };
@@ -64,6 +68,8 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
         projectId={project.id}
         pipelineJobs={projectDetails?.jobs}
         loading={loading}
+        emptyStateTitle={emptyStateTitle}
+        emptyStateMessage={emptyJobListMessage}
       />
     </div>
   );

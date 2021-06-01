@@ -14,6 +14,8 @@ type JobListBaseProps = {
   projectId: string;
   expandActions?: boolean;
   listScroll?: boolean;
+  emptyStateTitle: string;
+  emptyStateMessage: string;
 };
 
 const JobListBase: React.FC<JobListBaseProps> = ({
@@ -22,10 +24,15 @@ const JobListBase: React.FC<JobListBaseProps> = ({
   projectId,
   expandActions = false,
   listScroll = false,
+  emptyStateTitle,
+  emptyStateMessage,
 }) => {
   if (loading) return <JobListSkeleton expandActions={expandActions} />;
 
-  if (pipelineJobs?.length === 0) return <JobListEmptyState />;
+  if (pipelineJobs?.length === 0)
+    return (
+      <JobListEmptyState title={emptyStateTitle} message={emptyStateMessage} />
+    );
 
   return (
     <ul

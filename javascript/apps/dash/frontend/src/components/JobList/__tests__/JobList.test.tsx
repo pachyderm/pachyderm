@@ -9,8 +9,18 @@ import JobListComponent from '../JobList';
 describe('JobList', () => {
   const JobList = withContextProviders(JobListComponent);
 
+  afterEach(() => {
+    window.history.pushState({}, document.title, '/');
+  });
+
   it('should display the list of jobs for a project', async () => {
-    const {getByRole, queryByTestId} = render(<JobList projectId="2" />);
+    const {getByRole, queryByTestId} = render(
+      <JobList
+        projectId="2"
+        emptyStateTitle="Empty State Title"
+        emptyStatemessage="Empty State Message"
+      />,
+    );
 
     await waitFor(() =>
       expect(queryByTestId('JobListSkeleton__list')).not.toBeInTheDocument(),
@@ -32,7 +42,12 @@ describe('JobList', () => {
 
   it('should display a list of jobs for a pipeline', async () => {
     const {getByRole, queryByTestId} = render(
-      <JobList projectId="1" pipelineId="montage" />,
+      <JobList
+        projectId="1"
+        pipelineId="montage"
+        emptyStateTitle="Empty State Title"
+        emptyStatemessage="Empty State Message"
+      />,
     );
 
     await waitFor(() =>
@@ -50,7 +65,14 @@ describe('JobList', () => {
   });
 
   it('should display a list of actions', async () => {
-    const {findAllByText} = render(<JobList projectId="2" expandActions />);
+    const {findAllByText} = render(
+      <JobList
+        projectId="2"
+        expandActions
+        emptyStateTitle="Empty State Title"
+        emptyStatemessage="Empty State Message"
+      />,
+    );
 
     const readLogsButtons = await findAllByText('Read logs');
     const seeDetailsButtons = await findAllByText('See Details');
@@ -61,7 +83,12 @@ describe('JobList', () => {
 
   it('should allow user to filter on job state', async () => {
     const {getByText, findByText, getByRole} = render(
-      <JobList projectId="2" showStatusFilter />,
+      <JobList
+        projectId="2"
+        showStatusFilter
+        emptyStateTitle="Empty State Title"
+        emptyStatemessage="Empty State Message"
+      />,
     );
 
     expect(
@@ -102,12 +129,36 @@ describe('JobList', () => {
     expect(queryByTextWithinList('Egressing')).not.toBeInTheDocument();
   });
 
+  it('should display the filter empty state message if no filters are selected', async () => {
+    const {getByText, findByText} = render(
+      <JobList
+        projectId="3"
+        showStatusFilter
+        emptyStateTitle="Empty State Title"
+        emptyStatemessage="Empty State Message"
+      />,
+    );
+
+    expect(
+      await findByText(`Last ${pipelineJobs['3'].length} Jobs`),
+    ).toBeInTheDocument();
+
+    const successButton = getByText(/Success \(\d\)/);
+    click(successButton);
+
+    expect(await findByText('Select Job Filters Above :)')).toBeInTheDocument();
+  });
+
   it('should display an empty state if there are no jobs', async () => {
-    const {findByText, queryByRole} = render(<JobList projectId="5" />);
+    const {findByText, queryByRole} = render(
+      <JobList
+        projectId="5"
+        emptyStateTitle="Empty State Title"
+        emptyStatemessage="Empty State Message"
+      />,
+    );
 
-    const startedText = await findByText("Let's Start");
-
-    expect(startedText).toBeInTheDocument();
+    expect(await findByText('Empty State Title')).toBeInTheDocument();
     expect(queryByRole('list')).not.toBeInTheDocument();
   });
 });

@@ -5,22 +5,18 @@
   margin: 0 2rem;
 }
 
-.circle {
-  margin-top: 5.475rem;
-  height: 10rem;
-  width: 10rem;
-  border-radius: 50%;
-  border: 1px solid #979797;
-  background-color: #D8D8D8;
+.elephantSvg {
+  margin-top: 8rem;
 }
 
-.create {
+.message {
   margin-top: 1rem;
   font-size: var(--font-size-body-medium);
   text-align: center;
+  max-width: 14.125rem;
 }
 
-.start {
+.title {
   margin-top: 1rem;
   font-size: var(--font-size-body-large);
 }

@@ -35,9 +35,13 @@ const useJobList = ({projectId, pipelineId}: PipelineJobsQueryArgs) => {
     });
   }, [pipelineJobs, selectedFilters]);
 
+  const noFiltersSelected =
+    filteredPipelineJobs?.length === 0 && pipelineJobs?.length !== 0;
+
   return {
     pipelineJobs,
     filteredPipelineJobs,
+    noFiltersSelected,
     selectedFilters,
     loading,
   };
