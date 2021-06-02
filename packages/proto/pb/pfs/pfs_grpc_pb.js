@@ -416,6 +416,28 @@ function deserialize_pfs_RepoInfo(buffer_arg) {
   return pfs_pfs_pb.RepoInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_RunLoadTestRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.RunLoadTestRequest)) {
+    throw new Error('Expected argument of type pfs.RunLoadTestRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_RunLoadTestRequest(buffer_arg) {
+  return pfs_pfs_pb.RunLoadTestRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_RunLoadTestResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.RunLoadTestResponse)) {
+    throw new Error('Expected argument of type pfs.RunLoadTestResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_RunLoadTestResponse(buffer_arg) {
+  return pfs_pfs_pb.RunLoadTestResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_SquashCommitRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.SquashCommitRequest)) {
     throw new Error('Expected argument of type pfs.SquashCommitRequest');
@@ -666,9 +688,9 @@ modifyFile: {
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
-  // GetFile returns a byte stream of the contents of the file.
-getFile: {
-    path: '/pfs.API/GetFile',
+  // GetFileTAR returns a TAR stream of the contents matched by the request
+getFileTAR: {
+    path: '/pfs.API/GetFileTAR',
     requestStream: false,
     responseStream: true,
     requestType: pfs_pfs_pb.GetFileRequest,
@@ -822,6 +844,18 @@ renewFileset: {
     requestDeserialize: deserialize_pfs_RenewFilesetRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  // RunLoadTest runs a load test.
+runLoadTest: {
+    path: '/pfs.API/RunLoadTest',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.RunLoadTestRequest,
+    responseType: pfs_pfs_pb.RunLoadTestResponse,
+    requestSerialize: serialize_pfs_RunLoadTestRequest,
+    requestDeserialize: deserialize_pfs_RunLoadTestRequest,
+    responseSerialize: serialize_pfs_RunLoadTestResponse,
+    responseDeserialize: deserialize_pfs_RunLoadTestResponse,
   },
 };
 

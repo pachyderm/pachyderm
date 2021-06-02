@@ -741,26 +741,11 @@ export class WorkerStatus extends jspb.Message {
     setWorkerId(value: string): WorkerStatus;
     getPipelineJobId(): string;
     setPipelineJobId(value: string): WorkerStatus;
-    clearDataList(): void;
-    getDataList(): Array<InputFile>;
-    setDataList(value: Array<InputFile>): WorkerStatus;
-    addData(value?: InputFile, index?: number): InputFile;
 
-    hasStarted(): boolean;
-    clearStarted(): void;
-    getStarted(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setStarted(value?: google_protobuf_timestamp_pb.Timestamp): WorkerStatus;
-
-    hasStats(): boolean;
-    clearStats(): void;
-    getStats(): ProcessStats | undefined;
-    setStats(value?: ProcessStats): WorkerStatus;
-    getQueueSize(): number;
-    setQueueSize(value: number): WorkerStatus;
-    getDataProcessed(): number;
-    setDataProcessed(value: number): WorkerStatus;
-    getDataRecovered(): number;
-    setDataRecovered(value: number): WorkerStatus;
+    hasDatumStatus(): boolean;
+    clearDatumStatus(): void;
+    getDatumStatus(): DatumStatus | undefined;
+    setDatumStatus(value?: DatumStatus): WorkerStatus;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): WorkerStatus.AsObject;
@@ -776,12 +761,35 @@ export namespace WorkerStatus {
     export type AsObject = {
         workerId: string,
         pipelineJobId: string,
-        dataList: Array<InputFile.AsObject>,
+        datumStatus?: DatumStatus.AsObject,
+    }
+}
+
+export class DatumStatus extends jspb.Message { 
+
+    hasStarted(): boolean;
+    clearStarted(): void;
+    getStarted(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setStarted(value?: google_protobuf_timestamp_pb.Timestamp): DatumStatus;
+    clearDataList(): void;
+    getDataList(): Array<InputFile>;
+    setDataList(value: Array<InputFile>): DatumStatus;
+    addData(value?: InputFile, index?: number): InputFile;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DatumStatus.AsObject;
+    static toObject(includeInstance: boolean, msg: DatumStatus): DatumStatus.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DatumStatus, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DatumStatus;
+    static deserializeBinaryFromReader(message: DatumStatus, reader: jspb.BinaryReader): DatumStatus;
+}
+
+export namespace DatumStatus {
+    export type AsObject = {
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        stats?: ProcessStats.AsObject,
-        queueSize: number,
-        dataProcessed: number,
-        dataRecovered: number,
+        dataList: Array<InputFile.AsObject>,
     }
 }
 
