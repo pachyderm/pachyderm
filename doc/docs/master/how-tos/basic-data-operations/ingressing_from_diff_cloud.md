@@ -1,19 +1,9 @@
 # Ingress and Egress Data from an External Object Store
 
-You might need to download data from or upload data
-to an object store that runs in a different cloud platform. For example,
-you might be running a Pachyderm cluster in Microsoft Azure, but
-you need to ingress files from an S3 bucket that resides on Amazon AWS.
-
 You can configure Pachyderm to work with an external object
-store by providing Pachyderm with the credentials to communicate with
-the selected cloud provider. 
+store by providing Pachyderm with its credentials. 
 
-This is required when running a ` pachctl put file repo@branch -f <s3://my_bucket/file>` or setting up an egress in your pipeline specifications `"egress": {"URL": "s3://bucket/dir"}` for example.
-
-!!! note
-    For each cloud provider, parameters and configuration steps
-    might vary.
+Running a ` pachctl put file repo@branch -f <s3://my_bucket/file>` or egressing your data `"egress": {"URL": "s3://bucket/dir"}` in an s3 bucket, for example, requires Pachyderm to be able to access it.
 
 To provide Pachyderm with the object store credentials:
 

@@ -59,8 +59,8 @@ in your filepath:
   ```
 
 !!! note
-    If you are configuring a local cluster to access an S3 bucket,
-    you need to [configure Pachyderm to work with your external object store](../ingressing_from_diff_cloud)
+    If you are configuring a local cluster to access an external bucket,
+    make sure that Pachyderm has been given the proper access [by configuring your storage credentials](../ingressing_from_diff_cloud)
 
 * Add multiple files at once by using the `-i` option or multiple `-f` flags.
 In the case of `-i`, the target file must be a list of files, paths, or URLs
