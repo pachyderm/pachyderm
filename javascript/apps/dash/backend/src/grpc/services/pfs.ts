@@ -50,7 +50,7 @@ const pfs = ({
 
       getFileRequest.setFile(file);
 
-      const stream = client.getFile(getFileRequest, credentialMetadata);
+      const stream = client.getFileTAR(getFileRequest, credentialMetadata);
 
       return new Promise<Buffer>((resolve, reject) => {
         // The GetFile request returns a tar stream.
