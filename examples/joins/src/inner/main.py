@@ -2,12 +2,11 @@
 
 import glob, json, os, shutil, sys
 
-
 store_path  = glob.glob(os.path.join("/pfs/stores", "*.txt"))[0]
 purchase_path = glob.glob(os.path.join("/pfs/purchases", "*.txt"))[0]
 
 print("Opening store_file...: " + store_path)
-
+ 
 with open(store_path, 'r') as store_json:    
     store = json.load(store_json)
     zipcode = store['address']['zipcode']

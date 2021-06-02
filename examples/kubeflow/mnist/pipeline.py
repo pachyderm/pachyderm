@@ -98,13 +98,13 @@ def pipeline_id(client: kfp.Client, name: str):
     """
     page_token = ""
     while page_token is not None:
-        p = client.list_pipelines(page_token=page_token, page_size=100)
-        if p.pipelines is None:
+        p_list = client.list_pipelines(page_token=page_token, page_size=100)
+        if p_list.pipelines is None:
             return ""
-        for p in p.pipelines:
+        for p in p_list.pipelines:
             if p.name == name:
                 return p.id
-        page_token = p.next_page_token
+        page_token = p_list.next_page_token
     return ""
 
 def experiment_id(client: kfp.Client, name: str):
