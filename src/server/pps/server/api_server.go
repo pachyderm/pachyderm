@@ -2063,8 +2063,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewRepo(pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
-				Update:      true,
-			}); err != nil {
+			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
 		}
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
@@ -2072,7 +2071,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 				Repo:        client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
 				Description: fmt.Sprintf("Spec repo for pipeline %s.", request.Pipeline.Name),
 				Update:      true,
-			}); err != nil {
+			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating spec repo for %s", pipelineName)
 		}
 	}
@@ -2271,7 +2270,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			Branch:     statsBranch,
 			Provenance: []*pfs.Branch{outputBranch},
 			Head:       statsBranchHead,
-		}); err != nil && !errutil.IsAlreadyExistError(err) {
+		}); err != nil {
 			return errors.Wrapf(err, "could not create/update meta branch")
 		}
 	}
