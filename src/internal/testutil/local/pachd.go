@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
-	healthclient "github.com/pachyderm/pachyderm/v2/src/health"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -36,7 +35,6 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
-	"github.com/pachyderm/pachyderm/v2/src/server/health"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
@@ -46,11 +44,12 @@ import (
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func RunLocal() (retErr error) {
@@ -227,9 +226,9 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		healthServer := health.NewHealthServer()
+		healthServer := health.NewServer()
 		if err := logGRPCServerSetup("Health", func() error {
-			healthclient.RegisterHealthServer(externalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -255,7 +254,7 @@ func RunLocal() (retErr error) {
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
-		healthServer.Ready()
+		healthServer.Resume()
 		return nil
 	}); err != nil {
 		return err
@@ -346,9 +345,11 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		healthServer := health.NewHealthServer()
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+
 		if err := logGRPCServerSetup("Health", func() error {
-			healthclient.RegisterHealthServer(internalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -369,7 +370,7 @@ func RunLocal() (retErr error) {
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
-		healthServer.Ready()
+		healthServer.Resume()
 		return nil
 	}); err != nil {
 		return err

@@ -81,7 +81,8 @@ var authHandlers = map[string]authHandler{
 	//
 	// Health API
 	//
-	"/health_v2.Health/Health": unauthenticated,
+	"/grpc.health.v1.Health/Check": unauthenticated,
+	"/grpc.health.v1.Health/Watch": unauthenticated,
 
 	//
 	// Identity API
