@@ -327,7 +327,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		return nil
 	})
 	if err != nil {
-		logrus.Errorf("could not create service for pipeline job %q: %v", jobInfo.Job.ID, err)
+		logrus.Errorf("could not create service for job %q: %v", jobInfo.Job.ID, err)
 	}
 }
 
@@ -426,7 +426,7 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	// 'e' is a Put event (new or updated job)
 	pachClient := h.s.pachClient.WithCtx(jobCtx)
 	// Inspect the job and make sure it's relevant, as this worker may be old
-	logrus.Infof("sidecar s3 gateway: inspecting pipeline job %q to begin serving inputs over s3 gateway", jobID)
+	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", jobID)
 
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
@@ -437,25 +437,25 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 				// TODO(msteffen): I'm not sure what this means--maybe that the service
 				// was created and immediately deleted, and there's a pending deletion
 				// event? In any case, without a job that exists there's nothing to act on
-				logrus.Errorf("sidecar s3 gateway: pipeline job %q not found", jobID)
+				logrus.Errorf("sidecar s3 gateway: job %q not found", jobID)
 				return nil
 			}
 			return err
 		}
 		return nil
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error inspecting pipeline job %q: %v; retrying in %v", jobID, err, d)
+		logrus.Errorf("error inspecting job %q: %v; retrying in %v", jobID, err, d)
 		return nil
 	}); err != nil {
-		logrus.Errorf("permanent error inspecting pipeline job %q: %v", jobID, err)
+		logrus.Errorf("permanent error inspecting job %q: %v", jobID, err)
 		return // leak the job; better than getting stuck?
 	}
 	if jobInfo.PipelineVersion < h.s.pipelineInfo.Version {
-		logrus.Infof("skipping pipeline job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
+		logrus.Infof("skipping job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
 		return
 	}
 	if jobInfo.PipelineVersion > h.s.pipelineInfo.Version {
-		logrus.Infof("skipping pipeline job %q as its pipeline version version %d is "+
+		logrus.Infof("skipping job %q as its pipeline version version %d is "+
 			"greater than this worker's pipeline version (%d), this should "+
 			"automatically resolve when the worker is updated", jobID,
 			jobInfo.PipelineVersion, h.s.pipelineInfo.Version)

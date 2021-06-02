@@ -86,7 +86,7 @@ type Driver interface {
 
 	RunUserErrorHandlingCode(context.Context, logs.TaggedLogger, []string) error
 
-	// TODO: provide a more generic interface for modifying pipeline jobs, and
+	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
 	DeleteJob(*sqlx.Tx, *pps.StoredJobInfo) error
 	UpdateJobState(string, pps.JobState, string) error
@@ -451,10 +451,9 @@ func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string)
 	})
 }
 
-// DeleteJob is identical to updateJobState, except that
-// jobPtr points to a pipeline job that should be deleted rather than
-// marked failed.  Jobs may be deleted if their output commit is
-// deleted.
+// DeleteJob is identical to updateJobState, except that jobPtr points to a job
+// that should be deleted rather than marked failed.  Jobs may be deleted if
+// their output commit is deleted.
 func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobPtr *pps.StoredJobInfo) error {
 	pipelinePtr := &pps.StoredPipelineInfo{}
 	if err := d.Pipelines().ReadWrite(sqlTx).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {

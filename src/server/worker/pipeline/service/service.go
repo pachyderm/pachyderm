@@ -83,7 +83,7 @@ func forEachCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo,
 	var cancel func()
 	var eg *errgroup.Group
 	// TODO: Readd subscribe on spec commit provenance. Current code simplifies correctness in terms
-	// of commits being closed / pipeline jobs being finished.
+	// of commits being closed / jobs being finished.
 	return pachClient.SubscribeCommit(
 		client.NewRepo(pipelineInfo.Pipeline.Name),
 		"",
@@ -115,21 +115,21 @@ func ensureJob(pachClient *client.APIClient, pipeline string, commit *pfs.Commit
 		return nil, err
 	}
 	if len(jobInfos) > 1 {
-		return nil, errors.Errorf("multiple pipeline jobs found for commit: %s@%s", commit.Branch.Repo.Name, commit.ID)
+		return nil, errors.Errorf("multiple jobs found for commit: %s@%s", commit.Branch.Repo.Name, commit.ID)
 	} else if len(jobInfos) < 1 {
 		job, err := pachClient.CreateJob(pipeline, commit, nil)
 		if err != nil {
 			return nil, err
 		}
-		logger.Logf("created new pipeline job %q for output commit %q", job.ID, commit.ID)
+		logger.Logf("created new job %q for output commit %q", job.ID, commit.ID)
 		// get JobInfo to look up spec commit, pipeline version, etc (if this
 		// worker is stale and about to be killed, the new job may have a newer
 		// pipeline version than the master. Or if the commit is stale, it may
 		// have an older pipeline version than the master)
 		return pachClient.InspectJob(job.ID, false)
 	}
-	// Get latest pipeline job state.
-	logger.Logf("found existing pipeline job %q for output commit %q", jobInfos[0].Job.ID, commit.ID)
+	// Get latest job state.
+	logger.Logf("found existing job %q for output commit %q", jobInfos[0].Job.ID, commit.ID)
 	return pachClient.InspectJob(jobInfos[0].Job.ID, false)
 }
 

@@ -72,7 +72,7 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 		}
 	}
 	if !success {
-		return errors.Errorf("datum matching filter %+v could not be found for pipeline job ID %s", dataFilter, jobID)
+		return errors.Errorf("datum matching filter %+v could not be found for job ID %s", dataFilter, jobID)
 	}
 	return nil
 }

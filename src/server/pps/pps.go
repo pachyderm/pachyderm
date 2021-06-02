@@ -14,11 +14,11 @@ type ErrJobFinished struct {
 }
 
 func (e ErrJobFinished) Error() string {
-	return fmt.Sprintf("pipeline job %v has already finished", e.Job.ID)
+	return fmt.Sprintf("job %v has already finished", e.Job.ID)
 }
 
 var (
-	jobFinishedRe = regexp.MustCompile("pipeline job [^ ]+ has already finished")
+	jobFinishedRe = regexp.MustCompile("job [^ ]+ has already finished")
 )
 
 // IsJobFinishedErr returns true if 'err' has an error message that matches ErrJobFinished

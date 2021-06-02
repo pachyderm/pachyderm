@@ -132,21 +132,21 @@ func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, err
 }
 
 func (reg *registry) succeedJob(pj *pendingJob) error {
-	pj.logger.Logf("pipeline job successful, closing commits")
+	pj.logger.Logf("job successful, closing commits")
 	defer pj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
 	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_SUCCESS, "")
 }
 
 func (reg *registry) failJob(pj *pendingJob, reason string) error {
-	pj.logger.Logf("failing pipeline job with reason: %s", reason)
+	pj.logger.Logf("failing job with reason: %s", reason)
 	defer pj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
 	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason)
 }
 
 func (reg *registry) killJob(pj *pendingJob, reason string) error {
-	pj.logger.Logf("killing pipeline job with reason: %s", reason)
+	pj.logger.Logf("killing job with reason: %s", reason)
 	defer pj.jdit.Finish()
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
 	_, err := reg.driver.PachClient().PpsAPIClient.StopJob(
@@ -208,12 +208,12 @@ func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.JobInfo, error)
 			if err != nil {
 				return nil, err
 			}
-			reg.logger.Logf("created new pipeline job %q for output commit %q", jobInfo.Job.ID, jobInfo.OutputCommit.ID)
+			reg.logger.Logf("created new job %q for output commit %q", jobInfo.Job.ID, jobInfo.OutputCommit.ID)
 			return jobInfo, nil
 		}
 		return nil, err
 	}
-	reg.logger.Logf("found existing pipeline job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
+	reg.logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
 	return jobInfo, nil
 }
 
@@ -244,7 +244,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 	}
 	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
 	driver := reg.driver.WithContext(jobCtx)
-	// Build the pending pipeline job to send out to workers - this will block if
+	// Build the pending job to send out to workers - this will block if
 	// we have too many already
 	pj := &pendingJob{
 		driver:         driver,
@@ -256,7 +256,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 	}
 	// Inputs must be ready before we can construct a datum iterator, so do this
 	// synchronously to ensure correct order in the jobChain.
-	if err := pj.logger.LogStep("waiting for pipeline job inputs", func() error {
+	if err := pj.logger.LogStep("waiting for job inputs", func() error {
 		return reg.processJobStarting(pj)
 	}); err != nil {
 		return err

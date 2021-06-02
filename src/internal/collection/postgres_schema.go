@@ -187,8 +187,6 @@ func SetupPostgresCollections(ctx context.Context, sqlTx *sqlx.Tx, collections .
 			indexFields = append(indexFields, "'"+name+"'")
 		}
 
-		fmt.Printf("creating collection: %s\n%v\n", col.table, columns)
-
 		createTable := fmt.Sprintf("create table if not exists collections.%s (%s);", col.table, strings.Join(columns, ", "))
 		if _, err := sqlTx.Exec(createTable); err != nil {
 			return errors.EnsureStack(err)

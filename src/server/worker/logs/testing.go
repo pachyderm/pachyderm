@@ -83,7 +83,7 @@ func (ml *MockLogger) clone() *MockLogger {
 }
 
 // WithJob duplicates the MockLogger and returns a new one tagged with
-// the given pipeline job ID.
+// the given job ID.
 func (ml *MockLogger) WithJob(jobID string) TaggedLogger {
 	result := ml.clone()
 	result.Job = jobID
@@ -106,7 +106,7 @@ func (ml *MockLogger) WithUserCode() TaggedLogger {
 	return result
 }
 
-// JobID returns the currently tagged pipeline job ID for the logger.
+// JobID returns the currently tagged job ID for the logger.
 // This is redundant for MockLogger, as you can access ml.Job directly,
 // but it is needed for the TaggedLogger interface.
 func (ml *MockLogger) JobID() string {

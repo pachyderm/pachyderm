@@ -69,7 +69,7 @@ const (
 	// an image.
 	DefaultUserImage = "ubuntu:20.04"
 	// DefaultDatumTries is the default number of times a datum will be tried
-	// before we give up and consider the pipeline job failed.
+	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
 
 	// DefaultLogsFrom is the default duration to return logs from, i.e. by
@@ -584,7 +584,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			return nil, err
 		}
 		if request.Job == nil {
-			return nil, errors.Errorf("pipeline job with output commit %s not found", request.OutputCommit.ID)
+			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
 	}
 	if request.BlockState {
@@ -597,13 +597,13 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		for {
 			ev, ok := <-watcher.Watch()
 			if !ok {
-				return nil, errors.Errorf("the stream for pipeline job updates closed unexpectedly")
+				return nil, errors.Errorf("the stream for job updates closed unexpectedly")
 			}
 			switch ev.Type {
 			case watch.EventError:
 				return nil, ev.Err
 			case watch.EventDelete:
-				return nil, errors.Errorf("pipeline job %s was deleted", request.Job.ID)
+				return nil, errors.Errorf("job %s was deleted", request.Job.ID)
 			case watch.EventPut:
 				var jobID string
 				jobPtr := &pps.StoredJobInfo{}
@@ -625,7 +625,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		return nil, err
 	}
 	if request.Full {
-		// If the pipeline job is running, we fill in WorkerStatus field, otherwise
+		// If the job is running, we fill in WorkerStatus field, otherwise
 		// we just return the jobInfo.
 		if jobInfo.State != pps.JobState_JOB_RUNNING {
 			return jobInfo, nil
@@ -1001,7 +1001,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 		return handleJob(jobInfo)
 	}
 
-	// Continue on idempotently if we find multiple pipeline jobs or none.
+	// Continue on idempotently if we find multiple jobs or none.
 	return jobs.GetByIndex(ppsdb.JobsOutputIndex, pfsdb.CommitKey(outputCommit), jobInfo, col.DefaultOptions(), func(string) error {
 		return handleJob(jobInfo)
 	})
@@ -1169,12 +1169,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
 			}
 		} else if request.Job != nil {
-			// If user provides a pipeline job, lookup the pipeline from the
+			// If user provides a job, lookup the pipeline from the
 			// JobInfo, and then get the pipeline RC
 			jobPtr := &pps.StoredJobInfo{}
 			err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(request.Job.ID, jobPtr)
 			if err != nil {
-				return errors.Wrapf(err, "could not get pipeline job information for \"%s\"", request.Job.ID)
+				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 			}
 			pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobPtr.Pipeline.Name)
 			if err != nil {
@@ -1339,12 +1339,12 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 			return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
 		}
 	} else if request.Job != nil {
-		// If user provides a pipeline job, lookup the pipeline from the
+		// If user provides a job, lookup the pipeline from the
 		// JobInfo, and then get the pipeline RC
 		jobPtr := &pps.StoredJobInfo{}
 		err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(request.Job.ID, jobPtr)
 		if err != nil {
-			return errors.Wrapf(err, "could not get pipeline job information for \"%s\"", request.Job.ID)
+			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 		}
 		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobPtr.Pipeline.Name)
 		if err != nil {
