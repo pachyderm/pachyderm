@@ -10440,7 +10440,7 @@ func TestLoad(t *testing.T) {
 		load := load
 		t.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
 			require.NoError(t, c.DeleteAll())
-			srcRepo := tu.UniqueString(fmt.Sprint("TestLoad-", i))
+			srcRepo := tu.UniqueString(fmt.Sprint("TestLoad"))
 			require.NoError(t, c.CreateRepo(srcRepo))
 			pipeline := tu.UniqueString("TestLoadPipeline")
 			require.NoError(t, c.CreatePipeline(
