@@ -11,6 +11,9 @@ metadata:
   labels:
     app: pachd
     suite: pachyderm
+    {{- if .Values.pachd.service.labels }}
+    {{- toYaml .Values.pachd.service.labels | nindent 4 }}
+    {{- end }}
   name: pachd
   namespace: {{ .Release.Namespace }}
 spec:

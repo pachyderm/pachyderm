@@ -25,6 +25,9 @@ spec:
       labels:
         app: etcd
         suite: pachyderm
+        {{- if .Values.etcd.podLabels }}
+        {{- toYaml .Values.etcd.podLabels | nindent 8 }}
+        {{- end }}
       name: etcd
       namespace: {{ .Release.Namespace }}
     spec:

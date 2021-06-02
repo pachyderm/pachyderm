@@ -22,6 +22,9 @@ spec:
       labels:
         app: dash
         suite: pachyderm
+        {{- if .Values.dash.podLabels }}
+        {{- toYaml .Values.dash.podLabels | nindent 8 }}
+        {{- end }}
       name: dash
       namespace: {{ .Release.Namespace }}
     spec:

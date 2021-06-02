@@ -8,6 +8,9 @@ metadata:
   labels:
     app: etcd
     suite: pachyderm
+    {{- if .Values.etcd.service.labels }}
+    {{- toYaml .Values.etcd.service.labels | nindent 4 }}
+    {{- end }}
   name: etcd
   namespace: {{ .Release.Namespace }}
   {{- if .Values.etcd.service.annotations }}
