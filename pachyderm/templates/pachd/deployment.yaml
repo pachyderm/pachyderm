@@ -26,9 +26,15 @@ spec:
       labels:
         app: pachd
         suite: pachyderm
+        {{- if .Values.pachd.podLabels }}
+        {{- toYaml .Values.pachd.podLabels | nindent 8 }}
+        {{- end }}
       name: pachd
       namespace: {{ .Release.Namespace }}
     spec:
+      {{-  if .Values.pachd.affinity }}
+      affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
+      {{- end }}
       containers:
       - command:
         - /pachd

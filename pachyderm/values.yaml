@@ -24,6 +24,8 @@ dash:
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "0.5.58"
+  # podLabels specifies labels to add to the dash pod.
+  podLabels: {}
   # resources specifies the resource request and limits.
   resources: {}
     #limits:
@@ -33,6 +35,8 @@ dash:
     #  cpu: "1"
     #  memory: "2G"
   service:
+    # labels specifies labels to add to the dash service.
+    labels: {}
     # type specifies the Kubernetes type of the dash service.
     type: ClusterIP
   # There are three options for TLS:
@@ -51,6 +55,7 @@ dash:
   url: ""
 
 etcd:
+  affinity: {}
   # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
   # is analogous to the --dynamic-etcd-nodes argument to pachctl
   # deploy.
@@ -59,6 +64,8 @@ etcd:
     repository: "pachyderm/etcd"
     tag: "v3.3.5"
     pullPolicy: "IfNotPresent"
+  # podLabels specifies labels to add to the etcd pod.
+  podLabels: {}
   # resources specifies the resource request and limits
   resources: {}
     #limits:
@@ -76,6 +83,8 @@ etcd:
   service:
     # annotations specifies annotations to add to the etcd service.
     annotations: {}
+    # labels specifies labels to add to the etcd service.
+    labels: {}
     # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
 
@@ -86,6 +95,7 @@ imageCredentials: {}
   #email: ""
 
 pachd:
+  affinity: {}
   # blockCacheBytes sets the size of the block cache.  It is analogous
   # to the --block-cache-size argument passed to pachctl deploy.
   blockCacheBytes: "1G"
@@ -118,6 +128,8 @@ pachd:
   # performance.  It is analogous to the --shards argument to pachctl
   # deploy.
   numShards: 16
+  # podLabels specifies labels to add to the pachd pod.
+  podLabels: {}
   # resources specifies the resource requests and limits
   resources: {}
     #limits:
@@ -131,6 +143,8 @@ pachd:
   # --require-critical-servers-only argument to pachctl deploy.
   requireCriticalServersOnly: false
   service:
+    # labels specifies labels to add to the pachd service.
+    labels: {}
     # type specifies the Kubernetes type of the pachd service.
     type: "ClusterIP"
     #apiGrpcPort:

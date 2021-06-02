@@ -8,6 +8,9 @@ metadata:
   labels:
     app: dash
     suite: pachyderm
+    {{- if .Values.dash.service.labels }}
+    {{- toYaml .Values.dash.service.labels | nindent 4 }}
+    {{- end }}
   name: dash
   namespace: {{ .Release.Namespace }}
 spec:
