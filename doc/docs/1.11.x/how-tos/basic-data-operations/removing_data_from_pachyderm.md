@@ -19,13 +19,6 @@ erase from Pachyderm, follow the steps in this section to purge data.
 
 ## Delete the HEAD of a Branch
 
-If you have just committed incorrect, corrupt, or otherwise bad
-data to a branch in a Pachyderm repository, the HEAD of your branch,
-or the latest commit is bad. Users who read from that commit
-might be misled, and pipelines subscribed to it might fail or
-produce bad downstream output. You can solve this issue by running
-the `pachctl delete commit` command.
-
 To fix a broken HEAD, run the following command:
 
 ```shell
@@ -73,47 +66,46 @@ branch, you can try to delete the children commits. However,
 those commits might also have the data that you might want to
 keep.
 
-To delete a file in an older commit, complete the following steps:
+To delete a file in an older commit:
 
 1. Start a new commit:
 
-   ```shell
-   pachctl start commit <repo>@<branch>
-   ```
+      ```shell
+      pachctl start commit <repo>@<branch>
+      ```
 
 1. Delete all corrupted files from the newly opened commit:
 
-   ```shell
-   pachctl delete file <repo>@<branch or commitID>:/path/to/files
-   ```
+      ```shell
+      pachctl delete file <repo>@<branch or commitID>:/path/to/files
+      ```
 
 1. Finish the commit:
 
-   ```shell
-   pachctl finish commit <repo>@<branch>
-   ```
+      ```shell
+      pachctl finish commit <repo>@<branch>
+      ```
 
 4. Delete the initial bad commit and all its children up to
    the newly finished commit.
 
-   Depending on how you use Pachyderm, the final step might be
-   optional. After you finish the commit, the HEADs of all your
-   branches converge to correct results as downstream jobs finish.
-   However, deleting those commits cleans up your
-   commit history and ensures that the errant data is not
-   available when non-HEAD versions of the data is read.
+      Depending on how you use Pachyderm, the final step might be
+      optional. After you finish the commit, the HEADs of all your
+      branches converge to correct results as downstream jobs finish.
+      However, deleting those commits cleans up your
+      commit history and ensures that the errant data is not
+      available when non-HEAD versions of the data is read.
 
 ## Delete Sensitive Data
 
 When you delete data as described in [Delete Old Commits](#delete-old-commits),
 Pachyderm does not immediately delete it from the physical disk. Instead,
 Pachyderm deletes references to the underlying data and later
-performs garbage collection. That is when the data is truly erased from the
+performs **garbage collection**. That is when the data is truly erased from the
 disk.
 
 If you have accidentally committed sensitive data and you need to
-ensure that it is immediately erased and inaccessible, complete the
-following steps:
+ensure that it is immediately erased and inaccessible:
 
 1. Delete all the references to data as described in
 [Delete Old Commits](#delete-old-commits).
