@@ -1103,6 +1103,10 @@ func TestListAndInspectRepo(t *testing.T) {
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repoNone))
 
+	// put a file in the repo Bob can't access - we need to be able to get the size of the commits
+	err := aliceClient.PutFile(client.NewCommit(repoNone, "master", ""), "/test", strings.NewReader("test"))
+	require.NoError(t, err)
+
 	// bob creates a repo
 	repoOwner := tu.UniqueString(t.Name())
 	require.NoError(t, bobClient.CreateRepo(repoOwner))
