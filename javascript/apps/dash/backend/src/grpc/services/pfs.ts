@@ -106,19 +106,17 @@ const pfs = ({
         stream.on('end', () => resolve(commits));
       });
     },
-    listRepo: () => {
+    listRepo: (type = 'user') => {
       return new Promise<RepoInfo.AsObject[]>((resolve, reject) => {
-        client.listRepo(
-          new ListRepoRequest(),
-          credentialMetadata,
-          (error, res) => {
-            if (error) {
-              return reject(error);
-            }
+        const listRepoRequest = new ListRepoRequest().setType(type);
 
-            return resolve(res.toObject().repoInfoList);
-          },
-        );
+        client.listRepo(listRepoRequest, credentialMetadata, (error, res) => {
+          if (error) {
+            return reject(error);
+          }
+
+          return resolve(res.toObject().repoInfoList);
+        });
       });
     },
     inspectRepo: (name: RepoObject['name']) => {
