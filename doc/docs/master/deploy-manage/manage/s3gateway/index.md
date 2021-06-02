@@ -18,12 +18,12 @@ The operations on the HTTP API exposed by the S3 Gateway largely mirror those do
     Make sure to install and configure the S3 client of your choice as documented [here](configure-s3client.md).
 
 ## Quick Start
-The S3 gateway presents **each branch from every Pachyderm repository as an S3 bucket**.
-Buckets are represented via `branch.repo`. 
+The S3 gateway presents **each branch or commit from every Pachyderm repository as an S3 bucket**.
+Buckets are represented via `branch.repo` or `commit.repo`. 
 
 !!! Example
-    The `master.data` bucket corresponds
-    to the `master` branch of the repo `data`.
+    - The `master.data` bucket corresponds to the `master` branch of the repo `data`.
+    - The `cbb95cb85cd7402aa6ceed59317bdbab.data` bucket correspond to the commit `cbb95cb85cd7402aa6ceed59317bdbab` in the repo `data`.
 
 The following diagram gives a quick overview of the two main aws commands
 that will let you put data into a repo or retrieve data from it via the S3 gateway. 
@@ -38,7 +38,7 @@ Find the exhaustive list of:
 - and the [unsupported ones](unsupported-operations.md).
 
 ## If Authentication Is Enabled
-If [auth is enabled](../../../enterprise/auth/enable-auth.md) on the Pachyderm cluster, credentials must be passed with
+If [auth is enabled](../../../../enterprise/auth/enable-auth.md) on the Pachyderm cluster, credentials must be passed with
 each S3 gateway endpoint as mentioned in the [**Configure Your S3 Client**](./configure-s3client/#set-your-credentials) page.
 
 !!! Warning "Important"
