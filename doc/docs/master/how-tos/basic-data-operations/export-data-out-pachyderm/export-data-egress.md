@@ -8,7 +8,7 @@ before the job is marked as successful, Pachyderm pushes the data
 to the specified destination.
 
 !!! Note
-      Make sure that your cluster has been [configured to work with your external object store](../ingressing_from_diff_cloud).
+      Make sure that your cluster has been [configured to work with your external object store](../../ingressing_from_diff_cloud).
 
 Pick the `egress` protocol that applies to your storage:
 
