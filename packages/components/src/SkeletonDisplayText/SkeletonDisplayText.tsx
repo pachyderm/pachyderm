@@ -4,18 +4,18 @@ import React, {HTMLAttributes} from 'react';
 import styles from './SkeletonDisplayText.module.css';
 
 interface SkeletonDisplayTextProps extends HTMLAttributes<HTMLDivElement> {
-  blueShimmer?: boolean;
+  color?: 'blue' | 'grey';
 }
 
 const SkeletonDisplayText: React.FC<SkeletonDisplayTextProps> = ({
-  blueShimmer = false,
+  color = '',
   className,
   ...rest
 }) => (
   <div
     className={classnames(
       styles.base,
-      {[styles.blueShimmer]: blueShimmer},
+      {...(Boolean(color) && {[styles[color]]: true})},
       className,
     )}
     {...rest}
