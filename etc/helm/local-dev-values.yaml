@@ -1,0 +1,19 @@
+pachd:
+  storage:
+    backend: LOCAL
+  image:
+    tag: local
+  service:
+    type: NodePort
+
+worker:
+  image:
+    tag: local
+
+etcd:
+  service:
+    type: NodePort
+
+postgresql:
+  service:
+    type: NodePort
