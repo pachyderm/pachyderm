@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -687,8 +688,12 @@ var etcdClientOnce sync.Once
 func getEtcdClient() *etcd.Client {
 	etcdClientOnce.Do(func() {
 		var err error
+		host := os.Getenv("VM_IP")
+		if host == "" {
+			host = "localhost"
+		}
 		etcdClient, err = etcd.New(etcd.Config{
-			Endpoints:   []string{"localhost:32379"},
+			Endpoints:   []string{fmt.Sprintf("%v:32379", host)},
 			DialOptions: client.DefaultDialOptions(),
 		})
 		if err != nil {

@@ -33,7 +33,7 @@ const maxFilterSize = 1048576
 
 func TestInvalidConstraints(t *testing.T) {
 	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(-0.4, 1000, maxFilterSize) })
-	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(-0.0, 1000, maxFilterSize) })
+	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(math.Copysign(0, -1), 1000, maxFilterSize) })
 	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(0.0, 1000, maxFilterSize) })
 	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(1.0, 1000, maxFilterSize) })
 	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(0.1, 0, maxFilterSize) })
