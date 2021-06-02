@@ -10,7 +10,7 @@ metadata:
     app: postgres
     suite: pachyderm
   name: postgres-headless
-  namespace: default
+  namespace: {{ .Release.Namespace }}
 spec:
   clusterIP: None
   ports:

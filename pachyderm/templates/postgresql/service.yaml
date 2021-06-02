@@ -10,7 +10,7 @@ metadata:
     app: postgres
     suite: pachyderm
   name: postgres
-  namespace: default
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - name: client-port

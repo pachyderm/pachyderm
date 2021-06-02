@@ -20,4 +20,4 @@ metadata:
     app: postgres
     suite: pachyderm
   name: postgres-init-cm
-  namespace: default
+  namespace: {{ .Release.Namespace }}
