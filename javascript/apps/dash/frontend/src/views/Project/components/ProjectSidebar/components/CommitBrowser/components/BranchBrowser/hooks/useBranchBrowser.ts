@@ -28,7 +28,6 @@ const useBranchBrowser = ({branches = []}: useBranchBrowserOpts = {}) => {
   const dropdownItems = useMemo<DropdownItem[]>(() => {
     return [
       {id: 'master', value: 'master', content: 'master', closeOnClick: true},
-      {id: 'none', value: 'none', content: 'none', closeOnClick: true},
       ...branches
         .map((branch) => ({
           id: branch.id,

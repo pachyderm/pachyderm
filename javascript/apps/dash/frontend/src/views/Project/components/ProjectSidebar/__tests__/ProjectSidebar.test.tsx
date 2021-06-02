@@ -1,7 +1,7 @@
 import {render} from '@testing-library/react';
 import React from 'react';
 
-import {withContextProviders, click} from '@dash-frontend/testHelpers';
+import {withContextProviders} from '@dash-frontend/testHelpers';
 
 import ProjectSidebar from '../ProjectSidebar';
 
@@ -62,20 +62,18 @@ describe('ProjectSidebar', () => {
       expect(commit).toBeInTheDocument();
     });
 
-    it('should show no commits when the branch has no commits', () => {
-      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+    it('should show no commits when the branch has no commits', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/2/repo/samples/branch/master',
+      );
 
-      const {getByText} = render(<Project />);
+      const {findByText} = render(<Project />);
 
-      const selectorButton = getByText('Commits (Branch: master)');
-
-      click(selectorButton);
-
-      const noneOption = getByText('none');
-
-      click(noneOption);
-
-      const emptyMessage = getByText('There are no commits for this branch');
+      const emptyMessage = await findByText(
+        'There are no commits for this branch',
+      );
 
       expect(emptyMessage).toBeInTheDocument();
     });

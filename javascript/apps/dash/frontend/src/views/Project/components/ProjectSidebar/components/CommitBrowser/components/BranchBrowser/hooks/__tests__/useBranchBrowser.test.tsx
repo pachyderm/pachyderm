@@ -24,7 +24,7 @@ describe('BranchBrowser/hooks/useBranchBrowser', () => {
     window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
 
     const {getByText} = render(<BranchBrowserComponent />);
-    const items = getByText('master-none-alpha-develop-feature');
+    const items = getByText('master-alpha-develop-feature');
 
     expect(items).toBeInTheDocument();
   });
