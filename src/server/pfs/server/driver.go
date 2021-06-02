@@ -695,11 +695,7 @@ func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error)
 			if err := d.branches.ReadOnly(ctx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
 				return 0, err
 			}
-			// If the head commit of master has been deleted, we could get here if another branch
-			// had shared its head commit with master, and then we created a new commit on that branch
-			if branchInfo.Head != nil {
-				return d.sizeOfCommit(ctx, branchInfo.Head)
-			}
+			return d.sizeOfCommit(ctx, branchInfo.Head)
 		}
 	}
 	return 0, nil
@@ -709,7 +705,7 @@ func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error)
 // in order to restore the invariant that branch provenance matches HEAD commit
 // provenance:
 //   B.Head is provenant on A.Head <=>
-//   branch B is provenant on branch A and A.Head != nil
+//   branch B is provenant on branch A
 // The implementation assumes that the invariant already holds for all branches
 // upstream of 'branches', but not necessarily for each 'branch' itself. Despite
 // the name, 'branches' do not need a HEAD commit to propagate, though one may
@@ -804,18 +800,15 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			if err != nil {
 				return err
 			}
-			// If one of the provenances has a nil head, skip adding it to this Commitset
-			if provOfSubvBI.Head != nil {
-				if provOfSubvBI.Head.ID != txnCtx.CommitsetID {
-					if _, err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
-						return err
-					}
-					// Update the cached branch head
-					provOfSubvBI.Head.ID = txnCtx.CommitsetID
+			if provOfSubvBI.Head.ID != txnCtx.CommitsetID {
+				if _, err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
+					return err
 				}
-				// Generate the new Commitset commit info for this branch
-				addBranch(provOfSubvBI)
+				// Update the cached branch head
+				provOfSubvBI.Head.ID = txnCtx.CommitsetID
 			}
+			// Generate the new Commitset commit info for this branch
+			addBranch(provOfSubvBI)
 		}
 
 		if subvBI.Head.ID != txnCtx.CommitsetID {
