@@ -30,7 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -8523,7 +8523,12 @@ func TestDeleteSpecRepo(t *testing.T) {
 		"",
 		false,
 	))
-	require.YesError(t, c.DeleteRepo(ppsconsts.SpecRepo, false))
+	_, err := c.PfsAPIClient.DeleteRepo(
+		c.Ctx(),
+		&pfs.DeleteRepoRequest{
+			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+		})
+	require.YesError(t, err)
 }
 
 func TestUserWorkingDir(t *testing.T) {
@@ -9340,9 +9345,23 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 
 	// make sure the pipeline is failed
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline)
+		// use list pipeline instead of inspect pipeline because we expect
+		// the spec repo to be gone, which will cause GetPipelineInfo to fail
+		resp, err := c.PpsAPIClient.ListPipeline(
+			c.Ctx(),
+			&pps.ListPipelineRequest{
+				AllowIncomplete: true,
+			},
+		)
 		if err != nil {
-			return err
+			return grpcutil.ScrubGRPC(err)
+		}
+		var pi *pps.PipelineInfo
+		for _, info := range resp.PipelineInfo {
+			if info.Pipeline.Name == pipeline {
+				pi = info
+				break
+			}
 		}
 		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
 			return errors.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
@@ -10434,7 +10453,7 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	require.Matches(t, "outside of transaction", err.Error())
 }
 
-func TestPipelineSpecCommitCleanup(t *testing.T) {
+func TestSystemRepoDependence(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10444,38 +10463,47 @@ func TestPipelineSpecCommitCleanup(t *testing.T) {
 	input := tu.UniqueString("in")
 	pipeline := tu.UniqueString("pipeline")
 
-	createPipeline := func(c *client.APIClient) error {
-		return c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
-			client.NewPFSInput(input, "/*"),
-			"",
-			false,
-		)
-	}
 	require.NoError(t, c.CreateRepo(input))
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(input, "/*"),
+		"",
+		false,
+	))
 
-	txn, err := c.StartTransaction()
+	// meta repo has no subvenance
+	_, err := c.PfsAPIClient.DeleteRepo(
+		c.Ctx(),
+		&pfs.DeleteRepoRequest{
+			Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
+		})
 	require.NoError(t, err)
-	require.NoError(t, createPipeline(c.WithTransaction(txn)))
-	require.NoError(t, c.DeleteTransaction(txn))
 
-	commits, err := c.ListCommitByRepo(client.NewRepo(ppsconsts.SpecRepo))
-	require.NoError(t, err)
-	require.Equal(t, len(commits), 0)
+	// but spec repo does
+	_, err = c.PfsAPIClient.DeleteRepo(
+		c.Ctx(),
+		&pfs.DeleteRepoRequest{
+			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+		})
+	require.YesError(t, err)
 
-	require.NoError(t, createPipeline(c))
-	// creating again should error
-	require.YesError(t, createPipeline(c))
-	// resulting in any temporary spec commit being deleted
-	commits, err = c.ListCommitByRepo(client.NewRepo(ppsconsts.SpecRepo))
-	require.NoError(t, err)
-	require.Equal(t, len(commits), 1)
+	require.NoError(t, c.DeletePipeline(pipeline, false))
+
+	_, err = c.PfsAPIClient.InspectRepo(
+		c.Ctx(),
+		&pfs.InspectRepoRequest{
+			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+		},
+	)
+	// spec repo should have been deleted
+	require.YesError(t, err)
+	require.True(t, errutil.IsNotFoundError(grpcutil.ScrubGRPC(err)))
 }
 
 //lint:ignore U1000 false positive from staticcheck

@@ -267,7 +267,12 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// check that the spec commit for the pipeline has the correct subvenance -
 		// there should be one entry for the output commit in the spout pipeline,
 		// and one for the propagated commit in the downstream pipeline
-		commitInfo, err := c.InspectCommit("__spec__", pipeline, "")
+		commitInfo, err := c.PfsAPIClient.InspectCommit(
+			c.Ctx(),
+			&pfs.InspectCommitRequest{
+				Commit:     client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", ""),
+				BlockState: pfs.CommitState_STARTED,
+			})
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfo.Subvenance))
 
