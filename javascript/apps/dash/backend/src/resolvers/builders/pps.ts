@@ -48,12 +48,7 @@ export const pipelineInfoToGQLPipeline = (
     numOfJobsEgressing: jobStates[PipelineJobState.JOB_EGRESSING] || 0,
     lastJobState: toGQLPipelineJobState(pipelineInfo.lastJobState),
     type: derivePipelineType(pipelineInfo),
-    transform: pipelineInfo.transform
-      ? {
-          cmdList: pipelineInfo.transform.cmdList,
-          image: pipelineInfo.transform.image,
-        }
-      : undefined,
+    transform: pipelineInfo.transform,
     inputString: JSON.stringify(pipelineInfo.input, null, 2),
     cacheSize: pipelineInfo.cacheSize,
     datumTimeoutS: pipelineInfo.datumTimeout?.seconds,
@@ -87,6 +82,13 @@ export const jobInfoToGQLJob = (
     id: jobInfo.pipelineJob?.id || '',
     state: toGQLPipelineJobState(jobInfo.state),
     createdAt: jobInfo.started?.seconds || 0,
+    finishedAt: jobInfo.finished?.seconds,
+    pipelineName: jobInfo.pipeline?.name || '',
+    transform: jobInfo.transform,
+    inputString: jobInfo.input
+      ? JSON.stringify(jobInfo.input, null, 2)
+      : undefined,
+    inputBranch: jobInfo.input?.pfs?.branch,
   };
 };
 

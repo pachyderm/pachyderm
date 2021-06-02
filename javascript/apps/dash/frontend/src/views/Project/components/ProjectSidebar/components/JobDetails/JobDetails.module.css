@@ -1,0 +1,88 @@
+.base {
+  width: 33.375rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.heading {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 2.8125rem;
+}
+
+.headerSection {
+  padding: 2rem;
+}
+
+.seeMoreJobs {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.pipelineSection {
+  display: flex;
+  flex: 1;
+  border-top: 1px solid var(--line-grey);
+}
+
+.pipelineList {
+  margin-top: 0.75rem;
+  list-style: none;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 0;
+  flex: 1;
+  width: 12.625rem;
+  max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
+  overflow-y: auto;
+}
+
+.pipelineSpec {
+  flex: 1;
+  padding-top: 1.5rem;
+  border-left: 1px solid var(--line-grey);
+}
+
+.pipelineLink {
+  color: var(--pachyderm-black);
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  overflow-x: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-left: 2px solid transparent;
+}
+
+.pipelineLink:hover,
+.pipelineLink:active {
+  color: var(--pachyderm-black);
+  text-decoration: none;
+}
+
+.pipelineLink:hover {
+  background-color: var(--background-grey);
+}
+
+.pipelineLink.active.error {
+  border-left: 2px solid var(--error-red);
+}
+
+.pipelineLink.active.success {
+  border-left: 2px solid var(--success-green);
+}
+
+.backArrow {
+  transform: rotate(-90deg);
+  margin-left: -0.875rem;
+  margin-right: 0.3125rem;
+}
+
+.pipelineIcon {
+  height: 0.875rem;
+  width: 0.875rem;
+  margin-right: 0.4375rem;
+}

@@ -6,12 +6,11 @@ import Logger from 'bunyan';
 
 import client from '@dash-backend/grpc/client';
 import formatBytes from '@dash-backend/lib/formatBytes';
-import {
-  toGQLPipelineJobState,
-  toGQLProjectStatus,
-} from '@dash-backend/lib/gqlEnumMappers';
+import {toGQLProjectStatus} from '@dash-backend/lib/gqlEnumMappers';
 import {GRPCClient} from '@dash-backend/lib/types';
 import {ProjectStatus, QueryResolvers} from '@graphqlTypes';
+
+import {jobInfoToGQLJob} from './builders/pps';
 
 interface ProjectsResolver {
   Query: {
@@ -120,11 +119,7 @@ const projectsResolver: ProjectsResolver = {
         sizeDisplay: formatBytes(totalSizeBytes),
         repoCount: repos.length,
         pipelineCount: pipelines.length,
-        jobs: jobs.map((job) => ({
-          id: job.pipelineJob?.id || '',
-          state: toGQLPipelineJobState(job.state),
-          createdAt: job.started?.seconds || 0,
-        })),
+        jobs: jobs.map(jobInfoToGQLJob),
       };
     },
   },

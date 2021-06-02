@@ -1,0 +1,10 @@
+.base {
+  max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
+  padding: 0 1.125rem;
+  overflow-y: auto;
+}
+
+.divider {
+  border-top: 1px dashed var(--line-grey);
+  margin: 1.5rem 0;
+}

@@ -1,7 +1,7 @@
 import classnames from 'classnames';
 import React from 'react';
 
-import {PipelineJob} from '@graphqlTypes';
+import {PipelineJobOverviewFragment} from '@graphqlTypes';
 
 import JobListEmptyState from './components/JobListEmptyState';
 import JobListItem from './components/JobListItem';
@@ -9,7 +9,7 @@ import JobListSkeleton from './components/JobListSkeleton';
 import styles from './JobListStatic.module.css';
 
 type JobListBaseProps = {
-  pipelineJobs?: Pick<PipelineJob, 'id' | 'state' | 'createdAt'>[];
+  pipelineJobs?: PipelineJobOverviewFragment[];
   loading?: boolean;
   projectId: string;
   expandActions?: boolean;

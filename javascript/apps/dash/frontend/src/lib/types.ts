@@ -6,6 +6,8 @@ export interface ProjectRouteParams {
   tabId?: string;
   commitId?: string;
   filePath?: string;
+  jobId?: string;
+  pipelineJobId?: string;
 }
 
 export type FileMajorType =

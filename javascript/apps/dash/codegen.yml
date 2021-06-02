@@ -2,6 +2,7 @@ schema:
   - backend/src/schema.graphqls
   - frontend/src/client.schema.graphqls
 documents:
+  - 'frontend/src/fragments/*.ts'
   - 'frontend/src/queries/*.ts'
   - 'frontend/src/mutations/*.ts'
 generates:

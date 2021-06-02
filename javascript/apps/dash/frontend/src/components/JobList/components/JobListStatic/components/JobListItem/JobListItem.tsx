@@ -5,12 +5,12 @@ import React from 'react';
 import {Link} from 'react-router-dom';
 
 import readableJobState from '@dash-frontend/lib/readableJobState';
-import {PipelineJob} from '@graphqlTypes';
+import {PipelineJobOverviewFragment} from '@graphqlTypes';
 
 import styles from './JobListItem.module.css';
 
 type JobListItemProps = {
-  pipelineJob: PipelineJob;
+  pipelineJob: PipelineJobOverviewFragment;
   expandActions?: boolean;
 };
 

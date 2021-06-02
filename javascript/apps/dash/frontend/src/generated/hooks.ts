@@ -5,7 +5,14 @@ import * as Apollo from '@apollo/client';
 
 import * as Types from '@graphqlTypes';
 const defaultOptions = {};
-
+export const PipelineJobOverviewFragmentDoc = gql`
+  fragment PipelineJobOverview on PipelineJob {
+    id
+    state
+    createdAt
+    finishedAt
+  }
+`;
 export const ExchangeCodeDocument = gql`
   mutation exchangeCode($code: String!) {
     exchangeCode(code: $code) {
@@ -449,11 +456,17 @@ export type LoggedInQueryResult = Apollo.QueryResult<
 export const PipelineJobsDocument = gql`
   query pipelineJobs($args: PipelineJobsQueryArgs!) {
     pipelineJobs(args: $args) {
-      id
-      state
-      createdAt
+      ...PipelineJobOverview
+      pipelineName
+      inputString
+      inputBranch
+      transform {
+        cmdList
+        image
+      }
     }
   }
+  ${PipelineJobOverviewFragmentDoc}
 `;
 
 /**
@@ -593,12 +606,11 @@ export const ProjectDetailsDocument = gql`
       repoCount
       pipelineCount
       jobs {
-        id
-        state
-        createdAt
+        ...PipelineJobOverview
       }
     }
   }
+  ${PipelineJobOverviewFragmentDoc}
 `;
 
 /**

@@ -8,6 +8,8 @@ import {
   PROJECT_PATH,
   REPO_PATH,
   FILE_BROWSER_PATH,
+  JOB_PATH,
+  PIPELINE_JOB_PATH,
 } from '../constants/projectPaths';
 
 const generatePathWithSearch = (
@@ -89,4 +91,38 @@ export const fileBrowserRoute = ({
     commitId: encodeURIComponent(commitId),
     branchId: encodeURIComponent(branchId),
     filePath: filePath ? encodeURIComponent(filePath) : undefined,
+  });
+
+export const jobRoute = ({
+  projectId,
+  jobId,
+  pipelineJobId,
+}: {
+  projectId: string;
+  jobId: string;
+  pipelineId?: string;
+  pipelineJobId?: string;
+}) =>
+  generatePathWithSearch(JOB_PATH, {
+    projectId,
+    jobId,
+    pipelineJobId,
+  });
+
+export const pipelineJobRoute = ({
+  projectId,
+  jobId,
+  pipelineId,
+  pipelineJobId,
+}: {
+  projectId: string;
+  jobId: string;
+  pipelineId: string;
+  pipelineJobId: string;
+}) =>
+  generatePathWithSearch(PIPELINE_JOB_PATH, {
+    projectId,
+    jobId,
+    pipelineId,
+    pipelineJobId,
   });

@@ -232,7 +232,12 @@ export type PipelineJob = {
   __typename?: 'PipelineJob';
   id: Scalars['ID'];
   createdAt: Scalars['Int'];
+  finishedAt?: Maybe<Scalars['Int']>;
   state: PipelineJobState;
+  pipelineName: Scalars['String'];
+  transform?: Maybe<Transform>;
+  inputString?: Maybe<Scalars['String']>;
+  inputBranch?: Maybe<Scalars['String']>;
 };
 
 export enum PipelineJobState {
@@ -953,7 +958,24 @@ export type PipelineJobResolvers<
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  finishedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   state?: Resolver<ResolversTypes['PipelineJobState'], ParentType, ContextType>;
+  pipelineName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  transform?: Resolver<
+    Maybe<ResolversTypes['Transform']>,
+    ParentType,
+    ContextType
+  >;
+  inputString?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  inputBranch?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1185,6 +1207,11 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
  */
 export type IResolvers<ContextType = Context> = Resolvers<ContextType>;
 
+export type PipelineJobOverviewFragment = {__typename?: 'PipelineJob'} & Pick<
+  PipelineJob,
+  'id' | 'state' | 'createdAt' | 'finishedAt'
+>;
+
 export type ExchangeCodeMutationVariables = Exact<{
   code: Scalars['String'];
 }>;
@@ -1325,8 +1352,12 @@ export type PipelineJobsQuery = {__typename?: 'Query'} & {
   pipelineJobs: Array<
     {__typename?: 'PipelineJob'} & Pick<
       PipelineJob,
-      'id' | 'state' | 'createdAt'
-    >
+      'pipelineName' | 'inputString' | 'inputBranch'
+    > & {
+        transform?: Maybe<
+          {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
+        >;
+      } & PipelineJobOverviewFragment
   >;
 };
 
@@ -1379,14 +1410,7 @@ export type ProjectDetailsQuery = {__typename?: 'Query'} & {
   projectDetails: {__typename?: 'ProjectDetails'} & Pick<
     ProjectDetails,
     'sizeDisplay' | 'repoCount' | 'pipelineCount'
-  > & {
-      jobs: Array<
-        {__typename?: 'PipelineJob'} & Pick<
-          PipelineJob,
-          'id' | 'state' | 'createdAt'
-        >
-      >;
-    };
+  > & {jobs: Array<{__typename?: 'PipelineJob'} & PipelineJobOverviewFragment>};
 };
 
 export type ProjectQueryVariables = Exact<{

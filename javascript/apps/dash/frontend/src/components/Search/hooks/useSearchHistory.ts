@@ -1,5 +1,5 @@
 import omit from 'lodash/omit';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 interface SearchHistory {
