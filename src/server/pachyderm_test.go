@@ -10456,6 +10456,59 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	require.Matches(t, "outside of transaction", err.Error())
 }
 
+func TestSystemRepoDependence(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	input := tu.UniqueString("in")
+	pipeline := tu.UniqueString("pipeline")
+
+	require.NoError(t, c.CreateRepo(input))
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(input, "/*"),
+		"",
+		false,
+	))
+
+	// meta repo has no subvenance
+	_, err := c.PfsAPIClient.DeleteRepo(
+		c.Ctx(),
+		&pfs.DeleteRepoRequest{
+			Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
+		})
+	require.NoError(t, err)
+
+	// but spec repo does
+	_, err = c.PfsAPIClient.DeleteRepo(
+		c.Ctx(),
+		&pfs.DeleteRepoRequest{
+			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+		})
+	require.YesError(t, err)
+
+	require.NoError(t, c.DeletePipeline(pipeline, false))
+
+	_, err = c.PfsAPIClient.InspectRepo(
+		c.Ctx(),
+		&pfs.InspectRepoRequest{
+			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+		},
+	)
+	// spec repo should have been deleted
+	require.YesError(t, err)
+	require.True(t, errutil.IsNotFoundError(grpcutil.ScrubGRPC(err)))
+}
+
 //lint:ignore U1000 false positive from staticcheck
 func restartAll(t *testing.T) {
 	k := tu.GetKubeClient(t)

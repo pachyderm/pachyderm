@@ -334,8 +334,8 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
 	for i := range branchInfos {
 		// delete branches from most provenance to least, that way if one
-		// branch is provenant on another (such as with stats branches) we
-		// delete them in the right order.
+		// branch is provenant on another (which is likely the case when
+		// multiple repos are provided) we delete them in the right order.
 		branch := branchInfos[len(branchInfos)-1-i].Branch
 		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
 			return errors.Wrapf(err, "delete branch %s", pretty.CompactPrintBranch(branch))

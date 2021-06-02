@@ -1624,9 +1624,7 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 	filesetID string,
 	prevSpecCommit *pfs.Commit,
 ) (*pfs.Commit, error) {
-	var commit *pfs.Commit
-	var err error
-	commit, err = a.env.PfsServer().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
+	commit, err := a.env.PfsServer().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
 		Parent: prevSpecCommit,
 		Branch: client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"),
 	}, nil)
@@ -2266,15 +2264,14 @@ func (a *apiServer) CreatePipelineInTransaction(
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
 			Repo:        statsBranch.Repo,
 			Description: fmt.Sprint("Meta repo for", pipelineName),
-			Update:      true, // don't error if it already exists
-		}); err != nil {
+		}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrap(err, "could not create meta repo")
 		}
 		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch:     statsBranch,
 			Provenance: []*pfs.Branch{outputBranch},
 			Head:       statsBranchHead,
-		}); err != nil {
+		}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "could not create/update meta branch")
 		}
 	}
@@ -2589,19 +2586,21 @@ func (a *apiServer) listPipelinePtr(ctx context.Context,
 				return nil
 			}
 			// Get parent commit
-			pachClient := a.env.GetPachClient(ctx)
-			// allow reading spec commit regardless of calling user
-			pachClient.SetAuthToken(p.AuthToken)
-			ci, err := pachClient.PfsAPIClient.InspectCommit(
-				pachClient.Ctx(),
-				&pfs.InspectCommitRequest{
-					Commit:     p.SpecCommit,
-					BlockState: pfs.CommitState_STARTED,
-				},
-			)
+			var ci *pfs.CommitInfo
+			err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+				var err error
+				// in principle we need permission to read the pipeline's spec repo,
+				// but the InTransaction version skips the auth check
+				ci, err = a.env.PfsServer().InspectCommitInTransaction(
+					txnCtx,
+					&pfs.InspectCommitRequest{
+						Commit:     p.SpecCommit,
+						BlockState: pfs.CommitState_STARTED,
+					})
+				return err
+			})
 			switch {
 			case err != nil:
-				err = grpcutil.ScrubGRPC(err)
 				if auth.IsErrNoRoleBinding(err) {
 					return nil // a missing role binding suggests the spec repo is gone
 				}
