@@ -117,4 +117,4 @@ functionality of an external messaging system, such as
 Apache® Kafka offset management or similar.
 
 If you want to check how a marker works in Pahcyderm, see
-the [Resuming a Spout Pipeline example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout-marker).
+the [Resuming a Spout Pipeline example](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/spouts/spout-marker).
