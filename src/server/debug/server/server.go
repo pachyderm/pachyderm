@@ -372,7 +372,7 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 			if strings.Contains(err.Error(), "not found") {
 				repoPrefix := join("input-repos", repoInfo.Repo.Name)
 				return collectDebugFile(tw, "commits", func(w io.Writer) error {
-					return pachClient.ListCommitF(repoInfo.Repo.Name, "", "", "", "", uint64(limit), false, func(ci *pfs.CommitInfo) error {
+					return pachClient.ListCommitF(repoInfo.Repo, nil, nil, uint64(limit), false, func(ci *pfs.CommitInfo) error {
 						return s.marshaller.Marshal(w, ci)
 					})
 				}, repoPrefix)
@@ -444,7 +444,7 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 			return err
 		}
 		if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
-			return pachClient.ListCommitF(pipelineInfo.Pipeline.Name, "", "", "", "", uint64(limit), false, func(ci *pfs.CommitInfo) error {
+			return pachClient.ListCommitF(client.NewRepo(pipelineInfo.Pipeline.Name), nil, nil, uint64(limit), false, func(ci *pfs.CommitInfo) error {
 				return s.marshaller.Marshal(w, ci)
 			})
 		}, prefix...); err != nil {
@@ -453,12 +453,12 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 		return collectDebugFile(tw, "jobs", func(w io.Writer) error {
 			// TODO: The limiting should eventually be a feature of list job.
 			var count int64
-			return pachClient.ListJobF(pipelineInfo.Pipeline.Name, nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
+			return pachClient.ListJobF(pipelineInfo.Pipeline.Name, nil, nil, 0, false, func(ji *pps.JobInfo) error {
 				if count >= limit {
 					return errutil.ErrBreak
 				}
 				count++
-				return s.marshaller.Marshal(w, pji)
+				return s.marshaller.Marshal(w, ji)
 			})
 		}, prefix...)
 	}

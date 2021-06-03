@@ -111,6 +111,19 @@ func isValidBranch(name string) bool {
 	return err == nil
 }
 
+func repoFromString(name string) *pfs.Repo {
+	var repo pfs.Repo
+	if strings.Contains(name, ".") {
+		repoParts := strings.SplitN(name, ".", 2)
+		repo.Name = repoParts[0]
+		repo.Type = repoParts[1]
+	} else {
+		repo.Name = name
+		repo.Type = pfs.UserRepoType
+	}
+	return &repo
+}
+
 // Parses the following formats, any unspecified fields will be left as empty
 // strings in the pfs.File structure.  The second return value is the number of fields parsed -
 // (1: repo only, 2: repo and branch-or-commit, 3: repo, branch, and file).
@@ -150,7 +163,7 @@ func parseFile(arg string) (*pfs.File, int, error) {
 			commit = parts[1]
 		}
 	}
-	return client.NewFile(repo, branch, commit, path), numFields, nil
+	return repoFromString(repo).NewCommit(branch, commit).NewFile(path), numFields, nil
 }
 
 // ParseCommit takes an argument of the form "repo[@branch-or-commit]" and

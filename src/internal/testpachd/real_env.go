@@ -15,8 +15,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authtesting "github.com/pachyderm/pachyderm/v2/src/server/auth/testing"
+	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 )
@@ -29,8 +30,8 @@ type RealEnv struct {
 	MockEnv
 
 	ServiceEnv               serviceenv.ServiceEnv
-	AuthServer               authserver.APIServer
-	PFSServer                pfsserver.APIServer
+	AuthServer               authapi.APIServer
+	PFSServer                pfsapi.APIServer
 	TransactionServer        txnserver.APIServer
 	MockPPSTransactionServer *MockPPSTransactionServer
 }
@@ -57,10 +58,10 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
-	servEnv := serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
+	realEnv.ServiceEnv = serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
 
 	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
-	realEnv.PachClient = servEnv.GetPachClient(servEnv.Context())
+	realEnv.PachClient = realEnv.ServiceEnv.GetPachClient(realEnv.ServiceEnv.Context())
 
 	t.Cleanup(func() {
 		// There is a race condition here, although not too serious because this only
@@ -72,19 +73,19 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 		// TODO: It appears the postgres db.Close() may return errors due to
 		// background goroutines using a closed TCP session because we don't do an
 		// orderly shutdown, so we don't check the error here.
-		servEnv.Close()
+		realEnv.ServiceEnv.Close()
 	})
 
-	err = migrations.ApplyMigrations(servEnv.Context(), servEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
+	err = migrations.ApplyMigrations(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
 	require.NoError(t, err)
-	err = migrations.BlockUntil(servEnv.Context(), servEnv.GetDBClient(), clusterstate.DesiredClusterState)
+	err = migrations.BlockUntil(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 
 	txnEnv := &txnenv.TransactionEnv{}
 
 	etcdPrefix := ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(
-		servEnv,
+		realEnv.ServiceEnv,
 		txnEnv,
 		etcdPrefix,
 	)
@@ -92,12 +93,16 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 
 	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
 
-	realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv, etcdPrefix)
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
 
-	txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, &realEnv.MockPPSTransactionServer.api)
+	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetAuthServer(realEnv.AuthServer)
+	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetPfsServer(realEnv.PFSServer)
+	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetPpsServer(&realEnv.MockPPSTransactionServer.api)
+
+	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)

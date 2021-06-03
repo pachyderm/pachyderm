@@ -135,11 +135,11 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 						}
 						return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
 					}
-					if jdi.skippableDatum(metas[0], metas[1]) {
+					if jdi.skippableDatum(metas[1], metas[0]) {
 						jdi.stats.Skipped++
-						return skippedSet.UploadMeta(metas[0])
+						return skippedSet.UploadMeta(metas[1])
 					}
-					return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
+					return outputSet.UploadMeta(metas[1], datum.WithPrefixIndex())
 				})
 			}); err != nil {
 				return err
@@ -174,12 +174,12 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 					return jdi.deleteDatum(metas[0])
 				}
 				// Check if a skipped datum was not successfully processed by the parent.
-				if !jdi.skippableDatum(metas[0], metas[1]) {
+				if !jdi.skippableDatum(metas[1], metas[0]) {
 					jdi.stats.Skipped--
-					if err := jdi.deleteDatum(metas[1]); err != nil {
+					if err := jdi.deleteDatum(metas[0]); err != nil {
 						return err
 					}
-					return s.UploadMeta(metas[0], datum.WithPrefixIndex())
+					return s.UploadMeta(metas[1], datum.WithPrefixIndex())
 				}
 				return nil
 			})

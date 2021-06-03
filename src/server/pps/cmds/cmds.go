@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -116,23 +117,23 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			pipelineJobInfo, err := client.InspectJob(args[0], block, true)
+			jobInfo, err := client.InspectJob(args[0], block, true)
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
 			}
-			if pipelineJobInfo == nil {
+			if jobInfo == nil {
 				cmdutil.ErrorAndExit("job %s not found.", args[0])
 			}
 			if raw {
-				return encoder(output).EncodeProto(pipelineJobInfo)
+				return encoder(output).EncodeProto(jobInfo)
 			} else if output != "" {
 				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
-			ppji := &pretty.PrintablePipelineJobInfo{
-				PipelineJobInfo: pipelineJobInfo,
-				FullTimestamps:  fullTimestamps,
+			pji := &pretty.PrintableJobInfo{
+				JobInfo:        jobInfo,
+				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedPipelineJobInfo(os.Stdout, ppji)
+			return pretty.PrintDetailedJobInfo(os.Stdout, pji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
@@ -197,15 +198,15 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(pji *ppsclient.PipelineJobInfo) error {
-						return e.EncodeProto(pji)
+					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(ji *ppsclient.JobInfo) error {
+						return e.EncodeProto(ji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(pji *ppsclient.PipelineJobInfo) error {
-					pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
+				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(ji *ppsclient.JobInfo) error {
+					pretty.PrintJobInfo(writer, ji, fullTimestamps)
 					return nil
 				}); err != nil {
 					return err
@@ -265,14 +266,14 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			}
 			e := encoder(output)
-			if err := c.FlushJob(commits, pipelines, func(pji *ppsclient.PipelineJobInfo) error {
+			if err := c.FlushJob(commits, pipelines, func(ji *ppsclient.JobInfo) error {
 				if raw {
-					if err := e.EncodeProto(pji); err != nil {
+					if err := e.EncodeProto(ji); err != nil {
 						return err
 					}
 					return nil
 				}
-				pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
+				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
 				return err
@@ -1047,14 +1048,13 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			if request.Transform.Build.Language != "" && request.Transform.Build.Image != "" {
 				return errors.New("cannot specify both a build `language` and `image`")
 			}
-			var err error
-			ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) {
+			if err := ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) error {
 				inputName := ppsclient.InputName(input)
 				if inputName == "build" || inputName == "source" {
-					err = errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
+					return errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
 				}
-			})
-			if err != nil {
+				return nil
+			}); err != nil {
 				return err
 			}
 			pipelineParentPath, _ := filepath.Split(pipelinePath)
@@ -1294,7 +1294,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 
 	// insert the source code
-	if err := pc.WithModifyFileClient(buildPipelineName, "source", "", func(mf pachdclient.ModifyFile) error {
+	if err := pc.WithModifyFileClient(client.NewCommit(buildPipelineName, "source", ""), func(mf pachdclient.ModifyFile) error {
 		if update {
 			if err := mf.DeleteFile("/"); err != nil {
 				return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
@@ -1355,7 +1355,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 
 // ByCreationTime is an implementation of sort.Interface which
 // sorts pps job info by creation time, ascending.
-type ByCreationTime []*ppsclient.PipelineJobInfo
+type ByCreationTime []*ppsclient.JobInfo
 
 func (arr ByCreationTime) Len() int { return len(arr) }
 

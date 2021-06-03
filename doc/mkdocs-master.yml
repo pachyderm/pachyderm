@@ -8,7 +8,7 @@ site_dir: site/master/
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
 repo_branch: master
-repo_docs_dir: doc/docs/2.0.x
+repo_docs_dir: doc/docs/master
 edit_uri: ""
 
 # Copyright
@@ -150,10 +150,10 @@ nav:
             - Build Flag: how-tos/developer-workflow/build-flag.md  
             - CI/CD Integration: how-tos/developer-workflow/ci-cd-integration.md
             - Create a Machine Learning Workflow: how-tos/developer-workflow/create-ml-workflow.md
-        - Basic Data Operations:
-            - Load Your Data Into Pachyderm: how-tos/basic-data-operations/load-data-into-pachyderm.md
+        - Basic Data Operations: 
+            - Overview: how-tos/basic-data-operations/index.md
+            - Ingest Your Data with pachctl: how-tos/basic-data-operations/load-data-into-pachyderm.md
             - Export Your Data From Pachyderm:
-                - Overview: how-tos/basic-data-operations/export-data-out-pachyderm/index.md
                 - Export Your Data with pachctl: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl.md
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
@@ -402,20 +402,17 @@ nav:
         - Overview: enterprise/index.md
         - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
-        - Configure Access Controls:
-            - Overview: enterprise/auth/index.md
-            - Enable Access Controls: enterprise/auth/enable-auth.md
-            - Manage Users and Groups: enterprise/auth/manage-users-groups.md
-            - Manage Authentication Config: enterprise/auth/auth-config.md
-            - Configure a SAML Provider:
-              - Configure SAML: enterprise/auth/saml/index.md
-              - Use SAML: enterprise/auth/saml/saml_usage.md
-            - Configure an OIDC Provider:
-              - Overview: enterprise/auth/oidc/index.md
-              - Configure Pachyderm with Okta: enterprise/auth/oidc/configure-with-okta.md
-              - Configure Pachyderm with Keycloak: enterprise/auth/oidc/configure-keycloak.md
-              - Configure Pachyderm with Auth0: enterprise/auth/oidc/configure-auth0.md
-              - Configure Pachyderm with Google OAuth 2.0: enterprise/auth/oidc/configure-google-oidc.md
+        - Authentication & Authorization:
+            - Activation: enterprise/auth/index.md
+            - Authentication:
+                - Connect your IdP: enterprise/auth/authentication/idp-dex.md
+                - Login Flow: enterprise/auth/authentication/login.md
+            - Authorization: 
+                - Model overview: enterprise/auth/authorization/index.md
+                - Role Binding: enterprise/auth/authorization/role-binding.md
+        - Enterprise Server:
+            - Setup an Enterprise Server: enterprise/auth/enterprise-server/setup.md 
+            - Manage your Enterprise Server: enterprise/auth/enterprise-server/manage.md 
         - Advanced Statistics: enterprise/stats.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md

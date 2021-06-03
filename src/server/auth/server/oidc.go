@@ -258,14 +258,14 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	}
 
 	// Verify the ID token, and if it's valid, add it to this state's SessionInfo
-	// in etcd, so that any concurrent Authorize() calls can discover it and give
+	// in postgres, so that any concurrent Authorize() calls can discover it and give
 	// the caller a Pachyderm token.
 	nonce, email, conversionErr := a.handleOIDCExchangeInternal(
 		context.Background(), code, state)
-	_, etcdErr := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, txErr := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		var si auth.SessionInfo
 		return a.oidcStates.ReadWrite(stm).Update(state, &si, func() error {
-			// nonce can only be checked inside etcd txn, but if nonces don't match
+			// nonce can only be checked inside postgres txn, but if nonces don't match
 			// that's a non-retryable authentication error, so set conversionErr as
 			// if handleOIDCExchangeInternal had errored and proceed
 			if conversionErr == nil && nonce != si.Nonce {
@@ -282,7 +282,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 		})
 	})
 	// Make exactly one call, to http.Error or http.Write, with either
-	// conversionErr (non-retryable) or etcdErr (retryable) if either is set
+	// conversionErr (non-retryable) or txErr (retryable) if either is set
 	switch {
 	case conversionErr != nil:
 		// Don't give the user specific error information
@@ -290,7 +290,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 			fmt.Sprintf("authorization failed (OIDC state token: %q; Pachyderm "+
 				"logs may contain more information)", half(state)),
 			http.StatusUnauthorized)
-	case etcdErr != nil:
+	case txErr != nil:
 		http.Error(w,
 			fmt.Sprintf("temporary error during authorization (OIDC state token: "+
 				"%q; Pachyderm logs may contain more information)", half(state)),
@@ -305,9 +305,9 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 		logrus.Errorf("could not convert authorization code (OIDC state: %q) %v",
 			half(state), conversionErr)
 	}
-	if etcdErr != nil {
-		logrus.Errorf("error storing OIDC authorization code in etcd (OIDC state: %q): %v",
-			half(state), etcdErr)
+	if txErr != nil {
+		logrus.Errorf("error storing OIDC authorization code in postgres (OIDC state: %q): %v",
+			half(state), txErr)
 	}
 }
 
@@ -345,7 +345,7 @@ func (a *apiServer) syncGroupMembership(ctx context.Context, claims *IDTokenClai
 
 // handleOIDCExchangeInternal is a convenience function for converting an
 // authorization code into an access token. The caller (handleOIDCExchange) is
-// responsible for storing any responses from this in etcd and sending an HTTP
+// responsible for storing any responses from this in postgres and sending an HTTP
 // response to the user's browser.
 func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, state string) (nonce, email string, retErr error) {
 	// log request, but do not log auth code (short-lived, but senstive user authenticator)

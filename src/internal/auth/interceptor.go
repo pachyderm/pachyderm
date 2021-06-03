@@ -137,7 +137,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs.API/ListBranch":      authDisabledOr(authenticated),
 	"/pfs.API/DeleteBranch":    authDisabledOr(authenticated),
 	"/pfs.API/ModifyFile":      authDisabledOr(authenticated),
-	"/pfs.API/GetFile":         authDisabledOr(authenticated),
+	"/pfs.API/GetFileTAR":      authDisabledOr(authenticated),
 	"/pfs.API/InspectFile":     authDisabledOr(authenticated),
 	"/pfs.API/ListFile":        authDisabledOr(authenticated),
 	"/pfs.API/WalkFile":        authDisabledOr(authenticated),
@@ -149,6 +149,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs.API/GetFileset":      authDisabledOr(authenticated),
 	"/pfs.API/AddFileset":      authDisabledOr(authenticated),
 	"/pfs.API/RenewFileset":    authDisabledOr(authenticated),
+	"/pfs.API/RunLoadTest":     authDisabledOr(authenticated),
 
 	//
 	// PPS API
@@ -250,14 +251,13 @@ type Interceptor struct {
 
 // InterceptUnary applies authentication rules to unary RPCs
 func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	pachClient := i.env.GetPachClient(ctx)
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
 		return nil, fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(pachClient, info.FullMethod)
+	username, err := a(ctx, i.env.AuthServer(), info.FullMethod)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("denied unary call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
@@ -274,14 +274,13 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 // InterceptStream applies authentication rules to streaming RPCs
 func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	ctx := stream.Context()
-	pachClient := i.env.GetPachClient(ctx)
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
 		return fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(pachClient, info.FullMethod)
+	username, err := a(ctx, i.env.AuthServer(), info.FullMethod)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("denied streaming call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))

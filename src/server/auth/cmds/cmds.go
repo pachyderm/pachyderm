@@ -175,7 +175,15 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						LocalhostIssuer: true,
 						Scopes:          scopes,
 					}}); err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
+					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
+					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
+					if deleteErr != nil {
+						deleteErr = errors.Wrapf(grpcutil.ScrubGRPC(deleteErr), "failed to rollback creation of client with ID: %v."+
+							"to retry auth activation, first delete this client with 'pachctl idp delete-client %v'.",
+							oidcClient.Client.Id, oidcClient.Client.Id)
+						return errors.Wrapf(err, deleteErr.Error())
+					}
+					return err
 				}
 			} else {
 				ec, err := newClient(true)
@@ -208,7 +216,15 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						LocalhostIssuer: false,
 						Scopes:          scopes,
 					}}); err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
+					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd.")
+					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
+					if deleteErr != nil {
+						deleteErr = errors.Wrapf(grpcutil.ScrubGRPC(deleteErr), "failed to rollback creation of client with ID: %v."+
+							"to retry auth activation, first delete this client with 'pachctl idp delete-client %v'.",
+							oidcClient.Client.Id, oidcClient.Client.Id)
+						return errors.Wrapf(err, deleteErr.Error())
+					}
+					return err
 				}
 			}
 			return nil
@@ -385,7 +401,7 @@ func WhoamiCmd() *cobra.Command {
 			}
 			fmt.Printf("You are \"%s\"\n", resp.Username)
 			if resp.Expiration != nil {
-				fmt.Printf("session expires: %v\n", *resp.Expiration)
+				fmt.Printf("session expires: %v\n", resp.Expiration.Format(time.RFC822))
 			}
 			return nil
 		}),

@@ -413,7 +413,7 @@ type inspectBranchFunc func(context.Context, *pfs.InspectBranchRequest) (*pfs.Br
 type listBranchFunc func(context.Context, *pfs.ListBranchRequest) (*pfs.BranchInfos, error)
 type deleteBranchFunc func(context.Context, *pfs.DeleteBranchRequest) (*types.Empty, error)
 type modifyFileFunc func(pfs.API_ModifyFileServer) error
-type getFileFunc func(*pfs.GetFileRequest, pfs.API_GetFileServer) error
+type getFileTARFunc func(*pfs.GetFileRequest, pfs.API_GetFileTARServer) error
 type inspectFileFunc func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
 type listFileFunc func(*pfs.ListFileRequest, pfs.API_ListFileServer) error
 type walkFileFunc func(*pfs.WalkFileRequest, pfs.API_WalkFileServer) error
@@ -425,6 +425,7 @@ type createFilesetFunc func(pfs.API_CreateFilesetServer) error
 type addFilesetFunc func(context.Context, *pfs.AddFilesetRequest) (*types.Empty, error)
 type getFilesetFunc func(context.Context, *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error)
 type renewFilesetFunc func(context.Context, *pfs.RenewFilesetRequest) (*types.Empty, error)
+type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -444,7 +445,7 @@ type mockInspectBranch struct{ handler inspectBranchFunc }
 type mockListBranch struct{ handler listBranchFunc }
 type mockDeleteBranch struct{ handler deleteBranchFunc }
 type mockModifyFile struct{ handler modifyFileFunc }
-type mockGetFile struct{ handler getFileFunc }
+type mockGetFileTAR struct{ handler getFileTARFunc }
 type mockInspectFile struct{ handler inspectFileFunc }
 type mockListFile struct{ handler listFileFunc }
 type mockWalkFile struct{ handler walkFileFunc }
@@ -456,6 +457,7 @@ type mockCreateFileset struct{ handler createFilesetFunc }
 type mockAddFileset struct{ handler addFilesetFunc }
 type mockGetFileset struct{ handler getFilesetFunc }
 type mockRenewFileset struct{ handler renewFilesetFunc }
+type mockRunLoadTest struct{ handler runLoadTestFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc) { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)           { mock.handler = cb }
@@ -475,7 +477,7 @@ func (mock *mockInspectBranch) Use(cb inspectBranchFunc)     { mock.handler = cb
 func (mock *mockListBranch) Use(cb listBranchFunc)           { mock.handler = cb }
 func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)       { mock.handler = cb }
 func (mock *mockModifyFile) Use(cb modifyFileFunc)           { mock.handler = cb }
-func (mock *mockGetFile) Use(cb getFileFunc)                 { mock.handler = cb }
+func (mock *mockGetFileTAR) Use(cb getFileTARFunc)           { mock.handler = cb }
 func (mock *mockInspectFile) Use(cb inspectFileFunc)         { mock.handler = cb }
 func (mock *mockListFile) Use(cb listFileFunc)               { mock.handler = cb }
 func (mock *mockWalkFile) Use(cb walkFileFunc)               { mock.handler = cb }
@@ -487,6 +489,7 @@ func (mock *mockCreateFileset) Use(cb createFilesetFunc)     { mock.handler = cb
 func (mock *mockAddFileset) Use(cb addFilesetFunc)           { mock.handler = cb }
 func (mock *mockGetFileset) Use(cb getFilesetFunc)           { mock.handler = cb }
 func (mock *mockRenewFileset) Use(cb renewFilesetFunc)       { mock.handler = cb }
+func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)         { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -512,7 +515,7 @@ type mockPFSServer struct {
 	ListBranch      mockListBranch
 	DeleteBranch    mockDeleteBranch
 	ModifyFile      mockModifyFile
-	GetFile         mockGetFile
+	GetFileTAR      mockGetFileTAR
 	InspectFile     mockInspectFile
 	ListFile        mockListFile
 	WalkFile        mockWalkFile
@@ -524,6 +527,7 @@ type mockPFSServer struct {
 	AddFileset      mockAddFileset
 	GetFileset      mockGetFileset
 	RenewFileset    mockRenewFileset
+	RunLoadTest     mockRunLoadTest
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -634,11 +638,11 @@ func (api *pfsServerAPI) ModifyFile(serv pfs.API_ModifyFileServer) error {
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ModifyFile")
 }
-func (api *pfsServerAPI) GetFile(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) error {
-	if api.mock.GetFile.handler != nil {
-		return api.mock.GetFile.handler(req, serv)
+func (api *pfsServerAPI) GetFileTAR(req *pfs.GetFileRequest, serv pfs.API_GetFileTARServer) error {
+	if api.mock.GetFileTAR.handler != nil {
+		return api.mock.GetFileTAR.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.GetFile")
+	return errors.Errorf("unhandled pachd mock pfs.GetFileTAR")
 }
 func (api *pfsServerAPI) InspectFile(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	if api.mock.InspectFile.handler != nil {
@@ -706,11 +710,17 @@ func (api *pfsServerAPI) RenewFileset(ctx context.Context, req *pfs.RenewFileset
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.RenewFileset")
 }
+func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error) {
+	if api.mock.RunLoadTest.handler != nil {
+		return api.mock.RunLoadTest.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.RunLoadTest")
+}
 
 /* PPS Server Mocks */
 
 type createJobFunc func(context.Context, *pps.CreateJobRequest) (*pps.Job, error)
-type inspectJobFunc func(context.Context, *pps.InspectJobRequest) (*pps.PipelineJobInfo, error)
+type inspectJobFunc func(context.Context, *pps.InspectJobRequest) (*pps.JobInfo, error)
 type listJobFunc func(*pps.ListJobRequest, pps.API_ListJobServer) error
 type flushJobFunc func(*pps.FlushJobRequest, pps.API_FlushJobServer) error
 type deleteJobFunc func(context.Context, *pps.DeleteJobRequest) (*types.Empty, error)
@@ -826,7 +836,7 @@ func (api *ppsServerAPI) CreateJob(ctx context.Context, req *pps.CreateJobReques
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.CreateJob")
 }
-func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.PipelineJobInfo, error) {
+func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
 	if api.mock.InspectJob.handler != nil {
 		return api.mock.InspectJob.handler(ctx, req)
 	}

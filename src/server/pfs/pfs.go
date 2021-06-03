@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
 // ErrFileNotFound represents a file-not-found error.
@@ -73,23 +74,23 @@ type ErrCommitNotFinished struct {
 }
 
 func (e ErrFileNotFound) Error() string {
-	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo.Name, e.File.Commit.ID)
+	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, pretty.CompactPrintRepo(e.File.Commit.Branch.Repo), e.File.Commit.ID)
 }
 
 func (e ErrRepoNotFound) Error() string {
-	return fmt.Sprintf("repo %v not found", e.Repo.Name)
+	return fmt.Sprintf("repo %v not found", pretty.CompactPrintRepo(e.Repo))
 }
 
 func (e ErrRepoExists) Error() string {
-	return fmt.Sprintf("repo %v already exists", e.Repo.Name)
+	return fmt.Sprintf("repo %v already exists", pretty.CompactPrintRepo(e.Repo))
 }
 
 func (e ErrRepoDeleted) Error() string {
-	return fmt.Sprintf("repo %v was deleted", e.Repo.Name)
+	return fmt.Sprintf("repo %v was deleted", pretty.CompactPrintRepo(e.Repo))
 }
 
 func (e ErrCommitNotFound) Error() string {
-	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
 func (e ErrNoHead) Error() string {
@@ -98,19 +99,19 @@ func (e ErrNoHead) Error() string {
 }
 
 func (e ErrCommitExists) Error() string {
-	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
 func (e ErrCommitFinished) Error() string {
-	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
 func (e ErrCommitDeleted) Error() string {
-	return fmt.Sprintf("commit %v@%v was deleted", e.Commit.Branch.Repo.Name, e.Commit.ID)
+	return fmt.Sprintf("commit %v@%v was deleted", pretty.CompactPrintRepo(e.Commit.Branch.Repo), e.Commit.ID)
 }
 
 func (e ErrParentCommitNotFound) Error() string {
-	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
 func (e ErrOutputCommitNotFinished) Error() string {
@@ -123,11 +124,11 @@ func (e ErrCommitNotFinished) Error() string {
 
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
-	commitDeletedRe           = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
+	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
 	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
-	repoNotFoundRe            = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
+	repoNotFoundRe            = regexp.MustCompile(`repos [a-zA-Z0-9.\-_]{1,255} not found`)
 	repoExistsRe              = regexp.MustCompile(`repo ?[a-zA-Z0-9.\-_]{1,255} already exists`)
-	branchNotFoundRe          = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
+	branchNotFoundRe          = regexp.MustCompile(`branches [a-zA-Z0-9.\-_@]{1,255} not found`)
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
 	hasNoHeadRe               = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")

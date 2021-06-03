@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -121,6 +122,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "POSTGRES_DATABASE_NAME",
 		Value: a.env.Config().PostgresDBName,
+	}, {
+		Name:  "METRICS",
+		Value: strconv.FormatBool(a.env.Config().Metrics),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
@@ -177,6 +181,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  client.PeerPortEnv,
 			Value: strconv.FormatUint(uint64(a.peerPort), 10),
+		},
+		{
+			Name:  "METRICS",
+			Value: strconv.FormatBool(a.env.Config().Metrics),
 		},
 	}...)
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
@@ -425,9 +433,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 func (a *apiServer) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
 		{Name: assets.UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(a.env.Config().StorageUploadConcurrencyLimit)},
-	}
-	if pipelineInfo.Spout != nil {
-		vars = append(vars, v1.EnvVar{Name: "SPOUT_PIPELINE_NAME", Value: pipelineInfo.Pipeline.Name})
+		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
 }
@@ -793,17 +799,16 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 		}
 	}
 
-	// True if the pipeline has a git input
 	var hasGitInput bool
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
 		if input.Git != nil {
 			hasGitInput = true
+			return errutil.ErrBreak
 		}
+		return nil
 	})
 	if hasGitInput {
-		if err := a.checkOrDeployGithookService(); err != nil {
-			return err
-		}
+		return a.checkOrDeployGithookService()
 	}
 	return nil
 }

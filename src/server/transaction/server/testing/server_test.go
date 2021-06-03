@@ -37,7 +37,7 @@ func subvStr(i interface{}) interface{} {
 func expectProv(commits ...*pfs.Commit) []interface{} {
 	result := []interface{}{}
 	for _, commit := range commits {
-		result = append(result, provStr(client.NewCommitProvenance(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)))
+		result = append(result, provStr(commit.NewProvenance()))
 	}
 	return result
 }
@@ -337,27 +337,27 @@ func TestTransactions(suite *testing.T) {
 		requireCommitResponse(t, info.Responses[2], commitE)
 		requireEmptyResponse(t, info.Responses[3])
 
-		commitInfos, err := env.PachClient.ListCommit("A", "", "", "", "", 0)
+		commitInfos, err := env.PachClient.ListCommitByRepo(client.NewRepo("A"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoA := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("B", "", "", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("B"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoB := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("C", "", "", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("C"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoC := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("D", "", "", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("D"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoD := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("E", "", "", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("E"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoE := commitInfos[0]
@@ -421,27 +421,27 @@ func TestTransactions(suite *testing.T) {
 		requireCommitResponse(t, info.Responses[10], commitE)
 		requireEmptyResponse(t, info.Responses[11])
 
-		commitInfos, err := env.PachClient.ListCommit("A", "", "", "", "", 0)
+		commitInfos, err := env.PachClient.ListCommitByRepo(client.NewRepo("A"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoA := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("B", "", "", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("B"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoB := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("C", "", "", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("C"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoC := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("D", "", "", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("D"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoD := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommit("E", "", "", "", "", 0)
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("E"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		commitInfoE := commitInfos[0]
@@ -566,12 +566,13 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	c.PutFile(repo, "master", "", "foo", strings.NewReader("bar"))
-	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repo, "master", "")}, nil)
+	commit := client.NewCommit(repo, "master", "")
+	c.PutFile(commit, "foo", strings.NewReader("bar"))
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Branch.Repo.Name, commitInfos[0].Commit.Branch.Name, commitInfos[0].Commit.ID, "foo", &buf))
+	require.NoError(t, c.GetFile(commitInfos[0].Commit, "foo", &buf))
 	require.Equal(t, "bar", buf.String())
 }

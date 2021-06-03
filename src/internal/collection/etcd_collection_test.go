@@ -27,7 +27,7 @@ var (
 	pipelineIndex *col.Index = &col.Index{
 		Name: "Pipeline",
 		Extract: func(val proto.Message) string {
-			return val.(*pps.PipelineJobInfo).Pipeline.Name
+			return val.(*pps.JobInfo).Pipeline.Name
 		},
 	}
 )
@@ -62,18 +62,18 @@ func TestDryrun(t *testing.T) {
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	pipelineJobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.PipelineJobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
-	job := &pps.PipelineJobInfo{
+	job := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
 		Pipeline: client.NewPipeline("p1"),
 	}
 	err := col.NewDryrunSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		return pipelineJobInfos.ReadWrite(stm).Put(job.Job.ID, job)
+		return jobInfos.ReadWrite(stm).Put(job.Job.ID, job)
 	})
 	require.NoError(t, err)
 
-	err = pipelineJobInfos.ReadOnly(context.Background()).Get("j1", job)
+	err = jobInfos.ReadOnly(context.Background()).Get("j1", job)
 	require.True(t, col.IsErrNotFound(err))
 }
 
@@ -82,27 +82,27 @@ func TestDeletePrefix(t *testing.T) {
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	pipelineJobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.PipelineJobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
-	j1 := &pps.PipelineJobInfo{
+	j1 := &pps.JobInfo{
 		Job:      client.NewJob("prefix/suffix/job"),
 		Pipeline: client.NewPipeline("p"),
 	}
-	j2 := &pps.PipelineJobInfo{
+	j2 := &pps.JobInfo{
 		Job:      client.NewJob("prefix/suffix/job2"),
 		Pipeline: client.NewPipeline("p"),
 	}
-	j3 := &pps.PipelineJobInfo{
+	j3 := &pps.JobInfo{
 		Job:      client.NewJob("prefix/job3"),
 		Pipeline: client.NewPipeline("p"),
 	}
-	j4 := &pps.PipelineJobInfo{
+	j4 := &pps.JobInfo{
 		Job:      client.NewJob("job4"),
 		Pipeline: client.NewPipeline("p"),
 	}
 
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		rw := pipelineJobInfos.ReadWrite(stm)
+		rw := jobInfos.ReadWrite(stm)
 		rw.Put(j1.Job.ID, j1)
 		rw.Put(j2.Job.ID, j2)
 		rw.Put(j3.Job.ID, j3)
@@ -112,8 +112,8 @@ func TestDeletePrefix(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		job := &pps.PipelineJobInfo{}
-		rw := pipelineJobInfos.ReadWrite(stm)
+		job := &pps.JobInfo{}
+		rw := jobInfos.ReadWrite(stm)
 
 		rw.DeleteAllPrefix("prefix/suffix")
 		if err := rw.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
@@ -162,8 +162,8 @@ func TestDeletePrefix(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	job := &pps.PipelineJobInfo{}
-	ro := pipelineJobInfos.ReadOnly(context.Background())
+	job := &pps.JobInfo{}
+	ro := jobInfos.ReadOnly(context.Background())
 	require.True(t, col.IsErrNotFound(ro.Get(j1.Job.ID, job)))
 	require.NoError(t, ro.Get(j2.Job.ID, job))
 	require.Equal(t, j2, job)
@@ -177,22 +177,22 @@ func TestIndex(t *testing.T) {
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	pipelineJobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.PipelineJobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
-	j1 := &pps.PipelineJobInfo{
+	j1 := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
 		Pipeline: client.NewPipeline("p1"),
 	}
-	j2 := &pps.PipelineJobInfo{
+	j2 := &pps.JobInfo{
 		Job:      client.NewJob("j2"),
 		Pipeline: client.NewPipeline("p1"),
 	}
-	j3 := &pps.PipelineJobInfo{
+	j3 := &pps.JobInfo{
 		Job:      client.NewJob("j3"),
 		Pipeline: client.NewPipeline("p2"),
 	}
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		rw := pipelineJobInfos.ReadWrite(stm)
+		rw := jobInfos.ReadWrite(stm)
 		rw.Put(j1.Job.ID, j1)
 		rw.Put(j2.Job.ID, j2)
 		rw.Put(j3.Job.ID, j3)
@@ -200,9 +200,9 @@ func TestIndex(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ro := pipelineJobInfos.ReadOnly(context.Background())
+	ro := jobInfos.ReadOnly(context.Background())
 
-	job := &pps.PipelineJobInfo{}
+	job := &pps.JobInfo{}
 	i := 1
 	require.NoError(t, ro.GetByIndex(pipelineIndex, j1.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {

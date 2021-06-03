@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,11 +18,7 @@ func TestGC(t *testing.T) {
 	s := NewTestStorage(t, db, tr)
 	gc := s.newGC()
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
-	fw, err := w.Add("a.txt")
-	require.NoError(t, err)
-	fw.Add("tag1")
-	_, err = fw.Write([]byte("test data"))
-	require.NoError(t, err)
+	require.NoError(t, w.Add("a.txt", "tag1", strings.NewReader("test data")))
 	id, err := w.Close()
 	require.NoError(t, err)
 	// check that it's there

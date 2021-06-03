@@ -6,11 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -50,7 +49,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 				Glob:   "/*",
 			},
 		},
-		SpecCommit: client.NewCommit(ppsconsts.SpecRepo, name, ""),
+		SpecCommit: client.NewSystemRepo(name, pfs.SpecRepoType).NewCommit("master", ""),
 	}
 }
 
@@ -66,10 +65,10 @@ type testDriver struct {
 	inner driver.Driver
 }
 
-func (td *testDriver) Jobs() col.EtcdCollection {
+func (td *testDriver) Jobs() col.PostgresCollection {
 	return td.inner.Jobs()
 }
-func (td *testDriver) Pipelines() col.EtcdCollection {
+func (td *testDriver) Pipelines() col.PostgresCollection {
 	return td.inner.Pipelines()
 }
 func (td *testDriver) NewTaskWorker() *work.Worker {
@@ -99,8 +98,8 @@ func (td *testDriver) WithContext(ctx context.Context) driver.Driver {
 func (td *testDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
 	return td.inner.WithActiveData(inputs, dir, cb)
 }
-func (td *testDriver) UserCodeEnv(job string, commit *pfs.Commit, inputs []*common.Input) []string {
-	return td.inner.UserCodeEnv(job, commit, inputs)
+func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input) []string {
+	return td.inner.UserCodeEnv(jobID, commit, inputs)
 }
 func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserCode(ctx, logger, env)
@@ -108,14 +107,14 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserErrorHandlingCode(ctx, logger, env)
 }
-func (td *testDriver) DeleteJob(stm col.STM, pji *pps.StoredPipelineJobInfo) error {
-	return td.inner.DeleteJob(stm, pji)
+func (td *testDriver) DeleteJob(sqlTx *sqlx.Tx, ji *pps.StoredJobInfo) error {
+	return td.inner.DeleteJob(sqlTx, ji)
 }
-func (td *testDriver) UpdateJobState(job string, state pps.JobState, reason string) error {
-	return td.inner.UpdateJobState(job, state, reason)
+func (td *testDriver) UpdateJobState(jobID string, state pps.JobState, reason string) error {
+	return td.inner.UpdateJobState(jobID, state, reason)
 }
-func (td *testDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
-	return td.inner.NewSTM(cb)
+func (td *testDriver) NewSQLTx(cb func(*sqlx.Tx) error) error {
+	return td.inner.NewSQLTx(cb)
 }
 
 // newTestEnv provides a test env with etcd and pachd instances and connected
@@ -128,12 +127,10 @@ func newTestEnv(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pp
 	}
 	workerDir := filepath.Join(realEnv.Directory, "worker")
 	driver, err := driver.NewDriver(
-		pipelineInfo,
+		realEnv.ServiceEnv,
 		realEnv.PachClient,
-		realEnv.EtcdClient,
-		"/pachyderm_test",
+		pipelineInfo,
 		workerDir,
-		"namespace",
 	)
 	require.NoError(t, err)
 

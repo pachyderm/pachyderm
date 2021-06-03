@@ -13,7 +13,7 @@ data operations in Pachyderm.
         Organize your Pachyderm workflow.
       </div>
       <div class="mdl-card__actions mdl-card--border">
-       <ul>
+      <ul>
           <li><a href="developer-workflow/" class="md-typeset md-link">
           Developer Workflow</a>
           </li>
@@ -44,28 +44,23 @@ data operations in Pachyderm.
         <h4 class="mdl-card__title-text">Basic Data Operations &nbsp;&nbsp;&nbsp;<i class="fa fa-cogs"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Upload your data into Pachyderm,
-        export them out, and other important
-        data operations.
+        Ingest your data into Pachyderm and
+        export them out.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="basic-data-operations/load-data-into-pachyderm" class="md-typeset md-link">
-          Load Your Data Into Pachyderm
-          </a>
-          </li>
-          <li><a href="basic-data-operations/export-data-out-pachyderm" class="md-typeset md-link">
-          Export Your Data From Pachyderm
+          <li><a href="basic-data-operations/" class="md-typeset md-link">
+          Ingest/Export Strategies Overview
           </a>
           </li>
           <li><a href="basic-data-operations/ingressing_from_diff_cloud/" class="md-typeset md-link">
-          Ingress and Egress Data from an External Object Store
+          Ingress/Egress Data from an External Object Store
           </a>
           </li>
           <li><a href="basic-data-operations/removing_data_from_pachyderm" class="md-typeset md-link">
           Delete Data
           </a>
-          </li>
+          </li>         
         </ul>
        </div>
      </div>

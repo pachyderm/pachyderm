@@ -2,10 +2,10 @@
 package pfsdb
 
 import (
-	"path"
+	"strings"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -14,45 +14,74 @@ import (
 )
 
 const (
-	reposPrefix       = "/repos"
-	commitsPrefix     = "/commits"
-	branchesPrefix    = "/branches"
-	openCommitsPrefix = "/openCommits"
-	mergesPrefix      = "/merges"
-	shardsPrefix      = "/shards"
+	reposCollectionName       = "repos"
+	branchesCollectionName    = "branches"
+	commitsCollectionName     = "commits"
+	openCommitsCollectionName = "open_commits"
+	commitsetsCollectionName  = "commitsets"
 )
 
+var ReposTypeIndex = &col.Index{
+	Name: "type",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.RepoInfo).Repo.Type
+	},
+}
+
+var ReposNameIndex = &col.Index{
+	Name: "name",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.RepoInfo).Repo.Name
+	},
+}
+
+var reposIndexes = []*col.Index{ReposNameIndex, ReposTypeIndex}
+
+func RepoKey(repo *pfs.Repo) string {
+	return repo.Name + "." + repo.Type
+}
+
+func repoKeyCheck(key string) error {
+	parts := strings.Split(key, ".")
+	if len(parts) < 2 || len(parts[1]) == 0 {
+		return errors.Errorf("repo must have a specified type")
+	}
+	return nil
+}
+
 // Repos returns a collection of repos
-func Repos(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, reposPrefix),
-		nil,
+func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		reposCollectionName,
+		db,
+		listener,
 		&pfs.RepoInfo{},
-		nil,
-		nil,
+		reposIndexes,
+		repoKeyCheck,
 	)
 }
 
 var CommitsRepoIndex = &col.Index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.CommitInfo).Commit.Branch.Repo.Name
+		return RepoKey(val.(*pfs.CommitInfo).Commit.Branch.Repo)
 	},
 }
 
+var commitsIndexes = []*col.Index{CommitsRepoIndex}
+
 func CommitKey(commit *pfs.Commit) string {
-	return commit.Branch.Repo.Name + "@" + commit.Branch.Name + "=" + commit.ID
+	return RepoKey(commit.Branch.Repo) + "@" + commit.ID
 }
 
 // Commits returns a collection of commits
-func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, commitsPrefix, repo),
-		nil,
+func Commits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		commitsCollectionName,
+		db,
+		listener,
 		&pfs.CommitInfo{},
-		nil,
+		commitsIndexes,
 		nil,
 	)
 }
@@ -60,39 +89,74 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCo
 var BranchesRepoIndex = &col.Index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.BranchInfo).Branch.Repo.Name
+		return RepoKey(val.(*pfs.BranchInfo).Branch.Repo)
 	},
 }
 
+var branchesIndexes = []*col.Index{BranchesRepoIndex}
+
 func BranchKey(branch *pfs.Branch) string {
-	return branch.Repo.Name + "@" + branch.Name
+	return RepoKey(branch.Repo) + "@" + branch.Name
 }
 
 // Branches returns a collection of branches
-func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, branchesPrefix, repo),
-		nil,
+func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		branchesCollectionName,
+		db,
+		listener,
 		&pfs.BranchInfo{},
+		branchesIndexes,
 		func(key string) error {
-			if uuid.IsUUIDWithoutDashes(key) {
+			keyParts := strings.Split(key, "@")
+			if len(keyParts) != 2 {
+				return errors.Errorf("branch key %s isn't valid, use BranchKey to generate it", key)
+			}
+			if uuid.IsUUIDWithoutDashes(keyParts[1]) {
 				return errors.Errorf("branch name cannot be a UUID V4")
 			}
-			return nil
+			return repoKeyCheck(keyParts[0])
 		},
+	)
+}
+
+var openCommitsIndexes = []*col.Index{}
+
+// OpenCommits returns a collection of open commits
+func OpenCommits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		openCommitsCollectionName,
+		db,
+		listener,
+		&pfs.Commit{},
+		openCommitsIndexes,
 		nil,
 	)
 }
 
-// OpenCommits returns a collection of open commits
-func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, openCommitsPrefix),
-		nil,
-		&pfs.Commit{},
-		nil,
+var commitsetsIndexes = []*col.Index{}
+
+// Commitsets returns a collection of commitsets
+func Commitsets(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		commitsetsCollectionName,
+		db,
+		listener,
+		&pfs.StoredCommitset{},
+		commitsetsIndexes,
 		nil,
 	)
+}
+
+// AllCollections returns a list of all the PFS collections for
+// postgres-initialization purposes. These collections are not usable for
+// querying.
+func AllCollections() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes, nil),
+		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes, nil),
+		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes, nil),
+		col.NewPostgresCollection(openCommitsCollectionName, nil, nil, nil, openCommitsIndexes, nil),
+		col.NewPostgresCollection(commitsetsCollectionName, nil, nil, nil, commitsetsIndexes, nil),
+	}
 }

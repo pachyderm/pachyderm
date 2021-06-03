@@ -261,7 +261,7 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	// Upload some files
 	commit1, err := pachClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pachClient.PutFile(dataRepo, commit1.Branch.Name, commit1.ID, "file", strings.NewReader("foo")))
+	require.NoError(t, pachClient.PutFile(commit1, "file", strings.NewReader("foo")))
 	require.NoError(t, pachClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	// Create a pipeline
@@ -294,7 +294,7 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 
 	// Check the pipeline output
 	var buf bytes.Buffer
-	require.NoError(t, pachClient.GetFile(commitInfos[0].Commit.Branch.Repo.Name, commitInfos[0].Commit.Branch.Name, commitInfos[0].Commit.ID, "file", &buf))
+	require.NoError(t, pachClient.GetFile(commitInfos[0].Commit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 }
 

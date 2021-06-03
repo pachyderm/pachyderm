@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -27,26 +27,15 @@ func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker) *Storage {
 func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) error {
 	if len(deletive) > 0 && deletive[0] {
 		if err := fs.Iterate(ctx, func(f File) error {
-			return deleteIndex(w, f.Index())
+			idx := f.Index()
+			return w.Delete(idx.Path, idx.File.Tag)
 		}, deletive...); err != nil {
 			return err
 		}
 	}
 	return fs.Iterate(ctx, func(f File) error {
-		return w.Copy(f)
+		return w.Copy(f, f.Index().File.Tag)
 	})
-}
-
-func deleteIndex(w *Writer, idx *index.Index) error {
-	p := idx.Path
-	if len(idx.File.Parts) == 0 {
-		return w.Delete(p)
-	}
-	var tags []string
-	for _, part := range idx.File.Parts {
-		tags = append(tags, part.Tag)
-	}
-	return w.Delete(p, tags...)
 }
 
 // WriteTarEntry writes an tar entry for f to w
@@ -71,16 +60,6 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 		return err
 	}
 	return tar.NewWriter(w).Close()
-}
-
-// Validate validates a file path.
-func Validate(p string) error {
-	for _, elem := range strings.Split(p, "/") {
-		if elem == "." || elem == ".." {
-			return errors.Errorf("invalid file path (%v), relative file paths are not allowed", p)
-		}
-	}
-	return nil
 }
 
 // Clean cleans a file path.
@@ -120,8 +99,12 @@ func NewIterator(ctx context.Context, fs FileSet, deletive ...bool) *Iterator {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := fs.Iterate(ctx, func(f File) error {
-			fileChan <- f
-			return nil
+			select {
+			case fileChan <- f:
+				return nil
+			case <-ctx.Done():
+				return errutil.ErrBreak
+			}
 		}, deletive...); err != nil {
 			errChan <- err
 			return
@@ -160,12 +143,4 @@ func (i *Iterator) Next() (File, error) {
 	case err := <-i.errChan:
 		return nil, err
 	}
-}
-
-func getDataRefs(parts []*index.Part) []*chunk.DataRef {
-	var dataRefs []*chunk.DataRef
-	for _, part := range parts {
-		dataRefs = append(dataRefs, part.DataRefs...)
-	}
-	return dataRefs
 }

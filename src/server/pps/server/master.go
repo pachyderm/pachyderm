@@ -280,7 +280,7 @@ func (a *apiServer) setPipelineState(ctx context.Context, pipeline string, state
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return ppsutil.SetPipelineState(ctx, a.env.GetEtcdClient(), a.pipelines,
+	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
 		pipeline, nil, state, reason)
 }
 
@@ -294,6 +294,6 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return ppsutil.SetPipelineState(ctx, a.env.GetEtcdClient(), a.pipelines,
+	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
 		pipeline, from, to, reason)
 }

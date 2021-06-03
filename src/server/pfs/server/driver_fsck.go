@@ -7,29 +7,30 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/jmoiron/sqlx"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
-// fsckCommitKey is not commitKey because it ignores the commit branch.  Until
+// fsckCommitKey is not pfsdb.CommitKey because it ignores the commit branch.  Until
 // provenance is removed for global IDs, commit provenance references a commit
 // on a specific branch, which does not necessarily equal the branch that the
 // commit was initially created on and will confuse fsck if we include it.
 func fsckCommitKey(commit *pfs.Commit) string {
-	return path.Join(commit.Branch.Repo.Name, commit.ID)
+	return path.Join(commit.Branch.Repo.Name, commit.Branch.Repo.Type, commit.ID)
 }
 
 func equalBranches(a, b []*pfs.Branch) bool {
 	aMap := make(map[string]bool)
 	bMap := make(map[string]bool)
 	for _, branch := range a {
-		aMap[branchKey(branch)] = true
+		aMap[pfsdb.BranchKey(branch)] = true
 	}
 	for _, branch := range b {
-		bMap[branchKey(branch)] = true
+		bMap[pfsdb.BranchKey(branch)] = true
 	}
 	if len(aMap) != len(bMap) {
 		return false
@@ -74,20 +75,20 @@ type ErrBranchProvenanceTransitivity struct {
 func (e ErrBranchProvenanceTransitivity) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: branch provenance was not transitive\n")
-	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + e.BranchInfo.Branch.Repo.Name + "\n")
+	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + pretty.CompactPrintRepo(e.BranchInfo.Branch.Repo) + "\n")
 	fullMap := make(map[string]*pfs.Branch)
 	provMap := make(map[string]*pfs.Branch)
 	for _, branch := range e.FullProvenance {
-		fullMap[branchKey(branch)] = branch
+		fullMap[pfsdb.BranchKey(branch)] = branch
 	}
-	provMap[branchKey(e.BranchInfo.Branch)] = e.BranchInfo.Branch
+	provMap[pfsdb.BranchKey(e.BranchInfo.Branch)] = e.BranchInfo.Branch
 	for _, branch := range e.BranchInfo.Provenance {
-		provMap[branchKey(branch)] = branch
+		provMap[pfsdb.BranchKey(branch)] = branch
 	}
 	msg.WriteString("the following branches are missing from the provenance:\n")
 	for k, v := range fullMap {
 		if _, ok := provMap[k]; !ok {
-			msg.WriteString(v.Name + " in repo " + v.Repo.Name + "\n")
+			msg.WriteString(v.Name + " in repo " + pretty.CompactPrintRepo(v.Repo) + "\n")
 		}
 	}
 	return msg.String()
@@ -100,7 +101,7 @@ type ErrBranchInfoNotFound struct {
 }
 
 func (e ErrBranchInfoNotFound) Error() string {
-	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, e.Branch.Repo.Name)
+	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, pretty.CompactPrintRepo(e.Branch.Repo))
 }
 
 // ErrCommitInfoNotFound Commit info could not be found. Typically because of an incomplete deletion of a commit.
@@ -112,7 +113,7 @@ type ErrCommitInfoNotFound struct {
 
 func (e ErrCommitInfoNotFound) Error() string {
 	return fmt.Sprintf("consistency error: the commit %v in repo %v could not be found while checking %v",
-		e.Commit.ID, e.Commit.Branch.Repo.Name, e.Location)
+		e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo), e.Location)
 }
 
 // ErrInconsistentCommitProvenance Commit provenance somehow has a branch and commit from different repos.
@@ -123,7 +124,7 @@ type ErrInconsistentCommitProvenance struct {
 
 func (e ErrInconsistentCommitProvenance) Error() string {
 	return fmt.Sprintf("consistency error: the commit provenance has repo %v for the branch but repo %v for the commit",
-		e.CommitProvenance.Commit.Branch.Repo.Name, e.CommitProvenance.Commit.Branch.Repo.Name)
+		pretty.CompactPrintRepo(e.CommitProvenance.Commit.Branch.Repo), pretty.CompactPrintRepo(e.CommitProvenance.Commit.Branch.Repo))
 }
 
 // ErrHeadProvenanceInconsistentWithBranch The head provenance of a branch does not match the branch's provenance
@@ -137,10 +138,10 @@ type ErrHeadProvenanceInconsistentWithBranch struct {
 func (e ErrHeadProvenanceInconsistentWithBranch) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: head provenance is not consistent with branch provenance\n")
-	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + e.BranchInfo.Branch.Repo.Name + "\n")
+	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + pretty.CompactPrintRepo(e.BranchInfo.Branch.Repo) + "\n")
 	msg.WriteString("which has head commit " + e.HeadCommitInfo.Commit.ID + "\n")
 	msg.WriteString("this branch is provenant on the branch " +
-		e.ProvBranchInfo.Branch.Name + " in repo " + e.ProvBranchInfo.Branch.Repo.Name + "\n")
+		e.ProvBranchInfo.Branch.Name + " in repo " + pretty.CompactPrintRepo(e.ProvBranchInfo.Branch.Repo) + "\n")
 	msg.WriteString("which has head commit " + e.ProvBranchInfo.Head.ID + "\n")
 	msg.WriteString("but this commit is missing from the head commit provenance\n")
 	return msg.String()
@@ -156,7 +157,7 @@ type ErrProvenanceTransitivity struct {
 func (e ErrProvenanceTransitivity) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: commit provenance was not transitive\n")
-	msg.WriteString("on commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Branch.Repo.Name + "\n")
+	msg.WriteString("on commit " + e.CommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.CommitInfo.Commit.Branch.Repo) + "\n")
 	fullMap := make(map[string]*pfs.Commit)
 	provMap := make(map[string]*pfs.Commit)
 	for _, prov := range e.FullProvenance {
@@ -204,8 +205,8 @@ type ErrSubvenanceOfProvenance struct {
 func (e ErrSubvenanceOfProvenance) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: the commit was not in its provenance's subvenance\n")
-	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Branch.Repo.Name + "\n")
-	msg.WriteString("provenance commit " + e.ProvCommitInfo.Commit.ID + " in repo " + e.ProvCommitInfo.Commit.Branch.Repo.Name + "\n")
+	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.CommitInfo.Commit.Branch.Repo) + "\n")
+	msg.WriteString("provenance commit " + e.ProvCommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.ProvCommitInfo.Commit.Branch.Repo) + "\n")
 	return msg.String()
 }
 
@@ -219,8 +220,8 @@ type ErrProvenanceOfSubvenance struct {
 func (e ErrProvenanceOfSubvenance) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: the commit was not in its subvenance's provenance\n")
-	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Branch.Repo.Name + "\n")
-	msg.WriteString("subvenance commit " + e.SubvCommitInfo.Commit.ID + " in repo " + e.SubvCommitInfo.Commit.Branch.Repo.Name + "\n")
+	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.CommitInfo.Commit.Branch.Repo) + "\n")
+	msg.WriteString("subvenance commit " + e.SubvCommitInfo.Commit.ID + " in repo " + pretty.CompactPrintRepo(e.SubvCommitInfo.Commit.Branch.Repo) + "\n")
 	return msg.String()
 }
 
@@ -231,17 +232,6 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 // 4. Commit provenance and commit subvenance are dual relations
 // If fix is true it will attempt to fix as many of these issues as it can.
 func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) error) error {
-	// Check that the user is logged in (user doesn't need any access level to
-	// fsck, but they must be authenticated if auth is active)
-	pachClient := d.env.GetPachClient(ctx)
-	if _, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil {
-		if !auth.IsErrNotActivated(err) {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to run fsck)")
-		}
-	}
-
-	repos := d.repos.ReadOnly(ctx)
-
 	onError := func(err error) error { return cb(&pfs.FsckResponse{Error: err.Error()}) }
 	onFix := func(fix string) error { return cb(&pfs.FsckResponse{Fix: fix}) }
 
@@ -250,19 +240,17 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	newCommitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions(), func(string) error {
-		commits := d.commits(repoInfo.Repo.Name).ReadOnly(ctx)
+	if err := d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), func(string) error {
 		commitInfo := &pfs.CommitInfo{}
-		if err := commits.List(commitInfo, col.DefaultOptions(), func(string) error {
+		if err := d.commits.ReadOnly(ctx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repoInfo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
 			commitInfos[fsckCommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 			return nil
 		}); err != nil {
 			return err
 		}
-		branches := d.branches(repoInfo.Repo.Name).ReadOnly(ctx)
 		branchInfo := &pfs.BranchInfo{}
-		return branches.List(branchInfo, col.DefaultOptions(), func(string) error {
-			branchInfos[branchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+		return d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repoInfo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
+			branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
 			return nil
 		})
 	}); err != nil {
@@ -276,7 +264,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		direct := bi.DirectProvenance
 		union := []*pfs.Branch{bi.Branch}
 		for _, directProvenance := range direct {
-			directProvenanceInfo := branchInfos[branchKey(directProvenance)]
+			directProvenanceInfo := branchInfos[pfsdb.BranchKey(directProvenance)]
 			union = append(union, directProvenance)
 			if directProvenanceInfo != nil {
 				union = append(union, directProvenanceInfo.Provenance...)
@@ -298,7 +286,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 			// i.e branch.Provenance contains the branch provBranch and provBranch.Head != nil implies branch.Head.Provenance contains provBranch.Head
 			// =>
 			for _, provBranch := range bi.Provenance {
-				provBranchInfo, ok := branchInfos[branchKey(provBranch)]
+				provBranchInfo, ok := branchInfos[pfsdb.BranchKey(provBranch)]
 				if !ok {
 					if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
 						return err
@@ -339,10 +327,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 					}
 					contains := false
 					for _, headProv := range headCommitInfo.Provenance {
-						if provBranchInfo.Head.Branch.Repo.Name == headProv.Commit.Branch.Repo.Name &&
-							provBranchInfo.Branch.Repo.Name == headProv.Commit.Branch.Repo.Name &&
-							provBranchInfo.Branch.Name == headProv.Commit.Branch.Name &&
-							provBranchInfo.Head.ID == headProv.Commit.ID {
+						if proto.Equal(provBranchInfo.Head, headProv.Commit) {
 							contains = true
 						}
 					}
@@ -543,7 +528,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 					contains = true
 				}
 				for _, subvProv := range subvCommitInfo.Provenance {
-					if ci.Commit.Branch.Repo.Name == subvProv.Commit.Branch.Repo.Name &&
+					if proto.Equal(ci.Commit.Branch.Repo, subvProv.Commit.Branch.Repo) &&
 						ci.Commit.ID == subvProv.Commit.ID {
 						contains = true
 					}
@@ -566,18 +551,17 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		}
 	}
 	if fix {
-		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		return col.NewSQLTx(ctx, d.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 			for _, ci := range newCommitInfos {
 				// We've observed users getting ErrExists from this create,
 				// which doesn't make a lot of sense, but we insulate against
 				// it anyways so it doesn't prevent the command from working.
-				if err := d.commits(ci.Commit.Branch.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
+				if err := d.commits.ReadWrite(sqlTx).Create(pfsdb.CommitKey(ci.Commit), ci); err != nil && !col.IsErrExists(err) {
 					return err
 				}
 			}
 			return nil
 		})
-		return err
 	}
 	return nil
 }

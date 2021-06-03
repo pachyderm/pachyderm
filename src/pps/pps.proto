@@ -86,6 +86,7 @@ message Spout {
 message PFSInput {
   string name = 1;
   string repo = 2;
+  string repo_type = 13;
   string branch = 3;
   string commit = 4;
   string glob = 5;
@@ -111,6 +112,7 @@ message PFSInput {
 message CronInput {
   string name = 1;
   string repo = 2;
+  string repo_type = 13;
   string commit = 3;
   string spec = 4;
   // Overwrite, if true, will expose a single datum that gets overwritten each
@@ -176,11 +178,11 @@ message Datum {
 }
 
 enum DatumState {
-    FAILED = 0;
-    SUCCESS = 1;
-    SKIPPED = 2;
-    STARTING = 3;
-    RECOVERED = 4;
+  FAILED = 0;
+  SUCCESS = 1;
+  SKIPPED = 2;
+  STARTING = 3;
+  RECOVERED = 4;
 }
 
 message DatumInfo {
@@ -218,13 +220,13 @@ message AggregateProcessStats {
 message WorkerStatus {
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
   string job_id = 2 [(gogoproto.customname) = "JobID"];
-  repeated pps.InputFile data = 3;
+  DatumStatus datum_status = 3;
+}
+
+message DatumStatus {
   // Started is the time processing on the current datum began.
-  google.protobuf.Timestamp started = 4;
-  ProcessStats stats = 5;
-  int64 queue_size = 6;
-  int64 data_processed = 7;
-  int64 data_recovered = 8;
+  google.protobuf.Timestamp started = 1;
+  repeated pps.InputFile data = 2;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
@@ -253,10 +255,10 @@ message GPUSpec {
   int64 number = 2;
 }
 
-// StoredPipelineJobInfo is the portion of the PipelineJobInfo that gets stored
+// StoredJobInfo is the portion of the JobInfo that gets stored
 // in the database during job execution. It contains fields which change over
 // the lifetime of the job but aren't used in the execution of the job.
-message StoredPipelineJobInfo {
+message StoredJobInfo {
   Job job = 1;
   Pipeline pipeline = 2;
   pfs.Commit output_commit = 3;
@@ -280,14 +282,14 @@ message StoredPipelineJobInfo {
   google.protobuf.Timestamp finished = 15;
 }
 
-message PipelineJobInfo {
+message JobInfo {
   Job job = 1;
   Transform transform = 2;                     // requires ListJobRequest.Full
   Pipeline pipeline = 3;
-  uint64 pipeline_version = 4;                // requires ListJobRequest.Full
+  uint64 pipeline_version = 4;
   pfs.Commit spec_commit = 5;
-  ParallelismSpec parallelism_spec = 6;       // requires ListJobRequest.Full
-  Egress egress = 7;                          // requires ListJobRequest.Full
+  ParallelismSpec parallelism_spec = 6;        // requires ListJobRequest.Full
+  Egress egress = 7;                           // requires ListJobRequest.Full
   Job parent_job = 8;
   google.protobuf.Timestamp started = 9;
   google.protobuf.Timestamp finished = 10;
@@ -483,7 +485,7 @@ message InspectJobRequest {
   // Callers should set either Job or OutputCommit, not both.
   Job job = 1;
   pfs.Commit output_commit = 2;
-  bool block_state = 3; // block until state is either JOB_STATE_FAILURE or JOB_STATE_SUCCESS
+  bool block_state = 3; // block until state is either FAILURE or SUCCESS
   bool full = 4;
 }
 
@@ -501,7 +503,7 @@ message ListJobRequest {
   int64 history = 4;
 
   // Full indicates whether the result should include all pipeline details in
-  // each PipelineJobInfo, or limited information including name and status, but
+  // each JobInfo, or limited information including name and status, but
   // excluding information in the pipeline spec. Leaving this "false" can make
   // the call significantly faster in clusters with a large number of pipelines
   // and jobs.
@@ -524,6 +526,7 @@ message DeleteJobRequest {
 message StopJobRequest {
   Job job = 1;
   pfs.Commit output_commit = 2;
+  string reason = 3;
 }
 
 message UpdateJobStateRequest {
@@ -759,23 +762,15 @@ message SecretInfos {
   repeated SecretInfo secret_info = 1;
 }
 
-message GarbageCollectRequest {
-    // Memory is how much memory to use in computing which objects are alive. A
-    // larger number will result in more precise garbage collection (at the
-    // cost of more memory usage).
-    int64 memory_bytes = 1;
-}
-message GarbageCollectResponse {}
-
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
-  rpc InspectJob(InspectJobRequest) returns (PipelineJobInfo) {}
+  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   // ListJob returns information about current and past Pachyderm jobs.
-  rpc ListJob(ListJobRequest) returns (stream PipelineJobInfo) {}
-  rpc FlushJob(FlushJobRequest) returns (stream PipelineJobInfo) {}
+  rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
+  rpc FlushJob(FlushJobRequest) returns (stream JobInfo) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}

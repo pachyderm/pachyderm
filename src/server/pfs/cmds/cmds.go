@@ -22,9 +22,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -155,16 +156,25 @@ or type (e.g. csv, binary, images, etc).`,
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
 
+	var all bool
+	var repoType string
 	listRepo := &cobra.Command{
-		Short: "Return all repos.",
-		Long:  "Return all repos.",
+		Short: "Return a list of repos.",
+		Long:  "Return a list of repos. By default, only show user repos",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if all && repoType != "" {
+				return errors.Errorf("cannot set a repo type with --all")
+			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			repoInfos, err := c.ListRepo()
+
+			if repoType == "" && !all {
+				repoType = pfsclient.UserRepoType // default to user
+			}
+			repoInfos, err := c.ListRepoByType(repoType)
 			if err != nil {
 				return err
 			}
@@ -190,10 +200,11 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	listRepo.Flags().AddFlagSet(rawFlags)
 	listRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
+	listRepo.Flags().StringVar(&repoType, "type", "", "only include repos of the given type")
 	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
 
 	var force bool
-	var all bool
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
@@ -277,7 +288,7 @@ $ {{alias}} test -p XXX`,
 			if parent != "" {
 				// We don't know if the parent is a commit ID, branch, or ancestry, so
 				// construct a string to parse.
-				parentCommit, err = cmdutil.ParseCommit(branch.Repo.Name + "@" + parent)
+				parentCommit, err = cmdutil.ParseCommit(pretty.CompactPrintRepo(branch.Repo) + "@" + parent)
 				if err != nil {
 					return err
 				}
@@ -357,9 +368,14 @@ $ {{alias}} test -p XXX`,
 			}
 			defer c.Close()
 
-			commitInfo, err := c.InspectCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			commitInfo, err := c.PfsAPIClient.InspectCommit(
+				c.Ctx(),
+				&pfsclient.InspectCommitRequest{
+					Commit:     commit,
+					BlockState: pfs.CommitState_STARTED,
+				})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			if commitInfo == nil {
 				return errors.Errorf("commit %s not found", commit.ID)
@@ -409,13 +425,18 @@ $ {{alias}} foo@master --from XXX`,
 				return err
 			}
 
+			var fromCommit *pfs.Commit
+			if from != "" {
+				fromCommit = branch.Repo.NewCommit("", from)
+			}
+
 			if raw {
-				return c.ListCommitF(branch.Repo.Name, branch.Name, "", "", from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
+				return c.ListCommitF(branch.Repo, nil, fromCommit, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(branch.Repo.Name, branch.Name, "", "", from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
+			if err := c.ListCommitF(branch.Repo, nil, fromCommit, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -522,7 +543,7 @@ $ {{alias}} test@master --new`,
 				if err != nil {
 					return err
 				}
-				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
+				prov = pipelineInfo.SpecCommit.NewProvenance()
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
@@ -531,7 +552,7 @@ $ {{alias}} test@master --new`,
 					retErr = err
 				}
 			}()
-			return c.SubscribeCommit(branch.Repo.Name, branch.Name, prov, from, pfsclient.CommitState_STARTED, func(ci *pfsclient.CommitInfo) error {
+			return c.SubscribeCommit(branch.Repo, branch.Name, prov, from, pfsclient.CommitState_STARTED, func(ci *pfsclient.CommitInfo) error {
 				if raw {
 					return marshaller.Marshal(os.Stdout, ci)
 				}
@@ -565,7 +586,12 @@ $ {{alias}} test@master --new`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.SquashCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+				_, err := c.PfsAPIClient.SquashCommit(
+					c.Ctx(),
+					&pfs.SquashCommitRequest{
+						Commit: commit,
+					})
+				return err
 			})
 		}),
 	}
@@ -607,6 +633,13 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				trigger.Branch == "" {
 				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
 			}
+			if trigger.Branch == "" {
+				trigger = nil
+			}
+			var headCommit *pfs.Commit
+			if head != "" {
+				headCommit = branch.Repo.NewCommit("", head)
+			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -614,10 +647,15 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				if trigger.Branch != "" {
-					return c.CreateBranchTrigger(branch.Repo.Name, branch.Name, "", head, trigger)
-				}
-				return c.CreateBranch(branch.Repo.Name, branch.Name, "", head, provenance)
+				_, err := c.PfsAPIClient.CreateBranch(
+					c.Ctx(),
+					&pfsclient.CreateBranchRequest{
+						Head:       headCommit,
+						Branch:     branch,
+						Provenance: provenance,
+						Trigger:    trigger,
+					})
+				return grpcutil.ScrubGRPC(err)
 			})
 		}),
 	}
@@ -647,9 +685,9 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			}
 
-			branchInfo, err := c.InspectBranch(branch.Repo.Name, branch.Name)
+			branchInfo, err := c.PfsAPIClient.InspectBranch(c.Ctx(), &pfs.InspectBranchRequest{Branch: branch})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			if branchInfo == nil {
 				return errors.Errorf("branch %s not found", args[0])
@@ -715,7 +753,8 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.DeleteBranch(branch.Repo.Name, branch.Name, force)
+				_, err := c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{Branch: branch, Force: force})
+				return err
 			})
 		}),
 	}
@@ -846,10 +885,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				sources = filePaths
 			}
 
-			repo := file.Commit.Branch.Repo.Name
-			branch := file.Commit.Branch.Name
-			commit := file.Commit.ID
-			return c.WithModifyFileClient(repo, branch, commit, func(mf client.ModifyFile) error {
+			return c.WithModifyFileClient(file.Commit, func(mf client.ModifyFile) error {
 				for _, source := range sources {
 					source := source
 					if file.Path == "" {
@@ -922,8 +958,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 				opts = append(opts, client.WithAppendCopyFile())
 			}
 			return c.CopyFile(
-				destFile.Commit.Branch.Repo.Name, destFile.Commit.Branch.Name, destFile.Commit.ID, destFile.Path,
-				srcFile.Commit.Branch.Repo.Name, srcFile.Commit.Branch.Name, srcFile.Commit.ID, srcFile.Path,
+				destFile.Commit, destFile.Path,
+				srcFile.Commit, srcFile.Path,
 				opts...,
 			)
 		}),
@@ -972,9 +1008,9 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				w = os.Stdout
 			} else {
 				if url, err := url.Parse(outputPath); err == nil && url.Scheme != "" {
-					return c.GetFileURL(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path, url.String())
+					return c.GetFileURL(file.Commit, file.Path, url.String())
 				}
-				fi, err := c.InspectFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path)
+				fi, err := c.InspectFile(file.Commit, file.Path)
 				if err != nil {
 					return err
 				}
@@ -985,11 +1021,11 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				defer f.Close()
 				w = f
 			}
-			return c.GetFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path, w)
+			return c.GetFile(file.Commit, file.Path, w)
 		}),
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
-	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Don't print progress bars.")
+	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 
@@ -1007,7 +1043,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				return err
 			}
 			defer c.Close()
-			fileInfo, err := c.InspectFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path)
+			fileInfo, err := c.InspectFile(file.Commit, file.Path)
 			if err != nil {
 				return err
 			}
@@ -1068,7 +1104,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			}
 			defer c.Close()
 			if raw {
-				return c.ListFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path, func(fi *pfsclient.FileInfo) error {
+				return c.ListFile(file.Commit, file.Path, func(fi *pfsclient.FileInfo) error {
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
@@ -1077,7 +1113,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 				header = pretty.FileHeaderWithCommit
 			}
 			writer := tabwriter.NewWriter(os.Stdout, header)
-			if err := c.ListFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path, func(fi *pfsclient.FileInfo) error {
+			if err := c.ListFile(file.Commit, file.Path, func(fi *pfsclient.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
 			}); err != nil {
@@ -1114,7 +1150,7 @@ $ {{alias}} "foo@master:data/*"`,
 				return err
 			}
 			defer c.Close()
-			fileInfos, err := c.GlobFileAll(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path)
+			fileInfos, err := c.GlobFileAll(file.Commit, file.Path)
 			if err != nil {
 				return err
 			}
@@ -1158,7 +1194,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			if err != nil {
 				return err
 			}
-			oldFile := client.NewFile("", "", "", "")
+			oldFile := &pfs.File{}
 			if len(args) == 2 {
 				oldFile, err = cmdutil.ParseFile(args[1])
 				if err != nil {
@@ -1183,8 +1219,8 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				}
 
 				newFiles, oldFiles, err := c.DiffFileAll(
-					newFile.Commit.Branch.Repo.Name, newFile.Commit.Branch.Name, newFile.Commit.ID, newFile.Path,
-					oldFile.Commit.Branch.Repo.Name, oldFile.Commit.Branch.Name, oldFile.Commit.ID, oldFile.Path,
+					newFile.Commit, newFile.Path,
+					oldFile.Commit, oldFile.Path,
 					shallow,
 				)
 				if err != nil {
@@ -1257,7 +1293,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 			defer c.Close()
 
-			return c.DeleteFile(file.Commit.Branch.Repo.Name, file.Commit.Branch.Name, file.Commit.ID, file.Path)
+			return c.DeleteFile(file.Commit, file.Path)
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
@@ -1302,6 +1338,36 @@ Objects are a low-level resource and should not be accessed directly by most use
 	}
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
+
+	var seed int64
+	runLoadTest := &cobra.Command{
+		Use:     "{{alias}} <spec>",
+		Short:   "Run a PFS load test.",
+		Long:    "Run a PFS load test.",
+		Example: pfsload.LoadSpecification,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := c.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
+			spec, err := ioutil.ReadFile(args[0])
+			if err != nil {
+				return err
+			}
+			resp, err := c.RunPFSLoadTest(spec, seed)
+			if err != nil {
+				return err
+			}
+			return marshaller.Marshal(os.Stdout, resp)
+		}),
+	}
+	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
+	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pfs-load-test"))
 
 	// Add the mount commands (which aren't available on Windows, so they're in
 	// their own file)
@@ -1390,7 +1456,7 @@ func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr e
 			retErr = err
 		}
 	}()
-	if err := pachClient.GetFile(f.Commit.Branch.Repo.Name, f.Commit.Branch.Name, f.Commit.ID, f.Path, file); err != nil {
+	if err := pachClient.GetFile(f.Commit, f.Path, file); err != nil {
 		return "", err
 	}
 	return file.Name(), nil

@@ -16,16 +16,16 @@ type UnorderedWriter struct {
 	ctx                        context.Context
 	storage                    *Storage
 	memAvailable, memThreshold int64
-	defaultTag                 string
 	buffer                     *Buffer
 	subFileSet                 int64
 	ttl                        time.Duration
 	renewer                    *renew.StringSet
 	ids                        []ID
 	parentID                   *ID
+	validator                  func(string) error
 }
 
-func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
+func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int64, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
 		return nil, err
 	}
@@ -34,7 +34,6 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 		storage:      storage,
 		memAvailable: memThreshold,
 		memThreshold: memThreshold,
-		defaultTag:   defaultTag,
 		buffer:       NewBuffer(),
 	}
 	for _, opt := range opts {
@@ -43,17 +42,15 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 	return uw, nil
 }
 
-func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag ...string) error {
-	if err := Validate(p); err != nil {
+func (uw *UnorderedWriter) Put(p, tag string, appendFile bool, r io.Reader) (retErr error) {
+	if err := uw.validate(p); err != nil {
 		return err
 	}
-	tag := uw.defaultTag
-	if len(customTag) > 0 && customTag[0] != "" {
-		tag = customTag[0]
+	if tag == "" {
+		tag = DefaultFileTag
 	}
-	// TODO: Tag overwrite?
 	if !appendFile {
-		uw.buffer.Delete(p)
+		uw.buffer.Delete(p, tag)
 	}
 	w := uw.buffer.Add(p, tag)
 	for {
@@ -74,6 +71,13 @@ func (uw *UnorderedWriter) Put(p string, appendFile bool, r io.Reader, customTag
 	}
 }
 
+func (uw *UnorderedWriter) validate(p string) error {
+	if uw.validator != nil {
+		return uw.validator(p)
+	}
+	return nil
+}
+
 // serialize will be called whenever the in-memory file set is past the memory threshold.
 // A new in-memory file set will be created for the following operations.
 func (uw *UnorderedWriter) serialize() error {
@@ -81,42 +85,14 @@ func (uw *UnorderedWriter) serialize() error {
 		return nil
 	}
 	return uw.withWriter(func(w *Writer) error {
-		var prev string
-		var fw *FileWriter
-		if err := uw.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
-			if p != prev {
-				var err error
-				fw, err = w.Add(p)
-				if err != nil {
-					return err
-				}
-			}
-			prev = p
-			fw.Add(tag)
-			_, err := io.Copy(fw, r)
-			return err
+		if err := uw.buffer.WalkAdditive(func(path, tag string, r io.Reader) error {
+			return w.Add(path, tag, r)
 		}); err != nil {
 			return err
 		}
-		prev = ""
-		var tags []string
-		if err := uw.buffer.WalkDeletive(func(p string, tag ...string) error {
-			if prev != "" && p != prev {
-				if err := w.Delete(prev, tags...); err != nil {
-					return err
-				}
-				tags = nil
-			}
-			prev = p
-			tags = append(tags, tag...)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if prev != "" {
-			return w.Delete(prev, tags...)
-		}
-		return nil
+		return uw.buffer.WalkDeletive(func(path, tag string) error {
+			return w.Delete(path, tag)
+		})
 	})
 }
 
@@ -146,16 +122,16 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 }
 
 // Delete deletes a file from the file set.
-func (uw *UnorderedWriter) Delete(p string, tags ...string) error {
-	if err := Validate(p); err != nil {
+func (uw *UnorderedWriter) Delete(p, tag string) error {
+	if err := uw.validate(p); err != nil {
 		return err
 	}
-	p = Clean(p, IsDir(p))
-	if len(tags) > 0 && tags[0] == "" {
-		tags = nil
+	if tag == "" {
+		tag = DefaultFileTag
 	}
+	p = Clean(p, IsDir(p))
 	if IsDir(p) {
-		uw.buffer.Delete(p)
+		uw.buffer.Delete(p, tag)
 		var ids []ID
 		if uw.parentID != nil {
 			ids = []ID{*uw.parentID}
@@ -165,20 +141,19 @@ func (uw *UnorderedWriter) Delete(p string, tags ...string) error {
 			return err
 		}
 		return fs.Iterate(uw.ctx, func(f File) error {
-			return uw.Delete(f.Index().Path)
+			return uw.Delete(f.Index().Path, tag)
 		})
 	}
-	uw.buffer.Delete(p, tags...)
+	uw.buffer.Delete(p, tag)
 	return nil
 }
 
-func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, appendFile bool, customTag ...string) error {
+func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, tag string, appendFile bool) error {
 	if err := uw.serialize(); err != nil {
 		return err
 	}
-	tag := uw.defaultTag
-	if len(customTag) > 0 && customTag[0] != "" {
-		tag = customTag[0]
+	if tag == "" {
+		tag = DefaultFileTag
 	}
 	return uw.withWriter(func(w *Writer) error {
 		return fs.Iterate(ctx, func(f File) error {
@@ -187,12 +162,7 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, appendFile bool
 					return err
 				}
 			}
-			fw, err := w.Add(f.Index().Path)
-			if err != nil {
-				return err
-			}
-			fw.Add(tag)
-			return f.Content(fw)
+			return w.Copy(f, tag)
 		})
 	})
 }

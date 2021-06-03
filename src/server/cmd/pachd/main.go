@@ -154,12 +154,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
+			authAPIServer, err := authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				true,
 				true,
 				true,
@@ -168,6 +166,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 				return err
 			}
 			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
+			env.SetAuthServer(authAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -187,11 +186,12 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), true)
 			if err != nil {
 				return err
 			}
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -229,7 +229,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, nil, authAPIServer, nil, nil)
+		txnEnv.Initialize(env, nil)
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
@@ -247,12 +247,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	if err := logGRPCServerSetup("Internal Enterprise Server", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
+			authAPIServer, err := authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				false,
 				true,
@@ -261,6 +259,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 				return err
 			}
 			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
+			env.SetAuthServer(authAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -288,11 +287,12 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), false)
 			if err != nil {
 				return err
 			}
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -322,7 +322,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, nil, authAPIServer, nil, nil)
+		txnEnv.Initialize(env, nil)
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
@@ -396,9 +396,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 		return err
 	}
 	txnEnv := &txnenv.TransactionEnv{}
-	var pfsAPIServer pfs_server.APIServer
 	if err := logGRPCServerSetup("PFS API", func() error {
-		pfsAPIServer, err = pfs_server.NewAPIServer(
+		pfsAPIServer, err := pfs_server.NewAPIServer(
 			env,
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
@@ -407,13 +406,13 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
+		env.SetPfsServer(pfsAPIServer)
 		return nil
 	}); err != nil {
 		return err
 	}
-	var ppsAPIServer pps_server.APIServer
 	if err := logGRPCServerSetup("PPS API", func() error {
-		ppsAPIServer, err = pps_server.NewSidecarAPIServer(
+		ppsAPIServer, err := pps_server.NewSidecarAPIServer(
 			env,
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
@@ -428,16 +427,15 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
+		env.SetPpsServer(ppsAPIServer)
 		return nil
 	}); err != nil {
 		return err
 	}
-	var authAPIServer authserver.APIServer
 	if err := logGRPCServerSetup("Auth API", func() error {
-		authAPIServer, err = authserver.NewAuthServer(
+		authAPIServer, err := authserver.NewAuthServer(
 			env,
 			txnEnv,
-			path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 			false,
 			false,
 			false,
@@ -446,18 +444,19 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		authclient.RegisterAPIServer(server.Server, authAPIServer)
+		env.SetAuthServer(authAPIServer)
 		return nil
 	}); err != nil {
 		return err
 	}
-	var enterpriseAPIServer eprsclient.APIServer
 	if err := logGRPCServerSetup("Enterprise API", func() error {
-		enterpriseAPIServer, err = eprsserver.NewEnterpriseServer(
-			env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+			env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), false)
 		if err != nil {
 			return err
 		}
 		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+		env.SetEnterpriseServer(enterpriseAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -467,7 +466,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 		transactionAPIServer, err = txnserver.NewAPIServer(
 			env,
 			txnEnv,
-			path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 		)
 		if err != nil {
 			return err
@@ -493,7 +491,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
-	txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+	txnEnv.Initialize(env, transactionAPIServer)
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
@@ -546,7 +544,6 @@ func doFullMode(config interface{}) (retErr error) {
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(env)
 	}
-	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.Config().EtcdHost, env.Config().EtcdPort))
 	ip, err := netutil.ExternalIP()
 	if err != nil {
 		return errors.Wrapf(err, "error getting pachd external ip")
@@ -575,20 +572,19 @@ func doFullMode(config interface{}) (retErr error) {
 
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
+			pfsAPIServer, err := pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
 			if err != nil {
 				return err
 			}
 			pfsclient.RegisterAPIServer(externalServer.Server, pfsAPIServer)
+			env.SetPfsServer(pfsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		var ppsAPIServer pps_server.APIServer
 		if err := logGRPCServerSetup("PPS API", func() error {
-			ppsAPIServer, err = pps_server.NewAPIServer(
+			ppsAPIServer, err := pps_server.NewAPIServer(
 				env,
 				txnEnv,
 				reporter,
@@ -597,6 +593,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			ppsclient.RegisterAPIServer(externalServer.Server, ppsAPIServer)
+			env.SetPpsServer(ppsAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -613,14 +610,14 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 
-		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
-				env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix), true, requireNoncriticalServers, true)
+			authAPIServer, err := authserver.NewAuthServer(
+				env, txnEnv, true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
 			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
+			env.SetAuthServer(authAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -630,7 +627,6 @@ func doFullMode(config interface{}) (retErr error) {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -642,11 +638,12 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), true)
 			if err != nil {
 				return err
 			}
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -691,7 +688,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+		txnEnv.Initialize(env, transactionAPIServer)
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
@@ -707,9 +704,8 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(
+			pfsAPIServer, err := pfs_server.NewAPIServer(
 				env,
 				txnEnv,
 				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
@@ -718,13 +714,13 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			pfsclient.RegisterAPIServer(internalServer.Server, pfsAPIServer)
+			env.SetPfsServer(pfsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		var ppsAPIServer pps_server.APIServer
 		if err := logGRPCServerSetup("PPS API", func() error {
-			ppsAPIServer, err = pps_server.NewAPIServer(
+			ppsAPIServer, err := pps_server.NewAPIServer(
 				env,
 				txnEnv,
 				reporter,
@@ -733,6 +729,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			ppsclient.RegisterAPIServer(internalServer.Server, ppsAPIServer)
+			env.SetPpsServer(ppsAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -747,12 +744,10 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
+			authAPIServer, err := authserver.NewAuthServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().AuthEtcdPrefix),
 				false,
 				requireNoncriticalServers,
 				true,
@@ -761,6 +756,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
+			env.SetAuthServer(authAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -770,7 +766,6 @@ func doFullMode(config interface{}) (retErr error) {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
 			)
 			if err != nil {
 				return err
@@ -793,11 +788,12 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), false)
 			if err != nil {
 				return err
 			}
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -821,7 +817,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+		txnEnv.Initialize(env, transactionAPIServer)
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
@@ -867,7 +863,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return server.ListenAndServeTLS(certPath, keyPath)
 	})
 	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
-		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix))
+		return githook.RunGitHookServer(env)
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {

@@ -58,7 +58,6 @@
   status = 301
   force = true
 
-
 [[redirects]]
   from = "/1.10.x/*"
   to = "/latest/archive/"
@@ -86,6 +85,12 @@
 [[redirects]]
   from = "/concepts/*"
   to = "/latest/concepts/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/how-tos/basic-data-operations/export-data-out-pachyderm/index/"
+  to = "/:version/how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl/"
   status = 301
   force = true
 
@@ -211,6 +216,12 @@
 
 [[redirects]]
   from = "/hub/hub_getting_started/"
+  to = "/latest/hub/hub_getting_started/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/pachhub/pachhub_getting_started/"
   to = "/latest/hub/hub_getting_started/"
   status = 301
   force = true

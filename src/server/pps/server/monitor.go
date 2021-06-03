@@ -32,7 +32,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -183,7 +182,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 	pipeline := pipelineInfo.Pipeline.Name
 	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
-	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
+	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) error {
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
@@ -192,6 +191,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 					backoff.NotifyCtx(ctx, "cron for "+in.Cron.Name))
 			})
 		}
+		return nil
 	})
 	if pipelineInfo.Standby || pipelineInfo.Autoscaling {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
@@ -201,8 +201,8 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
 				pachClient := m.a.env.GetPachClient(ctx)
-				return pachClient.SubscribeCommit(pipeline, "",
-					client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
+				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "",
+					pipelineInfo.SpecCommit.NewProvenance(),
 					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 						ciChan <- ci
 						return nil
@@ -452,14 +452,14 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		}
 		if in.Cron.Overwrite {
 			// get rid of any files, so the new file "overwrites" previous runs
-			err = pachClient.DeleteFile(in.Cron.Repo, "master", "", "")
+			err = pachClient.DeleteFile(client.NewCommit(in.Cron.Repo, "master", ""), "")
 			if err != nil && !isNotFoundErr(err) && !pfsserver.IsNoHeadErr(err) {
 				return errors.Wrapf(err, "delete error")
 			}
 		}
 
 		// Put in an empty file named by the timestamp
-		if err := pachClient.PutFile(in.Cron.Repo, "master", "", next.Format(time.RFC3339), strings.NewReader("")); err != nil {
+		if err := pachClient.PutFile(client.NewCommit(in.Cron.Repo, "master", ""), next.Format(time.RFC3339), strings.NewReader("")); err != nil {
 			return errors.Wrapf(err, "put error")
 		}
 
@@ -480,7 +480,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 func (m *ppsMaster) getLatestCronTime(ctx context.Context, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
 	pachClient := m.a.env.GetPachClient(ctx)
-	files, err := pachClient.ListFileAll(in.Cron.Repo, "master", "", "")
+	files, err := pachClient.ListFileAll(client.NewCommit(in.Cron.Repo, "master", ""), "")
 	if err != nil && !pfsserver.IsNoHeadErr(err) {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {

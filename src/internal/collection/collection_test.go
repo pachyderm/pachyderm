@@ -51,10 +51,9 @@ func idRange(start int, end int) []string {
 	return result
 }
 
-func putItem(id string, value ...string) func(rw col.ReadWriteCollection) error {
+func putItem(item *col.TestItem) func(rw col.ReadWriteCollection) error {
 	return func(rw col.ReadWriteCollection) error {
-		testProto := makeProto(id, value...)
-		return rw.Put(testProto.ID, testProto)
+		return rw.Put(item.ID, item)
 	}
 }
 
@@ -69,11 +68,20 @@ func canceledContext() context.Context {
 // individual tests.
 func populateCollection(rw col.ReadWriteCollection) error {
 	for _, id := range idRange(0, defaultCollectionSize) {
-		if err := putItem(id, originalValue)(rw); err != nil {
+		if err := putItem(makeProto(id, originalValue))(rw); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func initCollection(
+	t *testing.T,
+	newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback),
+) (col.ReadOnlyCollection, WriteCallback) {
+	reader, writer := newCollection(context.Background(), t)
+	require.NoError(t, writer(context.Background(), populateCollection))
+	return reader(context.Background()), writer
 }
 
 // Helper function to turn an int ID into a string so we don't need to use string literals
@@ -166,9 +174,7 @@ func collectionTests(
 		suite.Parallel()
 		emptyReader, _ := newCollection(context.Background(), suite)
 		emptyRead := emptyReader(context.Background())
-		defaultReader, writer := newCollection(context.Background(), suite)
-		defaultRead := defaultReader(context.Background())
-		require.NoError(suite, writer(context.Background(), populateCollection))
+		defaultRead, _ := initCollection(suite, newCollection)
 
 		suite.Run("Get", func(subsuite *testing.T) {
 			subsuite.Parallel()
@@ -445,14 +451,9 @@ func collectionTests(
 
 	parent.Run("ReadWrite", func(suite *testing.T) {
 		suite.Parallel()
-		initCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
-			reader, writer := newCollection(context.Background(), t)
-			require.NoError(t, writer(context.Background(), populateCollection))
-			return reader(context.Background()), writer
-		}
 
 		testRollback := func(t *testing.T, cb func(rw col.ReadWriteCollection) error) error {
-			readOnly, writer := initCollection(t)
+			readOnly, writer := initCollection(t, newCollection)
 			err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 				return cb(rw)
 			})
@@ -465,7 +466,7 @@ func collectionTests(
 			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
@@ -483,7 +484,7 @@ func collectionTests(
 
 			subsuite.Run("AfterDelete", func(t *testing.T) {
 				t.Parallel()
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
@@ -513,13 +514,12 @@ func collectionTests(
 				require.Equal(t, int64(0), count)
 			})
 		})
-
 		suite.Run("Create", func(subsuite *testing.T) {
 			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 				newID := makeID(10)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := makeProto(newID)
 					return rw.Create(testProto.ID, testProto)
@@ -531,7 +531,7 @@ func collectionTests(
 			subsuite.Run("ErrExists", func(t *testing.T) {
 				t.Parallel()
 				overwriteID := makeID(5)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := makeProto(overwriteID)
 					return rw.Create(testProto.ID, testProto)
@@ -571,6 +571,25 @@ func collectionTests(
 					})
 					require.True(t, errors.Is(err, TestError{}), "Incorrect error: %v", err)
 				})
+
+				subsuite.Run("NoRollbackOnExists", func(t *testing.T) {
+					t.Parallel()
+					overwriteID := makeID(5)
+					newID := makeID(10)
+					readOnly, writer := initCollection(t, newCollection)
+					err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
+						testProto := makeProto(overwriteID)
+						if err := rw.Create(testProto.ID, testProto); err == nil {
+							return errors.New("Expected col.ErrExists, but got no error")
+						} else if !col.IsErrExists(err) {
+							return err
+						}
+						testProto = makeProto(newID)
+						return rw.Create(testProto.ID, testProto)
+					})
+					require.NoError(t, err)
+					checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
+				})
 			})
 		})
 
@@ -579,7 +598,7 @@ func collectionTests(
 			subsuite.Run("Insert", func(t *testing.T) {
 				t.Parallel()
 				newID := makeID(10)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := makeProto(newID)
 					return rw.Put(testProto.ID, testProto)
@@ -591,7 +610,7 @@ func collectionTests(
 			subsuite.Run("Overwrite", func(t *testing.T) {
 				t.Parallel()
 				overwriteID := makeID(5)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := makeProto(overwriteID)
 					return rw.Put(testProto.ID, testProto)
@@ -625,7 +644,7 @@ func collectionTests(
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 				updateID := makeID(1)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					if err := rw.Upsert(updateID, testProto, func() error {
@@ -649,7 +668,7 @@ func collectionTests(
 			subsuite.Run("ErrorInCallback", func(t *testing.T) {
 				t.Parallel()
 				updateID := makeID(2)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return rw.Update(updateID, testProto, func() error {
@@ -664,7 +683,7 @@ func collectionTests(
 			subsuite.Run("NotFound", func(t *testing.T) {
 				t.Parallel()
 				notExistsID := makeID(10)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return rw.Update(notExistsID, testProto, func() error {
@@ -740,7 +759,7 @@ func collectionTests(
 			subsuite.Run("Insert", func(t *testing.T) {
 				t.Parallel()
 				newID := makeID(10)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return rw.Upsert(newID, testProto, func() error {
@@ -762,7 +781,7 @@ func collectionTests(
 			subsuite.Run("ErrorInCallback", func(t *testing.T) {
 				t.Parallel()
 				newID := makeID(10)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return rw.Upsert(newID, testProto, func() error {
@@ -777,7 +796,7 @@ func collectionTests(
 			subsuite.Run("Overwrite", func(t *testing.T) {
 				t.Parallel()
 				overwriteID := makeID(5)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return rw.Upsert(overwriteID, testProto, func() error {
@@ -854,7 +873,7 @@ func collectionTests(
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 				deleteID := makeID(3)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					return rw.Delete(deleteID)
 				})
@@ -865,7 +884,7 @@ func collectionTests(
 			subsuite.Run("NotExists", func(t *testing.T) {
 				t.Parallel()
 				notExistsID := makeID(10)
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					return rw.Delete(notExistsID)
 				})
@@ -909,7 +928,7 @@ func collectionTests(
 
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
-				readOnly, writer := initCollection(t)
+				readOnly, writer := initCollection(t, newCollection)
 				err := writer(context.Background(), func(rw col.ReadWriteCollection) error {
 					return rw.DeleteAll()
 				})

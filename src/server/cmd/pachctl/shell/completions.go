@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -96,24 +97,29 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 	case repoPart:
 		return RepoCompletion(flag, text, maxCompletions)
 	case commitOrBranchPart:
-		bis, err := c.ListBranch(partialFile.Commit.Branch.Repo.Name)
+		bis, err := c.PfsAPIClient.ListBranch(
+			c.Ctx(),
+			&pfs.ListBranchRequest{
+				Repo: partialFile.Commit.Branch.Repo,
+			},
+		)
 		if err != nil {
 			return nil, CacheNone
 		}
-		for _, bi := range bis {
+		for _, bi := range bis.BranchInfo {
 			head := "-"
 			if bi.Head != nil {
 				head = bi.Head.ID
 			}
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Branch.Repo.Name, bi.Branch.Name),
+				Text:        fmt.Sprintf("%s@%s:", pfsdb.RepoKey(partialFile.Commit.Branch.Repo), bi.Branch.Name),
 				Description: fmt.Sprintf("(%s)", head),
 			})
 		}
 		if len(result) == 0 {
 			// Master should show up even if it doesn't exist yet
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Branch.Repo.Name),
+				Text:        fmt.Sprintf("%s@master", pfsdb.RepoKey(partialFile.Commit.Branch.Repo)),
 				Description: "(nil)",
 			})
 		}
@@ -146,14 +152,14 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 	case commitOrBranchPart:
 		return BranchCompletion(flag, text, maxCompletions)
 	case filePart:
-		if err := c.GlobFile(partialFile.Commit.Branch.Repo.Name, partialFile.Commit.Branch.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
+		if err := c.GlobFile(partialFile.Commit, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
 				maxCompletions--
 			} else {
 				return errutil.ErrBreak
 			}
 			result = append(result, prompt.Suggest{
-				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Branch.Repo.Name, partialFile.Commit.ID, fi.File.Path),
+				Text: fmt.Sprintf("%s@%s:%s", pfsdb.RepoKey(partialFile.Commit.Branch.Repo), partialFile.Commit.ID, fi.File.Path),
 			})
 			return nil
 		}); err != nil {
@@ -203,29 +209,29 @@ func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, Ca
 	return result, CacheAll
 }
 
-func jobDesc(pji *pps.PipelineJobInfo) string {
+func jobDesc(ji *pps.JobInfo) string {
 	statusString := ""
-	if pji.Finished == nil {
-		statusString = fmt.Sprintf("%s for %s", pps_pretty.JobState(pji.State), pretty.Since(pji.Started))
+	if ji.Finished == nil {
+		statusString = fmt.Sprintf("%s for %s", pps_pretty.JobState(ji.State), pretty.Since(ji.Started))
 	} else {
-		statusString = fmt.Sprintf("%s %s", pps_pretty.JobState(pji.State), pretty.Ago(pji.Finished))
+		statusString = fmt.Sprintf("%s %s", pps_pretty.JobState(ji.State), pretty.Ago(ji.Finished))
 	}
-	return fmt.Sprintf("%s: %s - %s", pji.Pipeline.Name, pps_pretty.Progress(pji), statusString)
+	return fmt.Sprintf("%s: %s - %s", ji.Pipeline.Name, pps_pretty.Progress(ji), statusString)
 }
 
 // JobCompletion completes job parameters of the form <job>
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
-	if err := c.ListJobF("", nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
+	if err := c.ListJobF("", nil, nil, 0, false, func(ji *pps.JobInfo) error {
 		if maxCompletions > 0 {
 			maxCompletions--
 		} else {
 			return errutil.ErrBreak
 		}
 		result = append(result, prompt.Suggest{
-			Text:        pji.Job.ID,
-			Description: jobDesc(pji),
+			Text:        ji.Job.ID,
+			Description: jobDesc(ji),
 		})
 		return nil
 	}); err != nil {

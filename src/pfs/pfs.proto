@@ -15,6 +15,7 @@ import "auth/auth.proto";
 
 message Repo {
   string name = 1;
+  string type = 2;
 }
 
 message Branch {
@@ -25,6 +26,7 @@ message Branch {
 message File {
   Commit commit = 1;
   string path = 2;
+  string tag = 3;
 }
 
 // RepoInfo is the main data structure representing a Repo in etcd
@@ -145,6 +147,18 @@ message CommitInfo {
   int64 subvenant_commits_total = 14;
 }
 
+message StoredCommitset {
+  string id = 1 [(gogoproto.customname) = "ID"];
+  CommitOrigin origin = 2;
+  repeated Commit commits = 3;
+}
+
+message Commitset {
+  string id = 1 [(gogoproto.customname) = "ID"];
+  CommitOrigin origin = 2;
+  repeated CommitInfo commits = 3;
+}
+
 enum FileType {
   RESERVED = 0;
   FILE = 1;
@@ -172,6 +186,9 @@ message InspectRepoRequest {
 }
 
 message ListRepoRequest {
+  // type is the type of (system) repos that should be returned
+  // an empty string requests all repos
+  string type = 1;
 }
 
 message ListRepoResponse {
@@ -449,6 +466,17 @@ message RenewFilesetRequest {
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
+message RunLoadTestRequest {
+  bytes spec = 1;
+  int64 seed = 2; 
+}
+
+message RunLoadTestResponse {
+  Branch branch = 1;
+  int64 seed = 2;
+  string error = 3;
+}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -489,8 +517,8 @@ service API {
 
   // ModifyFile performs modifications on a set of files.
   rpc ModifyFile(stream ModifyFileRequest) returns (google.protobuf.Empty) {}
-  // GetFile returns a byte stream of the contents of the file.
-  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  // GetFileTAR returns a TAR stream of the contents matched by the request
+  rpc GetFileTAR(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // InspectFile returns info about a file.
   rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
   // ListFile returns info about all files.
@@ -519,4 +547,7 @@ service API {
   rpc AddFileset(AddFilesetRequest) returns (google.protobuf.Empty) {}
   // RenewFileset prevents a fileset from being deleted for a set amount of time.
   rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
+
+  // RunLoadTest runs a load test.
+  rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
 }

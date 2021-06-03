@@ -171,6 +171,8 @@ workflows:
               - PPS2
               - PPS3
               - PPS4
+              - PPS5
+              - PPS6
               - EXAMPLES
               - OBJECT
    # testfaster:

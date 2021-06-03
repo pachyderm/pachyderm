@@ -113,7 +113,7 @@ func (logger *taggedLogger) WithJob(jobID string) TaggedLogger {
 	return result
 }
 
-// WithJob clones the current logger and returns a new one that will include
+// WithData clones the current logger and returns a new one that will include
 // the given data inputs in log statement metadata.
 func (logger *taggedLogger) WithData(data []*common.Input) TaggedLogger {
 	result := logger.clone()

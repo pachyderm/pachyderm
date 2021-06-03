@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -15,28 +16,7 @@ import (
 // since no chunks will get created. The solution we have in mind is to write a small number of bytes
 // for a size zero file, then either not store references to them or ignore them at read time.
 
-// FileWriter provides functionality for writing a file.
-type FileWriter struct {
-	w   *Writer
-	cw  *chunk.Writer
-	idx *index.Index
-}
-
-// Add sets an add tag for the next set of bytes.
-func (fw *FileWriter) Add(tag string) {
-	fw.idx.File.Parts = append(fw.idx.File.Parts, &index.Part{Tag: tag})
-}
-
-func (fw *FileWriter) Write(data []byte) (int, error) {
-	parts := fw.idx.File.Parts
-	if len(parts) < 1 {
-		panic("must specify a tag before writing")
-	}
-	part := parts[len(parts)-1]
-	part.SizeBytes += int64(len(data))
-	fw.w.sizeBytes += int64(len(data))
-	return fw.cw.Write(data)
-}
+// TODO: Might need to think a bit more about fileset sizes and whether deletes should be represented.
 
 // Writer provides functionality for writing a file set.
 type Writer struct {
@@ -47,7 +27,7 @@ type Writer struct {
 	sizeBytes          int64
 	cw                 *chunk.Writer
 	idx                *index.Index
-	deletePath         string
+	deleteIdx          *index.Index
 	lastIdx            *index.Index
 	noUpload           bool
 	indexFunc          func(*index.Index) error
@@ -73,28 +53,24 @@ func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chu
 	return w
 }
 
-// Add creates an add operation for a file and provides a scoped file writer.
-// TODO: change to `Add(p string, tag string, r io.Reader) error`, remove FileWriter object from API.
-func (w *Writer) Add(p string) (*FileWriter, error) {
+func (w *Writer) Add(path, tag string, r io.Reader) error {
 	idx := &index.Index{
-		Path: p,
-		File: &index.File{},
+		Path: path,
+		File: &index.File{
+			Tag: tag,
+		},
 	}
 	if err := w.nextIdx(idx); err != nil {
-		return nil, err
+		return err
 	}
-	return &FileWriter{
-		w:   w,
-		cw:  w.cw,
-		idx: idx,
-	}, nil
+	n, err := io.Copy(w.cw, r)
+	w.sizeBytes += n
+	return err
 }
 
 func (w *Writer) nextIdx(idx *index.Index) error {
-	if w.idx != nil {
-		if err := w.checkPath(w.idx.Path, idx.Path); err != nil {
-			return err
-		}
+	if err := w.checkPath(w.idx, idx); err != nil {
+		return err
 	}
 	w.idx = idx
 	return w.cw.Annotate(&chunk.Annotation{
@@ -103,64 +79,50 @@ func (w *Writer) nextIdx(idx *index.Index) error {
 }
 
 // Delete creates a delete operation for a file.
-func (w *Writer) Delete(p string, tags ...string) error {
-	if w.deletePath != "" {
-		if err := w.checkPath(w.deletePath, p); err != nil {
-			return err
-		}
-	}
-	w.deletePath = p
+func (w *Writer) Delete(path, tag string) error {
 	idx := &index.Index{
-		Path: p,
-		File: &index.File{},
+		Path: path,
+		File: &index.File{
+			Tag: tag,
+		},
 	}
-	if len(tags) > 0 && tags[0] != "" {
-		for _, tag := range tags {
-			idx.File.Parts = append(idx.File.Parts, &index.Part{Tag: tag})
-		}
+	if err := w.checkPath(w.deleteIdx, idx); err != nil {
+		return err
 	}
+	w.deleteIdx = idx
 	return w.deletive.WriteIndex(idx)
 }
 
-func (w *Writer) checkPath(prev, p string) error {
-	if prev == p {
-		return errors.Errorf("cannot write same path (%s) twice", p)
+func (w *Writer) checkPath(prevIdx, idx *index.Index) error {
+	if prevIdx == nil {
+		return nil
 	}
-	if prev > p {
-		return errors.Errorf("cannot write path (%s) after (%s)", p, prev)
+	if prevIdx.Path == idx.Path && prevIdx.File.Tag == idx.File.Tag {
+		return errors.Errorf("cannot write same path (%s) and tag (%s) twice", idx.Path, idx.File.Tag)
+	}
+	if prevIdx.Path > idx.Path {
+		return errors.Errorf("cannot write path (%s) after (%s)", idx.Path, prevIdx.Path)
 	}
 	return nil
 }
 
 // Copy copies a file to the file set writer.
-func (w *Writer) Copy(file File) error {
+func (w *Writer) Copy(file File, tag string) error {
 	idx := file.Index()
 	copyIdx := &index.Index{
 		Path: idx.Path,
 		File: &index.File{
-			Parts: idx.File.Parts,
+			Tag: tag,
 		},
 	}
 	if err := w.nextIdx(copyIdx); err != nil {
 		return err
 	}
-	// Copy the file data refs if they are resolved.
-	if idx.File.DataRefs != nil {
-		for _, dataRef := range idx.File.DataRefs {
-			w.sizeBytes += dataRef.SizeBytes
-			if err := w.cw.Copy(dataRef); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	// Copy the file part data refs otherwise.
-	for _, part := range idx.File.Parts {
-		for _, dataRef := range part.DataRefs {
-			w.sizeBytes += dataRef.SizeBytes
-			if err := w.cw.Copy(dataRef); err != nil {
-				return err
-			}
+	// Copy the file data refs.
+	for _, dataRef := range idx.File.DataRefs {
+		w.sizeBytes += dataRef.SizeBytes
+		if err := w.cw.Copy(dataRef); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -172,7 +134,7 @@ func (w *Writer) callback(annotations []*chunk.Annotation) error {
 		if w.lastIdx == nil {
 			w.lastIdx = idx
 		}
-		if idx.Path != w.lastIdx.Path {
+		if idx.Path != w.lastIdx.Path || idx.File.Tag != w.lastIdx.File.Tag {
 			if !w.noUpload {
 				if err := w.additive.WriteIndex(w.lastIdx); err != nil {
 					return err

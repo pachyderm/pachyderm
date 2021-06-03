@@ -3,26 +3,35 @@
 package transactiondb
 
 import (
-	"path"
-
-	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
 const (
-	transactionsPrefix = "/transactions"
+	transactionsCollectionName = "transactions"
 )
 
+var transactionsIndexes = []*col.Index{}
+
 // Transactions returns a collection of open transactions
-func Transactions(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
-	return col.NewEtcdCollection(
-		etcdClient,
-		path.Join(etcdPrefix, transactionsPrefix),
-		nil,
+func Transactions(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		transactionsCollectionName,
+		db,
+		listener,
 		&transaction.TransactionInfo{},
-		nil,
+		transactionsIndexes,
 		nil,
 	)
+}
+
+// AllCollections returns a list of all the Transaction API collections for
+// postgres-initialization purposes. These collections are not usable for
+// querying.
+func AllCollections() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(transactionsCollectionName, nil, nil, nil, transactionsIndexes, nil),
+	}
 }
