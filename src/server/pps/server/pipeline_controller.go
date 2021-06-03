@@ -236,11 +236,9 @@ func (op *pipelineOp) run() error {
 // should be one of the first calls made on 'op', as most other methods (e.g.
 // getRC, though not failPipeline) assume that op.pipelineInfo is set.
 func (op *pipelineOp) getPipelineInfo() error {
-	err := op.m.a.sudo(op.ctx, func(superUserClient *client.APIClient) error {
-		var err error
-		op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.ptr)
-		return err
-	})
+	var err error
+	pachClient := op.m.a.env.GetPachClient(op.ctx)
+	op.pipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, op.ptr)
 	if err != nil {
 		return newRetriableError(err, "error retrieving spec")
 	}

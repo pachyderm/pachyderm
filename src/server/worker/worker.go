@@ -157,7 +157,7 @@ func (w *Worker) master(env serviceenv.ServiceEnv) {
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "locking master lock")
 		}
 		defer masterLock.Unlock(ctx)
 
@@ -174,7 +174,7 @@ func (w *Worker) master(env serviceenv.ServiceEnv) {
 				"worker master could not access output repo to watch for new commits",
 			)
 		}
-		logger.Logf("master: error running the master process, retrying in %v: %v", d, err)
+		logger.Logf("master: error running the master process, retrying in %v: %+v", d, err)
 		return nil
 	})
 }

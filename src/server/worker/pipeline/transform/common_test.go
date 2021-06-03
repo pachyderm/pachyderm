@@ -10,7 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -50,7 +49,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 				Glob:   "/*",
 			},
 		},
-		SpecCommit: client.NewCommit(ppsconsts.SpecRepo, name, ""),
+		SpecCommit: client.NewSystemRepo(name, pfs.SpecRepoType).NewCommit("master", ""),
 	}
 }
 

@@ -136,7 +136,7 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Name)
+	fmt.Fprintf(w, "%s\t", CompactPrintRepo(commitInfo.Commit.Branch.Repo))
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.Finished == nil {

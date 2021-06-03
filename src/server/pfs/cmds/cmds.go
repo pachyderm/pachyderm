@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -544,7 +543,7 @@ $ {{alias}} test@master --new`,
 				if err != nil {
 					return err
 				}
-				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
+				prov = pipelineInfo.SpecCommit.NewProvenance()
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
@@ -634,6 +633,13 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				trigger.Branch == "" {
 				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
 			}
+			if trigger.Branch == "" {
+				trigger = nil
+			}
+			var headCommit *pfs.Commit
+			if head != "" {
+				headCommit = branch.Repo.NewCommit("", head)
+			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -644,7 +650,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				_, err := c.PfsAPIClient.CreateBranch(
 					c.Ctx(),
 					&pfsclient.CreateBranchRequest{
-						Head:       branch.Repo.NewCommit("", head),
+						Head:       headCommit,
 						Branch:     branch,
 						Provenance: provenance,
 						Trigger:    trigger,

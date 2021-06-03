@@ -24,7 +24,7 @@ push them back into your centralized Pachyderm input repositories.
 
 ## Mounting Repositories in Read-Only Mode
 
-By default, when you run the `pachctl mount` command, Pachyderm mounts
+By default, Pachyderm mounts
 all repositories in read-only mode. You can access the
 files through your file browser or enable third-party applications
 access. Read-only access enables you to explore and experiment with
@@ -46,7 +46,7 @@ will be mounted.
 pachctl mount images --repos images@staging
 ```
 
-Also, you can mount a specific commit, but because commits
+You can also mount a specific commit, but because commits
 might be on multiple branches, modifying them might result in data deletion
 in the `HEAD` of the branches. Therefore, you can only mount commits in
 read-only mode. If you want to write to a specific commit that is not
@@ -117,15 +117,12 @@ Yosemite or later.
 
 ## Mount a Pachyderm Repo
 
-Before you can mount a Pachyderm repo, verify that you have all the
-[Prerequisites](#prerequisites).
-
 To mount a Pachyderm repo on a local computer, complete the following
 steps:
 
 1. In a terminal, go to a directory in which you want to mount a
 Pachyderm repo. It can be any new empty directory on your local computer.
-For example, `pfs`.
+For example, `mydirectory`.
 
 1. Run `pachctl mount` for a repository and branch that you want to mount:
 
@@ -136,17 +133,17 @@ For example, `pfs`.
       **Example:**
 
       * If you want to mount all the repositories in your Pachyderm cluster 
-      to a `pfs` directory on your computer and give `WRITE` access to them, run:
+      to a `mydirectory` directory on your computer and give `WRITE` access to them, run:
 
       ```shell
-      pachctl mount pfs --write
+      pachctl mount mydirectory --write
       ```
 
       * If you want to mount the master branch of the `images` repo
       and enable file editing in this repository, run:
 
       ```shell
-      pachctl mount pfs --repos images@master+w
+      pachctl mount mydirectory --repos images@master+w
       ```
 
       To give read-only access, omit `+w`.
@@ -166,14 +163,12 @@ For example, `pfs`.
       The command runs in your terminal until you terminate it
       by pressing `CTRL+C`.
 
-      **Useful Tip:**
-      
+      * Tip
       Mount multiple repos at once by appending each mount instruction to the same command.
-      For example, the following will mount both repos to the `/pfs` directory.
+      For example, the following will mount both repos to the `/mydirectory` directory.
       ```shell
-      pachctl mount ./pfs -r first_repo@master -r second_repo@master
-      ```
-   
+      pachctl mount ./mydirectory -r first_repo@master -r second_repo@master
+      ```  
 1. You can check that the repo was mounted by running the mount command
 in your terminal:
 
@@ -184,14 +179,14 @@ in your terminal:
       /dev/disk1s2 on /System/Volumes/Data (apfs, local, journaled, nobrowse)
       /dev/disk1s5 on /private/var/vm (apfs, local, journaled, nobrowse)
       map auto_home on /System/Volumes/Data/home (autofs, automounted, nobrowse)
-      pachctl@osxfuse0 on /Users/testuser/pfs (osxfuse, nodev, nosuid, synchronous, mounted by testuser)
+      pachctl@osxfuse0 on /Users/testuser/mydirectory (osxfuse, nodev, nosuid, synchronous, mounted by testuser)
       ```
 
 1. Access your mountpoint.
 
       For example, in macOS, open Finder, press
       `CMD + SHIFT + G`, and type the mountpoint location. If you have mounted
-      the repo to `~/pfs`, type `~/pfs`.
+      the repo to `~/mydirectory`, type `~/mydirectory`.
 
       ![finder-repo-mount](../../../assets/images/s_finder_repo_mount.png)
 
