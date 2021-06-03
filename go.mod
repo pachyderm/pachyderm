@@ -5,6 +5,7 @@ go 1.15
 require (
 	cloud.google.com/go/storage v1.3.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.19 // indirect
 	github.com/OneOfOne/xxhash v1.2.6
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
