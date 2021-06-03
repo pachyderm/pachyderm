@@ -36,7 +36,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
@@ -370,7 +369,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 	pachClient := m.a.env.GetPachClient(ctx)
 	// make sure there isn't an unfinished commit on the branch
 	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master", "")
-	if err != nil && !pfsserver.IsNoHeadErr(err) {
+	if err != nil {
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
@@ -405,7 +404,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		if in.Cron.Overwrite {
 			// get rid of any files, so the new file "overwrites" previous runs
 			err = pachClient.DeleteFile(client.NewCommit(in.Cron.Repo, "master", ""), "")
-			if err != nil && !isNotFoundErr(err) && !pfsserver.IsNoHeadErr(err) {
+			if err != nil && !isNotFoundErr(err) {
 				return errors.Wrapf(err, "delete error")
 			}
 		}
@@ -433,7 +432,7 @@ func (m *ppsMaster) getLatestCronTime(ctx context.Context, in *pps.Input) (time.
 	var latestTime time.Time
 	pachClient := m.a.env.GetPachClient(ctx)
 	files, err := pachClient.ListFileAll(client.NewCommit(in.Cron.Repo, "master", ""), "")
-	if err != nil && !pfsserver.IsNoHeadErr(err) {
+	if err != nil {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {
 		// File not found, this happens the first time the pipeline is run

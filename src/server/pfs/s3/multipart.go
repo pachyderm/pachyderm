@@ -246,7 +246,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 
 	// check if the destination file already exists, and if so, delete it
 	_, err = pc.InspectFile(client.NewCommit(bucket.Repo, bucket.Branch, bucket.Commit), key)
-	if err != nil && !pfsServer.IsFileNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+	if err != nil && !pfsServer.IsFileNotFoundErr(err) {
 		return nil, err
 	} else if err == nil {
 		err = pc.DeleteFile(client.NewCommit(bucket.Repo, bucket.Branch, bucket.Commit), key)

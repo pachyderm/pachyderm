@@ -91,13 +91,13 @@ func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string
 }
 
 func (d *MasterDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
-	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Branch)
+	_, err := pc.InspectBranch(bucket.Repo, bucket.Branch)
 	if err != nil {
 		return bucketCapabilities{}, maybeNotFoundError(r, err)
 	}
 
 	return bucketCapabilities{
-		readable:         branchInfo.Head != nil,
+		readable:         true,
 		writable:         true,
 		historicVersions: true,
 	}, nil

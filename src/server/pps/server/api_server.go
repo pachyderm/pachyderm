@@ -2960,9 +2960,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if err != nil {
 		return nil, err
 	}
-	if branchInfo.Head == nil {
-		return nil, errors.Errorf("run pipeline needs a pipeline with existing data to run\nnew commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or to rerun an job")
-	}
 
 	// include the branch and its provenance in the branch provenance map
 	branchProvMap := make(map[string]bool)
@@ -3103,7 +3100,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 			if cron.Overwrite {
 				// get rid of any files, so the new file "overwrites" previous runs
 				err = mf.DeleteFile("/")
-				if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+				if err != nil && !isNotFoundErr(err) {
 					return errors.Wrapf(err, "delete error")
 				}
 			}

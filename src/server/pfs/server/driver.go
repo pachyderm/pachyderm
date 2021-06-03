@@ -500,7 +500,7 @@ func (d *driver) startCommit(
 			branchInfo.Branch = branch
 		}
 		// If the parent is unspecified, use the current head of the branch
-		if parent == nil && branchInfo.Head != nil {
+		if parent == nil {
 			parent = branchInfo.Head
 		}
 		// Point 'branch' at the new commit
@@ -580,8 +580,21 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if description != "" {
 		commitInfo.Description = description
 	}
+	// Check that the parent commit is not still open (which can happen in output branches)
+	if commitInfo.ParentCommit != nil {
+		parentCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, commitInfo.ParentCommit)
+		if err != nil {
+			return err
+		}
+		if parentCommitInfo.Finished == nil {
+			return pfsserver.ErrParentNotFinished{
+				ChildCommit:  commitInfo.Commit,
+				ParentCommit: parentCommitInfo.Commit,
+			}
+		}
+	}
 	commitInfo.Finished = txnCtx.Timestamp
-	if err := d.writeFinishedCommit(txnCtx.SqlTx, commitInfo); err != nil {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
 		return err
 	}
 	if err := d.triggerCommit(txnCtx, commitInfo.Commit); err != nil {
@@ -671,23 +684,6 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 	return commitInfo, nil
 }
 
-// writeFinishedCommit writes these changes to etcd:
-// 1) it closes the input commit (i.e., it writes any changes made to it and
-//    removes it from the open commits)
-// 2) if the commit is the new HEAD of master, it updates the repo size
-func (d *driver) writeFinishedCommit(sqlTx *sqlx.Tx, commitInfo *pfs.CommitInfo) error {
-	commit := commitInfo.Commit
-	if err := d.commits.ReadWrite(sqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
-		return err
-	}
-	// update the repo size if this is the head of master
-	repoInfo := new(pfs.RepoInfo)
-	if err := d.repos.ReadWrite(sqlTx).Get(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 	repoInfo := new(pfs.RepoInfo)
 	if err := d.repos.ReadOnly(ctx).Get(pfsdb.RepoKey(repo), repoInfo); err != nil {
@@ -699,11 +695,7 @@ func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error)
 			if err := d.branches.ReadOnly(ctx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
 				return 0, err
 			}
-			// If the head commit of master has been deleted, we could get here if another branch
-			// had shared its head commit with master, and then we created a new commit on that branch
-			if branchInfo.Head != nil {
-				return d.sizeOfCommit(ctx, branchInfo.Head)
-			}
+			return d.sizeOfCommit(ctx, branchInfo.Head)
 		}
 	}
 	return 0, nil
@@ -713,7 +705,7 @@ func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error)
 // in order to restore the invariant that branch provenance matches HEAD commit
 // provenance:
 //   B.Head is provenant on A.Head <=>
-//   branch B is provenant on branch A and A.Head != nil
+//   branch B is provenant on branch A
 // The implementation assumes that the invariant already holds for all branches
 // upstream of 'branches', but not necessarily for each 'branch' itself. Despite
 // the name, 'branches' do not need a HEAD commit to propagate, though one may
@@ -791,17 +783,14 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			if err != nil {
 				return err
 			}
-			if provOfSubvBI.Head == nil || provOfSubvBI.Branch.Repo.Type == pfs.SpecRepoType {
-				continue
-			}
-			if subvBI.Head == nil || provOfSubvBI.Head.ID != subvBI.Head.ID {
+			if provOfSubvBI.Head.ID != subvBI.Head.ID {
 				needsCommit = true
 				break
 			}
 		}
 
 		// If there are no upstream commits for this Commitset and no commit in this branch, we can skip
-		if !needsCommit && (subvBI.Head == nil || subvBI.Head.ID != txnCtx.CommitsetID) {
+		if !needsCommit && subvBI.Head.ID != txnCtx.CommitsetID {
 			continue
 		}
 
@@ -811,21 +800,18 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			if err != nil {
 				return err
 			}
-			// If one of the provenances has a nil head, skip adding it to this Commitset
-			if provOfSubvBI.Head != nil {
-				if provOfSubvBI.Head.ID != txnCtx.CommitsetID {
-					if _, err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
-						return err
-					}
-					// Update the cached branch head
-					provOfSubvBI.Head.ID = txnCtx.CommitsetID
+			if provOfSubvBI.Head.ID != txnCtx.CommitsetID {
+				if _, err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
+					return err
 				}
-				// Generate the new Commitset commit info for this branch
-				addBranch(provOfSubvBI)
+				// Update the cached branch head
+				provOfSubvBI.Head.ID = txnCtx.CommitsetID
 			}
+			// Generate the new Commitset commit info for this branch
+			addBranch(provOfSubvBI)
 		}
 
-		if subvBI.Head == nil || subvBI.Head.ID != txnCtx.CommitsetID {
+		if subvBI.Head.ID != txnCtx.CommitsetID {
 			// This branch has no commit for this Commitset, start a new output commit in 'subvBI.Branch'
 			newCommit := &pfs.Commit{
 				Branch: subvBI.Branch,
@@ -1033,9 +1019,6 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 		if err := d.branches.ReadWrite(sqlTx).Get(pfsdb.BranchKey(commit.Branch), branchInfo); err != nil {
 			return nil, err
 		}
-		if branchInfo.Head == nil {
-			return nil, pfsserver.ErrNoHead{branchInfo.Branch}
-		}
 		commit.ID = branchInfo.Head.ID
 	} else if commit.Branch.Name == "" {
 		// If the branch is unspecified, make sure the ID is unique (a repo may have
@@ -1152,17 +1135,12 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		_, err := d.inspectCommit(ctx, from, pfs.CommitState_STARTED)
-		if err != nil {
+		if _, err := d.inspectCommit(ctx, from, pfs.CommitState_STARTED); err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		_, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
-		if err != nil {
-			if isNoHeadErr(err) {
-				return nil
-			}
+		if _, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED); err != nil {
 			return err
 		}
 	}
@@ -1425,7 +1403,13 @@ func (d *driver) squashCommitset(txnCtx *txncontext.TransactionContext, commitse
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(commit.Branch), &branchInfo, func() error {
 			if branchInfo.Head.ID == commit.ID {
 				if commitInfo.ParentCommit == nil || !proto.Equal(commitInfo.ParentCommit.Branch, commit.Branch) {
-					branchInfo.Head = nil
+					// Create a new empty commit for the branch head
+					var err error
+					closed := len(branchInfo.Provenance) == 0 // For input branches, we make a closed default head commit
+					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch, closed)
+					if err != nil {
+						return err
+					}
 				} else {
 					branchInfo.Head = commitInfo.ParentCommit
 				}
@@ -1636,12 +1620,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	if commit != nil {
 		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
 		if err != nil {
-			// possible that branch exists but has no head commit. This is fine, but
-			// branchInfo.Head must also be nil
-			if !isNoHeadErr(err) {
-				return errors.Wrapf(err, "unable to inspect %s", pfsdb.CommitKey(commit))
-			}
-			commit = nil
+			return errors.Wrapf(err, "unable to inspect %s", pfsdb.CommitKey(commit))
 		}
 
 		if provenance != nil {
@@ -1682,6 +1661,16 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 	}
 
+	// If the branch still has no head, create an empty commit on it so that we
+	// can maintain an invariant that branches always have a head commit.
+	if branchInfo.Head == nil {
+		closed := len(provenance) == 0 // For input branches, we make a closed default head commit
+		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch, closed)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Update (or create)
 	// 1) 'branch's Provenance
 	// 2) the Provenance of all branches in 'branch's Subvenance (in the case of an update), and
@@ -1704,7 +1693,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		branchInfo.Provenance = nil
 		// Re-compute Provenance
 		for _, provBranch := range branchInfo.DirectProvenance {
-			if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.SqlTx); err != nil {
+			if err := d.addBranchProvenance(txnCtx, branchInfo, provBranch); err != nil {
 				return err
 			}
 			provBranchInfo := &pfs.BranchInfo{}
@@ -1714,7 +1703,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			for _, provBranch := range provBranchInfo.Provenance {
 				// add provBranch to branchInfo.Provenance, and branchInfo.Branch to
 				// provBranch subvenance
-				if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.SqlTx); err != nil {
+				if err := d.addBranchProvenance(txnCtx, branchInfo, provBranch); err != nil {
 					return err
 				}
 			}
@@ -1915,26 +1904,30 @@ func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
-func isNoHeadErr(err error) bool {
-	return errors.As(err, &pfsserver.ErrNoHead{})
-}
-
-func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, sqlTx *sqlx.Tx) error {
+func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, provBranch *pfs.Branch) error {
 	if pfsdb.BranchKey(provBranch) == pfsdb.BranchKey(branchInfo.Branch) {
 		return errors.Errorf("provenance loop, branch %s cannot be provenant on itself", pfsdb.BranchKey(provBranch))
 	}
 	add(&branchInfo.Provenance, provBranch)
 	provBranchInfo := &pfs.BranchInfo{}
-	if err := d.branches.ReadWrite(sqlTx).Upsert(pfsdb.BranchKey(provBranch), provBranchInfo, func() error {
-		// Set provBranch, we may be creating this branch for the first time
-		provBranchInfo.Branch = provBranch
+	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(pfsdb.BranchKey(provBranch), provBranchInfo, func() error {
+		if provBranchInfo.Branch == nil {
+			// We are creating this branch for the first time, set the Branch and Head
+			provBranchInfo.Branch = provBranch
+
+			head, err := d.makeEmptyCommit(txnCtx, provBranch, true)
+			if err != nil {
+				return err
+			}
+			provBranchInfo.Head = head
+		}
 		add(&provBranchInfo.Subvenance, branchInfo.Branch)
 		return nil
 	}); err != nil {
 		return err
 	}
 	repoInfo := &pfs.RepoInfo{}
-	return d.repos.ReadWrite(sqlTx).Update(pfsdb.RepoKey(provBranch.Repo), repoInfo, func() error {
+	return d.repos.ReadWrite(txnCtx.SqlTx).Update(pfsdb.RepoKey(provBranch.Repo), repoInfo, func() error {
 		add(&repoInfo.Branches, provBranch)
 		return nil
 	})
@@ -1953,6 +1946,22 @@ func (d *driver) deleteAll(txnCtx *txncontext.TransactionContext) error {
 		}
 	}
 	return nil
+}
+
+func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, closed bool) (*pfs.Commit, error) {
+	commit := branch.NewCommit(txnCtx.CommitsetID)
+	commitInfo := &pfs.CommitInfo{
+		Commit:  commit,
+		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Started: txnCtx.Timestamp,
+	}
+	if closed {
+		commitInfo.Finished = txnCtx.Timestamp
+	}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(commit), commitInfo); err != nil {
+		return nil, err
+	}
+	return commit, nil
 }
 
 // TODO: Is this really necessary?
