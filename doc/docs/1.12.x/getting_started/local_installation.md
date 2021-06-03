@@ -78,6 +78,22 @@ by following these steps:
 
    ![Reset K8s](../assets/images/DFD_Reset_K8s.png)
 
+### Using Kind
+
+!!! Note
+      Please note that Kind is *experimental* still.
+
+1. Install Kind according to its [documentation](https://kind.sigs.k8s.io/).
+
+2. From the command prompt, confirm that Kubernetes is running:
+   ```shell
+   kubectl get all
+   ```
+   ```
+   NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+   service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   5d
+   ```
+
 ### Install `pachctl`
 
 `pachctl` is a command-line utility that you can use to interact
@@ -161,6 +177,11 @@ deploy Pachyderm by following these steps:
   Because Pachyderm needs to pull the Pachyderm Docker image
   from DockerHub, it might take a few minutes for the Pachyderm pods status
   to change to `Running`.
+
+  !!! Note
+    If you are using Kind:
+    ```shell
+      pachctl deploy local --no-expose-docker-socket
 
 1. Check the status of the Pachyderm pods by periodically
 running `kubectl get pods`. When Pachyderm is ready for use,

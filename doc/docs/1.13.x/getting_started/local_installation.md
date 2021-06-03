@@ -86,6 +86,21 @@ by following these steps:
    * To reset your Kubernetes cluster that runs on Docker Desktop, click
    the **Reset Kubernetes cluster** button. See image above. 
 
+### Using Kind
+
+!!! Note
+      Please note that Kind is *experimental* still.
+
+1. Install Kind according to its [documentation](https://kind.sigs.k8s.io/).
+
+2. From the command prompt, confirm that Kubernetes is running:
+   ```shell
+   kubectl get all
+   ```
+   ```
+   NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+   service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   5d
+   ```
 
 ### Install `pachctl`
 
@@ -180,7 +195,11 @@ deploy Pachyderm on your local cluster by following these steps:
          ```shell
          kubectl create -f ./pachyderm.json
          ```
-
+!!! Note
+    If you are using Kind:
+    ```shell
+      pachctl deploy local --no-expose-docker-socket
+    ```
 ### Using Helm
 * Get the Repo Info:
    ```shell
