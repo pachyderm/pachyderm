@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package admin;
+package admin_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/admin";
 
 import "google/protobuf/empty.proto";
