@@ -2,9 +2,11 @@ package datum
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
+	io "io"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,6 +19,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -357,31 +361,20 @@ func (d *Datum) uploadOutput() error {
 }
 
 func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar.Header) error) (retErr error) {
-	// TODO: Might make more sense to convert to tar on the fly.
-	f, err := os.Create(path.Join(d.set.storageRoot, TmpFileName))
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	defer func() {
-		if err := f.Close(); retErr == nil {
-			retErr = err
+	return obj.WithPipe(func(w io.Writer) error {
+		bufW := bufio.NewWriterSize(w, grpcutil.MaxMsgPayloadSize)
+		opts := []tarutil.ExportOption{
+			tarutil.WithSymlinkCallback(func(dst, src string, copyFunc func() error) error {
+				return d.handleSymlink(mf, dst, src, copyFunc)
+			}),
 		}
-	}()
-	opts := []tarutil.ExportOption{
-		tarutil.WithSymlinkCallback(func(dst, src string, copyFunc func() error) error {
-			return d.handleSymlink(mf, dst, src, copyFunc)
-		}),
-	}
-	if len(cb) > 0 {
-		opts = append(opts, tarutil.WithHeaderCallback(cb[0]))
-	}
-	if err := tarutil.Export(storageRoot, f, opts...); err != nil {
-		return err
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
-	return mf.PutFileTar(f, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
+		if len(cb) > 0 {
+			opts = append(opts, tarutil.WithHeaderCallback(cb[0]))
+		}
+		return tarutil.Export(storageRoot, bufW, opts...)
+	}, func(r io.Reader) error {
+		return mf.PutFileTar(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
+	})
 }
 
 func (d *Datum) handleSymlink(mf client.ModifyFile, dst, src string, copyFunc func() error) error {
