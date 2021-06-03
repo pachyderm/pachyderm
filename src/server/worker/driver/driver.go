@@ -265,11 +265,11 @@ func (d *driver) Pipelines() col.PostgresCollection {
 }
 
 func (d *driver) NewTaskWorker() *work.Worker {
-	return work.NewWorker(d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, workNamespace(d.pipelineInfo))
+	return work.NewWorker(d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
 }
 
 func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
-	return work.NewTaskQueue(d.ctx, d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, workNamespace(d.pipelineInfo))
+	return work.NewTaskQueue(d.ctx, d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {

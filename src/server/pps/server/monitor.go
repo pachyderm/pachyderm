@@ -331,6 +331,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 		})
 		if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > 1 && pipelineInfo.Autoscaling {
 			eg.Go(func() error {
+				pachClient := m.a.env.GetPachClient(ctx)
 				return backoff.RetryNotify(func() error {
 					worker := work.NewWorker(
 						m.a.env.GetEtcdClient(),

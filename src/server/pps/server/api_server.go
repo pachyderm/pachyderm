@@ -20,38 +20,6 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/jmoiron/sqlx"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	enterpriselimits "github.com/pachyderm/pachyderm/src/server/enterprise/limits"
-	enterprisemetrics "github.com/pachyderm/pachyderm/src/server/enterprise/metrics"
-	enterprisetext "github.com/pachyderm/pachyderm/src/server/enterprise/text"
-	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/lokiutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	"github.com/pachyderm/pachyderm/src/server/pkg/work"
-	ppsServer "github.com/pachyderm/pachyderm/src/server/pps"
-	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	"github.com/pachyderm/pachyderm/src/server/worker/datum"
-	"github.com/pachyderm/pachyderm/src/server/worker/driver"
-	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 	"github.com/robfig/cron"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -84,13 +52,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
+	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
+	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
@@ -1623,9 +1596,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 			return errors.Errorf("spout pipelines (without a service) must not have an input")
 		}
 	}
-	if err := a.validateEnterpriseChecks(txnCtx.ClientContext, pipelineInfo); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -1998,6 +1968,10 @@ func (a *apiServer) pipelineInfosForUpdate(txnCtx *txncontext.TransactionContext
 
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
 	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := a.validateEnterpriseChecks(txnCtx.ClientContext, newPipelineInfo); err != nil {
 		return nil, nil, err
 	}
 

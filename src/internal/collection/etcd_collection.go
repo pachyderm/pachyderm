@@ -468,7 +468,7 @@ func (c *etcdReadOnlyCollection) Count() (int64, error) {
 	return resp.Count, err
 }
 
-func (c *readonlyCollection) CountRev(rev int64) (int64, int64, error) {
+func (c *etcdReadOnlyCollection) CountRev(rev int64) (int64, int64, error) {
 	resp, err := c.get(c.prefix, append(countOpts, etcd.WithRev(rev))...)
 	if err != nil {
 		return 0, 0, err
