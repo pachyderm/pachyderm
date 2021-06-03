@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -10540,10 +10539,10 @@ func TestPipelineAutoscaling(t *testing.T) {
 		commit1, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		for i := fileIndex; i < fileIndex+n; i++ {
-			_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+			err := c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
 			require.NoError(t, err)
 		}
-		require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+		require.NoError(t, c.FinishCommit(dataRepo, commit1.ID, "master"))
 		fileIndex += n
 		replicas := n
 		if replicas > 4 {
@@ -10574,7 +10573,7 @@ func monitorReplicas(t testing.TB, pipeline string, n int) {
 			if int(scale.Spec.Replicas) > n {
 				tooManyReplicas = true
 			}
-			ci, err := c.InspectCommit(pipeline, "master")
+			ci, err := c.InspectCommit(pipeline, "master", "")
 			require.NoError(t, err)
 			if ci.Finished != nil {
 				return nil
@@ -10584,68 +10583,4 @@ func monitorReplicas(t testing.TB, pipeline string, n int) {
 	})
 	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
 	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
-}
-
-func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
-	pipelineInfos, err := c.ListPipeline()
-	require.NoError(t, err)
-	repoInfo, err := c.InspectRepo(repo)
-	require.NoError(t, err)
-	activeStat, err := pps_server.CollectActiveObjectsAndTags(context.Background(), c, []*pfs.RepoInfo{repoInfo}, pipelineInfos, 0, "")
-	require.NoError(t, err)
-	return activeStat.NObjects
-}
-
-func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
-	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
-	require.NoError(t, err)
-	var objects []*pfs.Object
-	for object, err := objectsClient.Recv(); !errors.Is(err, io.EOF); object, err = objectsClient.Recv() {
-		require.NoError(t, err)
-		objects = append(objects, object.Object)
-	}
-	return objects
-}
-
-func getAllTags(t testing.TB, c *client.APIClient) []string {
-	tagsClient, err := c.ListTags(context.Background(), &pfs.ListTagsRequest{})
-	require.NoError(t, err)
-	var tags []string
-	for resp, err := tagsClient.Recv(); !errors.Is(err, io.EOF); resp, err = tagsClient.Recv() {
-		require.NoError(t, err)
-		tags = append(tags, resp.Tag.Name)
-	}
-	return tags
-}
-
-//lint:ignore U1000 false positive from staticcheck
-func restartAll(t *testing.T) {
-	k := tu.GetKubeClient(t)
-	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
-	podList, err := podsInterface.List(
-		metav1.ListOptions{
-			LabelSelector: "suite=pachyderm",
-		})
-	require.NoError(t, err)
-	for _, pod := range podList.Items {
-		require.NoError(t, podsInterface.Delete(pod.Name, &metav1.DeleteOptions{
-			GracePeriodSeconds: new(int64),
-		}))
-	}
-	tu.WaitForPachdReady(t, v1.NamespaceDefault)
-}
-
-//lint:ignore U1000 false positive from staticcheck
-func restartOne(t *testing.T) {
-	k := tu.GetKubeClient(t)
-	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
-	podList, err := podsInterface.List(
-		metav1.ListOptions{
-			LabelSelector: "app=pachd",
-		})
-	require.NoError(t, err)
-	require.NoError(t, podsInterface.Delete(
-		podList.Items[rand.Intn(len(podList.Items))].Name,
-		&metav1.DeleteOptions{GracePeriodSeconds: new(int64)}))
-	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 }
