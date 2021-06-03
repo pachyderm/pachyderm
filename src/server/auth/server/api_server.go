@@ -209,9 +209,7 @@ func (a *apiServer) isActive(ctx context.Context) error {
 }
 
 func (a *apiServer) getEnterpriseTokenState(ctx context.Context) (enterpriseclient.State, error) {
-	pachClient := a.env.GetPachClient(ctx)
-	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
-		&enterpriseclient.GetStateRequest{})
+	resp, err := a.env.EnterpriseServer().GetState(ctx, &enterpriseclient.GetStateRequest{})
 	if err != nil {
 		return 0, errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get Enterprise status")
 	}
@@ -272,8 +270,6 @@ func (a *apiServer) hasClusterRole(ctx context.Context, username string, role st
 
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
-	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // copy auth information
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
