@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math"
 	"path"
 	"sort"
 	"strings"
@@ -1541,14 +1540,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 		return err
 	}
 	if pipelineInfo.ParallelismSpec != nil {
-		if pipelineInfo.ParallelismSpec.Coefficient < 0 {
-			return errors.New("ParallelismSpec.Coefficient cannot be negative")
-		}
-		if pipelineInfo.ParallelismSpec.Constant != 0 &&
-			pipelineInfo.ParallelismSpec.Coefficient != 0 {
-			return errors.New("contradictory parallelism strategies: must set at " +
-				"most one of ParallelismSpec.Constant and ParallelismSpec.Coefficient")
-		}
 		if pipelineInfo.Service != nil && pipelineInfo.ParallelismSpec.Constant != 1 {
 			return errors.New("services can only be run with a constant parallelism of 1")
 		}
@@ -1792,23 +1783,10 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 // that can be stored in StoredPipelineInfo.Parallelism
 func getExpectedNumWorkers(kc *kube.Clientset, pipelineInfo *pps.PipelineInfo) (int, error) {
 	switch pspec := pipelineInfo.ParallelismSpec; {
-	case pspec == nil, pspec.Constant == 0 && pspec.Coefficient == 0:
+	case pspec == nil, pspec.Constant == 0:
 		return 1, nil
-	case pspec.Constant > 0 && pspec.Coefficient == 0:
+	case pspec.Constant > 0:
 		return int(pspec.Constant), nil
-	case pspec.Constant == 0 && pspec.Coefficient > 0:
-		// Start ('coefficient' * 'nodes') workers. Determine number of workers
-		nodeList, err := kc.CoreV1().Nodes().List(metav1.ListOptions{})
-		if err != nil {
-			return 0, errors.Wrapf(err, "unable to retrieve node list from k8s to determine parallelism")
-		}
-		if len(nodeList.Items) == 0 {
-			return 0, errors.Errorf("unable to determine parallelism for %q: no k8s nodes found",
-				pipelineInfo.Pipeline.Name)
-		}
-		numNodes := len(nodeList.Items)
-		floatParallelism := math.Floor(pspec.Coefficient * float64(numNodes))
-		return int(math.Max(floatParallelism, 1)), nil
 	default:
 		return 0, errors.Errorf("unable to interpret ParallelismSpec %+v", pspec)
 	}

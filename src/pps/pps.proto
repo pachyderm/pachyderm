@@ -151,16 +151,6 @@ message ParallelismSpec {
   // then Pachyderm will choose the number of workers that is started,
   // (currently it chooses the number of workers in the cluster)
   uint64 constant = 1;
-
-  // Starts the pipeline/job with number of workers equal to 'coefficient' * N,
-  // where N is the number of nodes in the kubernetes cluster.
-  //
-  // For example, if each Kubernetes node has four CPUs, you might set
-  // 'coefficient' to four, so that there are four Pachyderm workers per
-  // Kubernetes node, and each Pachyderm worker gets one CPU. If you want to
-  // reserve half the nodes in your cluster for other tasks, you might set
-  // 'coefficient' to 0.5.
-  double coefficient = 2;
 }
 
 message InputFile {
@@ -379,12 +369,7 @@ message StoredPipelineInfo {
   JobState last_job_state = 6;
 
   // parallelism tracks the literal number of workers that this pipeline should
-  // run. Unlike PipelineInfo.ParallelismSpec, this accounts for the number of
-  // nodes in the k8s cluster if Coefficient parallelism is used (i.e. if
-  // Coefficient is 2 and the cluster has 5 nodes, this will be set to 10 by
-  // pachd). This allows the worker master to shard work correctly without
-  // k8s privileges and without knowing the number of cluster nodes in the
-  // Coefficient case.
+  // run.
   uint64 parallelism = 7;
   Pipeline pipeline = 8;
 }
