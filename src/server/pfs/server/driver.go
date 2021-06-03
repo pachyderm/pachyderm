@@ -758,18 +758,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		return branchInfo, nil
 	}
 
-	branchProvLengths := map[string]int{}
-	branchMap := map[string]*pfs.BranchInfo{}
-	addBranch := func(branchInfo *pfs.BranchInfo) {
-		// We only store the 'Branch' and 'DirectProvenance' fields in the Commitset structure
-		branchMap[pfsdb.BranchKey(branchInfo.Branch)] = &pfs.BranchInfo{
-			Branch:           branchInfo.Branch,
-			DirectProvenance: branchInfo.DirectProvenance,
-		}
-		// Save the length of the provenance for topological sorting at the end
-		branchProvLengths[pfsdb.BranchKey(branchInfo.Branch)] = len(branchInfo.Provenance)
-	}
-
 	// subvBIMap = ( ⋃{b.subvenance | b ∈ branches} ) ∪ branches
 	subvBIMap := map[string]*pfs.BranchInfo{}
 	for _, branch := range branches {
@@ -801,24 +789,26 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 	})
 
 	// Iterate through downstream branches and determine which need a new commit.
+	hasNewCommits := false
 	for _, subvBI := range subvBIs {
-		// Check the commits we would be provenant on
-		needsCommit := false
+		// We need to create new commits or aliases if any of this branch and its
+		// provenances disagree on their commitset.
+		ids := []string{subvBI.Head.ID}
 		for _, provOfSubvB := range subvBI.Provenance {
 			provOfSubvBI, err := getBranchInfo(provOfSubvB)
 			if err != nil {
 				return err
 			}
-			if provOfSubvBI.Head.ID != subvBI.Head.ID {
-				needsCommit = true
-				break
-			}
+			ids = append(ids, provOfSubvBI.Head.ID)
 		}
 
-		// If there are no upstream commits for this Commitset and no commit in this branch, we can skip
-		if !needsCommit && subvBI.Head.ID != txnCtx.CommitsetID {
+		if allSameString(ids) {
+			if ids[0] == txnCtx.CommitsetID {
+				hasNewCommits = true
+			}
 			continue
 		}
+		hasNewCommits = true
 
 		// Create aliases for any provenant branches which are not already part of this Commitset
 		for _, provOfSubvB := range subvBI.Provenance {
@@ -835,8 +825,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 					// Update the cached branch head
 					provOfSubvBI.Head.ID = txnCtx.CommitsetID
 				}
-				// Generate the new Commitset commit info for this branch
-				addBranch(provOfSubvBI)
 			}
 		}
 
@@ -875,12 +863,10 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				return err
 			}
 		}
-		// Make sure we add the branch to the Commitset
-		addBranch(subvBI)
 	}
 
 	// If we have any PFS changes in this transaction, write out the Commitset
-	if len(branchMap) > 0 {
+	if hasNewCommits {
 		txnCtx.PropagateJobs()
 	}
 
@@ -1956,4 +1942,13 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 		}
 	}
 	return keyStore.Get(ctx, name)
+}
+
+func allSameString(slice []string) bool {
+	for _, str := range slice {
+		if str != slice[0] {
+			return false
+		}
+	}
+	return true
 }

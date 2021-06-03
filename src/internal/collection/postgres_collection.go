@@ -218,7 +218,7 @@ func (c *postgresCollection) getUniqueByIndex(ctx context.Context, q sqlx.ExtCon
 	found := false
 	if err := c.getByIndex(ctx, q, index, indexVal, val, DefaultOptions(), false, func(string) error {
 		if found {
-			return ErrNotUnique{Index: index.Name, Value: indexVal}
+			return ErrNotUnique{Type: c.table, Index: index.Name, Value: indexVal}
 		}
 		found = true
 		return nil
