@@ -2,7 +2,8 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- if not (or .Values.etcd.storageClass (eq .Values.pachd.storage.backend "LOCAL" )) -}}
+{{- if or (eq .Values.pachd.storage.backend "AMAZON") (eq .Values.pachd.storage.backend "GOOGLE") (eq .Values.pachd.storage.backend "MICROSOFT")}}
+{{- if not .Values.etcd.storageClass -}}
 allowVolumeExpansion: true
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -12,15 +13,21 @@ metadata:
     suite: pachyderm
   name: etcd-storage-class
 parameters:
-  type: {{ if eq .Values.pachd.storage.backend "GOOGLE" -}}
-  pd-ssd
+  {{ if eq .Values.pachd.storage.backend "GOOGLE" -}}
+  type: pd-ssd
   {{- else if eq .Values.pachd.storage.backend "AMAZON" -}}
-  gp3
+  type: gp3
+  {{- else if eq .Values.pachd.storage.backend "MICROSOFT" -}}
+  storageaccounttype: Premium_LRS
+  kind: Managed
   {{- end }}
 provisioner: {{ if eq .Values.pachd.storage.backend "GOOGLE" -}}
   kubernetes.io/gce-pd
   {{- else if eq .Values.pachd.storage.backend "AMAZON" -}}
   ebs.csi.aws.com
   # https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
+  {{- else if eq .Values.pachd.storage.backend "MICROSOFT" -}}
+  kubernetes.io/azure-disk
   {{- end }}
+{{ end -}}
 {{ end -}}

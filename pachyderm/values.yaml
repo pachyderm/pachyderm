@@ -81,7 +81,8 @@ etcd:
   # --etcd-storage-class argument to pachctl deploy.
   storageClass: ""
   # storageSize specifies the size of the volume to use for etcd.
-  storageSize: "100Gi"
+  # If you do not specify, it will default to 256Gi on Azure and 100Gi on GCP/AWS
+  storageSize: ""
   service:
     # annotations specifies annotations to add to the etcd service.
     annotations: {}

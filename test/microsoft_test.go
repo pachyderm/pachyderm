@@ -9,6 +9,7 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	appsV1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestMicrosoft(t *testing.T) {
@@ -33,6 +34,7 @@ func TestMicrosoft(t *testing.T) {
 			"container":           false,
 			"id":                  false,
 			"secret":              false,
+			"etcd-volume-size":    false,
 		}
 	)
 	if err != nil {
@@ -80,6 +82,14 @@ func TestMicrosoft(t *testing.T) {
 					}
 				}
 			}
+		case *appsV1.StatefulSet:
+			if object.Name != "etcd" {
+				continue
+			}
+			if *object.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage() != resource.MustParse("256Gi") {
+				t.Errorf("expected storage size to be %q, not %q", "256Gi", object.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage())
+			}
+			checks["etcd-volume-size"] = true
 		}
 	}
 	for check := range checks {

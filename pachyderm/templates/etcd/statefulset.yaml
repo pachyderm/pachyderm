@@ -82,7 +82,7 @@ spec:
   {{- if not (eq .Values.pachd.storage.backend "LOCAL") }}
   volumeClaimTemplates:
   - metadata:
-  {{- if or (eq .Values.pachd.storage.backend "AMAZON") (eq .Values.pachd.storage.backend "GOOGLE") }}
+  {{- if or (eq .Values.pachd.storage.backend "AMAZON") (eq .Values.pachd.storage.backend "GOOGLE") (eq .Values.pachd.storage.backend "MICROSOFT")}}
       annotations:
         volume.beta.kubernetes.io/storage-class: {{ if .Values.etcd.storageClass -}}
         {{ .Values.etcd.storageClass }}
@@ -100,5 +100,14 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: {{ .Values.etcd.storageSize }}
+          storage: {{ if not .Values.etcd.storageSize  -}}
+              {{ if eq .Values.pachd.storage.backend "MICROSOFT" -}}
+              256Gi
+              {{- else -}}
+              100Gi
+              {{- end }}
+              {{ else -}}
+              {{ .Values.etcd.storageSize }}
+              {{- end }}
+          
   {{- end }}
