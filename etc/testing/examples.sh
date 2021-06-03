@@ -74,9 +74,9 @@ pachctl delete repo --all
 pushd examples/word_count
     # note: we do not test reducing because it's slower
     pachctl create repo urls
-    pachctl put file urls@master -f data/Wikipedia
-    pachctl create pipeline -f scraper.json
-    pachctl create pipeline -f map/map.json
+    (cd data && pachctl put file urls@master -f Wikipedia)
+    pachctl create pipeline -f pipelines/scraper.json
+    pachctl create pipeline -f pipelines/map.json
 
     # wait for everything to finish
     commit_id=$(pachctl list commit urls -n 1 --raw | jq .commit.id -r)
