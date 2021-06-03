@@ -18,12 +18,11 @@ The operations on the HTTP API exposed by the S3 Gateway largely mirror those do
     Make sure to install and configure the S3 client of your choice as documented [here](configure-s3client.md).
 
 ## Quick Start
-The S3 gateway presents **each branch or commit from every Pachyderm repository as an S3 bucket**.
-Buckets are represented via `branch.repo` or `commit.repo`. 
+The S3 gateway presents **each branch from every Pachyderm repository as an S3 bucket**.
+Buckets are represented via `branch.repo`. 
 
 !!! Example
     - The `master.data` bucket corresponds to the `master` branch of the repo `data`.
-    - The `cbb95cb85cd7402aa6ceed59317bdbab.data` bucket correspond to the commit `cbb95cb85cd7402aa6ceed59317bdbab` in the repo `data`.
 
 The following diagram gives a quick overview of the two main aws commands
 that will let you put data into a repo or retrieve data from it via the S3 gateway. 
@@ -58,3 +57,21 @@ cluster directly is faster and more reliable.
 Most operations act on the `HEAD` of the given branch. However, if your object
 store library or tool supports versioning, you can get objects in non-`HEAD`
 commits by using the commit ID as the S3 object version ID.
+
+!!! Example
+    To retrieve the file `file.txt` in the commit `a5984442ce6b4b998879513ff3da17da` on the master branch of the repo `arandomrepo`:
+
+    ```shell
+    $ aws s3api get-object --bucket master.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt --version-id a5984442ce6b4b998879513ff3da17da export.txt
+    ```
+    ```shell
+    {
+        "AcceptRanges": "bytes",
+        "LastModified": "2021-06-03T01:31:36+00:00",
+        "ContentLength": 5,
+        "ETag": "\"b5fdc0b3557bd4de47045f9c69fa8e54102bcecc36f8743ab88df90f727ff899\"",
+        "VersionId": "a5984442ce6b4b998879513ff3da17da",
+        "ContentType": "text/plain; charset=utf-8",
+        "Metadata": {}
+    }
+    ```
