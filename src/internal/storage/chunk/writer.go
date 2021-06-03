@@ -238,7 +238,7 @@ func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool,
 	ref.Edge = edge
 	contentHash := Hash(chunkBytes)
 	chunkDataRef := &DataRef{
-		Hash:      contentHash.HexString(),
+		Hash:      contentHash,
 		Ref:       ref,
 		SizeBytes: int64(len(chunkBytes)),
 	}
@@ -303,7 +303,7 @@ func newDataRef(chunkRef *DataRef, chunkBytes []byte, offset, size int64) *DataR
 	if chunkRef.SizeBytes == size {
 		dataRef.Hash = chunkRef.Hash
 	} else {
-		dataRef.Hash = Hash(chunkBytes[offset : offset+size]).HexString()
+		dataRef.Hash = Hash(chunkBytes[offset : offset+size])
 	}
 	dataRef.OffsetBytes = offset
 	dataRef.SizeBytes = size
@@ -356,7 +356,7 @@ func mergeDataRef(dr1, dr2 *DataRef) *DataRef {
 	}
 	dr1.SizeBytes += dr2.SizeBytes
 	if dr1.SizeBytes == dr1.Ref.SizeBytes {
-		dr1.Hash = ID(dr1.Ref.Id).HexString()
+		dr1.Hash = dr1.Ref.Id
 	}
 	return dr1
 }
