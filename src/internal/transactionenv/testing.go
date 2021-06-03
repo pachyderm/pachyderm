@@ -125,14 +125,14 @@ func NewMockPpsTransactionServer() *MockPpsTransactionServer {
 	return &MockPpsTransactionServer{}
 }
 
-// StopPipelineJobInTransaction always errors
-func (mpts *MockPpsTransactionServer) StopPipelineJobInTransaction(*txncontext.TransactionContext, *pps.StopPipelineJobRequest) error {
-	return unimplementedError("PpsTransactionServer.StopPipelineJobInTransaction")
+// StopJobInTransaction always errors
+func (mpts *MockPpsTransactionServer) StopJobInTransaction(*txncontext.TransactionContext, *pps.StopJobRequest) error {
+	return unimplementedError("PpsTransactionServer.StopJobInTransaction")
 }
 
-// UpdatePipelineJobStateInTransaction always errors
-func (mpts *MockPpsTransactionServer) UpdatePipelineJobStateInTransaction(*txncontext.TransactionContext, *pps.UpdatePipelineJobStateRequest) error {
-	return unimplementedError("PpsTransactionServer.UpdatePipelineJobStateInTransaction")
+// UpdateJobStateInTransaction always errors
+func (mpts *MockPpsTransactionServer) UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps.UpdateJobStateRequest) error {
+	return unimplementedError("PpsTransactionServer.UpdateJobStateInTransaction")
 }
 
 // CreatePipelineInTransaction always errors

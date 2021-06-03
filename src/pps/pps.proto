@@ -54,11 +54,11 @@ message Egress {
   string URL = 1;
 }
 
-message PipelineJob {
+message Job {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
 
-enum PipelineJobState {
+enum JobState {
   JOB_STARTING = 0;
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
@@ -138,7 +138,7 @@ message Input {
   GitInput git = 7;
 }
 
-message PipelineJobInput {
+message JobInput {
   string name = 1;
   pfs.Commit commit = 2;
   string glob = 3;
@@ -174,7 +174,7 @@ message InputFile {
 message Datum {
   // ID is the hash computed from all the files
   string id = 1 [(gogoproto.customname) = "ID"];
-  PipelineJob pipeline_job = 2;
+  Job job = 2;
 }
 
 enum DatumState {
@@ -219,7 +219,7 @@ message AggregateProcessStats {
 
 message WorkerStatus {
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
-  string pipeline_job_id = 2 [(gogoproto.customname) = "PipelineJobID"];
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
   DatumStatus datum_status = 3;
 }
 
@@ -255,14 +255,14 @@ message GPUSpec {
   int64 number = 2;
 }
 
-// StoredPipelineJobInfo is the portion of the PipelineJobInfo that gets stored
+// StoredJobInfo is the portion of the JobInfo that gets stored
 // in the database during job execution. It contains fields which change over
 // the lifetime of the job but aren't used in the execution of the job.
-message StoredPipelineJobInfo {
-  PipelineJob pipeline_job = 1;
+message StoredJobInfo {
+  Job job = 1;
   Pipeline pipeline = 2;
   pfs.Commit output_commit = 3;
-  // PipelineJob restart count (e.g. due to datum failure)
+  // Job restart count (e.g. due to datum failure)
   uint64 restart = 4;
 
   // Counts of how many times we processed or skipped a datum
@@ -276,30 +276,30 @@ message StoredPipelineJobInfo {
   ProcessStats stats = 10;
 
   pfs.Commit stats_commit = 11;
-  PipelineJobState state = 12;
+  JobState state = 12;
   string reason = 13;
   google.protobuf.Timestamp started = 14;
   google.protobuf.Timestamp finished = 15;
 }
 
-message PipelineJobInfo {
-  PipelineJob pipeline_job = 1;
-  Transform transform = 2;                     // requires ListPipelineJobRequest.Full
+message JobInfo {
+  Job job = 1;
+  Transform transform = 2;                     // requires ListJobRequest.Full
   Pipeline pipeline = 3;
-  uint64 pipeline_version = 4;                // requires ListPipelineJobRequest.Full
+  uint64 pipeline_version = 4;
   pfs.Commit spec_commit = 5;
-  ParallelismSpec parallelism_spec = 6;       // requires ListPipelineJobRequest.Full
-  Egress egress = 7;                          // requires ListPipelineJobRequest.Full
-  PipelineJob parent_job = 8;
+  ParallelismSpec parallelism_spec = 6;        // requires ListJobRequest.Full
+  Egress egress = 7;                           // requires ListJobRequest.Full
+  Job parent_job = 8;
   google.protobuf.Timestamp started = 9;
   google.protobuf.Timestamp finished = 10;
   pfs.Commit output_commit = 11;
-  PipelineJobState state = 12;
+  JobState state = 12;
   string reason = 13;  // reason explains why the job is in the current state
-  Service service = 14;                        // requires ListPipelineJobRequest.Full
-  Spout spout = 15;                            // requires ListPipelineJobRequest.Full
+  Service service = 14;                        // requires ListJobRequest.Full
+  Spout spout = 15;                            // requires ListJobRequest.Full
   pfs.Repo output_repo = 16;
-  string output_branch = 17;                   // requires ListPipelineJobRequest.Full
+  string output_branch = 17;                   // requires ListJobRequest.Full
   uint64 restart = 18;
   int64 data_processed = 19;
   int64 data_skipped = 20;
@@ -308,21 +308,21 @@ message PipelineJobInfo {
   int64 data_total = 23;
   ProcessStats stats = 24;
   repeated WorkerStatus worker_status = 25;
-  ResourceSpec resource_requests = 26;         // requires ListPipelineJobRequest.Full
-  ResourceSpec resource_limits = 27;           // requires ListPipelineJobRequest.Full
-  ResourceSpec sidecar_resource_limits = 28;   // requires ListPipelineJobRequest.Full
-  Input input = 29;                            // requires ListPipelineJobRequest.Full
+  ResourceSpec resource_requests = 26;         // requires ListJobRequest.Full
+  ResourceSpec resource_limits = 27;           // requires ListJobRequest.Full
+  ResourceSpec sidecar_resource_limits = 28;   // requires ListJobRequest.Full
+  Input input = 29;                            // requires ListJobRequest.Full
   pfs.BranchInfo new_branch = 30;
   pfs.Commit stats_commit = 31;
-  bool enable_stats = 32;                      // requires ListPipelineJobRequest.Full
-  string salt = 33;                            // requires ListPipelineJobRequest.Full
-  ChunkSpec chunk_spec = 34;                   // requires ListPipelineJobRequest.Full
-  google.protobuf.Duration datum_timeout = 35; // requires ListPipelineJobRequest.Full
-  google.protobuf.Duration job_timeout = 36;   // requires ListPipelineJobRequest.Full
-  int64 datum_tries = 37;                      // requires ListPipelineJobRequest.Full
-  SchedulingSpec scheduling_spec = 38;         // requires ListPipelineJobRequest.Full
-  string pod_spec = 39;                        // requires ListPipelineJobRequest.Full
-  string pod_patch = 40;                       // requires ListPipelineJobRequest.Full
+  bool enable_stats = 32;                      // requires ListJobRequest.Full
+  string salt = 33;                            // requires ListJobRequest.Full
+  ChunkSpec chunk_spec = 34;                   // requires ListJobRequest.Full
+  google.protobuf.Duration datum_timeout = 35; // requires ListJobRequest.Full
+  google.protobuf.Duration job_timeout = 36;   // requires ListJobRequest.Full
+  int64 datum_tries = 37;                      // requires ListJobRequest.Full
+  SchedulingSpec scheduling_spec = 38;         // requires ListJobRequest.Full
+  string pod_spec = 39;                        // requires ListJobRequest.Full
+  string pod_patch = 40;                       // requires ListJobRequest.Full
 }
 
 enum WorkerState {
@@ -376,7 +376,7 @@ message StoredPipelineInfo {
   pfs.Commit spec_commit = 3;
   map<int32, int32> job_counts = 4;
   string auth_token = 5;
-  PipelineJobState last_job_state = 6;
+  JobState last_job_state = 6;
 
   // parallelism tracks the literal number of workers that this pipeline should
   // run. Unlike PipelineInfo.ParallelismSpec, this accounts for the number of
@@ -417,7 +417,7 @@ message PipelineInfo {
   // respectively. This is not stored in PFS along with the rest of this data
   // structure--PPS.InspectPipeline fills it in from the StoredPipelineInfo.
   map<int32, int32> job_counts = 13;
-  PipelineJobState last_job_state = 14;
+  JobState last_job_state = 14;
 
   string output_branch = 15;
   ResourceSpec resource_requests = 16;
@@ -453,7 +453,7 @@ message PipelineInfos {
   repeated PipelineInfo pipeline_info = 1;
 }
 
-message CreatePipelineJobRequest {
+message CreateJobRequest {
   Pipeline pipeline = 1;
   pfs.Commit output_commit = 2;
 
@@ -471,21 +471,21 @@ message CreatePipelineJobRequest {
   ProcessStats stats = 9;
 
   pfs.Commit stats_commit = 10;
-  PipelineJobState state = 11;
+  JobState state = 11;
   string reason = 12;
   google.protobuf.Timestamp started = 13;
   google.protobuf.Timestamp finished = 14;
 }
 
-message InspectPipelineJobRequest {
-  // Callers should set either PipelineJob or OutputCommit, not both.
-  PipelineJob pipeline_job = 1;
+message InspectJobRequest {
+  // Callers should set either Job or OutputCommit, not both.
+  Job job = 1;
   pfs.Commit output_commit = 2;
   bool block_state = 3; // block until state is either FAILURE or SUCCESS
   bool full = 4;
 }
 
-message ListPipelineJobRequest {
+message ListJobRequest {
   Pipeline pipeline = 1;                // nil means all pipelines
   repeated pfs.Commit input_commit = 2; // nil means all inputs
   pfs.Commit output_commit = 3;         // nil means all outputs
@@ -499,7 +499,7 @@ message ListPipelineJobRequest {
   int64 history = 4;
 
   // Full indicates whether the result should include all pipeline details in
-  // each PipelineJobInfo, or limited information including name and status, but
+  // each JobInfo, or limited information including name and status, but
   // excluding information in the pipeline spec. Leaving this "false" can make
   // the call significantly faster in clusters with a large number of pipelines
   // and jobs.
@@ -510,24 +510,24 @@ message ListPipelineJobRequest {
   string jqFilter = 6;
 }
 
-message FlushPipelineJobRequest {
+message FlushJobRequest {
   repeated pfs.Commit commits = 1;
   repeated Pipeline to_pipelines = 2;
 }
 
-message DeletePipelineJobRequest {
-  PipelineJob pipeline_job = 1;
+message DeleteJobRequest {
+  Job job = 1;
 }
 
-message StopPipelineJobRequest {
-  PipelineJob pipeline_job = 1;
+message StopJobRequest {
+  Job job = 1;
   pfs.Commit output_commit = 2;
   string reason = 3;
 }
 
-message UpdatePipelineJobStateRequest {
-  PipelineJob pipeline_job = 1;
-  PipelineJobState state = 2;
+message UpdateJobStateRequest {
+  Job job = 1;
+  JobState state = 2;
   string reason = 3;
   uint64 restart = 4;
   int64 data_processed = 5;
@@ -545,7 +545,7 @@ message GetLogsRequest {
   Pipeline pipeline = 1;
 
   // The job from which we want to get logs.
-  PipelineJob pipeline_job = 2;
+  Job job = 2;
 
   // Names of input files from which we want processing logs. This may contain
   // multiple files, to query pipelines that contain multiple inputs. Each
@@ -581,7 +581,7 @@ message LogMessage {
   // The job and pipeline for which a PFS file is being processed (if the job
   // is an orphan job, pipeline name and ID will be unset)
   string pipeline_name = 1;
-  string pipeline_job_id = 2 [(gogoproto.customname) = "PipelineJobID"];
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
   string worker_id = 3 [(gogoproto.customname) = "WorkerID"];
   string datum_id = 4 [(gogoproto.customname) = "DatumID"];
   bool master = 5;
@@ -598,7 +598,7 @@ message LogMessage {
 }
 
 message RestartDatumRequest {
-  PipelineJob pipeline_job = 1;
+  Job job = 1;
   repeated string data_filters = 2;
 }
 
@@ -607,10 +607,10 @@ message InspectDatumRequest {
 }
 
 message ListDatumRequest {
-  // PipelineJob and Input are two different ways to specify the datums you want.
+  // Job and Input are two different ways to specify the datums you want.
   // Only one can be set.
-  // PipelineJob is the job to list datums from.
-  PipelineJob pipeline_job = 1;
+  // Job is the job to list datums from.
+  Job job = 1;
   // Input is the input to list datums from.
   // The datums listed are the ones that would be run if a pipeline was created
   // with the provided input.
@@ -724,7 +724,7 @@ message StopPipelineRequest {
 message RunPipelineRequest {
   Pipeline pipeline = 1;
   repeated pfs.CommitProvenance provenance = 2;
-  string pipeline_job_id = 3 [(gogoproto.customname) = "PipelineJobID"];
+  string job_id = 3 [(gogoproto.customname) = "JobID"];
 }
 
 message RunCronRequest {
@@ -761,13 +761,13 @@ message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
 service API {
-  rpc CreatePipelineJob(CreatePipelineJobRequest) returns (PipelineJob) {}
-  rpc InspectPipelineJob(InspectPipelineJobRequest) returns (PipelineJobInfo) {}
-  // ListPipelineJob returns information about current and past Pachyderm jobs.
-  rpc ListPipelineJob(ListPipelineJobRequest) returns (stream PipelineJobInfo) {}
-  rpc FlushPipelineJob(FlushPipelineJobRequest) returns (stream PipelineJobInfo) {}
-  rpc DeletePipelineJob(DeletePipelineJobRequest) returns (google.protobuf.Empty) {}
-  rpc StopPipelineJob(StopPipelineJobRequest) returns (google.protobuf.Empty) {}
+  rpc CreateJob(CreateJobRequest) returns (Job) {}
+  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
+  // ListJob returns information about current and past Pachyderm jobs.
+  rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
+  rpc FlushJob(FlushJobRequest) returns (stream JobInfo) {}
+  rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
+  rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
   // ListDatum returns information about each datum fed to a Pachyderm job
   rpc ListDatum(ListDatumRequest) returns (stream DatumInfo) {}
@@ -796,5 +796,5 @@ service API {
   rpc ActivateAuth(ActivateAuthRequest) returns (ActivateAuthResponse) {}
 
   // An internal call used to move a job from one state to another
-  rpc UpdatePipelineJobState(UpdatePipelineJobStateRequest) returns(google.protobuf.Empty) {}
+  rpc UpdateJobState(UpdateJobStateRequest) returns(google.protobuf.Empty) {}
 }

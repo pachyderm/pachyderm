@@ -79,7 +79,7 @@ type driver struct {
 	commits     col.PostgresCollection
 	branches    col.PostgresCollection
 	openCommits col.PostgresCollection
-	jobs        col.PostgresCollection
+	commitsets  col.PostgresCollection
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -102,7 +102,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	commits := pfsdb.Commits(env.GetDBClient(), env.GetPostgresListener())
 	branches := pfsdb.Branches(env.GetDBClient(), env.GetPostgresListener())
 	openCommits := pfsdb.OpenCommits(env.GetDBClient(), env.GetPostgresListener())
-	jobs := pfsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
+	commitsets := pfsdb.Commitsets(env.GetDBClient(), env.GetPostgresListener())
 
 	// Setup driver struct.
 	d := &driver{
@@ -114,7 +114,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		commits:     commits,
 		branches:    branches,
 		openCommits: openCommits,
-		jobs:        jobs,
+		commitsets:  commitsets,
 		// TODO: set maxFanIn based on downward API.
 	}
 	// Setup tracker and chunk / fileset storage.
@@ -911,9 +911,9 @@ func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error)
 // 'branches' are newly created (i.e. in CreatePipeline).
 //
 // The isNewCommit flag indicates whether propagateCommits was called during the creation of a new commit.
-func (d *driver) propagateCommits(sqlTx *sqlx.Tx, job *pfs.Job, branches []*pfs.Branch, isNewCommit bool) error {
-	jobInfo := &pfs.StoredJobInfo{Job: job}
-	jobProvMap := make(map[string]*pfs.Commit)
+func (d *driver) propagateCommits(sqlTx *sqlx.Tx, commitsetID string, branches []*pfs.Branch, isNewCommit bool) error {
+	commitset := &pfs.StoredCommitset{ID: commitsetID}
+	commitsetProvMap := make(map[string]*pfs.Commit)
 
 	// subvBIMap = ( ⋃{b.subvenance | b ∈ branches} ) ∪ branches
 	subvBIMap := map[string]*pfs.BranchInfo{}
@@ -980,7 +980,7 @@ nextSubvBI:
 			//   branches with a shared commit are both represented in the provenance
 			provCommit := provOfSubvB.NewCommit(provOfSubvBI.Head.ID)
 			newCommitProvMap[commitKey(provCommit)] = &pfs.CommitProvenance{Commit: provCommit}
-			jobProvMap[pfsdb.CommitKey(provCommit)] = provCommit
+			commitsetProvMap[pfsdb.CommitKey(provCommit)] = provCommit
 			provOfSubvBHeadInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(provOfSubvBI.Head), provOfSubvBHeadInfo); err != nil {
 				return err
@@ -993,7 +993,7 @@ nextSubvBI:
 				}
 				provProv = newProvProv
 				newCommitProvMap[commitKey(provProv.Commit)] = provProv
-				jobProvMap[pfsdb.CommitKey(provProv.Commit)] = provProv.Commit
+				commitsetProvMap[pfsdb.CommitKey(provProv.Commit)] = provProv.Commit
 			}
 		}
 		if len(newCommitProvMap) == 0 {
@@ -1025,7 +1025,7 @@ nextSubvBI:
 
 		// If the only branches in the hypothetical output commit's provenance are
 		// in the 'spec' repo, creating it would mean creating a confusing "dummy"
-		// job with no non-spec input data. If this is the case, don't create a new
+		// commitset with no non-spec input data. If this is the case, don't create a new
 		// output commit
 		allSpec := true
 		for _, p := range newCommitProvMap {
@@ -1089,8 +1089,9 @@ nextSubvBI:
 			}
 		}
 
-		// this ensures that the job's output commit uses the latest commit on the branch, by ensuring it is the
-		// last commit to appear in the provenance slice
+		// this ensures that the commitset's output commit uses the latest commit on
+		// the branch, by ensuring it is the last commit to appear in the provenance
+		// slice
 		if sortErr := d.sortCommits(sqlTx, newCommitInfo.Provenance); sortErr != nil {
 			return sortErr
 		}
@@ -1102,16 +1103,16 @@ nextSubvBI:
 		if err := d.openCommits.ReadWrite(sqlTx).Put(newCommit.ID, newCommit); err != nil {
 			return err
 		}
-		jobProvMap[pfsdb.CommitKey(newCommit)] = newCommit
+		commitsetProvMap[pfsdb.CommitKey(newCommit)] = newCommit
 	}
 
 	// TODO: do we need to sort these?  probably in some way
-	for _, commit := range jobProvMap {
-		jobInfo.Commits = append(jobInfo.Commits, commit)
+	for _, commit := range commitsetProvMap {
+		commitset.Commits = append(commitset.Commits, commit)
 	}
 
-	// Write out the job structure for this change
-	return d.jobs.ReadWrite(sqlTx).Create(jobInfo.Job.ID, jobInfo)
+	// Write out the commitset structure for this change
+	return d.commitsets.ReadWrite(sqlTx).Create(commitset.ID, commitset)
 }
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.

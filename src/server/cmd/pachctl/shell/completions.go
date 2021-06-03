@@ -209,29 +209,29 @@ func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, Ca
 	return result, CacheAll
 }
 
-func jobDesc(pji *pps.PipelineJobInfo) string {
+func jobDesc(ji *pps.JobInfo) string {
 	statusString := ""
-	if pji.Finished == nil {
-		statusString = fmt.Sprintf("%s for %s", pps_pretty.JobState(pji.State), pretty.Since(pji.Started))
+	if ji.Finished == nil {
+		statusString = fmt.Sprintf("%s for %s", pps_pretty.JobState(ji.State), pretty.Since(ji.Started))
 	} else {
-		statusString = fmt.Sprintf("%s %s", pps_pretty.JobState(pji.State), pretty.Ago(pji.Finished))
+		statusString = fmt.Sprintf("%s %s", pps_pretty.JobState(ji.State), pretty.Ago(ji.Finished))
 	}
-	return fmt.Sprintf("%s: %s - %s", pji.Pipeline.Name, pps_pretty.Progress(pji), statusString)
+	return fmt.Sprintf("%s: %s - %s", ji.Pipeline.Name, pps_pretty.Progress(ji), statusString)
 }
 
 // JobCompletion completes job parameters of the form <job>
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
-	if err := c.ListPipelineJobF("", nil, nil, 0, false, func(pji *pps.PipelineJobInfo) error {
+	if err := c.ListJobF("", nil, nil, 0, false, func(ji *pps.JobInfo) error {
 		if maxCompletions > 0 {
 			maxCompletions--
 		} else {
 			return errutil.ErrBreak
 		}
 		result = append(result, prompt.Suggest{
-			Text:        pji.PipelineJob.ID,
-			Description: jobDesc(pji),
+			Text:        ji.Job.ID,
+			Description: jobDesc(ji),
 		})
 		return nil
 	}); err != nil {

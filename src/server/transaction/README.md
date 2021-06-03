@@ -4,7 +4,7 @@ Transactions were added to Pachyderm as a way to make multiple changes to the st
 
 The transaction framework provides a method for batching together commit propagation such that changed branches are collected over the course of the transaction and all propagated in one batch at the end.  This allows Pachyderm to dedupe changed branches and branches provenant on the changed branches so that the minimum number of new commits are issued.
 
-This is useful in particular for pipelines with multiple inputs.  If you need to update two or more input repos, you might not want pipeline jobs for each state change.  You can issue a transaction to start commits in each of the input repos, which will create a single downstream commit in the pipeline repo.  After the transaction, you can put files and finish the commits at will, and the pipeline job will run once all the input commits have been finished.
+This is useful in particular for pipelines with multiple inputs.  If you need to update two or more input repos, you might not want jobs for each state change.  You can issue a transaction to start commits in each of the input repos, which will create a single downstream commit in the pipeline repo.  After the transaction, you can put files and finish the commits at will, and the job will run once all the input commits have been finished.
 
 ## Pachctl
 

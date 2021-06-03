@@ -8,7 +8,7 @@ import "gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
 
 message CancelRequest {
-  string pipeline_job_id = 1 [(gogoproto.customname) = "PipelineJobID"];
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
   repeated string data_filters = 2;
 }
 

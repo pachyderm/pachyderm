@@ -147,18 +147,14 @@ message CommitInfo {
   int64 subvenant_commits_total = 14;
 }
 
-message Job {
+message StoredCommitset {
   string id = 1 [(gogoproto.customname) = "ID"];
-}
-
-message StoredJobInfo {
-  Job job = 1;
   CommitOrigin origin = 2;
   repeated Commit commits = 3;
 }
 
-message JobInfo {
-  Job job = 1;
+message Commitset {
+  string id = 1 [(gogoproto.customname) = "ID"];
   CommitOrigin origin = 2;
   repeated CommitInfo commits = 3;
 }

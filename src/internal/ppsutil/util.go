@@ -269,8 +269,8 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 	return err
 }
 
-// PipelineJobInput fills in the commits for an Input
-func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
+// JobInput fills in the commits for an Input
+func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
 	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
 	branchToCommit := make(map[string]*pfs.Commit)
 	key := pfsdb.BranchKey
@@ -338,92 +338,92 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 // IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.
 // the state will not change later: SUCCESS, FAILURE, KILLED) and 'false'
 // otherwise.
-func IsTerminal(state pps.PipelineJobState) bool {
+func IsTerminal(state pps.JobState) bool {
 	switch state {
-	case pps.PipelineJobState_JOB_SUCCESS, pps.PipelineJobState_JOB_FAILURE, pps.PipelineJobState_JOB_KILLED:
+	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
 		return true
-	case pps.PipelineJobState_JOB_STARTING, pps.PipelineJobState_JOB_RUNNING, pps.PipelineJobState_JOB_EGRESSING:
+	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_EGRESSING:
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
 }
 
-// UpdatePipelineJobState performs the operations involved with a job state transition.
-func UpdatePipelineJobState(pipelines col.ReadWriteCollection, pipelineJobs col.ReadWriteCollection, pipelineJobPtr *pps.StoredPipelineJobInfo, state pps.PipelineJobState, reason string) error {
-	if IsTerminal(pipelineJobPtr.State) {
-		return ppsServer.ErrPipelineJobFinished{pipelineJobPtr.PipelineJob}
+// UpdateJobState performs the operations involved with a job state transition.
+func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.StoredJobInfo, state pps.JobState, reason string) error {
+	if IsTerminal(jobPtr.State) {
+		return ppsServer.ErrJobFinished{jobPtr.Job}
 	}
 
 	// Update pipeline
 	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := pipelines.Get(pipelineJobPtr.Pipeline.Name, pipelinePtr); err != nil {
+	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return err
 	}
 	if pipelinePtr.JobCounts == nil {
 		pipelinePtr.JobCounts = make(map[int32]int32)
 	}
-	if pipelinePtr.JobCounts[int32(pipelineJobPtr.State)] != 0 {
-		pipelinePtr.JobCounts[int32(pipelineJobPtr.State)]--
+	if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+		pipelinePtr.JobCounts[int32(jobPtr.State)]--
 	}
 	pipelinePtr.JobCounts[int32(state)]++
 	pipelinePtr.LastJobState = state
-	if err := pipelines.Put(pipelineJobPtr.Pipeline.Name, pipelinePtr); err != nil {
+	if err := pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return err
 	}
 
 	// Update job info
 	var err error
-	if state == pps.PipelineJobState_JOB_STARTING {
-		pipelineJobPtr.Started, err = types.TimestampProto(time.Now())
+	if state == pps.JobState_JOB_STARTING {
+		jobPtr.Started, err = types.TimestampProto(time.Now())
 	} else if IsTerminal(state) {
-		pipelineJobPtr.Finished, err = types.TimestampProto(time.Now())
+		jobPtr.Finished, err = types.TimestampProto(time.Now())
 	}
 	if err != nil {
 		return err
 	}
-	pipelineJobPtr.State = state
-	pipelineJobPtr.Reason = reason
-	return pipelineJobs.Put(pipelineJobPtr.PipelineJob.ID, pipelineJobPtr)
+	jobPtr.State = state
+	jobPtr.Reason = reason
+	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }
 
-func FinishPipelineJob(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo, state pps.PipelineJobState, reason string) error {
-	pipelineJobInfo.State = state
-	pipelineJobInfo.Reason = reason
+func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
+	jobInfo.State = state
+	jobInfo.Reason = reason
 	var empty bool
-	if state == pps.PipelineJobState_JOB_FAILURE || state == pps.PipelineJobState_JOB_KILLED {
+	if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
 		empty = true
 	}
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: pipelineJobInfo.OutputCommit,
+			Commit: jobInfo.OutputCommit,
 			Empty:  empty,
 		}); err != nil {
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: pipelineJobInfo.StatsCommit,
+			Commit: jobInfo.StatsCommit,
 			Empty:  empty,
 		}); err != nil {
 			return err
 		}
-		return WriteJobInfo(&builder.APIClient, pipelineJobInfo)
+		return WriteJobInfo(&builder.APIClient, jobInfo)
 	})
 	return err
 }
 
-func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo) error {
-	_, err := pachClient.PpsAPIClient.UpdatePipelineJobState(pachClient.Ctx(), &pps.UpdatePipelineJobStateRequest{
-		PipelineJob:   pipelineJobInfo.PipelineJob,
-		State:         pipelineJobInfo.State,
-		Reason:        pipelineJobInfo.Reason,
-		Restart:       pipelineJobInfo.Restart,
-		DataProcessed: pipelineJobInfo.DataProcessed,
-		DataSkipped:   pipelineJobInfo.DataSkipped,
-		DataTotal:     pipelineJobInfo.DataTotal,
-		DataFailed:    pipelineJobInfo.DataFailed,
-		DataRecovered: pipelineJobInfo.DataRecovered,
-		Stats:         pipelineJobInfo.Stats,
+func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
+	_, err := pachClient.PpsAPIClient.UpdateJobState(pachClient.Ctx(), &pps.UpdateJobStateRequest{
+		Job:           jobInfo.Job,
+		State:         jobInfo.State,
+		Reason:        jobInfo.Reason,
+		Restart:       jobInfo.Restart,
+		DataProcessed: jobInfo.DataProcessed,
+		DataSkipped:   jobInfo.DataSkipped,
+		DataTotal:     jobInfo.DataTotal,
+		DataFailed:    jobInfo.DataFailed,
+		DataRecovered: jobInfo.DataRecovered,
+		Stats:         jobInfo.Stats,
 	})
 	return err
 }
@@ -455,12 +455,12 @@ func ContainsS3Inputs(in *pps.Input) bool {
 }
 
 // SidecarS3GatewayService returns the name of the kubernetes service created
-// for the job 'pipelineJobID' to hand sidecar s3 gateway requests. This helper
+// for the job 'jobID' to hand sidecar s3 gateway requests. This helper
 // is in ppsutil because both PPS (which creates the service, in the s3 gateway
 // sidecar server) and the worker (which passes the endpoint to the user code)
 // need to know it.
-func SidecarS3GatewayService(pipelineJobID string) string {
-	return "s3-" + pipelineJobID
+func SidecarS3GatewayService(jobID string) string {
+	return "s3-" + jobID
 }
 
 // ErrorState returns true if s is an error state for a pipeline, that is, a
