@@ -74,7 +74,7 @@ pachctl delete repo --all
 pushd examples/word_count
     # note: we do not test reducing because it's slower
     pachctl create repo urls
-    pachctl put file urls@master -f Wikipedia
+    pachctl put file urls@master -f data/Wikipedia
     pachctl create pipeline -f scraper.json
     pachctl create pipeline -f map/map.json
 
