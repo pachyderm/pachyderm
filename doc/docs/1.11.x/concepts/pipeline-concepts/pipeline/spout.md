@@ -116,5 +116,5 @@ Markers are useful if you want to leverage a record tracking
 functionality of an external messaging system, such as
 Apache® Kafka offset management or similar.
 
-If you want to check how a marker works in Pahcyderm, see
+If you want to check how a marker works in Pachyderm, see
 the [Resuming a Spout Pipeline example](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/spouts/spout-marker).
