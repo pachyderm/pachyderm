@@ -49,6 +49,7 @@ message TransactionInfo {
   repeated TransactionRequest requests = 2;
   repeated TransactionResponse responses = 3;
   google.protobuf.Timestamp started = 4;
+  uint64 version = 5;
 }
 
 message TransactionInfos {

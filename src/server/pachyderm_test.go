@@ -10408,8 +10408,6 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 }
 
 func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
-	// TODO(2.0 required): Investigate hang.
-	t.Skip("Investigate hang")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10448,8 +10446,7 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	require.NoError(t, createPipeline(c, inputC, true))
 
 	_, err = c.FinishTransaction(txn)
-	require.YesError(t, err)
-	require.Matches(t, "outside of transaction", err.Error())
+	require.NoError(t, err)
 }
 
 func TestSystemRepoDependence(t *testing.T) {

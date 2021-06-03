@@ -10,6 +10,7 @@ import (
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -197,26 +198,34 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
-		if err != nil {
-			return err
+	return d.updateTransaction(ctx, func() (*transaction.TransactionInfo, error) {
+		if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, info)
+			if err != nil {
+				return err
+			}
+			info, err = d.runTransaction(txnCtx, info)
+			if err != nil {
+				if col.IsErrTransactionConflict(err) {
+					// a pipeline changed, and we need to update the transaction data
+					// indicate that we should save any transaction changes and retry
+					return &transactionModifiedError{}
+				}
+				return err
+			}
+			return d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID)
+		}); err != nil {
+			// break convention and pass the info even in case of an error so it can be saved if needed
+			return info, err
 		}
-		info, err = d.runTransaction(txnCtx, info)
-		if err != nil {
-			return err
-		}
-		return d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID)
-	}); err != nil {
-		return nil, err
-	}
-	return info, nil
+		return info, errutil.ErrBreak // no need to update the transaction, it's gone
+	})
 }
 
 // Error to be returned when the transaction has been modified between our two sqlTx calls
-type transactionConflictError struct{}
+type transactionModifiedError struct{}
 
-func (e *transactionConflictError) Error() string {
+func (e *transactionModifiedError) Error() string {
 	return "transaction could not be modified due to concurrent modifications"
 }
 
@@ -225,14 +234,11 @@ func (d *driver) appendTransaction(
 	txn *transaction.Transaction,
 	items []*transaction.TransactionRequest,
 ) (*transaction.TransactionInfo, error) {
-	// Run this thing in a loop in case we get a conflict, time out after some tries
-	for i := 0; i < 10; i++ {
+	return d.updateTransaction(ctx, func() (*transaction.TransactionInfo, error) {
 		// We first do a dryrun of the transaction to
 		// 1. make sure the appended request is valid
 		// 2. Capture the result of the request to be returned
-		var numRequests, numResponses int
-		var newResponses []*transaction.TransactionResponse
-
+		var newInfo transaction.TransactionInfo
 		if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			// Get the existing transaction and append the new requests
 			info := &transaction.TransactionInfo{}
@@ -241,13 +247,9 @@ func (d *driver) appendTransaction(
 				return err
 			}
 
-			// Save the length so that we can check that nothing else modifies the
-			// transaction in the meantime
-			numRequests = len(info.Requests)
-			numResponses = len(info.Responses)
 			info.Requests = append(info.Requests, items...)
-			if newResponses != nil {
-				info.Responses = newResponses
+			if newInfo.Responses != nil {
+				info.Responses = newInfo.Responses
 			}
 
 			// This may error with a postgres-level transaction conflict, in which
@@ -255,30 +257,50 @@ func (d *driver) appendTransaction(
 			// responses will contain any references to objects generated outside of
 			// the transaction and need to be reused on the next attempt.
 			info, err = d.runTransaction(txnCtx, info)
-			newResponses = info.Responses
+			newInfo = *info
 			return err
 		}); err != nil {
 			return nil, err
 		}
+		return &newInfo, nil
+	})
+}
 
-		info := &transaction.TransactionInfo{}
-		if err := col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
-			// Update the existing transaction with the new requests/responses
-			return d.transactions.ReadWrite(sqlTx).Update(txn.ID, info, func() error {
-				if len(info.Requests) != numRequests || len(info.Responses) != numResponses {
-					// Someone else modified the transaction while we did the dry run
-					return &transactionConflictError{}
-				}
+func (d *driver) updateTransaction(
+	ctx context.Context,
+	f func() (*transaction.TransactionInfo, error)) (*transaction.TransactionInfo, error) {
+	// Run this thing in a loop in case we get a conflict, time out after some tries
+	for i := 0; i < 10; i++ {
+		newInfo, err := f()
 
-				info.Requests = append(info.Requests, items...)
-				info.Responses = newResponses
-				return nil
-			})
-		}); err == nil {
-			return info, nil
-		} else if !errors.As(err, &transactionConflictError{}) {
+		if err != nil && errors.Is(err, errutil.ErrBreak) {
+			return newInfo, nil // no need to update
+		}
+
+		var oldInfo transaction.TransactionInfo
+		// a transactionModifiedError from the update function should be understood
+		// as the active transaction needing to change in a way that should be retried after
+		if err == nil || err != nil && errors.Is(err, &transactionModifiedError{}) {
+			if updateErr := col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
+				// Update the existing transaction with the new requests/responses
+				return d.transactions.ReadWrite(sqlTx).Update(newInfo.Transaction.ID, &oldInfo, func() error {
+					if oldInfo.Version != newInfo.Version {
+						return &transactionModifiedError{}
+					}
+					oldInfo.Requests = newInfo.Requests
+					oldInfo.Responses = newInfo.Responses
+					oldInfo.Version += 1
+					return nil
+				})
+			}); updateErr != nil && err == nil {
+				err = updateErr
+			}
+		}
+		if err == nil {
+			return newInfo, nil
+		} else if !errors.Is(err, &transactionModifiedError{}) {
 			return nil, err
 		}
 	}
-	return nil, &transactionConflictError{}
+	return nil, &transactionModifiedError{}
 }
