@@ -4,8 +4,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 )
 
-// Propagater is an object that is used to propagate PFS branches at the end of
-// a transaction.  The transactionenv package provides the interface for this
+// Propagater is an object that is used to create jobs in response to a new
+// commitset in PFS.  The transactionenv package provides the interface for this
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
 	a        *apiServer
