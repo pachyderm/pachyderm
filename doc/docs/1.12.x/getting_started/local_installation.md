@@ -85,7 +85,7 @@ by following these steps:
 
 1. Install Kind according to its [documentation](https://kind.sigs.k8s.io/).
 
-2. From the command prompt, confirm that Kubernetes is running:
+1. From the command prompt, confirm that Kubernetes is running:
    ```shell
    kubectl get all
    ```

@@ -355,8 +355,8 @@ View the output data
 * On macOS, run:
 
   ```shell
-  pachctl get file edges@master:AT-AT.png | open -f -a /Applications/Preview.app
-  pachctl get file edges@master:kitten.png | open -f -a /Applications/Preview.app
+  pachctl get file edges@master:AT-AT.png | open -f -a Preview.app
+  pachctl get file edges@master:kitten.png | open -f -a Preview.app
   ```
 
 * On Linux, run:
