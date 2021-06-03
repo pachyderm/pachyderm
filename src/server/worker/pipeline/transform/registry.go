@@ -477,12 +477,18 @@ func (reg *registry) processJobRunning(ppj *pendingPipelineJob) error {
 	}
 	// Generate the deletion operations and count the number of datums for the job.
 	var numDatums int64
-	if err := ppj.withDeleter(pachClient, func() error {
-		return ppj.jdit.Iterate(func(_ *datum.Meta) error {
-			numDatums++
-			return nil
+	if err := ppj.logger.LogStep("computing skipped and deleted datums", func() error {
+		return ppj.withDeleter(pachClient, func() error {
+			return ppj.jdit.Iterate(func(_ *datum.Meta) error {
+				numDatums++
+				return nil
+			})
 		})
 	}); err != nil {
+		return err
+	}
+	ppj.saveJobStats(ppj.jdit.Stats())
+	if err := ppj.writeJobInfo(); err != nil {
 		return err
 	}
 	// Set up the datum set spec for the job.
@@ -552,7 +558,11 @@ func (reg *registry) processJobRunning(ppj *pendingPipelineJob) error {
 						); err != nil {
 							return grpcutil.ScrubGRPC(err)
 						}
-						return datum.MergeStats(stats, data.Stats)
+						if err := datum.MergeStats(stats, data.Stats); err != nil {
+							return err
+						}
+						ppj.saveJobStats(data.Stats)
+						return ppj.writeJobInfo()
 					},
 				)
 			})
@@ -567,8 +577,6 @@ func (reg *registry) processJobRunning(ppj *pendingPipelineJob) error {
 		return ppj.driver.PachClient().Ctx().Err()
 	default:
 	}
-	ppj.saveJobStats(ppj.jdit.Stats())
-	ppj.saveJobStats(stats)
 	if stats.FailedID != "" {
 		return reg.failPipelineJob(ppj, fmt.Sprintf("datum %v failed", stats.FailedID))
 	}
