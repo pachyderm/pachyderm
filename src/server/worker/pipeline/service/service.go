@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
@@ -20,8 +19,7 @@ import (
 
 // Run will run a service pipeline until the driver is canceled.
 // TODO: The context handling is wonky here, the pachClient context is above the service context in the hierarchy.
-// This is necessary to ensure we can finish the job when the service gets canceled. Services will probably be reworked to not
-// be triggered by output commits, so this is probably fine for now.
+// This is necessary to ensure we can finish the job when the service gets canceled.
 func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	pachClient := driver.PachClient()
 	pipelineInfo := driver.PipelineInfo()
@@ -50,7 +48,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 		defer func() {
 			if common.IsDone(ctx) {
-				retErr = finishPipelineJob(pachClient, pipelineJobInfo)
+				retErr = ppsutil.FinishPipelineJob(pachClient, pipelineJobInfo, pps.PipelineJobState_JOB_SUCCESS, "")
 			}
 		}()
 		storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -71,22 +69,22 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 }
 
 // Repeatedly runs the given callback with the latest pipelineJob for the pipeline.
-// The given context will be canceled if a newer commit is ready, then this will
+// The given context will be canceled if a newer job is ready, then this will
 // wait for the previous callback to return before calling the callback again
-// with the latest commit.
+// with the latest job.
 func forEachPipelineJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, cb func(context.Context, *pps.PipelineJobInfo) error) error {
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
 	return pachClient.SubscribePipelineJob(pipelineInfo.Pipeline.Name, true, func(pji *pps.PipelineJobInfo) error {
 		if cancel != nil {
-			logger.Logf("canceling previous service, new commit ready")
+			logger.Logf("canceling previous service, new job ready")
 			cancel()
 			if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 				return err
 			}
 		}
-		logger.Logf("starting new service, commit: %s", pji.OutputCommit.ID)
+		logger.Logf("starting new service, job: %s", pji.PipelineJob.ID)
 		var ctx context.Context
 		ctx, cancel = context.WithCancel(pachClient.Ctx())
 		eg, ctx = errgroup.WithContext(ctx)
@@ -94,20 +92,4 @@ func forEachPipelineJob(pachClient *client.APIClient, pipelineInfo *pps.Pipeline
 		return nil
 	},
 	)
-}
-
-func finishPipelineJob(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo) error {
-	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: pipelineJobInfo.OutputCommit,
-		}); err != nil {
-			return err
-		}
-		_, err := builder.PpsAPIClient.UpdatePipelineJobState(pachClient.Ctx(), &pps.UpdatePipelineJobStateRequest{
-			PipelineJob: pipelineJobInfo.PipelineJob,
-			State:       pps.PipelineJobState_JOB_SUCCESS,
-		})
-		return err
-	})
-	return err
 }
