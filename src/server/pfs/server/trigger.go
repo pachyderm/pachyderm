@@ -8,7 +8,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -62,7 +61,7 @@ func (d *driver) triggerCommit(
 			return err
 		}
 		if bi.Trigger != nil {
-			if err := triggerBranch(client.NewBranch(commit.Branch.Repo.Name, bi.Trigger.Branch)); err != nil && !col.IsErrNotFound(err) {
+			if err := triggerBranch(commit.Branch.Repo.NewBranch(bi.Trigger.Branch)); err != nil && !col.IsErrNotFound(err) {
 				return err
 			}
 			if headBranches[bi.Trigger.Branch] {

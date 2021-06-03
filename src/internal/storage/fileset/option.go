@@ -64,6 +64,13 @@ func WithParentID(parentID *ID) UnorderedWriterOption {
 	}
 }
 
+// WithValidator sets the validator for paths being written to the unordered writer.
+func WithValidator(validator func(string) error) UnorderedWriterOption {
+	return func(uw *UnorderedWriter) {
+		uw.validator = validator
+	}
+}
+
 // WriterOption configures a file set writer.
 type WriterOption func(w *Writer)
 

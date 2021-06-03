@@ -54,14 +54,14 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, env.PachClient.CreateRepo(input.Repo))
 	require.NoError(t, env.PachClient.CreateBranch(input.Repo, input.Branch, "", "", nil))
 
-	err := env.PachClient.CreateBranch(pipelineInfo.SpecCommit.Branch.Repo.Name, pipelineInfo.Pipeline.Name, "", "", nil)
+	_, err := env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{Branch: pipelineInfo.SpecCommit.Branch})
 	require.NoError(t, err)
 
-	commit, err := env.PachClient.StartCommit(pipelineInfo.SpecCommit.Branch.Repo.Name, pipelineInfo.Pipeline.Name)
+	commit, err := env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: pipelineInfo.SpecCommit.Branch})
 	require.NoError(t, err)
 	pipelineInfo.SpecCommit = commit
 
-	err = env.PachClient.FinishCommit(pipelineInfo.SpecCommit.Branch.Repo.Name, pipelineInfo.SpecCommit.Branch.Name, commit.ID)
+	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: commit})
 	require.NoError(t, err)
 
 	err = env.PachClient.CreateRepo(pipelineInfo.Pipeline.Name)
@@ -74,18 +74,19 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 		"",
 		[]*pfs.Branch{
 			client.NewBranch(input.Repo, input.Branch),
-			client.NewBranch(pipelineInfo.SpecCommit.Branch.Repo.Name, pipelineInfo.Pipeline.Name),
+			pipelineInfo.SpecCommit.Branch.Repo.NewBranch(pipelineInfo.Pipeline.Name),
 		},
 	)
 	require.NoError(t, err)
 
-	err = env.PachClient.CreateBranch(
-		pipelineInfo.Pipeline.Name,
-		"stats",
-		"",
-		"",
-		[]*pfs.Branch{client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)},
-	)
+	metaRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
+	_, err = env.PachClient.PfsAPIClient.CreateBranch(
+		env.PachClient.Ctx(),
+		&pfs.CreateBranchRequest{
+			Head:       metaRepo.NewCommit("master", ""),
+			Branch:     metaRepo.NewBranch("master"),
+			Provenance: []*pfs.Branch{client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)},
+		})
 	require.NoError(t, err)
 
 	// Put the pipeline info into etcd (which is read by the master)

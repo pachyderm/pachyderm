@@ -394,14 +394,14 @@ func (c APIClient) StopPipelineJob(pipelineJobID string) error {
 }
 
 // StopPipelineJobOutputCommit stops a job associated with an output commit.
-func (c APIClient) StopPipelineJobOutputCommit(repoName, branchName, commitID string) (retErr error) {
+func (c APIClient) StopPipelineJobOutputCommit(commit *pfs.Commit) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	_, err := c.PpsAPIClient.StopPipelineJob(
 		c.Ctx(),
 		&pps.StopPipelineJobRequest{
-			OutputCommit: NewCommit(repoName, branchName, commitID),
+			OutputCommit: commit,
 		},
 	)
 	return err

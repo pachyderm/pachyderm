@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -22,19 +22,18 @@ import (
 func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		// Store the originally-requested parameters because they will be overwritten by inspectCommit
-		repo := commit.Branch.Repo.Name
-		branch := commit.Branch.Name
+		branch := proto.Clone(commit.Branch).(*pfs.Branch)
 		commitID := commit.ID
-		if branch == "" && !uuid.IsUUIDWithoutDashes(commitID) {
-			branch = commitID
+		if branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
+			branch.Name = commitID
 			commitID = ""
 		}
 		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 		if err != nil {
-			if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
+			if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch.Name == "" {
 				return err
 			}
-			return d.oneOffModifyFile(ctx, renewer, repo, branch, cb)
+			return d.oneOffModifyFile(ctx, renewer, branch, cb)
 		}
 		if commitInfo.Finished != nil {
 			// The commit is already finished - if the commit was explicitly specified,
@@ -47,19 +46,19 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 				return err
 			}
 			renewer.Add(parentID.HexString())
-			return d.oneOffModifyFile(ctx, renewer, repo, branch, cb, fileset.WithParentID(parentID))
+			return d.oneOffModifyFile(ctx, renewer, branch, cb, fileset.WithParentID(parentID))
 		}
 		return d.withCommitUnorderedWriter(ctx, renewer, commitInfo.Commit, cb)
 	})
 }
 
-func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet, repo, branch string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
+func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet, branch *pfs.Branch, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
 	id, err := d.withUnorderedWriter(ctx, renewer, false, cb, opts...)
 	if err != nil {
 		return err
 	}
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		commit, err := d.startCommit(txnCtx, "", nil, client.NewBranch(repo, branch), nil, "")
+		commit, err := d.startCommit(txnCtx, "", nil, branch, nil, "")
 		if err != nil {
 			return err
 		}
@@ -85,7 +84,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *renew.S
 }
 
 func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
-	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}, opts...)
+	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(validate)}, opts...)
 	uw, err := d.storage.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
 		return nil, err

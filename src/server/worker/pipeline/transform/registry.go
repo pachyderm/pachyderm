@@ -18,6 +18,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -186,7 +187,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 		reg.jobChain = chain.NewJobChain(
 			pachClient,
 			hasher,
-			append(opts, chain.WithBase(datum.NewCommitIterator(pachClient, commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)))...,
+			append(opts, chain.WithBase(datum.NewCommitIterator(pachClient, commit)))...,
 		)
 	}
 	return nil
@@ -229,7 +230,12 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 	if err != nil {
 		return err
 	}
-	metaCommitInfo, err := reg.driver.PachClient().InspectCommit(pipelineJobInfo.StatsCommit.Branch.Repo.Name, pipelineJobInfo.StatsCommit.Branch.Name, pipelineJobInfo.StatsCommit.ID)
+	metaCommitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
+		reg.driver.PachClient().Ctx(),
+		&pfs.InspectCommitRequest{
+			Commit:     pipelineJobInfo.StatsCommit,
+			BlockState: pfs.CommitState_STARTED,
+		})
 	if err != nil {
 		return err
 	}
@@ -263,7 +269,7 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 	if err != nil {
 		return err
 	}
-	outputDit := datum.NewCommitIterator(pachClient, ppj.metaCommitInfo.Commit.Branch.Repo.Name, ppj.metaCommitInfo.Commit.Branch.Name, ppj.metaCommitInfo.Commit.ID)
+	outputDit := datum.NewCommitIterator(pachClient, ppj.metaCommitInfo.Commit)
 	ppj.jdit = reg.jobChain.CreateJob(ppj.driver.PachClient().Ctx(), ppj.pji.PipelineJob.ID, dit, outputDit)
 	var afterTime time.Duration
 	if ppj.pji.JobTimeout != nil {
@@ -331,18 +337,38 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 					ppj.logger.Logf("error incrementing restart count for job (%s): %v", ppj.pji.PipelineJob.ID, err)
 				}
 				// Reload the job's commitInfo(s) as they may have changed and clear the state of the commit(s).
-				ppj.commitInfo, err = reg.driver.PachClient().InspectCommit(ppj.commitInfo.Commit.Branch.Repo.Name, ppj.commitInfo.Commit.Branch.Name, ppj.commitInfo.Commit.ID)
+				pachClient := reg.driver.PachClient()
+				ppj.commitInfo, err = pachClient.PfsAPIClient.InspectCommit(
+					pachClient.Ctx(),
+					&pfs.InspectCommitRequest{
+						Commit:     ppj.commitInfo.Commit,
+						BlockState: pfs.CommitState_STARTED,
+					})
 				if err != nil {
-					return err
+					return grpcutil.ScrubGRPC(err)
 				}
-				if err := ppj.driver.PachClient().ClearCommit(ppj.commitInfo.Commit.Branch.Repo.Name, ppj.commitInfo.Commit.Branch.Name, ppj.commitInfo.Commit.ID); err != nil {
-					return err
+				if _, err := pachClient.PfsAPIClient.ClearCommit(
+					pachClient.Ctx(),
+					&pfs.ClearCommitRequest{
+						Commit: ppj.commitInfo.Commit,
+					}); err != nil {
+					return grpcutil.ScrubGRPC(err)
 				}
-				ppj.metaCommitInfo, err = reg.driver.PachClient().InspectCommit(ppj.metaCommitInfo.Commit.Branch.Repo.Name, ppj.metaCommitInfo.Commit.Branch.Name, ppj.metaCommitInfo.Commit.ID)
+				ppj.metaCommitInfo, err = pachClient.PfsAPIClient.InspectCommit(
+					pachClient.Ctx(),
+					&pfs.InspectCommitRequest{
+						Commit:     ppj.metaCommitInfo.Commit,
+						BlockState: pfs.CommitState_STARTED,
+					})
 				if err != nil {
-					return err
+					return grpcutil.ScrubGRPC(err)
 				}
-				return ppj.driver.PachClient().ClearCommit(ppj.metaCommitInfo.Commit.Branch.Repo.Name, ppj.metaCommitInfo.Commit.Branch.Name, ppj.metaCommitInfo.Commit.ID)
+				_, err = pachClient.PfsAPIClient.ClearCommit(
+					pachClient.Ctx(),
+					&pfs.ClearCommitRequest{
+						Commit: ppj.metaCommitInfo.Commit,
+					})
+				return grpcutil.ScrubGRPC(err)
 			})
 			ppj.logger.Logf("master done running processJobs")
 		}); err != nil {
@@ -508,17 +534,23 @@ func (reg *registry) processJobRunning(ppj *pendingPipelineJob) error {
 							return err
 						}
 						renewer.Remove(data.FilesetId)
-						repo := ppj.commitInfo.Commit.Branch.Repo.Name
-						branch := ppj.commitInfo.Commit.Branch.Name
-						commit := ppj.commitInfo.Commit.ID
-						if err := pachClient.AddFileset(repo, branch, commit, data.OutputFilesetId); err != nil {
-							return err
+						if _, err := pachClient.PfsAPIClient.AddFileset(
+							pachClient.Ctx(),
+							&pfs.AddFilesetRequest{
+								Commit:    ppj.commitInfo.Commit,
+								FilesetId: data.OutputFilesetId,
+							},
+						); err != nil {
+							return grpcutil.ScrubGRPC(err)
 						}
-						repo = ppj.metaCommitInfo.Commit.Branch.Repo.Name
-						branch = ppj.metaCommitInfo.Commit.Branch.Name
-						commit = ppj.metaCommitInfo.Commit.ID
-						if err := pachClient.AddFileset(repo, branch, commit, data.MetaFilesetId); err != nil {
-							return err
+						if _, err := pachClient.PfsAPIClient.AddFileset(
+							pachClient.Ctx(),
+							&pfs.AddFilesetRequest{
+								Commit:    ppj.metaCommitInfo.Commit,
+								FilesetId: data.MetaFilesetId,
+							},
+						); err != nil {
+							return grpcutil.ScrubGRPC(err)
 						}
 						return datum.MergeStats(stats, data.Stats)
 					},

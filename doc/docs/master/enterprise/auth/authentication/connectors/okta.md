@@ -1,26 +1,15 @@
-# Configure OpenID Connect with Okta
+# Authenticating with Okta
 
 If [Okta® access management software](https://www.okta.com) 
 is your preferred choice of IdP,
 you can configure Pachyderm to use Okta as an OpenID Connect (OIDC) 
 identity provider using the following steps. 
 
-
-# Prerequisites
-
-Before you can configure Pachyderm to work with Okta, you need:
-
-* Pachyderm Enterprise 1.11.x or later. The enterprise token must be
-  activated by running `pachctl enterprise activate`.
-  Check the status of your license by running:
-
-      ```shell
-      pachctl enterprise get-state
-      ```
-
-      For more information, see [Activate Pachyderm Enterprise Edition](../../../deployment/#activate-pachyderm-enterprise-edition).
-
-* An account at https://www.okta.com/login/. 
+!!! Note
+    Before you can configure Pachyderm to work with Okta:
+    
+    - Check the [Pachyderm Integration with Identity Providers](../idp-dex.md) general page.
+    - Log in/Create an account at https://www.okta.com/login/. 
 
 
 ## Register Pachyderm with Okta
@@ -36,36 +25,31 @@ For more detailed step by step instructions, follow this [documentation](https:/
 1. Type the name of your application, such as **Pachyderm**.
 1. Add the following Login redirect URI. 
       ```shell
-      http://<ip>:657/authorization-code/callback
+      http://<ip>:30658/callback
       ```
-      Note: Your port number should be whatever is routing to pachd:657.
+      Note: Your port number should be whatever is routing to the Identity Service:658.
 
       The IP address is the address of your Pachyderm host. For example,
       if you are running Pachyderm in Minikube, you can find the IP
       address by running `minikube ip`.
 
 1. Click **Save**
-1. Click **Edit** to change the General Settings pane. In the Allowed grant types section, enable **Implicit**, **Authorization Code**, **Refresh Token**, and **Client Credentials**.
+1. Click **Edit** to change the General Settings pane. In the Allowed grant types section, enable **Authorization Code** and **Refresh Token**.
 1. Click **Save**
 1. On the Assignments tab, click **Assign** to assign the app integration to any user or group in your org. Click **Done** when the assignments are complete.
 
 
-## Configure Pachyderm Auth
+## Set up an create an Idp-Pachyderm connector
 
 After you have configured a Pachyderm application in Okta, you
-need to create a Pachyderm OIDC config with the Okta parameters.
+need to create an OIDC connector config file with the Okta parameters.
 All the required parameters, such as `client_id`, `client_secret`, 
 and others, are located on the App General tab.
 
 To configure Pachyderm Auth, complete the following steps:
 
-1. Check the status of your license by running:
+--------------------------------------//TODO Rewrite beyond this point after re-test on Okta
 
-      ```shell
-      pachctl enterprise get-state
-      ```
-
-      You must have an active enterprise token to proceed.
 
 1. Go to the terminal and forward the `pachd` pod to the OIDC port:
 

@@ -16,7 +16,6 @@ package ppsutil
 import (
 	"bytes"
 	"fmt"
-	"path"
 	"strings"
 	"time"
 
@@ -32,6 +31,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -117,6 +117,9 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
+	// ensure we are authorized to read the pipeline's spec commit, but don't propagate that back out
+	pachClient = pachClient.WithCtx(pachClient.Ctx())
+	pachClient.SetAuthToken(ptr.AuthToken)
 	if err := pachClient.GetFile(ptr.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
 	} else {
@@ -270,26 +273,27 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
 	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
 	branchToCommit := make(map[string]*pfs.Commit)
-	key := path.Join
+	key := pfsdb.BranchKey
 	// for a given branch, the commit assigned to it will be the latest commit on that branch
 	// this is ensured by the way we sort the commit provenance when creating the outputCommit
 	for _, prov := range outputCommitInfo.Provenance {
-		branchToCommit[key(prov.Commit.Branch.Repo.Name, prov.Commit.Branch.Name)] = prov.Commit
+		branchToCommit[key(prov.Commit.Branch)] = prov.Commit
 	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
-			if commit, ok := branchToCommit[key(input.Pfs.Repo, input.Pfs.Branch)]; ok {
+			pfsBranch := client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType).NewBranch(input.Pfs.Branch)
+			if commit, ok := branchToCommit[key(pfsBranch)]; ok {
 				input.Pfs.Commit = commit.ID
 			}
 		}
 		if input.Cron != nil {
-			if commit, ok := branchToCommit[key(input.Cron.Repo, "master")]; ok {
+			if commit, ok := branchToCommit[key(client.NewBranch(input.Cron.Repo, "master"))]; ok {
 				input.Cron.Commit = commit.ID
 			}
 		}
 		if input.Git != nil {
-			if commit, ok := branchToCommit[key(input.Git.Name, input.Git.Branch)]; ok {
+			if commit, ok := branchToCommit[key(client.NewBranch(input.Git.Name, input.Git.Branch))]; ok {
 				input.Git.Commit = commit.ID
 			}
 		}
@@ -425,8 +429,10 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 }
 
 func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
+	outputRepo := commitInfo.Commit.Branch.Repo.Name
 	for _, commitRange := range commitInfo.Subvenance {
-		if commitRange.Lower.Branch.Repo.Name == commitInfo.Commit.Branch.Repo.Name {
+		repo := commitRange.Lower.Branch.Repo
+		if repo.Type == pfs.MetaRepoType && repo.Name == outputRepo {
 			return commitRange.Lower
 		}
 	}

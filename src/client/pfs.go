@@ -227,9 +227,9 @@ func (c APIClient) inspectCommit(repoName string, branchName string, commitID st
 // If `to` and `from` are the same commit, no commits will be returned.
 // `number` determines how many commits are returned.  If `number` is 0,
 // all commits that match the aforementioned criteria are returned.
-func (c APIClient) ListCommit(repoName string, toBranchName string, to string, fromBranchName string, from string, number uint64) ([]*pfs.CommitInfo, error) {
+func (c APIClient) ListCommit(repo *pfs.Repo, to, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
 	var result []*pfs.CommitInfo
-	if err := c.ListCommitF(repoName, toBranchName, to, fromBranchName, from, number, false, func(ci *pfs.CommitInfo) error {
+	if err := c.ListCommitF(repo, to, from, number, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -248,18 +248,13 @@ func (c APIClient) ListCommit(repoName string, toBranchName string, to string, f
 // `number` determines how many commits are returned.  If `number` is 0,
 // `reverse` lists the commits from oldest to newest, rather than newest to oldest
 // all commits that match the aforementioned criteria are passed to f.
-func (c APIClient) ListCommitF(repoName string, toBranchName string, to string, fromBranchName, from string, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
+func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.ListCommitRequest{
-		// repoName may be "", but the repo object must exist
-		Repo:    NewRepo(repoName),
+		Repo:    repo,
 		Number:  number,
 		Reverse: reverse,
-	}
-	if from != "" || fromBranchName != "" {
-		req.From = NewCommit(repoName, fromBranchName, from)
-	}
-	if to != "" || toBranchName != "" {
-		req.To = NewCommit(repoName, toBranchName, to)
+		To:      to,
+		From:    from,
 	}
 	stream, err := c.PfsAPIClient.ListCommit(c.Ctx(), req)
 	if err != nil {
@@ -283,8 +278,8 @@ func (c APIClient) ListCommitF(repoName string, toBranchName string, to string, 
 }
 
 // ListCommitByRepo lists all commits in a repo.
-func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) {
-	return c.ListCommit(repoName, "", "", "", "", 0)
+func (c APIClient) ListCommitByRepo(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
+	return c.ListCommit(repo, nil, nil, 0)
 }
 
 // CreateBranch creates a new branch
@@ -444,18 +439,18 @@ func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
-func (c APIClient) SubscribeCommit(repoName string, branchName string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
+func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pfs.SubscribeCommitRequest{
-		Repo:   NewRepo(repoName),
+		Repo:   repo,
 		Branch: branchName,
 		Prov:   prov,
 		State:  state,
 	}
 	if from != "" {
-		req.From = NewCommit(repoName, branchName, from)
+		req.From = repo.NewCommit(branchName, from)
 	}
 	client, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), req)
 	if err != nil {

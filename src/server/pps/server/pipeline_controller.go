@@ -236,11 +236,9 @@ func (op *pipelineOp) run() error {
 // should be one of the first calls made on 'op', as most other methods (e.g.
 // getRC, though not failPipeline) assume that op.pipelineInfo is set.
 func (op *pipelineOp) getPipelineInfo() error {
-	err := op.m.a.sudo(op.ctx, func(superUserClient *client.APIClient) error {
-		var err error
-		op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.ptr)
-		return err
-	})
+	var err error
+	pachClient := op.m.a.env.GetPachClient(op.ctx)
+	op.pipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, op.ptr)
 	if err != nil {
 		return newRetriableError(err, "error retrieving spec")
 	}
@@ -452,8 +450,8 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 	}
 	pachClient.SetAuthToken(op.ptr.AuthToken)
 
-	if err := pachClient.ListCommitF(op.ptr.Pipeline.Name, op.pipelineInfo.OutputBranch, "", "", "", 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopPipelineJobOutputCommit(commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID)
+	if err := pachClient.ListCommitF(client.NewRepo(op.ptr.Pipeline.Name), client.NewCommit(op.ptr.Pipeline.Name, op.pipelineInfo.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
+		return pachClient.StopPipelineJobOutputCommit(commitInfo.Commit)
 	}); err != nil {
 		if isNotFoundErr(err) {
 			return nil // already deleted
