@@ -17,3 +17,5 @@ export type FileMajorType =
   | 'audio'
   | 'folder'
   | 'unknown';
+
+export type SidebarSize = 'sm' | 'md' | 'lg';

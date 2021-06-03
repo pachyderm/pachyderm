@@ -8,13 +8,31 @@
   border-left: solid 1px var(--line-grey);
 }
 
+.base.sm {
+  width: 19rem;
+}
+
+.base.md {
+  width: 24.0625rem;
+}
+
+.base.lg {
+  width: 33.375rem;
+}
+
 .overlay {
   position: fixed;
   right: 0;
   top: var(--header-height);
   bottom: 0;
-  width: auto;
   max-width: none;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: width 0.1s ease-out, transform 0.1s ease-out;
+}
+
+.overlay.open {
+  transform: scaleX(1);
 }
 
 .closeContainer {

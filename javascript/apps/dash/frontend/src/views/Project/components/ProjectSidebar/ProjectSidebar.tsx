@@ -21,12 +21,13 @@ const emptyJobListMessage =
   'Create your first job! If there are any pipeline errors, fix those before you create a job.';
 
 const ProjectSidebar = () => {
-  const {projectId, handleClose} = useProjectSidebar();
+  const {projectId, handleClose, sidebarSize} = useProjectSidebar();
 
   return (
     <Route path={[JOBS_PATH, JOB_PATH, REPO_PATH, PIPELINE_PATH]}>
       <Sidebar
         overlay
+        size={sidebarSize}
         onClose={handleClose}
         data-testid={'ProjectSidebar__sidebar'}
       >

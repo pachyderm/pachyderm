@@ -1,5 +1,4 @@
 .base {
-  width: 24.0625rem;
   height: calc(100vh - var(--header-height));
   overflow-y: auto;
   scrollbar-width: none;
