@@ -70,6 +70,7 @@ func IsErrTransactionConflict(err error) bool {
 // ErrNotUnique indicates that an indexed query expected to have exactly one
 // result had more than one result.
 type ErrNotUnique struct {
+	Type  string
 	Index string
 	Value string
 }
@@ -80,7 +81,7 @@ func (err ErrNotUnique) Is(other error) bool {
 }
 
 func (err ErrNotUnique) Error() string {
-	return fmt.Sprintf("more than one matching row found on index %s with value %s", err.Index, err.Value)
+	return fmt.Sprintf("more than one matching row found in %s on index %s with value %s", err.Type, err.Index, err.Value)
 }
 
 // IsErrNotUnique determines if an error is an ErrNotUnique error
