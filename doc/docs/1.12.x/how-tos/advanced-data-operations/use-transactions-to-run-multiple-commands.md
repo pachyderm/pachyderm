@@ -235,5 +235,5 @@ creation of the repository, and the other results in error.
      the commit.
 
 To get a better understanding of how transactions work in practice, try
-[Use Transactions with Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/transactions/).
+[Use Transactions with Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/transactions/).
 

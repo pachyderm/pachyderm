@@ -166,7 +166,7 @@ Now that you have some data in your repo, it is time to do something
 with it. Pipelines are the core processing primitive in Pachyderm and
 you can define them with a JSON encoding. For this example, we have
 already created the pipeline for you and you can find the [code on
-GitHub](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv).
+GitHub](https://github.com/pachyderm/pachyderm/blob/1.13.x/examples/opencv).
 
 When you want to create your own pipelines later, you can refer to the
 full [Pipeline Specification](../../reference/pipeline_spec) to use
@@ -251,7 +251,7 @@ pipeline output.
 Now, let's create the pipeline in Pachyderm:
 
 ```shell
-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
+pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/1.13.x/examples/opencv/edges.json
 ```
 
 ### What Happens When You Create a Pipeline
@@ -441,7 +441,7 @@ and
 We create the `montage` pipeline as before, with `pachctl`:
 
 ```shell
-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
+pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/1.13.x/examples/opencv/montage.json
 ```
 
 Pipeline creating triggers a job that generates a montage for all the
