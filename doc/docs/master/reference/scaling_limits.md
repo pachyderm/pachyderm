@@ -31,15 +31,9 @@ All of the commands listed above create a distinct message to STDERR and to the 
 - all other `extract`, `list`, `run`, `start`, `stop pipeline` commands' behavior remains unchanged.
 
 ### Limit on the number of workers per pipeline
-Pachyderm has [two parallelism](https://docs.pachyderm.com/latest/reference/pipeline_spec/#parallelism-spec-optional) strategies: constant and coefficient.
-
 When `constant` parallelism > 8: 
 
 - `pachctl create pipeline` and `pachctl update pipeline` fail. A message to STDERR and pachd logs is generated. You will need to update your pipeline specification file accordingly or activate an Enterprise license.
-
-The previous behavior differs for a `coefficient` parallelism:
-
-- `pachctl create, update, edit pipeline` will succeed. **However, Pachyderm will scale the number of workers up to the Community Edition limit**, and ignore the remaining workers if the value set on `coefficient` results in a request for more than 8 workers.  A message is logged in pachd logs.
 
 ## What happens when you upgrade to 1.13 and have more than 16 pipelines?
 All existing pipelines **continue to work** after an upgrade to 1.13. pachd logs will mention the successful startup above the "update pipeline message". However, you will not be able to create additional pipelines.

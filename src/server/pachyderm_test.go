@@ -9541,8 +9541,6 @@ func TestExtractPipeline(t *testing.T) {
 	//	// and we want them to match.
 	//	request.Input.Pfs.Name = "input"
 	//	request.Input.Pfs.Branch = "master"
-	//	// Can't set both parallelism spec values
-	//	request.ParallelismSpec.Coefficient = 0
 	//	// If service, can only set as Constant:1
 	//	request.ParallelismSpec.Constant = 1
 	//	// CacheSize must parse as a memory value

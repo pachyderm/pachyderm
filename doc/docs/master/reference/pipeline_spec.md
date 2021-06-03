@@ -50,8 +50,7 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
       },
       "parallelism_spec": {
         // Set at most one of the following:
-        "constant": int,
-        "coefficient": number
+        "constant": int
       },
       "hashtree_spec": {
       "constant": int,
@@ -392,17 +391,9 @@ flag. This defaults to `./Dockerfile`.
 ### Parallelism Spec (optional)
 
 `parallelism_spec` describes how Pachyderm parallelizes your pipeline.
-Currently, Pachyderm has two parallelism strategies: `constant` and
-`coefficient`.
 
-If you set the `constant` field, Pachyderm starts the number of workers
-that you specify. For example, set `"constant":10` to use 10 workers.
-
-If you set the `coefficient` field, Pachyderm starts a number of workers
-that is a multiple of your Kubernetes cluster’s size. For example, if your
-Kubernetes cluster has 10 nodes, and you set `"coefficient": 0.5`, Pachyderm
-starts five workers. If you set it to 2.0, Pachyderm starts 20 workers
-(two per Kubernetes node).
+Pachyderm starts the number of workers that you specify. For example, set
+`"constant":10` to use 10 workers.
 
 The default value is "constant=1".
 
