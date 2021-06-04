@@ -361,45 +361,67 @@ func (d *Datum) uploadOutput() error {
 }
 
 func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar.Header) error) (retErr error) {
-	return obj.WithPipe(func(w io.Writer) (retErr error) {
+	if err := obj.WithPipe(func(w io.Writer) (retErr error) {
 		bufW := bufio.NewWriterSize(w, grpcutil.MaxMsgPayloadSize)
 		defer func() {
 			if err := bufW.Flush(); retErr == nil {
 				retErr = err
 			}
 		}()
-		opts := []tarutil.ExportOption{
-			tarutil.WithSymlinkCallback(func(dst, src string, copyFunc func() error) error {
-				return d.handleSymlink(mf, dst, src, copyFunc)
-			}),
-		}
+		var opts []tarutil.ExportOption
 		if len(cb) > 0 {
 			opts = append(opts, tarutil.WithHeaderCallback(cb[0]))
 		}
 		return tarutil.Export(storageRoot, bufW, opts...)
 	}, func(r io.Reader) error {
 		return mf.PutFileTar(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
-	})
-}
-
-func (d *Datum) handleSymlink(mf client.ModifyFile, dst, src string, copyFunc func() error) error {
-	if !strings.HasPrefix(src, d.PFSStorageRoot()) {
-		return copyFunc()
-	}
-	relPath, err := filepath.Rel(d.PFSStorageRoot(), src)
-	if err != nil {
+	}); err != nil {
 		return err
 	}
-	pathSplit := strings.Split(relPath, string(os.PathSeparator))
-	var input *common.Input
-	for _, i := range d.meta.Inputs {
-		if i.Name == pathSplit[0] {
-			input = i
+	return d.handleSymlinks(mf, storageRoot)
+}
+
+func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
+	return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
-	}
-	srcFile := input.FileInfo.File
-	srcFile.Path = path.Join(pathSplit[1:]...)
-	return mf.CopyFile(dst, srcFile, client.WithTagCopyFile(d.ID))
+		if file == storageRoot {
+			return nil
+		}
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return nil
+		}
+		dstPath, err := filepath.Rel(storageRoot, file)
+		if err != nil {
+			return err
+		}
+		file, err = os.Readlink(file)
+		if err != nil {
+			return err
+		}
+		fi, err = os.Stat(file)
+		if err != nil {
+			return err
+		}
+		if !strings.HasPrefix(file, d.PFSStorageRoot()) {
+			return nil
+		}
+		relPath, err := filepath.Rel(d.PFSStorageRoot(), file)
+		if err != nil {
+			return err
+		}
+		pathSplit := strings.Split(relPath, string(os.PathSeparator))
+		var input *common.Input
+		for _, i := range d.meta.Inputs {
+			if i.Name == pathSplit[0] {
+				input = i
+			}
+		}
+		srcFile := input.FileInfo.File
+		srcFile.Path = path.Join(pathSplit[1:]...)
+		return mf.CopyFile(dstPath, srcFile, client.WithTagCopyFile(d.ID))
+	})
 }
 
 // TODO: I think these types would be unecessary if the dependencies were shuffled around a bit.
