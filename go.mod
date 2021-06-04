@@ -116,8 +116,6 @@ require (
 // For the moment, the windows build requires a fix that has not been tagged with an official release
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
 
-replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
-
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
 replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
