@@ -24,8 +24,6 @@ type TransactionContext struct {
 	Timestamp *types.Timestamp
 	// PfsPropagater applies commits at the end of the transaction.
 	PfsPropagater PfsPropagater
-	// CommitFinisher finishes commits for a pipeline at the end of a transaction
-	CommitFinisher PipelineCommitFinisher
 	// PpsPropagater starts PipelineJobs in any pipelines that have new output commits at the end of the transaction.
 	PpsPropagater PpsPropagater
 }
@@ -44,13 +42,9 @@ func (t *TransactionContext) PropagateBranch(branch *pfs.Branch) error {
 	return t.PfsPropagater.PropagateBranch(branch)
 }
 
-// Finish applies the commitFinisher and pfsPropagator, is set
+// Finish applies the deferred logic in the pfsPropagator and ppsPropagator to
+// the transaction
 func (t *TransactionContext) Finish() error {
-	if t.CommitFinisher != nil {
-		if err := t.CommitFinisher.Run(); err != nil {
-			return err
-		}
-	}
 	if t.PfsPropagater != nil {
 		if err := t.PfsPropagater.Run(); err != nil {
 			return err
@@ -64,26 +58,10 @@ func (t *TransactionContext) Finish() error {
 	return nil
 }
 
-// FinishPipelineCommits saves a pipeline output branch to have its commits
-// finished at the end of the transaction
-func (t *TransactionContext) FinishPipelineCommits(branch *pfs.Branch) error {
-	if t.CommitFinisher != nil {
-		return t.CommitFinisher.FinishPipelineCommits(branch)
-	}
-	return nil
-}
-
 // PfsPropagater is the interface that PFS implements to propagate commits at
 // the end of a transaction.  It is defined here to avoid a circular dependency.
 type PfsPropagater interface {
 	PropagateBranch(branch *pfs.Branch) error
-	Run() error
-}
-
-// PipelineCommitFinisher is an interface to facilitate finishing pipeline commits
-// at the end of a transaction
-type PipelineCommitFinisher interface {
-	FinishPipelineCommits(branch *pfs.Branch) error
 	Run() error
 }
 

@@ -50,6 +50,8 @@ func PrintPipelineJobInfo(w io.Writer, pipelineJobInfo *ppsclient.PipelineJobInf
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineJobInfo.Started))
 		}
+	} else {
+		fmt.Fprintf(w, "-\t")
 	}
 	if pipelineJobInfo.Finished != nil {
 		fmt.Fprintf(w, "%s\t", pretty.TimeDifference(pipelineJobInfo.Started, pipelineJobInfo.Finished))

@@ -1059,7 +1059,7 @@ func TestStopPipelineJob(t *testing.T) {
 
 	require.NoError(t, aliceClient.StopPipelineJob(pipelineJobID))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pji, err := aliceClient.InspectPipelineJob(pipelineJobID, false)
+		pji, err := aliceClient.InspectPipelineJob(pipeline, pipelineJobID)
 		if err != nil {
 			return errors.Wrapf(err, "could not inspect job %q", pipelineJobID)
 		}
@@ -1912,11 +1912,11 @@ func TestInspectDatum(t *testing.T) {
 //	require.Equal(t, 1, len(pipelineJobs))
 //	pipelineJobID := pipelineJobs[0].PipelineJob.ID
 //
-//	iter := aliceClient.GetLogs("", pipelineJobID, nil, "", false, false, 0)
+//	iter := aliceClient.GetLogs(pipeline, pipelineJobID, nil, "", false, false, 0)
 //	require.True(t, iter.Next())
 //	require.NoError(t, iter.Err())
 //
-//	iter = aliceClient.GetLogs("", pipelineJobID, nil, "", true, false, 0)
+//	iter = aliceClient.GetLogs(pipeline, pipelineJobID, nil, "", true, false, 0)
 //	iter.Next()
 //	require.NoError(t, iter.Err())
 //}

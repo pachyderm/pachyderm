@@ -12,7 +12,6 @@ type APIServer interface {
 	pfs_client.APIServer
 
 	NewPropagater(*txncontext.TransactionContext) txncontext.PfsPropagater
-	NewPipelineFinisher(*txncontext.TransactionContext) txncontext.PipelineCommitFinisher
 
 	CreateRepoInTransaction(*txncontext.TransactionContext, *pfs_client.CreateRepoRequest) error
 	InspectRepoInTransaction(*txncontext.TransactionContext, *pfs_client.InspectRepoRequest) (*pfs_client.RepoInfo, error)

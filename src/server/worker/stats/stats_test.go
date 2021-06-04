@@ -240,7 +240,6 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
-
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
@@ -270,7 +269,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	pipelineJobs, err := c.ListPipelineJob(pipeline, nil, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pipelineJobs))
-	pipelineJobInfo, err := c.InspectPipelineJob(pipelineJobs[0].PipelineJob.ID, true)
+	pipelineJobInfo, err := c.BlockPipelineJob(pipeline, pipelineJobs[0].PipelineJob.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, pipelineJobInfo.State)
 }

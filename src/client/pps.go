@@ -75,6 +75,11 @@ func NewPipelineJob(pipelineName string, pipelineJobID string) *pps.PipelineJob 
 	return &pps.PipelineJob{Pipeline: NewPipeline(pipelineName), ID: pipelineJobID}
 }
 
+// NewJobset creates a pps.Jobset.
+func NewJobset(id string) *pps.Jobset {
+	return &pps.Jobset{ID: id}
+}
+
 // DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
 // the prefix for datum output trees. This prefix allows us to do garbage
 // collection correctly.
@@ -203,12 +208,11 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 }
 
 // InspectPipelineJob returns info about a specific job.
-// blockState will cause the call to block until the job reaches a terminal state (failure or success).
 // full indicates that the full job info should be returned.
-func (c APIClient) InspectPipelineJob(pipelineName string, pipelineJobID string, blockState bool, full ...bool) (*pps.PipelineJobInfo, error) {
+func (c APIClient) InspectPipelineJob(pipelineName string, pipelineJobID string, full ...bool) (*pps.PipelineJobInfo, error) {
 	req := &pps.InspectPipelineJobRequest{
 		PipelineJob: NewPipelineJob(pipelineName, pipelineJobID),
-		BlockState:  blockState,
+		BlockState:  false,
 	}
 	if len(full) > 0 {
 		req.Full = full[0]
@@ -217,16 +221,82 @@ func (c APIClient) InspectPipelineJob(pipelineName string, pipelineJobID string,
 	return pipelineJobInfo, grpcutil.ScrubGRPC(err)
 }
 
-// InspectPipelineJobOutputCommit returns info about a job that created a commit.
-// blockState will cause the call to block until the job reaches a terminal state (failure or success).
-func (c APIClient) InspectPipelineJobOutputCommit(repoName, branchName, commitID string, blockState bool) (*pps.PipelineJobInfo, error) {
-	pipelineJobInfo, err := c.PpsAPIClient.InspectPipelineJob(
-		c.Ctx(),
-		&pps.InspectPipelineJobRequest{
-			OutputCommit: NewCommit(repoName, branchName, commitID),
-			BlockState:   blockState,
-		})
+// BlockPipelineJob is a blocking version on InspectPipelineJob that will block
+// until the job has reached a terminal state.
+func (c APIClient) BlockPipelineJob(pipelineName string, pipelineJobID string, full ...bool) (*pps.PipelineJobInfo, error) {
+	req := &pps.InspectPipelineJobRequest{
+		PipelineJob: NewPipelineJob(pipelineName, pipelineJobID),
+		BlockState:  true,
+	}
+	if len(full) > 0 {
+		req.Full = full[0]
+	}
+	pipelineJobInfo, err := c.PpsAPIClient.InspectPipelineJob(c.Ctx(), req)
 	return pipelineJobInfo, grpcutil.ScrubGRPC(err)
+}
+
+func (c APIClient) inspectPipelineJobset(id string, block bool, full bool, cb func(*pps.PipelineJobInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	req := &pps.InspectPipelineJobsetRequest{
+		Jobset: NewJobset(id),
+		Block:  block,
+		Full:   full,
+	}
+	client, err := c.PpsAPIClient.InspectPipelineJobset(c.Ctx(), req)
+	if err != nil {
+		return err
+	}
+	for {
+		ci, err := client.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+		if err := cb(ci); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+func (c APIClient) InspectPipelineJobset(id string, full ...bool) ([]*pps.PipelineJobInfo, error) {
+	isFull := false
+	if len(full) > 0 {
+		isFull = full[0]
+	}
+	result := []*pps.PipelineJobInfo{}
+	if err := c.inspectPipelineJobset(id, false, isFull, func(pji *pps.PipelineJobInfo) error {
+		result = append(result, pji)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c APIClient) BlockPipelineJobsetAll(id string, full ...bool) ([]*pps.PipelineJobInfo, error) {
+	isFull := false
+	if len(full) > 0 {
+		isFull = full[0]
+	}
+	result := []*pps.PipelineJobInfo{}
+	if err := c.inspectPipelineJobset(id, true, isFull, func(pji *pps.PipelineJobInfo) error {
+		result = append(result, pji)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c APIClient) BlockPipelineJobset(id string, full bool, cb func(*pps.PipelineJobInfo) error) error {
+	return c.inspectPipelineJobset(id, true, full, cb)
 }
 
 // ListPipelineJob returns info about all jobs.
@@ -340,48 +410,6 @@ func (c APIClient) SubscribePipelineJob(pipelineName string, includePipelineInfo
 			return err
 		}
 	}
-}
-
-// FlushPipelineJob calls f with all the jobs which were triggered by commits.
-// If toPipelines is non-nil then only the jobs between commits and those
-// pipelines in the DAG will be returned.
-func (c APIClient) FlushPipelineJob(commits []*pfs.Commit, toPipelines []string, f func(*pps.PipelineJobInfo) error) error {
-	req := &pps.FlushPipelineJobRequest{
-		Commits: commits,
-	}
-	for _, pipeline := range toPipelines {
-		req.ToPipelines = append(req.ToPipelines, NewPipeline(pipeline))
-	}
-	client, err := c.PpsAPIClient.FlushPipelineJob(c.Ctx(), req)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	for {
-		pipelineJobInfo, err := client.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return grpcutil.ScrubGRPC(err)
-		}
-		if err := f(pipelineJobInfo); err != nil {
-			return err
-		}
-	}
-}
-
-// FlushPipelineJobAll returns all the jobs which were triggered by commits.
-// If toPipelines is non-nil then only the jobs between commits and those
-// pipelines in the DAG will be returned.
-func (c APIClient) FlushPipelineJobAll(commits []*pfs.Commit, toPipelines []string) ([]*pps.PipelineJobInfo, error) {
-	var result []*pps.PipelineJobInfo
-	if err := c.FlushPipelineJob(commits, toPipelines, func(pji *pps.PipelineJobInfo) error {
-		result = append(result, pji)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 // DeletePipelineJob deletes a job.

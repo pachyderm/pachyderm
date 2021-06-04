@@ -560,6 +560,9 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if commitInfo.Finished != nil {
 		return pfsserver.ErrCommitFinished{commitInfo.Commit}
 	}
+	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
+		return errors.Errorf("cannot finish an alias commit: %s", pfsdb.CommitKey(commitInfo.Commit))
+	}
 	if description != "" {
 		commitInfo.Description = description
 	}
@@ -655,11 +658,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 		parentCommitInfo := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(parent), parentCommitInfo, func() error {
 			if parentCommitInfo.Finished == nil {
-				// We allow aliases on unfinished commits only in output repos (requiring
-				// branch provenance) and on the same branch as the original
-				if len(branchInfo.Provenance) == 0 {
-					return errors.Errorf("cannot create an alias for an open input commit: %s", pfsdb.CommitKey(parent))
-				}
+				// We allow aliases on the same branch as the original
 				if !proto.Equal(branch, parent.Branch) {
 					return errors.Errorf("cannot create an alias for an open commit from a different branch: %s -> %s", pfsdb.CommitKey(parent), pfsdb.BranchKey(branch))
 				}

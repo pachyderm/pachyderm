@@ -405,6 +405,9 @@ func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTest
 	return nil, unsupportedError("RunLoadTest")
 }
 
+func (c *ppsBuilderClient) InspectPipelineJobset(ctx context.Context, req *pps.InspectPipelineJobsetRequest, opts ...grpc.CallOption) (pps.API_InspectPipelineJobsetClient, error) {
+	return nil, unsupportedError("InspectPipelineJobset")
+}
 func (c *ppsBuilderClient) InspectPipelineJob(ctx context.Context, req *pps.InspectPipelineJobRequest, opts ...grpc.CallOption) (*pps.PipelineJobInfo, error) {
 	return nil, unsupportedError("InspectPipelineJob")
 }
@@ -413,9 +416,6 @@ func (c *ppsBuilderClient) ListPipelineJob(ctx context.Context, req *pps.ListPip
 }
 func (c *ppsBuilderClient) SubscribePipelineJob(ctx context.Context, req *pps.SubscribePipelineJobRequest, opts ...grpc.CallOption) (pps.API_SubscribePipelineJobClient, error) {
 	return nil, unsupportedError("SubscribePipelineJob")
-}
-func (c *ppsBuilderClient) FlushPipelineJob(ctx context.Context, req *pps.FlushPipelineJobRequest, opts ...grpc.CallOption) (pps.API_FlushPipelineJobClient, error) {
-	return nil, unsupportedError("FlushPipelineJob")
 }
 func (c *ppsBuilderClient) DeletePipelineJob(ctx context.Context, req *pps.DeletePipelineJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeletePipelineJob")

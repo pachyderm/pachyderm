@@ -20,7 +20,10 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		driver.PipelineInfo().Pipeline.Name,
 		true,
 		func(pipelineJobInfo *pps.PipelineJobInfo) error {
-			// TODO: check that this is for the right version of the pipeline
+			if pipelineJobInfo.PipelineVersion != driver.PipelineInfo().Version {
+				// Skip this job - we should be shut down soon, but don't error out in the meantime
+				return nil
+			}
 			return reg.startPipelineJob(proto.Clone(pipelineJobInfo).(*pps.PipelineJobInfo))
 		},
 	)

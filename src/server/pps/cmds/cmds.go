@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
@@ -121,7 +122,11 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			pipelineJobInfo, err := client.InspectPipelineJob(pipelineJob.Pipeline.Name, pipelineJob.ID, block, true)
+			pipelineJobInfo, err := client.PpsAPIClient.InspectPipelineJob(client.Ctx(), &pps.InspectPipelineJobRequest{
+				PipelineJob: pipelineJob,
+				BlockState:  block,
+				Full:        true,
+			})
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectPipelineJob: %s", err.Error())
 			}
@@ -239,69 +244,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return nil, shell.SameFlag(flag)
 		})
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
-
-	var pipelines cmdutil.RepeatedStringArg
-	flushJob := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit> ...",
-		Short: "Wait for all jobs caused by the specified commits to finish and return them.",
-		Long:  "Wait for all jobs caused by the specified commits to finish and return them.",
-		Example: `
-# Return jobs caused by foo@XXX and bar@YYY.
-$ {{alias}} foo@XXX bar@YYY
-
-# Return jobs caused by foo@XXX leading to pipelines bar and baz.
-$ {{alias}} foo@XXX -p bar -p baz`,
-		Run: cmdutil.Run(func(args []string) error {
-			if output != "" && !raw {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
-			}
-			commits, err := cmdutil.ParseCommits(args)
-			if err != nil {
-				return err
-			}
-
-			c, err := pachdclient.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			var writer *tabwriter.Writer
-			if !raw {
-				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			}
-			e := encoder(output)
-			if err := c.FlushPipelineJob(commits, pipelines, func(pji *ppsclient.PipelineJobInfo) error {
-				if raw {
-					if err := e.EncodeProto(pji); err != nil {
-						return err
-					}
-					return nil
-				}
-				pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
-				return nil
-			}); err != nil {
-				return err
-			}
-			if !raw {
-				return writer.Flush()
-			}
-			return nil
-		}),
-	}
-	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
-	flushJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	flushJob.Flags().AddFlagSet(outputFlags)
-	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
-	shell.RegisterCompletionFunc(flushJob,
-		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
-			if flag == "--pipeline" || flag == "-p" {
-				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-			}
-			cs, cf := shell.BranchCompletion(flag, text, maxCompletions)
-			return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-		})
-	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
 
 	deleteJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",

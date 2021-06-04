@@ -31,8 +31,8 @@ import (
 
 const (
 	pipelineNameLabel         = "pipelineName"
-	pachVersionAnnotation     = "version"
-	specCommitAnnotation      = "specCommit"
+	pachVersionAnnotation     = "pachVersion"
+	pipelineVersionAnnotation = "pipelineVersion"
 	hashedAuthTokenAnnotation = "authTokenHash"
 )
 
@@ -562,7 +562,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *
 	annotations := map[string]string{
 		pipelineNameLabel:         pipelineName,
 		pachVersionAnnotation:     version.PrettyVersion(),
-		specCommitAnnotation:      ptr.OriginalSpecCommit.ID,
+		pipelineVersionAnnotation: strconv.FormatUint(ptr.Version, 10),
 		hashedAuthTokenAnnotation: hashAuthToken(ptr.AuthToken),
 	}
 	if a.iamRole != "" {

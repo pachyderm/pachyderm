@@ -171,10 +171,11 @@ func TestS3Input(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pjis, err := c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(repo, "master", "")}, nil)
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pjis))
-	pipelineJobInfo := pjis[0]
+
+	pipelineJobInfo, err := c.BlockPipelineJob(pipeline, commitInfo.Commit.ID)
+	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// Make sure ListFile works
@@ -254,10 +255,11 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pjis, err := c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(repo, "master", "")}, nil)
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pjis))
-	pipelineJobInfo := pjis[0]
+
+	pipelineJobInfo, err := c.BlockPipelineJob(pipeline, commitInfo.Commit.ID)
+	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// check S3_ENDPOINT variable
@@ -308,10 +310,11 @@ func TestS3Output(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pjis, err := c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(repo, "master", "")}, nil)
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pjis))
-	pipelineJobInfo := pjis[0]
+
+	pipelineJobInfo, err := c.BlockPipelineJob(pipeline, commitInfo.Commit.ID)
+	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// Make sure ListFile works
@@ -393,10 +396,11 @@ func TestFullS3(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pjis, err := c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(repo, "master", "")}, nil)
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pjis))
-	pipelineJobInfo := pjis[0]
+
+	pipelineJobInfo, err := c.BlockPipelineJob(pipeline, commitInfo.Commit.ID)
+	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
 
 	// Make sure ListFile works
@@ -501,9 +505,8 @@ func TestS3SkippedDatums(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		pjis, err := c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(s3in, "master", "")}, nil)
+		_, err = c.BlockCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		require.Equal(t, 1, len(pjis))
 
 		// Part 1: add files in pfs input w/o changing s3 input. Old files in
 		// 'pfsin' should be skipped datums
@@ -520,9 +523,10 @@ func TestS3SkippedDatums(t *testing.T) {
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewCommit(pfsin, "master", ""), iS, strings.NewReader(iS)))
 
-			_, err = c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(s3in, "master", "")}, nil)
+			_, err = c.BlockCommit(pipeline, "master", "")
 			require.NoError(t, err)
-			pjis, err = c.ListPipelineJob(pipeline, nil, nil, 0, false)
+
+			pjis, err := c.ListPipelineJob(pipeline, nil, nil, 0, false)
 			require.NoError(t, err)
 			require.Equal(t, i+2, len(pjis)) // one empty job w/ initial s3in commit
 			for j := 0; j < len(pjis); j++ {
@@ -560,9 +564,10 @@ func TestS3SkippedDatums(t *testing.T) {
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
 		c.FinishCommit(s3in, s3c.Branch.Name, s3c.ID)
 
-		_, err = c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(s3in, "master", "")}, nil)
+		_, err = c.BlockCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		pjis, err = c.ListPipelineJob(pipeline, nil, nil, 0, false)
+
+		pjis, err := c.ListPipelineJob(pipeline, nil, nil, 0, false)
 		require.NoError(t, err)
 		require.Equal(t, 12, len(pjis))
 		for j := 0; j < len(pjis); j++ {
@@ -584,12 +589,6 @@ func TestS3SkippedDatums(t *testing.T) {
 
 		// check output
 		var buf bytes.Buffer
-		// Flush commit so that GetFile doesn't accidentally run after the job
-		// finishes but before the commit finishes
-		_, err = c.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(s3in, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)})
-		require.NoError(t, err)
 		c.GetFile(pipelineCommit, "out", &buf)
 		s := bufio.NewScanner(&buf)
 		var seen [10]bool // One per file in 'pfsin'
@@ -679,7 +678,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))
 
-			_, err = c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(repo, "master", "")}, nil)
+			_, err = c.BlockCommit(pipeline, "master", "")
 			require.NoError(t, err)
 			pjis, err := c.ListPipelineJob(pipeline, nil, nil, 0, false)
 			require.NoError(t, err)
@@ -688,14 +687,6 @@ func TestS3SkippedDatums(t *testing.T) {
 				require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
 			}
 
-			// check output
-			// ------------
-			// Flush commit so that GetFile doesn't accidentally run after the job
-			// finishes but before the commit finishes
-			_, err = c.FlushJobAll(
-				[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-				[]*pfs.Repo{client.NewRepo(pipeline)})
-			require.NoError(t, err)
 			for j := 0; j <= i; j++ {
 				var buf bytes.Buffer
 				require.NoError(t, c.GetFile(pipelineCommit, strconv.Itoa(j), &buf))

@@ -263,8 +263,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 			false,
 		))
 
-		// we should have one job between pipeline and downstreamPipeline
-		pipelineJobInfos, err := c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master", "")}, []string{downstreamPipeline})
+		// we should have one job on the downstream pipeline
+		pipelineJobInfos, err := c.ListPipelineJob(downstreamPipeline, nil, nil, -1, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(pipelineJobInfos))
 

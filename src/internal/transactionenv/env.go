@@ -284,7 +284,6 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 		}
 		if env.serviceEnv.PfsServer() != nil {
 			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
-			txnCtx.CommitFinisher = env.serviceEnv.PfsServer().NewPipelineFinisher(txnCtx)
 		}
 		if env.serviceEnv.PpsServer() != nil {
 			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
@@ -304,11 +303,10 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
 	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		txnCtx := &txncontext.TransactionContext{
-			ClientContext:  ctx,
-			SqlTx:          sqlTx,
-			CommitsetID:    uuid.NewWithoutDashes(),
-			Timestamp:      types.TimestampNow(),
-			CommitFinisher: nil, // don't alter any pipeline commits in a read-only setting
+			ClientContext: ctx,
+			SqlTx:         sqlTx,
+			CommitsetID:   uuid.NewWithoutDashes(),
+			Timestamp:     types.TimestampNow(),
 		}
 		if env.serviceEnv.PfsServer() != nil {
 			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)

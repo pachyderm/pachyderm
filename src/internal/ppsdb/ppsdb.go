@@ -34,7 +34,7 @@ func Pipelines(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollecti
 
 // PipelineJobsPipelineIndex maps pipeline to PipelineJobs started by the pipeline
 var PipelineJobsPipelineIndex = &col.Index{
-	Name: "Pipeline",
+	Name: "pipeline",
 	Extract: func(val proto.Message) string {
 		return val.(*pps.StoredPipelineJobInfo).PipelineJob.Pipeline.Name
 	},
@@ -42,7 +42,7 @@ var PipelineJobsPipelineIndex = &col.Index{
 
 // PipelineJobsOutputIndex maps job outputs to the PipelineJob that create them.
 var PipelineJobsOutputIndex = &col.Index{
-	Name: "OutputCommit",
+	Name: "output_commit",
 	Extract: func(val proto.Message) string {
 		return pfsdb.CommitKey(val.(*pps.StoredPipelineJobInfo).OutputCommit)
 	},
@@ -52,16 +52,22 @@ func PipelineJobTerminalKey(pipeline *pps.Pipeline, isTerminal bool) string {
 	return fmt.Sprintf("%s_%v", pipeline.Name, isTerminal)
 }
 
-// PipelineJobsOutputIndex maps job outputs to the PipelineJob that create them.
 var PipelineJobsTerminalIndex = &col.Index{
-	Name: "PipelineJobState",
+	Name: "job_state",
 	Extract: func(val proto.Message) string {
 		jobInfo := val.(*pps.StoredPipelineJobInfo)
 		return PipelineJobTerminalKey(jobInfo.PipelineJob.Pipeline, ppsutil.IsTerminal(jobInfo.State))
 	},
 }
 
-var pipelineJobsIndexes = []*col.Index{PipelineJobsPipelineIndex, PipelineJobsOutputIndex, PipelineJobsTerminalIndex}
+var PipelineJobsJobsetIndex = &col.Index{
+	Name: "jobset",
+	Extract: func(val proto.Message) string {
+		return val.(*pps.StoredPipelineJobInfo).PipelineJob.ID
+	},
+}
+
+var pipelineJobsIndexes = []*col.Index{PipelineJobsPipelineIndex, PipelineJobsOutputIndex, PipelineJobsTerminalIndex, PipelineJobsJobsetIndex}
 
 var JobKey = ppsutil.JobKey
 

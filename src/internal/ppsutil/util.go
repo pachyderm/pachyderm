@@ -132,6 +132,7 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.Store
 	if result.Pipeline == nil {
 		result.Pipeline = ptr.Pipeline
 	}
+	result.Stopped = ptr.Stopped
 	result.State = ptr.State
 	result.Reason = ptr.Reason
 	result.JobCounts = ptr.JobCounts
@@ -362,11 +363,20 @@ func UpdatePipelineJobState(pipelines col.ReadWriteCollection, pipelineJobs col.
 	var err error
 	if state == pps.PipelineJobState_JOB_STARTING {
 		pipelineJobPtr.Started, err = types.TimestampProto(time.Now())
+		if err != nil {
+			return err
+		}
 	} else if IsTerminal(state) {
+		if pipelineJobPtr.Started == nil {
+			pipelineJobPtr.Started, err = types.TimestampProto(time.Now())
+			if err != nil {
+				return err
+			}
+		}
 		pipelineJobPtr.Finished, err = types.TimestampProto(time.Now())
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	pipelineJobPtr.State = state
 	pipelineJobPtr.Reason = reason

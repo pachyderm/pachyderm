@@ -287,13 +287,13 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	require.NoError(t, err)
 
 	// Wait for the output commit
-	commitset, err := pachClient.BlockCommitset(commit1.ID)
+	commitInfos, err := pachClient.BlockCommitsetAll(commit1.ID)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitset.Commits))
+	require.Equal(t, 2, len(commitInfos))
 
 	// Check the pipeline output
 	var buf bytes.Buffer
-	require.NoError(t, pachClient.GetFile(commitset.Commits[0].Info.Commit, "file", &buf))
+	require.NoError(t, pachClient.GetFile(commitInfos[0].Commit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 }
 

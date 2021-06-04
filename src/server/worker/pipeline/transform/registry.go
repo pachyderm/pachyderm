@@ -314,7 +314,7 @@ func (reg *registry) startPipelineJob(pipelineJobInfo *pps.PipelineJobInfo) erro
 					err = errors.Unwrap(err)
 				}
 				// Get job state, increment restarts, write job state
-				ppj.pji, err = ppj.driver.PachClient().InspectPipelineJob(ppj.pji.PipelineJob.Pipeline.Name, ppj.pji.PipelineJob.ID, false)
+				ppj.pji, err = ppj.driver.PachClient().InspectPipelineJob(ppj.pji.PipelineJob.Pipeline.Name, ppj.pji.PipelineJob.ID)
 				if err != nil {
 					return err
 				}
