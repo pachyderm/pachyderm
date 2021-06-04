@@ -399,6 +399,19 @@
                 }
             }
         },
+        "postgresql": {
+            "type": "object",
+            "properties": {
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "rbac": {
             "type": "object",
             "properties": {

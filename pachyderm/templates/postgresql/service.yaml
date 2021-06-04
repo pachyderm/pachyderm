@@ -15,7 +15,10 @@ spec:
   ports:
   - name: client-port
     port: 5432
+    {{- if eq .Values.postgresql.service.type "NodePort" }}
+    nodePort: 32228
+    {{- end }}
     targetPort: client-port
   selector:
     app: postgres
-  type: ClusterIP
+  type: {{ .Values.postgresql.service.type }}

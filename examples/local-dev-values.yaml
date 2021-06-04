@@ -34,3 +34,7 @@ worker:
 etcd:
   service:
     type: NodePort
+
+postgresql:
+  service:
+    type: NodePort
