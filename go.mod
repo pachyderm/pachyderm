@@ -5,6 +5,7 @@ go 1.15
 require (
 	cloud.google.com/go/storage v1.3.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.19 // indirect
 	github.com/OneOfOne/xxhash v1.2.6
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
@@ -114,8 +115,6 @@ require (
 // Holy shit, the docker library versions are a clusterfuck, see https://github.com/moby/moby/issues/39302
 // For the moment, the windows build requires a fix that has not been tagged with an official release
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
-
-replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
