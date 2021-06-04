@@ -1242,9 +1242,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		false,
 	))
 	require.NoErrorWithinT(t, time.Minute, func() error {
-		_, err := aliceClient.FlushCommitAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline2)})
+		_, err := aliceClient.BlockCommit(pipeline2, "master", "")
 		return err
 	})
 	pipelineCommit := client.NewCommit(pipeline2, "master", "")

@@ -49,7 +49,6 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 				Glob:   "/*",
 			},
 		},
-		SpecCommit: client.NewSystemRepo(name, pfs.SpecRepoType).NewCommit("master", ""),
 	}
 }
 
@@ -110,8 +109,8 @@ func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.
 func (td *testDriver) DeleteJob(sqlTx *sqlx.Tx, ji *pps.StoredJobInfo) error {
 	return td.inner.DeleteJob(sqlTx, ji)
 }
-func (td *testDriver) UpdateJobState(jobID string, state pps.JobState, reason string) error {
-	return td.inner.UpdateJobState(jobID, state, reason)
+func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
+	return td.inner.UpdateJobState(job, state, reason)
 }
 func (td *testDriver) NewSQLTx(cb func(*sqlx.Tx) error) error {
 	return td.inner.NewSQLTx(cb)

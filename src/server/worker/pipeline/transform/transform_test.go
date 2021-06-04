@@ -49,54 +49,54 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, os.Setenv(obj.StorageBackendEnvVar, obj.Local))
 	require.NoError(t, os.MkdirAll(env.ServiceEnv.Config().StorageRoot, 0777))
 
-	// Set up repos and branches for the pipeline
+	// Set up the input repo and branch
 	input := pipelineInfo.Input.Pfs
 	require.NoError(t, env.PachClient.CreateRepo(input.Repo))
 	require.NoError(t, env.PachClient.CreateBranch(input.Repo, input.Branch, "", "", nil))
 
-	_, err := env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{Branch: pipelineInfo.SpecCommit.Branch})
+	// Create the output repo
+	pipelineRepo := client.NewRepo(pipelineInfo.Pipeline.Name)
+	_, err := env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: pipelineRepo})
 	require.NoError(t, err)
 
-	commit, err := env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: pipelineInfo.SpecCommit.Branch})
+	// Create the spec system repo and create the initial spec commit
+	specRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
+	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
-	pipelineInfo.SpecCommit = commit
-
-	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: commit})
+	specCommit, err := env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: specRepo.NewBranch("master")})
+	require.NoError(t, err)
+	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: specCommit})
 	require.NoError(t, err)
 
-	err = env.PachClient.CreateRepo(pipelineInfo.Pipeline.Name)
-	require.NoError(t, err)
-
-	err = env.PachClient.CreateBranch(
-		pipelineInfo.Pipeline.Name,
-		pipelineInfo.OutputBranch,
-		"",
-		"",
-		[]*pfs.Branch{
+	// Make the output branch provenant on the spec and input branches
+	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+		Branch: pipelineRepo.NewBranch(pipelineInfo.OutputBranch),
+		Provenance: []*pfs.Branch{
 			client.NewBranch(input.Repo, input.Branch),
-			pipelineInfo.SpecCommit.Branch.Repo.NewBranch(pipelineInfo.Pipeline.Name),
+			specRepo.NewBranch("master"),
 		},
-	)
+	})
 	require.NoError(t, err)
 
+	// Create the meta system repo and set up the branch provenance
 	metaRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
-	_, err = env.PachClient.PfsAPIClient.CreateBranch(
-		env.PachClient.Ctx(),
-		&pfs.CreateBranchRequest{
-			Head:       metaRepo.NewCommit("master", ""),
-			Branch:     metaRepo.NewBranch("master"),
-			Provenance: []*pfs.Branch{client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)},
-		})
+	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: metaRepo})
+	require.NoError(t, err)
+	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+		Branch:     metaRepo.NewBranch("master"),
+		Provenance: []*pfs.Branch{pipelineRepo.NewBranch("master")},
+	})
 	require.NoError(t, err)
 
-	// Put the pipeline info into etcd (which is read by the master)
+	// Put the pipeline info into the collection (which is read by the master)
 	err = env.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
-		etcdPipelineInfo := &pps.StoredPipelineInfo{
-			State:       pps.PipelineState_PIPELINE_STARTING,
-			SpecCommit:  pipelineInfo.SpecCommit,
-			Parallelism: 1,
+		storedPipelineInfo := &pps.StoredPipelineInfo{
+			State:              pps.PipelineState_PIPELINE_STARTING,
+			Version:            1,
+			OriginalSpecCommit: specCommit,
+			Parallelism:        1,
 		}
-		return env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name, etcdPipelineInfo)
+		return env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name, storedPipelineInfo)
 	})
 	require.NoError(t, err)
 
@@ -158,9 +158,6 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 	})
 
 	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
-		if storedJobInfo.OutputCommit == nil {
-			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
-		}
 		outputCommitInfo, err := env.PachClient.InspectCommit(storedJobInfo.OutputCommit.Branch.Repo.Name, storedJobInfo.OutputCommit.Branch.Name, storedJobInfo.OutputCommit.ID)
 		require.NoError(t, err)
 
