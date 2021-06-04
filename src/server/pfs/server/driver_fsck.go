@@ -107,7 +107,7 @@ func (e ErrCommitInfoNotFound) Error() string {
 		pfsdb.CommitKey(e.Commit), e.Location)
 }
 
-// ErrCommitAncestryBroken Commit info could not be found. Typically because of an incomplete deletion of a commit.
+// ErrCommitAncestryBroken indicates that a parent and child commit disagree on their relationship.
 // This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
 type ErrCommitAncestryBroken struct {
 	Parent *pfs.Commit
@@ -117,6 +117,15 @@ type ErrCommitAncestryBroken struct {
 func (e ErrCommitAncestryBroken) Error() string {
 	return fmt.Sprintf("consistency error: parent commit %s and child commit %s disagree about their parent/child relationship",
 		pfsdb.CommitKey(e.Parent), pfsdb.CommitKey(e.Child))
+}
+
+// ErrMissingBranchHead indicates that a branch has a 'nil' head, which should never happen.
+type ErrMissingBranchHead struct {
+	Branch *pfs.Branch
+}
+
+func (e ErrMissingBranchHead) Error() string {
+	return fmt.Sprintf("consistency error: branch %s does not have a head commit", pfsdb.BranchKey(e.Branch))
 }
 
 // fsck verifies that pfs satisfies the following invariants:
@@ -200,11 +209,17 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 			}
 		}
 
-		// 	if there is a HEAD commit
-		if bi.Head != nil {
+		if bi.Head == nil {
+			if err := onError(ErrMissingBranchHead{
+				Branch: bi.Branch,
+			}); err != nil {
+				return err
+			}
+		} else {
 			// we expect the branch's provenance to equal the HEAD commit's provenance
-			// i.e branch.Provenance contains the branch provBranch and provBranch.Head != nil implies branch.Head.Provenance contains provBranch.Head
-			// =>
+			// i.e branch.Provenance contains the branch provBranch and
+			// provBranch.Head != nil implies branch.Head.Provenance contains
+			// provBranch.Head
 			for _, provBranch := range bi.Provenance {
 				provBranchInfo, ok := branchInfos[pfsdb.BranchKey(provBranch)]
 				if !ok {
