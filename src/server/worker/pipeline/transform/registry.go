@@ -209,7 +209,11 @@ func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.JobInfo, error)
 	if err != nil {
 		// TODO: It would be better for this to be a structured error.
 		if strings.Contains(err.Error(), "not found") {
-			job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, ppsutil.GetStatsCommit(commitInfo))
+			var statsCommit *pfs.Commit
+			if statsCommit, err = ppsutil.GetStatsCommit(commitInfo); err != nil {
+				return nil, err
+			}
+			job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
 			if err != nil {
 				return nil, err
 			}

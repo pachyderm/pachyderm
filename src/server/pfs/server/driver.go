@@ -1475,10 +1475,7 @@ func (d *driver) squashCommit(txnCtx *txncontext.TransactionContext, userCommit 
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
 				return err
 			}
-			// If a commit has already been deleted, we don't want to overwrite the existing information, since commitInfo will be nil
-			if _, ok := deleted[commit.ID]; !ok {
-				deleted[commit.ID] = commitInfo
-			}
+			deleted[commit.ID] = commitInfo
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.CommitKey(commit)); err != nil {
 				return err
 			}
