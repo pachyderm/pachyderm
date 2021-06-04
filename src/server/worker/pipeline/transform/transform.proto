@@ -12,7 +12,7 @@ message DatumSet {
   // Inputs
   string job_id = 1 [(gogoproto.customname) = "JobID"];
   string fileset_id = 2;
-  pfs.Commit output_commit = 3;
+  pfs_v2.Commit output_commit = 3;
 
   // Outputs
   string output_fileset_id = 4;

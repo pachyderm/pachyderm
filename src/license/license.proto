@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package license;
+package license_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/license";
 
 import "google/protobuf/timestamp.proto";
@@ -20,14 +20,14 @@ message ActivateRequest {
 }
 
 message ActivateResponse {
-  enterprise.TokenInfo info = 1;
+  enterprise_v2.TokenInfo info = 1;
 }
 
 message GetActivationCodeRequest {}
 
 message GetActivationCodeResponse {
-  enterprise.State state = 1;
-  enterprise.TokenInfo info = 2;
+  enterprise_v2.State state = 1;
+  enterprise_v2.TokenInfo info = 2;
   string activation_code = 3;
 }
 
@@ -96,7 +96,7 @@ message HeartbeatRequest {
 }
 
 message HeartbeatResponse {
-  enterprise.LicenseRecord license = 1;
+  enterprise_v2.LicenseRecord license = 1;
 }
 
 message UserClusterInfo {
