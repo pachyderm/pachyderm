@@ -382,7 +382,7 @@ func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar
 }
 
 func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
-	return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) error {
+	return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) (retErr error) {
 		if err != nil {
 			return err
 		}
@@ -404,8 +404,23 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 		if err != nil {
 			return err
 		}
-		if !strings.HasPrefix(file, d.PFSStorageRoot()) {
+		if fi.Mode()&os.ModeNamedPipe != 0 {
 			return nil
+		}
+		if !strings.HasPrefix(file, d.PFSStorageRoot()) {
+			if fi.IsDir() {
+				return nil
+			}
+			f, err := os.Open(file)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
+			return mf.PutFile(dstPath, f, client.WithTagPutFile(d.ID))
 		}
 		relPath, err := filepath.Rel(d.PFSStorageRoot(), file)
 		if err != nil {
