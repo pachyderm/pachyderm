@@ -1558,7 +1558,7 @@ func TestListDatum(t *testing.T) {
 	})
 	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobs))
+	require.Equal(t, 3, len(jobs))
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListDatum
@@ -1642,7 +1642,7 @@ func TestListJob(t *testing.T) {
 	})
 	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
+	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListJob on 'pipeline'
@@ -1718,7 +1718,7 @@ func TestInspectDatum(t *testing.T) {
 	})
 	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
+	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
 
 	// ListDatum seems like it may return inconsistent results, so sleep until
@@ -2623,7 +2623,7 @@ func TestDebug(t *testing.T) {
 
 	jobInfos, err := aliceClient.BlockJobsetAll(commit1.ID, false)
 	require.NoError(t, err)
-	require.Equal(t, 6, len(jobInfos))
+	require.Equal(t, 3, len(jobInfos))
 
 	// Only admins can collect a debug dump.
 	buf := &bytes.Buffer{}
