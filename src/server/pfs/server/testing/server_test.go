@@ -384,7 +384,7 @@ func TestPFS(suite *testing.T) {
 		require.ElementsEqualUnderFn(t, repoNames, repoInfos, RepoInfoToName)
 	})
 
-	// Make sure that commits of deleted repos do not resurface
+	// Make sure that artifacts of deleted repos do not resurface
 	suite.Run("CreateDeletedRepo", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -393,12 +393,27 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		repoProto := client.NewRepo(repo)
 
+		systemRepo := client.NewSystemRepo(repo, pfs.MetaRepoType)
+		_, err := env.PachClient.PfsAPIClient.CreateRepo(env.PachClient.Ctx(), &pfs.CreateRepoRequest{
+			Repo: systemRepo,
+		})
+		require.NoError(t, err)
+
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader("foo")))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
+		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
+			Branch: systemRepo.NewBranch("master"),
+		})
+		require.NoError(t, err)
+
 		commitInfos, err := env.PachClient.ListCommit(repoProto, nil, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(commitInfos))
+
+		commitInfos, err = env.PachClient.ListCommit(systemRepo, nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -408,6 +423,15 @@ func TestPFS(suite *testing.T) {
 		commitInfos, err = env.PachClient.ListCommit(repoProto, nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
+
+		branchInfos, err := env.PachClient.ListBranch(repo)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(branchInfos))
+
+		repoInfos, err := env.PachClient.ListRepoByType("")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repoInfos))
+
 	})
 
 	// Make sure that commits of deleted repos do not resurface
