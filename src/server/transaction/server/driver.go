@@ -237,16 +237,16 @@ func (d *driver) updateTransaction(
 	ctx context.Context,
 	writeTxn bool,
 	txn *transaction.Transaction,
-	f func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error)
-	) (*transaction.TransactionInfo, error) {
+	f func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error),
+) (*transaction.TransactionInfo, error) {
 	// Run this thing in a loop in case we get a conflict, time out after some tries
-	var newInfo transaction.TransactionInfo
+	newInfo := new(transaction.TransactionInfo)
 	attempt := func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		if err = d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, &newInfo); err != nil {
+		if err = d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, newInfo); err != nil {
 			return err
 		}
-		if newInfo, err = f(txnCtx, &newInfo); err != nil && col.IsErrTransactionConflict(err) {
+		if newInfo, err = f(txnCtx, newInfo); err != nil && col.IsErrTransactionConflict(err) {
 			// if we saw ErrTransactionConflict, assume something had to change the transaction response
 			// (such as a pipeline seeing an update outside the transaction), so return this error to
 			// escape the SQL transaction and run the storing code
@@ -264,7 +264,7 @@ func (d *driver) updateTransaction(
 			err = d.txnEnv.WithReadContext(ctx, attempt)
 		}
 		if err != nil && errors.Is(err, errutil.ErrBreak) {
-			return &newInfo, nil // no need to update
+			return newInfo, nil // no need to update
 		}
 
 		// a transactionModifiedError from the update function should be understood
@@ -292,7 +292,7 @@ func (d *driver) updateTransaction(
 		// if we got a transactionModifiedError, either from f or trying to update the stored TransactionInfo,
 		// just try again
 		if err == nil {
-			return &newInfo, nil
+			return newInfo, nil
 		} else if !errors.Is(err, &transactionModifiedError{}) {
 			return nil, err
 		}
