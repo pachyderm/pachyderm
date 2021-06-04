@@ -21,7 +21,7 @@ import (
 // with a kubernetes Deployment.
 
 var (
-	etcdImage = "pachyderm/etcd:v3.4.16"
+	etcdImage = "bitnami/etcd:v3.4.16"
 
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
