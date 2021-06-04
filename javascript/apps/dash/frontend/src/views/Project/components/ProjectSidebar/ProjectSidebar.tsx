@@ -2,6 +2,10 @@ import React from 'react';
 import {Route, Switch} from 'react-router';
 
 import JobList from '@dash-frontend/components/JobList';
+import {
+  CREATE_FIRST_JOB_MESSAGE,
+  LETS_START_TITLE,
+} from '@dash-frontend/components/ListEmptyState/constants/ListEmptyStateConstants';
 import Sidebar from '@dash-frontend/components/Sidebar';
 
 import {
@@ -15,10 +19,6 @@ import JobDetails from './components/JobDetails';
 import PipelineDetails from './components/PipelineDetails';
 import RepoDetails from './components/RepoDetails';
 import useProjectSidebar from './hooks/useProjectSidebar';
-
-const emptyStateTitle = "Let's Start :)";
-const emptyJobListMessage =
-  'Create your first job! If there are any pipeline errors, fix those before you create a job.';
 
 const ProjectSidebar = () => {
   const {projectId, handleClose, sidebarSize} = useProjectSidebar();
@@ -37,8 +37,8 @@ const ProjectSidebar = () => {
               projectId={projectId}
               expandActions
               showStatusFilter
-              emptyStateTitle={emptyStateTitle}
-              emptyStateMessage={emptyJobListMessage}
+              emptyStateTitle={LETS_START_TITLE}
+              emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}
             />
           </Route>
           <Route path={JOB_PATH}>

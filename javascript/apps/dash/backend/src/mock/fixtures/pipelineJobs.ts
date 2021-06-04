@@ -59,6 +59,7 @@ const pipelineJobs: {[projectId: string]: PipelineJobInfo[]} = {
   '3': tutorial,
   '4': customerTeam,
   '5': [],
+  '6': [],
   default: [...tutorial, ...customerTeam],
 };
 

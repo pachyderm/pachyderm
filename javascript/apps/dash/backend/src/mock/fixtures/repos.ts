@@ -97,6 +97,7 @@ const repos: {[projectId: string]: RepoInfo[]} = {
   '3': cron,
   '4': customerTeam,
   '5': tutorial,
+  '6': [],
   default: [...tutorial, ...customerTeam],
 };
 

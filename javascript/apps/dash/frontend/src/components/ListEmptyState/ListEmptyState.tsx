@@ -1,17 +1,14 @@
 import {ElephantEmptyState} from '@pachyderm/components';
 import React from 'react';
 
-import styles from './JobListEmptyState.module.css';
+import styles from './ListEmptyState.module.css';
 
-type JobListEmptyStateProps = {
+type ListEmptyStateProps = {
   title: string;
   message: string;
 };
 
-const JobListEmptyState: React.FC<JobListEmptyStateProps> = ({
-  title,
-  message,
-}) => {
+const ListEmptyState: React.FC<ListEmptyStateProps> = ({title, message}) => {
   return (
     <div className={styles.base}>
       <ElephantEmptyState className={styles.elephantSvg} />
@@ -21,4 +18,4 @@ const JobListEmptyState: React.FC<JobListEmptyStateProps> = ({
   );
 };
 
-export default JobListEmptyState;
+export default ListEmptyState;

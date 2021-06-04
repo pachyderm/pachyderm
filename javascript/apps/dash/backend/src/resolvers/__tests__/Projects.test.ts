@@ -70,7 +70,7 @@ describe('Projects Resolver', () => {
 
       const projects = data?.projects;
 
-      expect(projects?.length).toEqual(5);
+      expect(projects?.length).toEqual(6);
       expect(projects?.[0]?.name).toEqual('Solar Panel Data Sorting');
       expect(projects?.[1]?.name).toEqual('Data Cleaning Process');
       expect(projects?.[2]?.name).toEqual(
@@ -78,6 +78,7 @@ describe('Projects Resolver', () => {
       );
       expect(projects?.[3]?.name).toEqual('Solar Price Prediction Modal');
       expect(projects?.[4]?.name).toEqual('Solar Industry Analysis 2020');
+      expect(projects?.[5]?.name).toEqual('Empty Project');
     });
   });
 

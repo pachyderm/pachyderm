@@ -1,11 +1,11 @@
 import React from 'react';
 
 import JobList from '@dash-frontend/components/JobList';
+import {LETS_START_TITLE} from '@dash-frontend/components/ListEmptyState/constants/ListEmptyStateConstants';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import styles from './PipelineJobs.module.css';
 
-const emptyStateTitle = "Let's Start :)";
 const emptyJobListMessage = 'Create your first job on this pipeline!';
 
 const PipelineJobs = () => {
@@ -16,7 +16,7 @@ const PipelineJobs = () => {
       <JobList
         projectId={projectId}
         pipelineId={pipelineId}
-        emptyStateTitle={emptyStateTitle}
+        emptyStateTitle={LETS_START_TITLE}
         emptyStateMessage={emptyJobListMessage}
       />
     </div>

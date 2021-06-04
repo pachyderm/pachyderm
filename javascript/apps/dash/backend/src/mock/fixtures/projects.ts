@@ -46,6 +46,14 @@ const projects: {[projectId: string]: Project} = {
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     ),
+  '6': new Project()
+    .setId('6')
+    .setName('Empty Project')
+    .setCreatedat(new Timestamp().setSeconds(1614126189))
+    .setStatus(ProjectStatus.HEALTHY)
+    .setDescription(
+      'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+    ),
 };
 
 export const projectInfo = new Projects().setProjectInfoList(

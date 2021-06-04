@@ -77,5 +77,21 @@ describe('ProjectSidebar', () => {
 
       expect(emptyMessage).toBeInTheDocument();
     });
+
+    it('should show empty repo message when repo has no commits', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/3/repo/processor/branch/master',
+      );
+
+      const {findByText} = render(<Project />);
+
+      const emptyMessage = await findByText(
+        'Commit your first file on this repo!',
+      );
+
+      expect(emptyMessage).toBeInTheDocument();
+    });
   });
 });

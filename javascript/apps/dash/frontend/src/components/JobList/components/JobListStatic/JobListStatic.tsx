@@ -3,7 +3,8 @@ import React from 'react';
 
 import {PipelineJobOverviewFragment} from '@graphqlTypes';
 
-import JobListEmptyState from './components/JobListEmptyState';
+import ListEmptyState from '../../../ListEmptyState';
+
 import JobListItem from './components/JobListItem';
 import JobListSkeleton from './components/JobListSkeleton';
 import styles from './JobListStatic.module.css';
@@ -31,7 +32,7 @@ const JobListBase: React.FC<JobListBaseProps> = ({
 
   if (pipelineJobs?.length === 0)
     return (
-      <JobListEmptyState title={emptyStateTitle} message={emptyStateMessage} />
+      <ListEmptyState title={emptyStateTitle} message={emptyStateMessage} />
     );
 
   return (

@@ -2,12 +2,16 @@ import {Link} from '@pachyderm/components';
 import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import React, {useMemo} from 'react';
 
+import ListEmptyState from '@dash-frontend/components/ListEmptyState';
+import {LETS_START_TITLE} from '@dash-frontend/components/ListEmptyState/constants/ListEmptyStateConstants';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {RepoQuery} from '@graphqlTypes';
 
 import styles from './CommitBrowser.module.css';
 import BranchBrowser from './components/BranchBrowser';
+
+const emptyRepoMessage = 'Commit your first file on this repo!';
 
 type CommitBrowserProps = {
   repo?: RepoQuery['repo'];
@@ -23,6 +27,12 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
       ),
     [branchId, repo],
   );
+
+  if (repo?.commits.length === 0) {
+    return (
+      <ListEmptyState title={LETS_START_TITLE} message={emptyRepoMessage} />
+    );
+  }
 
   return (
     <>

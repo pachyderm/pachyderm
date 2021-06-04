@@ -19,7 +19,7 @@ describe('Landing', () => {
   it('should display projects', async () => {
     const {findAllByRole} = render(<Landing />);
 
-    expect(await findAllByRole('row')).toHaveLength(5);
+    expect(await findAllByRole('row')).toHaveLength(6);
   });
 
   it('should allow users to search for projects by name', async () => {
@@ -68,7 +68,7 @@ describe('Landing', () => {
     const {findAllByText} = render(<Landing />);
 
     // one extra due to filter dropdown
-    expect(await findAllByText('Healthy')).toHaveLength(4);
+    expect(await findAllByText('Healthy')).toHaveLength(5);
     expect(await findAllByText('Unhealthy')).toHaveLength(3);
   });
 
@@ -83,7 +83,7 @@ describe('Landing', () => {
       await findAllByText(
         'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
       ),
-    ).toHaveLength(5);
+    ).toHaveLength(6);
   });
 
   it('should allow a user to view a project', async () => {
@@ -103,7 +103,7 @@ describe('Landing', () => {
     const projectCreations = await findAllByTestId('ProjectRow__created');
 
     expect(projectCreations[0].textContent).toEqual('02/28/2021');
-    expect(projectCreations[4].textContent).toEqual('02/22/2021');
+    expect(projectCreations[5].textContent).toEqual('02/22/2021');
   });
 
   it('should allow the user to sort by name', async () => {
@@ -117,7 +117,8 @@ describe('Landing', () => {
     );
     expect(projectNames[2].textContent).toEqual('Solar Price Prediction Modal');
     expect(projectNames[3].textContent).toEqual('Solar Industry Analysis 2020');
-    expect(projectNames[4].textContent).toEqual('Solar Panel Data Sorting');
+    expect(projectNames[4].textContent).toEqual('Empty Project');
+    expect(projectNames[5].textContent).toEqual('Solar Panel Data Sorting');
 
     const sortDropdown = await findByRole('button', {
       name: 'Sort by: Created On',
@@ -131,16 +132,17 @@ describe('Landing', () => {
     expect(nameSortedProjectNames[0].textContent).toEqual(
       'Data Cleaning Process',
     );
-    expect(nameSortedProjectNames[1].textContent).toEqual(
+    expect(nameSortedProjectNames[1].textContent).toEqual('Empty Project');
+    expect(nameSortedProjectNames[2].textContent).toEqual(
       'Solar Industry Analysis 2020',
     );
-    expect(nameSortedProjectNames[2].textContent).toEqual(
+    expect(nameSortedProjectNames[3].textContent).toEqual(
       'Solar Panel Data Sorting',
     );
-    expect(nameSortedProjectNames[3].textContent).toEqual(
+    expect(nameSortedProjectNames[4].textContent).toEqual(
       'Solar Power Data Logger Team Collab',
     );
-    expect(nameSortedProjectNames[4].textContent).toEqual(
+    expect(nameSortedProjectNames[5].textContent).toEqual(
       'Solar Price Prediction Modal',
     );
   });
@@ -148,7 +150,7 @@ describe('Landing', () => {
   it('should allow the user to filter projects by status', async () => {
     const {findAllByText, findByRole, findByLabelText} = render(<Landing />);
 
-    expect(await findAllByText('Healthy')).toHaveLength(4);
+    expect(await findAllByText('Healthy')).toHaveLength(5);
     expect(await findAllByText('Unhealthy')).toHaveLength(3);
 
     const filterDropdown = await findByRole('button', {name: 'Show: All'});
@@ -180,7 +182,7 @@ describe('Landing', () => {
       await findByRole('button', {name: 'Show: Healthy'}),
     ).toBeInTheDocument();
 
-    expect(await findAllByText('Healthy')).toHaveLength(4);
+    expect(await findAllByText('Healthy')).toHaveLength(5);
     expect(await findAllByText('Unhealthy')).toHaveLength(1);
   });
 
@@ -199,7 +201,16 @@ describe('Landing', () => {
 
     const {findByText} = render(<Landing />);
 
-    expect(await findByText('17/17')).toBeInTheDocument();
+    expect(await findByText('17/10')).toBeInTheDocument();
     expect(await findByText('2.93 KB')).toBeInTheDocument();
+  });
+
+  it.only('should not display the project details when the project is empty', async () => {
+    const {findByText} = render(<Landing />);
+    userEvent.click(await findByText('Empty Project'));
+
+    expect(
+      await findByText('Create your first repo/pipeline!'),
+    ).toBeInTheDocument();
   });
 });
