@@ -52,12 +52,9 @@ func (d *driver) triggerCommit(
 			}
 
 			if newHead != nil {
-				var oldHead *pfs.CommitInfo
-				if bi.Head != nil {
-					oldHead = &pfs.CommitInfo{}
-					if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(bi.Head), oldHead); err != nil {
-						return nil, err
-					}
+				oldHead := &pfs.CommitInfo{}
+				if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(bi.Head), oldHead); err != nil {
+					return nil, err
 				}
 
 				triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
