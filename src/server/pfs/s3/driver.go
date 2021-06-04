@@ -8,7 +8,11 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/s2"
@@ -16,12 +20,8 @@ import (
 
 // Bucket represents an S3 bucket
 type Bucket struct {
-	// Repo is the PFS repo that this bucket points to
-	Repo string
-	// Branch is the PFS branch that this repo points to
-	Branch string
-	// Commit is the PFS commit that this repo points to
-	Commit string
+	// Commit is the PFS commit that this bucket points to
+	Commit *pfs.Commit
 	// Name is the name of the bucket
 	Name string
 }
@@ -51,19 +51,28 @@ func NewMasterDriver() *MasterDriver {
 }
 
 func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error {
-	repos, err := pc.ListRepo()
+	repos, err := pc.ListRepoByType("") // get repos of all types
 	if err != nil {
 		return err
 	}
 
 	for _, repo := range repos {
+		if repo.Repo.Type == pfs.SpecRepoType {
+			continue // hide spec repos, but allow meta/stats repos
+		}
 		t, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
 			return err
 		}
 		for _, branch := range repo.Branches {
+			var name string
+			if branch.Repo.Type == pfs.UserRepoType {
+				name = fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name)
+			} else {
+				name = fmt.Sprintf("%s.%s.%s", branch.Name, branch.Repo.Type, branch.Repo.Name)
+			}
 			*buckets = append(*buckets, &s2.Bucket{
-				Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
+				Name:         name,
 				CreationDate: t,
 			})
 		}
@@ -73,35 +82,37 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 }
 
 func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
-	var repo, branch, commit string
-	branch = "master"
+	var id string
+	branch := "master"
+	var repo *pfs.Repo
 
-	parts := strings.SplitN(name, ".", 3)
-	if len(parts) == 3 {
-		commit, branch, repo = parts[0], parts[1], parts[2]
-	} else if len(parts) == 2 {
-		if uuid.IsUUIDWithoutDashes(parts[0]) {
-			commit = parts[0]
-		} else {
-			branch = parts[0]
-		}
-		repo = parts[1]
+	// the name is [commitID.][branch. | branch.type.]repoName
+	// in particular, to access a non-user system repo, the branch name must be given
+	parts := strings.SplitN(name, ".", 4)
+	if uuid.IsUUIDWithoutDashes(parts[0]) {
+		id = parts[0]
+		parts = parts[1:]
+	}
+	if len(parts) > 1 {
+		branch = parts[0]
+		parts = parts[1:]
+	}
+	if len(parts) == 1 {
+		repo = client.NewRepo(parts[0])
 	} else {
-		repo = parts[0]
+		repo = client.NewSystemRepo(parts[1], parts[0])
 	}
 
 	return &Bucket{
-		Repo:   repo,
-		Branch: branch,
-		Commit: commit,
+		Commit: repo.NewCommit(branch, id),
 		Name:   name,
 	}, nil
 }
 
 func (d *MasterDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
-	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Branch)
+	branchInfo, err := pc.PfsAPIClient.InspectBranch(pc.Ctx(), &pfs.InspectBranchRequest{Branch: bucket.Commit.Branch})
 	if err != nil {
-		return bucketCapabilities{}, maybeNotFoundError(r, err)
+		return bucketCapabilities{}, maybeNotFoundError(r, grpcutil.ScrubGRPC(err))
 	}
 
 	return bucketCapabilities{
@@ -146,7 +157,7 @@ func NewWorkerDriver(inputBuckets []*Bucket, outputBucket *Bucket) *WorkerDriver
 }
 
 func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error {
-	repos, err := pc.ListRepo()
+	repos, err := pc.ListRepoByType("") // get repos of all types
 	if err != nil {
 		return err
 	}
@@ -156,13 +167,13 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 		if err != nil {
 			return err
 		}
-		timestamps[repo.Repo.Name] = timestamp
+		timestamps[pfsdb.RepoKey(repo.Repo)] = timestamp
 	}
 
 	for _, bucket := range d.namesMap {
-		timestamp, ok := timestamps[bucket.Repo]
+		timestamp, ok := timestamps[pfsdb.RepoKey(bucket.Commit.Branch.Repo)]
 		if !ok {
-			return errors.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Repo)
+			return errors.Errorf("worker s3gateway configuration includes repo %q, which does not exist", pretty.CompactPrintRepo(bucket.Commit.Branch.Repo))
 		}
 		*buckets = append(*buckets, &s2.Bucket{
 			Name:         bucket.Name,
@@ -184,7 +195,7 @@ func (d *WorkerDriver) bucket(pc *client.APIClient, r *http.Request, name string
 }
 
 func (d *WorkerDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
-	if bucket.Repo == "" || bucket.Branch == "" {
+	if bucket.Commit.Branch.Repo.Name == "" || bucket.Commit.Branch.Name == "" {
 		return bucketCapabilities{}, s2.NoSuchBucketError(r)
 	} else if bucket == d.outputBucket {
 		return bucketCapabilities{

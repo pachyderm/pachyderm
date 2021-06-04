@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func masterListBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
@@ -426,6 +427,76 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 }
 
+func masterListSystemRepoBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("listsystemrepo")
+	require.NoError(t, pachClient.CreateRepo(repo))
+	specRepo := client.NewSystemRepo(repo, pfs.SpecRepoType)
+	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
+	require.NoError(t, err)
+	metaRepo := client.NewSystemRepo(repo, pfs.MetaRepoType)
+	_, err = pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: metaRepo})
+	require.NoError(t, err)
+
+	// create a master branch on each
+	require.NoError(t, pachClient.CreateBranch(repo, "master", "", "", nil))
+	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})
+	require.NoError(t, err)
+	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: metaRepo.NewBranch("master")})
+	require.NoError(t, err)
+
+	buckets, err := minioClient.ListBuckets()
+	require.NoError(t, err)
+
+	var hasMaster, hasMeta bool
+	for _, bucket := range buckets {
+		if bucket.Name == fmt.Sprintf("master.%s", repo) {
+			hasMaster = true
+		} else if bucket.Name == fmt.Sprintf("master.%s.%s", pfs.MetaRepoType, repo) {
+			hasMeta = true
+		} else {
+			require.NotEqual(t, bucket.Name, fmt.Sprintf("master.%s.%s", pfs.MetaRepoType, repo))
+		}
+	}
+
+	require.True(t, hasMaster)
+	require.True(t, hasMeta)
+}
+
+func masterResolveSystemRepoBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testsystemrepo")
+	require.NoError(t, pachClient.CreateRepo(repo))
+	specRepo := client.NewSystemRepo(repo, pfs.SpecRepoType)
+	// create a branch named "spec" in the repo
+	branch := pfs.SpecRepoType
+	require.NoError(t, pachClient.CreateBranch(repo, branch, "", "", nil))
+
+	// as well as a branch named "master" on an associated repo of type "spec"
+	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
+	require.NoError(t, err)
+	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})
+	require.NoError(t, err)
+
+	bucketSuffix := fmt.Sprintf("%s.%s", branch, repo)
+
+	r := strings.NewReader("user")
+	_, err = minioClient.PutObject(bucketSuffix, "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
+
+	r2 := strings.NewReader("spec")
+	_, err = minioClient.PutObject(fmt.Sprintf("master.%s", bucketSuffix), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
+
+	// a two-part name should resolve to the user repo
+	fetchedContent, err := getObject(t, minioClient, bucketSuffix, "file")
+	require.NoError(t, err)
+	require.Equal(t, "user", fetchedContent)
+
+	// while the fully-specified name goes to the indicated system repo
+	fetchedContent, err = getObject(t, minioClient, fmt.Sprintf("master.%s", bucketSuffix), "file")
+	require.NoError(t, err)
+	require.Equal(t, "spec", fetchedContent)
+}
+
 // TODO: This should be readded as an integration test (probably in src/server/pachyderm_test.go).
 // Commenting out for now to enable the other tests to run against mock pachd.
 //func masterAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
@@ -508,6 +579,12 @@ func TestMasterDriver(t *testing.T) {
 		})
 		t.Run("ListObjectsRecursive", func(t *testing.T) {
 			masterListObjectsRecursive(t, pachClient, minioClient)
+		})
+		t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
+			masterListSystemRepoBuckets(t, pachClient, minioClient)
+		})
+		t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
+			masterResolveSystemRepoBucket(t, pachClient, minioClient)
 		})
 		// TODO: Refer to masterAuthV2 function definition.
 		//t.Run("AuthV2", func(t *testing.T) {
