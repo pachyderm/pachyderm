@@ -454,7 +454,7 @@ func masterListSystemRepoBuckets(t *testing.T, pachClient *client.APIClient, min
 		} else if bucket.Name == fmt.Sprintf("master.%s.%s", pfs.MetaRepoType, repo) {
 			hasMeta = true
 		} else {
-			require.NotEqual(t, bucket.Name, fmt.Sprintf("master.%s.%s", pfs.MetaRepoType, repo))
+			require.NotEqual(t, bucket.Name, fmt.Sprintf("master.%s.%s", pfs.SpecRepoType, repo))
 		}
 	}
 
@@ -465,12 +465,12 @@ func masterListSystemRepoBuckets(t *testing.T, pachClient *client.APIClient, min
 func masterResolveSystemRepoBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testsystemrepo")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	specRepo := client.NewSystemRepo(repo, pfs.SpecRepoType)
 	// create a branch named "spec" in the repo
 	branch := pfs.SpecRepoType
 	require.NoError(t, pachClient.CreateBranch(repo, branch, "", "", nil))
 
 	// as well as a branch named "master" on an associated repo of type "spec"
+	specRepo := client.NewSystemRepo(repo, pfs.SpecRepoType)
 	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
 	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})
@@ -580,7 +580,7 @@ func TestMasterDriver(t *testing.T) {
 		t.Run("ListObjectsRecursive", func(t *testing.T) {
 			masterListObjectsRecursive(t, pachClient, minioClient)
 		})
-		t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
+		t.Run("ListSystemRepoBucket", func(t *testing.T) {
 			masterListSystemRepoBuckets(t, pachClient, minioClient)
 		})
 		t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
