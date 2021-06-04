@@ -337,9 +337,6 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 				if pi.Transform.ErrCmd != nil {
 					metrics.CfgErrcmd++
 				}
-				if pi.Transform.Build != nil {
-					metrics.PpsBuild++
-				}
 			}
 			if pi.TFJob != nil {
 				metrics.CfgTfjob++
