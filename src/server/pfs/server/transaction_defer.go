@@ -27,7 +27,7 @@ func (a *apiServer) NewPropagater(txnCtx *txncontext.TransactionContext) txncont
 	}
 }
 
-// PropagateCommit marks a branch as needing propagation once the transaction
+// PropagateBranch marks a branch as needing propagation once the transaction
 // successfully ends.  This will be performed by the Run function.
 func (t *Propagater) PropagateBranch(branch *pfs.Branch) error {
 	if branch == nil {

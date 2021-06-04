@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -288,13 +287,13 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	require.NoError(t, err)
 
 	// Wait for the output commit
-	commitInfos, err := pachClient.FlushJobAll([]*pfs.Commit{commit1}, nil)
+	commitset, err := pachClient.BlockCommitset(commit1.ID)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 2, len(commitset.Commits))
 
 	// Check the pipeline output
 	var buf bytes.Buffer
-	require.NoError(t, pachClient.GetFile(commitInfos[0].Commit, "file", &buf))
+	require.NoError(t, pachClient.GetFile(commitset.Commits[0].Info.Commit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 }
 

@@ -597,8 +597,43 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
 		return err
 	}
+	if err := d.finishAliasDescendents(txnCtx, commitInfo); err != nil {
+		return err
+	}
 	if err := d.triggerCommit(txnCtx, commitInfo.Commit); err != nil {
 		return err
+	}
+	return nil
+}
+
+// finishAliasChildren will traverse the given commit's children, finding all
+// continguous aliases and finishing them.
+func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo) error {
+	// Build the starting set of commits to consider
+	descendents := []*pfs.Commit{}
+	for _, commit := range parentCommitInfo.ChildCommits {
+		descendents = append(descendents, commit)
+	}
+
+	// A commit cannot have more than one parent, so no need to track visited nodes
+	for len(descendents) > 0 {
+		commit := descendents[0]
+		descendents = descendents[1:]
+		commitInfo := &pfs.CommitInfo{}
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
+			return err
+		}
+
+		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
+			commitInfo.Finished = txnCtx.Timestamp
+			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
+				return err
+			}
+
+			for _, commit := range commitInfo.ChildCommits {
+				descendents = append(descendents, commit)
+			}
+		}
 	}
 	return nil
 }
@@ -654,7 +689,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 
 		commitInfo = &pfs.CommitInfo{
 			Commit:       commit,
-			Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+			Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_ALIAS},
 			ParentCommit: parent,
 			ChildCommits: []*pfs.Commit{},
 			Started:      txnCtx.Timestamp,
@@ -880,6 +915,9 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			})
 			return nil
 		}); err != nil {
+			return err
+		}
+		if err := txnCtx.PropagateCommitset(commitset); err != nil {
 			return err
 		}
 	}
@@ -1602,7 +1640,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		branchInfo.Branch = branch
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
-			if provBranch.Repo.Name == branch.Repo.Name {
+			if proto.Equal(provBranch.Repo, branch.Repo) {
 				return errors.Errorf("repo %s cannot be in the provenance of its own branch", pfsdb.RepoKey(branch.Repo))
 			}
 			add(&branchInfo.DirectProvenance, provBranch)

@@ -12,6 +12,8 @@ import (
 type APIServer interface {
 	pps_client.APIServer
 
+	NewPropagater(*txncontext.TransactionContext) txncontext.PpsPropagater
+
 	StopPipelineJobInTransaction(*txncontext.TransactionContext, *pps_client.StopPipelineJobRequest) error
 	UpdatePipelineJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdatePipelineJobStateRequest) error
 	CreatePipelineInTransaction(*txncontext.TransactionContext, *pps_client.CreatePipelineRequest, *string, **pfs_client.Commit) error

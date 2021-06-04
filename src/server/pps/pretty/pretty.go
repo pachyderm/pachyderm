@@ -44,10 +44,12 @@ func safeTrim(s string, l int) string {
 func PrintPipelineJobInfo(w io.Writer, pipelineJobInfo *ppsclient.PipelineJobInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", pipelineJobInfo.PipelineJob.ID)
 	fmt.Fprintf(w, "%s\t", pipelineJobInfo.Pipeline.Name)
-	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", pipelineJobInfo.Started.String())
-	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineJobInfo.Started))
+	if pipelineJobInfo.Started != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", pipelineJobInfo.Started.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineJobInfo.Started))
+		}
 	}
 	if pipelineJobInfo.Finished != nil {
 		fmt.Fprintf(w, "%s\t", pretty.TimeDifference(pipelineJobInfo.Started, pipelineJobInfo.Finished))
@@ -172,8 +174,7 @@ ParallelismSpec: {{.ParallelismSpec}}
 {{jobInput .}}
 Transform:
 {{prettyTransform .Transform}} {{if .OutputCommit}}
-Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .StatsCommit }}
-Stats Commit: {{.StatsCommit.ID}} {{end}} {{ if .Egress }}
+Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Egress }}
 Egress: {{.Egress.URL}} {{end}}
 `)
 	if err != nil {

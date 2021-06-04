@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -193,32 +194,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 	return nil
 }
 
-func (reg *registry) ensurePipelineJob(commitInfo *pfs.CommitInfo) (*pps.PipelineJobInfo, error) {
-	pachClient := reg.driver.PachClient()
-	pipelineInfo := reg.driver.PipelineInfo()
-	pipelineJobInfo, err := pachClient.InspectPipelineJobOutputCommit(pipelineInfo.Pipeline.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID, false)
-	if err != nil {
-		// TODO: It would be better for this to be a structured error.
-		if strings.Contains(err.Error(), "not found") {
-			metaCommit := client.NewCommit(commitInfo.Commit.Branch.Repo.Name, "stats", commitInfo.Commit.ID)
-			pipelineJob, err := pachClient.CreatePipelineJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, metaCommit)
-			if err != nil {
-				return nil, err
-			}
-			pipelineJobInfo, err = pachClient.InspectPipelineJob(pipelineJob.ID, false)
-			if err != nil {
-				return nil, err
-			}
-			reg.logger.Logf("created new pipeline job %q for output commit %q", pipelineJobInfo.PipelineJob.ID, pipelineJobInfo.OutputCommit.ID)
-			return pipelineJobInfo, nil
-		}
-		return nil, err
-	}
-	reg.logger.Logf("found existing pipeline job %q for output commit %q", pipelineJobInfo.PipelineJob.ID, commitInfo.Commit.ID)
-	return pipelineJobInfo, nil
-}
-
-func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
+func (reg *registry) startPipelineJob(pipelineJobInfo *pps.PipelineJobInfo) error {
 	var asyncEg *errgroup.Group
 	reg.limiter.Acquire()
 	defer func() {
@@ -227,14 +203,22 @@ func (reg *registry) startPipelineJob(commitInfo *pfs.CommitInfo) error {
 			reg.limiter.Release()
 		}
 	}()
-	pipelineJobInfo, err := reg.ensurePipelineJob(commitInfo)
+	if pipelineJobInfo.Started == nil {
+		pipelineJobInfo.Started = types.TimestampNow()
+	}
+	commitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
+		reg.driver.PachClient().Ctx(),
+		&pfs.InspectCommitRequest{
+			Commit:     pipelineJobInfo.OutputCommit,
+			BlockState: pfs.CommitState_STARTED,
+		})
 	if err != nil {
 		return err
 	}
 	metaCommitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     pipelineJobInfo.StatsCommit,
+			Commit:     ppsutil.MetaCommit(pipelineJobInfo.OutputCommit),
 			BlockState: pfs.CommitState_STARTED,
 		})
 	if err != nil {
@@ -632,14 +616,9 @@ func (reg *registry) processJobEgressing(ppj *pendingPipelineJob) error {
 func failedInputs(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJobInfo) ([]string, error) {
 	var failed []string
 	blockCommit := func(name string, commit *pfs.Commit) error {
-		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
-			&pfs.InspectCommitRequest{
-				Commit:     commit,
-				BlockState: pfs.CommitState_FINISHED,
-			})
+		ci, err := pachClient.BlockCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
-			return errors.Wrapf(err, "error blocking on commit %s@%s",
-				commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			return errors.Wrapf(err, "error blocking on commit %s", pfsdb.CommitKey(commit))
 		}
 		if strings.Contains(ci.Description, pfs.EmptyStr) {
 			failed = append(failed, name)

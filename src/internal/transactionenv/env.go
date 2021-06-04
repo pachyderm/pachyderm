@@ -286,6 +286,9 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
 			txnCtx.CommitFinisher = env.serviceEnv.PfsServer().NewPipelineFinisher(txnCtx)
 		}
+		if env.serviceEnv.PpsServer() != nil {
+			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
+		}
 
 		err := cb(txnCtx)
 		if err != nil {
@@ -309,6 +312,9 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 		}
 		if env.serviceEnv.PfsServer() != nil {
 			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
+		}
+		if env.serviceEnv.PpsServer() != nil {
+			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
 		}
 
 		err := cb(txnCtx)

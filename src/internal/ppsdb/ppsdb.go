@@ -2,11 +2,14 @@
 package ppsdb
 
 import (
+	"fmt"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -45,7 +48,20 @@ var PipelineJobsOutputIndex = &col.Index{
 	},
 }
 
-var pipelineJobsIndexes = []*col.Index{PipelineJobsPipelineIndex, PipelineJobsOutputIndex}
+func PipelineJobTerminalKey(pipeline *pps.Pipeline, isTerminal bool) string {
+	return fmt.Sprintf("%s_%v", pipeline.Name, isTerminal)
+}
+
+// PipelineJobsOutputIndex maps job outputs to the PipelineJob that create them.
+var PipelineJobsTerminalIndex = &col.Index{
+	Name: "PipelineJobState",
+	Extract: func(val proto.Message) string {
+		jobInfo := val.(*pps.StoredPipelineJobInfo)
+		return PipelineJobTerminalKey(jobInfo.Pipeline, ppsutil.IsTerminal(jobInfo.State))
+	},
+}
+
+var pipelineJobsIndexes = []*col.Index{PipelineJobsPipelineIndex, PipelineJobsOutputIndex, PipelineJobsTerminalIndex}
 
 // PipelineJobs returns a PostgresCollection of PipelineJobs
 func PipelineJobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {

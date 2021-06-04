@@ -26,9 +26,18 @@ type TransactionContext struct {
 	PfsPropagater PfsPropagater
 	// CommitFinisher finishes commits for a pipeline at the end of a transaction
 	CommitFinisher PipelineCommitFinisher
+	// PpsPropagater starts PipelineJobs in any pipelines that have new output commits at the end of the transaction.
+	PpsPropagater PpsPropagater
 }
 
-// PropagateCommit saves a branch to be propagated at the end of the transaction
+// PropagateCommitset saves a commitset to be propagated at the end of the
+// transaction (if all operations complete successfully).  This is used to tell
+// PPS that new PipelineJobs may need to be created.
+func (t *TransactionContext) PropagateCommitset(commitset *pfs.StoredCommitset) error {
+	return t.PpsPropagater.PropagateCommitset(commitset)
+}
+
+// PropagateBranch saves a branch to be propagated at the end of the transaction
 // (if all operations complete successfully).  This is used to batch together
 // propagations and dedupe downstream commits in PFS.
 func (t *TransactionContext) PropagateBranch(branch *pfs.Branch) error {
@@ -43,7 +52,14 @@ func (t *TransactionContext) Finish() error {
 		}
 	}
 	if t.PfsPropagater != nil {
-		return t.PfsPropagater.Run()
+		if err := t.PfsPropagater.Run(); err != nil {
+			return err
+		}
+	}
+	if t.PpsPropagater != nil {
+		if err := t.PpsPropagater.Run(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -68,5 +84,12 @@ type PfsPropagater interface {
 // at the end of a transaction
 type PipelineCommitFinisher interface {
 	FinishPipelineCommits(branch *pfs.Branch) error
+	Run() error
+}
+
+// PpsPropagater is the interface that PPS implements to start jobs at the end
+// of a transaction.  It is defined here to avoid a circular dependency.
+type PpsPropagater interface {
+	PropagateCommitset(commitset *pfs.StoredCommitset) error
 	Run() error
 }

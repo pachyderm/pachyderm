@@ -431,13 +431,18 @@ $ {{alias}} foo@master --from XXX`,
 				fromCommit = branch.Repo.NewCommit("", from)
 			}
 
+			var toCommit *pfs.Commit
+			if branch.Name != "" {
+				toCommit = branch.NewCommit("")
+			}
+
 			if raw {
-				return c.ListCommitF(branch.Repo, nil, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
+				return c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(branch.Repo, nil, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
+			if err := c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {

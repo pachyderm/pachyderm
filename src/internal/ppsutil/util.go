@@ -266,8 +266,8 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 }
 
 // PipelineJobInput fills in the commits for an Input
-func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
-	commitsetID := outputCommitInfo.Commit.ID
+func PipelineJobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
+	commitsetID := outputCommit.ID
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
@@ -324,7 +324,7 @@ func IsTerminal(state pps.PipelineJobState) bool {
 	switch state {
 	case pps.PipelineJobState_JOB_SUCCESS, pps.PipelineJobState_JOB_FAILURE, pps.PipelineJobState_JOB_KILLED:
 		return true
-	case pps.PipelineJobState_JOB_STARTING, pps.PipelineJobState_JOB_RUNNING, pps.PipelineJobState_JOB_EGRESSING:
+	case pps.PipelineJobState_JOB_CREATED, pps.PipelineJobState_JOB_STARTING, pps.PipelineJobState_JOB_RUNNING, pps.PipelineJobState_JOB_EGRESSING:
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
@@ -384,7 +384,7 @@ func FinishPipelineJob(pachClient *client.APIClient, pipelineJobInfo *pps.Pipeli
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: pipelineJobInfo.StatsCommit,
+			Commit: MetaCommit(pipelineJobInfo.OutputCommit),
 			Empty:  empty,
 		}); err != nil {
 			return err
@@ -399,6 +399,7 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 		PipelineJob:   pipelineJobInfo.PipelineJob,
 		State:         pipelineJobInfo.State,
 		Reason:        pipelineJobInfo.Reason,
+		Started:       pipelineJobInfo.Started,
 		Restart:       pipelineJobInfo.Restart,
 		DataProcessed: pipelineJobInfo.DataProcessed,
 		DataSkipped:   pipelineJobInfo.DataSkipped,
@@ -410,7 +411,7 @@ func WriteJobInfo(pachClient *client.APIClient, pipelineJobInfo *pps.PipelineJob
 	return err
 }
 
-func StatsCommit(commit *pfs.Commit) *pfs.Commit {
+func MetaCommit(commit *pfs.Commit) *pfs.Commit {
 	return client.NewSystemRepo(commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
 }
 

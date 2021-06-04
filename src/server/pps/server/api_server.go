@@ -503,6 +503,7 @@ func (a *apiServer) UpdatePipelineJobStateInTransaction(txnCtx *txncontext.Trans
 		return ppsServer.ErrPipelineJobFinished{pipelineJobPtr.PipelineJob}
 	}
 
+	pipelineJobPtr.Started = request.Started
 	pipelineJobPtr.Restart = request.Restart
 	pipelineJobPtr.DataProcessed = request.DataProcessed
 	pipelineJobPtr.DataSkipped = request.DataSkipped
@@ -512,48 +513,6 @@ func (a *apiServer) UpdatePipelineJobStateInTransaction(txnCtx *txncontext.Trans
 	pipelineJobPtr.Stats = request.Stats
 
 	return ppsutil.UpdatePipelineJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), pipelineJobs, pipelineJobPtr, request.State, request.Reason)
-}
-
-// CreatePipelineJob implements the protobuf pps.CreatePipelineJob RPC
-func (a *apiServer) CreatePipelineJob(ctx context.Context, request *pps.CreatePipelineJobRequest) (response *pps.PipelineJob, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	var result *pps.PipelineJob
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
-			Commit: request.OutputCommit,
-		})
-		if err != nil {
-			return err
-		}
-		if commitInfo.Finished != nil {
-			return pfsServer.ErrCommitFinished{commitInfo.Commit}
-		}
-		if request.Stats == nil {
-			request.Stats = &pps.ProcessStats{}
-		}
-		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
-		pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
-		pipelineJobPtr := &pps.StoredPipelineJobInfo{
-			PipelineJob:   client.NewPipelineJob(uuid.NewWithoutDashes()),
-			OutputCommit:  request.OutputCommit,
-			Pipeline:      request.Pipeline,
-			Stats:         request.Stats,
-			Restart:       request.Restart,
-			DataProcessed: request.DataProcessed,
-			DataSkipped:   request.DataSkipped,
-			DataTotal:     request.DataTotal,
-			DataFailed:    request.DataFailed,
-			DataRecovered: request.DataRecovered,
-			Started:       request.Started,
-			Finished:      request.Finished,
-		}
-		result = pipelineJobPtr.PipelineJob
-		return ppsutil.UpdatePipelineJobState(pipelines, pipelineJobs, pipelineJobPtr, pps.PipelineJobState_JOB_STARTING, "")
-	}); err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 // InspectPipelineJob implements the protobuf pps.InspectPipelineJob RPC
@@ -782,7 +741,6 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *
 		DataFailed:    pipelineJobPtr.DataFailed,
 		DataRecovered: pipelineJobPtr.DataRecovered,
 		Stats:         pipelineJobPtr.Stats,
-		StatsCommit:   pipelineJobPtr.StatsCommit,
 		State:         pipelineJobPtr.State,
 		Reason:        pipelineJobPtr.Reason,
 		Started:       pipelineJobPtr.Started,
@@ -790,21 +748,9 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *
 	}
 
 	pachClient := a.env.GetPachClient(ctx)
-	commitInfo, err := pachClient.InspectCommit(pipelineJobPtr.OutputCommit.Branch.Repo.Name, pipelineJobPtr.OutputCommit.Branch.Name, pipelineJobPtr.OutputCommit.ID)
-	if err != nil {
-		if isNotFoundErr(err) {
-			if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-				return a.pipelineJobs.ReadWrite(sqlTx).Delete(pipelineJobPtr.PipelineJob.ID)
-			}); err != nil {
-				return nil, err
-			}
-			return nil, errors.Errorf("job %s not found", pipelineJobPtr.PipelineJob.ID)
-		}
-		return nil, err
-	}
-	result.SpecCommit = client.NewCommit(ppsconsts.SpecRepo, pipelineJobPtr.Pipeline.Name, commitInfo.Commit.ID)
+	result.SpecCommit = client.NewCommit(ppsconsts.SpecRepo, result.Pipeline.Name, result.OutputCommit.ID)
 	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).Get(pipelineJobPtr.Pipeline.Name, pipelinePtr); err != nil {
+	if err := a.pipelines.ReadOnly(ctx).Get(result.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
 	}
 	// Override the SpecCommit for the pipeline to be what it was when this job
@@ -826,7 +772,7 @@ func (a *apiServer) pipelineJobInfoFromPtr(ctx context.Context, pipelineJobPtr *
 		result.ResourceRequests = pipelineInfo.ResourceRequests
 		result.ResourceLimits = pipelineInfo.ResourceLimits
 		result.SidecarResourceLimits = pipelineInfo.SidecarResourceLimits
-		result.Input = ppsutil.PipelineJobInput(pipelineInfo, commitInfo)
+		result.Input = ppsutil.PipelineJobInput(pipelineInfo, result.OutputCommit)
 		result.EnableStats = pipelineInfo.EnableStats
 		result.Salt = pipelineInfo.Salt
 		result.ChunkSpec = pipelineInfo.ChunkSpec
@@ -854,6 +800,44 @@ func (a *apiServer) ListPipelineJob(request *pps.ListPipelineJobRequest, resp pp
 		sent++
 		return nil
 	})
+}
+
+// SubscribePipelineJob implements the protobuf pps.SubscribePipelineJob RPC
+func (a *apiServer) SubscribePipelineJob(request *pps.SubscribePipelineJobRequest, stream pps.API_SubscribePipelineJobServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	ctx := stream.Context()
+
+	// Validate arguments
+	if request.Pipeline == nil || request.Pipeline.Name == "" {
+		return errors.New("pipeline must be specified")
+	}
+
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, request.Pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+		return err
+	}
+
+	// keep track of the jobs that have been sent
+	seen := map[string]struct{}{}
+
+	return a.pipelineJobs.ReadOnly(ctx).WatchByIndexF(ppsdb.PipelineJobsTerminalIndex, ppsdb.PipelineJobTerminalKey(request.Pipeline, false), func(ev *watch.Event) error {
+		var key string
+		pipelineJobPtr := &pps.StoredPipelineJobInfo{}
+		if err := ev.Unmarshal(&key, pipelineJobPtr); err != nil {
+			return errors.Wrapf(err, "unmarshal")
+		}
+
+		if _, ok := seen[key]; ok {
+			return nil
+		}
+		seen[key] = struct{}{}
+
+		result, err := a.pipelineJobInfoFromPtr(ctx, pipelineJobPtr, request.Full)
+		if err != nil {
+			return err
+		}
+		return stream.Send(result)
+	}, watch.WithSort(col.SortByCreateRevision, col.SortAscend), watch.IgnoreDelete)
 }
 
 // FlushPipelineJob implements the protobuf pps.FlushPipelineJob RPC
@@ -975,7 +959,7 @@ func (a *apiServer) stopPipelineJob(txnCtx *txncontext.TransactionContext, pipel
 		}
 
 		if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-			Commit: ppsutil.StatsCommit(commitInfo.Commit),
+			Commit: ppsutil.MetaCommit(commitInfo.Commit),
 			Empty:  true,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
@@ -1112,11 +1096,12 @@ func (a *apiServer) collectDatums(ctx context.Context, pipelineJob *pps.Pipeline
 		return err
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	fsi := datum.NewCommitIterator(pachClient, pipelineJobInfo.StatsCommit)
+	metaCommit := ppsutil.MetaCommit(pipelineJobInfo.OutputCommit)
+	fsi := datum.NewCommitIterator(pachClient, metaCommit)
 	return fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{
-			Commit: pipelineJobInfo.StatsCommit,
+			Commit: metaCommit,
 			Path:   "/" + path.Join(datum.PFSPrefix, common.DatumID(meta.Inputs)),
 		}
 		return cb(meta, pfsState)
@@ -2416,8 +2401,8 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 }
 
 // inspectPipeline contains the functional implementation of InspectPipeline.
-// Many functions (GetLogs, ListPipeline, CreatePipelineJob) need to inspect a
-// pipeline, so they call this instead of making an RPC
+// Many functions (GetLogs, ListPipeline) need to inspect a pipeline, so they
+// call this instead of making an RPC
 func (a *apiServer) inspectPipeline(ctx context.Context, name string) (*pps.PipelineInfo, error) {
 	var response *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -3119,6 +3104,60 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext, commitset *pfs.StoredCommitset) error {
+	for _, branchInfo := range commitset.Branches {
+		if branchInfo.Branch.Repo.Type != pfs.UserRepoType {
+			continue
+		}
+
+		pipelineInfo := &pps.StoredPipelineInfo{}
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(branchInfo.Branch.Repo.Name, pipelineInfo); err != nil {
+			if col.IsErrNotFound(err) {
+				continue
+			}
+			return err
+		}
+
+		// TODO(global ids): don't create the jobs for certain states or for spouts (can't detect spouts without loading pipeline spec?)
+
+		// Check if there is an existing job for the output commit
+		outputCommit := commitset.NewCommit(branchInfo.Branch)
+		pipelineJob := &pps.StoredPipelineJobInfo{}
+		err := a.pipelineJobs.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelineJobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJob)
+		if err == nil {
+			// Job already exists, skip it
+			continue
+		}
+		if !col.IsErrNotFound(err) {
+			return err
+		}
+
+		// If the pipeline is valid and there's no job, create one
+		commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+			Commit: outputCommit,
+		})
+		if err != nil {
+			return err
+		}
+		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS || commitInfo.Finished != nil {
+			// Skip alias commits and any commits which have already been finished
+			continue
+		}
+		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
+		pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
+		pipelineJobPtr := &pps.StoredPipelineJobInfo{
+			Pipeline:     client.NewPipeline(branchInfo.Branch.Repo.Name),
+			PipelineJob:  client.NewPipelineJob(uuid.NewWithoutDashes()),
+			OutputCommit: commitInfo.Commit,
+			Stats:        &pps.ProcessStats{},
+		}
+		if err := ppsutil.UpdatePipelineJobState(pipelines, pipelineJobs, pipelineJobPtr, pps.PipelineJobState_JOB_CREATED, ""); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // CreateSecret implements the protobuf pps.CreateSecret RPC

@@ -149,28 +149,12 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 	// Create a context that the caller can wait on
 	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
 
-	// Mock out the initial ListPipelineJob, CreatePipelineJob, and InspectPipelineJob calls
+	// Mock out the initial ListPipelineJob, and InspectPipelineJob calls
 	etcdJobInfo := &pps.StoredPipelineJobInfo{PipelineJob: client.NewPipelineJob(uuid.NewWithoutDashes())}
 
 	// TODO: use a 'real' pps if we can make one that doesn't need a real kube client
 	env.MockPachd.PPS.ListPipelineJob.Use(func(*pps.ListPipelineJobRequest, pps.API_ListPipelineJobServer) error {
 		return nil
-	})
-
-	env.MockPachd.PPS.CreatePipelineJob.Use(func(ctx context.Context, request *pps.CreatePipelineJobRequest) (*pps.PipelineJob, error) {
-		etcdJobInfo.OutputCommit = request.OutputCommit
-		etcdJobInfo.Pipeline = request.Pipeline
-		etcdJobInfo.Stats = request.Stats
-		etcdJobInfo.Restart = request.Restart
-		etcdJobInfo.DataProcessed = request.DataProcessed
-		etcdJobInfo.DataSkipped = request.DataSkipped
-		etcdJobInfo.DataTotal = request.DataTotal
-		etcdJobInfo.DataFailed = request.DataFailed
-		etcdJobInfo.DataRecovered = request.DataRecovered
-		etcdJobInfo.StatsCommit = request.StatsCommit
-		etcdJobInfo.Started = request.Started
-		etcdJobInfo.Finished = request.Finished
-		return etcdJobInfo.PipelineJob, nil
 	})
 
 	env.MockPachd.PPS.InspectPipelineJob.Use(func(ctx context.Context, request *pps.InspectPipelineJobRequest) (*pps.PipelineJobInfo, error) {
@@ -192,7 +176,6 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 			DataFailed:       etcdJobInfo.DataFailed,
 			DataRecovered:    etcdJobInfo.DataRecovered,
 			Stats:            etcdJobInfo.Stats,
-			StatsCommit:      etcdJobInfo.StatsCommit,
 			State:            etcdJobInfo.State,
 			Reason:           etcdJobInfo.Reason,
 			Started:          etcdJobInfo.Started,
