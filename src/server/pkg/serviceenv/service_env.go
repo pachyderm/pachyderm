@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -59,6 +62,10 @@ type ServiceEnv struct {
 	// of this environment, it doesn't require an initialization funcion, so
 	// there's no errgroup associated with it.
 	lokiClient *loki.Client
+
+	ppsServer        pps.APIServer
+	pfsServer        pfs.APIServer
+	enterpriseServer enterprise.APIServer
 }
 
 // InitPachOnlyEnv initializes this service environment. This dials a GRPC
@@ -228,4 +235,34 @@ func (env *ServiceEnv) GetLokiClient() (*loki.Client, error) {
 		return nil, errors.Errorf("loki not configured, is it running in the same namespace as pachd?")
 	}
 	return env.lokiClient, nil
+}
+
+// PpsServer returns the registered PPS APIServer
+func (env *ServiceEnv) PpsServer() pps.APIServer {
+	return env.ppsServer
+}
+
+// SetPpsServer registers a Pps APIServer with this service env
+func (env *ServiceEnv) SetPpsServer(s pps.APIServer) {
+	env.ppsServer = s
+}
+
+// PfsServer returns the registered PFS APIServer
+func (env *ServiceEnv) PfsServer() pfs.APIServer {
+	return env.pfsServer
+}
+
+// SetPfsServer registers a Pfs APIServer with this service env
+func (env *ServiceEnv) SetPfsServer(s pfs.APIServer) {
+	env.pfsServer = s
+}
+
+// EnterpriseServer returns the registered PFS APIServer
+func (env *ServiceEnv) EnterpriseServer() enterprise.APIServer {
+	return env.enterpriseServer
+}
+
+// SetEnterpriseServer registers a Enterprise APIServer with this service env
+func (env *ServiceEnv) SetEnterpriseServer(s enterprise.APIServer) {
+	env.enterpriseServer = s
 }
