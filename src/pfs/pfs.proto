@@ -125,22 +125,11 @@ message CommitInfo {
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finished = 7;
   uint64 size_bytes = 8;
+  repeated Branch direct_provenance = 9;
 }
 
-// StoredCommitset is what is stored in the database for a Commitset
-message StoredCommitset {
-  string id = 1 [(gogoproto.customname) = "ID"];
-  repeated BranchInfo branches = 2; // Only the 'branch' and 'direct_provenance' fields are stored
-}
-
-// Commitset is what is returned to users when inspecting or listing Commitsets
 message Commitset {
-  message Entry {
-    repeated Branch provenance = 1;
-    CommitInfo info = 2;
-  }
   string id = 1 [(gogoproto.customname) = "ID"];
-  repeated Entry commits = 2;
 }
 
 enum FileType {
@@ -227,17 +216,13 @@ message ListCommitRequest {
   bool reverse = 5;  // Return commits oldest to newest
 }
 
-message CommitInfos {
-  repeated CommitInfo commit_info = 1;
-}
-
 message InspectCommitsetRequest {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  Commitset commitset = 1;
   bool block = 2; // When true, block until all commits in the set are finished
 }
 
 message SquashCommitsetRequest {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  Commitset commitset = 1;
 }
 
 message SubscribeCommitRequest {
@@ -484,7 +469,7 @@ service API {
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
 
   // InspectCommitset returns the info about a Commitset.
-  rpc InspectCommitset(InspectCommitsetRequest) returns (Commitset) {}
+  rpc InspectCommitset(InspectCommitsetRequest) returns (stream CommitInfo) {}
   // SquashCommitset squashes the commits of a Commitset into their children.
   rpc SquashCommitset(SquashCommitsetRequest) returns (google.protobuf.Empty) {}
 

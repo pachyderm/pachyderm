@@ -70,25 +70,3 @@ func (b *Branch) NewCommit(id string) *Commit {
 		ID:     id,
 	}
 }
-
-func (cs *StoredCommitset) NewCommit(branch *Branch) *Commit {
-	return &Commit{
-		Branch: proto.Clone(branch).(*Branch),
-		ID:     cs.ID,
-	}
-}
-
-func (cs *Commitset) NewCommit(branch *Branch) *Commit {
-	return &Commit{
-		Branch: proto.Clone(branch).(*Branch),
-		ID:     cs.ID,
-	}
-}
-
-func (cs *Commitset) CommitInfos() []*CommitInfo {
-	result := make([]*CommitInfo, 0, len(cs.Commits))
-	for _, c := range cs.Commits {
-		result = append(result, c.Info)
-	}
-	return result
-}

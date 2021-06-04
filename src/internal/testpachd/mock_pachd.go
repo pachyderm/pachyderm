@@ -405,7 +405,7 @@ type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Em
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
 type squashCommitsetFunc func(context.Context, *pfs.SquashCommitsetRequest) (*types.Empty, error)
-type inspectCommitsetFunc func(context.Context, *pfs.InspectCommitsetRequest) (*pfs.Commitset, error)
+type inspectCommitsetFunc func(*pfs.InspectCommitsetRequest, pfs.API_InspectCommitsetServer) error
 type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeCommitServer) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
 type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Empty, error)
@@ -590,11 +590,11 @@ func (api *pfsServerAPI) SquashCommitset(ctx context.Context, req *pfs.SquashCom
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommitset")
 }
-func (api *pfsServerAPI) InspectCommitset(ctx context.Context, req *pfs.InspectCommitsetRequest) (*pfs.Commitset, error) {
+func (api *pfsServerAPI) InspectCommitset(req *pfs.InspectCommitsetRequest, serv pfs.API_InspectCommitsetServer) error {
 	if api.mock.InspectCommitset.handler != nil {
-		return api.mock.InspectCommitset.handler(ctx, req)
+		return api.mock.InspectCommitset.handler(req, serv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.InspectCommitset")
+	return errors.Errorf("unhandled pachd mock pfs.InspectCommitset")
 }
 func (api *pfsServerAPI) SubscribeCommit(req *pfs.SubscribeCommitRequest, serv pfs.API_SubscribeCommitServer) error {
 	if api.mock.SubscribeCommit.handler != nil {
@@ -721,6 +721,7 @@ func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRe
 
 type inspectPipelineJobFunc func(context.Context, *pps.InspectPipelineJobRequest) (*pps.PipelineJobInfo, error)
 type listPipelineJobFunc func(*pps.ListPipelineJobRequest, pps.API_ListPipelineJobServer) error
+type subscribePipelineJobFunc func(*pps.SubscribePipelineJobRequest, pps.API_SubscribePipelineJobServer) error
 type flushPipelineJobFunc func(*pps.FlushPipelineJobRequest, pps.API_FlushPipelineJobServer) error
 type deletePipelineJobFunc func(context.Context, *pps.DeletePipelineJobRequest) (*types.Empty, error)
 type stopPipelineJobFunc func(context.Context, *pps.StopPipelineJobRequest) (*types.Empty, error)
@@ -746,6 +747,7 @@ type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.A
 
 type mockInspectPipelineJob struct{ handler inspectPipelineJobFunc }
 type mockListPipelineJob struct{ handler listPipelineJobFunc }
+type mockSubscribePipelineJob struct{ handler subscribePipelineJobFunc }
 type mockFlushPipelineJob struct{ handler flushPipelineJobFunc }
 type mockDeletePipelineJob struct{ handler deletePipelineJobFunc }
 type mockStopPipelineJob struct{ handler stopPipelineJobFunc }
@@ -771,6 +773,7 @@ type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 
 func (mock *mockInspectPipelineJob) Use(cb inspectPipelineJobFunc)         { mock.handler = cb }
 func (mock *mockListPipelineJob) Use(cb listPipelineJobFunc)               { mock.handler = cb }
+func (mock *mockSubscribePipelineJob) Use(cb subscribePipelineJobFunc)     { mock.handler = cb }
 func (mock *mockFlushPipelineJob) Use(cb flushPipelineJobFunc)             { mock.handler = cb }
 func (mock *mockDeletePipelineJob) Use(cb deletePipelineJobFunc)           { mock.handler = cb }
 func (mock *mockStopPipelineJob) Use(cb stopPipelineJobFunc)               { mock.handler = cb }
@@ -802,6 +805,7 @@ type mockPPSServer struct {
 	api                    ppsServerAPI
 	InspectPipelineJob     mockInspectPipelineJob
 	ListPipelineJob        mockListPipelineJob
+	SubscribePipelineJob   mockSubscribePipelineJob
 	FlushPipelineJob       mockFlushPipelineJob
 	DeletePipelineJob      mockDeletePipelineJob
 	StopPipelineJob        mockStopPipelineJob
@@ -837,6 +841,12 @@ func (api *ppsServerAPI) ListPipelineJob(req *pps.ListPipelineJobRequest, serv p
 		return api.mock.ListPipelineJob.handler(req, serv)
 	}
 	return errors.Errorf("unhandled pachd mock pps.ListPipelineJob")
+}
+func (api *ppsServerAPI) SubscribePipelineJob(req *pps.SubscribePipelineJobRequest, serv pps.API_SubscribePipelineJobServer) error {
+	if api.mock.SubscribePipelineJob.handler != nil {
+		return api.mock.SubscribePipelineJob.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pps.SubscribePipelineJob")
 }
 func (api *ppsServerAPI) FlushPipelineJob(req *pps.FlushPipelineJobRequest, serv pps.API_FlushPipelineJobServer) error {
 	if api.mock.FlushPipelineJob.handler != nil {

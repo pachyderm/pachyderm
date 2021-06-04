@@ -9,6 +9,16 @@ import (
 )
 
 // This code can all go away if we ever get the ability to run a PPS server without external dependencies
+type newPropagaterFunc func(*txncontext.TransactionContext) txncontext.PpsPropagater
+
+type mockNewPropagater struct {
+	handler newPropagaterFunc
+}
+
+func (mock *mockNewPropagater) Use(cb newPropagaterFunc) {
+	mock.handler = cb
+}
+
 type stopPipelineJobInTransactionFunc func(*txncontext.TransactionContext, *pps.StopPipelineJobRequest) error
 
 type mockStopPipelineJobInTransaction struct {
@@ -48,9 +58,22 @@ type ppsTransactionAPI struct {
 // behavior inside transactions.
 type MockPPSTransactionServer struct {
 	api                                 ppsTransactionAPI
+	NewPropagater                       mockNewPropagater
 	StopPipelineJobInTransaction        mockStopPipelineJobInTransaction
 	UpdatePipelineJobStateInTransaction mockUpdatePipelineJobStateInTransaction
 	CreatePipelineInTransaction         mockCreatePipelineInTransaction
+}
+
+type MockPPSPropagater struct{}
+
+func (mpp *MockPPSPropagater) PropagateJobs() {}
+func (mpp *MockPPSPropagater) Run() error     { return nil }
+
+func (api *ppsTransactionAPI) NewPropagater(txnCtx *txncontext.TransactionContext) txncontext.PpsPropagater {
+	if api.mock.NewPropagater.handler != nil {
+		return api.mock.NewPropagater.handler(txnCtx)
+	}
+	return &MockPPSPropagater{}
 }
 
 func (api *ppsTransactionAPI) StopPipelineJobInTransaction(txnCtx *txncontext.TransactionContext, req *pps.StopPipelineJobRequest) error {
