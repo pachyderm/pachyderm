@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -39,7 +38,7 @@ func (mock *mockUpdatePipelineJobStateInTransaction) Use(cb updatePipelineJobSta
 	mock.handler = cb
 }
 
-type createPipelineInTransactionFunc func(*txncontext.TransactionContext, *pps.CreatePipelineRequest, *string, **pfs.Commit) error
+type createPipelineInTransactionFunc func(*txncontext.TransactionContext, *pps.CreatePipelineRequest, *string, *uint64) error
 
 type mockCreatePipelineInTransaction struct {
 	handler createPipelineInTransactionFunc
@@ -90,9 +89,9 @@ func (api *ppsTransactionAPI) UpdatePipelineJobStateInTransaction(txnCtx *txncon
 	return fmt.Errorf("unhandled pachd mock: pps.UpdatePipelineJobStateInTransaction")
 }
 
-func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineRequest, filesetID *string, prevSpecCommit **pfs.Commit) error {
+func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineRequest, filesetID *string, prevPipelineVersion *uint64) error {
 	if api.mock.CreatePipelineInTransaction.handler != nil {
-		return api.mock.CreatePipelineInTransaction.handler(txnCtx, req, filesetID, prevSpecCommit)
+		return api.mock.CreatePipelineInTransaction.handler(txnCtx, req, filesetID, prevPipelineVersion)
 	}
 	return fmt.Errorf("unhandled pachd mock: pps.CreatePipelineInTransaction")
 }

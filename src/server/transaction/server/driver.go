@@ -178,13 +178,13 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 				response.CreatePipelineResponse = &transaction.CreatePipelineTransactionResponse{}
 			}
 			filesetID := &response.CreatePipelineResponse.FilesetId
-			prevSpecCommit := &response.CreatePipelineResponse.PrevSpecCommit
+			prevPipelineVersion := &response.CreatePipelineResponse.PrevPipelineVersion
 
-			// CreatePipeline may update the fileset and prevSpecCommit even if it
-			// fails (because these refer to things outside of the transaction) - we
-			// need to save them into the response so they can be seen the next time
-			// the transaction is attempted.
-			err = directTxn.CreatePipeline(request.CreatePipeline, filesetID, prevSpecCommit)
+			// CreatePipeline may update the fileset and prevPipelineVersion even if
+			// it fails (because these refer to things outside of the transaction) -
+			// we need to save them into the response so they can be seen the next
+			// time the transaction is attempted.
+			err = directTxn.CreatePipeline(request.CreatePipeline, filesetID, prevPipelineVersion)
 		} else {
 			err = errors.New("unrecognized transaction request type")
 		}

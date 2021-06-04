@@ -121,7 +121,7 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
-	if err := pachClient.GetFile(ptr.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
+	if err := pachClient.GetFile(ptr.OriginalSpecCommit, ppsconsts.SpecFile, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
 	} else {
 		if err := result.Unmarshal(buf.Bytes()); err != nil {
@@ -136,7 +136,6 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.Store
 	result.Reason = ptr.Reason
 	result.JobCounts = ptr.JobCounts
 	result.LastJobState = ptr.LastJobState
-	result.SpecCommit = ptr.SpecCommit
 	return result, nil
 }
 
