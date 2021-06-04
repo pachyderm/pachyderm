@@ -196,14 +196,14 @@ launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
 	$(PACHCTL) deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+	kubectl wait --for=condition=ready pod -l app=pachd --timeout=1m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	$(PACHCTL) deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+	kubectl wait --for=condition=ready pod -l app=pachd --timeout=1m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-enterprise: check-kubectl check-kubectl-connection install
@@ -211,7 +211,7 @@ launch-enterprise: check-kubectl check-kubectl-connection install
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
 	$(PACHCTL) deploy local --no-guaranteed -d --enterprise-server --namespace enterprise  --pachd-memory-request 128M --postgres-memory-request 128M --etcd-memory-request 128M --pachd-cpu-request 100m --postgres-cpu-request 100m --etcd-cpu-request 100m --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_ready.sh app=pach-enterprise enterprise; do sleep 1; done
+	kubectl wait --for=condition=ready pod -l app=pach-enterprise --timeout=1m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl install
@@ -358,8 +358,8 @@ clean-launch-kafka:
 
 launch-kafka:
 	kubectl apply -f etc/kubernetes-kafka -R
-	until timeout 10s ./etc/kube/check_ready.sh app=kafka kafka; do sleep 10; done
-
+	kubectl wait --for=condition=ready pod -l app=kafka --timeout=1m
+	
 clean-launch-stats:
 	kubectl delete --filename etc/kubernetes-prometheus -R
 
@@ -372,9 +372,9 @@ clean-launch-monitoring:
 launch-monitoring:
 	kubectl create -f ./etc/plugin/monitoring
 	@echo "Waiting for services to spin up ..."
-	until timeout 5s ./etc/kube/check_ready.sh k8s-app=heapster kube-system; do sleep 5; done
-	until timeout 5s ./etc/kube/check_ready.sh k8s-app=influxdb kube-system; do sleep 5; done
-	until timeout 5s ./etc/kube/check_ready.sh k8s-app=grafana kube-system; do sleep 5; done
+	kubectl wait --for=condition=ready pod -l k8s-app=heapster --namespace kube-system --timeout=1m
+	kubectl wait --for=condition=ready pod -l k8s-app=influxdb --namespace kube-system --timeout=1m
+	kubectl wait --for=condition=ready pod -l k8s-app=grafana --namespace kube-system --timeout=1m
 	@echo "All services up. Now port forwarding grafana to localhost:3000"
 	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
 
@@ -393,7 +393,7 @@ launch-loki:
 	helm repo add loki https://grafana.github.io/loki/charts
 	helm repo update
 	helm upgrade --install loki loki/loki-stack
-	until timeout 1s ./etc/kube/check_ready.sh release=loki; do sleep 1; done
+	kubectl wait --for=condition=ready pod -l release=loki --timeout=1m
 
 clean-launch-loki:
 	helm uninstall loki
