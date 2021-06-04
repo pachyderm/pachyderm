@@ -525,7 +525,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			return err
 		}
 		if commitInfo.Finished != nil {
-			return pfsServer.ErrCommitFinished{commitInfo.Commit}
+			return pfsServer.ErrCommitFinished{Commit: commitInfo.Commit}
 		}
 		if request.Stats == nil {
 			request.Stats = &pps.ProcessStats{}
@@ -2878,7 +2878,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = ctx // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
 	ppsClient := pachClient.PpsAPIClient
 
@@ -3194,7 +3193,6 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = ctx // pachClient will propagate auth info
 
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
 		return nil, err

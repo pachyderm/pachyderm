@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"

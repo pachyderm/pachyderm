@@ -1266,7 +1266,7 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(commit), &cis[i%len(cis)]); err != nil {
 				if col.IsErrNotFound(err) {
 					if i == 0 {
-						return nil, pfsserver.ErrCommitNotFound{userCommit}
+						return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 					}
 					return nil, pfsserver.ErrParentCommitNotFound{Commit: commit}
 				}
