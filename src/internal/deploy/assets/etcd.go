@@ -24,7 +24,7 @@ var (
 	// Using our own etcd image for now because there's a fix we need
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
-	etcdImage = "pachyderm/etcd:blah"
+	etcdImage = "pachyderm/etcd:v3.3.5"
 
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
