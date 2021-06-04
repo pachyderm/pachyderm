@@ -21,7 +21,7 @@ import (
 // with a kubernetes Deployment.
 
 var (
-	etcdImage = "bitnami/etcd:v3.4.16"
+	etcdImage = "quay.io/coreos/etcd:v3.5.0-rc.0"
 
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
