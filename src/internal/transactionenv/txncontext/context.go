@@ -26,7 +26,7 @@ type TransactionContext struct {
 	PfsPropagater PfsPropagater
 	// CommitFinisher finishes commits for a pipeline at the end of a transaction
 	CommitFinisher PipelineCommitFinisher
-	// PpsPropagater starts PipelineJobs in any pipelines that have new output commits at the end of the transaction.
+	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
 	PpsPropagater PpsPropagater
 }
 

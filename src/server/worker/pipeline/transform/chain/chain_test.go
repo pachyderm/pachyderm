@@ -46,7 +46,7 @@ func newTestChain(pachClient *client.APIClient, metas ...*datum.Meta) *JobChain 
 	return NewJobChain(pachClient, hasher)
 }
 
-func newMeta(pipelineJob *pps.PipelineJob, name string) *datum.Meta {
+func newMeta(job *pps.Job, name string) *datum.Meta {
 	inputs := []*common.Input{
 		&common.Input{
 			FileInfo: &pfs.FileInfo{
@@ -57,17 +57,17 @@ func newMeta(pipelineJob *pps.PipelineJob, name string) *datum.Meta {
 		},
 	}
 	return &datum.Meta{
-		PipelineJob: pipelineJob,
-		Inputs:      inputs,
-		Hash:        common.HashDatum("", "", inputs),
+		Job:    job,
+		Inputs: inputs,
+		Hash:   common.HashDatum("", "", inputs),
 	}
 }
 
-func newTestMetas(pipelineJob *pps.PipelineJob) []*datum.Meta {
+func newTestMetas(job *pps.Job) []*datum.Meta {
 	return []*datum.Meta{
-		newMeta(pipelineJob, "a"),
-		newMeta(pipelineJob, "b"),
-		newMeta(pipelineJob, "c"),
+		newMeta(job, "a"),
+		newMeta(job, "b"),
+		newMeta(job, "c"),
 	}
 }
 
@@ -84,40 +84,40 @@ func requireIteratorContents(t *testing.T, jdi *JobDatumIterator, metas []*datum
 func TestEmptyBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient)
-	pipelineJob := client.NewPipelineJob("pipeline", uuid.NewWithoutDashes())
-	jobMetas := newTestMetas(pipelineJob)
+	job := client.NewJob("pipeline", uuid.NewWithoutDashes())
+	jobMetas := newTestMetas(job)
 	ti := newTestIterator(jobMetas)
-	jdi := chain.CreateJob(context.Background(), pipelineJob, ti, ti)
+	jdi := chain.CreateJob(context.Background(), job, ti, ti)
 	requireIteratorContents(t, jdi, jobMetas)
 }
 
 func TestAdditiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[:2]...)
-	pipelineJob := client.NewPipelineJob("pipeline", uuid.NewWithoutDashes())
-	jobMetas := newTestMetas(pipelineJob)
+	job := client.NewJob("pipeline", uuid.NewWithoutDashes())
+	jobMetas := newTestMetas(job)
 	ti := newTestIterator(jobMetas)
-	jdi := chain.CreateJob(context.Background(), pipelineJob, ti, ti)
+	jdi := chain.CreateJob(context.Background(), job, ti, ti)
 	requireIteratorContents(t, jdi, jobMetas[2:])
 }
 
 func TestSubtractiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())...)
-	pipelineJob := client.NewPipelineJob("pipeline", uuid.NewWithoutDashes())
-	jobMetas := newTestMetas(pipelineJob)[1:]
+	job := client.NewJob("pipeline", uuid.NewWithoutDashes())
+	jobMetas := newTestMetas(job)[1:]
 	ti := newTestIterator(jobMetas)
-	jdi := chain.CreateJob(context.Background(), pipelineJob, ti, ti)
+	jdi := chain.CreateJob(context.Background(), job, ti, ti)
 	requireIteratorContents(t, jdi, nil)
 }
 
 func TestAdditiveSubtractiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[1:]...)
-	pipelineJob := client.NewPipelineJob("pipeline", uuid.NewWithoutDashes())
-	jobMetas := newTestMetas(pipelineJob)[:2]
+	job := client.NewJob("pipeline", uuid.NewWithoutDashes())
+	jobMetas := newTestMetas(job)[:2]
 	ti := newTestIterator(jobMetas)
-	jdi := chain.CreateJob(context.Background(), pipelineJob, ti, ti)
+	jdi := chain.CreateJob(context.Background(), job, ti, ti)
 	requireIteratorContents(t, jdi, jobMetas[:1])
 }
 

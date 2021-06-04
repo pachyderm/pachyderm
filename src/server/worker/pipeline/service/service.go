@@ -23,13 +23,13 @@ import (
 func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	pachClient := driver.PachClient()
 	pipelineInfo := driver.PipelineInfo()
-	return forEachPipelineJob(pachClient, pipelineInfo, logger, func(ctx context.Context, pipelineJobInfo *pps.PipelineJobInfo) (retErr error) {
+	return forEachJob(pachClient, pipelineInfo, logger, func(ctx context.Context, jobInfo *pps.JobInfo) (retErr error) {
 		driver := driver.WithContext(ctx)
-		if err := driver.UpdatePipelineJobState(pipelineJobInfo.PipelineJob, pps.PipelineJobState_JOB_RUNNING, ""); err != nil {
+		if err := driver.UpdateJobState(jobInfo.Job, pps.JobState_JOB_RUNNING, ""); err != nil {
 			return err
 		}
-		pipelineJobInput := ppsutil.PipelineJobInput(pipelineInfo, pipelineJobInfo.OutputCommit)
-		di, err := datum.NewIterator(pachClient, pipelineJobInput)
+		jobInput := ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
+		di, err := datum.NewIterator(pachClient, jobInput)
 		if err != nil {
 			return err
 		}
@@ -48,14 +48,14 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 		defer func() {
 			if common.IsDone(ctx) {
-				retErr = ppsutil.FinishPipelineJob(pachClient, pipelineJobInfo, pps.PipelineJobState_JOB_SUCCESS, "")
+				retErr = ppsutil.FinishJob(pachClient, jobInfo, pps.JobState_JOB_SUCCESS, "")
 			}
 		}()
 		storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 		return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
 			inputs := meta.Inputs
 			logger = logger.WithData(inputs)
-			env := driver.UserCodeEnv(logger.PipelineJobID(), pipelineJobInfo.OutputCommit, inputs)
+			env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs)
 			return s.WithDatum(ctx, meta, func(d *datum.Datum) error {
 				return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
 					return d.Run(ctx, func(runCtx context.Context) error {
@@ -68,15 +68,15 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	})
 }
 
-// Repeatedly runs the given callback with the latest pipelineJob for the pipeline.
+// Repeatedly runs the given callback with the latest job for the pipeline.
 // The given context will be canceled if a newer job is ready, then this will
 // wait for the previous callback to return before calling the callback again
 // with the latest job.
-func forEachPipelineJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, cb func(context.Context, *pps.PipelineJobInfo) error) error {
+func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, cb func(context.Context, *pps.JobInfo) error) error {
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
-	return pachClient.SubscribePipelineJob(pipelineInfo.Pipeline.Name, true, func(pji *pps.PipelineJobInfo) error {
+	return pachClient.SubscribeJob(pipelineInfo.Pipeline.Name, true, func(pji *pps.JobInfo) error {
 		if cancel != nil {
 			logger.Logf("canceling previous service, new job ready")
 			cancel()
@@ -84,7 +84,7 @@ func forEachPipelineJob(pachClient *client.APIClient, pipelineInfo *pps.Pipeline
 				return err
 			}
 		}
-		logger.Logf("starting new service, job: %s", pji.PipelineJob.ID)
+		logger.Logf("starting new service, job: %s", pji.Job.ID)
 		var ctx context.Context
 		ctx, cancel = context.WithCancel(pachClient.Ctx())
 		eg, ctx = errgroup.WithContext(ctx)

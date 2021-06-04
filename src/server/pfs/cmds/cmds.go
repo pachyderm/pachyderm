@@ -681,12 +681,6 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			if proto.Equal(trigger, &pfs.Trigger{}) {
 				trigger = nil
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
 			var headCommit *pfs.Commit
 			if head != "" {
 				if uuid.IsUUIDWithoutDashes(head) {
@@ -698,6 +692,12 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 					}
 				}
 			}
+
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.CreateBranch(

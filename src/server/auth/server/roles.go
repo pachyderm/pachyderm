@@ -152,6 +152,8 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 		return robotUserRole, nil
 	case auth.LicenseAdminRole:
 		return licenseAdminRole, nil
+	case auth.SecretAdminRole:
+		return secretAdminRole, nil
 	}
 	return nil, fmt.Errorf("unknown role %q", role)
 }

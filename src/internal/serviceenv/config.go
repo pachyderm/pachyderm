@@ -30,10 +30,10 @@ type GlobalConfiguration struct {
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
 	PostgresDBName      string `env:"POSTGRES_DATABASE_NAME"`
 
-	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
-	// Because both pachd and worker need to know the spec commit (the worker so
-	// that it can avoid jobs for other versions of the same pipelines and the
-	// sidecar so that it can serve the S3 gateway) it's stored in the
+	// PPSSpecCommitID and PPSPipelineName are only set for workers and sidecar
+	// pachd instances. Because both pachd and worker need to know the spec commit
+	// (the worker so that it can avoid jobs for other versions of the same pipelines
+	// and the sidecar so that it can serve the S3 gateway) it's stored in the
 	// GlobalConfiguration, but it isn't set in a cluster's main pachd containers.
 	PPSSpecCommitID string `env:"PPS_SPEC_COMMIT"`
 	// The name of the pipeline that this worker belongs to

@@ -278,7 +278,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 							if _, err := pachClient.BlockCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID); err != nil {
 								return err
 							}
-							if _, err := pachClient.InspectPipelineJobOutputCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID, true); err != nil {
+							if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID, true); err != nil {
 								return err
 							}
 

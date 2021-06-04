@@ -125,6 +125,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "POSTGRES_DATABASE_NAME",
 		Value: a.env.Config().PostgresDBName,
+	}, {
+		Name:  "METRICS",
+		Value: strconv.FormatBool(a.env.Config().Metrics),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
@@ -181,6 +184,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  client.PeerPortEnv,
 			Value: strconv.FormatUint(uint64(a.peerPort), 10),
+		},
+		{
+			Name:  "METRICS",
+			Value: strconv.FormatBool(a.env.Config().Metrics),
 		},
 	}...)
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
@@ -429,9 +436,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 func (a *apiServer) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
 		{Name: assets.UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(a.env.Config().StorageUploadConcurrencyLimit)},
-	}
-	if pipelineInfo.Spout != nil {
-		vars = append(vars, v1.EnvVar{Name: "SPOUT_PIPELINE_NAME", Value: pipelineInfo.Pipeline.Name})
+		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
 }

@@ -128,16 +128,18 @@ var authHandlers = map[string]authHandler{
 	"/pfs.API/FinishCommit":     authDisabledOr(authenticated),
 	"/pfs.API/InspectCommit":    authDisabledOr(authenticated),
 	"/pfs.API/ListCommit":       authDisabledOr(authenticated),
-	"/pfs.API/InspectCommitset": authDisabledOr(authenticated),
-	"/pfs.API/SquashCommitset":  authDisabledOr(authenticated),
+	"/pfs.API/SquashCommit":     authDisabledOr(authenticated),
+	"/pfs.API/FlushCommit":      authDisabledOr(authenticated),
 	"/pfs.API/SubscribeCommit":  authDisabledOr(authenticated),
 	"/pfs.API/ClearCommit":      authDisabledOr(authenticated),
+	"/pfs.API/InspectCommitset": authDisabledOr(authenticated),
+	"/pfs.API/SquashCommitset":  authDisabledOr(authenticated),
 	"/pfs.API/CreateBranch":     authDisabledOr(authenticated),
 	"/pfs.API/InspectBranch":    authDisabledOr(authenticated),
 	"/pfs.API/ListBranch":       authDisabledOr(authenticated),
 	"/pfs.API/DeleteBranch":     authDisabledOr(authenticated),
 	"/pfs.API/ModifyFile":       authDisabledOr(authenticated),
-	"/pfs.API/GetFile":          authDisabledOr(authenticated),
+	"/pfs.API/GetFileTAR":       authDisabledOr(authenticated),
 	"/pfs.API/InspectFile":      authDisabledOr(authenticated),
 	"/pfs.API/ListFile":         authDisabledOr(authenticated),
 	"/pfs.API/WalkFile":         authDisabledOr(authenticated),
@@ -157,30 +159,30 @@ var authHandlers = map[string]authHandler{
 
 	// TODO: Add per-repo permissions checks for these
 	// TODO: split GetLogs into master and not-master and add check for pipeline permissions
-	"/pps.API/InspectPipelineJob":     authDisabledOr(authenticated),
-	"/pps.API/ListPipelineJob":        authDisabledOr(authenticated),
-	"/pps.API/ListPipelineJobStream":  authDisabledOr(authenticated),
-	"/pps.API/SubscribePipelineJob":   authDisabledOr(authenticated),
-	"/pps.API/FlushPipelineJob":       authDisabledOr(authenticated),
-	"/pps.API/DeletePipelineJob":      authDisabledOr(authenticated),
-	"/pps.API/StopPipelineJob":        authDisabledOr(authenticated),
-	"/pps.API/InspectDatum":           authDisabledOr(authenticated),
-	"/pps.API/ListDatum":              authDisabledOr(authenticated),
-	"/pps.API/ListDatumStream":        authDisabledOr(authenticated),
-	"/pps.API/RestartDatum":           authDisabledOr(authenticated),
-	"/pps.API/CreatePipeline":         authDisabledOr(authenticated),
-	"/pps.API/InspectPipeline":        authDisabledOr(authenticated),
-	"/pps.API/DeletePipeline":         authDisabledOr(authenticated),
-	"/pps.API/StartPipeline":          authDisabledOr(authenticated),
-	"/pps.API/StopPipeline":           authDisabledOr(authenticated),
-	"/pps.API/RunPipeline":            authDisabledOr(authenticated),
-	"/pps.API/RunCron":                authDisabledOr(authenticated),
-	"/pps.API/GetLogs":                authDisabledOr(authenticated),
-	"/pps.API/GarbageCollect":         authDisabledOr(authenticated),
-	"/pps.API/UpdatePipelineJobState": authDisabledOr(authenticated),
-	"/pps.API/ListPipeline":           authDisabledOr(authenticated),
-	"/pps.API/ActivateAuth":           clusterPermissions(auth.Permission_CLUSTER_AUTH_ACTIVATE),
-	"/pps.API/DeleteAll":              authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DELETE_ALL)),
+	"/pps.API/InspectJob":      authDisabledOr(authenticated),
+	"/pps.API/ListJob":         authDisabledOr(authenticated),
+	"/pps.API/ListJobStream":   authDisabledOr(authenticated),
+	"/pps.API/SubscribeJob":    authDisabledOr(authenticated),
+	"/pps.API/FlushJob":        authDisabledOr(authenticated),
+	"/pps.API/DeleteJob":       authDisabledOr(authenticated),
+	"/pps.API/StopJob":         authDisabledOr(authenticated),
+	"/pps.API/InspectDatum":    authDisabledOr(authenticated),
+	"/pps.API/ListDatum":       authDisabledOr(authenticated),
+	"/pps.API/ListDatumStream": authDisabledOr(authenticated),
+	"/pps.API/RestartDatum":    authDisabledOr(authenticated),
+	"/pps.API/CreatePipeline":  authDisabledOr(authenticated),
+	"/pps.API/InspectPipeline": authDisabledOr(authenticated),
+	"/pps.API/DeletePipeline":  authDisabledOr(authenticated),
+	"/pps.API/StartPipeline":   authDisabledOr(authenticated),
+	"/pps.API/StopPipeline":    authDisabledOr(authenticated),
+	"/pps.API/RunPipeline":     authDisabledOr(authenticated),
+	"/pps.API/RunCron":         authDisabledOr(authenticated),
+	"/pps.API/GetLogs":         authDisabledOr(authenticated),
+	"/pps.API/GarbageCollect":  authDisabledOr(authenticated),
+	"/pps.API/UpdateJobState":  authDisabledOr(authenticated),
+	"/pps.API/ListPipeline":    authDisabledOr(authenticated),
+	"/pps.API/ActivateAuth":    clusterPermissions(auth.Permission_CLUSTER_AUTH_ACTIVATE),
+	"/pps.API/DeleteAll":       authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DELETE_ALL)),
 
 	"/pps.API/CreateSecret":  authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_CREATE_SECRET)),
 	"/pps.API/ListSecret":    authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LIST_SECRETS)),
@@ -251,14 +253,13 @@ type Interceptor struct {
 
 // InterceptUnary applies authentication rules to unary RPCs
 func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	pachClient := i.env.GetPachClient(ctx)
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
 		return nil, fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(pachClient, info.FullMethod)
+	username, err := a(ctx, i.env.AuthServer(), info.FullMethod)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("denied unary call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
@@ -275,14 +276,13 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 // InterceptStream applies authentication rules to streaming RPCs
 func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	ctx := stream.Context()
-	pachClient := i.env.GetPachClient(ctx)
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
 		return fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(pachClient, info.FullMethod)
+	username, err := a(ctx, i.env.AuthServer(), info.FullMethod)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("denied streaming call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))

@@ -147,11 +147,11 @@ func (a *validatedAPIServer) SquashCommitset(ctx context.Context, request *pfs.S
 	return a.apiServer.SquashCommitset(ctx, request)
 }
 
-func (a *validatedAPIServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) error {
+func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) error {
 	if request.File == nil {
 		return errors.New("file cannot be nil")
 	}
-	return a.apiServer.GetFile(request, server)
+	return a.apiServer.GetFileTAR(request, server)
 }
 
 func validateFile(file *pfs.File) error {

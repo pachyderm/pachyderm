@@ -16,12 +16,12 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	}
 	logger.Logf("transform spawner started")
 
-	return driver.PachClient().SubscribePipelineJob(
+	return driver.PachClient().SubscribeJob(
 		driver.PipelineInfo().Pipeline.Name,
 		true,
-		func(pipelineJobInfo *pps.PipelineJobInfo) error {
+		func(jobInfo *pps.JobInfo) error {
 			// TODO: check that this is for the right version of the pipeline
-			return reg.startPipelineJob(proto.Clone(pipelineJobInfo).(*pps.PipelineJobInfo))
+			return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
 		},
 	)
 }

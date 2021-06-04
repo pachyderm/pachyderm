@@ -206,9 +206,9 @@ func ParseBranch(arg string) (*pfs.Branch, error) {
 	return commit.Branch, nil
 }
 
-// ParsePipelineJob takes an argument of the form "pipeline@job-id" and returns
-// the corresponding *pfs.PipelineJob.
-func ParsePipelineJob(arg string) (*pps.PipelineJob, error) {
+// ParseJob takes an argument of the form "pipeline@job-id" and returns
+// the corresponding *pfs.Job.
+func ParseJob(arg string) (*pps.Job, error) {
 	parts := strings.SplitN(arg, "@", 2)
 	if parts[0] == "" {
 		return nil, errors.Errorf("invalid format \"%s\": pipeline must be specified", arg)
@@ -216,7 +216,7 @@ func ParsePipelineJob(arg string) (*pps.PipelineJob, error) {
 	if len(parts) != 2 {
 		return nil, errors.Errorf("invalid format \"%s\": expected pipeline@job-id", arg)
 	}
-	return client.NewPipelineJob(parts[0], parts[1]), nil
+	return client.NewJob(parts[0], parts[1]), nil
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the

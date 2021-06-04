@@ -53,16 +53,16 @@ func NewJobChain(pachClient *client.APIClient, hasher datum.Hasher, opts ...JobC
 
 // CreateJob creates a job in the job chain.
 // TODO: Context should be associated with the iteration, but need to change datum iterator interface for that.
-func (jc *JobChain) CreateJob(ctx context.Context, pipelineJob *pps.PipelineJob, dit, outputDit datum.Iterator) *JobDatumIterator {
+func (jc *JobChain) CreateJob(ctx context.Context, job *pps.Job, dit, outputDit datum.Iterator) *JobDatumIterator {
 	jdi := &JobDatumIterator{
-		ctx:         ctx,
-		jc:          jc,
-		parent:      jc.prevJob,
-		pipelineJob: pipelineJob,
-		stats:       &datum.Stats{ProcessStats: &pps.ProcessStats{}},
-		dit:         datum.NewPipelineJobIterator(dit, pipelineJob, jc.hasher),
-		outputDit:   outputDit,
-		done:        make(chan struct{}),
+		ctx:       ctx,
+		jc:        jc,
+		parent:    jc.prevJob,
+		job:       job,
+		stats:     &datum.Stats{ProcessStats: &pps.ProcessStats{}},
+		dit:       datum.NewJobIterator(dit, job, jc.hasher),
+		outputDit: outputDit,
+		done:      make(chan struct{}),
 	}
 	jc.prevJob = jdi
 	return jdi
@@ -73,7 +73,7 @@ type JobDatumIterator struct {
 	ctx            context.Context
 	jc             *JobChain
 	parent         *JobDatumIterator
-	pipelineJob    *pps.PipelineJob
+	job            *pps.Job
 	stats          *datum.Stats
 	dit, outputDit datum.Iterator
 	finishOnce     sync.Once
@@ -132,7 +132,7 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 			if outputFilesetID, err = jdi.withDatumFileset(pachClient, func(outputSet *datum.Set) error {
 				return datum.Merge([]datum.Iterator{parentFilesetIterator, filesetIterator}, func(metas []*datum.Meta) error {
 					if len(metas) == 1 {
-						if !proto.Equal(metas[0].PipelineJob, jdi.pipelineJob) {
+						if !proto.Equal(metas[0].Job, jdi.job) {
 							return nil
 						}
 						return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
@@ -168,7 +168,7 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 			return datum.Merge([]datum.Iterator{jdi.parent.outputDit, skippedFilesetIterator}, func(metas []*datum.Meta) error {
 				if len(metas) == 1 {
 					// Datum was skipped, but does not exist in the parent job output.
-					if proto.Equal(metas[0].PipelineJob, jdi.pipelineJob) {
+					if proto.Equal(metas[0].Job, jdi.job) {
 						jdi.stats.Skipped--
 						return s.UploadMeta(metas[0], datum.WithPrefixIndex())
 					}

@@ -191,6 +191,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 				return err
 			}
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -291,6 +292,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 				return err
 			}
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -454,6 +456,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+		env.SetEnterpriseServer(enterpriseAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -640,6 +643,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -789,6 +793,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err

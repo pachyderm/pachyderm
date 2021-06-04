@@ -22,7 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -145,41 +145,40 @@ func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 	return ctx
 }
 
-func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Context, *pps.StoredPipelineJobInfo) {
+func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Context, *pps.StoredJobInfo) {
 	// Create a context that the caller can wait on
 	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
 
-	// Mock out the initial ListPipelineJob, and InspectPipelineJob calls
-	etcdJobInfo := &pps.StoredPipelineJobInfo{PipelineJob: client.NewPipelineJob(uuid.NewWithoutDashes())}
+	// Mock out the initial ListJob, and InspectJob calls
+	storedJobInfo := &pps.StoredJobInfo{Job: client.NewJob(pi.Pipeline.Name, uuid.NewWithoutDashes())}
 
 	// TODO: use a 'real' pps if we can make one that doesn't need a real kube client
-	env.MockPachd.PPS.ListPipelineJob.Use(func(*pps.ListPipelineJobRequest, pps.API_ListPipelineJobServer) error {
+	env.MockPachd.PPS.ListJob.Use(func(*pps.ListJobRequest, pps.API_ListJobServer) error {
 		return nil
 	})
 
-	env.MockPachd.PPS.InspectPipelineJob.Use(func(ctx context.Context, request *pps.InspectPipelineJobRequest) (*pps.PipelineJobInfo, error) {
-		if etcdJobInfo.OutputCommit == nil {
+	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
+		if storedJobInfo.OutputCommit == nil {
 			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
-		outputCommitInfo, err := env.PachClient.InspectCommit(etcdJobInfo.OutputCommit.Branch.Repo.Name, etcdJobInfo.OutputCommit.Branch.Name, etcdJobInfo.OutputCommit.ID)
+		outputCommitInfo, err := env.PachClient.InspectCommit(storedJobInfo.OutputCommit.Branch.Repo.Name, storedJobInfo.OutputCommit.Branch.Name, storedJobInfo.OutputCommit.ID)
 		require.NoError(t, err)
 
-		return &pps.PipelineJobInfo{
-			PipelineJob:      etcdJobInfo.PipelineJob,
-			Pipeline:         etcdJobInfo.Pipeline,
-			OutputRepo:       client.NewRepo(etcdJobInfo.Pipeline.Name),
-			OutputCommit:     etcdJobInfo.OutputCommit,
-			Restart:          etcdJobInfo.Restart,
-			DataProcessed:    etcdJobInfo.DataProcessed,
-			DataSkipped:      etcdJobInfo.DataSkipped,
-			DataTotal:        etcdJobInfo.DataTotal,
-			DataFailed:       etcdJobInfo.DataFailed,
-			DataRecovered:    etcdJobInfo.DataRecovered,
-			Stats:            etcdJobInfo.Stats,
-			State:            etcdJobInfo.State,
-			Reason:           etcdJobInfo.Reason,
-			Started:          etcdJobInfo.Started,
-			Finished:         etcdJobInfo.Finished,
+		return &pps.JobInfo{
+			Job:              storedJobInfo.Job,
+			OutputRepo:       client.NewRepo(storedJobInfo.Job.Pipeline.Name),
+			OutputCommit:     storedJobInfo.OutputCommit,
+			Restart:          storedJobInfo.Restart,
+			DataProcessed:    storedJobInfo.DataProcessed,
+			DataSkipped:      storedJobInfo.DataSkipped,
+			DataTotal:        storedJobInfo.DataTotal,
+			DataFailed:       storedJobInfo.DataFailed,
+			DataRecovered:    storedJobInfo.DataRecovered,
+			Stats:            storedJobInfo.Stats,
+			State:            storedJobInfo.State,
+			Reason:           storedJobInfo.Reason,
+			Started:          storedJobInfo.Started,
+			Finished:         storedJobInfo.Finished,
 			Transform:        pi.Transform,
 			PipelineVersion:  pi.Version,
 			ParallelismSpec:  pi.ParallelismSpec,
@@ -189,7 +188,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 			OutputBranch:     pi.OutputBranch,
 			ResourceRequests: pi.ResourceRequests,
 			ResourceLimits:   pi.ResourceLimits,
-			Input:            ppsutil.PipelineJobInput(pi, outputCommitInfo),
+			Input:            ppsutil.JobInput(pi, outputCommitInfo.Commit),
 			EnableStats:      pi.EnableStats,
 			Salt:             pi.Salt,
 			ChunkSpec:        pi.ChunkSpec,
@@ -202,13 +201,13 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		}, nil
 	})
 
-	updateJobState := func(request *pps.UpdatePipelineJobStateRequest) {
-		if ppsutil.IsTerminal(etcdJobInfo.State) {
+	updateJobState := func(request *pps.UpdateJobStateRequest) {
+		if ppsutil.IsTerminal(storedJobInfo.State) {
 			return
 		}
 
-		etcdJobInfo.State = request.State
-		etcdJobInfo.Reason = request.Reason
+		storedJobInfo.State = request.State
+		storedJobInfo.Reason = request.Reason
 
 		// If setting the job to a terminal state, we are done
 		if ppsutil.IsTerminal(request.State) {
@@ -216,17 +215,17 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		}
 	}
 
-	env.MockPPSTransactionServer.UpdatePipelineJobStateInTransaction.Use(func(txnctx *txnenv.TransactionContext, request *pps.UpdatePipelineJobStateRequest) error {
+	env.MockPPSTransactionServer.UpdateJobStateInTransaction.Use(func(txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
 		updateJobState(request)
 		return nil
 	})
 
-	env.MockPachd.PPS.UpdatePipelineJobState.Use(func(ctx context.Context, request *pps.UpdatePipelineJobStateRequest) (*types.Empty, error) {
+	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
 		updateJobState(request)
 		return &types.Empty{}, nil
 	})
 
-	return ctx, etcdJobInfo
+	return ctx, storedJobInfo
 }
 
 func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
@@ -246,15 +245,15 @@ func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 }
 
 func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
-	ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+	ctx, storedJobInfo := mockBasicJob(t, env, pi)
 	triggerJob(t, env, pi, files)
 	ctx = withTimeout(ctx, 10*time.Second)
 	<-ctx.Done()
-	require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, storedJobInfo.State)
 
 	// Ensure the output commit is successful
-	outputCommitID := etcdJobInfo.OutputCommit.ID
-	outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, etcdJobInfo.OutputCommit.Branch.Name, outputCommitID)
+	outputCommitID := storedJobInfo.OutputCommit.ID
+	outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, storedJobInfo.OutputCommit.Branch.Name, outputCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, outputCommitInfo.Finished)
 
@@ -262,7 +261,7 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 	require.NoError(t, err)
 	require.NotNil(t, branchInfo)
 
-	r, err := env.PachClient.GetFileTar(etcdJobInfo.OutputCommit, "/*")
+	r, err := env.PachClient.GetFileTar(storedJobInfo.OutputCommit, "/*")
 	require.NoError(t, err)
 	require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 		ok, err := tarutil.Equal(files[0], file)
@@ -318,14 +317,14 @@ func TestTransformPipeline(suite *testing.T) {
 		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 
 		pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
-		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		ctx, storedJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		}
 		triggerJob(t, env, pi, tarFiles)
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.PipelineJobState_JOB_FAILURE, etcdJobInfo.State)
+		require.Equal(t, pps.JobState_JOB_FAILURE, storedJobInfo.State)
 		// TODO: check job stats
 	})
 
@@ -334,7 +333,7 @@ func TestTransformPipeline(suite *testing.T) {
 		pi := defaultPipelineInfo()
 		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 
-		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		ctx, storedJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
 			tarutil.NewMemFile("/b", []byte("barfoo")),
@@ -342,11 +341,11 @@ func TestTransformPipeline(suite *testing.T) {
 		triggerJob(t, env, pi, tarFiles)
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, storedJobInfo.State)
 
 		// Ensure the output commit is successful.
-		outputCommitID := etcdJobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, etcdJobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitID := storedJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, storedJobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
@@ -355,7 +354,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetFileTar(etcdJobInfo.OutputCommit, "/*")
+		r, err := env.PachClient.GetFileTar(storedJobInfo.OutputCommit, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[0], file)
@@ -371,7 +370,7 @@ func TestTransformPipeline(suite *testing.T) {
 		pi := defaultPipelineInfo()
 		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 
-		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		ctx, storedJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
 			tarutil.NewMemFile("/b", []byte("barfoo")),
@@ -379,17 +378,17 @@ func TestTransformPipeline(suite *testing.T) {
 		triggerJob(t, env, pi, tarFiles[:1])
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, storedJobInfo.State)
 
-		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
+		ctx, storedJobInfo = mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, tarFiles[1:])
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, storedJobInfo.State)
 
 		// Ensure the output commit is successful
-		outputCommitID := etcdJobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, etcdJobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitID := storedJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, storedJobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
@@ -398,7 +397,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetFileTar(etcdJobInfo.OutputCommit, "/*")
+		r, err := env.PachClient.GetFileTar(storedJobInfo.OutputCommit, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[0], file)
@@ -414,7 +413,7 @@ func TestTransformPipeline(suite *testing.T) {
 		pi := defaultPipelineInfo()
 		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
 
-		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		ctx, storedJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
 			tarutil.NewMemFile("/b", []byte("barfoo")),
@@ -422,23 +421,23 @@ func TestTransformPipeline(suite *testing.T) {
 		triggerJob(t, env, pi, tarFiles[:1])
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, storedJobInfo.State)
 
-		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
+		ctx, storedJobInfo = mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, tarFiles[1:])
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, storedJobInfo.State)
 
-		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
+		ctx, storedJobInfo = mockBasicJob(t, env, pi)
 		deleteFiles(t, env, pi, []string{"/a"})
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, pps.PipelineJobState_JOB_SUCCESS, etcdJobInfo.State)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, storedJobInfo.State)
 
 		// Ensure the output commit is successful
-		outputCommitID := etcdJobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, etcdJobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitID := storedJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, storedJobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
@@ -447,7 +446,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetFileTar(etcdJobInfo.OutputCommit, "/*")
+		r, err := env.PachClient.GetFileTar(storedJobInfo.OutputCommit, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[1], file)

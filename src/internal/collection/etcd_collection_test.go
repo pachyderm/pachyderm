@@ -28,7 +28,7 @@ var (
 	pipelineIndex *col.Index = &col.Index{
 		Name: "Pipeline",
 		Extract: func(val proto.Message) string {
-			return val.(*pps.PipelineJobInfo).PipelineJob.Pipeline.Name
+			return val.(*pps.JobInfo).Job.Pipeline.Name
 		},
 	}
 )
@@ -63,17 +63,17 @@ func TestDryrun(t *testing.T) {
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	pipelineJobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.PipelineJobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
-	pipelineJob := &pps.PipelineJobInfo{
-		PipelineJob: client.NewPipelineJob("p1", "pj1"),
+	job := &pps.JobInfo{
+		Job: client.NewJob("p1", "j1"),
 	}
 	err := col.NewDryrunSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		return pipelineJobInfos.ReadWrite(stm).Put(ppsdb.JobKey(pipelineJob.PipelineJob), pipelineJob)
+		return jobInfos.ReadWrite(stm).Put(ppsdb.JobKey(job.Job), job)
 	})
 	require.NoError(t, err)
 
-	err = pipelineJobInfos.ReadOnly(context.Background()).Get("pj1", pipelineJob)
+	err = jobInfos.ReadOnly(context.Background()).Get("j1", job)
 	require.True(t, col.IsErrNotFound(err))
 }
 
@@ -82,75 +82,75 @@ func TestDeletePrefix(t *testing.T) {
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	pipelineJobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.PipelineJobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
-	pj1 := &pps.PipelineJobInfo{
-		PipelineJob: client.NewPipelineJob("p", "prefix/suffix/pipelineJob"),
+	j1 := &pps.JobInfo{
+		Job: client.NewJob("p", "prefix/suffix/Job"),
 	}
-	pj2 := &pps.PipelineJobInfo{
-		PipelineJob: client.NewPipelineJob("p", "prefix/suffix/pipelineJob2"),
+	j2 := &pps.JobInfo{
+		Job: client.NewJob("p", "prefix/suffix/Job2"),
 	}
-	pj3 := &pps.PipelineJobInfo{
-		PipelineJob: client.NewPipelineJob("p", "prefix/pipelineJob3"),
+	j3 := &pps.JobInfo{
+		Job: client.NewJob("p", "prefix/Job3"),
 	}
-	pj4 := &pps.PipelineJobInfo{
-		PipelineJob: client.NewPipelineJob("p", "pipelineJob4"),
+	j4 := &pps.JobInfo{
+		Job: client.NewJob("p", "Job4"),
 	}
 
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		rw := pipelineJobInfos.ReadWrite(stm)
-		rw.Put(ppsdb.JobKey(pj1.PipelineJob), pj1)
-		rw.Put(ppsdb.JobKey(pj2.PipelineJob), pj2)
-		rw.Put(ppsdb.JobKey(pj3.PipelineJob), pj3)
-		rw.Put(ppsdb.JobKey(pj4.PipelineJob), pj4)
+		rw := jobInfos.ReadWrite(stm)
+		rw.Put(ppsdb.JobKey(j1.Job), j1)
+		rw.Put(ppsdb.JobKey(j2.Job), j2)
+		rw.Put(ppsdb.JobKey(j3.Job), j3)
+		rw.Put(ppsdb.JobKey(j4.Job), j4)
 		return nil
 	})
 	require.NoError(t, err)
 
 	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		pipelineJob := &pps.PipelineJobInfo{}
-		rw := pipelineJobInfos.ReadWrite(stm)
+		job := &pps.JobInfo{}
+		rw := jobInfos.ReadWrite(stm)
 
 		rw.DeleteAllPrefix("p@prefix/suffix")
-		if err := rw.Get(ppsdb.JobKey(pj1.PipelineJob), pipelineJob); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", pj1.PipelineJob.ID)
+		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
-		if err := rw.Get(ppsdb.JobKey(pj2.PipelineJob), pipelineJob); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", pj2.PipelineJob.ID)
+		if err := rw.Get(ppsdb.JobKey(j2.Job), job); !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
-		if err := rw.Get(ppsdb.JobKey(pj3.PipelineJob), pipelineJob); err != nil {
+		if err := rw.Get(ppsdb.JobKey(j3.Job), job); err != nil {
 			return err
 		}
-		if err := rw.Get(ppsdb.JobKey(pj4.PipelineJob), pipelineJob); err != nil {
+		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
 			return err
 		}
 
 		rw.DeleteAllPrefix("p@prefix")
-		if err := rw.Get(ppsdb.JobKey(pj1.PipelineJob), pipelineJob); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", pj1.PipelineJob.ID)
+		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
-		if err := rw.Get(ppsdb.JobKey(pj2.PipelineJob), pipelineJob); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", pj2.PipelineJob.ID)
+		if err := rw.Get(ppsdb.JobKey(j2.Job), job); !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
-		if err := rw.Get(ppsdb.JobKey(pj3.PipelineJob), pipelineJob); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", pj3.PipelineJob.ID)
+		if err := rw.Get(ppsdb.JobKey(j3.Job), job); !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j3.Job.ID)
 		}
-		if err := rw.Get(ppsdb.JobKey(pj4.PipelineJob), pipelineJob); err != nil {
+		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
 			return err
 		}
 
-		rw.Put(ppsdb.JobKey(pj1.PipelineJob), pj1)
-		if err := rw.Get(ppsdb.JobKey(pj1.PipelineJob), pipelineJob); err != nil {
+		rw.Put(ppsdb.JobKey(j1.Job), j1)
+		if err := rw.Get(ppsdb.JobKey(j1.Job), job); err != nil {
 			return err
 		}
 
 		rw.DeleteAllPrefix("p@prefix/suffix")
-		if err := rw.Get(ppsdb.JobKey(pj1.PipelineJob), pipelineJob); !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", pj1.PipelineJob.ID)
+		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
 
-		rw.Put(ppsdb.JobKey(pj2.PipelineJob), pj2)
-		if err := rw.Get(ppsdb.JobKey(pj2.PipelineJob), pipelineJob); err != nil {
+		rw.Put(ppsdb.JobKey(j2.Job), j2)
+		if err := rw.Get(ppsdb.JobKey(j2.Job), job); err != nil {
 			return err
 		}
 
@@ -158,14 +158,14 @@ func TestDeletePrefix(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pipelineJob := &pps.PipelineJobInfo{}
-	ro := pipelineJobInfos.ReadOnly(context.Background())
-	require.True(t, col.IsErrNotFound(ro.Get(ppsdb.JobKey(pj1.PipelineJob), pipelineJob)))
-	require.NoError(t, ro.Get(ppsdb.JobKey(pj2.PipelineJob), pipelineJob))
-	require.Equal(t, pj2, pipelineJob)
-	require.True(t, col.IsErrNotFound(ro.Get(ppsdb.JobKey(pj3.PipelineJob), pipelineJob)))
-	require.NoError(t, ro.Get(ppsdb.JobKey(pj4.PipelineJob), pipelineJob))
-	require.Equal(t, pj4, pipelineJob)
+	job := &pps.JobInfo{}
+	ro := jobInfos.ReadOnly(context.Background())
+	require.True(t, col.IsErrNotFound(ro.Get(ppsdb.JobKey(j1.Job), job)))
+	require.NoError(t, ro.Get(ppsdb.JobKey(j2.Job), job))
+	require.Equal(t, j2, job)
+	require.True(t, col.IsErrNotFound(ro.Get(ppsdb.JobKey(j3.Job), job)))
+	require.NoError(t, ro.Get(ppsdb.JobKey(j4.Job), job))
+	require.Equal(t, j4, job)
 }
 
 func TestIndex(t *testing.T) {
@@ -173,36 +173,36 @@ func TestIndex(t *testing.T) {
 	env := testetcd.NewEnv(t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	pipelineJobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.PipelineJobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
-	pj1 := &pps.PipelineJobInfo{
-		PipelineJob: client.NewPipelineJob("p1", "pj1"),
+	j1 := &pps.JobInfo{
+		Job: client.NewJob("p1", "j1"),
 	}
-	pj2 := &pps.PipelineJobInfo{
-		PipelineJob: client.NewPipelineJob("p1", "pj2"),
+	j2 := &pps.JobInfo{
+		Job: client.NewJob("p1", "j2"),
 	}
-	pj3 := &pps.PipelineJobInfo{
-		PipelineJob: client.NewPipelineJob("p2", "pj3"),
+	j3 := &pps.JobInfo{
+		Job: client.NewJob("p2", "j3"),
 	}
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		rw := pipelineJobInfos.ReadWrite(stm)
-		rw.Put(ppsdb.JobKey(pj1.PipelineJob), pj1)
-		rw.Put(ppsdb.JobKey(pj2.PipelineJob), pj2)
-		rw.Put(ppsdb.JobKey(pj3.PipelineJob), pj3)
+		rw := jobInfos.ReadWrite(stm)
+		rw.Put(ppsdb.JobKey(j1.Job), j1)
+		rw.Put(ppsdb.JobKey(j2.Job), j2)
+		rw.Put(ppsdb.JobKey(j3.Job), j3)
 		return nil
 	})
 	require.NoError(t, err)
 
-	ro := pipelineJobInfos.ReadOnly(context.Background())
+	ro := jobInfos.ReadOnly(context.Background())
 
-	pipelineJob := &pps.PipelineJobInfo{}
+	job := &pps.JobInfo{}
 	i := 1
-	require.NoError(t, ro.GetByIndex(pipelineIndex, pj1.PipelineJob.Pipeline.Name, pipelineJob, col.DefaultOptions(), func(string) error {
+	require.NoError(t, ro.GetByIndex(pipelineIndex, j1.Job.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
-			require.Equal(t, pj1, pipelineJob)
+			require.Equal(t, j1, job)
 		case 2:
-			require.Equal(t, pj2, pipelineJob)
+			require.Equal(t, j2, job)
 		case 3:
 			t.Fatal("too many jobs")
 		}
@@ -211,10 +211,10 @@ func TestIndex(t *testing.T) {
 	}))
 
 	i = 1
-	require.NoError(t, ro.GetByIndex(pipelineIndex, pj3.PipelineJob.Pipeline.Name, pipelineJob, col.DefaultOptions(), func(string) error {
+	require.NoError(t, ro.GetByIndex(pipelineIndex, j3.Job.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
-			require.Equal(t, pj3, pipelineJob)
+			require.Equal(t, j3, job)
 		case 2:
 			t.Fatal("too many jobs")
 		}

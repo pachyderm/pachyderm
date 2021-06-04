@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -61,16 +60,6 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 		return err
 	}
 	return tar.NewWriter(w).Close()
-}
-
-// Validate validates a file path.
-func Validate(p string) error {
-	for _, elem := range strings.Split(p, "/") {
-		if elem == "." || elem == ".." {
-			return errors.Errorf("invalid file path (%v), relative file paths are not allowed", p)
-		}
-	}
-	return nil
 }
 
 // Clean cleans a file path.

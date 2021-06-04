@@ -22,8 +22,7 @@ The S3 gateway presents **each branch from every Pachyderm repository as an S3 b
 Buckets are represented via `branch.repo`. 
 
 !!! Example
-    The `master.data` bucket corresponds
-    to the `master` branch of the repo `data`.
+    - The `master.data` bucket corresponds to the `master` branch of the repo `data`.
 
 The following diagram gives a quick overview of the two main aws commands
 that will let you put data into a repo or retrieve data from it via the S3 gateway. 
@@ -38,7 +37,7 @@ Find the exhaustive list of:
 - and the [unsupported ones](unsupported-operations.md).
 
 ## If Authentication Is Enabled
-If [auth is enabled](../../../enterprise/auth/enable-auth.md) on the Pachyderm cluster, credentials must be passed with
+If [auth is enabled](../../../../enterprise/auth/enable-auth.md) on the Pachyderm cluster, credentials must be passed with
 each S3 gateway endpoint as mentioned in the [**Configure Your S3 Client**](./configure-s3client/#set-your-credentials) page.
 
 !!! Warning "Important"
@@ -58,3 +57,21 @@ cluster directly is faster and more reliable.
 Most operations act on the `HEAD` of the given branch. However, if your object
 store library or tool supports versioning, you can get objects in non-`HEAD`
 commits by using the commit ID as the S3 object version ID.
+
+!!! Example
+    To retrieve the file `file.txt` in the commit `a5984442ce6b4b998879513ff3da17da` on the master branch of the repo `arandomrepo`:
+
+    ```shell
+    $ aws s3api get-object --bucket master.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt --version-id a5984442ce6b4b998879513ff3da17da export.txt
+    ```
+    ```shell
+    {
+        "AcceptRanges": "bytes",
+        "LastModified": "2021-06-03T01:31:36+00:00",
+        "ContentLength": 5,
+        "ETag": "\"b5fdc0b3557bd4de47045f9c69fa8e54102bcecc36f8743ab88df90f727ff899\"",
+        "VersionId": "a5984442ce6b4b998879513ff3da17da",
+        "ContentType": "text/plain; charset=utf-8",
+        "Metadata": {}
+    }
+    ```

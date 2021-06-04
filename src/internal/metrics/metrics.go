@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
@@ -144,7 +144,7 @@ func (r *Reporter) reportClusterMetrics() {
 	for {
 		time.Sleep(reportingInterval)
 		metrics := &Metrics{}
-		internalMetrics(r.env.GetPachClient(context.Background()), metrics)
+		r.internalMetrics(metrics)
 		externalMetrics(r.env.GetKubeClient(), metrics)
 		metrics.ClusterID = r.clusterID
 		metrics.PodID = uuid.NewWithoutDashes()
@@ -240,18 +240,17 @@ func inputMetrics(input *pps.Input, metrics *Metrics) {
 	}
 }
 
-func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
-
+func (r *Reporter) internalMetrics(metrics *Metrics) {
 	// We should not return due to an error
-
 	// Activation code
-	enterpriseState, err := pachClient.Enterprise.GetState(pachClient.Ctx(), &enterprise.GetStateRequest{})
+	ctx := context.Background()
+	enterpriseState, err := r.env.EnterpriseServer().GetState(ctx, &enterprise.GetStateRequest{})
 	if err == nil {
 		metrics.ActivationCode = enterpriseState.ActivationCode
 	}
 
 	// Pipeline info
-	resp, err := pachClient.PpsAPIClient.ListPipeline(pachClient.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
+	resp, err := r.env.PpsServer().ListPipeline(ctx, &pps.ListPipelineRequest{AllowIncomplete: true})
 	if err == nil {
 		metrics.Pipelines = int64(len(resp.PipelineInfo)) // Number of pipelines
 		for _, pi := range resp.PipelineInfo {
@@ -353,10 +352,10 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 		log.Errorf("Error getting pipeline metrics: %v", err)
 	}
 
-	ris, err := pachClient.ListRepo()
+	ris, err := r.env.PfsServer().ListRepo(ctx, &pfs.ListRepoRequest{})
 	if err == nil {
 		var sz, mbranch uint64 = 0, 0
-		for _, ri := range ris {
+		for _, ri := range ris.RepoInfo {
 			if (sz + ri.SizeBytes) < sz {
 				sz = 0xFFFFFFFFFFFFFFFF
 			} else {
@@ -366,7 +365,7 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 				mbranch = uint64(len(ri.Branches))
 			}
 		}
-		metrics.Repos = int64(len(ris))
+		metrics.Repos = int64(len(ris.RepoInfo))
 		metrics.Bytes = sz
 		metrics.MaxBranches = mbranch
 	} else {

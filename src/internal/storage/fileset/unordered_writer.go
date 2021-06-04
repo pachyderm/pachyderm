@@ -22,6 +22,7 @@ type UnorderedWriter struct {
 	renewer                    *renew.StringSet
 	ids                        []ID
 	parentID                   *ID
+	validator                  func(string) error
 }
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int64, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
@@ -42,7 +43,7 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 }
 
 func (uw *UnorderedWriter) Put(p, tag string, appendFile bool, r io.Reader) (retErr error) {
-	if err := Validate(p); err != nil {
+	if err := uw.validate(p); err != nil {
 		return err
 	}
 	if tag == "" {
@@ -68,6 +69,13 @@ func (uw *UnorderedWriter) Put(p, tag string, appendFile bool, r io.Reader) (ret
 			w = uw.buffer.Add(p, tag)
 		}
 	}
+}
+
+func (uw *UnorderedWriter) validate(p string) error {
+	if uw.validator != nil {
+		return uw.validator(p)
+	}
+	return nil
 }
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.
@@ -115,7 +123,7 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 
 // Delete deletes a file from the file set.
 func (uw *UnorderedWriter) Delete(p, tag string) error {
-	if err := Validate(p); err != nil {
+	if err := uw.validate(p); err != nil {
 		return err
 	}
 	if tag == "" {

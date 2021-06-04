@@ -264,15 +264,20 @@ func testSpout(t *testing.T, usePachctl bool) {
 		))
 
 		// we should have one job between pipeline and downstreamPipeline
-		pipelineJobInfos, err := c.FlushPipelineJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master", "")}, []string{downstreamPipeline})
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master", "")}, []string{downstreamPipeline})
 		require.NoError(t, err)
-		require.Equal(t, 1, len(pipelineJobInfos))
+		require.Equal(t, 1, len(jobInfos))
 
 		// check that the spec commit for the pipeline has the correct subvenance -
 		// there should be one entry for the output commit in the spout pipeline,
 		// and one for the propagated commit in the downstream pipeline
 		// TODO(global ids): check commitset instead
-		// commitInfo, err = c.InspectCommit("__spec__", pipeline, "")
+		// commitInfo, err := c.PfsAPIClient.InspectCommit(
+		// 	c.Ctx(),
+		// 	&pfs.InspectCommitRequest{
+		// 		Commit:     client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", ""),
+		// 		BlockState: pfs.CommitState_STARTED,
+		// 	})
 		// require.NoError(t, err)
 		// require.Equal(t, 3, len(commitInfo.Subvenance))
 

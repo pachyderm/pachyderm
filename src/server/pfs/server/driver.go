@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -128,17 +127,6 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		return nil, err
 	}
 	d.commitStore = newPostgresCommitStore(env.GetDBClient(), tracker, d.storage)
-	// Create spec repo (default repo)
-	repo := client.NewRepo(ppsconsts.SpecRepo)
-	repoInfo := &pfs.RepoInfo{
-		Repo:    repo,
-		Created: types.TimestampNow(),
-	}
-	if err := col.NewSQLTx(env.Context(), env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		return d.repos.ReadWrite(sqlTx).Create(pfsdb.RepoKey(repo), repoInfo)
-	}); err != nil && !col.IsErrExists(err) {
-		return nil, err
-	}
 	// Setup PFS master
 	go d.master(env.Context())
 	return d, nil
@@ -197,7 +185,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 		if existingRepoInfo.Description == description {
 			// Don't overwrite the stored proto with an identical value. This
-			// optimization is impactful because pps will frequently update the __spec__
+			// optimization is impactful because pps will frequently update the spec
 			// repo to make sure it exists.
 			return nil
 		}
@@ -287,9 +275,6 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	repoInfo := &pfs.RepoInfo{}
 
 	processFunc := func(string) error {
-		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
-			return nil
-		}
 		size, err := d.getRepoSize(ctx, repoInfo.Repo)
 		if err != nil {
 			return err
@@ -323,6 +308,31 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	return result, nil
 }
 
+func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []pfs.RepoInfo, force bool) error {
+	var branchInfos []*pfs.BranchInfo
+	for _, repo := range repos {
+		for _, branch := range repo.Branches {
+			bi, err := d.inspectBranch(txnCtx, branch)
+			if err != nil {
+				return errors.Wrapf(err, "error inspecting branch %s", pretty.CompactPrintBranch(branch))
+			}
+			branchInfos = append(branchInfos, bi)
+		}
+	}
+	// sort ascending provenance
+	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
+	for i := range branchInfos {
+		// delete branches from most provenance to least, that way if one
+		// branch is provenant on another (which is likely the case when
+		// multiple repos are provided) we delete them in the right order.
+		branch := branchInfos[len(branchInfos)-1-i].Branch
+		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
+			return errors.Wrapf(err, "delete branch %s", pretty.CompactPrintBranch(branch))
+		}
+	}
+	return nil
+}
+
 func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
@@ -344,22 +354,32 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 	// if this is a user repo, delete any dependent repos
 	if repo.Type == pfs.UserRepoType {
-		var dependentRepos []pfs.Repo
+		var dependentRepos []pfs.RepoInfo
 		var otherRepo pfs.RepoInfo
 		if err := repos.GetByIndex(pfsdb.ReposNameIndex, repo.Name, &otherRepo, col.DefaultOptions(), func(key string) error {
 			if otherRepo.Repo.Type != repo.Type {
-				dependentRepos = append(dependentRepos, *otherRepo.Repo)
+				dependentRepos = append(dependentRepos, otherRepo)
 			}
 			return nil
 		}); err != nil && !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
 		}
 
+		// we expect potentially complicated provenance relationships between dependent repos
+		// deleting all branches at once allows for topological sorting, avoiding deletion order issues
+		if err := d.deleteAllBranchesFromRepos(txnCtx, append(dependentRepos, repoInfo), force); err != nil {
+			return errors.Wrap(err, "error deleting branches")
+		}
+
 		// delete the repos we found
 		for _, dep := range dependentRepos {
-			if err := d.deleteRepo(txnCtx, &dep, force); err != nil {
-				return errors.Wrapf(err, "error deleting dependent repo %q", pfsdb.RepoKey(&dep))
+			if err := d.deleteRepo(txnCtx, dep.Repo, force); err != nil {
+				return errors.Wrapf(err, "error deleting dependent repo %q", pfsdb.RepoKey(dep.Repo))
 			}
+		}
+	} else {
+		if err := d.deleteAllBranchesFromRepos(txnCtx, []pfs.RepoInfo{repoInfo}, force); err != nil {
+			return err
 		}
 	}
 
@@ -494,10 +514,10 @@ func (d *driver) startCommit(
 	newCommitInfo.DirectProvenance = branchInfo.DirectProvenance
 
 	// check if this is happening in a spout pipeline, and alias the spec commit
-	spoutName, ok1 := os.LookupEnv("SPOUT_PIPELINE_NAME")
+	spoutName, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
 	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
 	if ok1 && ok2 {
-		specBranch := client.NewBranch(ppsconsts.SpecRepo, spoutName)
+		specBranch := client.NewSystemRepo(spoutName, pfs.SpecRepoType).NewBranch("master")
 		specCommit := specBranch.NewCommit(spoutCommit)
 		log.Infof("Adding spout spec commit to current commitset: %s", pfsdb.CommitKey(specCommit))
 		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
@@ -1057,10 +1077,6 @@ func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit
 	}
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
-	}
-
-	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, commit.Branch.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
-		return nil, err
 	}
 
 	// Check if the commitID is a branch name
