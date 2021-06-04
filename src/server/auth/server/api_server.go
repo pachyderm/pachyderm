@@ -497,7 +497,9 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 	var roleBinding auth.RoleBinding
 	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(resourceKey(resource), &roleBinding); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, &auth.ErrNoRoleBinding{*resource}
+			return nil, &auth.ErrNoRoleBinding{
+				Resource: *resource,
+			}
 		}
 		return nil, errors.Wrapf(err, "error getting role bindings for %s \"%s\"", resource.Type, resource.Name)
 	}
@@ -777,7 +779,9 @@ func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txncontext.Transacti
 	var bindings auth.RoleBinding
 	if err := roleBindings.Get(key, &bindings); err != nil {
 		if col.IsErrNotFound(err) {
-			return &auth.ErrNoRoleBinding{*resource}
+			return &auth.ErrNoRoleBinding{
+				Resource: *resource,
+			}
 		}
 		return err
 	}

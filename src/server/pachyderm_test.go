@@ -10159,7 +10159,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.GetFile(pipelineCommit1, fmt.Sprintf("file%d", i), &buf))
 		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
 	}
-	cis, err = c.ListCommit(client.NewRepo(pipeline1), client.NewCommit(pipeline1, "master", ""), nil, 0)
+	_, err = c.ListCommit(client.NewRepo(pipeline1), client.NewCommit(pipeline1, "master", ""), nil, 0)
 	require.NoError(t, err)
 	// Another 10 100 byte files = 2K, so the last file should trigger both pipelines.
 	for i := numFiles; i < 2*numFiles; i++ {
@@ -10504,36 +10504,4 @@ func TestSystemRepoDependence(t *testing.T) {
 	// spec repo should have been deleted
 	require.YesError(t, err)
 	require.True(t, errutil.IsNotFoundError(grpcutil.ScrubGRPC(err)))
-}
-
-//lint:ignore U1000 false positive from staticcheck
-func restartAll(t *testing.T) {
-	k := tu.GetKubeClient(t)
-	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
-	podList, err := podsInterface.List(
-		metav1.ListOptions{
-			LabelSelector: "suite=pachyderm",
-		})
-	require.NoError(t, err)
-	for _, pod := range podList.Items {
-		require.NoError(t, podsInterface.Delete(pod.Name, &metav1.DeleteOptions{
-			GracePeriodSeconds: new(int64),
-		}))
-	}
-	tu.WaitForPachdReady(t, v1.NamespaceDefault)
-}
-
-//lint:ignore U1000 false positive from staticcheck
-func restartOne(t *testing.T) {
-	k := tu.GetKubeClient(t)
-	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
-	podList, err := podsInterface.List(
-		metav1.ListOptions{
-			LabelSelector: "app=pachd",
-		})
-	require.NoError(t, err)
-	require.NoError(t, podsInterface.Delete(
-		podList.Items[rand.Intn(len(podList.Items))].Name,
-		&metav1.DeleteOptions{GracePeriodSeconds: new(int64)}))
-	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 }

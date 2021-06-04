@@ -498,7 +498,7 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionCo
 		return err
 	}
 	if ppsutil.IsTerminal(jobPtr.State) {
-		return ppsServer.ErrJobFinished{jobPtr.Job}
+		return ppsServer.ErrJobFinished{Job: jobPtr.Job}
 	}
 
 	jobPtr.Restart = request.Restart

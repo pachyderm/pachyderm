@@ -191,7 +191,9 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	} else if err == nil {
 		// Existing repo case--just update the repo description.
 		if !update {
-			return pfsserver.ErrRepoExists{repo}
+			return pfsserver.ErrRepoExists{
+				Repo: repo,
+			}
 		}
 
 		if existingRepoInfo.Description == description {
@@ -641,10 +643,8 @@ func (d *driver) makeCommit(
 		}
 		// Don't count the spec repo towards the provenance count
 		// since spouts will have spec as provenance, but need to accept commits
-		provenanceCount := len(branchInfo.Provenance)
 		for _, p := range branchInfo.Provenance {
 			if p.Repo.Type == pfs.SpecRepoType {
-				provenanceCount--
 				break
 			}
 		}
@@ -807,7 +807,9 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{commitInfo.Commit}
+		return pfsserver.ErrCommitFinished{
+			Commit: commitInfo.Commit,
+		}
 	}
 	commit = commitInfo.Commit
 	if description != "" {
@@ -1009,7 +1011,9 @@ nextSubvBI:
 			// get the info for subvB's HEAD commit
 			subvBHeadInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(subvBI.Head), subvBHeadInfo); err != nil {
-				return pfsserver.ErrCommitNotFound{subvBI.Head}
+				return pfsserver.ErrCommitNotFound{
+					Commit: subvBI.Head,
+				}
 			}
 			provIntersection := make(map[string]struct{})
 			for _, p := range subvBHeadInfo.Provenance {
@@ -1155,7 +1159,9 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 		// Watch the CommitInfo until the commit has been finished
 		if err := d.commits.ReadOnly(ctx).WatchOneF(pfsdb.CommitKey(commit), func(ev *watch.Event) error {
 			if ev.Type == watch.EventDelete {
-				return pfsserver.ErrCommitDeleted{commit}
+				return pfsserver.ErrCommitDeleted{
+					Commit: commit,
+				}
 			}
 
 			var key string
@@ -1224,7 +1230,7 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 			return nil, err
 		}
 		if branchInfo.Head == nil {
-			return nil, pfsserver.ErrNoHead{branchInfo.Branch}
+			return nil, pfsserver.ErrNoHead{Branch: branchInfo.Branch}
 		}
 		commit.ID = branchInfo.Head.ID
 	}
@@ -1234,14 +1240,14 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 	if ancestryLength >= 0 {
 		for i := 0; i <= ancestryLength; i++ {
 			if commit == nil {
-				return nil, pfsserver.ErrCommitNotFound{userCommit}
+				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
 				if col.IsErrNotFound(err) {
 					if i == 0 {
-						return nil, pfsserver.ErrCommitNotFound{userCommit}
+						return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 					}
-					return nil, pfsserver.ErrParentCommitNotFound{commit}
+					return nil, pfsserver.ErrParentCommitNotFound{Commit: commit}
 				}
 				return nil, err
 			}
@@ -1255,14 +1261,14 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 					commitInfo = &cis[i%len(cis)]
 					break
 				}
-				return nil, pfsserver.ErrCommitNotFound{userCommit}
+				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(commit), &cis[i%len(cis)]); err != nil {
 				if col.IsErrNotFound(err) {
 					if i == 0 {
 						return nil, pfsserver.ErrCommitNotFound{userCommit}
 					}
-					return nil, pfsserver.ErrParentCommitNotFound{commit}
+					return nil, pfsserver.ErrParentCommitNotFound{Commit: commit}
 				}
 			}
 			commit = cis[i%len(cis)].ParentCommit
