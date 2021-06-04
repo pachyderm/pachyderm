@@ -23,33 +23,6 @@ func requireCommitResponse(t *testing.T, response *transaction.TransactionRespon
 	require.Equal(t, commit, response.Commit)
 }
 
-// Helper functions for tests below
-func provStr(i interface{}) interface{} {
-	cp := i.(*pfs.CommitProvenance)
-	return fmt.Sprintf("%s@%s=%s", cp.Commit.Branch.Repo.Name, cp.Commit.Branch.Name, cp.Commit.ID)
-}
-
-func subvStr(i interface{}) interface{} {
-	cr := i.(*pfs.CommitRange)
-	return fmt.Sprintf("%s@%s=%s:%s@%s=%s", cr.Lower.Branch.Repo.Name, cr.Lower.Branch.Name, cr.Lower.ID, cr.Upper.Branch.Repo.Name, cr.Upper.Branch.Name, cr.Upper.ID)
-}
-
-func expectProv(commits ...*pfs.Commit) []interface{} {
-	result := []interface{}{}
-	for _, commit := range commits {
-		result = append(result, provStr(commit.NewProvenance()))
-	}
-	return result
-}
-
-func expectSubv(commits ...*pfs.Commit) []interface{} {
-	result := []interface{}{}
-	for _, commit := range commits {
-		result = append(result, subvStr(&pfs.CommitRange{Lower: commit, Upper: commit}))
-	}
-	return result
-}
-
 func TestTransactions(suite *testing.T) {
 	suite.Parallel()
 
@@ -345,17 +318,14 @@ func TestTransactions(suite *testing.T) {
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("B"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		commitInfoB := commitInfos[0]
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("C"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		commitInfoC := commitInfos[0]
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("D"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		commitInfoD := commitInfos[0]
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("E"))
 		require.NoError(t, err)
@@ -363,25 +333,7 @@ func TestTransactions(suite *testing.T) {
 		commitInfoE := commitInfos[0]
 
 		require.Equal(t, commitA, commitInfoA.Commit)
-		commitB := commitInfoB.Commit
-		commitC := commitInfoC.Commit
-		commitD := commitInfoD.Commit
 		require.Equal(t, commitE, commitInfoE.Commit)
-
-		require.ElementsEqualUnderFn(t, expectProv(), commitInfoA.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(commitB, commitC, commitD), commitInfoA.Subvenance, subvStr)
-
-		require.ElementsEqualUnderFn(t, expectProv(commitA), commitInfoB.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(commitC, commitD), commitInfoB.Subvenance, subvStr)
-
-		require.ElementsEqualUnderFn(t, expectProv(commitA, commitB, commitE), commitInfoC.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(commitD), commitInfoC.Subvenance, subvStr)
-
-		require.ElementsEqualUnderFn(t, expectProv(commitA, commitB, commitC, commitE), commitInfoD.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(), commitInfoD.Subvenance, subvStr)
-
-		require.ElementsEqualUnderFn(t, expectProv(), commitInfoE.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(commitC, commitD), commitInfoE.Subvenance, subvStr)
 	})
 
 	// This test is the same as PropagateCommit except more of the operations are
@@ -429,17 +381,14 @@ func TestTransactions(suite *testing.T) {
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("B"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		commitInfoB := commitInfos[0]
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("C"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		commitInfoC := commitInfos[0]
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("D"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		commitInfoD := commitInfos[0]
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("E"))
 		require.NoError(t, err)
@@ -447,25 +396,7 @@ func TestTransactions(suite *testing.T) {
 		commitInfoE := commitInfos[0]
 
 		require.Equal(t, commitA, commitInfoA.Commit)
-		commitB := commitInfoB.Commit
-		commitC := commitInfoC.Commit
-		commitD := commitInfoD.Commit
 		require.Equal(t, commitE, commitInfoE.Commit)
-
-		require.ElementsEqualUnderFn(t, expectProv(), commitInfoA.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(commitB, commitC, commitD), commitInfoA.Subvenance, subvStr)
-
-		require.ElementsEqualUnderFn(t, expectProv(commitA), commitInfoB.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(commitC, commitD), commitInfoB.Subvenance, subvStr)
-
-		require.ElementsEqualUnderFn(t, expectProv(commitA, commitB, commitE), commitInfoC.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(commitD), commitInfoC.Subvenance, subvStr)
-
-		require.ElementsEqualUnderFn(t, expectProv(commitA, commitB, commitC, commitE), commitInfoD.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(), commitInfoD.Subvenance, subvStr)
-
-		require.ElementsEqualUnderFn(t, expectProv(), commitInfoE.Provenance, provStr)
-		require.ElementsEqualUnderFn(t, expectSubv(commitC, commitD), commitInfoE.Subvenance, subvStr)
 	})
 
 	suite.Run("TestBatchTransaction", func(t *testing.T) {
@@ -568,11 +499,11 @@ func TestCreatePipelineTransaction(t *testing.T) {
 
 	commit := client.NewCommit(repo, "master", "")
 	c.PutFile(commit, "foo", strings.NewReader("bar"))
-	commitInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+
+	commitInfo, err := c.BlockCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit, "foo", &buf))
+	require.NoError(t, c.GetFile(commitInfo.Commit, "foo", &buf))
 	require.Equal(t, "bar", buf.String())
 }
