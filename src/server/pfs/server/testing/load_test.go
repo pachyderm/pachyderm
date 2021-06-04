@@ -23,7 +23,7 @@ func TestLoad(t *testing.T) {
 }
 
 var loads = []string{`
-count: 3
+count: 5
 operations:
   - count: 5
     operation:
@@ -59,7 +59,7 @@ fileSources:
           max: 100000000
           prob: 10 
 `, `
-count: 3
+count: 5
 operations:
   - count: 5
     operation:
@@ -79,7 +79,7 @@ fileSources:
           max: 1000
           prob: 100
 `, `
-count: 3
+count: 5
 operations:
   - count: 5
     operation:
