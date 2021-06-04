@@ -45,7 +45,7 @@ last_heartbeat: 2021-05-21 18:43:42.157027 +0000 UTC
 ### Update The Enterprise License
 To apply a new license and have it picked up by all clusters, run:
 ```shell
-$ pachctl license activate
+$ pachctl license activate --no-register
 ```
 
 ### Unregister A Cluster
