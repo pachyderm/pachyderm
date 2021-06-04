@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -27,7 +26,6 @@ import (
 	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -80,10 +78,6 @@ type apiServer struct {
 	authConfig col.PostgresCollection
 	// oidcStates  contains the set of OIDC nonces for requests that are in progress
 	oidcStates col.EtcdCollection
-
-	// This is a cache of the PPS master token. It's set once on startup and then
-	// never updated
-	ppsToken string
 
 	// public addresses the fact that pachd in full mode initializes two auth
 	// servers: one that exposes a public API, possibly over TLS, and one that
@@ -152,7 +146,6 @@ func NewAuthServer(
 		public:         public,
 		watchesEnabled: watchesEnabled,
 	}
-	go s.retrieveOrGeneratePPSToken()
 
 	if public {
 		// start OIDC service (won't respond to anything until config is set)
@@ -215,48 +208,8 @@ func (a *apiServer) isActive(ctx context.Context) error {
 	return err
 }
 
-// Retrieve the PPS master token, or generate it and put it in etcd.
-// TODO This is a hack. PPS and Auth communicate through etcd instead of
-// an API, but we should define an internal API and use that instead.
-func (a *apiServer) retrieveOrGeneratePPSToken() {
-	var tokenProto types.StringValue // will contain PPS token
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 60 * time.Second
-	b.MaxInterval = 5 * time.Second
-	if err := backoff.Retry(func() error {
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			superUserTokenCol := col.NewEtcdCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
-			// TODO(msteffen): Don't use an empty key, as it will not be erased by
-			// superUserTokenCol.DeleteAll()
-			err := superUserTokenCol.Get("", &tokenProto)
-			if err == nil {
-				return nil
-			}
-			if col.IsErrNotFound(err) {
-				// no existing token yet -- generate token
-				token := uuid.NewWithoutDashes()
-				tokenProto.Value = token
-				if err := superUserTokenCol.Create("", &tokenProto); err != nil {
-					return err
-				}
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-		a.ppsToken = tokenProto.Value
-		return nil
-	}, b); err != nil {
-		panic(fmt.Sprintf("couldn't create/retrieve PPS superuser token within 60s of starting up: %v", err))
-	}
-}
-
 func (a *apiServer) getEnterpriseTokenState(ctx context.Context) (enterpriseclient.State, error) {
-	pachClient := a.env.GetPachClient(ctx)
-	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
-		&enterpriseclient.GetStateRequest{})
+	resp, err := a.env.EnterpriseServer().GetState(ctx, &enterpriseclient.GetStateRequest{})
 	if err != nil {
 		return 0, errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get Enterprise status")
 	}
@@ -285,7 +238,7 @@ func (a *apiServer) expiredEnterpriseCheck(ctx context.Context, username string)
 
 func (a *apiServer) userHasExpiredClusterAccessCheck(ctx context.Context, username string) error {
 	// Root User, PPS Master, and any Pipeline keep cluster access
-	if username == auth.RootUser || username == auth.PpsUser || strings.HasPrefix(username, auth.PipelinePrefix) {
+	if username == auth.RootUser || strings.HasPrefix(username, auth.PipelinePrefix) {
 		return nil
 	}
 
@@ -317,8 +270,6 @@ func (a *apiServer) hasClusterRole(ctx context.Context, username string, role st
 
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
-	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // copy auth information
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
@@ -1238,15 +1189,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	token, err := auth.GetAuthToken(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	if token == a.ppsToken {
-		// TODO(msteffen): This is a hack. The idea is that there is a logical user
-		// entry mapping ppsToken to ppsUser. Soon, ppsUser will go away and
-		// this check should happen in authorize
-		return &auth.TokenInfo{
-			Subject: auth.PpsUser,
-		}, nil
 	}
 
 	// try to lookup pre-computed subject

@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 )
 
 // an authHandler can optionally return a username string that will be cached in the request's context
-type authHandler func(*client.APIClient, string) (string, error)
+type authHandler func(context.Context, authiface.APIServer, string) (string, error)
 
 type ContextKey string
 
@@ -17,8 +17,8 @@ const whoAmIResultKey = ContextKey("WhoAmI")
 // authDisabledOr wraps an authHandler and permits the RPC if authHandler succeeds or
 // if auth is disabled on the cluster
 func authDisabledOr(h authHandler) authHandler {
-	return func(pachClient *client.APIClient, fullMethod string) (string, error) {
-		username, err := h(pachClient, fullMethod)
+	return func(ctx context.Context, authApi authiface.APIServer, fullMethod string) (string, error) {
+		username, err := h(ctx, authApi, fullMethod)
 
 		if auth.IsErrNotActivated(err) {
 			return "", nil
@@ -28,13 +28,13 @@ func authDisabledOr(h authHandler) authHandler {
 }
 
 // unauthenticated permits any RPC even if the user has no authentication token
-func unauthenticated(pachClient *client.APIClient, fullMethod string) (string, error) {
+func unauthenticated(ctx context.Context, _ authiface.APIServer, fullMethod string) (string, error) {
 	return "", nil
 }
 
 // authenticated permits an RPC if auth is fully enabled and the user is authenticated
-func authenticated(pachClient *client.APIClient, fullMethod string) (string, error) {
-	r, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+func authenticated(ctx context.Context, authApi authiface.APIServer, fullMethod string) (string, error) {
+	r, err := authApi.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	var username string
 	if err == nil {
 		username = r.Username
@@ -44,8 +44,8 @@ func authenticated(pachClient *client.APIClient, fullMethod string) (string, err
 
 // clusterPermissions permits an RPC if the user is authorized with the given permissions on the cluster
 func clusterPermissions(permissions ...auth.Permission) authHandler {
-	return func(pachClient *client.APIClient, fullMethod string) (string, error) {
-		resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
+	return func(ctx context.Context, authApi authiface.APIServer, fullMethod string) (string, error) {
+		resp, err := authApi.Authorize(ctx, &auth.AuthorizeRequest{
 			Resource:    &auth.Resource{Type: auth.ResourceType_CLUSTER},
 			Permissions: permissions,
 		})

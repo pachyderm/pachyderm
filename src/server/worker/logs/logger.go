@@ -38,11 +38,11 @@ type TaggedLogger interface {
 
 	// These helpers will clone the current logger and construct a new logger that
 	// includes the given metadata in log messages.
-	WithPipelineJob(pipelineJobID string) TaggedLogger
+	WithJob(jobID string) TaggedLogger
 	WithData(data []*common.Input) TaggedLogger
 	WithUserCode() TaggedLogger
 
-	PipelineJobID() string
+	JobID() string
 }
 
 type taggedLogger struct {
@@ -105,11 +105,11 @@ func NewMasterLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
 	return result
 }
 
-// WithPipelineJob clones the current logger and returns a new one that will include
+// WithJob clones the current logger and returns a new one that will include
 // the given job ID in log statement metadata.
-func (logger *taggedLogger) WithPipelineJob(pipelineJobID string) TaggedLogger {
+func (logger *taggedLogger) WithJob(jobID string) TaggedLogger {
 	result := logger.clone()
-	result.template.PipelineJobID = pipelineJobID
+	result.template.JobID = jobID
 	return result
 }
 
@@ -143,9 +143,9 @@ func (logger *taggedLogger) WithUserCode() TaggedLogger {
 	return result
 }
 
-// PipelineJobID returns the current job that the logger is configured with.
-func (logger *taggedLogger) PipelineJobID() string {
-	return logger.template.PipelineJobID
+// JobID returns the current job that the logger is configured with.
+func (logger *taggedLogger) JobID() string {
+	return logger.template.JobID
 }
 
 func (logger *taggedLogger) clone() *taggedLogger {

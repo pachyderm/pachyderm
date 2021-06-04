@@ -47,7 +47,7 @@ func workNamespace(pipelineInfo *pps.PipelineInfo) string {
 // interface can be used to mock out external calls to make unit-testing
 // simpler.
 type Driver interface {
-	PipelineJobs() col.PostgresCollection
+	Jobs() col.PostgresCollection
 	Pipelines() col.PostgresCollection
 
 	NewTaskWorker() *work.Worker
@@ -86,10 +86,10 @@ type Driver interface {
 
 	RunUserErrorHandlingCode(context.Context, logs.TaggedLogger, []string) error
 
-	// TODO: provide a more generic interface for modifying pipeline jobs, and
+	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
-	DeletePipelineJob(*sqlx.Tx, *pps.StoredPipelineJobInfo) error
-	UpdatePipelineJobState(*pps.PipelineJob, pps.PipelineJobState, string) error
+	DeleteJob(*sqlx.Tx, *pps.StoredJobInfo) error
+	UpdateJobState(*pps.Job, pps.JobState, string) error
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
@@ -103,8 +103,8 @@ type driver struct {
 	pipelineInfo    *pps.PipelineInfo
 	activeDataMutex *sync.Mutex
 
-	pipelineJobs col.PostgresCollection
-	pipelines    col.PostgresCollection
+	jobs      col.PostgresCollection
+	pipelines col.PostgresCollection
 
 	// User and group IDs used for running user code, determined in the constructor
 	uid *uint32
@@ -133,7 +133,7 @@ func NewDriver(
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	pipelineJobs := ppsdb.PipelineJobs(env.GetDBClient(), env.GetPostgresListener())
+	jobs := ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
 	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
 	result := &driver{
 		env:             env,
@@ -141,7 +141,7 @@ func NewDriver(
 		pachClient:      pachClient,
 		pipelineInfo:    pipelineInfo,
 		activeDataMutex: &sync.Mutex{},
-		pipelineJobs:    pipelineJobs,
+		jobs:            jobs,
 		pipelines:       pipelines,
 		rootDir:         rootPath,
 		inputDir:        pfsPath,
@@ -254,8 +254,8 @@ func (d *driver) WithContext(ctx context.Context) Driver {
 	return result
 }
 
-func (d *driver) PipelineJobs() col.PostgresCollection {
-	return d.pipelineJobs
+func (d *driver) Jobs() col.PostgresCollection {
+	return d.jobs
 }
 
 func (d *driver) Pipelines() col.PostgresCollection {
@@ -441,34 +441,33 @@ func (d *driver) RunUserErrorHandlingCode(
 	return nil
 }
 
-func (d *driver) UpdatePipelineJobState(pipelineJob *pps.PipelineJob, state pps.PipelineJobState, reason string) error {
+func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
-		pipelineJobPtr := &pps.StoredPipelineJobInfo{}
-		if err := d.PipelineJobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pipelineJob), pipelineJobPtr); err != nil {
+		jobPtr := &pps.StoredJobInfo{}
+		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobPtr); err != nil {
 			return err
 		}
-		return errors.EnsureStack(ppsutil.UpdatePipelineJobState(d.Pipelines().ReadWrite(sqlTx), d.PipelineJobs().ReadWrite(sqlTx), pipelineJobPtr, state, reason))
+		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobPtr, state, reason))
 	})
 }
 
-// DeletePipelineJob is identical to updatePipelineJobState, except that
-// pipelineJobPtr points to a pipeline job that should be deleted rather than
-// marked failed.  PipelineJobs may be deleted if their output commit is
-// deleted.
-func (d *driver) DeletePipelineJob(sqlTx *sqlx.Tx, pipelineJobPtr *pps.StoredPipelineJobInfo) error {
+// DeleteJob is identical to updateJobState, except that jobPtr points to a job
+// that should be deleted rather than marked failed.  Jobs may be deleted if
+// their output commit is deleted.
+func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobPtr *pps.StoredJobInfo) error {
 	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := d.Pipelines().ReadWrite(sqlTx).Update(pipelineJobPtr.PipelineJob.Pipeline.Name, pipelinePtr, func() error {
+	if err := d.Pipelines().ReadWrite(sqlTx).Update(jobPtr.Job.Pipeline.Name, pipelinePtr, func() error {
 		if pipelinePtr.JobCounts == nil {
 			pipelinePtr.JobCounts = make(map[int32]int32)
 		}
-		if pipelinePtr.JobCounts[int32(pipelineJobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(pipelineJobPtr.State)]--
+		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+			pipelinePtr.JobCounts[int32(jobPtr.State)]--
 		}
 		return nil
 	}); err != nil {
 		return err
 	}
-	return d.PipelineJobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(pipelineJobPtr.PipelineJob))
+	return d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobPtr.Job))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
@@ -488,7 +487,7 @@ func (d *driver) unlinkData(inputs []*common.Input) error {
 }
 
 func (d *driver) UserCodeEnv(
-	pipelineJobID string,
+	jobID string,
 	outputCommit *pfs.Commit,
 	inputs []*common.Input,
 ) []string {
@@ -499,8 +498,8 @@ func (d *driver) UserCodeEnv(
 		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 	}
 
-	if pipelineJobID != "" {
-		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, pipelineJobID))
+	if jobID != "" {
+		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Input) || d.PipelineInfo().S3Out {
 			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
 			// should pass its ServiceEnv to worker.NewAPIServer, which should store it
@@ -513,7 +512,7 @@ func (d *driver) UserCodeEnv(
 			result = append(
 				result,
 				fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
-					ppsutil.SidecarS3GatewayService(pipelineJobID),
+					ppsutil.SidecarS3GatewayService(jobID),
 					d.Namespace(),
 					os.Getenv("S3GATEWAY_PORT"),
 				),

@@ -16,15 +16,15 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	}
 	logger.Logf("transform spawner started")
 
-	return driver.PachClient().SubscribePipelineJob(
+	return driver.PachClient().SubscribeJob(
 		driver.PipelineInfo().Pipeline.Name,
 		true,
-		func(pipelineJobInfo *pps.PipelineJobInfo) error {
-			if pipelineJobInfo.PipelineVersion != driver.PipelineInfo().Version {
+		func(jobInfo *pps.JobInfo) error {
+			if jobInfo.PipelineVersion != driver.PipelineInfo().Version {
 				// Skip this job - we should be shut down soon, but don't error out in the meantime
 				return nil
 			}
-			return reg.startPipelineJob(proto.Clone(pipelineJobInfo).(*pps.PipelineJobInfo))
+			return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
 		},
 	)
 }

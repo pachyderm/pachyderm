@@ -174,9 +174,9 @@ func TestS3Input(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	pipelineJobInfo, err := c.BlockPipelineJob(pipeline, commitInfo.Commit.ID)
+	jobInfo, err := c.BlockJob(pipeline, commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
+	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
 	// Make sure ListFile works
 	files, err := c.ListFileAll(pipelineCommit, "/")
@@ -211,7 +211,7 @@ func TestS3Input(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.PipelineJob.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -258,9 +258,9 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	pipelineJobInfo, err := c.BlockPipelineJob(pipeline, commitInfo.Commit.ID)
+	jobInfo, err := c.BlockJob(pipeline, commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
+	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
 	// check S3_ENDPOINT variable
 	var buf bytes.Buffer
@@ -313,9 +313,9 @@ func TestS3Output(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	pipelineJobInfo, err := c.BlockPipelineJob(pipeline, commitInfo.Commit.ID)
+	jobInfo, err := c.BlockJob(pipeline, commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
+	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
 	// Make sure ListFile works
 	files, err := c.ListFileAll(pipelineCommit, "/")
@@ -345,7 +345,7 @@ func TestS3Output(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.PipelineJob.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -399,9 +399,9 @@ func TestFullS3(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	pipelineJobInfo, err := c.BlockPipelineJob(pipeline, commitInfo.Commit.ID)
+	jobInfo, err := c.BlockJob(pipeline, commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "JOB_SUCCESS", pipelineJobInfo.State.String())
+	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
 	// Make sure ListFile works
 	files, err := c.ListFileAll(pipelineCommit, "/")
@@ -431,7 +431,7 @@ func TestFullS3(t *testing.T) {
 		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pipelineJobInfo.PipelineJob.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -526,11 +526,11 @@ func TestS3SkippedDatums(t *testing.T) {
 			_, err = c.BlockCommit(pipeline, "master", "")
 			require.NoError(t, err)
 
-			pjis, err := c.ListPipelineJob(pipeline, nil, nil, 0, false)
+			jis, err := c.ListJob(pipeline, nil, nil, 0, false)
 			require.NoError(t, err)
-			require.Equal(t, i+2, len(pjis)) // one empty job w/ initial s3in commit
-			for j := 0; j < len(pjis); j++ {
-				require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
+			require.Equal(t, i+2, len(jis)) // one empty job w/ initial s3in commit
+			for j := 0; j < len(jis); j++ {
+				require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
 			}
 
 			// check output
@@ -567,11 +567,11 @@ func TestS3SkippedDatums(t *testing.T) {
 		_, err = c.BlockCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
-		pjis, err := c.ListPipelineJob(pipeline, nil, nil, 0, false)
+		jis, err := c.ListJob(pipeline, nil, nil, 0, false)
 		require.NoError(t, err)
-		require.Equal(t, 12, len(pjis))
-		for j := 0; j < len(pjis); j++ {
-			require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
+		require.Equal(t, 12, len(jis))
+		for j := 0; j < len(jis); j++ {
+			require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
 
 			// Check that no service is left over
 			k := tu.GetKubeClient(t)
@@ -579,7 +579,7 @@ func TestS3SkippedDatums(t *testing.T) {
 				svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
-					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(pjis[j].PipelineJob.ID) {
+					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.ID) {
 						return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 					}
 				}
@@ -680,11 +680,11 @@ func TestS3SkippedDatums(t *testing.T) {
 
 			_, err = c.BlockCommit(pipeline, "master", "")
 			require.NoError(t, err)
-			pjis, err := c.ListPipelineJob(pipeline, nil, nil, 0, false)
+			jis, err := c.ListJob(pipeline, nil, nil, 0, false)
 			require.NoError(t, err)
-			require.Equal(t, i+1, len(pjis))
-			for j := 0; j < len(pjis); j++ {
-				require.Equal(t, "JOB_SUCCESS", pjis[j].State.String())
+			require.Equal(t, i+1, len(jis))
+			for j := 0; j < len(jis); j++ {
+				require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
 			}
 
 			for j := 0; j <= i; j++ {

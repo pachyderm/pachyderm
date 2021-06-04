@@ -26,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -113,7 +112,7 @@ If the job fails, the output commit will not be populated with data.`,
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			pipelineJob, err := cmdutil.ParsePipelineJob(args[0])
+			job, err := cmdutil.ParseJob(args[0])
 			if err != nil {
 				return err
 			}
@@ -122,27 +121,27 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			pipelineJobInfo, err := client.PpsAPIClient.InspectPipelineJob(client.Ctx(), &pps.InspectPipelineJobRequest{
-				PipelineJob: pipelineJob,
-				BlockState:  block,
-				Full:        true,
+			jobInfo, err := client.PpsAPIClient.InspectJob(client.Ctx(), &pps.InspectJobRequest{
+				Job:        job,
+				BlockState: block,
+				Full:       true,
 			})
 			if err != nil {
-				cmdutil.ErrorAndExit("error from InspectPipelineJob: %s", err.Error())
+				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
 			}
-			if pipelineJobInfo == nil {
+			if jobInfo == nil {
 				cmdutil.ErrorAndExit("job %s not found.", args[0])
 			}
 			if raw {
-				return encoder(output).EncodeProto(pipelineJobInfo)
+				return encoder(output).EncodeProto(jobInfo)
 			} else if output != "" {
 				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
-			ppji := &pretty.PrintablePipelineJobInfo{
-				PipelineJobInfo: pipelineJobInfo,
-				FullTimestamps:  fullTimestamps,
+			pji := &pretty.PrintableJobInfo{
+				JobInfo:        jobInfo,
+				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedPipelineJobInfo(os.Stdout, ppji)
+			return pretty.PrintDetailedJobInfo(os.Stdout, pji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
@@ -152,7 +151,6 @@ If the job fails, the output commit will not be populated with data.`,
 	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
 
 	var pipelineName string
-	var outputCommitStr string
 	var inputCommitStrs []string
 	var history string
 	var stateStrs []string
@@ -183,13 +181,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
 			}
-			var outputCommit *pfs.Commit
-			if outputCommitStr != "" {
-				outputCommit, err = cmdutil.ParseCommit(outputCommitStr)
-				if err != nil {
-					return err
-				}
-			}
 			var filter string
 			if len(stateStrs) > 0 {
 				filter, err = ParseJobStates(stateStrs)
@@ -207,15 +198,15 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListPipelineJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(pji *ppsclient.PipelineJobInfo) error {
-						return e.EncodeProto(pji)
+					return client.ListJobFilterF(pipelineName, commits, history, true, filter, func(ji *ppsclient.JobInfo) error {
+						return e.EncodeProto(ji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListPipelineJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(pji *ppsclient.PipelineJobInfo) error {
-					pretty.PrintPipelineJobInfo(writer, pji, fullTimestamps)
+				if err := client.ListJobFilterF(pipelineName, commits, history, false, filter, func(ji *ppsclient.JobInfo) error {
+					pretty.PrintJobInfo(writer, ji, fullTimestamps)
 					return nil
 				}); err != nil {
 					return err
@@ -226,8 +217,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit. format: <repo>@<branch-or-commit>")
-	listJob.MarkFlagCustom("output", "__pachctl_get_repo_commit")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
 	listJob.Flags().AddFlagSet(outputFlags)
@@ -250,7 +239,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			pipelineJob, err := cmdutil.ParsePipelineJob(args[0])
+			job, err := cmdutil.ParseJob(args[0])
 			if err != nil {
 				return err
 			}
@@ -259,8 +248,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return err
 			}
 			defer client.Close()
-			if err := client.DeletePipelineJob(pipelineJob.Pipeline.Name, pipelineJob.ID); err != nil {
-				cmdutil.ErrorAndExit("error from DeletePipelineJob: %s", err.Error())
+			if err := client.DeleteJob(job.Pipeline.Name, job.ID); err != nil {
+				cmdutil.ErrorAndExit("error from DeleteJob: %s", err.Error())
 			}
 			return nil
 		}),
@@ -273,7 +262,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			pipelineJob, err := cmdutil.ParsePipelineJob(args[0])
+			job, err := cmdutil.ParseJob(args[0])
 			if err != nil {
 				return err
 			}
@@ -282,8 +271,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return err
 			}
 			defer client.Close()
-			if err := client.StopPipelineJob(pipelineJob.Pipeline.Name, pipelineJob.ID); err != nil {
-				cmdutil.ErrorAndExit("error from StopPipelineJob: %s", err.Error())
+			if err := client.StopJob(job.Pipeline.Name, job.ID); err != nil {
+				cmdutil.ErrorAndExit("error from StopJob: %s", err.Error())
 			}
 			return nil
 		}),
@@ -309,7 +298,7 @@ each datum.`,
 		Short: "Restart a datum.",
 		Long:  "Restart a datum.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			pipelineJob, err := cmdutil.ParsePipelineJob(args[0])
+			job, err := cmdutil.ParseJob(args[0])
 			if err != nil {
 				return err
 			}
@@ -329,7 +318,7 @@ each datum.`,
 					i++
 				}
 			}
-			return client.RestartDatum(pipelineJob.Pipeline.Name, pipelineJob.ID, datumFilter)
+			return client.RestartDatum(job.Pipeline.Name, job.ID, datumFilter)
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(restartDatum, "restart datum"))
@@ -339,7 +328,7 @@ each datum.`,
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
-			pipelineJob, err := cmdutil.ParsePipelineJob(args[0])
+			job, err := cmdutil.ParseJob(args[0])
 			if err != nil {
 				return err
 			}
@@ -372,7 +361,7 @@ each datum.`,
 			if len(args) != 1 {
 				return errors.Errorf("must specify one job")
 			}
-			return client.ListDatum(pipelineJob.Pipeline.Name, pipelineJob.ID, printF)
+			return client.ListDatum(job.Pipeline.Name, job.ID, printF)
 		}),
 	}
 	listDatum.Flags().AddFlagSet(outputFlags)
@@ -384,7 +373,7 @@ each datum.`,
 		Short: "Display detailed info about a single datum.",
 		Long:  "Display detailed info about a single datum. Requires the pipeline to have stats enabled.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			pipelineJob, err := cmdutil.ParsePipelineJob(args[0])
+			job, err := cmdutil.ParseJob(args[0])
 			if err != nil {
 				return err
 			}
@@ -393,7 +382,7 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			datumInfo, err := client.InspectDatum(pipelineJob.Pipeline.Name, pipelineJob.ID, args[1])
+			datumInfo, err := client.InspectDatum(job.Pipeline.Name, job.ID, args[1])
 			if err != nil {
 				return err
 			}
@@ -410,14 +399,14 @@ each datum.`,
 	commands = append(commands, cmdutil.CreateAlias(inspectDatum, "inspect datum"))
 
 	var (
-		pipelineJobStr string
-		datumID        string
-		commaInputs    string // comma-separated list of input files of interest
-		master         bool
-		worker         bool
-		follow         bool
-		tail           int64
-		since          string
+		jobStr      string
+		datumID     string
+		commaInputs string // comma-separated list of input files of interest
+		master      bool
+		worker      bool
+		follow      bool
+		tail        int64
+		since       string
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours
@@ -485,22 +474,22 @@ each datum.`,
 				return errors.Errorf("tail has been deprecated and removed from Pachyderm, use --since instead")
 			}
 
-			if pipelineName != "" && pipelineJobStr != "" {
+			if pipelineName != "" && jobStr != "" {
 				return errors.Errorf("only one of pipeline or job should be specified")
 			}
 
-			var pipelineJobID string
-			if pipelineJobStr != "" {
-				pipelineJob, err := cmdutil.ParsePipelineJob(pipelineJobStr)
+			var jobID string
+			if jobStr != "" {
+				job, err := cmdutil.ParseJob(jobStr)
 				if err != nil {
 					return err
 				}
-				pipelineName = pipelineJob.Pipeline.Name
-				pipelineJobID = pipelineJob.ID
+				pipelineName = job.Pipeline.Name
+				jobID = job.ID
 			}
 
 			// Issue RPC
-			iter := client.GetLogs(pipelineName, pipelineJobID, data, datumID, master, follow, since)
+			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			encoder := json.NewEncoder(&buf)
 			for iter.Next() {
@@ -516,7 +505,7 @@ each datum.`,
 					prettyLogsPrinter(iter.Message().Message)
 				} else if !iter.Message().User && !iter.Message().Master && worker {
 					prettyLogsPrinter(iter.Message().Message)
-				} else if pipelineName == "" && pipelineJobID == "" {
+				} else if pipelineName == "" && jobID == "" {
 					prettyLogsPrinter(iter.Message().Message)
 				}
 			}
@@ -526,7 +515,7 @@ each datum.`,
 	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	getLogs.Flags().StringVarP(&pipelineJobStr, "job", "j", "", "Filter for log lines from "+
+	getLogs.Flags().StringVarP(&jobStr, "job", "j", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
 	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
 	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
@@ -629,14 +618,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			err = client.RunPipeline(args[0], prov, pipelineJobStr)
+			err = client.RunPipeline(args[0], prov, jobStr)
 			if err != nil {
 				return err
 			}
 			return nil
 		}),
 	}
-	runPipeline.Flags().StringVar(&pipelineJobStr, "job", "", "rerun the given job")
+	runPipeline.Flags().StringVar(&jobStr, "job", "", "rerun the given job")
 	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
 
 	runCron := &cobra.Command{
@@ -1335,7 +1324,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 
 // ByCreationTime is an implementation of sort.Interface which
 // sorts pps job info by creation time, ascending.
-type ByCreationTime []*ppsclient.PipelineJobInfo
+type ByCreationTime []*ppsclient.JobInfo
 
 func (arr ByCreationTime) Len() int { return len(arr) }
 
@@ -1371,7 +1360,7 @@ func validateJQConditionString(filter string) (string, error) {
 func ParseJobStates(stateStrs []string) (string, error) {
 	var conditions []string
 	for _, stateStr := range stateStrs {
-		if state, err := ppsclient.PipelineJobStateFromName(stateStr); err == nil {
+		if state, err := ppsclient.JobStateFromName(stateStr); err == nil {
 			conditions = append(conditions, fmt.Sprintf(".state == \"%s\"", state))
 		} else {
 			return "", err

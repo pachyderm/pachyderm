@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	fmt "fmt"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -154,12 +153,9 @@ var _ track.Deleter = &deleter{}
 type deleter struct{}
 
 func (d *deleter) DeleteTx(tx *sqlx.Tx, id string) error {
-	if !strings.HasPrefix(id, prefix+"/") {
-		return errors.Errorf("cannot delete (%s)", id)
-	}
-	chunkID, err := IDFromHex(id[len(TrackerPrefix):])
+	chunkID, err := ParseTrackerID(id)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "cannot delete")
 	}
 	_, err = tx.Exec(`
 		UPDATE storage.chunk_objects

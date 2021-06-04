@@ -24,7 +24,7 @@ type TransactionContext struct {
 	Timestamp *types.Timestamp
 	// PfsPropagater applies commits at the end of the transaction.
 	PfsPropagater PfsPropagater
-	// PpsPropagater starts PipelineJobs in any pipelines that have new output commits at the end of the transaction.
+	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
 	PpsPropagater PpsPropagater
 }
 

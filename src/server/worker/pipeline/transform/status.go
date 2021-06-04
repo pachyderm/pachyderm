@@ -14,10 +14,10 @@ import (
 // its public interface only allows getting the status of a task and canceling
 // the currently-processing datum.
 type Status struct {
-	mutex         sync.Mutex
-	pipelineJobID string
-	datumStatus   *pps.DatumStatus
-	cancel        func()
+	mutex       sync.Mutex
+	jobID       string
+	datumStatus *pps.DatumStatus
+	cancel      func()
 }
 
 func convertInputs(inputs []*common.Input) []*pps.InputFile {
@@ -37,13 +37,13 @@ func (s *Status) withLock(cb func()) {
 	s.mutex.Unlock()
 }
 
-func (s *Status) withPipelineJob(pipelineJobID string, cb func() error) error {
+func (s *Status) withJob(jobID string, cb func() error) error {
 	s.withLock(func() {
-		s.pipelineJobID = pipelineJobID
+		s.jobID = jobID
 	})
 
 	defer s.withLock(func() {
-		s.pipelineJobID = ""
+		s.jobID = ""
 	})
 
 	return cb()
@@ -80,17 +80,17 @@ func (s *Status) GetStatus() (*pps.WorkerStatus, error) {
 	defer s.mutex.Unlock()
 
 	return &pps.WorkerStatus{
-		PipelineJobID: s.pipelineJobID,
-		DatumStatus:   s.datumStatus,
+		JobID:       s.jobID,
+		DatumStatus: s.datumStatus,
 	}, nil
 }
 
 // Cancel cancels the currently running datum if it matches the specified job and inputs
-func (s *Status) Cancel(pipelineJobID string, datumFilter []string) bool {
+func (s *Status) Cancel(jobID string, datumFilter []string) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if pipelineJobID == s.pipelineJobID && common.MatchDatum(datumFilter, s.datumStatus.Data) {
+	if jobID == s.jobID && common.MatchDatum(datumFilter, s.datumStatus.Data) {
 		// Fields will be cleared as the worker stack unwinds
 		s.cancel()
 		return true

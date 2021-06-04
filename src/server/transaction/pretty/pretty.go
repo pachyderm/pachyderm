@@ -107,18 +107,18 @@ func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
 	return fmt.Sprintf("delete branch %s%s", pfspretty.CompactPrintBranch(request.Branch), force)
 }
 
-func sprintUpdatePipelineJobState(request *pps.UpdatePipelineJobStateRequest) string {
+func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
 	state := func() string {
 		switch request.State {
-		case pps.PipelineJobState_JOB_STARTING:
+		case pps.JobState_JOB_STARTING:
 			return "STARTING"
-		case pps.PipelineJobState_JOB_RUNNING:
+		case pps.JobState_JOB_RUNNING:
 			return "RUNNING"
-		case pps.PipelineJobState_JOB_FAILURE:
+		case pps.JobState_JOB_FAILURE:
 			return "FAILURE"
-		case pps.PipelineJobState_JOB_SUCCESS:
+		case pps.JobState_JOB_SUCCESS:
 			return "SUCCESS"
-		case pps.PipelineJobState_JOB_KILLED:
+		case pps.JobState_JOB_KILLED:
 			return "KILLED"
 		default:
 			return "<unknown state>"
@@ -126,7 +126,7 @@ func sprintUpdatePipelineJobState(request *pps.UpdatePipelineJobStateRequest) st
 	}()
 	return fmt.Sprintf(
 		"update job %s -> %s (%s)",
-		request.PipelineJob.ID, state, request.Reason,
+		request.Job.ID, state, request.Reason,
 	)
 }
 
@@ -167,8 +167,8 @@ func transactionRequests(
 			line = sprintCreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {
 			line = sprintDeleteBranch(request.DeleteBranch)
-		} else if request.UpdatePipelineJobState != nil {
-			line = sprintUpdatePipelineJobState(request.UpdatePipelineJobState)
+		} else if request.UpdateJobState != nil {
+			line = sprintUpdateJobState(request.UpdateJobState)
 		} else if request.CreatePipeline != nil {
 			line = sprintCreatePipeline(request.CreatePipeline)
 		} else {
