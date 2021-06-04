@@ -361,8 +361,13 @@ func (d *Datum) uploadOutput() error {
 }
 
 func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar.Header) error) (retErr error) {
-	return obj.WithPipe(func(w io.Writer) error {
+	return obj.WithPipe(func(w io.Writer) (retErr error) {
 		bufW := bufio.NewWriterSize(w, grpcutil.MaxMsgPayloadSize)
+		defer func() {
+			if err := bufW.Flush(); retErr == nil {
+				retErr = err
+			}
+		}()
 		opts := []tarutil.ExportOption{
 			tarutil.WithSymlinkCallback(func(dst, src string, copyFunc func() error) error {
 				return d.handleSymlink(mf, dst, src, copyFunc)
