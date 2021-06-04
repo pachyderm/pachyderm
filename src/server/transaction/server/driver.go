@@ -53,7 +53,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 		// there is no need to persist the TransactionInfo to the collection
 		info := &transaction.TransactionInfo{
 			Transaction: &transaction.Transaction{
-				ID: uuid.New(),
+				ID: uuid.NewWithoutDashes(),
 			},
 			Requests: req,
 			Started:  now(),
@@ -72,7 +72,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	info := &transaction.TransactionInfo{
 		Transaction: &transaction.Transaction{
-			ID: uuid.New(),
+			ID: uuid.NewWithoutDashes(),
 		},
 		Requests: []*transaction.TransactionRequest{},
 		Started:  now(),

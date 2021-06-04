@@ -9196,7 +9196,7 @@ func TestPipelineHistory(t *testing.T) {
 
 	jis, err := c.ListJob(pipelineName, nil, 0, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
+	require.Equal(t, 2, len(jis))
 
 	// Update the pipeline
 	require.NoError(t, c.CreatePipeline(
@@ -9220,17 +9220,17 @@ func TestPipelineHistory(t *testing.T) {
 
 	cis, err := c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(cis))
+	require.Equal(t, 4, len(cis))
 
 	jis, err = c.ListJob(pipelineName, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, 1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jis))
+	require.Equal(t, 4, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jis))
+	require.Equal(t, 4, len(jis))
 
 	// Update the pipeline again
 	require.NoError(t, c.CreatePipeline(
@@ -9258,10 +9258,10 @@ func TestPipelineHistory(t *testing.T) {
 	require.Equal(t, 3, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, 2, true)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(jis))
+	require.Equal(t, 5, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(jis))
+	require.Equal(t, 5, len(jis))
 
 	// Add another pipeline, this shouldn't change the results of the above
 	// commands.
@@ -9291,10 +9291,10 @@ func TestPipelineHistory(t *testing.T) {
 	require.Equal(t, 3, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, 2, true)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(jis))
+	require.Equal(t, 5, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(jis))
+	require.Equal(t, 5, len(jis))
 
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
@@ -9712,12 +9712,11 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	commitInfos, err := c.BlockCommitsetAll(dataCommit.ID)
+	commitInfo, err := c.BlockCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit, "file", &buf))
+	require.NoError(t, c.GetFile(commitInfo.Commit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 
 	pipelineInfo, err := c.InspectPipeline(pipeline)
@@ -10401,7 +10400,7 @@ func TestDebug(t *testing.T) {
 
 	commitInfos, err := c.BlockCommitsetAll(commit1.ID)
 	require.NoError(t, err)
-	require.Equal(t, 6, len(commitInfos))
+	require.Equal(t, 10, len(commitInfos))
 
 	buf := &bytes.Buffer{}
 	require.NoError(t, c.Dump(nil, 0, buf))
@@ -10466,7 +10465,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	_, err = c.BlockCommit(pipelineB, "", commit.ID)
+	_, err = c.BlockCommit(pipelineB, "master", "")
 	require.NoError(t, err)
 
 	// now update both
@@ -10477,7 +10476,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = c.BlockCommit(pipelineB, "", commit.ID)
+	_, err = c.BlockCommit(pipelineB, "master", "")
 	require.NoError(t, err)
 	commits, err := c.ListCommitByRepo(repoB)
 	require.NoError(t, err)
