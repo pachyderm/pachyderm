@@ -111,7 +111,7 @@ func ActivateCmd() *cobra.Command {
 
 		}),
 	}
-	activate.PersistentFlags().BoolVar(&onlyActivate, "activate-only", false, "Activate auth on the active enterprise context")
+	activate.PersistentFlags().BoolVar(&onlyActivate, "no-register", false, "Activate auth on the active enterprise context")
 	return cmdutil.CreateAlias(activate, "license activate")
 }
 
