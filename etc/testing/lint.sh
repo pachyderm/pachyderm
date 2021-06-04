@@ -19,7 +19,7 @@ for file in $(git status --porcelain | grep '^??' | sed 's/^?? //'); do
 done
 
 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.40.1
-golangci-lint run --timeout 10m
+./bin/golangci-lint run --timeout 10m
 
 # shellcheck disable=SC2046
 find . \
