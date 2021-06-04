@@ -73,7 +73,7 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 }
 
 func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.TransactionResponse) string {
-	commit := "unknown"
+	var commit string
 	if response == nil || response.Commit == nil {
 		commit = "ERROR (unknown response type)"
 	} else {

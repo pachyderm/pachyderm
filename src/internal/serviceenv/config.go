@@ -68,8 +68,8 @@ type PachdSpecificConfiguration struct {
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
-	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
-	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
+	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
+	MetricsEndpoint            string `env:"METRICS_ENDPOINT,default="`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName string `env:"PACHD_POD_NAME,required"`
 
