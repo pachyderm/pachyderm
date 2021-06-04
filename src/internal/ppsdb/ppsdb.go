@@ -36,7 +36,7 @@ func Pipelines(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollecti
 var PipelineJobsPipelineIndex = &col.Index{
 	Name: "Pipeline",
 	Extract: func(val proto.Message) string {
-		return val.(*pps.StoredPipelineJobInfo).Pipeline.Name
+		return val.(*pps.StoredPipelineJobInfo).PipelineJob.Pipeline.Name
 	},
 }
 
@@ -57,11 +57,13 @@ var PipelineJobsTerminalIndex = &col.Index{
 	Name: "PipelineJobState",
 	Extract: func(val proto.Message) string {
 		jobInfo := val.(*pps.StoredPipelineJobInfo)
-		return PipelineJobTerminalKey(jobInfo.Pipeline, ppsutil.IsTerminal(jobInfo.State))
+		return PipelineJobTerminalKey(jobInfo.PipelineJob.Pipeline, ppsutil.IsTerminal(jobInfo.State))
 	},
 }
 
 var pipelineJobsIndexes = []*col.Index{PipelineJobsPipelineIndex, PipelineJobsOutputIndex, PipelineJobsTerminalIndex}
+
+var JobKey = ppsutil.JobKey
 
 // PipelineJobs returns a PostgresCollection of PipelineJobs
 func PipelineJobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {

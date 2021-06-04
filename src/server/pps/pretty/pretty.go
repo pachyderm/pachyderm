@@ -43,7 +43,7 @@ func safeTrim(s string, l int) string {
 // PrintPipelineJobInfo pretty-prints job info.
 func PrintPipelineJobInfo(w io.Writer, pipelineJobInfo *ppsclient.PipelineJobInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", pipelineJobInfo.PipelineJob.ID)
-	fmt.Fprintf(w, "%s\t", pipelineJobInfo.Pipeline.Name)
+	fmt.Fprintf(w, "%s\t", pipelineJobInfo.PipelineJob.Pipeline.Name)
 	if pipelineJobInfo.Started != nil {
 		if fullTimestamps {
 			fmt.Fprintf(w, "%s\t", pipelineJobInfo.Started.String())
@@ -133,8 +133,8 @@ func NewPrintablePipelineJobInfo(pji *ppsclient.PipelineJobInfo) *PrintablePipel
 // PrintDetailedPipelineJobInfo pretty-prints detailed job info.
 func PrintDetailedPipelineJobInfo(w io.Writer, pipelineJobInfo *PrintablePipelineJobInfo) error {
 	template, err := template.New("PipelineJobInfo").Funcs(funcMap).Parse(
-		`ID: {{.PipelineJob.ID}} {{if .Pipeline}}
-Pipeline: {{.Pipeline.Name}} {{end}} {{if .ParentJob}}
+		`ID: {{.PipelineJob.ID}}
+Pipeline: {{.PipelineJob.Pipeline.Name}}{{if .ParentJob}}
 Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}

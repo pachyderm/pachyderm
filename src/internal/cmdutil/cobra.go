@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/spf13/cobra"
 )
@@ -203,6 +204,19 @@ func ParseBranch(arg string) (*pfs.Branch, error) {
 		return nil, err
 	}
 	return commit.Branch, nil
+}
+
+// ParsePipelineJob takes an argument of the form "pipeline@job-id" and returns
+// the corresponding *pfs.PipelineJob.
+func ParsePipelineJob(arg string) (*pps.PipelineJob, error) {
+	parts := strings.SplitN(arg, "@", 2)
+	if parts[0] == "" {
+		return nil, errors.Errorf("invalid format \"%s\": pipeline must be specified", arg)
+	}
+	if len(parts) != 2 {
+		return nil, errors.Errorf("invalid format \"%s\": expected pipeline@job-id", arg)
+	}
+	return client.NewPipelineJob(parts[0], parts[1]), nil
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the

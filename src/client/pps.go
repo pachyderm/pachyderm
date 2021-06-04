@@ -71,8 +71,8 @@ const (
 )
 
 // NewPipelineJob creates a pps.PipelineJob.
-func NewPipelineJob(pipelineJobID string) *pps.PipelineJob {
-	return &pps.PipelineJob{ID: pipelineJobID}
+func NewPipelineJob(pipelineName string, pipelineJobID string) *pps.PipelineJob {
+	return &pps.PipelineJob{Pipeline: NewPipeline(pipelineName), ID: pipelineJobID}
 }
 
 // DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
@@ -205,9 +205,9 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 // InspectPipelineJob returns info about a specific job.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
 // full indicates that the full job info should be returned.
-func (c APIClient) InspectPipelineJob(pipelineJobID string, blockState bool, full ...bool) (*pps.PipelineJobInfo, error) {
+func (c APIClient) InspectPipelineJob(pipelineName string, pipelineJobID string, blockState bool, full ...bool) (*pps.PipelineJobInfo, error) {
 	req := &pps.InspectPipelineJobRequest{
-		PipelineJob: NewPipelineJob(pipelineJobID),
+		PipelineJob: NewPipelineJob(pipelineName, pipelineJobID),
 		BlockState:  blockState,
 	}
 	if len(full) > 0 {
@@ -385,22 +385,22 @@ func (c APIClient) FlushPipelineJobAll(commits []*pfs.Commit, toPipelines []stri
 }
 
 // DeletePipelineJob deletes a job.
-func (c APIClient) DeletePipelineJob(pipelineJobID string) error {
+func (c APIClient) DeletePipelineJob(pipelineName string, pipelineJobID string) error {
 	_, err := c.PpsAPIClient.DeletePipelineJob(
 		c.Ctx(),
 		&pps.DeletePipelineJobRequest{
-			PipelineJob: NewPipelineJob(pipelineJobID),
+			PipelineJob: NewPipelineJob(pipelineName, pipelineJobID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
 // StopPipelineJob stops a job.
-func (c APIClient) StopPipelineJob(pipelineJobID string) error {
+func (c APIClient) StopPipelineJob(pipelineName, pipelineJobID string) error {
 	_, err := c.PpsAPIClient.StopPipelineJob(
 		c.Ctx(),
 		&pps.StopPipelineJobRequest{
-			PipelineJob: NewPipelineJob(pipelineJobID),
+			PipelineJob: NewPipelineJob(pipelineName, pipelineJobID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -423,11 +423,11 @@ func (c APIClient) StopPipelineJobOutputCommit(commit *pfs.Commit) (retErr error
 // RestartDatum restarts a datum that's being processed as part of a job.
 // datumFilter is a slice of strings which are matched against either the Path
 // or Hash of the datum, the order of the strings in datumFilter is irrelevant.
-func (c APIClient) RestartDatum(pipelineJobID string, datumFilter []string) error {
+func (c APIClient) RestartDatum(pipelineName string, pipelineJobID string, datumFilter []string) error {
 	_, err := c.PpsAPIClient.RestartDatum(
 		c.Ctx(),
 		&pps.RestartDatumRequest{
-			PipelineJob: NewPipelineJob(pipelineJobID),
+			PipelineJob: NewPipelineJob(pipelineName, pipelineJobID),
 			DataFilters: datumFilter,
 		},
 	)
@@ -435,23 +435,23 @@ func (c APIClient) RestartDatum(pipelineJobID string, datumFilter []string) erro
 }
 
 // ListDatum returns info about datums in a job.
-func (c APIClient) ListDatum(job string, cb func(*pps.DatumInfo) error) (retErr error) {
+func (c APIClient) ListDatum(pipelineName string, jobID string, cb func(*pps.DatumInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pps.ListDatumRequest{
-		PipelineJob: NewPipelineJob(job),
+		PipelineJob: NewPipelineJob(pipelineName, jobID),
 	}
 	return c.listDatum(req, cb)
 }
 
 // ListDatumAll returns info about datums in a job.
-func (c APIClient) ListDatumAll(job string) (_ []*pps.DatumInfo, retErr error) {
+func (c APIClient) ListDatumAll(pipelineName string, jobID string) (_ []*pps.DatumInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	var dis []*pps.DatumInfo
-	if err := c.ListDatum(job, func(di *pps.DatumInfo) error {
+	if err := c.ListDatum(pipelineName, jobID, func(di *pps.DatumInfo) error {
 		dis = append(dis, di)
 		return nil
 	}); err != nil {
@@ -514,13 +514,13 @@ func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) 
 }
 
 // InspectDatum returns info about a single datum
-func (c APIClient) InspectDatum(pipelineJobID string, datumID string) (*pps.DatumInfo, error) {
+func (c APIClient) InspectDatum(pipelineName string, pipelineJobID string, datumID string) (*pps.DatumInfo, error) {
 	datumInfo, err := c.PpsAPIClient.InspectDatum(
 		c.Ctx(),
 		&pps.InspectDatumRequest{
 			Datum: &pps.Datum{
 				ID:          datumID,
-				PipelineJob: NewPipelineJob(pipelineJobID),
+				PipelineJob: NewPipelineJob(pipelineName, pipelineJobID),
 			},
 		},
 	)
@@ -615,12 +615,12 @@ func (c APIClient) getLogs(
 		request.Pipeline = NewPipeline(pipelineName)
 	}
 	if pipelineJobID != "" {
-		request.PipelineJob = NewPipelineJob(pipelineJobID)
+		request.PipelineJob = NewPipelineJob(pipelineName, pipelineJobID)
 	}
 	request.DataFilters = data
 	if datumID != "" {
 		request.Datum = &pps.Datum{
-			PipelineJob: NewPipelineJob(pipelineJobID),
+			PipelineJob: NewPipelineJob(pipelineName, pipelineJobID),
 			ID:          datumID,
 		}
 	}

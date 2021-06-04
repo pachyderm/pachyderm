@@ -56,6 +56,7 @@ message Egress {
 
 message PipelineJob {
   string id = 1 [(gogoproto.customname) = "ID"];
+  Pipeline pipeline = 2;
 }
 
 enum PipelineJobState {
@@ -261,67 +262,65 @@ message GPUSpec {
 // the lifetime of the job but aren't used in the execution of the job.
 message StoredPipelineJobInfo {
   PipelineJob pipeline_job = 1;
-  Pipeline pipeline = 2;
-  pfs.Commit output_commit = 3;
+  pfs.Commit output_commit = 2;
   // PipelineJob restart count (e.g. due to datum failure)
-  uint64 restart = 4;
+  uint64 restart = 3;
 
   // Counts of how many times we processed or skipped a datum
-  int64 data_processed = 5;
-  int64 data_skipped = 6;
-  int64 data_total = 7;
-  int64 data_failed = 8;
-  int64 data_recovered = 9;
+  int64 data_processed = 4;
+  int64 data_skipped = 5;
+  int64 data_total = 6;
+  int64 data_failed = 7;
+  int64 data_recovered = 8;
 
   // Download/process/upload time and download/upload bytes
-  ProcessStats stats = 10;
+  ProcessStats stats = 9;
 
-  PipelineJobState state = 12;
-  string reason = 13;
-  google.protobuf.Timestamp started = 14;
-  google.protobuf.Timestamp finished = 15;
+  PipelineJobState state = 10;
+  string reason = 11;
+  google.protobuf.Timestamp started = 12;
+  google.protobuf.Timestamp finished = 13;
 }
 
 message PipelineJobInfo {
   PipelineJob pipeline_job = 1;
   Transform transform = 2;                     // requires ListPipelineJobRequest.Full
-  Pipeline pipeline = 3;
-  uint64 pipeline_version = 4;                // requires ListPipelineJobRequest.Full
-  pfs.Commit spec_commit = 5;
-  ParallelismSpec parallelism_spec = 6;       // requires ListPipelineJobRequest.Full
-  Egress egress = 7;                          // requires ListPipelineJobRequest.Full
-  PipelineJob parent_job = 8;
-  google.protobuf.Timestamp started = 9;
-  google.protobuf.Timestamp finished = 10;
-  pfs.Commit output_commit = 11;
-  PipelineJobState state = 12;
-  string reason = 13;  // reason explains why the job is in the current state
-  Service service = 14;                        // requires ListPipelineJobRequest.Full
-  Spout spout = 15;                            // requires ListPipelineJobRequest.Full
-  pfs.Repo output_repo = 16;
-  string output_branch = 17;                   // requires ListPipelineJobRequest.Full
-  uint64 restart = 18;
-  int64 data_processed = 19;
-  int64 data_skipped = 20;
-  int64 data_failed = 21;
-  int64 data_recovered = 22;
-  int64 data_total = 23;
-  ProcessStats stats = 24;
-  repeated WorkerStatus worker_status = 25;
-  ResourceSpec resource_requests = 26;         // requires ListPipelineJobRequest.Full
-  ResourceSpec resource_limits = 27;           // requires ListPipelineJobRequest.Full
-  ResourceSpec sidecar_resource_limits = 28;   // requires ListPipelineJobRequest.Full
-  Input input = 29;                            // requires ListPipelineJobRequest.Full
-  pfs.BranchInfo new_branch = 30;
-  bool enable_stats = 32;                      // requires ListPipelineJobRequest.Full
-  string salt = 33;                            // requires ListPipelineJobRequest.Full
-  ChunkSpec chunk_spec = 34;                   // requires ListPipelineJobRequest.Full
-  google.protobuf.Duration datum_timeout = 35; // requires ListPipelineJobRequest.Full
-  google.protobuf.Duration job_timeout = 36;   // requires ListPipelineJobRequest.Full
-  int64 datum_tries = 37;                      // requires ListPipelineJobRequest.Full
-  SchedulingSpec scheduling_spec = 38;         // requires ListPipelineJobRequest.Full
-  string pod_spec = 39;                        // requires ListPipelineJobRequest.Full
-  string pod_patch = 40;                       // requires ListPipelineJobRequest.Full
+  uint64 pipeline_version = 3;                // requires ListPipelineJobRequest.Full
+  pfs.Commit spec_commit = 4;
+  ParallelismSpec parallelism_spec = 5;       // requires ListPipelineJobRequest.Full
+  Egress egress = 6;                          // requires ListPipelineJobRequest.Full
+  PipelineJob parent_job = 7;
+  google.protobuf.Timestamp started = 8;
+  google.protobuf.Timestamp finished = 9;
+  pfs.Commit output_commit = 10;
+  PipelineJobState state = 11;
+  string reason = 12;  // reason explains why the job is in the current state
+  Service service = 13;                        // requires ListPipelineJobRequest.Full
+  Spout spout = 14;                            // requires ListPipelineJobRequest.Full
+  pfs.Repo output_repo = 15;
+  string output_branch = 16;                   // requires ListPipelineJobRequest.Full
+  uint64 restart = 17;
+  int64 data_processed = 18;
+  int64 data_skipped = 19;
+  int64 data_failed = 20;
+  int64 data_recovered = 21;
+  int64 data_total = 22;
+  ProcessStats stats = 23;
+  repeated WorkerStatus worker_status = 24;
+  ResourceSpec resource_requests = 25;         // requires ListPipelineJobRequest.Full
+  ResourceSpec resource_limits = 26;           // requires ListPipelineJobRequest.Full
+  ResourceSpec sidecar_resource_limits = 27;   // requires ListPipelineJobRequest.Full
+  Input input = 28;                            // requires ListPipelineJobRequest.Full
+  pfs.BranchInfo new_branch = 29;
+  bool enable_stats = 30;                      // requires ListPipelineJobRequest.Full
+  string salt = 31;                            // requires ListPipelineJobRequest.Full
+  ChunkSpec chunk_spec = 32;                   // requires ListPipelineJobRequest.Full
+  google.protobuf.Duration datum_timeout = 33; // requires ListPipelineJobRequest.Full
+  google.protobuf.Duration job_timeout = 34;   // requires ListPipelineJobRequest.Full
+  int64 datum_tries = 35;                      // requires ListPipelineJobRequest.Full
+  SchedulingSpec scheduling_spec = 36;         // requires ListPipelineJobRequest.Full
+  string pod_spec = 37;                        // requires ListPipelineJobRequest.Full
+  string pod_patch = 38;                       // requires ListPipelineJobRequest.Full
 }
 
 enum WorkerState {

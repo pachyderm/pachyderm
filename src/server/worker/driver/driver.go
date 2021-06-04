@@ -89,7 +89,7 @@ type Driver interface {
 	// TODO: provide a more generic interface for modifying pipeline jobs, and
 	// some quality-of-life functions for common operations.
 	DeletePipelineJob(*sqlx.Tx, *pps.StoredPipelineJobInfo) error
-	UpdatePipelineJobState(string, pps.PipelineJobState, string) error
+	UpdatePipelineJobState(*pps.PipelineJob, pps.PipelineJobState, string) error
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
@@ -441,10 +441,10 @@ func (d *driver) RunUserErrorHandlingCode(
 	return nil
 }
 
-func (d *driver) UpdatePipelineJobState(pipelineJobID string, state pps.PipelineJobState, reason string) error {
+func (d *driver) UpdatePipelineJobState(pipelineJob *pps.PipelineJob, state pps.PipelineJobState, reason string) error {
 	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 		pipelineJobPtr := &pps.StoredPipelineJobInfo{}
-		if err := d.PipelineJobs().ReadWrite(sqlTx).Get(pipelineJobID, pipelineJobPtr); err != nil {
+		if err := d.PipelineJobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pipelineJob), pipelineJobPtr); err != nil {
 			return err
 		}
 		return errors.EnsureStack(ppsutil.UpdatePipelineJobState(d.Pipelines().ReadWrite(sqlTx), d.PipelineJobs().ReadWrite(sqlTx), pipelineJobPtr, state, reason))
@@ -457,7 +457,7 @@ func (d *driver) UpdatePipelineJobState(pipelineJobID string, state pps.Pipeline
 // deleted.
 func (d *driver) DeletePipelineJob(sqlTx *sqlx.Tx, pipelineJobPtr *pps.StoredPipelineJobInfo) error {
 	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := d.Pipelines().ReadWrite(sqlTx).Update(pipelineJobPtr.Pipeline.Name, pipelinePtr, func() error {
+	if err := d.Pipelines().ReadWrite(sqlTx).Update(pipelineJobPtr.PipelineJob.Pipeline.Name, pipelinePtr, func() error {
 		if pipelinePtr.JobCounts == nil {
 			pipelinePtr.JobCounts = make(map[int32]int32)
 		}
@@ -468,7 +468,7 @@ func (d *driver) DeletePipelineJob(sqlTx *sqlx.Tx, pipelineJobPtr *pps.StoredPip
 	}); err != nil {
 		return err
 	}
-	return d.PipelineJobs().ReadWrite(sqlTx).Delete(pipelineJobPtr.PipelineJob.ID)
+	return d.PipelineJobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(pipelineJobPtr.PipelineJob))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {

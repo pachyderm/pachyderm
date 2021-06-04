@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -255,7 +256,7 @@ func (reg *registry) startPipelineJob(pipelineJobInfo *pps.PipelineJobInfo) erro
 		return err
 	}
 	outputDit := datum.NewCommitIterator(pachClient, ppj.metaCommitInfo.Commit)
-	ppj.jdit = reg.jobChain.CreateJob(ppj.driver.PachClient().Ctx(), ppj.pji.PipelineJob.ID, dit, outputDit)
+	ppj.jdit = reg.jobChain.CreateJob(ppj.driver.PachClient().Ctx(), ppj.pji.PipelineJob, dit, outputDit)
 	var afterTime time.Duration
 	if ppj.pji.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(ppj.pji.Started)
@@ -313,7 +314,7 @@ func (reg *registry) startPipelineJob(pipelineJobInfo *pps.PipelineJobInfo) erro
 					err = errors.Unwrap(err)
 				}
 				// Get job state, increment restarts, write job state
-				ppj.pji, err = ppj.driver.PachClient().InspectPipelineJob(ppj.pji.PipelineJob.ID, false)
+				ppj.pji, err = ppj.driver.PachClient().InspectPipelineJob(ppj.pji.PipelineJob.Pipeline.Name, ppj.pji.PipelineJob.ID, false)
 				if err != nil {
 					return err
 				}
@@ -393,7 +394,7 @@ func (reg *registry) superviseJob(ppj *pendingPipelineJob) error {
 			if err := ppj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobPtr := &pps.StoredPipelineJobInfo{}
-				if err := ppj.driver.PipelineJobs().ReadWrite(sqlTx).Get(ppj.pji.PipelineJob.ID, jobPtr); err != nil {
+				if err := ppj.driver.PipelineJobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(ppj.pji.PipelineJob), jobPtr); err != nil {
 					return err
 				}
 				return ppj.driver.DeletePipelineJob(sqlTx, jobPtr)

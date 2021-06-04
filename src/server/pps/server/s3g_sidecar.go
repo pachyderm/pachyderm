@@ -287,7 +287,7 @@ func (s *k8sServiceCreatingJobHandler) S3G() *sidecarS3G {
 func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, pipelineJobInfo *pps.PipelineJobInfo) {
 	// Create kubernetes service for the current job ('jobInfo')
 	labels := map[string]string{
-		"app":       ppsutil.PipelineRcName(pipelineJobInfo.Pipeline.Name, pipelineJobInfo.PipelineVersion),
+		"app":       ppsutil.PipelineRcName(pipelineJobInfo.PipelineJob.Pipeline.Name, pipelineJobInfo.PipelineVersion),
 		"suite":     "pachyderm",
 		"component": "worker",
 	}
@@ -394,12 +394,13 @@ func (h *handleJobsCtx) start() {
 
 // end watches 'pipelineJobID' and calls h.OnTerminate() when the job finishes.
 func (h *handleJobsCtx) end(ctx context.Context, cancel func(), pipelineJobID string) {
+	pipelineJob := client.NewPipelineJob(h.s.pipelineInfo.Pipeline.Name, pipelineJobID)
 	defer cancel()
 	for { // reestablish watch in a loop, in case there's a watch error
 		var watcher watch.Watcher
 		backoff.Retry(func() error {
 			var err error
-			watcher, err = h.s.apiServer.pipelineJobs.ReadOnly(ctx).WatchOne(pipelineJobID)
+			watcher, err = h.s.apiServer.pipelineJobs.ReadOnly(ctx).WatchOne(ppsdb.JobKey(pipelineJob))
 			if err != nil {
 				return errors.Wrapf(err, "error creating watch")
 			}
@@ -408,9 +409,8 @@ func (h *handleJobsCtx) end(ctx context.Context, cancel func(), pipelineJobID st
 		defer watcher.Close()
 
 		for e := range watcher.Watch() {
-			pipelineJobID := string(e.Key)
 			if e.Type == watch.EventError {
-				logrus.Errorf("sidecar s3 gateway watch job %q error: %v", pipelineJobID, e.Err)
+				logrus.Errorf("sidecar s3 gateway watch job %q error: %v", e.Key, e.Err)
 				break // reestablish watch
 			}
 			h.processJobEvent(ctx, e.Type, pipelineJobID)
@@ -431,7 +431,7 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	var pipelineJobInfo *pps.PipelineJobInfo
 	if err := backoff.RetryNotify(func() error {
 		var err error
-		pipelineJobInfo, err = pachClient.InspectPipelineJob(pipelineJobID, false)
+		pipelineJobInfo, err = pachClient.InspectPipelineJob(h.s.pipelineInfo.Pipeline.Name, pipelineJobID, false)
 		if err != nil {
 			if col.IsErrNotFound(err) {
 				// TODO(msteffen): I'm not sure what this means--maybe that the service
