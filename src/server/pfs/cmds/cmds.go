@@ -111,7 +111,7 @@ or type (e.g. csv, binary, images, etc).`,
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
-						Repo:        client.NewRepo(args[0]),
+						Repo:        cmdutil.ParseRepo(args[0]),
 						Description: description,
 						Update:      true,
 					},
@@ -135,7 +135,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			defer c.Close()
-			repoInfo, err := c.InspectRepo(args[0])
+			repoInfo, err := c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
 				return err
 			}
@@ -225,7 +225,7 @@ or type (e.g. csv, binary, images, etc).`,
 				if all {
 					return errors.Errorf("cannot use the --all flag with an argument")
 				}
-				request.Repo = client.NewRepo(args[0])
+				request.Repo = cmdutil.ParseRepo(args[0])
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
@@ -767,10 +767,11 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			}
 			defer c.Close()
-			branches, err := c.ListBranch(args[0])
+			branchInfos, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
 				return err
 			}
+			branches := branchInfos.BranchInfo
 			if raw {
 				for _, branch := range branches {
 					if err := marshaller.Marshal(os.Stdout, branch); err != nil {

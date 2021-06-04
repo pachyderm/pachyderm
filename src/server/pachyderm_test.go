@@ -9046,7 +9046,9 @@ func TestDeferredCross(t *testing.T) {
 	require.NoError(t, c.PutFile(dataCommit, "file2", strings.NewReader("foo"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(dataCommit, "file3", strings.NewReader("foo"), client.WithAppendPutFile()))
 
-	_, err = c.BlockCommitsetAll(dataCommit.ID)
+	commitInfo, err := c.InspectCommit(dataSet, "master", "")
+	require.NoError(t, err)
+	_, err = c.BlockCommitsetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
 	err = c.CreateBranch(downstreamPipeline, "other", "", "master^", nil)
@@ -9141,21 +9143,25 @@ func TestDeferredProcessing(t *testing.T) {
 	commit := client.NewCommit(dataRepo, "staging", "")
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
-	commitInfos, err := c.BlockCommitsetAll(commit.ID)
+	commitInfo, err := c.InspectCommit(dataRepo, "staging", "")
 	require.NoError(t, err)
-	require.Equal(t, 0, len(commitInfos))
 
-	c.CreateBranch(dataRepo, "master", "staging", "", nil)
-
-	commitInfos, err = c.BlockCommitsetAll(commit.ID)
+	// The same commitset should be extended after each branch head move
+	commitInfos, err := c.BlockCommitsetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
 
-	c.CreateBranch(pipeline1, "master", "staging", "", nil)
+	require.NoError(t, c.CreateBranch(dataRepo, "master", "staging", "", nil))
 
-	commitInfos, err = c.BlockCommitsetAll(commit.ID)
+	commitInfos, err = c.BlockCommitsetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	require.Equal(t, 5, len(commitInfos))
+
+	require.NoError(t, c.CreateBranch(pipeline1, "master", "staging", "", nil))
+
+	commitInfos, err = c.BlockCommitsetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 9, len(commitInfos))
 }
 
 func TestPipelineHistory(t *testing.T) {

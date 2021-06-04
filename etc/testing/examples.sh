@@ -18,7 +18,7 @@ pushd examples/opencv
 
     # wait for everything to finish
     commit_id=$(pachctl list commit images -n 1 --raw | jq .commit.id -r)
-    pachctl flush job "images@$commit_id"
+    pachctl wait commit "montage@$commit_id"
 
     # ensure the montage image was generated
     pachctl inspect file montage@master:montage.png
@@ -38,8 +38,7 @@ pushd examples/shuffle
 
     # wait for everything to finish
     commit_id=$(pachctl list commit fruits -n 1 --raw | jq .commit.id -r)
-    pachctl flush job "fruits@$commit_id"
-    pachctl flush commit "fruits@$commit_id"
+    pachctl wait commit "shuffle@$commit_id"
 
     # check downloaded and uploaded bytes
     downloaded_bytes=$(pachctl list job -p shuffle --raw | jq '.stats.download_bytes | values')
@@ -112,7 +111,7 @@ pachctl delete repo --all
 ##    pachctl create pipeline -f select.json
 ##
 ##    commit_id=$(pachctl list commit raw_data -n 1 --raw | jq .commit.id -r)
-##    pachctl flush job "raw_data@$commit_id"
+##    pachctl wait commit "select@$commit_id"
 ##
 ##    # just make sure we outputted some files
 ##    selected_file_count=$(pachctl list file select@master | wc -l)
@@ -143,7 +142,7 @@ pushd examples/ml/iris
     pachctl create pipeline -f julia_infer.json
 
     commit_id=$(pachctl list commit training -n 1 --raw | jq .commit.id -r)
-    pachctl flush job "training@$commit_id"
+    pachctl wait commit "inference@$commit_id"
 
     # just make sure we outputted some files
     inference_file_count=$(pachctl list file inference@master | wc -l)

@@ -112,7 +112,7 @@ func isValidBranch(name string) bool {
 	return err == nil
 }
 
-func repoFromString(name string) *pfs.Repo {
+func ParseRepo(name string) *pfs.Repo {
 	var repo pfs.Repo
 	if strings.Contains(name, ".") {
 		repoParts := strings.SplitN(name, ".", 2)
@@ -164,7 +164,7 @@ func parseFile(arg string) (*pfs.File, int, error) {
 			commit = parts[1]
 		}
 	}
-	return repoFromString(repo).NewCommit(branch, commit).NewFile(path), numFields, nil
+	return ParseRepo(repo).NewCommit(branch, commit).NewFile(path), numFields, nil
 }
 
 // ParseCommit takes an argument of the form "repo[@branch-or-commit]" and

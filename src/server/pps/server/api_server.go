@@ -1952,7 +1952,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		provenance = append(branchProvenance(newPipelineInfo.Input),
 			client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"))
 		outputBranch = client.NewBranch(pipelineName, newPipelineInfo.OutputBranch)
-		statsBranch  = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch("master")
+		statsBranch  = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.OutputBranch)
 		specCommit   *pfs.Commit
 	)
 
