@@ -49,6 +49,7 @@ func runTest(t *testing.T, client Client) {
 	require.NoError(t, client.Close())
 }
 
+/*is
 func runWatchTest(t *testing.T, client Client) {
 	cancel := make(chan bool)
 	err := client.WatchAll(
@@ -64,7 +65,7 @@ func runWatchTest(t *testing.T, client Client) {
 		},
 	)
 	require.True(t, errors.Is(err, ErrCancelled))
-}
+}*/
 
 func getEtcdClient() (Client, error) {
 	etcdAddress, err := getEtcdAddress()

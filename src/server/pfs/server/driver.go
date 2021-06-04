@@ -31,11 +31,11 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 const (

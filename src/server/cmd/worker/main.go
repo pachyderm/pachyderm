@@ -24,8 +24,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 func main() {

@@ -8,10 +8,10 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc/metadata"
 )
 

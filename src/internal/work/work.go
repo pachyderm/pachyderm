@@ -6,7 +6,6 @@ import (
 	"path"
 	"sync/atomic"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -14,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	etcd "go.etcd.io/etcd/clientv3"
 	"golang.org/x/sync/errgroup"
 )
 

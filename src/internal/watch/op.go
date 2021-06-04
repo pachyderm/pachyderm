@@ -1,6 +1,6 @@
 package watch
 
-import etcd "github.com/coreos/etcd/clientv3"
+import etcd "go.etcd.io/etcd/clientv3"
 
 // WatchOptions is a set of options that can be used when watching
 type WatchOptions struct {

@@ -1,16 +1,11 @@
 package discovery
 
 import (
-	"fmt"
-	"io/ioutil"
-	"net/http"
+	"context"
 	"strings"
 	"time"
 
-	"github.com/coreos/go-etcd/etcd"
-	"github.com/sirupsen/logrus"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 type etcdClient struct {
@@ -21,10 +16,11 @@ type etcdClient struct {
 // more retries before giving up. Because Pachyderm often starts before etcd is
 // ready, retrying Pachd's connection to etcd in a tight loop (<1s) is often
 // much faster than waiting for kubernetes to restart the pachd pod.
+/*you
 func customCheckRetry(cluster *etcd.Cluster, numReqs int, lastResp http.Response,
 	err error) error {
 	// Retry for 5 minutes, unless the cluster is super huge
-	maxRetries := 2 * len(cluster.Machines)
+	maxRetries := 2 * len(cluster.MemberList)
 	if 600 > maxRetries {
 		maxRetries = 600
 	}
@@ -64,12 +60,16 @@ func customCheckRetry(cluster *etcd.Cluster, numReqs int, lastResp http.Response
 	time.Sleep(time.Millisecond * 500)
 	logrus.Warnf("bad response status code from etcd: %d", lastResp.StatusCode)
 	return nil
-}
+}*/
 
 func newEtcdClient(addresses ...string) *etcdClient {
-	client := etcd.NewClient(addresses)
-	client.CheckRetry = customCheckRetry
-	return &etcdClient{client}
+	//TODO Check error
+	clientInstance, _ := etcd.New(etcd.Config{
+		Endpoints:   addresses,
+		DialTimeout: 5 * time.Second,
+	})
+
+	return &etcdClient{clientInstance}
 }
 
 func (c *etcdClient) Close() error {
@@ -77,16 +77,23 @@ func (c *etcdClient) Close() error {
 	return nil
 }
 
+// Get a Key from Etcd - Assumes one value?
 func (c *etcdClient) Get(key string) (string, error) {
-	response, err := c.client.Get(key, false, false)
+	ctx := context.TODO()
+	response, err := c.client.Get(ctx, key)
 	if err != nil {
 		return "", err
 	}
-	return response.Node.Value, nil
+	output := ""
+	for _, ev := range response.Kvs {
+		output += string(ev.Value)
+	}
+	return output, nil
 }
 
 func (c *etcdClient) GetAll(key string) (map[string]string, error) {
-	response, err := c.client.Get(key, false, true)
+	ctx := context.TODO()
+	response, err := c.client.Get(ctx, key) //TODO pass in old options
 	result := make(map[string]string)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "100: Key not found") {
@@ -94,10 +101,13 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 		}
 		return nil, err
 	}
-	nodeToMap(response.Node, result)
+	for _, ev := range response.Kvs {
+		result[string(ev.Key)] = string(ev.Value)
+	}
 	return result, nil
 }
 
+/*
 func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) error {
 	for {
 		if err := c.watchAllWithoutRetry(key, cancel, callBack); err != nil {
@@ -114,10 +124,11 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 			return err
 		}
 	}
-}
+}*/
 
 func (c *etcdClient) Set(key string, value string, ttl uint64) error {
-	_, err := c.client.Set(key, value, ttl)
+	ctx := context.TODO()
+	_, err := c.client.Put(ctx, key, value) //TODO TTL
 	if err != nil {
 		return err
 	}
@@ -125,7 +136,8 @@ func (c *etcdClient) Set(key string, value string, ttl uint64) error {
 }
 
 func (c *etcdClient) Create(key string, value string, ttl uint64) error {
-	_, err := c.client.Create(key, value, ttl)
+	ctx := context.TODO()
+	_, err := c.client.Put(ctx, key, value) //ttl
 	if err != nil {
 		return err
 	}
@@ -133,17 +145,19 @@ func (c *etcdClient) Create(key string, value string, ttl uint64) error {
 }
 
 func (c *etcdClient) Delete(key string) error {
-	_, err := c.client.Delete(key, false)
+	ctx := context.TODO()
+	_, err := c.client.Delete(ctx, key) //TODO Options
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+/*
 func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue string) error {
 	var err error
 	if oldValue == "" {
-		_, err = c.client.Create(key, value, ttl)
+		_, err = c.client.Put(key, value, ttl)
 	} else {
 		_, err = c.client.CompareAndSwap(key, value, ttl, oldValue, 0)
 	}
@@ -151,12 +165,13 @@ func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue 
 		return err
 	}
 	return nil
-}
+}*/
 
 // nodeToMap translates the contents of a node into a map
 // nodeToMap can be called on the same map with successive results from watch
 // to accumulate a value
 // nodeToMap returns true if out was modified
+/*
 func nodeToMap(node *etcd.Node, out map[string]string) bool {
 	key := strings.TrimPrefix(node.Key, "/")
 	if !node.Dir {
@@ -178,13 +193,15 @@ func nodeToMap(node *etcd.Node, out map[string]string) bool {
 		changed = nodeToMap(node, out) || changed
 	}
 	return changed
-}
+}*/
 
+/*
 func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack func(map[string]string) error) error {
 	var waitIndex uint64 = 1
 	value := make(map[string]string)
 	// First get the starting value of the key
-	response, err := c.client.Get(key, false, false)
+	ctx := context.TODO()
+	response, err := c.client.Get(ctx, key) //TODO Options
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "100: Key not found") {
 			err = callBack(nil)
@@ -204,7 +221,8 @@ func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack
 		}
 	}
 	for {
-		response, err := c.client.Watch(key, waitIndex, true, nil, cancel)
+		ctx := ctx.TODO()
+		response, err := c.client.Watch(ctx, key, waitIndex, true, nil, cancel)
 		if err != nil {
 			if errors.Is(err, etcd.ErrWatchStoppedByUser) {
 				return ErrCancelled
@@ -219,4 +237,4 @@ func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack
 			}
 		}
 	}
-}
+}*/

@@ -8,10 +8,10 @@ import (
 	"path"
 	"testing"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/embed"
-	etcdwal "github.com/coreos/etcd/wal"
 	"github.com/coreos/pkg/capnslog"
+	etcd "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/embed"
+	etcdwal "go.etcd.io/etcd/wal"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"

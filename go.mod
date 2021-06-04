@@ -10,9 +10,6 @@ require (
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
-	github.com/coreos/bbolt v1.3.3 // indirect
-	github.com/coreos/etcd v3.3.13+incompatible
-	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 	github.com/dexidp/dex v0.0.0-20201118094123-6ca0cbc85759
@@ -29,7 +26,6 @@ require (
 	github.com/golang/protobuf v1.3.3
 	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/gorilla/mux v1.7.4
-	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
 	github.com/hanwen/go-fuse/v2 v2.0.3
 	github.com/hashicorp/go-retryablehttp v0.5.4 // indirect
@@ -73,6 +69,7 @@ require (
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20210428180535-15715dcf1ace
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect

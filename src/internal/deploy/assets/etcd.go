@@ -21,10 +21,7 @@ import (
 // with a kubernetes Deployment.
 
 var (
-	// Using our own etcd image for now because there's a fix we need
-	// that hasn't been released, and which has been manually applied
-	// to the official v3.2.7 release.
-	etcdImage = "pachyderm/etcd:v3.3.5"
+	etcdImage = "pachyderm/etcd:v3.4.16"
 
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"

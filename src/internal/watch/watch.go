@@ -8,9 +8,9 @@ import (
 	"context"
 	"reflect"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 // EventType is the type of event
