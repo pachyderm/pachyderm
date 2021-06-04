@@ -1,4 +1,8 @@
-{{- if .Values.dash.url -}}
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if and .Values.dash.enabled .Values.dash.url -}}
 apiVersion: "networking.k8s.io/v1beta1"
 kind: "Ingress"
 metadata:
