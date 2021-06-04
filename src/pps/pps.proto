@@ -121,12 +121,6 @@ message CronInput {
   google.protobuf.Timestamp start = 6;
 }
 
-message GitInput {
-  string name = 1;
-  string url = 2 [(gogoproto.customname) = "URL"];
-  string branch = 3;
-  string commit = 4;
-}
 
 message Input {
   PFSInput pfs = 1;
@@ -135,7 +129,6 @@ message Input {
   repeated Input cross = 4;
   repeated Input union = 5;
   CronInput cron = 6;
-  GitInput git = 7;
 }
 
 message JobInput {
@@ -437,7 +430,6 @@ message PipelineInfo {
   ChunkSpec chunk_spec = 28;
   google.protobuf.Duration datum_timeout = 29;
   google.protobuf.Duration job_timeout = 30;
-  string githook_url = 31 [(gogoproto.customname) = "GithookURL"];
   pfs_v2.Commit spec_commit = 32;
   bool standby = 33;
   int64 datum_tries = 34;

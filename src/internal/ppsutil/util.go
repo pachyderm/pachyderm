@@ -292,11 +292,6 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 				input.Cron.Commit = commit.ID
 			}
 		}
-		if input.Git != nil {
-			if commit, ok := branchToCommit[key(client.NewBranch(input.Git.Name, input.Git.Branch))]; ok {
-				input.Git.Commit = commit.ID
-			}
-		}
 		return nil
 	})
 	return jobInput
