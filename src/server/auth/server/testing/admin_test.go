@@ -476,10 +476,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -515,10 +512,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// make sure the pipeline still runs (i.e. it's not running as alice)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := rootClient.BlockCommit(pipeline, "master", commit.ID)
 		return err
 	})
 }
@@ -561,10 +555,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -602,10 +593,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, rootClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := rootClient.BlockCommit(pipeline, "master", commit.ID)
 		return err
 	})
 }
@@ -1046,10 +1034,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -1072,8 +1057,8 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 // TestDeleteRCInStandby creates a pipeline, waits for it to enter standby, and
 // then deletes its RC. This should not crash the PPS master, and the
-// flush-commit run on an input commit should eventually return (though the
-// pipeline may fail rather than processing anything in this state)
+// commit should eventually finish (though the pipeline may fail rather than
+// processing anything in this state)
 //
 // Note: Like 'TestNoOutputRepoDoesntCrashPPSMaster', this test doesn't use the
 // admin client at all, but it uses the kubernetes client, so out of prudence it
@@ -1111,9 +1096,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 
 	// Wait for pipeline to process input commit & go into standby
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := c.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)})
+		_, err := c.BlockCommit(pipeline, "master", "")
 		return err
 	})
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
@@ -1131,13 +1114,11 @@ func TestDeleteRCInStandby(t *testing.T) {
 	tu.DeletePipelineRC(t, pipeline)
 
 	// Create new input commit (to force pipeline out of standby) & make sure
-	// flush-commit returns (pipeline either fails or restarts RC & finishes)
+	// the pipeline either fails or restarts RC & finishes
 	err = c.PutFile(client.NewCommit(repo, "master", ""), "/file.2", strings.NewReader("1"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := c.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)})
+		_, err := c.BlockCommit(pipeline, "master", "")
 		return err
 	})
 }
@@ -1240,9 +1221,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		//   handling code)
 		// - packages depending on that code should be migrated
 		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if _, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{masterCommit},
-			[]*pfs.Repo{client.NewRepo(pipeline)}); err != nil {
+		if _, err := aliceClient.BlockCommit(pipeline, "master", masterCommit.ID); err != nil {
 			return errors.Wrapf(err, "unexpected error value")
 		}
 		return nil
@@ -1323,12 +1302,9 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	// that it fails)
 	require.NoError(t, rootClient.ModifyRepoRoleBinding(repo, fmt.Sprintf("pipeline:%s", pipeline), []string{}))
 
-	// make sure flush-commit returns (pipeline either
-	// fails or restarts RC & finishes)
+	// make sure the pipeline either fails or restarts RC & finishes
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)})
+		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
 		return err
 	})
 

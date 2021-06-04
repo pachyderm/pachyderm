@@ -436,10 +436,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(dataRepo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", "")
 		return err
 	})
 
@@ -474,10 +471,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := bobClient.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(dataRepo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(goodPipeline)},
-		)
+		_, err := bobClient.BlockCommit(goodPipeline, "master", "")
 		return err
 	})
 
@@ -548,10 +542,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := bobClient.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(dataRepo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := bobClient.BlockCommit(pipeline, "master", "")
 		return err
 	})
 }
@@ -792,10 +783,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// alice commits to the input repo, and the pipeline runs successfully
 	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := bobClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := bobClient.BlockCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -807,10 +795,7 @@ func TestPipelineRevoke(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
 	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -821,10 +806,7 @@ func TestPipelineRevoke(t *testing.T) {
 	doneCh := make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
 		require.NoError(t, err)
 	}()
 	select {
@@ -848,10 +830,7 @@ func TestPipelineRevoke(t *testing.T) {
 	doneCh = make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
 		require.NoError(t, err)
 	}()
 	select {
@@ -864,10 +843,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// pipeline runs successfully
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, pl(pipeline), []string{auth.RepoReaderRole}))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
 		return err
 	})
 }
@@ -1577,25 +1553,22 @@ func TestListDatum(t *testing.T) {
 		require.NoError(t, err)
 	}
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(repoB, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", "")
 		return err
 	})
-	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true /* full */)
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListDatum
-	_, err = bobClient.ListDatumAll(jobID)
+	_, err = bobClient.ListDatumAll(pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, but bob still can't call GetLogs
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(jobID)
+	_, err = bobClient.ListDatumAll(pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
@@ -1603,19 +1576,19 @@ func TestListDatum(t *testing.T) {
 	// call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{}))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoB, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(jobID)
+	_, err = bobClient.ListDatumAll(pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(jobID)
+	_, err = bobClient.ListDatumAll(pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole}))
-	dis, err := bobClient.ListDatumAll(jobID)
+	dis, err := bobClient.ListDatumAll(pipeline, jobID)
 	require.NoError(t, err)
 	files := make(map[string]struct{})
 	for _, di := range dis {
@@ -1664,10 +1637,7 @@ func TestListJob(t *testing.T) {
 	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", "")
 		return err
 	})
 	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
@@ -1743,10 +1713,7 @@ func TestInspectDatum(t *testing.T) {
 	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.BlockCommit(pipeline, "master", "")
 		return err
 	})
 	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
@@ -1802,10 +1769,7 @@ func TestInspectDatum(t *testing.T) {
 //	// alice commits to the input repos, and the pipeline runs successfully
 //	err := aliceClient.PutFile(repo, "master", "/file1", strings.NewReader("test"))
 //	require.NoError(t, err)
-//	commitIter, err := aliceClient.FlushJob(
-//		[]*pfs.Commit{client.NewCommit(repo, "master")},
-//		[]*pfs.Repo{client.NewRepo(pipeline)},
-//	)
+//	commitIter, err := aliceClient.BlockCommit(pipeline, "master", "")
 //	require.NoError(t, err)
 //	require.NoErrorWithinT(t, 60*time.Second, func() error {
 //		_, err := commitIter.Next()
@@ -1902,10 +1866,7 @@ func TestInspectDatum(t *testing.T) {
 //	// alice commits to the input repo, and the pipeline runs successfully
 //	err = aliceClient.PutFile(repo, "master", "/file1", strings.NewReader("test"))
 //	require.NoError(t, err)
-//	commitItr, err := aliceClient.FlushJob(
-//		[]*pfs.Commit{client.NewCommit(repo, "master")},
-//		[]*pfs.Repo{client.NewRepo(pipeline)},
-//	)
+//	commitItr, err := aliceClient.BlockCommit(pipeline, "master", "")
 //	require.NoError(t, err)
 //	require.NoErrorWithinT(t, 3*time.Minute, func() error {
 //		_, err := commitItr.Next()
@@ -1975,8 +1936,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, time.Minute, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(repo[0], "master", "")}, nil)
+		_, err := aliceClient.BlockCommit(pipeline, "master", "")
 		return err
 	})
 
@@ -2007,8 +1967,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// make sure the pipeline still runs
 	require.NoErrorWithinT(t, time.Minute, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{client.NewCommit(repo[2], "master", "")}, nil)
+		_, err := aliceClient.BlockCommit(pipeline, "master", "")
 		return err
 	})
 }
@@ -2293,10 +2252,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	))
 
 	// Wait for pipeline to finish
-	_, err = aliceClient.FlushJobAll(
-		[]*pfs.Commit{commit},
-		[]*pfs.Repo{client.NewRepo(pipeline)},
-	)
+	_, err = aliceClient.BlockCommit(pipeline, "master", commit.ID)
 	require.NoError(t, err)
 
 	// alice calls 'list job'
@@ -2392,12 +2348,14 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	))
 	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
 
-	// make sure FlushJob eventually returns (i.e. pipeline failure doesn't
-	// block FlushJob indefinitely)
+	// Get the latest commit from the input repo (which should be an alias from
+	// when the pipeline was created)
+	commitInfo, err := aliceClient.InspectCommit(repo, "master", "")
+	require.NoError(t, err)
+
+	// make sure the pipeline failure doesn't cause waits to block indefinitely
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.FlushJobAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)})
+		_, err := aliceClient.BlockCommitsetAll(commitInfo.Commit.ID)
 		return err
 	})
 }
@@ -2663,9 +2621,9 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
-	commitInfos, err := aliceClient.FlushJobAll([]*pfs.Commit{commit1}, nil)
+	jobInfos, err := aliceClient.BlockJobsetAll(commit1.ID, false)
 	require.NoError(t, err)
-	require.Equal(t, 6, len(commitInfos))
+	require.Equal(t, 6, len(jobInfos))
 
 	// Only admins can collect a debug dump.
 	buf := &bytes.Buffer{}

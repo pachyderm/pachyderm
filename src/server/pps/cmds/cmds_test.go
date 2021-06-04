@@ -114,7 +114,7 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		`,
 		"pipeline", tu.UniqueString("p-")).Run())
 	require.NoError(t, tu.BashCmd(`
-		pachctl flush commit data@master
+		pachctl wait commit data@master
 
 		# make sure the results have the full pipeline info, including version
 		pachctl list job --raw --history=all \
@@ -176,7 +176,7 @@ func TestJSONMultiplePipelines(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
-		pachctl flush commit input@master
+		pachctl wait commit input@master
 		pachctl get file second@master:/foo | match foo
 		pachctl get file second@master:/bar | match bar
 		pachctl get file second@master:/baz | match baz
@@ -223,7 +223,7 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
-		pachctl flush commit input@master
+		pachctl wait commit input@master
 		pachctl get file first@master:/foo | match foo
 		pachctl get file first@master:/bar | match bar
 		pachctl get file first@master:/baz | match baz
@@ -369,7 +369,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
-		pachctl flush commit input@master
+		pachctl wait commit input@master
 		pachctl get file second@master:/foo | match foo
 		pachctl get file second@master:/bar | match bar
 		pachctl get file second@master:/baz | match baz
@@ -412,7 +412,7 @@ func TestListPipelineFilter(t *testing.T) {
 		EOF
 
 		echo foo | pachctl put file input@master:/foo
-		pachctl flush commit input@master
+		pachctl wait commit input@master
 		# make sure we see the pipeline with the appropriate state filters
 		pachctl list pipeline | match {{.pipeline}}
 		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline}}
@@ -544,7 +544,7 @@ func TestYAMLSecret(t *testing.T) {
 		        env_var: MY_SECRET
 		        key: my-key
 		EOF
-		pachctl flush commit input@master
+		pachctl wait commit input@master
 		pachctl get file pipeline@master:/vars | match MY_SECRET=my-value
 		`,
 	).Run())
@@ -693,7 +693,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		pachctl create pipeline <<EOF
 		{{.spec}}
 		EOF
-		pachctl flush commit in@master
+		pachctl wait commit in@master
 		`,
 		"dir", dir,
 		"spec", spec,
@@ -710,7 +710,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		pachctl update pipeline <<EOF
 		{{.spec}}
 		EOF
-		pachctl flush commit in@master
+		pachctl wait commit in@master
 		`,
 		"dir", dir,
 		"spec", spec,
@@ -749,7 +749,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		pachctl update pipeline --reprocess <<EOF
 		{{.spec}}
 		EOF
-		pachctl flush commit in@master
+		pachctl wait commit in@master
 		`,
 		"dir", dir,
 		"spec", spec,
@@ -764,7 +764,7 @@ func verifyPipelineBuildOutput(t *testing.T, pipeline, prefix string) {
 	t.Helper()
 
 	require.NoError(t, tu.BashCmd(`
-		pachctl flush commit in@master
+		pachctl wait commit in@master
 		pachctl get file {{.pipeline}}@master:/1.txt | match {{.prefix}}{{.prefix}}{{.prefix}}1
 		pachctl get file {{.pipeline}}@master:/11.txt | match {{.prefix}}{{.prefix}}11
 		pachctl get file {{.pipeline}}@master:/111.txt | match {{.prefix}}111

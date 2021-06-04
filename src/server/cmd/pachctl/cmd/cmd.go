@@ -239,7 +239,7 @@ __custom_func() {
 				__pachctl_get_pipeline
 			fi
 			;;
-		pachctl_flush_job | pachctl_flush_commit)
+		pachctl_wait_commit)
 			__pachctl_get_repo_commit
 			;;
 		# Deprecated v1.8 commands - remove later
@@ -296,9 +296,6 @@ __custom_func() {
 			if __is_active_arg 0; then
 				__pachctl_get_pipeline
 			fi
-			;;
-		pachctl_flush-job | pachctl_flush-commit)
-			__pachctl_get_repo_slash_commit
 			;;
 		*)
 			;;
@@ -798,11 +795,11 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(finishDocs, "finish"))
 
-	flushDocs := &cobra.Command{
+	waitDocs := &cobra.Command{
 		Short: "Wait for the side-effects of a Pachyderm resource to propagate.",
 		Long:  "Wait for the side-effects of a Pachyderm resource to propagate.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAlias(flushDocs, "flush"))
+	subcommands = append(subcommands, cmdutil.CreateAlias(waitDocs, "wait"))
 
 	subscribeDocs := &cobra.Command{
 		Short: "Wait for notifications of changes to a Pachyderm resource.",
@@ -923,7 +920,7 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"diff",
 			"edit",
 			"finish",
-			"flush",
+			"wait",
 			"get",
 			"glob",
 			"inspect",
