@@ -517,7 +517,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if request.Job == nil {
-		return nil, errors.Errorf("must specify a Job")
+		return nil, errors.Errorf("must specify a job")
 	}
 	jobs := a.jobs.ReadOnly(ctx)
 	// Make sure the job exists
@@ -850,7 +850,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if request.Job == nil {
-		return nil, errors.New("Job cannot be nil")
+		return nil, errors.New("job cannot be nil")
 	}
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		if err := a.stopJob(txnCtx, request.Job, "job deleted"); err != nil {
@@ -2634,8 +2634,9 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	var eg errgroup.Group
 	jobPtr := &pps.StoredJobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobPtr, col.DefaultOptions(), func(string) error {
+		job := proto.Clone(jobPtr.Job).(*pps.Job)
 		eg.Go(func() error {
-			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: jobPtr.Job})
+			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: job})
 			if isNotFoundErr(err) || auth.IsErrNoRoleBinding(err) {
 				return nil
 			}

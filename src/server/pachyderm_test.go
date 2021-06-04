@@ -8837,7 +8837,7 @@ func TestInspectJob(t *testing.T) {
 
 	_, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{})
 	require.YesError(t, err)
-	require.True(t, strings.Contains(err.Error(), "must specify either a Job or an OutputCommit"))
+	require.True(t, strings.Contains(err.Error(), "must specify a job"))
 
 	repo := tu.UniqueString("TestInspectJob")
 	require.NoError(t, c.CreateRepo(repo))
