@@ -3106,14 +3106,21 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext, commitset *pfs.StoredCommitset) error {
-	for _, branchInfo := range commitset.Branches {
-		if branchInfo.Branch.Repo.Type != pfs.UserRepoType {
+func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
+	commitInfos, err := a.env.PfsServer().InspectCommitsetInTransaction(txnCtx, client.NewCommitset(txnCtx.CommitsetID))
+	if err != nil {
+		return err
+	}
+
+	for _, commitInfo := range commitInfos {
+		// Skip commits from system repos
+		if commitInfo.Commit.Branch.Repo.Type != pfs.UserRepoType {
 			continue
 		}
 
+		// Skip commits from repos that have no associated pipeline
 		pipelineInfo := &pps.StoredPipelineInfo{}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(branchInfo.Branch.Repo.Name, pipelineInfo); err != nil {
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(commitInfo.Commit.Branch.Repo.Name, pipelineInfo); err != nil {
 			if col.IsErrNotFound(err) {
 				continue
 			}
@@ -3123,9 +3130,8 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext, commits
 		// TODO(global ids): don't create the jobs for certain states or for spouts (can't detect spouts without loading pipeline spec?)
 
 		// Check if there is an existing job for the output commit
-		outputCommit := commitset.NewCommit(branchInfo.Branch)
 		pipelineJob := &pps.StoredPipelineJobInfo{}
-		err := a.pipelineJobs.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelineJobsOutputIndex, pfsdb.CommitKey(outputCommit), pipelineJob)
+		err := a.pipelineJobs.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelineJobsOutputIndex, pfsdb.CommitKey(commitInfo.Commit), pipelineJob)
 		if err == nil {
 			// Job already exists, skip it
 			continue
@@ -3134,21 +3140,15 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext, commits
 			return err
 		}
 
-		// If the pipeline is valid and there's no job, create one
-		commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
-			Commit: outputCommit,
-		})
-		if err != nil {
-			return err
-		}
 		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS || commitInfo.Finished != nil {
 			// Skip alias commits and any commits which have already been finished
 			continue
 		}
+
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
 		pipelineJobs := a.pipelineJobs.ReadWrite(txnCtx.SqlTx)
 		pipelineJobPtr := &pps.StoredPipelineJobInfo{
-			Pipeline:     client.NewPipeline(branchInfo.Branch.Repo.Name),
+			Pipeline:     pipelineInfo.Pipeline,
 			PipelineJob:  client.NewPipelineJob(uuid.NewWithoutDashes()),
 			OutputCommit: commitInfo.Commit,
 			Stats:        &pps.ProcessStats{},

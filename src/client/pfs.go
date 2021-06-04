@@ -10,6 +10,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+// NewCommitset creates a pfs.Commitset
+func NewCommitset(id string) *pfs.Commitset {
+	return &pfs.Commitset{ID: id}
+}
+
 // NewRepo creates a pfs.Repo.
 func NewRepo(repoName string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName, Type: pfs.UserRepoType}
@@ -354,32 +359,65 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
-// InspectCommitset returns info about a specific Commitset.
-func (c APIClient) InspectCommitset(id string) (_ *pfs.Commitset, retErr error) {
+func (c APIClient) inspectCommitset(id string, block bool, cb func(*pfs.CommitInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	return c.PfsAPIClient.InspectCommitset(
-		c.Ctx(),
-		&pfs.InspectCommitsetRequest{
-			ID: id,
-		},
-	)
+	req := &pfs.InspectCommitsetRequest{
+		Commitset: NewCommitset(id),
+		Block:     block,
+	}
+	client, err := c.PfsAPIClient.InspectCommitset(c.Ctx(), req)
+	if err != nil {
+		return err
+	}
+	for {
+		ci, err := client.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+		if err := cb(ci); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+// InspectCommitset returns info about a specific Commitset.
+func (c APIClient) InspectCommitset(id string) ([]*pfs.CommitInfo, error) {
+	result := []*pfs.CommitInfo{}
+	if err := c.inspectCommitset(id, false, func(ci *pfs.CommitInfo) error {
+		result = append(result, ci)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // BlockCommitset blocks until all of a Commitset's commits are finished.  To
 // wait for an individual commit, use BlockCommit instead.
-func (c APIClient) BlockCommitset(id string) (_ *pfs.Commitset, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	return c.PfsAPIClient.InspectCommitset(
-		c.Ctx(),
-		&pfs.InspectCommitsetRequest{
-			ID:    id,
-			Block: true,
-		},
-	)
+func (c APIClient) BlockCommitsetAll(id string) ([]*pfs.CommitInfo, error) {
+	result := []*pfs.CommitInfo{}
+	if err := c.inspectCommitset(id, true, func(ci *pfs.CommitInfo) error {
+		result = append(result, ci)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c APIClient) BlockCommitset(id string, cb func(*pfs.CommitInfo) error) error {
+	if err := c.inspectCommitset(id, true, cb); err != nil {
+		return err
+	}
+	return nil
 }
 
 // SquashCommitset squashes the commits of a Commitset into their children.
@@ -387,7 +425,7 @@ func (c APIClient) SquashCommitset(id string) error {
 	_, err := c.PfsAPIClient.SquashCommitset(
 		c.Ctx(),
 		&pfs.SquashCommitsetRequest{
-			ID: id,
+			Commitset: NewCommitset(id),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

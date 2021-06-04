@@ -22,6 +22,7 @@ type APIServer interface {
 	FinishCommitInTransaction(*txncontext.TransactionContext, *pfs_client.FinishCommitRequest) error
 	InspectCommitInTransaction(*txncontext.TransactionContext, *pfs_client.InspectCommitRequest) (*pfs_client.CommitInfo, error)
 
+	InspectCommitsetInTransaction(*txncontext.TransactionContext, *pfs_client.Commitset) ([]*pfs_client.CommitInfo, error)
 	SquashCommitsetInTransaction(*txncontext.TransactionContext, *pfs_client.SquashCommitsetRequest) error
 
 	CreateBranchInTransaction(*txncontext.TransactionContext, *pfs_client.CreateBranchRequest) error

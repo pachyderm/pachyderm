@@ -14,10 +14,9 @@ import (
 )
 
 const (
-	reposCollectionName      = "repos"
-	branchesCollectionName   = "branches"
-	commitsCollectionName    = "commits"
-	commitsetsCollectionName = "commitsets"
+	reposCollectionName    = "repos"
+	branchesCollectionName = "branches"
+	commitsCollectionName  = "commits"
 )
 
 var ReposTypeIndex = &col.Index{
@@ -74,7 +73,14 @@ var CommitsBranchlessIndex = &col.Index{
 	},
 }
 
-var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex}
+var CommitsCommitsetIndex = &col.Index{
+	Name: "commitset",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.CommitInfo).Commit.ID
+	},
+}
+
+var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex, CommitsCommitsetIndex}
 
 func CommitKey(commit *pfs.Commit) string {
 	return BranchKey(commit.Branch) + "=" + commit.ID
@@ -130,20 +136,6 @@ func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollectio
 	)
 }
 
-var commitsetsIndexes = []*col.Index{}
-
-// Commitsets returns a collection of Commitsets
-func Commitsets(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
-	return col.NewPostgresCollection(
-		commitsetsCollectionName,
-		db,
-		listener,
-		&pfs.StoredCommitset{},
-		commitsetsIndexes,
-		nil,
-	)
-}
-
 // AllCollections returns a list of all the PFS collections for
 // postgres-initialization purposes. These collections are not usable for
 // querying.
@@ -152,6 +144,5 @@ func AllCollections() []col.PostgresCollection {
 		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes, nil),
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes, nil),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes, nil),
-		col.NewPostgresCollection(commitsetsCollectionName, nil, nil, nil, commitsetsIndexes, nil),
 	}
 }

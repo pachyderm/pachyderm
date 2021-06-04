@@ -87,7 +87,7 @@ func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
 }
 
 func sprintSquashCommitset(request *pfs.SquashCommitsetRequest) string {
-	return fmt.Sprintf("squash commitset %s", request.ID)
+	return fmt.Sprintf("squash commitset %s", request.Commitset.ID)
 }
 
 func sprintCreateBranch(request *pfs.CreateBranchRequest) string {

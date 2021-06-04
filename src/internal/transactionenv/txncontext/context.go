@@ -30,11 +30,11 @@ type TransactionContext struct {
 	PpsPropagater PpsPropagater
 }
 
-// PropagateCommitset saves a commitset to be propagated at the end of the
-// transaction (if all operations complete successfully).  This is used to tell
-// PPS that new PipelineJobs may need to be created.
-func (t *TransactionContext) PropagateCommitset(commitset *pfs.StoredCommitset) error {
-	return t.PpsPropagater.PropagateCommitset(commitset)
+// PropagateJobs notifies PPS that there are new commits in the transaction's
+// commitset that need jobs to be created at the end of the transaction
+// transaction (if all operations complete successfully).
+func (t *TransactionContext) PropagateJobs() {
+	t.PpsPropagater.PropagateJobs()
 }
 
 // PropagateBranch saves a branch to be propagated at the end of the transaction
@@ -90,6 +90,6 @@ type PipelineCommitFinisher interface {
 // PpsPropagater is the interface that PPS implements to start jobs at the end
 // of a transaction.  It is defined here to avoid a circular dependency.
 type PpsPropagater interface {
-	PropagateCommitset(commitset *pfs.StoredCommitset) error
+	PropagateJobs()
 	Run() error
 }

@@ -231,17 +231,24 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	})
 }
 
+// InspectCommitsetInTransaction performs the same job as InspectCommitset
+// without the option of blocking for commits to finish so that it can run
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) InspectCommitsetInTransaction(txnCtx *txncontext.TransactionContext, commitset *pfs.Commitset) ([]*pfs.CommitInfo, error) {
+	return a.driver.inspectCommitsetImmediate(txnCtx, commitset)
+}
+
 // InspectCommitset implements the protobuf pfs.InspectCommitset RPC
-func (a *apiServer) InspectCommitset(ctx context.Context, request *pfs.InspectCommitsetRequest) (response *pfs.Commitset, retErr error) {
+func (a *apiServer) InspectCommitset(request *pfs.InspectCommitsetRequest, server pfs.API_InspectCommitsetServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectCommitset(ctx, request.ID, request.Block)
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	return a.driver.inspectCommitset(server.Context(), request.Commitset, request.Block, server.Send)
 }
 
 // SquashCommitsetInTransaction is identical to SquashCommitset except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) SquashCommitsetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitsetRequest) error {
-	return a.driver.squashCommitset(txnCtx, request.ID)
+	return a.driver.squashCommitset(txnCtx, request.Commitset)
 }
 
 // SquashCommitset implements the protobuf pfs.SquashCommitset RPC
