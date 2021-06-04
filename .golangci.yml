@@ -1,5 +1,14 @@
 run:
   timeout: 5m
 linters:
-  disable:
-    - errcheck
+  disable-all: true
+  enable:
+    - deadcode
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - structcheck
+    - typecheck
+    - unused
+    - varcheck
