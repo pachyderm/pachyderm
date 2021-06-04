@@ -976,12 +976,13 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
 		}
-
-		if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-			Commit: ppsutil.GetStatsCommit(commitInfo),
-			Empty:  true,
-		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
-			return err
+		if statsCommit := ppsutil.GetStatsCommit(commitInfo); statsCommit != nil {
+			if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+				Commit: ppsutil.GetStatsCommit(commitInfo),
+				Empty:  true,
+			}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
+				return err
+			}
 		}
 	}
 

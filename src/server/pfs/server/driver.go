@@ -1467,6 +1467,9 @@ func (d *driver) squashCommit(txnCtx *txncontext.TransactionContext, userCommit 
 			if commit == nil {
 				return errors.Errorf("encountered nil parent commit in %s@%s...%s", lowerKey, lower.ID, upper.ID)
 			}
+			if _, ok := deleted[commit.ID]; ok {
+				break
+			}
 			// Store commitInfo in 'deleted' and remove commit from etcd
 			commitInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
@@ -1496,11 +1499,15 @@ func (d *driver) squashCommit(txnCtx *txncontext.TransactionContext, userCommit 
 	if provenantOnInput(userCommitInfo.Provenance) {
 		return errors.Errorf("cannot delete the commit \"%s\" because it has non-empty provenance", pretty.CompactPrintCommit(userCommit))
 	}
-	deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)
+	if err := deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit); err != nil {
+		return errors.Wrapf(err, "error deleting commit: %v", userCommitInfo.Commit.ID)
+	}
 
 	// 4) Delete all of the downstream commits of 'commit'
 	for _, subv := range userCommitInfo.Subvenance {
-		deleteCommit(subv.Lower, subv.Upper)
+		if err := deleteCommit(subv.Lower, subv.Upper); err != nil {
+			return errors.Wrapf(err, "error deleting subvenant commit: %v", subv.Lower.ID)
+		}
 	}
 
 	// 5) Remove the commits in 'deleted' from all remaining upstream commits'
