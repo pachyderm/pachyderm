@@ -1159,7 +1159,7 @@ func TestPipelineFailure(t *testing.T) {
 	))
 	var jobInfos []*pps.JobInfo
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+		jobInfos, err = c.ListJob(pipeline, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
@@ -1349,13 +1349,13 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	_, err = c.BlockCommitsetAll(commit1.ID)
 	require.NoError(t, err)
 
-	jobInfos, err := c.ListJob(pipelineA, nil, nil, -1, true)
+	jobInfos, err := c.ListJob(pipelineA, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 	require.NotNil(t, jobInfos[0].Input.Pfs)
 	require.Equal(t, true, jobInfos[0].Input.Pfs.Lazy)
 
-	jobInfos, err = c.ListJob(pipelineB, nil, nil, -1, true)
+	jobInfos, err = c.ListJob(pipelineB, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 	require.NotNil(t, jobInfos[0].Input.Pfs)
@@ -2030,12 +2030,12 @@ func TestDeletePipeline(t *testing.T) {
 	deletePipeline(pipelines[0])
 
 	// The jobs should be gone
-	jobs, err := c.ListJob("", nil, nil, -1, true)
+	jobs, err := c.ListJob("", nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
 
 	// Listing jobs for a deleted pipeline should error
-	_, err = c.ListJob(pipelines[0], nil, nil, -1, true)
+	_, err = c.ListJob(pipelines[0], nil, -1, true)
 	require.YesError(t, err)
 
 	createPipelines()
@@ -2139,7 +2139,7 @@ func TestJobCounts(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	_, err = c.BlockCommitsetAll(commit.ID)
 	require.NoError(t, err)
-	jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+	jobInfos, err := c.ListJob(pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 	require.Equal(t, commit.ID, jobInfos[0].Job.ID)
@@ -2188,7 +2188,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
 		var err error
-		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+		jobInfos, err = c.ListJob(pipeline, nil, -1, true)
 		if err != nil {
 			return err
 		}
@@ -2250,7 +2250,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 	require.Equal(t, commit.ID, jobInfos[0].Job.ID)
@@ -2311,7 +2311,7 @@ func TestPrettyPrinting(t *testing.T) {
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
-	jobInfos, err := c.ListJob("", nil, nil, -1, true)
+	jobInfos, err := c.ListJob("", nil, -1, true)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
 	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
@@ -2355,7 +2355,7 @@ func TestDeleteAll(t *testing.T) {
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(pipelineInfos))
-	jobInfos, err := c.ListJob("", nil, nil, -1, true)
+	jobInfos, err := c.ListJob("", nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobInfos))
 }
@@ -2538,7 +2538,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 
 	// Inspect the first job to make sure it hasn't changed
-	jis, err := c.ListJob(pipelineName, nil, nil, -1, true)
+	jis, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
 	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Transform.Stdin[0])
@@ -2885,7 +2885,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	b := backoff.NewTestingBackOff()
 	b.MaxElapsedTime = 30 * time.Second
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 		if err != nil {
 			return err
 		}
@@ -2924,7 +2924,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	_, err = c.BlockCommitsetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jobInfos))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[0].State.String())
@@ -3723,7 +3723,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.Equal(t, 10, len(commitInfos))
 
 	// Get number of jobs triggered in pipeline D
-	jobInfos, err := c.ListJob(dPipeline, nil, nil, -1, true)
+	jobInfos, err := c.ListJob(dPipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 }
@@ -3803,7 +3803,7 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, c.PutFile(commit2, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
 
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobInfos))
 	require.Equal(t, commit2.ID, jobInfos[0].Job.ID)
@@ -3924,7 +3924,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		// Get logs from pipeline, using job
 		// (1) Get job ID, from pipeline that just ran
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 		if err != nil {
 			return err
 		}
@@ -4259,7 +4259,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	// get the job status
-	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
+	jobs, err := c.ListJob(pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
@@ -6316,7 +6316,7 @@ func TestFixPipeline(t *testing.T) {
 	))
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
@@ -6343,7 +6343,7 @@ func TestFixPipeline(t *testing.T) {
 	))
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 2 {
 			return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
@@ -6351,61 +6351,6 @@ func TestFixPipeline(t *testing.T) {
 		jobInfo, err := c.BlockJob(jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-		return nil
-	}, backoff.NewTestingBackOff()))
-}
-
-func TestListJobOutput(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-
-	dataRepo := tu.UniqueString("TestListJobOutput_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 4,
-		},
-		client.NewPFSInput(dataRepo, "/*"),
-		"",
-		false,
-	))
-
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-
-	commitInfos, err := c.BlockCommitsetAll(commit1.ID)
-	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
-
-	outputCommit := client.NewCommit(pipeline, "master", commit1.ID)
-
-	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob("", nil, outputCommit, -1, true)
-		if err != nil {
-			return err
-		}
-		if len(jobInfos) != 1 {
-			return errors.Errorf("expected 1 job")
-		}
-		jobInfos, err = c.ListJob("", nil, client.NewCommit(pipeline, "master", ""), -1, true)
-		if err != nil {
-			return err
-		}
-		if len(jobInfos) != 1 {
-			return errors.Errorf("expected 1 job")
-		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
@@ -6442,36 +6387,22 @@ func TestListJobTruncated(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	outputCommit := client.NewCommit(pipeline, "master", commit1.ID)
+	liteJobInfos, err := c.ListJob(pipeline, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(liteJobInfos))
+	fullJobInfos, err := c.ListJob(pipeline, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fullJobInfos))
+	// Check that fields stored in PFS are missing, but fields stored in etcd
+	// are not
+	require.Nil(t, liteJobInfos[0].Transform)
+	require.Nil(t, liteJobInfos[0].Input)
+	require.Equal(t, pipeline, liteJobInfos[0].Job.Pipeline.Name)
 
-	require.NoError(t, backoff.Retry(func() error {
-		var liteJobInfos, fullJobInfos []*pps.JobInfo
-		liteJobInfos, err := c.ListJob("", nil, outputCommit, 0, false)
-		if err != nil {
-			return err
-		}
-		fullJobInfos, err = c.ListJob("", nil, outputCommit, 0, true)
-		if err != nil {
-			return err
-		}
-		if len(liteJobInfos) != 1 {
-			return errors.Errorf("expected 1 job from truncated ListJob")
-		}
-		if len(fullJobInfos) != 1 {
-			return errors.Errorf("expected 1 job from ListJob")
-		}
-		// Check that fields stored in PFS are missing, but fields stored in etcd
-		// are not
-		require.Nil(t, liteJobInfos[0].Transform)
-		require.Nil(t, liteJobInfos[0].Input)
-		require.Equal(t, pipeline, liteJobInfos[0].Job.Pipeline.Name)
-
-		// Check that all fields are present
-		require.NotNil(t, fullJobInfos[0].Transform)
-		require.NotNil(t, fullJobInfos[0].Input)
-		require.Equal(t, pipeline, fullJobInfos[0].Job.Pipeline.Name)
-		return nil
-	}, backoff.NewTestingBackOff()))
+	// Check that all fields are present
+	require.NotNil(t, fullJobInfos[0].Transform)
+	require.NotNil(t, fullJobInfos[0].Input)
+	require.Equal(t, pipeline, fullJobInfos[0].Job.Pipeline.Name)
 }
 
 func TestPipelineEnvVarAlias(t *testing.T) {
@@ -6566,7 +6497,7 @@ func TestMaxQueueSize(t *testing.T) {
 	var jobInfo *pps.JobInfo
 	for i := 0; i < 10; i++ {
 		require.NoError(t, backoff.Retry(func() error {
-			jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
+			jobs, err := c.ListJob(pipeline, nil, -1, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not list job")
 			}
@@ -7777,7 +7708,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
+	jobs, err := c.ListJob(pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	// Block on the job being complete before we call ListDatum
@@ -7850,7 +7781,7 @@ func TestListDatumDuringJob(t *testing.T) {
 	var jobInfo *pps.JobInfo
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			jobInfos, err := c.ListJob(pipeline, nil, -1, true)
 			if err != nil {
 				return err
 			}
@@ -7936,7 +7867,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
+	jobs, err := c.ListJob(pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
@@ -7989,7 +7920,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	// Wait for the job to get scheduled / appear in listjob
 	// A sleep of 15s is insufficient
 	time.Sleep(25 * time.Second)
-	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
+	jobs, err := c.ListJob(pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
@@ -8151,35 +8082,35 @@ func TestListJobInputCommits(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, len(commitInfos))
 
-	jobInfos, err := c.ListJob("", []*pfs.Commit{commita1}, nil, -1, true)
+	jobInfos, err := c.ListJob("", []*pfs.Commit{commita1}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos)) // a1 + nil and a1 + b1
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb1}, nil, -1, true)
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb1}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos)) // a1 + b1 and a2 + b1
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2}, nil, -1, true)
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos)) // a2 + b1 and a2 + b2
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb2}, nil, -1, true)
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb2}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos)) // a2 + b2
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita1, commitb1}, nil, -1, true)
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commita1, commitb1}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb1}, nil, -1, true)
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb1}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb2}, nil, -1, true)
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb2}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master", ""), client.NewCommit(bRepo, "master", "")}, nil, -1, true)
+	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master", ""), client.NewCommit(bRepo, "master", "")}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 }
@@ -8229,7 +8160,7 @@ func TestCancelJob(t *testing.T) {
 	var jobInfo *pps.JobInfo
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, nil, -1, true)
+			jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, -1, true)
 			if err != nil {
 				return err
 			}
@@ -8329,7 +8260,7 @@ func TestCancelManyJobs(t *testing.T) {
 		var jobInfo *pps.JobInfo
 		require.NoErrorWithinT(t, 30*time.Second, func() error {
 			return backoff.Retry(func() error {
-				jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, nil, -1, true)
+				jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, -1, true)
 				if err != nil {
 					return err
 				}
@@ -8494,7 +8425,7 @@ func TestSquashCommitsetRunsJob(t *testing.T) {
 			// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
 			// submitted, change ListJob here to filter on commit1 as the input commit,
 			// rather than inspecting the input in the test
-			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			jobInfos, err := c.ListJob(pipeline, nil, -1, true)
 			if err != nil {
 				return err
 			}
@@ -8521,7 +8452,7 @@ func TestSquashCommitsetRunsJob(t *testing.T) {
 		return backoff.Retry(func() error {
 			// TODO(msteffen): as above, change ListJob here to filter on commit2 as
 			// the input, rather than inspecting the input in the test
-			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			jobInfos, err := c.ListJob(pipeline, nil, -1, true)
 			if err != nil {
 				return err
 			}
@@ -8828,7 +8759,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 	}
 	// TODO ideally this test would not take 5 minutes (or even 3 minutes)
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
-		jis, err := c.ListJob(pipeline, nil, nil, -1, true)
+		jis, err := c.ListJob(pipeline, nil, -1, true)
 		if err != nil {
 			return err
 		}
@@ -9148,7 +9079,7 @@ func TestDeferredCross(t *testing.T) {
 	_, err = c.BlockCommit(impPipeline, "master", "")
 	require.NoError(t, err)
 
-	jobs, err := c.ListJob(impPipeline, nil, nil, 0, true)
+	jobs, err := c.ListJob(impPipeline, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 1)
 
@@ -9257,7 +9188,7 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.BlockCommitsetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	jis, err := c.ListJob(pipelineName, nil, nil, 0, true)
+	jis, err := c.ListJob(pipelineName, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 
@@ -9285,13 +9216,13 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(cis))
 
-	jis, err = c.ListJob(pipelineName, nil, nil, 0, true)
+	jis, err = c.ListJob(pipelineName, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 1, true)
+	jis, err = c.ListJob(pipelineName, nil, 1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, -1, true)
+	jis, err = c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jis))
 
@@ -9313,16 +9244,16 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.BlockCommitsetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	jis, err = c.ListJob(pipelineName, nil, nil, 0, true)
+	jis, err = c.ListJob(pipelineName, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 1, true)
+	jis, err = c.ListJob(pipelineName, nil, 1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 2, true)
+	jis, err = c.ListJob(pipelineName, nil, 2, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, -1, true)
+	jis, err = c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
 
@@ -9346,16 +9277,16 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.BlockCommitsetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	jis, err = c.ListJob(pipelineName, nil, nil, 0, true)
+	jis, err = c.ListJob(pipelineName, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 1, true)
+	jis, err = c.ListJob(pipelineName, nil, 1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, 2, true)
+	jis, err = c.ListJob(pipelineName, nil, 2, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, nil, -1, true)
+	jis, err = c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
 
@@ -10546,7 +10477,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
-	jobInfos, err := c.ListJob(pipelineB, nil, nil, -1, false)
+	jobInfos, err := c.ListJob(pipelineB, nil, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 }

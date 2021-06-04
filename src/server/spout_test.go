@@ -264,7 +264,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		))
 
 		// we should have one job on the downstream pipeline
-		jobInfos, err := c.ListJob(downstreamPipeline, nil, nil, -1, false)
+		jobInfos, err := c.ListJob(downstreamPipeline, nil, -1, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
 
