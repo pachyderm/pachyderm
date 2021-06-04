@@ -73,6 +73,15 @@ func (pj *pendingJob) saveJobStats(stats *datum.Stats) {
 	pj.ji.DataTotal += stats.Processed + stats.Skipped + stats.Failed + stats.Recovered
 }
 
+func (pj *pendingJob) clearJobStats() {
+	pj.ji.Stats = &pps.ProcessStats{}
+	pj.ji.DataProcessed = 0
+	pj.ji.DataSkipped = 0
+	pj.ji.DataFailed = 0
+	pj.ji.DataRecovered = 0
+	pj.ji.DataTotal = 0
+}
+
 func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error) error {
 	defer pj.jdit.SetDeleter(nil)
 	// Setup file operation client for output Meta commit.
@@ -332,6 +341,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 				if err != nil {
 					return err
 				}
+				pj.clearJobStats()
 				pj.ji.Restart++
 				if err := pj.writeJobInfo(); err != nil {
 					pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
@@ -477,12 +487,18 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	}
 	// Generate the deletion operations and count the number of datums for the job.
 	var numDatums int64
-	if err := pj.withDeleter(pachClient, func() error {
-		return pj.jdit.Iterate(func(_ *datum.Meta) error {
-			numDatums++
-			return nil
+	if err := pj.logger.LogStep("computing skipped and deleted datums", func() error {
+		return pj.withDeleter(pachClient, func() error {
+			return pj.jdit.Iterate(func(_ *datum.Meta) error {
+				numDatums++
+				return nil
+			})
 		})
 	}); err != nil {
+		return err
+	}
+	pj.saveJobStats(pj.jdit.Stats())
+	if err := pj.writeJobInfo(); err != nil {
 		return err
 	}
 	// Set up the datum set spec for the job.
@@ -552,7 +568,11 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 						); err != nil {
 							return grpcutil.ScrubGRPC(err)
 						}
-						return datum.MergeStats(stats, data.Stats)
+						if err := datum.MergeStats(stats, data.Stats); err != nil {
+							return err
+						}
+						pj.saveJobStats(data.Stats)
+						return pj.writeJobInfo()
 					},
 				)
 			})
@@ -567,8 +587,6 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 		return pj.driver.PachClient().Ctx().Err()
 	default:
 	}
-	pj.saveJobStats(pj.jdit.Stats())
-	pj.saveJobStats(stats)
 	if stats.FailedID != "" {
 		return reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedID))
 	}
