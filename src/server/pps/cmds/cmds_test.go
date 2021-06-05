@@ -176,7 +176,7 @@ func TestJSONMultiplePipelines(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
-		pachctl wait commit input@master
+		pachctl wait commit second@master
 		pachctl get file second@master:/foo | match foo
 		pachctl get file second@master:/bar | match bar
 		pachctl get file second@master:/baz | match baz
@@ -223,7 +223,7 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
-		pachctl wait commit input@master
+		pachctl wait commit first@master
 		pachctl get file first@master:/foo | match foo
 		pachctl get file first@master:/bar | match bar
 		pachctl get file first@master:/baz | match baz
@@ -369,7 +369,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
-		pachctl wait commit input@master
+		pachctl wait commit second@master
 		pachctl get file second@master:/foo | match foo
 		pachctl get file second@master:/bar | match bar
 		pachctl get file second@master:/baz | match baz
@@ -412,7 +412,7 @@ func TestListPipelineFilter(t *testing.T) {
 		EOF
 
 		echo foo | pachctl put file input@master:/foo
-		pachctl wait commit input@master
+		pachctl wait commit {{.pipeline}}@master
 		# make sure we see the pipeline with the appropriate state filters
 		pachctl list pipeline | match {{.pipeline}}
 		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline}}
@@ -544,7 +544,7 @@ func TestYAMLSecret(t *testing.T) {
 		        env_var: MY_SECRET
 		        key: my-key
 		EOF
-		pachctl wait commit input@master
+		pachctl wait commit pipeline@master
 		pachctl get file pipeline@master:/vars | match MY_SECRET=my-value
 		`,
 	).Run())
@@ -994,6 +994,10 @@ func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
 }
 
 func TestPipelineBuildRunCron(t *testing.T) {
+	// TODO(2.0 optional): This uses a build pipeline which does not work in 2.0
+	// because the pipeline output branch is provenant on another branch in the
+	// same repo (which is not allowed in 2.0).
+	t.Skip("Build pipelines are not supported in 2.0")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

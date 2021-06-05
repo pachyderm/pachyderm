@@ -46,6 +46,10 @@ func newTestChain(pachClient *client.APIClient, metas ...*datum.Meta) *JobChain 
 	return NewJobChain(pachClient, hasher)
 }
 
+func newJob() *pps.Job {
+	return client.NewJob("pipeline", uuid.NewWithoutDashes())
+}
+
 func newMeta(job *pps.Job, name string) *datum.Meta {
 	inputs := []*common.Input{
 		&common.Input{
@@ -84,7 +88,7 @@ func requireIteratorContents(t *testing.T, jdi *JobDatumIterator, metas []*datum
 func TestEmptyBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient)
-	job := client.NewJob("pipeline", uuid.NewWithoutDashes())
+	job := newJob()
 	jobMetas := newTestMetas(job)
 	ti := newTestIterator(jobMetas)
 	jdi := chain.CreateJob(context.Background(), job, ti, ti)
@@ -93,8 +97,8 @@ func TestEmptyBase(t *testing.T) {
 
 func TestAdditiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
-	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[:2]...)
-	job := client.NewJob("pipeline", uuid.NewWithoutDashes())
+	chain := newTestChain(env.PachClient, newTestMetas(newJob()))[:2]...)
+	job := newJob()
 	jobMetas := newTestMetas(job)
 	ti := newTestIterator(jobMetas)
 	jdi := chain.CreateJob(context.Background(), job, ti, ti)
@@ -103,8 +107,8 @@ func TestAdditiveOnBase(t *testing.T) {
 
 func TestSubtractiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
-	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())...)
-	job := client.NewJob("pipeline", uuid.NewWithoutDashes())
+	chain := newTestChain(env.PachClient, newTestMetas(newJob())...)
+	job := newJob()
 	jobMetas := newTestMetas(job)[1:]
 	ti := newTestIterator(jobMetas)
 	jdi := chain.CreateJob(context.Background(), job, ti, ti)
@@ -113,8 +117,8 @@ func TestSubtractiveOnBase(t *testing.T) {
 
 func TestAdditiveSubtractiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
-	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[1:]...)
-	job := client.NewJob("pipeline", uuid.NewWithoutDashes())
+	chain := newTestChain(env.PachClient, newTestMetas(newJob())[1:]...)
+	job := newJob()
 	jobMetas := newTestMetas(job)[:2]
 	ti := newTestIterator(jobMetas)
 	jdi := chain.CreateJob(context.Background(), job, ti, ti)
