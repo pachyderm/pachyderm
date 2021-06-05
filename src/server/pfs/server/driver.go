@@ -601,10 +601,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 // continguous aliases and finishing them.
 func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo) error {
 	// Build the starting set of commits to consider
-	descendents := []*pfs.Commit{}
-	for _, commit := range parentCommitInfo.ChildCommits {
-		descendents = append(descendents, commit)
-	}
+	descendents := append([]*pfs.Commit{}, parentCommitInfo.ChildCommits...)
 
 	// A commit cannot have more than one parent, so no need to track visited nodes
 	for len(descendents) > 0 {
@@ -621,9 +618,7 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 				return err
 			}
 
-			for _, commit := range commitInfo.ChildCommits {
-				descendents = append(descendents, commit)
-			}
+			descendents = append(descendents, parentCommitInfo.ChildCommits...)
 		}
 	}
 	return nil
@@ -672,7 +667,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			return nil
 		}); err != nil {
 			if col.IsErrNotFound(err) {
-				return nil, pfsserver.ErrCommitNotFound{parent}
+				return nil, pfsserver.ErrCommitNotFound{Commit: parent}
 			}
 			return nil, err
 		}
@@ -916,7 +911,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 			// Watch the CommitInfo until the commit has been finished
 			if err := d.commits.ReadOnly(ctx).WatchOneF(pfsdb.CommitKey(commit), func(ev *watch.Event) error {
 				if ev.Type == watch.EventDelete {
-					return pfsserver.ErrCommitDeleted{commit}
+					return pfsserver.ErrCommitDeleted{Commit: commit}
 				}
 
 				var key string
@@ -995,7 +990,7 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 		commitInfo := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(sqlTx).GetByIndex(pfsdb.CommitsBranchlessIndex, pfsdb.CommitBranchlessKey(commit), commitInfo, col.DefaultOptions(), func(string) error {
 			if commit.Branch.Name != "" {
-				return pfsserver.ErrAmbiguousCommit{userCommit}
+				return pfsserver.ErrAmbiguousCommit{Commit: userCommit}
 			}
 			commit.Branch.Name = commitInfo.Commit.Branch.Name
 			return nil
@@ -1539,14 +1534,12 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			return errors.Wrapf(err, "unable to inspect %s", pfsdb.CommitKey(commit))
 		}
 
-		if provenance != nil {
-			// Verify the provenance of the new branch head and lock in its upstream commits
-			for _, provBranch := range provenance {
-				// Check that the Commitset for the given commit has values for every branch in provenance and alias them
-				if _, err := d.aliasCommit(txnCtx, provBranch.NewCommit(ci.Commit.ID), provBranch); err != nil {
-					if pfsserver.IsCommitNotFoundErr(err) {
-						return errors.Errorf("cannot create branch %s with commit %s as head because it does not have provenance in the %s branch", pfsdb.BranchKey(branch), pfsdb.CommitKey(ci.Commit), pfsdb.BranchKey(provBranch))
-					}
+		// Verify the provenance of the new branch head and lock in its upstream commits
+		for _, provBranch := range provenance {
+			// Check that the Commitset for the given commit has values for every branch in provenance and alias them
+			if _, err := d.aliasCommit(txnCtx, provBranch.NewCommit(ci.Commit.ID), provBranch); err != nil {
+				if pfsserver.IsCommitNotFoundErr(err) {
+					return errors.Errorf("cannot create branch %s with commit %s as head because it does not have provenance in the %s branch", pfsdb.BranchKey(branch), pfsdb.CommitKey(ci.Commit), pfsdb.BranchKey(provBranch))
 				}
 			}
 		}

@@ -97,7 +97,7 @@ func TestEmptyBase(t *testing.T) {
 
 func TestAdditiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
-	chain := newTestChain(env.PachClient, newTestMetas(newJob()))[:2]...)
+	chain := newTestChain(env.PachClient, newTestMetas(newJob())[:2]...)
 	job := newJob()
 	jobMetas := newTestMetas(job)
 	ti := newTestIterator(jobMetas)

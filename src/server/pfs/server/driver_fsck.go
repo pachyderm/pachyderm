@@ -191,8 +191,6 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 					}); err != nil {
 						return err
 					}
-				} else {
-					// TODO(global ids): fix branch subvenance
 				}
 			}
 		}
