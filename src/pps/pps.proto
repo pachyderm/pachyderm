@@ -166,7 +166,7 @@ message ParallelismSpec {
 }
 
 message InputFile {
-  // This file's absolute path within its pfs_v2 repo.
+  // This file's absolute path within its pfs repo.
   string path = 1;
 
   // This file's hash

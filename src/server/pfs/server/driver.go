@@ -618,7 +618,7 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 				return err
 			}
 
-			descendents = append(descendents, parentCommitInfo.ChildCommits...)
+			descendents = append(descendents, commitInfo.ChildCommits...)
 		}
 	}
 	return nil
