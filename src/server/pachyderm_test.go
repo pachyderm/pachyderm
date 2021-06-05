@@ -3170,7 +3170,7 @@ func TestStandby(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		pod := ""
-		commitInfos, err := c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
+		commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
 		require.NoError(t, err)
 		for _, ci := range commitInfos {
 			var buffer bytes.Buffer
