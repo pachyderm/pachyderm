@@ -122,13 +122,13 @@ func createFilter(pachd bool, pipeline, worker string) (*debug.Filter, error) {
 		if f != nil {
 			return nil, errors.Errorf("only one debug filter allowed")
 		}
-		f = &debug.Filter{Filter: &debug.Filter_Pipeline{&pps.Pipeline{Name: pipeline}}}
+		f = &debug.Filter{Filter: &debug.Filter_Pipeline{Pipeline: &pps.Pipeline{Name: pipeline}}}
 	}
 	if worker != "" {
 		if f != nil {
 			return nil, errors.Errorf("only one debug filter allowed")
 		}
-		f = &debug.Filter{Filter: &debug.Filter_Worker{&debug.Worker{Pod: worker}}}
+		f = &debug.Filter{Filter: &debug.Filter_Worker{Worker: &debug.Worker{Pod: worker}}}
 	}
 	return f, nil
 }

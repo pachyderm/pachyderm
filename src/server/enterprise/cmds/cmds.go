@@ -38,79 +38,6 @@ func getIsActiveContextEnterpriseServer() (bool, error) {
 	return ctx.EnterpriseServer, nil
 }
 
-// ActivateCmd returns a cobra.Command to activate the license service,
-// register the current pachd and activate enterprise features.
-// This always runs against the current enterprise context, and can
-// be used to activate a single-node pachd deployment or the enterprise
-// server in a multi-node deployment.
-func ActivateCmd() *cobra.Command {
-	activate := &cobra.Command{
-		Use:   "{{alias}}",
-		Short: "Activate the license server and enable enterprise features",
-		Long:  "Activate the license server and enable enterprise features",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			key, err := cmdutil.ReadPassword("Enterprise key: ")
-			if err != nil {
-				return errors.Wrapf(err, "could not read enterprise key")
-			}
-
-			c, err := newClient(true)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
-			// Activate the license server
-			req := &license.ActivateRequest{
-				ActivationCode: key,
-			}
-			if _, err := c.License.Activate(c.Ctx(), req); err != nil {
-				return err
-			}
-
-			// inspect the activated cluster for its Deployment Id
-			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
-			if inspectErr != nil {
-				return errors.Wrapf(inspectErr, "could not inspect cluster")
-			}
-
-			// inspect the active context to determine whether its pointing at an enterprise server
-			enterpriseServer, err := getIsActiveContextEnterpriseServer()
-			if err != nil {
-				return err
-			}
-
-			// Register the localhost as a cluster
-			resp, err := c.License.AddCluster(c.Ctx(),
-				&license.AddClusterRequest{
-					Id:                  "localhost",
-					Address:             "grpc://localhost:653",
-					UserAddress:         "grpc://localhost:653",
-					ClusterDeploymentId: clusterInfo.DeploymentID,
-					EnterpriseServer:    enterpriseServer,
-				})
-			if err != nil {
-				return errors.Wrapf(err, "could not register pachd with the license service")
-			}
-
-			// activate the Enterprise service
-			_, err = c.Enterprise.Activate(c.Ctx(),
-				&enterprise.ActivateRequest{
-					Id:            "localhost",
-					Secret:        resp.Secret,
-					LicenseServer: "grpc://localhost:653",
-				})
-			if err != nil {
-				return errors.Wrapf(err, "could not activate the enterprise service")
-			}
-
-			return nil
-		}),
-	}
-
-	return cmdutil.CreateAlias(activate, "enterprise activate")
-}
-
 // DeactivateCmd returns a cobra.Command to deactivate the enterprise service.
 func DeactivateCmd() *cobra.Command {
 	deactivate := &cobra.Command{
@@ -326,7 +253,6 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(enterprise, "enterprise"))
 
-	commands = append(commands, ActivateCmd())
 	commands = append(commands, RegisterCmd())
 	commands = append(commands, DeactivateCmd())
 	commands = append(commands, GetStateCmd())

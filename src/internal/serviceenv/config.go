@@ -69,8 +69,8 @@ type PachdSpecificConfiguration struct {
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
-	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
-	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
+	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
+	MetricsEndpoint            string `env:"METRICS_ENDPOINT,default="`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName string `env:"PACHD_POD_NAME,required"`
 
@@ -88,10 +88,10 @@ type StorageConfiguration struct {
 	StoragePutFileConcurrencyLimit int    `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
 	StorageGCPolling               string `env:"STORAGE_GC_POLLING"`
 	StorageGCTimeout               string `env:"STORAGE_GC_TIMEOUT"`
-	StorageCompactionMaxFanIn      int    `env:"STORAGE_COMPACTION_MAX_FANIN,default=50"`
+	StorageCompactionMaxFanIn      int    `env:"STORAGE_COMPACTION_MAX_FANIN,default=10"`
 	StorageFileSetsMaxOpen         int    `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`
 	StorageDiskCacheSize           int    `env:"STORAGE_DISK_CACHE_SIZE,default=100"`
-	StorageMemoryCacheSize         int    `env:"STORAGE_MEMORY_CACHE_SIZE,default=10"`
+	StorageMemoryCacheSize         int    `env:"STORAGE_MEMORY_CACHE_SIZE,default=100"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.

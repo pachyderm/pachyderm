@@ -21,10 +21,8 @@ import (
 )
 
 const (
-	max         = 20 * units.MB
-	maxTags     = 10
-	testPath    = "test"
-	scratchPath = "scratch"
+	max     = 20 * units.MB
+	maxTags = 10
 )
 
 type testFile struct {
@@ -81,7 +79,6 @@ func TestWriteThenRead(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
-		var files []*testFile
 		for _, tagInt := range random.Perm(maxTags) {
 			tag := fmt.Sprintf("%08x", tagInt)
 			data := randutil.Bytes(random, random.Intn(max))

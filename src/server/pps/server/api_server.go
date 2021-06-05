@@ -497,7 +497,7 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionCo
 		return err
 	}
 	if ppsutil.IsTerminal(jobPtr.State) {
-		return ppsServer.ErrJobFinished{jobPtr.Job}
+		return ppsServer.ErrJobFinished{Job: jobPtr.Job}
 	}
 
 	jobPtr.Started = request.Started
@@ -2786,7 +2786,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	return nil, errors.New("unimplemented")
 	/* TODO: rewrite run pipeline (use a new RPC in PFS, not StartCommit)
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = ctx // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
 	ppsClient := pachClient.PpsAPIClient
 
@@ -3127,7 +3126,6 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = ctx // pachClient will propagate auth info
 
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
 		return nil, err

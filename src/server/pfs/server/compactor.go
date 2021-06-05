@@ -56,6 +56,7 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 						serInputs[i] = task.Inputs[i].HexString()
 					}
 					any, err := serializeCompactionTask(&CompactionTask{
+						Index:  int64(i),
 						Inputs: serInputs,
 						Range: &PathRange{
 							Lower: task.PathRange.Lower,
@@ -67,7 +68,7 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 					}
 					workTasks[i] = &work.Task{Data: any}
 				}
-				var results []fileset.ID
+				results := make([]fileset.ID, len(tasks))
 				if err := master.RunSubtasks(workTasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
 					if taskInfo.Result == nil {
 						return errors.Errorf("no result set for compaction work.TaskInfo")
@@ -80,7 +81,7 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 					if err != nil {
 						return err
 					}
-					results = append(results, *id)
+					results[int(res.Index)] = *id
 					return nil
 				}); err != nil {
 					return nil, err
@@ -122,7 +123,8 @@ func (c *compactor) compactionWorker(ctx context.Context) error {
 				return nil, err
 			}
 			return serializeCompactionResult(&CompactionTaskResult{
-				Id: id.HexString(),
+				Index: task.Index,
+				Id:    id.HexString(),
 			})
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {

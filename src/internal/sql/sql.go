@@ -81,5 +81,4 @@ func (r *PGDumpReader) readFooter() error {
 			return err
 		}
 	}
-	return nil
 }

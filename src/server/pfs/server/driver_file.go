@@ -38,7 +38,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 		// The commit is already finished - if the commit was explicitly specified,
 		// error out, otherwise we can make a child commit since this is the branch head.
 		if commitID != "" {
-			return pfsserver.ErrCommitFinished{commitInfo.Commit}
+			return pfsserver.ErrCommitFinished{Commit: commitInfo.Commit}
 		}
 		var opts []fileset.UnorderedWriterOption
 		if commitInfo.ParentCommit != nil {
@@ -412,7 +412,7 @@ func (d *driver) addFileset(txnCtx *txncontext.TransactionContext, commit *pfs.C
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{commitInfo.Commit}
+		return pfsserver.ErrCommitFinished{Commit: commitInfo.Commit}
 	}
 	return d.commitStore.AddFilesetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID)
 }

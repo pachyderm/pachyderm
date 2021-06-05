@@ -65,11 +65,3 @@ func SizeBytes(idx *Index) int64 {
 	}
 	return size
 }
-
-func newDataRef(chunkRef *chunk.Ref, offset, size int64) *chunk.DataRef {
-	return &chunk.DataRef{
-		Ref:         chunkRef,
-		OffsetBytes: offset,
-		SizeBytes:   size,
-	}
-}
