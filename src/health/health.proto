@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package health;
+package health_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/health";
 
 import "google/protobuf/empty.proto";

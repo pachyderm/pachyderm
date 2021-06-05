@@ -16,7 +16,8 @@ sudo apt-get install -y -qq \
   pkg-config \
   fuse \
   conntrack \
-  pv
+  pv \
+  shellcheck
 
 # Install fuse
 sudo modprobe fuse

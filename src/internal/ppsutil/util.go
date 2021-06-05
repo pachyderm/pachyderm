@@ -341,7 +341,7 @@ func IsTerminal(state pps.JobState) bool {
 // UpdateJobState performs the operations involved with a job state transition.
 func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.StoredJobInfo, state pps.JobState, reason string) error {
 	if IsTerminal(jobPtr.State) {
-		return ppsServer.ErrJobFinished{jobPtr.Job}
+		return ppsServer.ErrJobFinished{Job: jobPtr.Job}
 	}
 
 	// Update pipeline

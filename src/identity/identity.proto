@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package identity;
+package identity_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/identity";
 
 import "google/protobuf/timestamp.proto";

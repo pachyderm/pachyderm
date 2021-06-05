@@ -180,7 +180,9 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	} else if err == nil {
 		// Existing repo case--just update the repo description.
 		if !update {
-			return pfsserver.ErrRepoExists{repo}
+			return pfsserver.ErrRepoExists{
+				Repo: repo,
+			}
 		}
 
 		if existingRepoInfo.Description == description {
@@ -578,7 +580,9 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{commitInfo.Commit}
+		return pfsserver.ErrCommitFinished{
+			Commit: commitInfo.Commit,
+		}
 	}
 	if description != "" {
 		commitInfo.Description = description
@@ -1025,14 +1029,14 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 	if ancestryLength >= 0 {
 		for i := 0; i <= ancestryLength; i++ {
 			if commit == nil {
-				return nil, pfsserver.ErrCommitNotFound{userCommit}
+				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
 				if col.IsErrNotFound(err) {
 					if i == 0 {
-						return nil, pfsserver.ErrCommitNotFound{userCommit}
+						return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 					}
-					return nil, pfsserver.ErrParentCommitNotFound{commit}
+					return nil, pfsserver.ErrParentCommitNotFound{Commit: commit}
 				}
 				return nil, err
 			}
@@ -1046,14 +1050,14 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 					commitInfo = &cis[i%len(cis)]
 					break
 				}
-				return nil, pfsserver.ErrCommitNotFound{userCommit}
+				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
 			if err := d.commits.ReadWrite(sqlTx).Get(pfsdb.CommitKey(commit), &cis[i%len(cis)]); err != nil {
 				if col.IsErrNotFound(err) {
 					if i == 0 {
-						return nil, pfsserver.ErrCommitNotFound{userCommit}
+						return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 					}
-					return nil, pfsserver.ErrParentCommitNotFound{commit}
+					return nil, pfsserver.ErrParentCommitNotFound{Commit: commit}
 				}
 			}
 			commit = cis[i%len(cis)].ParentCommit

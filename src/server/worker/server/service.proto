@@ -17,6 +17,6 @@ message CancelResponse {
 }
 
 service Worker {
-  rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
+  rpc Status(google.protobuf.Empty) returns (pps_v2.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
 }

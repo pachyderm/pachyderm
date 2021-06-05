@@ -30,5 +30,5 @@ if ! grep . <( kubectl get po -l suite=pachyderm 2>/dev/null ) \
 
   # Wait for pachyderm to come up
   HERE="$(dirname "${0}")"
-  until timeout 1s "${HERE}/../../../kube/check_ready.sh" app=pachd; do sleep 1; done
+  kubectl wait --for=condition=ready pod -l app=pachd --timeout=1m
 fi

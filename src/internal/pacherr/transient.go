@@ -36,10 +36,12 @@ func (e *TransientError) GRPCStatus() *status.Status {
 
 func IsRetryable(err error) bool {
 	var target TransientError
+	// nolint:govet
 	return errors.As(err, &target) || isNetRetryable(err)
 }
 
 func isNetRetryable(err error) bool {
 	var netErr net.Error
+	// nolint:govet
 	return errors.As(err, &netErr) && netErr.Temporary()
 }
