@@ -1671,11 +1671,11 @@ func TestListJob(t *testing.T) {
 	require.NoError(t, err)
 	jobs, err = bobClient.ListJob(pipeline, nil, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
+	require.Equal(t, 2, len(jobs))
 	require.Equal(t, jobID, jobs[0].Job.ID)
 	jobs, err = bobClient.ListJob("", nil, -1 /*history*/, true)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
+	require.Equal(t, 2, len(jobs))
 	require.Equal(t, jobID, jobs[0].Job.ID)
 }
 

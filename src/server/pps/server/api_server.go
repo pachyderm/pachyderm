@@ -734,6 +734,10 @@ func (a *apiServer) listJob(
 }
 
 func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.StoredJobInfo, full bool) (*pps.JobInfo, error) {
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, jobPtr.Job.Pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+		return nil, err
+	}
+
 	result := &pps.JobInfo{
 		Job:             jobPtr.Job,
 		PipelineVersion: jobPtr.PipelineVersion,
@@ -752,7 +756,6 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.StoredJobInf
 		Finished:        jobPtr.Finished,
 	}
 
-	pachClient := a.env.GetPachClient(ctx)
 	pipelinePtr := &pps.StoredPipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).Get(result.Job.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
@@ -763,6 +766,7 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.StoredJobInf
 	specCommit := client.NewSystemRepo(result.Job.Pipeline.Name, pfs.SpecRepoType).NewCommit("master", result.OutputCommit.ID)
 	pipelinePtr.OriginalSpecCommit = specCommit
 	if full {
+		pachClient := a.env.GetPachClient(ctx)
 		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 		if err != nil {
 			return nil, err
