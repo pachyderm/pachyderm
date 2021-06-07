@@ -312,8 +312,9 @@ func TestSyncContexts(t *testing.T) {
 		"userAddress", "grpc://pachd.default:700",
 	).Run())
 
-	// make sure that the cluster with id = 'localhost' does not get synched.
-	// it's used by the License Server to identify itself
+	// make sure that the cluster with id = 'localhost' does not get synched, which is
+	// self referencing context record for the enterprise server.
+	// it should be filtered on the criteria of being set as an enterprise server record
 	require.YesError(t, tu.BashCmd(`pachctl config list context | match localhost`).Run())
 }
 
