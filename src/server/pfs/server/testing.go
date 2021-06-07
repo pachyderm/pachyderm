@@ -19,10 +19,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
+	pfs_iface "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"golang.org/x/net/context"
@@ -55,7 +57,7 @@ func generateRandomString(n int) string {
 func runServers(
 	t testing.TB,
 	port int32,
-	apiServer APIServer,
+	apiServer pfs_iface.APIServer,
 	blockAPIServer BlockAPIServer,
 ) {
 	server, err := grpcutil.NewServer(context.Background(), false)
@@ -128,7 +130,7 @@ func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APICl
 	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, "/tmp", 64*1024*1024, blockAPIServer)
 	require.NoError(t, err)
 
-	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer, txnenv.NewMockPpsTransactionServer())
+	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer, txncontext.NewMockPpsTransactionServer())
 
 	runServers(t, pfsPort, apiServer, blockAPIServer)
 	return env.GetPachClient(context.Background())

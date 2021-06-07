@@ -16,12 +16,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
-
-var _ APIServer = &apiServer{}
 
 // apiServer implements the public interface of the Pachyderm File System,
 // including all RPCs defined in the protobuf spec.  Implementation details
@@ -62,7 +61,7 @@ func newAPIServer(
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CreateRepoInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pfs.CreateRepoRequest,
 ) error {
 	return a.driver.createRepo(txnCtx, request.Repo, request.Description, request.Update)
@@ -84,7 +83,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 // InspectRepoInTransaction is identical to InspectRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) InspectRepoInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	originalRequest *pfs.InspectRepoRequest,
 ) (*pfs.RepoInfo, error) {
 	request := proto.Clone(originalRequest).(*pfs.InspectRepoRequest)
@@ -97,7 +96,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	var info *pfs.RepoInfo
-	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		info, err = a.InspectRepoInTransaction(txnCtx, request)
 		return err
@@ -119,9 +118,6 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 
 // ListRepoNoAuth is an internal API for collecting metrics (not an RPC) which doesn't check auth
 func (a *apiServer) ListRepoNoAuth(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
 	repoInfos, err := a.driver.listRepo(a.env.GetPachClient(ctx), false)
 	return repoInfos, err
 }
@@ -129,7 +125,7 @@ func (a *apiServer) ListRepoNoAuth(ctx context.Context, request *pfs.ListRepoReq
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) DeleteRepoInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pfs.DeleteRepoRequest,
 ) error {
 	if request.All {
@@ -184,7 +180,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 // report the commit ID back to the client before the transaction has finished
 // and it can be used in future commands inside the same transaction.
 func (a *apiServer) StartCommitInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pfs.StartCommitRequest,
 	commit *pfs.Commit,
 ) (*pfs.Commit, error) {
@@ -243,7 +239,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) FinishCommitInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pfs.FinishCommitRequest,
 ) error {
 	if request.Trees != nil {
@@ -303,7 +299,7 @@ func (a *apiServer) ListCommitStream(request *pfs.ListCommitRequest, respServer 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CreateBranchInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pfs.CreateBranchRequest,
 ) error {
 	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
@@ -328,7 +324,7 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	branchInfo := &pfs.BranchInfo{}
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		branchInfo, err = a.driver.inspectBranch(txnCtx, request.Branch)
 		return err
@@ -338,7 +334,7 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	return branchInfo, nil
 }
 
-func (a *apiServer) InspectBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
+func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
 	return a.driver.inspectBranch(txnCtx, request.Branch)
 }
 
@@ -357,7 +353,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) DeleteBranchInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pfs.DeleteBranchRequest,
 ) error {
 	return a.driver.deleteBranch(txnCtx, request.Branch, request.Force)
@@ -379,7 +375,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 // DeleteCommitInTransaction is identical to DeleteCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) DeleteCommitInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pfs.DeleteCommitRequest,
 ) error {
 	return a.driver.deleteCommit(txnCtx, request.Commit)
@@ -611,7 +607,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.deleteAll(txnCtx)
 	})
 	if err != nil {

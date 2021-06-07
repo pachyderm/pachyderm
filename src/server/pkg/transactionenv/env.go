@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
+	auth_iface "github.com/pachyderm/pachyderm/src/server/auth"
 	pfs_iface "github.com/pachyderm/pachyderm/src/server/pfs"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -62,21 +63,6 @@ type TransactionServer interface {
 	) (*transaction.TransactionResponse, error)
 }
 
-// AuthTransactionServer is an interface for the transactionally-supported
-// methods that can be called through the auth server.
-type AuthTransactionServer interface {
-	AuthorizeInTransaction(*txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
-
-	GetScopeInTransaction(*txncontext.TransactionContext, *auth.GetScopeRequest) (*auth.GetScopeResponse, error)
-	SetScopeInTransaction(*txncontext.TransactionContext, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
-
-	GetACLInTransaction(*txncontext.TransactionContext, *auth.GetACLRequest) (*auth.GetACLResponse, error)
-	SetACLInTransaction(*txncontext.TransactionContext, *auth.SetACLRequest) (*auth.SetACLResponse, error)
-
-	GetAuthTokenInTransaction(*txncontext.TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
-	RevokeAuthTokenInTransaction(*txncontext.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
-}
-
 // TransactionEnv contains the APIServer instances for each subsystem that may
 // be involved in running transactions so that they can make calls to each other
 // without leaving the context of a transaction.  This is a separate object
@@ -84,7 +70,7 @@ type AuthTransactionServer interface {
 type TransactionEnv struct {
 	serviceEnv *serviceenv.ServiceEnv
 	txnServer  TransactionServer
-	authServer AuthTransactionServer
+	authServer auth_iface.TransactionServer
 	pfsServer  pfs_iface.TransactionServer
 	ppsServer  pps_iface.TransactionServer
 }
@@ -93,7 +79,7 @@ type TransactionEnv struct {
 func (env *TransactionEnv) Initialize(
 	serviceEnv *serviceenv.ServiceEnv,
 	txnServer TransactionServer,
-	authServer AuthTransactionServer,
+	authServer auth_iface.TransactionServer,
 	pfsServer pfs_iface.TransactionServer,
 	ppsServer pps_iface.TransactionServer,
 ) {

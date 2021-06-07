@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/auth"
 	"github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pps"
@@ -66,6 +67,7 @@ type ServiceEnv struct {
 	ppsServer        pps.APIServer
 	pfsServer        pfs.APIServer
 	enterpriseServer enterprise.APIServer
+	authServer       auth.APIServer
 }
 
 // InitPachOnlyEnv initializes this service environment. This dials a GRPC
@@ -265,4 +267,14 @@ func (env *ServiceEnv) EnterpriseServer() enterprise.APIServer {
 // SetEnterpriseServer registers a Enterprise APIServer with this service env
 func (env *ServiceEnv) SetEnterpriseServer(s enterprise.APIServer) {
 	env.enterpriseServer = s
+}
+
+// AuthServer returns the registered Auth APIServer
+func (env *ServiceEnv) AuthServer() auth.APIServer {
+	return env.authServer
+}
+
+// SetAuthServer registers a Auth APIServer with this service env
+func (env *ServiceEnv) SetAuthServer(s auth.APIServer) {
+	env.authServer = s
 }

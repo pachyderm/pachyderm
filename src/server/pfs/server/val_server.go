@@ -7,19 +7,20 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	pfs_iface "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 	"golang.org/x/net/context"
 )
 
-var _ APIServer = &validatedAPIServer{}
+var _ pfs_iface.APIServer = &validatedAPIServer{}
 
 type validatedAPIServer struct {
-	APIServer
+	pfs_iface.APIServer
 	env *serviceenv.ServiceEnv
 }
 
-func newValidatedAPIServer(embeddedServer APIServer, env *serviceenv.ServiceEnv) *validatedAPIServer {
+func newValidatedAPIServer(embeddedServer pfs_iface.APIServer, env *serviceenv.ServiceEnv) *validatedAPIServer {
 	return &validatedAPIServer{
 		APIServer: embeddedServer,
 		env:       env,
@@ -28,7 +29,7 @@ func newValidatedAPIServer(embeddedServer APIServer, env *serviceenv.ServiceEnv)
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
+func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
 	repo := request.Repo
 	// Check if the caller is authorized to delete this repo
 	if err := a.checkIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_OWNER); err != nil {
@@ -39,7 +40,7 @@ func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionC
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
+func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	userCommit := request.Commit
 	// Validate arguments
 	if userCommit == nil {
@@ -56,7 +57,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txnenv.Transactio
 
 // DeleteCommitInTransaction is identical to DeleteCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) DeleteCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteCommitRequest) error {
+func (a *validatedAPIServer) DeleteCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteCommitRequest) error {
 	userCommit := request.Commit
 	// Validate arguments
 	if userCommit == nil {
@@ -201,14 +202,14 @@ func (a *validatedAPIServer) checkIsAuthorized(ctx context.Context, r *pfs.Repo,
 	return nil
 }
 
-func (a *validatedAPIServer) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Repo, s auth.Scope) error {
+func (a *validatedAPIServer) checkIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, s auth.Scope) error {
 	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil
 	}
 
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
+	resp, err := a.env.AuthServer().AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
 		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
 	}

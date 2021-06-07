@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	log "github.com/sirupsen/logrus"
@@ -117,7 +118,7 @@ func newDB() (db *sqlx.DB, retErr error) {
 	})
 }
 
-func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
+func (d *driverV2) finishCommitV2(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string) error {
 	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
@@ -220,7 +221,7 @@ func (d *driverV2) fileOperation(pachClient *client.APIClient, commit *pfs.Commi
 
 // TODO: Cleanup after failure?
 func (d *driverV2) oneOffFileOperation(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) (retErr error) {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) (retErr error) {
 		commit, err := d.startCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, "")
 		if err != nil {
 			return err
@@ -819,7 +820,7 @@ func (d *driverV2) clearCommitV2(pachClient *client.APIClient, commit *pfs.Commi
 	return d.storage.Delete(ctx, commitPath(commit))
 }
 
-func (d *driverV2) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
+func (d *driverV2) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	ctx := txnCtx.ClientContext
 	if err := d.storage.Store().Walk(ctx, repo.Name, func(p string) error {
 		return d.storage.Delete(ctx, p)
@@ -829,7 +830,7 @@ func (d *driverV2) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo,
 	return d.driver.deleteRepo(txnCtx, repo, force)
 }
 
-func (d *driverV2) deleteAll(txnCtx *txnenv.TransactionContext) error {
+func (d *driverV2) deleteAll(txnCtx *txncontext.TransactionContext) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
 	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth)
@@ -844,7 +845,7 @@ func (d *driverV2) deleteAll(txnCtx *txnenv.TransactionContext) error {
 	return nil
 }
 
-func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
+func (d *driverV2) deleteCommit(txnCtx *txncontext.TransactionContext, userCommit *pfs.Commit) error {
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
 	// TODO update branches inside this txn, by storing a repo's branches in its
 	// RepoInfo or its HEAD commit

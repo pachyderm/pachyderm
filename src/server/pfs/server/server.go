@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
 
 // Valid object storage backends
