@@ -15,9 +15,15 @@ type TransactionServer interface {
 	CreatePipelineInTransaction(*txncontext.TransactionContext, *pps_client.CreatePipelineRequest, **pfs_client.Commit) error
 }
 
-type APIServer interface {
-	pps_client.APIServer
+// InternalAPI is the set of non-RPC methods that are used internally within pachd
+type InternalAPI interface {
 	TransactionServer
 
 	ListPipelineNoAuth(context.Context, *pps_client.ListPipelineRequest) (*pps_client.PipelineInfos, error)
+}
+
+// APIServer is the set of all methods exposed by PPS
+type APIServer interface {
+	pps_client.APIServer
+	InternalAPI
 }

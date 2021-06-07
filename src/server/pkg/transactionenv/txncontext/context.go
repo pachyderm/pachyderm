@@ -49,6 +49,7 @@ func (t *TransactionContext) PropagateCommit(branch *pfs.Branch, isNewCommit boo
 	return t.PfsPropagater.PropagateCommit(branch, isNewCommit)
 }
 
+// Finish runs the commit finisher and pfs propagator
 func (t *TransactionContext) Finish() error {
 	if t.CommitFinisher != nil {
 		if err := t.CommitFinisher.Run(); err != nil {

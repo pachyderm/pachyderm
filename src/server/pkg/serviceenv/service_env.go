@@ -64,7 +64,7 @@ type ServiceEnv struct {
 	// there's no errgroup associated with it.
 	lokiClient *loki.Client
 
-	ppsServer        pps.APIServer
+	ppsServer        pps.InternalAPI
 	pfsServer        pfs.APIServer
 	enterpriseServer enterprise.APIServer
 	authServer       auth.APIServer
@@ -240,12 +240,12 @@ func (env *ServiceEnv) GetLokiClient() (*loki.Client, error) {
 }
 
 // PpsServer returns the registered PPS APIServer
-func (env *ServiceEnv) PpsServer() pps.APIServer {
+func (env *ServiceEnv) PpsServer() pps.InternalAPI {
 	return env.ppsServer
 }
 
 // SetPpsServer registers a Pps APIServer with this service env
-func (env *ServiceEnv) SetPpsServer(s pps.APIServer) {
+func (env *ServiceEnv) SetPpsServer(s pps.InternalAPI) {
 	env.ppsServer = s
 }
 

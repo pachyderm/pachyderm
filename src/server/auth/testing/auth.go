@@ -186,5 +186,5 @@ func (a *InactiveAPIServer) RestoreAuthToken(context.Context, *auth.RestoreAuthT
 
 // CheckIsAuthorizedInTransaction implements the internal transaction API
 func (a *InactiveAPIServer) CheckIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Repo, auth.Scope) error {
-	return auth.ErrNotActivated
+	return nil
 }

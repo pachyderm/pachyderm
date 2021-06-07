@@ -27,6 +27,8 @@ type TransactionServer interface {
 	DeleteBranchInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteBranchRequest) error
 }
 
+// APIServer is the combination of the public RPC interface, the internal transaction interface and
+// other internal methods exposed by the PFS service
 type APIServer interface {
 	pfs_client.APIServer
 	TransactionServer
