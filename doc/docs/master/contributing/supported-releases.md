@@ -89,9 +89,7 @@ A release under development may undergo several pre-release stages before becomi
 
 | Feature           | Version | Date       |
 | ----------------- | --------| ---------- |
-| Build Pipelines   | 1.11.0  | 2019-01-05 |
 | Service Pipelines | 1.9.9   | 2019-11-06 |
-| Git Inputs        | 1.4.0   | 2017-03-27 |
 
 ## Deprecated Features
 
@@ -106,5 +104,8 @@ A release under development may undergo several pre-release stages before becomi
 
 | Feature           | Version | EOL Date   |
 | ----------------- | --------| ---------- |
+| Build Pipelines   | 2.0.0   | 2021-07-15 |
+| Git Inputs        | 2.0.0   | 2021-07-15 |
+| `pachctl deploy`  | 2.0.0   | 2021-07-15 |
 | S3v2 signatures   | 1.12.0  | 2021-01-05 |
 | atom inputs       | 1.9.0   | 2019-06-12 |

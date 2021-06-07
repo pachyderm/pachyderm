@@ -97,6 +97,9 @@ A release under development may undergo several pre-release stages before becomi
 
 | Feature             | Version |EOL Date   |
 | ------------------- | --------| ---------- |
+| Build Pipelines     | 1.13.2  | 2021-06-15 |
+| Git Inputs          | 1.13.2  | 2021-06-15 |
+| `pachctl deploy`    | 1.13.2  | 2021-06-15 |
 | Some [`pachctl deploy` flags](../../deploy-manage/deploy/helm_install/#pachctl-deploy-flag-deprecation)|  1.13.0 | 2021-06-15|
 | Spouts: Named Pipes | 1.12.0  | 2021-07-05 |
 | Vault Plugin        | 1.12.5  | 2021-09-12 |
