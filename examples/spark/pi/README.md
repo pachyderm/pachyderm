@@ -1,3 +1,6 @@
+>![pach_logo](../../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Estimate Pi Using Spark
 
 This example demonstrates integration of Spark with Pachyderm by launching
@@ -9,10 +12,10 @@ computation.
 
 The example assumes that you have:
 
-- A Pachyderm cluster running - see [this guide](https://docs.pachyderm.com/latest/getting_started/local_installation/) to get up and running with a local Pachyderm cluster in just a few minutes.
+- A Pachyderm cluster running - see [this guide](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/) to get up and running with a local Pachyderm cluster in just a few minutes.
 - Kubernetes access to the cluster Pachyderm is installed in.
-- The `pachctl` CLI tool installed and connected to your Pachyderm cluster - see [the relevant deploy docs](https://docs.pachyderm.com/latest/deploy-manage/deploy/) for instructions.
-- The `kubectl` CLI tool installed (you will likely have installed this while [setting up your local Pachyderm cluster](https://docs.pachyderm.com/latest/getting_started/local_installation/))
+- The `pachctl` CLI tool installed and connected to your Pachyderm cluster - see [the relevant deploy docs](https://docs.pachyderm.com/1.13.x/deploy-manage/deploy/) for instructions.
+- The `kubectl` CLI tool installed (you will likely have installed this while [setting up your local Pachyderm cluster](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/))
 
 Note: if deploying on Minikube, you'll need to increase the default memory
 allocation to accomodate the deploy of a Spark cluster. When running `minikube

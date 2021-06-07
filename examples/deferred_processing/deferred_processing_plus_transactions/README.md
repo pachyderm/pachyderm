@@ -1,14 +1,14 @@
 # Deferred Processing Plus Transactions
 
 This example, 
-which uses a simple DAG based on our [OpenCV example](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv), 
+which uses a simple DAG based on our [OpenCV example](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/opencv), 
 illustrates two Pachyderm usage patterns for fine-grain control over when pipelines trigger jobs.
 
-[Deferred processing](https://docs.pachyderm.com/latest/how-tos/deferred_processing/) 
+[Deferred processing](https://docs.pachyderm.com/1.13.x/how-tos/deferred_processing/) 
 is a Pachyderm technique for controlling when data gets processed.
 Deferred processing uses branches to prevent pipelines from triggering on every input commit.
 
-[Transactions](https://docs.pachyderm.com/latest/how-tos/use-transactions-to-run-multiple-commands/) are a Pachyderm feature 
+[Transactions](https://docs.pachyderm.com/1.13.x/how-tos/use-transactions-to-run-multiple-commands/) are a Pachyderm feature 
 that allows you to batch match multiple operations at once,
 such as committing data to two different repos, 
 but only trigger a single job, 
@@ -17,7 +17,7 @@ so data from both repos gets processed together.
 ## Prerequisites
 
 Before you begin, you need to have Pachyderm v1.9.8 or later installed on your computer or cloud platform. 
-See [Deploy Pachyderm](https://docs.pachyderm.com/latest/deploy-manage/deploy/).
+See [Deploy Pachyderm](https://docs.pachyderm.com/1.13.x/deploy-manage/deploy/).
 
 ## Pipelines
 

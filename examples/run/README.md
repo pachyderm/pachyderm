@@ -1,3 +1,6 @@
+>![pach_logo](../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Pipeline Makefile and Config template
 
 An attempt to automate as much as possible of the work needed to test and setup
@@ -29,7 +32,7 @@ All the configuration variables for the creation of the pipeline are stored in t
 This includes pipeline name, where the pipeline takes the input from etc. All the variables
 are commented in the file so read on there for more details.
 
-[pipeline.json](./config/pipeline.json) file holds the pachyderm specs for the pipeline. For more information, see: [Pipeline specs](https://docs.pachyderm.com/latest/reference/pipeline_spec/).
+[pipeline.json](./config/pipeline.json) file holds the pachyderm specs for the pipeline. For more information, see: [Pipeline specs](https://docs.pachyderm.com/1.13.x/reference/pipeline_spec/).
 
 ## Creating the pipeline
 

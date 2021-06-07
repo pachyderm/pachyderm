@@ -1,3 +1,6 @@
+>![pach_logo](../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Use Transactions with Hyperparameter Tuning
 
 !!! note "Summary"
@@ -8,7 +11,7 @@ Hyperparameter tuning is a machine learning technique
 of narrowing down a set of parameters to
 an optimal number of parameters to train a learning
 algorithm. The Pachyderm documentation includes a
-[hyperparameter tuning example](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter)
+[hyperparameter tuning example](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/ml/hyperparameter)
 that describes how this computation works in Pachyderm.
 
 In the hyperparameter example, training data is submitted
@@ -26,7 +29,7 @@ You can do so by using transactions.
 
 To demonstrate the benefits of using transactions, we
 will use transactions on the `model` pipeline step from the
-[hyperparameter tuning example](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter).
+[hyperparameter tuning example](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/ml/hyperparameter).
 In this transaction example, we omit the splitting step and
 have just the `model` pipeline that consumes commits from
 the `data` and `parameters` repositories and outputs the
@@ -35,7 +38,7 @@ to your pipelines as needed.
 
 The following diagram describes the pipeline structure:
 
-![transactions diagram](../../doc/docs/master/assets/images/d_transactions_hyperparameter.svg)
+![transactions diagram](https://github.com/pachyderm/pachyderm/tree/1.13.x/doc/docs/master/assets/images/d_transactions_hyperparameter.svg)
 
 To set up the pipeline, complete the following steps:
 
