@@ -361,46 +361,34 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, txnClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewBranch("B", "master"), client.NewBranch("E", "master")}))
 		require.NoError(t, txnClient.CreateBranch("D", "master", "", "", []*pfs.Branch{client.NewBranch("C", "master")}))
 
-		commitA, err := txnClient.StartCommit("A", "master")
-		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishCommit("A", "master", ""))
-		commitE, err := txnClient.StartCommit("E", "master")
-		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishCommit("E", "master", ""))
-
 		info, err := txnClient.FinishTransaction(txn)
 		require.NoError(t, err)
-
-		require.Equal(t, 12, len(info.Responses))
-		requireCommitResponse(t, info.Responses[8], commitA)
-		requireEmptyResponse(t, info.Responses[9])
-		requireCommitResponse(t, info.Responses[10], commitE)
-		requireEmptyResponse(t, info.Responses[11])
+		require.Equal(t, 8, len(info.Responses))
 
 		commitInfos, err := env.PachClient.ListCommitByRepo(client.NewRepo("A"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		commitInfoA := commitInfos[0]
+		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("B"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("C"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("D"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo("E"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		commitInfoE := commitInfos[0]
-
-		require.Equal(t, commitA, commitInfoA.Commit)
-		require.Equal(t, commitE, commitInfoE.Commit)
+		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
 	})
 
 	suite.Run("TestBatchTransaction", func(t *testing.T) {
