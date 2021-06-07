@@ -7,7 +7,8 @@ import log from '@dash-backend/lib/log';
 const handleFileDownload = async (req: Request, res: Response) => {
   const authToken = req.cookies.dashAuthToken;
   const pachdAddress = process.env.PACHD_ADDRESS;
-  const sameOrigin = req.get('origin') === undefined;
+  const sameOrigin =
+    req.get('origin') === undefined || process.env.NODE_ENV === 'development';
 
   if (!sameOrigin || !authToken || !pachdAddress) {
     return res
@@ -36,6 +37,7 @@ const handleFileDownload = async (req: Request, res: Response) => {
       'Content-Type': lookup(path) || 'application/octet-stream',
       'Content-Length': data.length,
     });
+
     return res.end(data);
   } else {
     return res.send('File does not exist.').status(404);

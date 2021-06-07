@@ -46,6 +46,15 @@ const attachWebServer = (app: Express) => {
 };
 
 const attachDownloadHandler = (app: Express) => {
+  if (process.env.NODE_ENV === 'development') {
+    app.use((req, res, next) => {
+      res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4000');
+      res.setHeader('Access-Control-Allow-Methods', 'GET');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      next();
+    });
+  }
+
   app.use(cookieParser());
   app.get('/download/:repoName/:branchName/:commitId/*', handleFileDownload);
 };
