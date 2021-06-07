@@ -3042,19 +3042,27 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 		return nil, err
 	}
 
-	return a.ListPipelineNoAuth(ctx, request)
-}
-
-// ListPipelineNoAuth is an internal  API for collecting metrics (not an RPC) which does not require an auth token
-func (a *apiServer) ListPipelineNoAuth(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, retErr error) {
 	pipelineInfos := &pps.PipelineInfos{}
-	pachClient := a.env.GetPachClient(ctx)
 	if err := a.listPipeline(pachClient, request, func(pi *pps.PipelineInfo) error {
 		pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pi)
 		return nil
 	}); err != nil {
 		return nil, err
 	}
+	return pipelineInfos, nil
+}
+
+// ListPipelineNoAuth is an internal  API for collecting metrics (not an RPC) which does not require an auth token.
+// It uses the PPS superuser token to get pipeline specs from PFS
+func (a *apiServer) ListPipelineNoAuth(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, retErr error) {
+	pipelineInfos := &pps.PipelineInfos{}
+	pachClient := a.env.GetPachClient(ctx)
+	a.sudo(pachClient, func(sudoClient *client.APIClient) error {
+		return a.listPipeline(sudoClient, request, func(pi *pps.PipelineInfo) error {
+			pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pi)
+			return nil
+		})
+	})
 	return pipelineInfos, nil
 }
 
