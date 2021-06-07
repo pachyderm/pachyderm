@@ -48,9 +48,6 @@ const (
 	// accessed so we cache them.
 	clusterRoleBindingKey = "CLUSTER:"
 
-	// GitHookPort is 655
-	// Prometheus uses 656
-
 	// the length of interval between expired auth token cleanups
 	cleanupIntervalHours = 24
 )
