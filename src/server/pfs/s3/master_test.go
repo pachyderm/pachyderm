@@ -320,7 +320,8 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-	repo := tu.UniqueString("testlistobjectspaginated")
+	// bucket name cannot exceed 63 characters long
+	repo := tu.UniqueString("testLOP")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	commit, err := pachClient.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -340,6 +341,10 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	for i := 0; i <= 1000; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
 	}
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
+
+	// Check whether using commit_id works
+	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s", commit.ID, repo), "", false, make(chan struct{}))
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
 	// Request that will list all files in master starting with 1

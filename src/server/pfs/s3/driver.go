@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/s2"
@@ -72,11 +73,15 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 }
 
 func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
-	branch := "master"
-	var repo string
+	var repo, branch, commit string
+	branch = "master"
 	parts := strings.SplitN(name, ".", 2)
 	if len(parts) == 2 {
-		branch = parts[0]
+		if uuid.IsUUIDWithoutDashes(parts[0]) {
+			commit = parts[0]
+		} else {
+			branch = parts[0]
+		}
 		repo = parts[1]
 	} else {
 		repo = parts[0]
@@ -85,7 +90,7 @@ func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string
 	return &Bucket{
 		Repo:   repo,
 		Branch: branch,
-		Commit: "",
+		Commit: commit,
 		Name:   name,
 	}, nil
 }
