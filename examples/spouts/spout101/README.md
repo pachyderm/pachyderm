@@ -39,14 +39,9 @@ for new S3 objects notifications via an Amazon™ SQS queue
 or connected to an IMAP email account
 to analyze the polarity of its emails.
 
-
->![pach_logo](./img/pach_logo.svg) Note that the use
-of the [build pipelines](https://docs.pachyderm.com/1.13.x/how-tos/developer-workflow/build-pipelines/) for spouts has not yet been made available
-in the 1.12.0 version of Pachyderm. Stay tuned.
-
 ## Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/1.13.x/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/).
+- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/1.13.x/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/).
 - [pachctl command-line ](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
