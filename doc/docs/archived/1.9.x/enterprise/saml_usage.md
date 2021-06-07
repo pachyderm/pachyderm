@@ -12,7 +12,7 @@ support. We'll describe:
 Follow the instructions in [Configure SAML](saml_setup.md) to enable auth in a
 Pachyderm cluster and connect it to a SAML ID provider. Then, we'll authenticate
 as a cluster admin in one console and set up our [open CV
-demo](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/README.md).
+demo](https://github.com/pachyderm/pachyderm/blob/1.13.x/examples/opencv/README.md).
 
 In the CLI, that would look like:
 
