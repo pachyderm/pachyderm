@@ -1,6 +1,8 @@
 import {ApolloError} from 'apollo-server-express';
+import keyBy from 'lodash/keyBy';
 
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
+import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
 import {QueryResolvers} from '@graphqlTypes';
 
 import {
@@ -56,19 +58,29 @@ const searchResolver: SearchResolver = {
           pachClient.pfs().listRepo(),
           pachClient.pps().listPipeline(jq),
         ]);
-        const filteredRepos = repos.filter((r) =>
-          r.repo?.name.toLowerCase().startsWith(lowercaseQuery),
+
+        const filteredRepos = repos.filter(
+          (r) =>
+            r.repo?.name.toLowerCase().startsWith(lowercaseQuery) &&
+            hasRepoReadPermissions(r.authInfo?.permissionsList),
+        );
+
+        const authorizedRepoMap = keyBy(
+          filteredRepos,
+          (r) => r.repo?.name || '',
+        );
+
+        const filteredPipelines = pipelines.filter(
+          (p) => authorizedRepoMap[p.pipeline?.name || ''],
         );
 
         return {
-          pipelines: pipelines
-            ? pipelines
-                .slice(0, limit || pipelines.length)
-                .map((p) => pipelineInfoToGQLPipeline(p))
-            : [],
+          pipelines: filteredPipelines
+            .slice(0, limit || pipelines.length)
+            .map(pipelineInfoToGQLPipeline),
           repos: filteredRepos
             .slice(0, limit || repos.length)
-            .map((r) => repoInfoToGQLRepo(r)),
+            .map(repoInfoToGQLRepo),
           job: null,
         };
       }

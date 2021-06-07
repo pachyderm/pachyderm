@@ -1,4 +1,4 @@
-import {executeQuery} from '@dash-backend/testHelpers';
+import {executeQuery, mockServer} from '@dash-backend/testHelpers';
 import {GET_SEARCH_RESULTS_QUERY} from '@dash-frontend/queries/GetSearchResultsQuery';
 import {SearchResultsQuery} from '@graphqlTypes';
 
@@ -39,6 +39,22 @@ describe('Search resolver', () => {
           args: {query: 'egg', projectId},
         },
       );
+      expect(errors.length).toBe(0);
+      const searchResults = data?.searchResults;
+      expect(searchResults?.pipelines?.length).toBe(0);
+    });
+
+    it('should not return pipelines that the user does not have access to', async () => {
+      mockServer.setAccount('2');
+
+      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
+        GET_SEARCH_RESULTS_QUERY,
+        {
+          args: {query: 'montage', projectId},
+        },
+      );
+
+      console.log(errors);
       expect(errors.length).toBe(0);
       const searchResults = data?.searchResults;
       expect(searchResults?.pipelines?.length).toBe(0);
@@ -90,6 +106,20 @@ describe('Search resolver', () => {
         GET_SEARCH_RESULTS_QUERY,
         {
           args: {query: 'lemon', projectId},
+        },
+      );
+      expect(errors.length).toBe(0);
+      const searchResults = data?.searchResults;
+      expect(searchResults?.repos?.length).toBe(0);
+    });
+
+    it('should not return repos that the user does not have access to', async () => {
+      mockServer.setAccount('2');
+
+      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
+        GET_SEARCH_RESULTS_QUERY,
+        {
+          args: {query: 'montage', projectId},
         },
       );
       expect(errors.length).toBe(0);
