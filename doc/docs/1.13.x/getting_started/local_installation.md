@@ -37,6 +37,7 @@ Before you deploy Pachyderm, make sure that you have installed:
 - A Kubernetes cluster running on your local environment: 
       - [Docker Desktop](#using-kubernetes-on-docker-desktop),
       - [Minikube](#using-minikube)
+      - [Kind](#using-kind)
       - Oracle® VirtualBox™
 - [Pachyderm Command Line Interface](#install-pachctl)
 - [Helm](https://helm.sh/docs/intro/install/) depending on your installation choice.
