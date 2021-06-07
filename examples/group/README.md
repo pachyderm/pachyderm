@@ -1,9 +1,13 @@
+>![pach_logo](../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
+
 # Group Pipelines 
 >![pach_logo](./img/pach_logo.svg) The group functionality is available in version **1.12 and higher**.
 
 
 ## Intro
-You configure a group in the [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/) file by adding a `group` input around the one or many pfs repositories you want to aggregate together. At each input repo level included in your group, you then need to specify a `group_by` that will define the capture group from your glob pattern that you want to consider to group your files. 
+You configure a group in the [pipeline specification](https://docs.pachyderm.com/1.13.x/reference/pipeline_spec/) file by adding a `group` input around the one or many pfs repositories you want to aggregate together. At each input repo level included in your group, you then need to specify a `group_by` that will define the capture group from your glob pattern that you want to consider to group your files. 
 
 
 - Our first examples will walk you through a simple use of group applied to the files of a single repository. 
@@ -14,14 +18,14 @@ You configure a group in the [pipeline specification](https://docs.pachyderm.com
 
 ## Getting ready
 ***Key concepts***
-- [Group](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/) pipelines - execute your code on files that match a specific naming pattern in your group repo(s).
-- [glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - for "RegEx-like" string matching on file paths and names.
+- [Group](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/datum/group/) pipelines - execute your code on files that match a specific naming pattern in your group repo(s).
+- [glob patterns](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/datum/glob-pattern/) - for "RegEx-like" string matching on file paths and names.
 
-You might also want to brush up your [datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/) knowledge. 
+You might also want to brush up your [datum](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/datum/relationship-between-datums/) knowledge. 
 
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
+- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/1.13.x/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
 - Clone this repo.
@@ -135,7 +139,7 @@ The second example is derived from a simplified retail use case:
 - Those stores have a given location (here, a zip code). 
 - There are 0 to many stores in a given zip code.
 
-This dataset is shared with the "Join pipelines"' examples. Read about the [structure of the data and naming conventions](https://github.com/pachyderm/pachyderm/blob/master/examples/joins/README.md#2-data-structure-and-naming-convention).
+This dataset is shared with the "Join pipelines"' examples. Read about the [structure of the data and naming conventions](https://github.com/pachyderm/pachyderm/blob/1.13.x/examples/joins/README.md#2-data-structure-and-naming-convention).
 
 
 ***Goal***

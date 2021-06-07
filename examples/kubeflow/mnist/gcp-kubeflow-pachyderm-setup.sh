@@ -63,7 +63,7 @@ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-t
 # needed to create those clusterrolebindings.
 #
 # Note that this command is simple and concise, but gives your user account more privileges than necessary. See
-# https://docs.pachyderm.com/latest/deploy-manage/deploy/rbac/ for the complete list of privileges that the
+# https://docs.pachyderm.com/1.13.x/deploy-manage/deploy/rbac/ for the complete list of privileges that the
 # pachyderm serviceaccount needs.
 kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value account)"
 

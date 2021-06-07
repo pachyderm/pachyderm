@@ -1,3 +1,7 @@
+>![pach_logo](../../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
+
 # Spout Pipelines - An introductory example
 >![pach_logo](./img/pach_logo.svg) This new implementation of the spout functionality is available in version **1.12 and higher**.
 
@@ -19,8 +23,8 @@ then push them to -in our case- the spout's output repository).
 For more information about spout pipelines,
 we recommend to read the following page in our documentation:
 
-- [Spout](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/spout/) concept.
-- [Spout](https://docs.pachyderm.com/latest/reference/pipeline_spec/#spout-optional) configuration 
+- [Spout](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/pipeline/spout/) concept.
+- [Spout](https://docs.pachyderm.com/1.13.x/reference/pipeline_spec/#spout-optional) configuration 
 
 
 In this example, we have emulated the reception 
@@ -37,13 +41,13 @@ to analyze the polarity of its emails.
 
 
 >![pach_logo](./img/pach_logo.svg) Note that the use
-of the [build pipelines](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/) for spouts has not yet been made available
+of the [build pipelines](https://docs.pachyderm.com/1.13.x/how-tos/developer-workflow/build-pipelines/) for spouts has not yet been made available
 in the 1.12.0 version of Pachyderm. Stay tuned.
 
 ## Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
+- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/1.13.x/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
 - Clone this repo.
@@ -97,7 +101,7 @@ depending on their size.
     ```shell
     $ make docker-image
     ```
-    >![pach_logo](./img/pach_logo.svg) Need a refresher on building, tagging, pushing your image on Docker Hub? Take a look at this [how-to](https://docs.pachyderm.com/latest/how-tos/developer-workflow/working-with-pipelines/).
+    >![pach_logo](./img/pach_logo.svg) Need a refresher on building, tagging, pushing your image on Docker Hub? Take a look at this [how-to](https://docs.pachyderm.com/1.13.x/how-tos/developer-workflow/working-with-pipelines/).
 
 1. Let's deploy our spout and processing pipelines: 
 

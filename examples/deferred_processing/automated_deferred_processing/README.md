@@ -1,6 +1,6 @@
 # Automated Deferred Processing
 
-[Deferred processing](https://docs.pachyderm.com/latest/how-tos/deferred_processing/) 
+[Deferred processing](https://docs.pachyderm.com/1.13.x/how-tos/deferred_processing/) 
 is a Pachyderm technique for controlling when data gets processed.
 Deferred processing uses branches to prevent pipelines from triggering on every input commit.
 This example shows how to automate the movement of those branches,
@@ -38,15 +38,15 @@ and creates an environment variable for use by the pipeline.
 If you are unfamiliar with those things,
 you might want to refer to the following documentation as you work through the example.
 
-* [Pachyderm access controls and authentication documentation](https://docs.pachyderm.com/latest/enterprise/auth/)
+* [Pachyderm access controls and authentication documentation](https://docs.pachyderm.com/1.13.x/enterprise/auth/)
 * [Kubernetes documentation on Secrets](https://kubernetes.io/docs/concepts/configuration/secret/)
-* The [pachctl create secret](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_create_secret/) command
-* [transform.secret in the pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/)
+* The [pachctl create secret](https://docs.pachyderm.com/1.13.x/reference/pachctl/pachctl_create_secret/) command
+* [transform.secret in the pipeline specification](https://docs.pachyderm.com/1.13.x/reference/pipeline_spec/)
 
 Before you can start working on this example, make sure you have the following prerequisites:
 
 * You need to have Pachyderm v1.9.8 or later installed on your computer or cloud platform. 
-  See [Deploy Pachyderm](https://docs.pachyderm.com/latest/deploy-manage/deploy/).
+  See [Deploy Pachyderm](https://docs.pachyderm.com/1.13.x/deploy-manage/deploy/).
 * Basic familiarity with Makefiles and  Unix shell scripting
 * The [jq utility](https://stedolan.github.io/jq/manual/) for transforming json files in shell scripts
 

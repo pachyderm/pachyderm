@@ -1,3 +1,6 @@
+>![pach_logo](../../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # pix2pix with TensorFlow
 
 Christopher Hesse’s image-to-image demos use a Tensorflow implementation of the Generative Adversarial Networks (or GANs) model presented in this [article](https://arxiv.org/pdf/1611.07004v1.pdf).  Chris’s full Tensorflow implementation of this model can be found [on Github](https://github.com/affinelayer/pix2pix-tensorflow) and includes documentation about how to perform training, testing, pre-processing of images, exporting of the models for serving, and more.  
@@ -20,7 +23,7 @@ The cylinders represent data “repositories” in which Pachyderm will version 
 
 ## Getting up and running with Pachyderm
 
-You can experiment with this pipeline locally using a quick [local installation of Pachyderm](https://docs.pachyderm.com/latest/getting_started/local_installation/).  Alternatively, you can quickly spin up a real Pachyderm cluster in any one of the popular cloud providers.  Check out the [Pachyderm docs](https://docs.pachyderm.com/latest/deploy-manage/deploy/) for more details on deployment.
+You can experiment with this pipeline locally using a quick [local installation of Pachyderm](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/).  Alternatively, you can quickly spin up a real Pachyderm cluster in any one of the popular cloud providers.  Check out the [Pachyderm docs](https://docs.pachyderm.com/1.13.x/deploy-manage/deploy/) for more details on deployment.
 
 Once deployed, you will be able to use the Pachyderm’s `pachctl` CLI tool to create data repositories and start our deep learning pipeline.
 
@@ -42,7 +45,7 @@ We can deploy this part of the pipeline in two quick steps:
 
 **Note** - Training could take 15+ minutes depending on how many images are supplied in the training set and the exact setting of the `pix2pix.py` script.
 
-**Note** - If you have a [GPU-enabled Pachyderm cluster](https://docs.pachyderm.com/latest/deploy-manage/manage/gpus/), you can use [this pipeline specification](training_and_export_gpu.json) to run the training stage of the pipeline on a GPU node.
+**Note** - If you have a [GPU-enabled Pachyderm cluster](https://docs.pachyderm.com/1.13.x/deploy-manage/manage/gpus/), you can use [this pipeline specification](training_and_export_gpu.json) to run the training stage of the pipeline on a GPU node.
 
 ## Preparing the pre-processing and image generation stages
 

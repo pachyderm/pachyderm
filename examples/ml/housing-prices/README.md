@@ -1,3 +1,6 @@
+>![pach_logo](../../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Boston Housing Prices
 
 This example creates a simple machine learning pipeline in Pachyderm to train a regression model on the Boston Housing Dataset to predict the value of homes in Boston. The pipeline itself is written in Python, though a Pachyderm pipeline could be written in any language.
@@ -54,7 +57,7 @@ Sample:
 Before you can deploy this example you need to have the following components:
 
 1. A clone of this Pachyderm repository on your local computer. (could potentially include those instructions)
-2. A Pachyderm cluster - You can deploy a cluster on [PacHub](hub.pachyderm.com) or deploy locally as described [here](https://docs.pachyderm.com/latest/getting_started/).
+2. A Pachyderm cluster - You can deploy a cluster on [PacHub](hub.pachyderm.com) or deploy locally as described [here](https://docs.pachyderm.com/1.13.x/getting_started/).
 
 Verify that your environment is accessible by running `pachctl version` which will show both the `pachctl` and `pachd` versions.
 ```shell
@@ -178,7 +181,7 @@ We can now connect a pipeline to watch the data repo. Pipelines are defined in `
 }
 ```
 
-For the **input** field in the pipeline definition, we define input data repo(s) and a [glob pattern](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/). A glob pattern tells the pipeline how to map data into a job, here we have it create a new job for each datum in the `housing_data` repository.
+For the **input** field in the pipeline definition, we define input data repo(s) and a [glob pattern](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/datum/glob-pattern/). A glob pattern tells the pipeline how to map data into a job, here we have it create a new job for each datum in the `housing_data` repository.
 
 The **image** defines what Docker image will be used for the pipeline, and the **transform** is the command run once a pipeline job starts.
 

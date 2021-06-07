@@ -1,3 +1,7 @@
+>![pach_logo](../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
+
 # Inner and Outer Join Inputs
 >![pach_logo](./img/pach_logo.svg) The outer join input is available in version **1.12 and higher**.
 
@@ -21,15 +25,15 @@ At the end of this page, you will understand the fundamental difference between 
 
 For these examples, we recommend to be familiar with the following concepts:
 
-- [Join](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/) pipelines - execute your code on files that match a specific naming pattern in your joined repos.
-- [Glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - for "RegEx-like" string matching on file paths and names.
+- [Join](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/datum/join/) pipelines - execute your code on files that match a specific naming pattern in your joined repos.
+- [Glob patterns](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/datum/glob-pattern/) - for "RegEx-like" string matching on file paths and names.
 
-Additionally, you might want to check [datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/). 
+Additionally, you might want to check [datum](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/datum/relationship-between-datums/). 
 
 ## 1. Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
+- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/1.13.x/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
 
 ***Getting started***
 - Clone this repo.
@@ -204,7 +208,7 @@ The following table lists the expected results for this scenario:
 |Purchase at store: 1 ... ORDER W080521|Purchase at store: 5 ... ORDER W080528| 
 |Purchase at store: 2 ... ORDER W078929 |Purchase at store: 5 ... ORDER W080231| 
 
->![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/). You can create a 2-step pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
+>![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/datum/group/). You can create a 2-step pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
 
 ## 5. Example 2 : Outer Join pipeline creation 
 >![pach_logo](./img/pach_logo.svg) You specify an [outer join](#case-1-outer-join-on-the-returns-repo-only) by adding an "outer_join" boolean property to an input repo in the `join` section of your pipeline spec. 
@@ -386,9 +390,9 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     | |Return at store: 5 ... ORDER W080528| | |
 
 
->![pach_logo](./img/pach_logo.svg) **Side note**: We could also aggregate the files by STOREID using a [group input](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/). In that case, the datums produced would be bigger. Each datum would contain one STOREIDx.txt file and ALL of the matching files for this given storeID in the grouped repos. The choice between group and join is an architectural choice to optimize your pipelines' parallelization and processing time.
+>![pach_logo](./img/pach_logo.svg) **Side note**: We could also aggregate the files by STOREID using a [group input](https://docs.pachyderm.com/1.13.x/concepts/pipeline-concepts/datum/group/). In that case, the datums produced would be bigger. Each datum would contain one STOREIDx.txt file and ALL of the matching files for this given storeID in the grouped repos. The choice between group and join is an architectural choice to optimize your pipelines' parallelization and processing time.
        
-We encourage you to run our [group example](https://github.com/pachyderm/pachyderm/tree/master/examples/group) to understand more of the differences between join and group. Look for the `retail_group.json` pipeline.
+We encourage you to run our [group example](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/group) to understand more of the differences between join and group. Look for the `retail_group.json` pipeline.
 
 You can also follow those quick steps:
 ```shell
