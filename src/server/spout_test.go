@@ -62,12 +62,17 @@ func TestSpoutPachctl(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		// get 5 succesive commits, and ensure that the file size increases each time
+		// get 6 successive commits, and ensure that the file size increases each time
 		// since the spout should be appending to that file on each commit
-		countBreakFunc := newCountBreakFunc(5)
+		countBreakFunc := newCountBreakFunc(6)
 		var prevLength uint64
+		count := 0
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
+				count++
+				if count == 1 {
+					return nil // Empty head commit
+				}
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
@@ -123,10 +128,15 @@ func TestSpoutPachctl(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		// get 5 succesive commits
-		countBreakFunc := newCountBreakFunc(5)
+		// get 6 successive commits
+		countBreakFunc := newCountBreakFunc(6)
+		count := 0
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
+				count++
+				if count == 1 {
+					return nil // Empty head commit
+				}
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
@@ -164,10 +174,15 @@ func TestSpoutPachctl(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		// get 5 succesive commits
-		countBreakFunc = newCountBreakFunc(5)
+		// get 6 successive commits
+		countBreakFunc = newCountBreakFunc(6)
+		count = 0
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
+				count++
+				if count == 1 {
+					return nil // Empty head commit
+				}
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
@@ -226,12 +241,17 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
 			})
 		require.NoError(t, err)
-		// get 5 succesive commits, and ensure that the file size increases each time
-		// since the spout should be appending to that file on each commit
-		countBreakFunc := newCountBreakFunc(5)
+		// get 6 successive commits, and ensure that the file size increases each
+		// time since the spout should be appending to that file on each commit
+		countBreakFunc := newCountBreakFunc(6)
 		var prevLength uint64
+		count := 0
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
+				count++
+				if count == 1 {
+					return nil // Empty head commit
+				}
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
@@ -317,23 +337,26 @@ func testSpout(t *testing.T, usePachctl bool) {
 			})
 		require.NoError(t, err)
 
-		// if the overwrite flag is enabled, then the spout will overwrite the file on each commit
-		// so the commits should have files that stay the same size
-		countBreakFunc := newCountBreakFunc(5)
+		// if the overwrite flag is enabled, then the spout will overwrite the file
+		// on each commit so the commits should have files that stay the same size
+		countBreakFunc := newCountBreakFunc(6)
 		var count int
 		var prevLength uint64
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
+				count++
+				if count == 1 {
+					return nil // Empty head commit
+				}
 				files, err := c.ListFileAll(ci.Commit, "")
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
 				fileLength := files[0].SizeBytes
-				if count > 0 && fileLength != prevLength {
+				if count > 2 && fileLength != prevLength {
 					t.Errorf("File length was expected to stay the same. Prev: %v, Cur: %v", prevLength, fileLength)
 				}
 				prevLength = fileLength
-				count++
 				return nil
 			})
 		}))
@@ -527,7 +550,13 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}, backoff.NewTestingBackOff())
+
+		count := 0
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+			count++
+			if count == 1 {
+				return nil // Empty head commit
+			}
 			files, err := c.ListFileAll(ci.Commit, "")
 			require.NoError(t, err)
 			require.Equal(t, 1, len(files))

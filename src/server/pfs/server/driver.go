@@ -1562,6 +1562,8 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// If the branch still has no head, create an empty commit on it so that we
 	// can maintain an invariant that branches always have a head commit.
 	if branchInfo.Head == nil {
+		// Spouts want a closed head commit, but we can't tell if it's a spout from
+		// here - instead, they will close it in the worker startup.
 		closed := len(provenance) == 0 // For input branches, we make a closed default head commit
 		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo, closed)
 		if err != nil {

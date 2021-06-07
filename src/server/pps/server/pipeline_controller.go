@@ -358,7 +358,6 @@ func (op *pipelineOp) rcIsFresh() bool {
 		log.Errorf("PPS master: auth token in %q is stale %s != %s",
 			op.ptr.Pipeline.Name, rcAuthTokenHash, hashAuthToken(op.ptr.AuthToken))
 		return false
-	// TODO(global ids): this won't trigger properly on start/stop pipeline which no longer updates the pipeline's OriginalSpecCommit
 	case rcPipelineVersion != strconv.FormatUint(op.ptr.Version, 10):
 		log.Errorf("PPS master: pipeline version in %q looks stale %s != %d",
 			op.ptr.Pipeline.Name, rcPipelineVersion, op.ptr.Version)
