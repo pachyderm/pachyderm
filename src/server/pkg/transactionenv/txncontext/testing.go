@@ -1,4 +1,4 @@
-package transactionenv
+package txncontext
 
 import (
 	"github.com/pachyderm/pachyderm/src/client/auth"

@@ -3040,7 +3040,14 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 	if err != nil {
 		return nil, err
 	}
+
+	return a.ListPipelineNoAuth(ctx, request)
+}
+
+// ListPipelineNoAuth is an internal  API for collecting metrics (not an RPC) which does not require an auth token
+func (a *apiServer) ListPipelineNoAuth(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, retErr error) {
 	pipelineInfos := &pps.PipelineInfos{}
+	pachClient := a.env.GetPachClient(ctx)
 	if err := a.listPipeline(pachClient, request, func(pi *pps.PipelineInfo) error {
 		pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pi)
 		return nil

@@ -254,7 +254,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	metrics.EnterpriseFailures = enterprisemetrics.GetEnterpriseFailures()
 
 	// Pipeline info
-	resp, err := r.env.PpsServer().ListPipeline(ctx, &pps.ListPipelineRequest{AllowIncomplete: true})
+	resp, err := r.env.PpsServer().ListPipelineNoAuth(ctx, &pps.ListPipelineRequest{AllowIncomplete: true})
 	if err == nil {
 		metrics.Pipelines = int64(len(resp.PipelineInfo)) // Number of pipelines
 		for _, pi := range resp.PipelineInfo {
@@ -356,7 +356,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 		log.Errorf("Error getting pipeline metrics: %v", err)
 	}
 
-	ris, err := r.env.PfsServer().ListRepo(ctx, &pfs.ListRepoRequest{})
+	ris, err := r.env.PfsServer().ListRepoNoAuth(ctx, &pfs.ListRepoRequest{})
 	if err == nil {
 		var sz, mbranch uint64 = 0, 0
 		for _, ri := range ris.RepoInfo {

@@ -117,6 +117,15 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	return repoInfos, err
 }
 
+// ListRepoNoAuth is an internal API for collecting metrics (not an RPC) which doesn't check auth
+func (a *apiServer) ListRepoNoAuth(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	repoInfos, err := a.driver.listRepo(a.env.GetPachClient(ctx), false)
+	return repoInfos, err
+}
+
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) DeleteRepoInTransaction(

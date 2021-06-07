@@ -186,6 +186,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
+		env.SetPfsServer(pfsAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -207,6 +208,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
+		env.SetPpsServer(ppsAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -250,6 +252,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+		env.SetEnterpriseServer(enterpriseAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -566,6 +569,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			pfsclient.RegisterAPIServer(internalServer.Server, pfsAPIServer)
+			env.SetPfsServer(pfsAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -599,6 +603,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			ppsclient.RegisterAPIServer(internalServer.Server, ppsAPIServer)
+			env.SetPpsServer(ppsAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -642,6 +647,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
