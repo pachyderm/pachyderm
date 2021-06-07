@@ -254,8 +254,10 @@ func (t *appendTransaction) DeleteRoleBinding(original *auth.Resource) error {
 // transaction is present in the RPC context.  If an active transaction is
 // present, any calls into the Transaction are first dry-run then appended
 // to the transaction.  If there is no active transaction, the request will be
-// run directly through the selected server.
-func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transaction) error) error {
+// run directly through the selected server.  A second callback may be provided
+// to override the generated transaction ID in the case that an existing
+// transaction is not being used.
+func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transaction) error, overrideID func(*txncontext.TransactionContext) (string, error)) error {
 	activeTxn, err := client.GetTransaction(ctx)
 	if err != nil {
 		return err
@@ -268,6 +270,16 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 
 	return env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		directTxn := NewDirectTransaction(env, txnCtx)
+		if overrideID != nil {
+			id, err := overrideID(txnCtx)
+			if err != nil {
+				return err
+			}
+			if id != "" {
+				txnCtx.CommitsetID = id
+			}
+		}
+
 		return cb(directTxn)
 	})
 }

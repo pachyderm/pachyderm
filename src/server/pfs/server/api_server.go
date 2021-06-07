@@ -86,7 +86,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.CreateRepo(request)
-	}); err != nil {
+	}, nil); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -143,7 +143,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.DeleteRepo(request)
-	}); err != nil {
+	}, nil); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -164,7 +164,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	if err = a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		commit, err = txn.StartCommit(request)
 		return err
-	}); err != nil {
+	}, nil); err != nil {
 		return nil, err
 	}
 	return commit, nil
@@ -185,7 +185,9 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionCont
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.FinishCommit(request)
+	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
 		// FinishCommit in a transaction by itself has special handling with regards
 		// to its Commitset ID.  It is possible that this transaction will create
 		// new commits via triggers, but we want those commits to be associated with
@@ -194,10 +196,9 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 		// same commit.
 		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
 		if err != nil {
-			return err
+			return "", err
 		}
-		txnCtx.CommitsetID = commitInfo.Commit.ID
-		return a.FinishCommitInTransaction(txnCtx, request)
+		return commitInfo.Commit.ID, nil
 	}); err != nil {
 		return nil, err
 	}
@@ -257,7 +258,7 @@ func (a *apiServer) SquashCommitset(ctx context.Context, request *pfs.SquashComm
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.SquashCommitset(request)
-	}); err != nil {
+	}, nil); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -287,7 +288,12 @@ func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionCont
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.CreateBranch(request)
+	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
+		if request.Head == nil || request.NewCommitset {
+			return "", nil
+		}
 		// CreateBranch in a transaction by itself has special handling with regards
 		// to its Commitset ID.  In order to better support a 'deferred processing'
 		// workflow with global IDs, it is useful for moving a branch head to be
@@ -297,14 +303,12 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 		// propagateBranches will update the existing Commitset structure.  As an
 		// escape hatch in case of an unexpected workload, this behavior can be
 		// overridden by setting NewCommitset=true in the request.
-		if request.Head != nil && !request.NewCommitset {
-			commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Head)
-			if err != nil {
-				return err
-			}
-			txnCtx.CommitsetID = commitInfo.Commit.ID
+		// if request.Head != nil && !request.NewCommitset {
+		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Head)
+		if err != nil {
+			return "", err
 		}
-		return a.CreateBranchInTransaction(txnCtx, request)
+		return commitInfo.Commit.ID, nil
 	}); err != nil {
 		return nil, err
 	}
@@ -353,7 +357,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.DeleteBranch(request)
-	}); err != nil {
+	}, nil); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

@@ -892,7 +892,7 @@ func (a *apiServer) StopJobInTransaction(txnCtx *txncontext.TransactionContext, 
 func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job, reason string) error {
 	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
 	if job == nil {
-		return errors.New("Job or must be specified")
+		return errors.New("Job must be specified")
 	}
 
 	jobInfo := &pps.StoredJobInfo{}
@@ -1742,7 +1742,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	prevPipelineVersion := uint64(0)
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.CreatePipeline(request, &filesetID, &prevPipelineVersion)
-	}); err != nil {
+	}, nil); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
