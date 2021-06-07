@@ -145,13 +145,13 @@ commands will let you view it easily:
 * on macOS prior to Catalina, run:
 
     ```
-    pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
+    pachctl get file images@master:liberty.png | open -f -a Preview.app
     ```
 
 * on macOS Catalina, run:
 
     ```
-    pachctl get file images@master:liberty.png | open -f -a /System/Applications/Preview.app
+    pachctl get file images@master:liberty.png | open -f -a Preview.app
     ```
 
 * on Linux 64-bit, run:
@@ -306,13 +306,13 @@ that we viewed the input data.
 * On macOS prior to Catalina, run:
 
    ```
-   pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
+   pachctl get file edges@master:liberty.png | open -f -a Preview.app
    ```
 
 * On macOS Catalina, run:
 
    ```
-   pachctl get file edges@master:liberty.png | open -f -a /System/Applications/Preview.app
+   pachctl get file edges@master:liberty.png | open -f -a Preview.app
    ```
 
 * On Linux 64-bit, run:
@@ -368,8 +368,8 @@ View the output data
 * On macOS, run:
 
   ```shell
-  pachctl get file edges@master:AT-AT.png | open -f -a /Applications/Preview.app
-  pachctl get file edges@master:kitten.png | open -f -a /Applications/Preview.app
+  pachctl get file edges@master:AT-AT.png | open -f -a Preview.app
+  pachctl get file edges@master:kitten.png | open -f -a Preview.app
   ```
 
 * On Linux, run:
@@ -468,14 +468,14 @@ the following commands:
 * On macOS prior to Catalina, run:
 
    ```
-   pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
+   pachctl get file montage@master:montage.png | open -f -a Preview.app
    ```
 
 
 * On macOS Catalina, run:
 
    ```
-   pachctl get file montage@master:montage.png | open -f -a /System/Applications/Preview.app
+   pachctl get file montage@master:montage.png | open -f -a Preview.app
    ```
 
 
