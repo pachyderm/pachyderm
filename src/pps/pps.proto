@@ -619,6 +619,10 @@ message ChunkSpec {
   // Chunks may be larger or smaller than size_bytes, but will usually be
   // pretty close to size_bytes in size.
   int64 size_bytes = 2;
+
+  // chunks_per_worker, if nonzero, specifies how many chunks should be created
+  // for each worker. It can't be set with number or size_bytes.
+  int64 chunks_per_worker = 3;
 }
 
 message SchedulingSpec {
