@@ -199,109 +199,6 @@ class GCPDriver(BaseDriver):
         return ["google", self.object_storage_name, "32", "--dynamic-etcd-nodes=1", "--image-pull-secret=regcred",
             f"--registry=gcr.io/{self.project_id}"]
 
-class HubApiError(Exception):
-    def __init__(self, errors):
-        def get_message(error):
-            try:
-                return f"{error['title']}: {error['detail']}"
-            except KeyError:
-                return json.dumps(error)
-
-        if len(errors) > 1:
-            message = ["multiple errors:"]
-            for error in errors:
-                message.append(f"- {get_message(error)}")
-            message = "\n".join(message)
-        else:
-            message = get_message(errors[0])
-
-        super().__init__(message)
-        self.errors = errors
-
-class HubDriver:
-    def __init__(self, api_key, org_id, cluster_name):
-        self.api_key = api_key
-        self.org_id = org_id
-        self.cluster_name = cluster_name
-        self.old_cluster_names = []
-
-    def request(self, method, endpoint, body=None):
-        headers = {
-            "Authorization": f"Api-Key {self.api_key}",
-        }
-        if body is not None:
-            body = json.dumps({
-                "data": {
-                    "attributes": body,
-                }
-            })
-
-        conn = http.client.HTTPSConnection(f"hub.pachyderm.com")
-        conn.request(method, f"/api/v1{endpoint}", headers=headers, body=body)
-        response = conn.getresponse()
-        j = json.load(response)
-
-        if "errors" in j:
-            raise HubApiError(j["errors"])
-        
-        return j["data"]
-
-    async def push_image(self, src):
-        dst = src.replace(":local", ":" + (await get_client_version()))
-        await run("docker", "tag", src, dst)
-        await run("docker", "push", dst)
-
-    async def reset(self):
-        if self.cluster_name is None:
-            return
-
-        for pach in self.request("GET", f"/organizations/{self.org_id}/pachs?limit=100"):
-            if pach["attributes"]["name"].startswith(f"{self.cluster_name}-"):
-                self.request("DELETE", f"/organizations/{self.org_id}/pachs/{pach['id']}")
-                self.old_cluster_names.append(pach["attributes"]["name"])
-
-    async def deploy(self, dash, ide, builder_images):
-        if ide:
-            raise Exception("cannot deploy IDE in hub")
-        if len(builder_images):
-            raise Exception("cannot deploy builder images")
-
-        await asyncio.gather(
-            self.push_image("pachyderm/pachd:local"),
-            self.push_image("pachyderm/worker:local"),
-        )
-
-        response = self.request("POST", f"/organizations/{self.org_id}/pachs", body={
-            "name": self.cluster_name or "sandbox",
-            "pachVersion": await get_client_version(),
-        })
-
-        cluster_name = response["attributes"]["name"]
-        gke_name = response["attributes"]["gkeName"]
-        pach_id = response["id"]
-
-        await run("pachctl", "config", "set", "context", cluster_name, stdin=json.dumps({
-            "source": 2,
-            "pachd_address": f"grpcs://{gke_name}.clusters.pachyderm.io:31400",
-        }))
-
-        await run("pachctl", "config", "set", "active-context", cluster_name)
-
-        # hack-ey way to clean up the old contexts, now that the active
-        # context has been swapped to the new cluster
-        await asyncio.gather(*[
-            run("pachctl", "config", "delete", "context", n, raise_on_error=False) for n in self.old_cluster_names
-        ])
-
-        await retry(ping, attempts=100)
-
-        async def get_otp():
-            response = self.request("GET", f"/organizations/{self.org_id}/pachs/{pach_id}/otps")
-            return response["attributes"]["otp"]
-        otp = await retry(get_otp, sleep=5)
-
-        await run("pachctl", "auth", "login", "--one-time-password", stdin=f"{otp}\n")
-
 async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None, cwd=None):
     print_status("running: `{} {}`".format(cmd, " ".join(args)))
 
@@ -418,11 +315,6 @@ async def main():
         target_parts = args.target.split(":", maxsplit=1)
         cluster_name = target_parts[1] if len(target_parts) == 2 else None
         driver = GCPDriver(project_id, cluster_name)
-    elif args.target.startswith("hub"):
-        print_status("using the hub driver")
-        target_parts = args.target.split(":", maxsplit=1)
-        cluster_name = target_parts[1] if len(target_parts) == 2 else None
-        driver = HubDriver(os.environ["PACH_HUB_API_KEY"], os.environ["PACH_HUB_ORG_ID"], cluster_name)
     else:
         raise Exception(f"unknown target: {args.target}")
 
