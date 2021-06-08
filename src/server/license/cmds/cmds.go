@@ -6,7 +6,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -22,18 +21,6 @@ func newClient() (*client.APIClient, error) {
 	}
 	fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 	return c, nil
-}
-
-func getIsActiveContextEnterpriseServer() (bool, error) {
-	cfg, err := config.Read(false, true)
-	if err != nil {
-		return false, errors.Wrapf(err, "could not read config")
-	}
-	_, ctx, err := cfg.ActiveEnterpriseContext(true)
-	if err != nil {
-		return false, errors.Wrapf(err, "could not retrieve the enterprise context from the config")
-	}
-	return ctx.EnterpriseServer, nil
 }
 
 // ActivateCmd returns a cobra.Command to activate the license service,
@@ -77,12 +64,6 @@ func ActivateCmd() *cobra.Command {
 				return errors.Wrapf(inspectErr, "could not inspect cluster")
 			}
 
-			// inspect the active context to determine whether its pointing at an enterprise server
-			enterpriseServer, err := getIsActiveContextEnterpriseServer()
-			if err != nil {
-				return err
-			}
-
 			// Register the localhost as a cluster
 			resp, err := c.License.AddCluster(c.Ctx(),
 				&license.AddClusterRequest{
@@ -90,7 +71,7 @@ func ActivateCmd() *cobra.Command {
 					Address:             "grpc://localhost:653",
 					UserAddress:         "grpc://localhost:653",
 					ClusterDeploymentId: clusterInfo.DeploymentID,
-					EnterpriseServer:    enterpriseServer,
+					EnterpriseServer:    true,
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not register pachd with the license service")
