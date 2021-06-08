@@ -2,38 +2,36 @@ import {Chip, ChipGroup} from '@pachyderm/components';
 import React from 'react';
 
 import readableJobState from '@dash-frontend/lib/readableJobState';
-import {PipelineJobsQuery, PipelineJobState} from '@graphqlTypes';
+import {JobsQuery, JobState} from '@graphqlTypes';
 
-import {PipelineJobFilters} from '../../hooks/useJobList';
+import {JobFilters} from '../../hooks/useJobList';
 
 import useJobListStatusFilter from './hooks/useJobListStatusFilter';
 import styles from './JobListStatusFilter.module.css';
 
-export const jobStates = Object.values(PipelineJobState).map((state) => ({
+export const jobStates = Object.values(JobState).map((state) => ({
   label: readableJobState(state),
   value: state,
 }));
 
 interface JobListStatusFilterProps {
-  pipelineJobs: PipelineJobsQuery['pipelineJobs'];
-  selectedFilters: PipelineJobFilters;
+  jobs: JobsQuery['jobs'];
+  selectedFilters: JobFilters;
 }
 
 const JobListStatusFilter: React.FC<JobListStatusFilterProps> = ({
-  pipelineJobs,
+  jobs,
   selectedFilters,
 }) => {
   const {stateCounts, onChipClick} = useJobListStatusFilter(
-    pipelineJobs,
+    jobs,
     selectedFilters,
   );
 
   return (
     <div className={styles.base}>
       <p className={styles.label}>
-        {pipelineJobs.length === 1
-          ? `Last Job`
-          : `Last ${pipelineJobs.length} Jobs`}
+        {jobs.length === 1 ? `Last Job` : `Last ${jobs.length} Jobs`}
       </p>
 
       <ChipGroup>

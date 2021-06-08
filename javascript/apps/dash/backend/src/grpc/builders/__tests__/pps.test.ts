@@ -3,7 +3,6 @@ import {
   chunkSpecFromObject,
   cronInputFromObject,
   egressFromObject,
-  gitInputFromObject,
   gpuSpecFromObject,
   inputFromObject,
   parallelismSpecFromObject,
@@ -17,8 +16,8 @@ import {
   spoutFromObject,
   tfJobFromObject,
   transformFromObject,
-  pipelineJobInfoFromObject,
-  pipelineJobFromObject,
+  jobInfoFromObject,
+  jobFromObject,
 } from '@dash-backend/grpc/builders/pps';
 
 describe('grpc/builders/pps', () => {
@@ -276,38 +275,6 @@ describe('grpc/builders/pps', () => {
     expect(cronInput.getStart()?.getNanos()).toBe(344218476);
   });
 
-  it('should create GitInput from an object', () => {
-    const gitInput = gitInputFromObject({
-      name: 'images',
-      url: 'https://github.com/pachyderm/pachyderm.git',
-      branch: 'master',
-      commit: 'uweioruwejrij098w0e9r809we',
-    });
-
-    expect(gitInput.getName()).toBe('images');
-    expect(gitInput.getUrl()).toBe(
-      'https://github.com/pachyderm/pachyderm.git',
-    );
-    expect(gitInput.getBranch()).toBe('master');
-    expect(gitInput.getCommit()).toBe('uweioruwejrij098w0e9r809we');
-  });
-
-  it('should create GitInput from an object', () => {
-    const gitInput = gitInputFromObject({
-      name: 'images',
-      url: 'https://github.com/pachyderm/pachyderm.git',
-      branch: 'master',
-      commit: 'uweioruwejrij098w0e9r809we',
-    });
-
-    expect(gitInput.getName()).toBe('images');
-    expect(gitInput.getUrl()).toBe(
-      'https://github.com/pachyderm/pachyderm.git',
-    );
-    expect(gitInput.getBranch()).toBe('master');
-    expect(gitInput.getCommit()).toBe('uweioruwejrij098w0e9r809we');
-  });
-
   it('should create Input from an object', () => {
     const input = inputFromObject({
       pfs: {
@@ -359,17 +326,10 @@ describe('grpc/builders/pps', () => {
         spec: '*/10 * * * *',
         overwrite: true,
       },
-      git: {
-        name: 'imagesGit',
-        url: 'https://github.com/pachyderm/pachyderm.git',
-        branch: 'master',
-        commit: 'uweioruwejrij098w0e9r809we',
-      },
     });
 
     expect(input.getPfs()?.getName()).toBe('imagesPfs');
     expect(input.getCron()?.getName()).toBe('imagesCron');
-    expect(input.getGit()?.getName()).toBe('imagesGit');
 
     expect(input.getJoinList()[0]?.getPfs()?.getName()).toBe('joinList');
     expect(input.getGroupList()[0]?.getPfs()?.getName()).toBe('groupList');
@@ -450,9 +410,7 @@ describe('grpc/builders/pps', () => {
     expect(pipelineInfo.getChunkSpec()).toBe(undefined);
     expect(pipelineInfo.getDatumTimeout()).toBe(undefined);
     expect(pipelineInfo.getJobTimeout()).toBe(undefined);
-    expect(pipelineInfo.getGithookUrl()).toBe('');
     expect(pipelineInfo.getSpecCommit()).toBe(undefined);
-    expect(pipelineInfo.getGithookUrl()).toBe('');
     expect(pipelineInfo.getDatumTries()).toBe(0);
     expect(pipelineInfo.getPodSpec()).toBe('');
     expect(pipelineInfo.getPodPatch()).toBe('');
@@ -545,7 +503,6 @@ describe('grpc/builders/pps', () => {
         seconds: 564645,
         nanos: 867867,
       },
-      githookUrl: 'https://github.com/pachyderm/pachyderm.git',
       specCommit: {
         branch: {name: '', repo: {name: '__spec__'}},
         id: '4af40d34a0384f23a5b98d3bd7eaece1',
@@ -584,9 +541,6 @@ describe('grpc/builders/pps', () => {
     expect(pipelineInfo.getChunkSpec()?.getNumber()).toBe(123);
     expect(pipelineInfo.getDatumTimeout()?.getSeconds()).toBe(23424);
     expect(pipelineInfo.getJobTimeout()?.getSeconds()).toBe(564645);
-    expect(pipelineInfo.getGithookUrl()).toBe(
-      'https://github.com/pachyderm/pachyderm.git',
-    );
     expect(pipelineInfo.getSpecCommit()?.getId()).toBe(
       '4af40d34a0384f23a5b98d3bd7eaece1',
     );
@@ -622,15 +576,15 @@ describe('grpc/builders/pps', () => {
 });
 
 it('should create PipelineJob from an object', () => {
-  const pipelineJob = pipelineJobFromObject({id: '23efw4ef098few0'});
+  const pipelineJob = jobFromObject({id: '23efw4ef098few0'});
 
   expect(pipelineJob.getId()).toBe('23efw4ef098few0');
 });
 
 it('should create JobInfo from an object', () => {
-  const pipelineJob = pipelineJobInfoFromObject({
+  const pipelineJob = jobInfoFromObject({
     state: 1,
-    pipelineJob: {id: '1'},
+    job: {id: '1'},
     createdAt: {
       seconds: 564645,
       nanos: 0,
@@ -640,6 +594,6 @@ it('should create JobInfo from an object', () => {
 
   expect(pipelineJob.getState()).toBe(1);
   expect(pipelineJob.getStarted()?.getSeconds()).toBe(564645);
-  expect(pipelineJob.getPipelineJob()?.getId()).toBe('1');
+  expect(pipelineJob.getJob()?.getId()).toBe('1');
   expect(pipelineJob.getPipeline()?.getName()).toBe('montage');
 });

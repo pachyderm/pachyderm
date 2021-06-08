@@ -44,7 +44,7 @@ enum PipelineState {
 }
 
 # This enum is replaced with the one from pps on type generation
-enum PipelineJobState {
+enum JobState {
   JOB_STARTING
   JOB_RUNNING
   JOB_FAILURE
@@ -94,7 +94,7 @@ type Pipeline {
   numOfJobsSucceeding: Int!
   numOfJobsKilled: Int!
   numOfJobsEgressing: Int!
-  lastJobState: PipelineJobState
+  lastJobState: JobState
   description: String
   type: PipelineType!
   transform: Transform
@@ -147,11 +147,11 @@ type Pach {
   id: ID!
 }
 
-type PipelineJob {
+type Job {
   id: ID!
   createdAt: Int!
   finishedAt: Int
-  state: PipelineJobState!
+  state: JobState!
   pipelineName: String!
   transform: Transform
   inputString: String
@@ -187,7 +187,7 @@ type Link {
   sourceState: PipelineState
   targetState: PipelineState
   target: String!
-  state: PipelineJobState
+  state: JobState
   bendPoints: [PointCoordinates!]!
   startPoint: PointCoordinates!
   endPoint: PointCoordinates!
@@ -214,7 +214,7 @@ enum DagDirection {
   RIGHT
 }
 
-input PipelineJobsQueryArgs {
+input JobsQueryArgs {
   projectId: ID!
   limit: Int
   pipelineId: String
@@ -233,7 +233,7 @@ type ProjectDetails {
   pipelineCount: Int!
   sizeBytes: Float!
   sizeDisplay: String!
-  jobs: [PipelineJob!]!
+  jobs: [Job!]!
 }
 
 enum FileType {
@@ -286,7 +286,7 @@ type Account {
 type SearchResults {
   pipelines: [Pipeline!]!
   repos: [Repo!]!
-  job: PipelineJob
+  job: Job
 }
 
 type AuthConfig {
@@ -317,7 +317,7 @@ type Query {
   pipeline(args: PipelineQueryArgs!): Pipeline!
   repo(args: RepoQueryArgs!): Repo!
   projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
-  pipelineJobs(args: PipelineJobsQueryArgs!): [PipelineJob!]!
+  jobs(args: JobsQueryArgs!): [Job!]!
   dag(args: DagQueryArgs!): Dag!
   files(args: FileQueryArgs!): [File!]!
   account: Account!

@@ -1,4 +1,4 @@
-import {PipelineJob, PipelineJobState} from '@graphqlTypes';
+import {Job, JobState} from '@graphqlTypes';
 
 const inputString = JSON.stringify(
   {
@@ -16,7 +16,7 @@ const inputString = JSON.stringify(
 
 const inputBranch = 'master';
 
-const transform: PipelineJob['transform'] = {
+const transform: Job['transform'] = {
   image: 'pachyderm/opencv',
   cmdList: ['python3', '/edges.py'],
 };
@@ -24,11 +24,11 @@ const transform: PipelineJob['transform'] = {
 const createdAt = 1622467490;
 const finishedAt = 1622468200;
 
-const pipelineJobs: PipelineJob[] = [
+const pipelineJobs: Job[] = [
   {
     id: '0',
     pipelineName: 'split',
-    state: PipelineJobState.JOB_FAILURE,
+    state: JobState.JOB_FAILURE,
     inputString,
     inputBranch,
     transform,
@@ -38,7 +38,7 @@ const pipelineJobs: PipelineJob[] = [
   {
     id: '1',
     pipelineName: 'model',
-    state: PipelineJobState.JOB_SUCCESS,
+    state: JobState.JOB_SUCCESS,
     inputString,
     inputBranch,
     transform,
@@ -48,7 +48,7 @@ const pipelineJobs: PipelineJob[] = [
   {
     id: '2',
     pipelineName: 'test',
-    state: PipelineJobState.JOB_SUCCESS,
+    state: JobState.JOB_SUCCESS,
     inputString,
     inputBranch,
     transform,
@@ -58,7 +58,7 @@ const pipelineJobs: PipelineJob[] = [
   {
     id: '3',
     pipelineName: 'detect',
-    state: PipelineJobState.JOB_SUCCESS,
+    state: JobState.JOB_SUCCESS,
     inputString,
     inputBranch,
     transform,
@@ -68,7 +68,7 @@ const pipelineJobs: PipelineJob[] = [
   {
     id: '4',
     pipelineName: 'select',
-    state: PipelineJobState.JOB_SUCCESS,
+    state: JobState.JOB_SUCCESS,
     inputString,
     inputBranch,
     transform,

@@ -35,10 +35,10 @@ To switch between mock accounts, you can use our devtools in the JS console of t
 ### Using 2.0 Pachyderm Cluster 🚧
 This feature is still under development, and will likely change.
 
-1. Ensure that your cluster is deployed with `2.0.0-alpha.19` or later. Users of brew can install with `brew install pachyderm/tap/pachctl@2.0`.
+1. Ensure that your cluster is deployed with `2.0.0-alpha.20` or later. Users of brew can install with `brew install pachyderm/tap/pachctl@2.0`.
 1. [Deploy a pachyderm cluster locally](https://docs.pachyderm.com/latest/getting_started/local_installation/), or create a workspace using Hub.
 1. [Create a Github OAuth app](https://docs.github.com/en/developers/apps/creating-an-oauth-app). For local clusters, set your callback url to `http://localhost:30658/callback`. Make sure to save the secret key, you'll need it for the next step.
-1. Generate an enterprise key for the next step: https://enterprise-token-gen.pachyderm.io/dev. For Mac OS users, `echo '<your-enterprise-token-here>' | pachctl enterprise activate`.
+1. Generate an enterprise key for the next step: https://enterprise-token-gen.pachyderm.io/dev. For Mac OS users, `echo '<your-enterprise-token-here>' | pachctl license activate`.
 1. Run `make setup-auth`. This will walk you through the setup for your local cluster.
 1. Run `pachctl port-forward`
 1. (Optional) Use `pachctl auth login` to login via Github. If you opt not to do this, you will continue as the root user when creating resources.

@@ -1,16 +1,12 @@
 import {RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
-import {
-  PipelineJobInfo,
-  PipelineJobState,
-  PipelineInfo,
-} from '@pachyderm/proto/pb/pps/pps_pb';
+import {JobInfo, JobState, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
 import fromPairs from 'lodash/fromPairs';
 
 import {
-  toGQLPipelineJobState,
+  toGQLJobState,
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
-import {PipelineJob, Pipeline, PipelineType} from '@graphqlTypes';
+import {Job, Pipeline, PipelineType} from '@graphqlTypes';
 
 const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
   if (pipelineInfo.service) {
@@ -40,13 +36,13 @@ export const pipelineInfoToGQLPipeline = (
     state: toGQLPipelineState(pipelineInfo.state),
     stopped: pipelineInfo.stopped,
     recentError: pipelineInfo.recentError,
-    numOfJobsStarting: jobStates[PipelineJobState.JOB_STARTING] || 0,
-    numOfJobsRunning: jobStates[PipelineJobState.JOB_RUNNING] || 0,
-    numOfJobsFailing: jobStates[PipelineJobState.JOB_FAILURE] || 0,
-    numOfJobsSucceeding: jobStates[PipelineJobState.JOB_SUCCESS] || 0,
-    numOfJobsKilled: jobStates[PipelineJobState.JOB_KILLED] || 0,
-    numOfJobsEgressing: jobStates[PipelineJobState.JOB_EGRESSING] || 0,
-    lastJobState: toGQLPipelineJobState(pipelineInfo.lastJobState),
+    numOfJobsStarting: jobStates[JobState.JOB_STARTING] || 0,
+    numOfJobsRunning: jobStates[JobState.JOB_RUNNING] || 0,
+    numOfJobsFailing: jobStates[JobState.JOB_FAILURE] || 0,
+    numOfJobsSucceeding: jobStates[JobState.JOB_SUCCESS] || 0,
+    numOfJobsKilled: jobStates[JobState.JOB_KILLED] || 0,
+    numOfJobsEgressing: jobStates[JobState.JOB_EGRESSING] || 0,
+    lastJobState: toGQLJobState(pipelineInfo.lastJobState),
     type: derivePipelineType(pipelineInfo),
     transform: pipelineInfo.transform,
     inputString: JSON.stringify(pipelineInfo.input, null, 2),
@@ -75,12 +71,10 @@ export const pipelineInfoToGQLPipeline = (
   };
 };
 
-export const jobInfoToGQLJob = (
-  jobInfo: PipelineJobInfo.AsObject,
-): PipelineJob => {
+export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
   return {
-    id: jobInfo.pipelineJob?.id || '',
-    state: toGQLPipelineJobState(jobInfo.state),
+    id: jobInfo.job?.id || '',
+    state: toGQLJobState(jobInfo.state),
     createdAt: jobInfo.started?.seconds || 0,
     finishedAt: jobInfo.finished?.seconds,
     pipelineName: jobInfo.pipeline?.name || '',

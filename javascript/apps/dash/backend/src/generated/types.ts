@@ -140,6 +140,33 @@ export enum InputType {
   GIT = 'GIT',
 }
 
+export type Job = {
+  __typename?: 'Job';
+  id: Scalars['ID'];
+  createdAt: Scalars['Int'];
+  finishedAt?: Maybe<Scalars['Int']>;
+  state: JobState;
+  pipelineName: Scalars['String'];
+  transform?: Maybe<Transform>;
+  inputString?: Maybe<Scalars['String']>;
+  inputBranch?: Maybe<Scalars['String']>;
+};
+
+export enum JobState {
+  JOB_STARTING = 'JOB_STARTING',
+  JOB_RUNNING = 'JOB_RUNNING',
+  JOB_FAILURE = 'JOB_FAILURE',
+  JOB_SUCCESS = 'JOB_SUCCESS',
+  JOB_KILLED = 'JOB_KILLED',
+  JOB_EGRESSING = 'JOB_EGRESSING',
+}
+
+export type JobsQueryArgs = {
+  projectId: Scalars['ID'];
+  limit?: Maybe<Scalars['Int']>;
+  pipelineId?: Maybe<Scalars['String']>;
+};
+
 export type Link = {
   __typename?: 'Link';
   id: Scalars['ID'];
@@ -147,7 +174,7 @@ export type Link = {
   sourceState?: Maybe<PipelineState>;
   targetState?: Maybe<PipelineState>;
   target: Scalars['String'];
-  state?: Maybe<PipelineJobState>;
+  state?: Maybe<JobState>;
   bendPoints: Array<PointCoordinates>;
   startPoint: PointCoordinates;
   endPoint: PointCoordinates;
@@ -212,7 +239,7 @@ export type Pipeline = {
   numOfJobsSucceeding: Scalars['Int'];
   numOfJobsKilled: Scalars['Int'];
   numOfJobsEgressing: Scalars['Int'];
-  lastJobState?: Maybe<PipelineJobState>;
+  lastJobState?: Maybe<JobState>;
   description?: Maybe<Scalars['String']>;
   type: PipelineType;
   transform?: Maybe<Transform>;
@@ -226,33 +253,6 @@ export type Pipeline = {
   s3OutputRepo?: Maybe<Scalars['String']>;
   egress: Scalars['Boolean'];
   schedulingSpec?: Maybe<SchedulingSpec>;
-};
-
-export type PipelineJob = {
-  __typename?: 'PipelineJob';
-  id: Scalars['ID'];
-  createdAt: Scalars['Int'];
-  finishedAt?: Maybe<Scalars['Int']>;
-  state: PipelineJobState;
-  pipelineName: Scalars['String'];
-  transform?: Maybe<Transform>;
-  inputString?: Maybe<Scalars['String']>;
-  inputBranch?: Maybe<Scalars['String']>;
-};
-
-export enum PipelineJobState {
-  JOB_STARTING = 'JOB_STARTING',
-  JOB_RUNNING = 'JOB_RUNNING',
-  JOB_FAILURE = 'JOB_FAILURE',
-  JOB_SUCCESS = 'JOB_SUCCESS',
-  JOB_KILLED = 'JOB_KILLED',
-  JOB_EGRESSING = 'JOB_EGRESSING',
-}
-
-export type PipelineJobsQueryArgs = {
-  projectId: Scalars['ID'];
-  limit?: Maybe<Scalars['Int']>;
-  pipelineId?: Maybe<Scalars['String']>;
 };
 
 export type PipelineQueryArgs = {
@@ -297,7 +297,7 @@ export type ProjectDetails = {
   pipelineCount: Scalars['Int'];
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
-  jobs: Array<PipelineJob>;
+  jobs: Array<Job>;
 };
 
 export type ProjectDetailsQueryArgs = {
@@ -316,9 +316,9 @@ export type Query = {
   authConfig: AuthConfig;
   dag: Dag;
   files: Array<File>;
+  jobs: Array<Job>;
   loggedIn: Scalars['Boolean'];
   pipeline: Pipeline;
-  pipelineJobs: Array<PipelineJob>;
   project: Project;
   projectDetails: ProjectDetails;
   projects: Array<Project>;
@@ -334,12 +334,12 @@ export type QueryFilesArgs = {
   args: FileQueryArgs;
 };
 
-export type QueryPipelineArgs = {
-  args: PipelineQueryArgs;
+export type QueryJobsArgs = {
+  args: JobsQueryArgs;
 };
 
-export type QueryPipelineJobsArgs = {
-  args: PipelineJobsQueryArgs;
+export type QueryPipelineArgs = {
+  args: PipelineQueryArgs;
 };
 
 export type QueryProjectArgs = {
@@ -392,7 +392,7 @@ export type SearchResults = {
   __typename?: 'SearchResults';
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
-  job?: Maybe<PipelineJob>;
+  job?: Maybe<Job>;
 };
 
 export type Subscription = {
@@ -561,6 +561,9 @@ export type ResolversTypes = ResolversObject<{
   Input: ResolverTypeWrapper<Input>;
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
   InputType: InputType;
+  Job: ResolverTypeWrapper<Job>;
+  JobState: JobState;
+  JobsQueryArgs: JobsQueryArgs;
   Link: ResolverTypeWrapper<Link>;
   Mutation: ResolverTypeWrapper<{}>;
   Node: ResolverTypeWrapper<Node>;
@@ -569,9 +572,6 @@ export type ResolversTypes = ResolversObject<{
   PFSInput: ResolverTypeWrapper<PfsInput>;
   Pach: ResolverTypeWrapper<Pach>;
   Pipeline: ResolverTypeWrapper<Pipeline>;
-  PipelineJob: ResolverTypeWrapper<PipelineJob>;
-  PipelineJobState: PipelineJobState;
-  PipelineJobsQueryArgs: PipelineJobsQueryArgs;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelineState: PipelineState;
   PipelineType: PipelineType;
@@ -611,6 +611,8 @@ export type ResolversParentTypes = ResolversObject<{
   GitInput: GitInput;
   Input: Input;
   InputPipeline: InputPipeline;
+  Job: Job;
+  JobsQueryArgs: JobsQueryArgs;
   Link: Link;
   Mutation: {};
   Node: Node;
@@ -618,8 +620,6 @@ export type ResolversParentTypes = ResolversObject<{
   PFSInput: PfsInput;
   Pach: Pach;
   Pipeline: Pipeline;
-  PipelineJob: PipelineJob;
-  PipelineJobsQueryArgs: PipelineJobsQueryArgs;
   PipelineQueryArgs: PipelineQueryArgs;
   PointCoordinates: PointCoordinates;
   Project: Project;
@@ -789,6 +789,33 @@ export type InputPipelineResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type JobResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Job'] = ResolversParentTypes['Job'],
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  finishedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
+  pipelineName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  transform?: Resolver<
+    Maybe<ResolversTypes['Transform']>,
+    ParentType,
+    ContextType
+  >;
+  inputString?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  inputBranch?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type LinkResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Link'] = ResolversParentTypes['Link'],
@@ -806,11 +833,7 @@ export type LinkResolvers<
     ContextType
   >;
   target?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  state?: Resolver<
-    Maybe<ResolversTypes['PipelineJobState']>,
-    ParentType,
-    ContextType
-  >;
+  state?: Resolver<Maybe<ResolversTypes['JobState']>, ParentType, ContextType>;
   bendPoints?: Resolver<
     Array<ResolversTypes['PointCoordinates']>,
     ParentType,
@@ -912,7 +935,7 @@ export type PipelineResolvers<
   numOfJobsKilled?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   numOfJobsEgressing?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   lastJobState?: Resolver<
-    Maybe<ResolversTypes['PipelineJobState']>,
+    Maybe<ResolversTypes['JobState']>,
     ParentType,
     ContextType
   >;
@@ -952,33 +975,6 @@ export type PipelineResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type PipelineJobResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['PipelineJob'] = ResolversParentTypes['PipelineJob'],
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  finishedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  state?: Resolver<ResolversTypes['PipelineJobState'], ParentType, ContextType>;
-  pipelineName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  transform?: Resolver<
-    Maybe<ResolversTypes['Transform']>,
-    ParentType,
-    ContextType
-  >;
-  inputString?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
-  inputBranch?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
 export type PointCoordinatesResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['PointCoordinates'] = ResolversParentTypes['PointCoordinates'],
@@ -1008,11 +1004,7 @@ export type ProjectDetailsResolvers<
   pipelineCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  jobs?: Resolver<
-    Array<ResolversTypes['PipelineJob']>,
-    ParentType,
-    ContextType
-  >;
+  jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1034,18 +1026,18 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryFilesArgs, 'args'>
   >;
+  jobs?: Resolver<
+    Array<ResolversTypes['Job']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryJobsArgs, 'args'>
+  >;
   loggedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   pipeline?: Resolver<
     ResolversTypes['Pipeline'],
     ParentType,
     ContextType,
     RequireFields<QueryPipelineArgs, 'args'>
-  >;
-  pipelineJobs?: Resolver<
-    Array<ResolversTypes['PipelineJob']>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryPipelineJobsArgs, 'args'>
   >;
   project?: Resolver<
     ResolversTypes['Project'],
@@ -1125,7 +1117,7 @@ export type SearchResultsResolvers<
     ContextType
   >;
   repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
-  job?: Resolver<Maybe<ResolversTypes['PipelineJob']>, ParentType, ContextType>;
+  job?: Resolver<Maybe<ResolversTypes['Job']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1180,6 +1172,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   GitInput?: GitInputResolvers<ContextType>;
   Input?: InputResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
+  Job?: JobResolvers<ContextType>;
   Link?: LinkResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   Node?: NodeResolvers<ContextType>;
@@ -1187,7 +1180,6 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   PFSInput?: PfsInputResolvers<ContextType>;
   Pach?: PachResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
-  PipelineJob?: PipelineJobResolvers<ContextType>;
   PointCoordinates?: PointCoordinatesResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
@@ -1207,8 +1199,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
  */
 export type IResolvers<ContextType = Context> = Resolvers<ContextType>;
 
-export type PipelineJobOverviewFragment = {__typename?: 'PipelineJob'} & Pick<
-  PipelineJob,
+export type JobOverviewFragment = {__typename?: 'Job'} & Pick<
+  Job,
   'id' | 'state' | 'createdAt' | 'finishedAt'
 >;
 
@@ -1340,26 +1332,26 @@ export type GetFilesQuery = {__typename?: 'Query'} & {
   >;
 };
 
-export type LoggedInQueryVariables = Exact<{[key: string]: never}>;
-
-export type LoggedInQuery = {__typename?: 'Query'} & Pick<Query, 'loggedIn'>;
-
-export type PipelineJobsQueryVariables = Exact<{
-  args: PipelineJobsQueryArgs;
+export type JobsQueryVariables = Exact<{
+  args: JobsQueryArgs;
 }>;
 
-export type PipelineJobsQuery = {__typename?: 'Query'} & {
-  pipelineJobs: Array<
-    {__typename?: 'PipelineJob'} & Pick<
-      PipelineJob,
+export type JobsQuery = {__typename?: 'Query'} & {
+  jobs: Array<
+    {__typename?: 'Job'} & Pick<
+      Job,
       'pipelineName' | 'inputString' | 'inputBranch'
     > & {
         transform?: Maybe<
           {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
         >;
-      } & PipelineJobOverviewFragment
+      } & JobOverviewFragment
   >;
 };
+
+export type LoggedInQueryVariables = Exact<{[key: string]: never}>;
+
+export type LoggedInQuery = {__typename?: 'Query'} & Pick<Query, 'loggedIn'>;
 
 export type PipelineQueryVariables = Exact<{
   args: PipelineQueryArgs;
@@ -1410,7 +1402,7 @@ export type ProjectDetailsQuery = {__typename?: 'Query'} & {
   projectDetails: {__typename?: 'ProjectDetails'} & Pick<
     ProjectDetails,
     'sizeDisplay' | 'repoCount' | 'pipelineCount'
-  > & {jobs: Array<{__typename?: 'PipelineJob'} & PipelineJobOverviewFragment>};
+  > & {jobs: Array<{__typename?: 'Job'} & JobOverviewFragment>};
 };
 
 export type ProjectQueryVariables = Exact<{
@@ -1469,6 +1461,6 @@ export type SearchResultsQuery = {__typename?: 'Query'} & {
   searchResults: {__typename?: 'SearchResults'} & {
     pipelines: Array<{__typename?: 'Pipeline'} & Pick<Pipeline, 'name' | 'id'>>;
     repos: Array<{__typename?: 'Repo'} & Pick<Repo, 'name' | 'id'>>;
-    job?: Maybe<{__typename?: 'PipelineJob'} & Pick<PipelineJob, 'id'>>;
+    job?: Maybe<{__typename?: 'Job'} & Pick<Job, 'id'>>;
   };
 };

@@ -1,16 +1,16 @@
 import {APIClient} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
 import {
-  ListPipelineJobRequest,
+  ListJobRequest,
   ListPipelineRequest,
   PipelineInfo,
-  PipelineJobInfo,
-  InspectPipelineJobRequest,
+  JobInfo,
+  InspectJobRequest,
   InspectPipelineRequest,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import {ServiceArgs} from '@dash-backend/lib/types';
 
-import {pipelineJobFromObject, pipelineFromObject} from '../builders/pps';
+import {jobFromObject, pipelineFromObject} from '../builders/pps';
 
 import {DEFAULT_JOBS_LIMIT} from './constants/pps';
 
@@ -37,15 +37,15 @@ const pps = ({
         );
       });
     },
-    // TODO: update name
+
     listJobs: ({limit = DEFAULT_JOBS_LIMIT, jq = ''} = {}) => {
-      const listJobRequest = new ListPipelineJobRequest().setJqfilter(jq);
-      const stream = client.listPipelineJob(listJobRequest, credentialMetadata);
+      const listJobRequest = new ListJobRequest().setJqfilter(jq);
+      const stream = client.listJob(listJobRequest, credentialMetadata);
 
-      return new Promise<PipelineJobInfo.AsObject[]>((resolve, reject) => {
-        const jobs: PipelineJobInfo.AsObject[] = [];
+      return new Promise<JobInfo.AsObject[]>((resolve, reject) => {
+        const jobs: JobInfo.AsObject[] = [];
 
-        stream.on('data', (chunk: PipelineJobInfo) => {
+        stream.on('data', (chunk: JobInfo) => {
           jobs.push(chunk.toObject());
           if (limit && jobs.length >= limit) {
             stream.destroy();
@@ -57,13 +57,10 @@ const pps = ({
       });
     },
 
-    // TODO: update name
     inspectJob: (id: string) => {
-      return new Promise<PipelineJobInfo.AsObject>((resolve, reject) => {
-        client.inspectPipelineJob(
-          new InspectPipelineJobRequest().setPipelineJob(
-            pipelineJobFromObject({id}),
-          ),
+      return new Promise<JobInfo.AsObject>((resolve, reject) => {
+        client.inspectJob(
+          new InspectJobRequest().setJob(jobFromObject({id})),
           credentialMetadata,
           (error, res) => {
             if (error) {

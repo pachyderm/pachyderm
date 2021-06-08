@@ -10,7 +10,7 @@ import objectHash from 'object-hash';
 
 import disconnectedComponents from '@dash-backend/lib/disconnectedComponents';
 import {
-  toGQLPipelineJobState,
+  toGQLJobState,
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
 import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
@@ -24,7 +24,7 @@ import {
   QueryResolvers,
   SubscriptionResolvers,
   DagDirection,
-  PipelineJobState,
+  JobState,
 } from '@graphqlTypes';
 
 interface DagResolver {
@@ -79,7 +79,7 @@ const deriveVertices = (
   const pipelineNodes = flatMap(pipelines, (p) => {
     const pipelineName = p.pipeline?.name || '';
     const state = toGQLPipelineState(p.state);
-    const jobState = toGQLPipelineJobState(p.lastJobState);
+    const jobState = toGQLJobState(p.lastJobState);
 
     const nodes: Vertex[] = [
       {
@@ -115,8 +115,8 @@ const deriveVertices = (
 
 interface DeriveTransferringStateOpts {
   targetNodeType: NodeType;
-  state?: PipelineJobState;
-  targetNodeState?: PipelineJobState;
+  state?: JobState;
+  targetNodeState?: JobState;
 }
 
 const deriveTransferringState = ({
@@ -128,9 +128,8 @@ const deriveTransferringState = ({
   // Because repos do not have a "state", we need to use the target node's state instead.
   return (
     (targetNodeType === NodeType.EGRESS &&
-      targetNodeState === PipelineJobState.JOB_EGRESSING) ||
-    (targetNodeType !== NodeType.EGRESS &&
-      state === PipelineJobState.JOB_RUNNING)
+      targetNodeState === JobState.JOB_EGRESSING) ||
+    (targetNodeType !== NodeType.EGRESS && state === JobState.JOB_RUNNING)
   );
 };
 

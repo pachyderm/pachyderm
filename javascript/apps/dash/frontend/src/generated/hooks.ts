@@ -5,8 +5,8 @@ import * as Apollo from '@apollo/client';
 
 import * as Types from '@graphqlTypes';
 const defaultOptions = {};
-export const PipelineJobOverviewFragmentDoc = gql`
-  fragment PipelineJobOverview on PipelineJob {
+export const JobOverviewFragmentDoc = gql`
+  fragment JobOverview on Job {
     id
     state
     createdAt
@@ -400,6 +400,68 @@ export type GetFilesQueryResult = Apollo.QueryResult<
   Types.GetFilesQuery,
   Types.GetFilesQueryVariables
 >;
+export const JobsDocument = gql`
+  query jobs($args: JobsQueryArgs!) {
+    jobs(args: $args) {
+      ...JobOverview
+      pipelineName
+      inputString
+      inputBranch
+      transform {
+        cmdList
+        image
+      }
+    }
+  }
+  ${JobOverviewFragmentDoc}
+`;
+
+/**
+ * __useJobsQuery__
+ *
+ * To run a query within a React component, call `useJobsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useJobsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useJobsQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useJobsQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.JobsQuery,
+    Types.JobsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.JobsQuery, Types.JobsQueryVariables>(
+    JobsDocument,
+    options,
+  );
+}
+export function useJobsLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.JobsQuery,
+    Types.JobsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<Types.JobsQuery, Types.JobsQueryVariables>(
+    JobsDocument,
+    options,
+  );
+}
+export type JobsQueryHookResult = ReturnType<typeof useJobsQuery>;
+export type JobsLazyQueryHookResult = ReturnType<typeof useJobsLazyQuery>;
+export type JobsQueryResult = Apollo.QueryResult<
+  Types.JobsQuery,
+  Types.JobsQueryVariables
+>;
 export const LoggedInDocument = gql`
   query loggedIn {
     loggedIn @client
@@ -452,72 +514,6 @@ export type LoggedInLazyQueryHookResult = ReturnType<
 export type LoggedInQueryResult = Apollo.QueryResult<
   Types.LoggedInQuery,
   Types.LoggedInQueryVariables
->;
-export const PipelineJobsDocument = gql`
-  query pipelineJobs($args: PipelineJobsQueryArgs!) {
-    pipelineJobs(args: $args) {
-      ...PipelineJobOverview
-      pipelineName
-      inputString
-      inputBranch
-      transform {
-        cmdList
-        image
-      }
-    }
-  }
-  ${PipelineJobOverviewFragmentDoc}
-`;
-
-/**
- * __usePipelineJobsQuery__
- *
- * To run a query within a React component, call `usePipelineJobsQuery` and pass it any options that fit your needs.
- * When your component renders, `usePipelineJobsQuery` returns an object from Apollo Client that contains loading, error, and data properties
- * you can use to render your UI.
- *
- * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
- *
- * @example
- * const { data, loading, error } = usePipelineJobsQuery({
- *   variables: {
- *      args: // value for 'args'
- *   },
- * });
- */
-export function usePipelineJobsQuery(
-  baseOptions: Apollo.QueryHookOptions<
-    Types.PipelineJobsQuery,
-    Types.PipelineJobsQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useQuery<
-    Types.PipelineJobsQuery,
-    Types.PipelineJobsQueryVariables
-  >(PipelineJobsDocument, options);
-}
-export function usePipelineJobsLazyQuery(
-  baseOptions?: Apollo.LazyQueryHookOptions<
-    Types.PipelineJobsQuery,
-    Types.PipelineJobsQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useLazyQuery<
-    Types.PipelineJobsQuery,
-    Types.PipelineJobsQueryVariables
-  >(PipelineJobsDocument, options);
-}
-export type PipelineJobsQueryHookResult = ReturnType<
-  typeof usePipelineJobsQuery
->;
-export type PipelineJobsLazyQueryHookResult = ReturnType<
-  typeof usePipelineJobsLazyQuery
->;
-export type PipelineJobsQueryResult = Apollo.QueryResult<
-  Types.PipelineJobsQuery,
-  Types.PipelineJobsQueryVariables
 >;
 export const PipelineDocument = gql`
   query pipeline($args: PipelineQueryArgs!) {
@@ -606,11 +602,11 @@ export const ProjectDetailsDocument = gql`
       repoCount
       pipelineCount
       jobs {
-        ...PipelineJobOverview
+        ...JobOverview
       }
     }
   }
-  ${PipelineJobOverviewFragmentDoc}
+  ${JobOverviewFragmentDoc}
 `;
 
 /**

@@ -86,7 +86,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
           </h4>
           <JobListStatic
             projectId={project.id}
-            pipelineJobs={projectDetails?.jobs}
+            jobs={projectDetails?.jobs}
             loading={loading}
             emptyStateTitle={LETS_START_TITLE}
             emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}

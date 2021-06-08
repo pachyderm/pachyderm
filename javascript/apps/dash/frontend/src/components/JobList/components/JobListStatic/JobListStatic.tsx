@@ -1,7 +1,7 @@
 import classnames from 'classnames';
 import React from 'react';
 
-import {PipelineJobOverviewFragment} from '@graphqlTypes';
+import {JobOverviewFragment} from '@graphqlTypes';
 
 import ListEmptyState from '../../../ListEmptyState';
 
@@ -10,7 +10,7 @@ import JobListSkeleton from './components/JobListSkeleton';
 import styles from './JobListStatic.module.css';
 
 type JobListBaseProps = {
-  pipelineJobs?: PipelineJobOverviewFragment[];
+  jobs?: JobOverviewFragment[];
   loading?: boolean;
   projectId: string;
   expandActions?: boolean;
@@ -21,7 +21,7 @@ type JobListBaseProps = {
 
 const JobListBase: React.FC<JobListBaseProps> = ({
   loading,
-  pipelineJobs,
+  jobs,
   projectId,
   expandActions = false,
   listScroll = false,
@@ -30,7 +30,7 @@ const JobListBase: React.FC<JobListBaseProps> = ({
 }) => {
   if (loading) return <JobListSkeleton expandActions={expandActions} />;
 
-  if (pipelineJobs?.length === 0)
+  if (jobs?.length === 0)
     return (
       <ListEmptyState title={emptyStateTitle} message={emptyStateMessage} />
     );
@@ -40,12 +40,8 @@ const JobListBase: React.FC<JobListBaseProps> = ({
       className={classnames(styles.base, {[styles.listScroll]: listScroll})}
       data-testid={`JobList__project${projectId}`}
     >
-      {pipelineJobs?.map((job) => (
-        <JobListItem
-          pipelineJob={job}
-          key={job.id}
-          expandActions={expandActions}
-        />
+      {jobs?.map((job) => (
+        <JobListItem job={job} key={job.id} expandActions={expandActions} />
       ))}
     </ul>
   );

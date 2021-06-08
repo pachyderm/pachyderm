@@ -9,7 +9,7 @@ import {
   pipelineJobRoute,
   jobsRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-import {PipelineJobState} from '@graphqlTypes';
+import {JobState} from '@graphqlTypes';
 
 import InfoPanel from './components/InfoPanel';
 import styles from './JobDetails.module.css';
@@ -67,21 +67,19 @@ const JobDetails = () => {
                       pipelineId: job.pipelineName,
                     })}
                     className={classnames(styles.pipelineLink, {
-                      [styles.error]:
-                        job.state === PipelineJobState.JOB_FAILURE,
-                      [styles.success]:
-                        job.state === PipelineJobState.JOB_SUCCESS,
+                      [styles.error]: job.state === JobState.JOB_FAILURE,
+                      [styles.success]: job.state === JobState.JOB_SUCCESS,
                     })}
                   >
                     <img
                       alt={`Job ${job.id} ${
-                        job.state === PipelineJobState.JOB_FAILURE
+                        job.state === JobState.JOB_FAILURE
                           ? 'failed'
                           : 'succeeded'
                       }`}
                       className={styles.pipelineIcon}
                       src={
-                        job.state === PipelineJobState.JOB_SUCCESS
+                        job.state === JobState.JOB_SUCCESS
                           ? '/dag_success.svg'
                           : '/dag_error.svg'
                       }

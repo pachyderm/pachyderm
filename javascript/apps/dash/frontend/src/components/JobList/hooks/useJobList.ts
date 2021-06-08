@@ -1,46 +1,42 @@
 import {useMemo} from 'react';
 
-import {usePipelineJobs} from '@dash-frontend/hooks/usePipelineJobs';
+import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {PipelineJobsQueryArgs, PipelineJobState} from '@graphqlTypes';
+import {JobsQueryArgs, JobState} from '@graphqlTypes';
 
-export type PipelineJobFilters = {
-  [key in PipelineJobState]?: boolean;
+export type JobFilters = {
+  [key in JobState]?: boolean;
 };
 
-const convertToObject = (JobStateList: PipelineJobState[]) => {
-  return Object.values(JobStateList).reduce<PipelineJobFilters>(
-    (result, jobState) => {
-      result[jobState] = true;
-      return result;
-    },
-    {},
-  );
+const convertToObject = (JobStateList: JobState[]) => {
+  return Object.values(JobStateList).reduce<JobFilters>((result, jobState) => {
+    result[jobState] = true;
+    return result;
+  }, {});
 };
 
-const useJobList = ({projectId, pipelineId}: PipelineJobsQueryArgs) => {
-  const {pipelineJobs, loading} = usePipelineJobs({projectId, pipelineId});
+const useJobList = ({projectId, pipelineId}: JobsQueryArgs) => {
+  const {jobs, loading} = useJobs({projectId, pipelineId});
   const {viewState} = useUrlQueryState();
 
-  const selectedFilters: PipelineJobFilters = useMemo(() => {
-    if (viewState && viewState.pipelineJobFilters) {
-      return convertToObject(viewState.pipelineJobFilters);
+  const selectedFilters: JobFilters = useMemo(() => {
+    if (viewState && viewState.jobFilters) {
+      return convertToObject(viewState.jobFilters);
     }
-    return convertToObject(Object.values(PipelineJobState));
+    return convertToObject(Object.values(JobState));
   }, [viewState]);
 
-  const filteredPipelineJobs = useMemo(() => {
-    return pipelineJobs.filter((job) => {
+  const filteredJobs = useMemo(() => {
+    return jobs.filter((job) => {
       return selectedFilters[job.state];
     });
-  }, [pipelineJobs, selectedFilters]);
+  }, [jobs, selectedFilters]);
 
-  const noFiltersSelected =
-    filteredPipelineJobs?.length === 0 && pipelineJobs?.length !== 0;
+  const noFiltersSelected = filteredJobs?.length === 0 && jobs?.length !== 0;
 
   return {
-    pipelineJobs,
-    filteredPipelineJobs,
+    jobs,
+    filteredJobs,
     noFiltersSelected,
     selectedFilters,
     loading,

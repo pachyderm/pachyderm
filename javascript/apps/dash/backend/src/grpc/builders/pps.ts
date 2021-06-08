@@ -3,10 +3,9 @@ import {
   ChunkSpec,
   CronInput,
   Egress,
-  GitInput,
   GPUSpec,
   Input,
-  PipelineJobState,
+  JobState,
   ParallelismSpec,
   PFSInput,
   Pipeline,
@@ -20,8 +19,8 @@ import {
   Spout,
   TFJob,
   Transform,
-  PipelineJob,
-  PipelineJobInfo,
+  Job,
+  JobInfo,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import {
@@ -121,13 +120,6 @@ export type CronInputObject = {
   start?: TimestampObject;
 };
 
-export type GitInputObject = {
-  name: GitInput.AsObject['name'];
-  url: GitInput.AsObject['url'];
-  branch: GitInput.AsObject['branch'];
-  commit: GitInput.AsObject['commit'];
-};
-
 export type InputObject = {
   pfs?: PFSInputObject;
   joinList?: InputObject[];
@@ -135,8 +127,8 @@ export type InputObject = {
   crossList?: InputObject[];
   unionList?: InputObject[];
   cron?: CronInputObject;
-  git?: GitInputObject;
 };
+
 export type ServiceObject = {
   internalPort: Service.AsObject['internalPort'];
   externalPort: Service.AsObject['externalPort'];
@@ -173,7 +165,7 @@ export type PipelineInfoObject = {
   workersAvailable?: PipelineInfo.AsObject['workersAvailable'];
   //TODO: Proto Map does not have a setter
   // jobCountsMap: jspb.Map<number, number>;
-  lastJobState?: PipelineJobState;
+  lastJobState?: JobState;
   outputBranch?: PipelineInfo.AsObject['outputBranch'];
   resourceRequests?: ResourceSpecObject;
   resourceLimits?: ResourceSpecObject;
@@ -190,7 +182,6 @@ export type PipelineInfoObject = {
   chunkSpec?: ChunkSpecObject;
   datumTimeout?: DurationObject;
   jobTimeout?: DurationObject;
-  githookUrl?: PipelineInfo.AsObject['githookUrl'];
   specCommit?: CommitObject;
   standby?: PipelineInfo.AsObject['standby'];
   datumTries?: PipelineInfo.AsObject['datumTries'];
@@ -206,14 +197,14 @@ export type PipelineInfosObject = {
   pipelineInfoList: PipelineInfoObject[];
 };
 
-export type PipelineJobObject = {
-  id: PipelineJob.AsObject['id'];
+export type JobObject = {
+  id: Job.AsObject['id'];
 };
 
-export type PipelineJobInfoObject = {
-  pipelineJob: Pick<PipelineJob.AsObject, 'id'>;
-  createdAt: PipelineJobInfo.AsObject['started'];
-  state: PipelineJobState;
+export type JobInfoObject = {
+  job: Pick<Job.AsObject, 'id'>;
+  createdAt: JobInfo.AsObject['started'];
+  state: JobState;
   pipeline: {
     name: Pipeline.AsObject['name'];
   };
@@ -399,21 +390,6 @@ export const cronInputFromObject = ({
   return cronInput;
 };
 
-export const gitInputFromObject = ({
-  name,
-  url,
-  branch,
-  commit,
-}: GitInputObject) => {
-  const gitInput = new GitInput();
-  gitInput.setName(name);
-  gitInput.setUrl(url);
-  gitInput.setBranch(branch);
-  gitInput.setCommit(commit);
-
-  return gitInput;
-};
-
 export const inputFromObject = ({
   pfs,
   joinList = [],
@@ -421,7 +397,6 @@ export const inputFromObject = ({
   crossList = [],
   unionList = [],
   cron,
-  git,
 }: InputObject) => {
   const input = new Input();
 
@@ -459,9 +434,6 @@ export const inputFromObject = ({
 
   if (cron) {
     input.setCron(cronInputFromObject(cron));
-  }
-  if (git) {
-    input.setGit(gitInputFromObject(git));
   }
 
   return input;
@@ -538,7 +510,6 @@ export const pipelineInfoFromObject = ({
   chunkSpec,
   datumTimeout,
   jobTimeout,
-  githookUrl = '',
   specCommit,
   standby = false,
   datumTries = 0,
@@ -615,7 +586,6 @@ export const pipelineInfoFromObject = ({
   pipelineInfo.setSalt(salt);
   pipelineInfo.setReason(reason);
   pipelineInfo.setMaxQueueSize(maxQueueSize);
-  pipelineInfo.setGithookUrl(githookUrl);
   pipelineInfo.setStandby(standby);
   pipelineInfo.setDatumTries(datumTries);
   pipelineInfo.setPodSpec(podSpec);
@@ -639,25 +609,25 @@ export const pipelineInfosFromObject = ({
   return pipelineInfos;
 };
 
-export const pipelineJobFromObject = ({id}: PipelineJobObject) => {
-  const job = new PipelineJob();
+export const jobFromObject = ({id}: JobObject) => {
+  const job = new Job();
   job.setId(id);
 
   return job;
 };
 
-export const pipelineJobInfoFromObject = ({
-  pipelineJob: {id},
+export const jobInfoFromObject = ({
+  job: {id},
   createdAt,
   state,
   pipeline: {name},
-}: PipelineJobInfoObject) => {
-  const jobInfo = new PipelineJobInfo()
+}: JobInfoObject) => {
+  const jobInfo = new JobInfo()
     .setState(state)
     .setStarted(
       timestampFromObject({seconds: createdAt?.seconds || 0, nanos: 0}),
     )
-    .setPipelineJob(new PipelineJob().setId(id))
+    .setJob(new Job().setId(id))
     .setPipeline(new Pipeline().setName(name));
 
   return jobInfo;

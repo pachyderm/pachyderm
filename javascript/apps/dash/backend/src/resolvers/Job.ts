@@ -4,17 +4,13 @@ import {jobInfoToGQLJob} from './builders/pps';
 
 interface PipelineJobResolver {
   Query: {
-    pipelineJobs: QueryResolvers['pipelineJobs'];
+    jobs: QueryResolvers['jobs'];
   };
 }
 
 const pipelineJobResolver: PipelineJobResolver = {
   Query: {
-    pipelineJobs: async (
-      _parent,
-      {args: {pipelineId, limit}},
-      {pachClient},
-    ) => {
+    jobs: async (_parent, {args: {pipelineId, limit}}, {pachClient}) => {
       let jq = '';
 
       if (pipelineId) {

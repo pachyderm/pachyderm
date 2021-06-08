@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {PipelineJobsQueryArgs} from '@graphqlTypes';
+import {JobsQueryArgs} from '@graphqlTypes';
 
 import ListEmptyState from '../ListEmptyState';
 
@@ -13,7 +13,7 @@ type JobListProps = {
   showStatusFilter?: boolean;
   emptyStateTitle: string;
   emptyStateMessage: string;
-} & PipelineJobsQueryArgs;
+} & JobsQueryArgs;
 
 const noJobFiltersTitle = 'Select Job Filters Above :)';
 const noJobFiltersMessage =
@@ -27,24 +27,16 @@ const JobList: React.FC<JobListProps> = ({
   emptyStateTitle,
   emptyStateMessage,
 }) => {
-  const {
-    loading,
-    pipelineJobs,
-    selectedFilters,
-    filteredPipelineJobs,
-    noFiltersSelected,
-  } = useJobList({
-    projectId,
-    pipelineId,
-  });
+  const {loading, jobs, selectedFilters, filteredJobs, noFiltersSelected} =
+    useJobList({
+      projectId,
+      pipelineId,
+    });
 
   return (
     <>
       {showStatusFilter && !loading && (
-        <JobListStatusFilter
-          pipelineJobs={pipelineJobs}
-          selectedFilters={selectedFilters}
-        />
+        <JobListStatusFilter jobs={jobs} selectedFilters={selectedFilters} />
       )}
 
       {!loading && noFiltersSelected && (
@@ -60,7 +52,7 @@ const JobList: React.FC<JobListProps> = ({
           emptyStateMessage={emptyStateMessage}
           projectId={projectId}
           loading={loading}
-          pipelineJobs={filteredPipelineJobs}
+          jobs={filteredJobs}
           expandActions={expandActions}
           listScroll
         />
