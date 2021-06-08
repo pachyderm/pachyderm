@@ -1062,8 +1062,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		containerName, rcName = "pachd", "pachd"
-	} else if request.Job.GetPipeline().GetName() == "" {
+	} else if request.Job != nil && request.Job.GetPipeline().GetName() == "" {
 		return errors.Errorf("pipeline must be specified for the given job")
+	} else if request.Job != nil && request.Pipeline != nil && !proto.Equal(request.Job.Pipeline, request.Pipeline) {
+		return errors.Errorf("job is from the wrong pipeline")
 	} else {
 		containerName = client.PPSWorkerUserContainerName
 
@@ -1171,7 +1173,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
 							continue
 						}
-						if request.Job != nil && request.Job.ID != msg.JobID {
+						if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
 							continue
 						}
 						if request.Datum != nil && request.Datum.ID != msg.DatumID {
@@ -1236,11 +1238,14 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 				Message: strings.TrimSuffix(line, "\n"),
 			})
 		})
+	} else if request.Job != nil && request.Pipeline != nil && !proto.Equal(request.Job.Pipeline, request.Pipeline) {
+		return errors.Errorf("job is from the wrong pipeline")
 	}
 
 	// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
 	// RC name
 	var pipelineInfo *pps.PipelineInfo
+
 	if request.Pipeline != nil {
 		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline.Name)
 		if err != nil {
@@ -1291,7 +1296,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
 			return nil
 		}
-		if request.Job != nil && request.Job.ID != msg.JobID {
+		if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
 			return nil
 		}
 		if request.Datum != nil && request.Datum.ID != msg.DatumID {
@@ -2098,11 +2103,15 @@ func (a *apiServer) CreatePipelineInTransaction(
 
 	// Create/update output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
-	if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-		Branch:     outputBranch,
-		Provenance: provenance,
-	}); err != nil {
-		return errors.Wrapf(err, "could not create/update output branch")
+	if update && request.Reprocess {
+		// If we are reprocessing, create a new commit without a parent in the output branch and meta repo
+	} else {
+		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			Branch:     outputBranch,
+			Provenance: provenance,
+		}); err != nil {
+			return errors.Wrapf(err, "could not create/update output branch")
+		}
 	}
 
 	if visitErr := pps.VisitInput(request.Input, func(input *pps.Input) error {

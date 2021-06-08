@@ -184,13 +184,11 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		for _, provBranch := range bi.Provenance {
 			provBranchInfo := branchInfos[pfsdb.BranchKey(provBranch)]
 			if !branchInSet(bi.Branch, provBranchInfo.Subvenance) {
-				if !fix {
-					if err := onError(ErrBranchSubvenanceTransitivity{
-						BranchInfo:        provBranchInfo,
-						MissingSubvenance: bi.Branch,
-					}); err != nil {
-						return err
-					}
+				if err := onError(ErrBranchSubvenanceTransitivity{
+					BranchInfo:        provBranchInfo,
+					MissingSubvenance: bi.Branch,
+				}); err != nil {
+					return err
 				}
 			}
 		}

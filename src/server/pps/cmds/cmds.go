@@ -121,11 +121,12 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.PpsAPIClient.InspectJob(client.Ctx(), &pps.InspectJobRequest{
-				Job:        job,
-				BlockState: block,
-				Full:       true,
-			})
+			var jobInfo *pps.JobInfo
+			if block {
+				jobInfo, err = client.BlockJob(job.Pipeline.Name, job.ID, true)
+			} else {
+				jobInfo, err = client.InspectJob(job.Pipeline.Name, job.ID, true)
+			}
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
 			}
