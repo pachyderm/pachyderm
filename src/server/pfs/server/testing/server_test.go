@@ -4557,6 +4557,9 @@ func TestPFS(suite *testing.T) {
 		latestCommit := client.NewCommit(repo, "master", "")
 		checks := func() {
 			cb := func(fi *pfs.FileInfo) error {
+				if assert.Equal(t, fi.FileType, pfs.FileType_DIR) && assert.Equal(t, fi.File.Path, "/") {
+					return nil
+				}
 				return errors.New("should not have returned any file results for an empty commit")
 			}
 			checkNotFound := func(path string) {
