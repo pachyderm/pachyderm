@@ -78,9 +78,8 @@ type apiServer struct {
 
 	// public addresses the fact that pachd in full mode initializes two auth
 	// servers: one that exposes a public API, possibly over TLS, and one that
-	// exposes a private API, for internal services. Only the public-facing auth
-	// service should export the SAML ACS and Metadata services, so if public
-	// is true and auth is active, this may export those SAML services
+	// exposes a private API, for internal services. Only one of these can launch
+	// the OIDC callback web server.
 	public bool
 
 	// watchesEnabled controls whether we cache the auth config and cluster role bindings
@@ -955,9 +954,9 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txncontext.TransactionC
 }
 
 // setGroupsForUserInternal is a helper function used by SetGroupsForUser, and
-// also by handleSAMLResponse and handleOIDCExchangeInternal (which updates
-// group membership information based on signed SAML assertions or JWT claims).
-// This does no auth checks, so the caller must do all relevant authorization.
+// also by handleOIDCExchangeInternal (which updates group membership information
+// based on signed JWT claims). This does no auth checks, so the caller must do all
+// relevant authorization.
 func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
 	return col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		members := a.members.ReadWrite(sqlTx)

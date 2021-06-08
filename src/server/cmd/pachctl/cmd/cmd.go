@@ -542,8 +542,6 @@ This resets the cluster to its initial state.`,
 
 	var port uint16
 	var remotePort uint16
-	var samlPort uint16
-	var remoteSamlPort uint16
 	var oidcPort uint16
 	var remoteOidcPort uint16
 	var uiPort uint16
@@ -594,18 +592,8 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
-			fmt.Println("Forwarding the SAML ACS port...")
-			port, err = fw.RunForSAMLACS(samlPort, remoteSamlPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["saml-acs"] = uint32(port)
-				successCount++
-			}
-
-			fmt.Println("Forwarding the OIDC ACS port...")
-			port, err = fw.RunForOIDCACS(oidcPort, remoteOidcPort)
+			fmt.Println("Forwarding the OIDC callback port...")
+			port, err = fw.RunForOIDCCallback(oidcPort, remoteOidcPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -709,10 +697,8 @@ This resets the cluster to its initial state.`,
 	}
 	portForward.Flags().Uint16VarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
 	portForward.Flags().Uint16Var(&remotePort, "remote-port", 650, "The remote port that pachd is bound to in the cluster.")
-	portForward.Flags().Uint16Var(&samlPort, "saml-port", 30654, "The local port to bind pachd's SAML ACS to.")
-	portForward.Flags().Uint16Var(&remoteSamlPort, "remote-saml-port", 654, "The remote port that SAML ACS is bound to in the cluster.")
-	portForward.Flags().Uint16Var(&oidcPort, "oidc-port", 30657, "The local port to bind pachd's OIDC ACS to.")
-	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 657, "The remote port that OIDC ACS is bound to in the cluster.")
+	portForward.Flags().Uint16Var(&oidcPort, "oidc-port", 30657, "The local port to bind pachd's OIDC callback to.")
+	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 657, "The remote port that OIDC callback is bound to in the cluster.")
 	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
