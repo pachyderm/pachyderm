@@ -140,7 +140,7 @@ All files with indices from `1` to `5` match. The files
 with indices from `6` to `8` do not match. Therefore, you only get five
 datums for this job.
 
-To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).
+To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/joins).
 
 ## Outer Join
 
@@ -196,4 +196,4 @@ those five datums your code will also see three new ones, one for each of the
 parameter files which didn't have a match. Note that this means your code needs
 to not crash when only some of the inputs are represented under `/pfs`.
 
-To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).
+To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/joins).

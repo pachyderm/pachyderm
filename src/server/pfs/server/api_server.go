@@ -740,9 +740,15 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 }
 
 // CreateFileset implements the pfs.CreateFileset RPC
-func (a *apiServer) CreateFileset(server pfs.API_CreateFilesetServer) error {
+func (a *apiServer) CreateFileset(server pfs.API_CreateFilesetServer) (retErr error) {
+	request, err := server.Recv()
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
 	fsID, err := a.driver.createFileset(server.Context(), func(uw *fileset.UnorderedWriter) error {
-		_, err := a.modifyFile(server.Context(), uw, server, nil)
+		_, err := a.modifyFile(server.Context(), uw, server, request)
 		return err
 	})
 	if err != nil {

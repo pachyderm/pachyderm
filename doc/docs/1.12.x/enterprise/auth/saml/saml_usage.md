@@ -5,7 +5,7 @@ Before you start, follow the instructions in [Configure SAML](index.md) to enabl
 Pachyderm cluster and connect it to a SAML ID provider. 
 
 We will then authenticate as a **cluster admin** in one console and run our [open CV
-demo](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/README.md).
+demo](https://github.com/pachyderm/pachyderm/blob/1.13.x/examples/opencv/README.md).
 
 - In the CLI, that would look like:
 

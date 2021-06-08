@@ -123,12 +123,6 @@ message CronInput {
   google.protobuf.Timestamp start = 6;
 }
 
-message GitInput {
-  string name = 1;
-  string url = 2 [(gogoproto.customname) = "URL"];
-  string branch = 3;
-  string commit = 4;
-}
 
 message Input {
   PFSInput pfs = 1;
@@ -137,7 +131,6 @@ message Input {
   repeated Input cross = 4;
   repeated Input union = 5;
   CronInput cron = 6;
-  GitInput git = 7;
 }
 
 message JobInput {
@@ -436,15 +429,14 @@ message PipelineInfo {
   ChunkSpec chunk_spec = 28;
   google.protobuf.Duration datum_timeout = 29;
   google.protobuf.Duration job_timeout = 30;
-  string githook_url = 31 [(gogoproto.customname) = "GithookURL"];
-  bool standby = 33;
-  int64 datum_tries = 34;
-  SchedulingSpec scheduling_spec = 35;
-  string pod_spec = 36;
-  string pod_patch = 37;
-  bool s3_out = 38;
-  Metadata metadata = 39;
-  string reprocess_spec = 40;
+  bool standby = 31;
+  int64 datum_tries = 32;
+  SchedulingSpec scheduling_spec = 33;
+  string pod_spec = 34;
+  string pod_patch = 35;
+  bool s3_out = 36;
+  Metadata metadata = 37;
+  string reprocess_spec = 38;
 }
 
 message PipelineInfos {

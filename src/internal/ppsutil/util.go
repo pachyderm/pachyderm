@@ -283,9 +283,6 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Inp
 		if input.Cron != nil {
 			input.Cron.Commit = commitsetID
 		}
-		if input.Git != nil {
-			input.Git.Commit = commitsetID
-		}
 		return nil
 	})
 	return jobInput

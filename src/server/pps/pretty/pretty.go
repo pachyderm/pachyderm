@@ -222,7 +222,6 @@ Datum Timeout: {{.DatumTimeout}}
 Job Timeout: {{.JobTimeout}}
 Input:
 {{pipelineInput .PipelineInfo}}
-{{ if .GithookURL }}Githook URL: {{.GithookURL}} {{end}}
 Output Branch: {{.OutputBranch}}
 Transform:
 {{prettyTransform .Transform}}

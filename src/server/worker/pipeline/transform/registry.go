@@ -650,11 +650,6 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 				return err
 			}
 		}
-		if input.Git != nil && input.Git.Commit != "" {
-			if err := blockCommit(input.Git.Name, client.NewCommit(input.Git.Name, input.Git.Branch, input.Git.Commit)); err != nil {
-				return err
-			}
-		}
 		return nil
 	})
 	if visitErr != nil {

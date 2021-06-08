@@ -98,11 +98,11 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/ml/hyperparameter" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Distributed Hyperparameter Tuning
            </a>
            </li>
-           <li><a href="https://github.com/pachyderm/pachyderm/tree/master/examples/gatk" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/gatk" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Variant Discovery with GATK
            </a>
            </li>

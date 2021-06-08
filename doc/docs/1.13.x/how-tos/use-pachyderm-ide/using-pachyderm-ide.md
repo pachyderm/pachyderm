@@ -59,7 +59,7 @@ choice, use one of the following examples to create a pipeline:
     This code likely will not work as is. To run a pipeline, you need to specify
     `main.py` and `requirements.txt` files in the root directory of your
     JupyterHub notebook. For more information, see the
-    [OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/master/examples/opencv/opencv.py).
+    [OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/1.13.x/examples/opencv/opencv.py).
 
 * By using the `create_pipeline` method:
 
@@ -124,7 +124,7 @@ choice, use one of the following examples to create a pipeline:
     ```
 
 For more information, see the
-[OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/master/examples/opencv/opencv.py).
+[OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/1.13.x/examples/opencv/opencv.py).
 
 ## Create a Repository
 

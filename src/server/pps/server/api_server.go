@@ -56,7 +56,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
@@ -89,10 +88,6 @@ func newErrPipelineExists(pipeline string) error {
 
 func newErrPipelineUpdate(pipeline string, reason string) error {
 	return errors.Errorf("pipeline %v update error: %s", pipeline, reason)
-}
-
-type errGithookServiceNotFound struct {
-	error
 }
 
 // apiServer implements the public interface of the Pachyderm Pipeline System,
@@ -175,11 +170,6 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 				return err
 			}
 		}
-	case input.Git != nil:
-		if names[input.Git.Name] {
-			return errors.Errorf(`name "%s" was used more than once`, input.Git.Name)
-		}
-		names[input.Git.Name] = true
 	}
 	return nil
 }
@@ -272,16 +262,6 @@ func (a *apiServer) validateInput(pipelineName string, input *pps.Input) error {
 			}
 			if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
 				return errors.Wrapf(err, "error parsing cron-spec")
-			}
-		}
-		if input.Git != nil {
-			if set {
-				return errors.Errorf("multiple input types set")
-			}
-			logrus.Warn("githooks are deprecated and will be removed in a future version - see pipeline build steps for an alternative")
-			set = true
-			if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
-				return err
 			}
 		}
 		if !set {
@@ -1559,9 +1539,6 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 		if input.Cron != nil {
 			result = append(result, client.NewBranch(input.Cron.Repo, "master"))
 		}
-		if input.Git != nil {
-			result = append(result, client.NewBranch(input.Git.Name, input.Git.Branch))
-		}
 		return nil
 	})
 	return result
@@ -1672,8 +1649,6 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 				repo = input.Pfs.Repo
 			case input.Cron != nil:
 				repo = input.Cron.Repo
-			case input.Git != nil:
-				repo = input.Git.Name
 			default:
 				return nil // no scope to set: input is not a repo
 			}
@@ -1702,8 +1677,6 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 				repo = input.Pfs.Repo
 			case input.Cron != nil:
 				repo = input.Cron.Repo
-			case input.Git != nil:
-				repo = input.Git.Name
 			default:
 				return nil // no scope to set: input is not a repo
 			}
@@ -1996,16 +1969,6 @@ func (a *apiServer) CreatePipelineInTransaction(
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
-				},
-			); err != nil && !isAlreadyExistsErr(err) {
-				return err
-			}
-		}
-		if input.Git != nil {
-			if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
-				&pfs.CreateRepoRequest{
-					Repo:        client.NewRepo(input.Git.Name),
-					Description: fmt.Sprintf("Git input repo for pipeline %s.", request.Pipeline.Name),
 				},
 			); err != nil && !isAlreadyExistsErr(err) {
 				return err
@@ -2348,17 +2311,6 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)
 			}
 		}
-		if input.Git != nil {
-			if input.Git.Branch == "" {
-				input.Git.Branch = "master"
-			}
-			if input.Git.Name == "" {
-				// We know URL looks like:
-				// "https://github.com/sjezewski/testgithook.git",
-				tokens := strings.Split(path.Base(input.Git.URL), ".")
-				input.Git.Name = tokens[0]
-			}
-		}
 		return nil
 	})
 }
@@ -2418,37 +2370,6 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 			}
 		} else {
 			pipelineInfo.Service.IP = service.Spec.ClusterIP
-		}
-	}
-	var hasGitInput bool
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
-		if input.Git != nil {
-			hasGitInput = true
-			return errutil.ErrBreak
-		}
-		return nil
-	})
-	if hasGitInput {
-		pipelineInfo.GithookURL = "pending"
-		svc, err := getGithookService(kubeClient, a.namespace)
-		if err != nil {
-			return pipelineInfo, nil
-		}
-		numIPs := len(svc.Status.LoadBalancer.Ingress)
-		if numIPs == 0 {
-			// When running locally, no external IP is set
-			return pipelineInfo, nil
-		}
-		if numIPs != 1 {
-			return nil, errors.Errorf("unexpected number of external IPs set for githook service")
-		}
-		ingress := svc.Status.LoadBalancer.Ingress[0]
-		if ingress.IP != "" {
-			// GKE load balancing
-			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.IP)
-		} else if ingress.Hostname != "" {
-			// AWS load balancing
-			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.Hostname)
 		}
 	}
 
@@ -2650,7 +2571,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	// - etcdPipelineInfo
 	// - spec commit in etcdPipelineInfo (which may not be the HEAD of the
 	//   pipeline's spec branch)
-	// - kubernetes services (for service pipelines, githook pipelines, etc)
+	// - kubernetes services (for service pipelines, etc)
 	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline.Name)
 	if err != nil {
 		logrus.Errorf("error inspecting pipeline: %v", err)

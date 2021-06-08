@@ -60,7 +60,7 @@ to monitor its status:
   This command shows the status of the downstream jobs further in
   the DAG that result from this commit.
   
-  In the [Hyperparameter Tuning example](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter), we have four pipelines,
+  In the [Hyperparameter Tuning example](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/ml/hyperparameter), we have four pipelines,
   or a four-stage pipeline. Every subsequent pipeline takes the results
   in the output repository of the previous pipeline and performs a
   computation. Therefore, each step is executed one after another.

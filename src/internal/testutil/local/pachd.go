@@ -42,7 +42,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
-	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -412,9 +411,6 @@ func RunLocal() (retErr error) {
 
 	//	return server.ListenAndServeTLS(certPath, keyPath)
 	//})
-	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
-		return githook.RunGitHookServer(env)
-	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
 			return client.NewFromURI(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
