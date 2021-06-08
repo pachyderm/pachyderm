@@ -36,6 +36,10 @@ import (
 
 // TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
 
+const (
+	defaultChunksPerWorker = 4
+)
+
 type hasher struct {
 	name string
 	salt string
@@ -499,7 +503,11 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 		}
 	}
 	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
-		setSpec = &datum.SetSpec{Number: numDatums / int64(reg.concurrency)}
+		chunksPerWorker := pj.driver.PipelineInfo().ChunkSpec.ChunksPerWorker
+		if chunksPerWorker == 0 {
+			chunksPerWorker = defaultChunksPerWorker
+		}
+		setSpec = &datum.SetSpec{Number: numDatums / (int64(reg.concurrency) * chunksPerWorker)}
 		if setSpec.Number == 0 {
 			setSpec.Number = 1
 		}
