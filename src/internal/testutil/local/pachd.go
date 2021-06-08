@@ -227,6 +227,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
 			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
 			return nil

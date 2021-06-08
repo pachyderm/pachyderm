@@ -13,7 +13,7 @@ func (c APIClient) Health() error {
 	if err != nil {
 		return errors.Errorf("health check errored %w", err)
 	}
-	if response.Status == grpc_health_v1.HealthCheckResponse_NOT_SERVING {
+	if response.Status != grpc_health_v1.HealthCheckResponse_SERVING {
 		return errors.Errorf("server not ready")
 	}
 	return nil
