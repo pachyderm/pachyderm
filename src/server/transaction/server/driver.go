@@ -244,6 +244,7 @@ func (d *driver) updateTransaction(
 	txn *transaction.Transaction,
 	f func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error),
 ) (*transaction.TransactionInfo, error) {
+	var gotBreak bool
 	// local info will hold a version of the transaction with any modifications needed to get the current version to run
 	// it will only be written to the collection after the update operation is successful
 	var localInfo *transaction.TransactionInfo
@@ -260,18 +261,23 @@ func (d *driver) updateTransaction(
 		}
 		// update local info even if there was an error
 		localInfo, err = f(txnCtx, localInfo, restarted)
+		if err != nil && errors.Is(err, errutil.ErrBreak) {
+			gotBreak = true
+			return nil
+		}
 		return err
 	}
 
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
 		var err error
+		gotBreak = false
 		if writeTxn {
 			err = d.txnEnv.WithWriteContext(ctx, attempt)
 		} else {
 			err = d.txnEnv.WithReadContext(ctx, attempt)
 		}
-		if err != nil && errors.Is(err, errutil.ErrBreak) {
+		if gotBreak {
 			return localInfo, nil // no need to update
 		}
 

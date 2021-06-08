@@ -10450,7 +10450,7 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	// make sure the final pipeline is the third version, with the input from in the transaction
 	info, err := c.InspectPipeline(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, 3, info.Version)
+	require.Equal(t, uint64(3), info.Version)
 	require.NotNil(t, info.Input.Pfs)
 	require.Equal(t, inputB, info.Input.Pfs.Repo)
 }
