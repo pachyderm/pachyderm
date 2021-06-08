@@ -7397,8 +7397,6 @@ func TestListJobInputCommits(t *testing.T) {
 // TestCancelJob creates a long-running job and then kills it, testing
 // that the user process is killed.
 func TestCancelJob(t *testing.T) {
-	// TODO(2.0 required): Investigate hang.
-	t.Skip("Investigate hang")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7495,8 +7493,6 @@ func TestCancelJob(t *testing.T) {
 // running (which tests that only one job can run at a time), and then is
 // cancelled.
 func TestCancelManyJobs(t *testing.T) {
-	// TODO(2.0 required): Investigate hang.
-	t.Skip("Investigate hang")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7528,7 +7524,7 @@ func TestCancelManyJobs(t *testing.T) {
 	var err error
 	for i := 0; i < 10; i++ {
 		commits[i], err = c.StartCommit(repo, "master")
-		require.NoError(t, c.PutFile(commits[i], "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.PutFile(commits[i], "file", strings.NewReader("foo")))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commits[0].Branch.Name, commits[i].ID))
 	}
@@ -7648,9 +7644,6 @@ func TestSquashCommitPropagation(t *testing.T) {
 // which deletes the job's output commit and cancels the job. This should start
 // another job that processes the original input HEAD commit's parent.
 func TestSquashCommitRunsJob(t *testing.T) {
-	// TODO(2.0 required): Investigate transaction error,
-	// keeps using transaction after a conflict
-	t.Skip("Investigate transaction error")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7781,12 +7774,9 @@ func TestSquashCommitRunsJob(t *testing.T) {
 }
 
 func TestEntryPoint(t *testing.T) {
-	// TODO(2.0 required): Investigate hang.
-	t.Skip("Investigate hang")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
@@ -7795,7 +7785,7 @@ func TestEntryPoint(t *testing.T) {
 
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	pipeline := tu.UniqueString(t.Name())
@@ -7858,8 +7848,6 @@ func TestDeleteSpecRepo(t *testing.T) {
 }
 
 func TestUserWorkingDir(t *testing.T) {
-	// TODO(2.0 required): Investigate hang
-	t.Skip("Investigate hang")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
