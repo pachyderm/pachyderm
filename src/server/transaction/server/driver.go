@@ -197,7 +197,7 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 }
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
-	return d.updateTransaction(ctx, true, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+	return d.updateTransaction(ctx, true, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
 		info, err := d.runTransaction(txnCtx, info)
 		if err != nil {
 			return info, err
@@ -205,7 +205,10 @@ func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transac
 		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID); err != nil {
 			return info, err
 		}
-		return info, errutil.ErrBreak // no need to update the transaction, it's gone
+		// no need to update the transaction, since it's gone
+		// because the transaction info was read in the same sql transaction as the delete,
+		// we don't have to worry about checking for additional transaction changes
+		return info, errutil.ErrBreak
 	})
 }
 
@@ -221,41 +224,46 @@ func (d *driver) appendTransaction(
 	txn *transaction.Transaction,
 	items []*transaction.TransactionRequest,
 ) (*transaction.TransactionInfo, error) {
-	return d.updateTransaction(ctx, false, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
-		// We do a dryrun of the transaction to
-		// 1. make sure the appended request is valid
-		// 2. Capture the result of the request to be returned
-		info.Requests = append(info.Requests, items...)
+	// We do a dryrun of the transaction to
+	// 1. make sure the appended request is valid
+	// 2. Capture the result of the request to be returned
+
+	return d.updateTransaction(ctx, false, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
+		if restarted {
+			info.Requests = append(info.Requests, items...)
+		}
 		return d.runTransaction(txnCtx, info)
 	})
 }
 
 // updateTransaction accepts a function that uses and (possibly) updates a transaction and runs it
-// in either a Read- or WriteContext, taking care to save any new transaction info, except in the case
-// of an unretriable error
+// in either a Read- or WriteContext, saving an updated version of the transaction on a successful run
 func (d *driver) updateTransaction(
 	ctx context.Context,
 	writeTxn bool,
 	txn *transaction.Transaction,
-	f func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error),
+	f func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error),
 ) (*transaction.TransactionInfo, error) {
-	// Run this thing in a loop in case we get a conflict, time out after some tries
-	newInfo := new(transaction.TransactionInfo)
+	// local info will hold a version of the transaction with any modifications needed to get the current version to run
+	// it will only be written to the collection after the update operation is successful
+	var localInfo *transaction.TransactionInfo
 	attempt := func(txnCtx *txncontext.TransactionContext) error {
+		storedInfo := new(transaction.TransactionInfo)
 		var err error
-		if err = d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, newInfo); err != nil {
+		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, storedInfo); err != nil {
 			return err
 		}
-		if newInfo, err = f(txnCtx, newInfo); err != nil && col.IsErrTransactionConflict(err) {
-			// if we saw ErrTransactionConflict, assume something had to change the transaction response
-			// (such as a pipeline seeing an update outside the transaction), so return this error to
-			// escape the SQL transaction and run the storing code
-			return &transactionModifiedError{}
-		} else {
-			return err
+		restarted := localInfo == nil || storedInfo.Version != localInfo.Version
+		if restarted {
+			// something has changed, reset our saved info
+			localInfo = storedInfo
 		}
+		// update local info even if there was an error
+		localInfo, err = f(txnCtx, localInfo, restarted)
+		return err
 	}
 
+	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
 		var err error
 		if writeTxn {
@@ -264,35 +272,33 @@ func (d *driver) updateTransaction(
 			err = d.txnEnv.WithReadContext(ctx, attempt)
 		}
 		if err != nil && errors.Is(err, errutil.ErrBreak) {
-			return newInfo, nil // no need to update
+			return localInfo, nil // no need to update
 		}
 
-		// a transactionModifiedError from the update function should be understood
-		// as the active transaction needing to change in a way that should be retried after
-		if err == nil || errors.Is(err, &transactionModifiedError{}) {
-			var oldInfo transaction.TransactionInfo
+		if err == nil {
+			// only persist the transaction if we succeeded, otherwise we'll just update localInfo
+			var storedInfo transaction.TransactionInfo
 			if updateErr := col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
 				// Update the existing transaction with the new requests/responses
-				return d.transactions.ReadWrite(sqlTx).Update(txn.ID, &oldInfo, func() error {
-					if oldInfo.Version != newInfo.Version {
+				return d.transactions.ReadWrite(sqlTx).Update(txn.ID, &storedInfo, func() error {
+					if storedInfo.Version != localInfo.Version {
 						return &transactionModifiedError{}
 					}
-					oldInfo.Requests = newInfo.Requests
-					oldInfo.Responses = newInfo.Responses
-					oldInfo.Version += 1
+					storedInfo.Requests = localInfo.Requests
+					storedInfo.Responses = localInfo.Responses
+					storedInfo.Version += 1
 					return nil
 				})
 			}); updateErr == nil {
 				// update succeeded, put the incremented version in the returned info
-				newInfo.Version = oldInfo.Version
+				localInfo.Version = storedInfo.Version
 			} else if updateErr != nil && err == nil {
 				err = updateErr
 			}
 		}
-		// if we got a transactionModifiedError, either from f or trying to update the stored TransactionInfo,
-		// just try again
+		// if we got a transactionModifiedError trying to update the stored TransactionInfo, just try again
 		if err == nil {
-			return newInfo, nil
+			return localInfo, nil
 		} else if !errors.Is(err, &transactionModifiedError{}) {
 			return nil, err
 		}
