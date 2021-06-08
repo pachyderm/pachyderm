@@ -54,7 +54,6 @@ describe('Search resolver', () => {
         },
       );
 
-      console.log(errors);
       expect(errors.length).toBe(0);
       const searchResults = data?.searchResults;
       expect(searchResults?.pipelines?.length).toBe(0);

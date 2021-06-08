@@ -12,6 +12,7 @@ export const useProjectDetails = (
         jobsLimit,
       },
     },
+    pollInterval: 5000,
   });
 
   return {

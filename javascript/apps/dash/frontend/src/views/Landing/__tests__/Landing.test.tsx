@@ -205,7 +205,7 @@ describe('Landing', () => {
     expect(await findByText('2.93 KB')).toBeInTheDocument();
   });
 
-  it.only('should not display the project details when the project is empty', async () => {
+  it('should not display the project details when the project is empty', async () => {
     const {findByText} = render(<Landing />);
     userEvent.click(await findByText('Empty Project'));
 

@@ -4,6 +4,7 @@ import {PipelineJobsQueryArgs} from '@graphqlTypes';
 export const usePipelineJobs = (args: PipelineJobsQueryArgs) => {
   const {data, error, loading} = usePipelineJobsQuery({
     variables: {args},
+    pollInterval: 5000,
   });
 
   return {
