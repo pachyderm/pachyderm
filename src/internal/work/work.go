@@ -393,14 +393,14 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 }
 
 // TaskCount returns how many subtasks are in the queue and how many are claimed.
-func (w *Worker) TaskCount(ctx context.Context) (int64, int64, error) {
-	subTasks, rev, err := w.subtaskCol.ReadOnly(ctx).CountRev(0)
+func (w *Worker) TaskCount(ctx context.Context) (subTasks int64, claims int64, _ error) {
+	nSubTasks, rev, err := w.subtaskCol.ReadOnly(ctx).CountRev(0)
 	if err != nil {
 		return 0, 0, err
 	}
-	claims, _, err := w.claimCol.ReadOnly(ctx).CountRev(rev)
+	nClaims, _, err := w.claimCol.ReadOnly(ctx).CountRev(rev)
 	if err != nil {
 		return 0, 0, err
 	}
-	return subTasks, claims, nil
+	return nSubTasks, nClaims, nil
 }
