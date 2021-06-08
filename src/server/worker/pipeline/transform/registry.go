@@ -232,7 +232,7 @@ func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.JobInfo, error)
 		return nil, err
 	}
 	if ppsutil.IsTerminal(jobInfo.State) {
-		return nil, ppsserver.ErrJobFinished{jobInfo.Job}
+		return nil, ppsserver.ErrJobFinished{Job: jobInfo.Job}
 	}
 	reg.logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
 	return jobInfo, nil
