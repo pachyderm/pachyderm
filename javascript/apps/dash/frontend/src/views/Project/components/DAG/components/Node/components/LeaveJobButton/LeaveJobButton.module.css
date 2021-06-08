@@ -1,0 +1,22 @@
+.base {
+  /* accounting for button's box-shadow */
+  padding: 4px;
+}
+
+.button {
+  padding: 1.4375rem 1.875rem;
+  font-size: 0.75rem;
+  background-color: var(--white);
+  border: none;
+  border-radius: 3px;
+  box-shadow: 1px 1px 4px 0 var(--dropshadow-grey);
+}
+
+.button:focus,
+.button:hover {
+  background-color: var(--hover-grey);
+}
+
+.button:focus:not([class$='focus-visible']) {
+  outline: none;
+}

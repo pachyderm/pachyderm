@@ -1,8 +1,10 @@
 import {useClipboardCopy} from '@pachyderm/components';
 import {select} from 'd3-selection';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {useRouteMatch} from 'react-router';
 
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
+import {JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {Node, NodeType} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
@@ -18,6 +20,8 @@ const useNode = (
   const {hoveredNode, setHoveredNode} = useHoveredNode();
   const [showSuccess, setShowSuccess] = useState(false);
   const {copy, supported, copied, reset} = useClipboardCopy(node.name);
+  const [showLeaveJob, setShowLeaveJob] = useState(false);
+  const isViewingJob = useRouteMatch(JOB_PATH);
 
   const isEgress = node.type === NodeType.EGRESS;
   const noAccess = !node.access;
@@ -36,6 +40,10 @@ const useNode = (
   }, [node]);
 
   const onClick = useCallback(() => {
+    if (isViewingJob && !isEgress) {
+      setShowLeaveJob(true);
+      return;
+    }
     if (noAccess) return;
     if (isInteractive) navigateToNode(node);
     if (isInteractive && isEgress && supported) copy();
@@ -47,6 +55,7 @@ const useNode = (
     supported,
     copy,
     noAccess,
+    isViewingJob,
   ]);
 
   const onMouseOver = useCallback(() => {
@@ -59,6 +68,21 @@ const useNode = (
   const onMouseOut = useCallback(() => {
     if (isInteractive) setHoveredNode('');
   }, [isInteractive, setHoveredNode]);
+
+  const closeLeaveJob = useCallback(() => {
+    setShowLeaveJob(false);
+  }, [setShowLeaveJob]);
+
+  const handleLeaveJobClick = useCallback(
+    (e: React.MouseEvent) => {
+      // prevent click event from bubbling to node group
+      e.stopPropagation();
+
+      setShowLeaveJob(false);
+      navigateToNode(node);
+    },
+    [node, navigateToNode],
+  );
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
@@ -98,6 +122,9 @@ const useNode = (
     isEgress,
     normalizedNodeName,
     showSuccess,
+    showLeaveJob,
+    handleLeaveJobClick,
+    closeLeaveJob,
   };
 };
 

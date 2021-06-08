@@ -64,6 +64,6 @@
   -webkit-box-orient: vertical;
 }
 
-.nodeGroup.interactive:hover .tooltipText {
+.nodeGroup.interactive:not(.showLeaveJob):hover .tooltipText {
   opacity: 1;
 }

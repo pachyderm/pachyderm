@@ -4,6 +4,7 @@ import React from 'react';
 
 import {Node as GraphQLNode, NodeType} from '@graphqlTypes';
 
+import LeaveJobButton from './components/LeaveJobButton';
 import NodeTooltip from './components/NodeTooltip';
 import useNode from './hooks/useNode';
 import styles from './Node.module.css';
@@ -44,12 +45,16 @@ const Node: React.FC<NodeProps> = ({
     isEgress,
     normalizedNodeName,
     showSuccess,
+    showLeaveJob,
+    handleLeaveJobClick,
+    closeLeaveJob,
   } = useNode(node, isInteractive, offset);
 
   const classes = classNames(styles.nodeGroup, {
     [styles.interactive]: isInteractive,
     [styles.selected]: [selectedNode, hoveredNode].includes(node.name),
     [styles.access]: node.access,
+    [styles.showLeaveJob]: showLeaveJob,
   });
 
   const getNodeIconHref = (state: string, access: boolean) => {
@@ -105,6 +110,14 @@ const Node: React.FC<NodeProps> = ({
       </foreignObject>
 
       <NodeTooltip node={node} textClassName={styles.tooltipText} />
+
+      {showLeaveJob && (
+        <LeaveJobButton
+          onClick={handleLeaveJobClick}
+          onClose={closeLeaveJob}
+          isRepo={node.type === NodeType.REPO}
+        />
+      )}
 
       <image
         x={isEgress ? EGRESS_NODE_IMAGE_X_OFFSET : NODE_IMAGE_X_OFFSET}
