@@ -10540,7 +10540,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 			err := c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
 			require.NoError(t, err)
 		}
-		require.NoError(t, c.FinishCommit(dataRepo, commit1.ID, "master"))
+		require.NoError(t, c.FinishCommit(dataRepo, "master", commit1.ID))
 		fileIndex += n
 		replicas := n
 		if replicas > 4 {
