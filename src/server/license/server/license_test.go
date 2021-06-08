@@ -161,7 +161,7 @@ func TestClusterCRUD(t *testing.T) {
 		Address:             "grpc://localhost:650",
 		UserAddress:         "grpc://localhost:999",
 		ClusterDeploymentId: "some-deployment-id",
-		EnterpriseServer:    true,
+		EnterpriseServer:    false,
 	})
 	require.NoError(t, err)
 	require.True(t, len(newCluster.Secret) >= 30)
@@ -179,15 +179,11 @@ func TestClusterCRUD(t *testing.T) {
 	}
 
 	expectedUserClusters := map[string]*license.UserClusterInfo{
-		"localhost": {
-			Id:      "localhost",
-			Address: "grpc://localhost:650", // autoset by Activation command
-		},
 		"new": {
 			Id:                  "new",
 			Address:             "grpc://localhost:999",
 			ClusterDeploymentId: "some-deployment-id",
-			EnterpriseServer:    true,
+			EnterpriseServer:    false,
 		},
 	}
 
@@ -214,7 +210,7 @@ func TestClusterCRUD(t *testing.T) {
 	var userClusters *license.ListUserClustersResponse
 	userClusters, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
 	require.NoError(t, err)
-	require.Equal(t, 2, len(userClusters.Clusters))
+	require.Equal(t, 1, len(userClusters.Clusters))
 	verifyListUserClustersContents(expectedUserClusters, userClusters.Clusters)
 
 	// Update the cluster
@@ -238,7 +234,7 @@ func TestClusterCRUD(t *testing.T) {
 
 	userClusters, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
 	require.NoError(t, err)
-	require.Equal(t, 2, len(userClusters.Clusters))
+	require.Equal(t, 1, len(userClusters.Clusters))
 	verifyListUserClustersContents(expectedUserClusters, userClusters.Clusters)
 
 	// Delete the new cluster
@@ -254,8 +250,11 @@ func TestClusterCRUD(t *testing.T) {
 	delete(expectedStatuses, "new")
 
 	verifyListClustersContents(expectedStatuses, clusters.Clusters)
-	verifyListUserClustersContents(expectedUserClusters, userClusters.Clusters)
 
+	userClusters, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(userClusters.Clusters))
+	verifyListUserClustersContents(expectedUserClusters, userClusters.Clusters)
 }
 
 // TestAddClusterUnreachable tries to add a cluster with a misconfigured address
@@ -427,9 +426,21 @@ func TestListUserClusters(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, enterprise.State_ACTIVE, resp.State)
 
-	// Make sure that this configuration shows up in ListUserClusters
+	_, err = client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
+		Id:                  "new",
+		Address:             "grpc://localhost:650",
+		UserAddress:         "grpc://localhost:999",
+		ClusterDeploymentId: "some-deployment-id",
+		EnterpriseServer:    false,
+	})
+	require.NoError(t, err)
+
+	// Make sure that an added cluster shows up in ListUserClusters
 	var userClustersResp *license.ListUserClustersResponse
 	userClustersResp, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(userClustersResp.Clusters))
+	require.Equal(t, "new", userClustersResp.Clusters[0].Id)
+	require.Equal(t, "grpc://localhost:999", userClustersResp.Clusters[0].Address)
+	require.Equal(t, false, userClustersResp.Clusters[0].EnterpriseServer)
 }

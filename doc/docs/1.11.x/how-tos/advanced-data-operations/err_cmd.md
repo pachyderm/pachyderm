@@ -71,4 +71,4 @@ which are "recovered" by `err_cmd` in this way, will be retried on
 the next job, just as failed datums.
 
 !!! note "See Also:"
-    [Example err_cmd pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/err_cmd/)
+    [Example err_cmd pipeline](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/err_cmd/)

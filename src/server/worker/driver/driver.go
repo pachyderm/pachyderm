@@ -297,7 +297,7 @@ func (d *driver) InputDir() string {
 }
 
 func (d *driver) PachClient() *client.APIClient {
-	return d.pachClient
+	return d.pachClient.WithCtx(d.ctx)
 }
 
 func (d *driver) NewSQLTx(cb func(*sqlx.Tx) error) error {

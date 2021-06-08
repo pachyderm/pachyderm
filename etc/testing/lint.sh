@@ -18,27 +18,8 @@ for file in $(git status --porcelain | grep '^??' | sed 's/^?? //'); do
   skip_paths+=( -o -path "${file%/}" )
 done
 
-# Update golint once a day, or if it isn't installed
-if [ -z "$(find "$(command -v golint)" -mtime -1 2>/dev/null)" ]; then
-  go get -u golang.org/x/lint/golint
-fi
-
-find "./src" \
-  \( -path "*.pb.go" -o -path "*internal/tar*" "${skip_paths[@]}" \) -prune -o -name '*.go' -print0 \
-| xargs -P32 -n 1 golint -set_exit_status 
-
-files=$(gofmt -l "${GIT_REPO_DIR}/src" || true)
-if [[ -n "${files}" ]]; then
-    echo Files not passing gofmt:
-    tr ' ' '\n'  <<< "$files"
-    exit 1
-fi
-
-# Update staticcheck once a day, or if it isn't installed
-if [ -z "$(find "$(command -v staticcheck)" -mtime -1 2>/dev/null)" ]; then
-  go get -u honnef.co/go/tools/cmd/staticcheck
-fi
-staticcheck "${GIT_REPO_DIR}/..."
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.40.1
+./bin/golangci-lint run --timeout 10m
 
 # shellcheck disable=SC2046
 find . \

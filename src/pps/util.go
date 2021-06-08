@@ -9,13 +9,12 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"gopkg.in/src-d/go-git.v4"
 )
 
 var (
 	// format strings for state name parsing errors
-	errInvalidJobStateName string
-	errInvalidPipelineStateName    string
+	errInvalidJobStateName      string
+	errInvalidPipelineStateName string
 )
 
 func init() {
@@ -132,51 +131,9 @@ func InputBranches(input *Input) []*pfs.Branch {
 				Name: "master",
 			})
 		}
-		if input.Git != nil {
-			result = append(result, &pfs.Branch{
-				Repo: &pfs.Repo{
-					Name: input.Pfs.Repo,
-					Type: pfs.UserRepoType,
-				},
-				Name: input.Git.Branch,
-			})
-		}
 		return nil
 	})
 	return result
-}
-
-// ValidateGitCloneURL returns an error if the provided URL is invalid
-func ValidateGitCloneURL(url string) error {
-	exampleURL := "https://github.com/org/foo.git"
-	if url == "" {
-		return errors.Errorf("clone URL is missing (example clone URL %v)", exampleURL)
-	}
-	// Use the git client's validator to make sure its a valid URL
-	o := &git.CloneOptions{
-		URL: url,
-	}
-	if err := o.Validate(); err != nil {
-		return err
-	}
-
-	// Make sure its the type that we want. Of the following we
-	// only accept the 'clone' type of url:
-	//     git_url: "git://github.com/sjezewski/testgithook.git",
-	//     ssh_url: "git@github.com:sjezewski/testgithook.git",
-	//     clone_url: "https://github.com/sjezewski/testgithook.git",
-	//     svn_url: "https://github.com/sjezewski/testgithook",
-
-	if !strings.HasSuffix(url, ".git") {
-		// svn_url case
-		return errors.Errorf("clone URL is missing .git suffix (example clone URL %v)", exampleURL)
-	}
-	if !strings.HasPrefix(url, "https://") {
-		// git_url or ssh_url cases
-		return errors.Errorf("clone URL must use https protocol (example clone URL %v)", exampleURL)
-	}
-
-	return nil
 }
 
 // JobStateFromName attempts to interpret a string as a

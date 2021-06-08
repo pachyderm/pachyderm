@@ -25,7 +25,7 @@ Proceed as usual:
 
 1. [Install your favorite version of `pachctl`](../../../../getting_started/local_installation/#install-pachctl).
 1. [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm): `pachctl deploy <local, google.....>`.
-1. [Activate your enterprise Key](../deployment/#activate-pachyderm-enterprise-edition): `pachctl enterprise activate`
+1. [Activate your enterprise Key](../deployment/#activate-pachyderm-enterprise-edition): `pachctl license activate`
 1. [Enable authentication](../index.md/#activate-user-access-management): `pachctl auth activate` 
 
 
@@ -62,7 +62,7 @@ Deploying a stand-alone enterprise server requires using the `--enterprise-serve
 
 - Use your enterprise key to activate your enterprise server: 
 	```shell
-	$ pachctl enterprise activate
+	$ pachctl license activate
 	```
 - Then enable Authentication at the Enterprise Server level:
 	```shell

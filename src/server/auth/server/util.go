@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 )
 
@@ -20,7 +18,7 @@ func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.Tra
 	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Permissions: p}
 	resp, err := a.AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on cluster")
+		return err
 	}
 	if !resp.Authorized {
 		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_CLUSTER}, Required: p}
@@ -39,7 +37,7 @@ func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.Transa
 	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: r}, Permissions: p}
 	resp, err := a.AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on repo \"%s\"", r)
+		return err
 	}
 	if !resp.Authorized {
 		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_REPO, Name: r}, Required: p}
@@ -58,7 +56,7 @@ func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, r string, p ...au
 	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: r}, Permissions: p}
 	resp, err := a.Authorize(ctx, req)
 	if err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on repo \"%s\"", r)
+		return err
 	}
 	if !resp.Authorized {
 		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_REPO, Name: r}, Required: p}

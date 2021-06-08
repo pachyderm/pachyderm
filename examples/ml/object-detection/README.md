@@ -1,3 +1,6 @@
+>![pach_logo](../../img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Object detection
 
 In this example we're going to use the [Tensorflow Object Detection API](https://github.com/tensorflow/models/tree/master/object_detection) to do some general object detection and we'll use Pachyderm to set up the necessary data pipelines to feed in the data. 

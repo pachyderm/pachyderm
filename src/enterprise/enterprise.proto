@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package enterprise;
+package enterprise_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/enterprise";
 
 import "google/protobuf/timestamp.proto";

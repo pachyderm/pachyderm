@@ -16,7 +16,7 @@ func TestActivate(t *testing.T) {
 	defer tu.DeleteAll(t)
 	code := tu.GetTestEnterpriseCode(t)
 
-	require.NoError(t, tu.BashCmd(`echo {{.license}} | pachctl enterprise activate`,
+	require.NoError(t, tu.BashCmd(`echo {{.license}} | pachctl license activate`,
 		"license", code).Run())
 
 	require.NoError(t, tu.BashCmd(`pachctl enterprise get-state | match ACTIVE`).Run())
@@ -29,7 +29,7 @@ func TestManuallyJoinLicenseServer(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl license activate
+		echo {{.license}} | pachctl license activate --no-register
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://localhost:653 --pachd-address grpc://localhost:653
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \

@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
 
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -691,11 +690,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 									Name:          "peer-port",
 								},
 								{
-									ContainerPort: githook.GitHookPort,
-									Protocol:      "TCP",
-									Name:          "api-git-port",
-								},
-								{
 									ContainerPort: OidcPort,
 									Protocol:      "TCP",
 									Name:          "oidc-port",
@@ -768,11 +762,6 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					NodePort: 30658,
 				},
 				{
-					Port:     githook.GitHookPort,
-					Name:     "api-git-port",
-					NodePort: githook.NodePort(),
-				},
-				{
 					Port:     600, // also set in cmd/pachd/main.go
 					Name:     "s3gateway-port",
 					NodePort: 30600,
@@ -810,31 +799,6 @@ func PachdPeerService(opts *AssetOpts) *v1.Service {
 					Port:       30653,
 					Name:       "api-grpc-peer-port",
 					TargetPort: intstr.FromInt(653), // also set in cmd/pachd/main.go
-				},
-			},
-		},
-	}
-}
-
-// GithookService returns a k8s service that exposes a public IP
-func GithookService(namespace string) *v1.Service {
-	name := "githook"
-	return &v1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: objectMeta(name, labels(name), nil, namespace),
-		Spec: v1.ServiceSpec{
-			Type: v1.ServiceTypeLoadBalancer,
-			Selector: map[string]string{
-				"app": pachdName,
-			},
-			Ports: []v1.ServicePort{
-				{
-					TargetPort: intstr.FromInt(githook.GitHookPort),
-					Name:       "api-git-port",
-					Port:       githook.ExternalPort(),
 				},
 			},
 		},

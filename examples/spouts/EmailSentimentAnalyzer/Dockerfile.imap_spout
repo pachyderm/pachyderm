@@ -1,6 +1,0 @@
-FROM python:3.8-buster
-
-# add spout client
-
-ADD imap_spout.py /imap_spout.py
-
