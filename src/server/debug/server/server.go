@@ -369,7 +369,7 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 	for _, repoInfo := range repoInfos {
 		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name); err != nil {
 			// TODO: It would be better for this to be a structured error.
-			if strings.Contains(err.Error(), "not found") {
+			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("input-repos", repoInfo.Repo.Name)
 				return collectDebugFile(tw, "commits", func(w io.Writer) error {
 					return pachClient.ListCommitF(repoInfo.Repo, nil, nil, uint64(limit), false, func(ci *pfs.CommitInfo) error {

@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -278,7 +279,7 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 		// List all RCs, so stale RCs from old pipelines are noticed and deleted
 		rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(
 			metav1.ListOptions{LabelSelector: selector})
-		if err != nil && !isNotFoundErr(err) {
+		if err != nil && !errutil.IsNotFoundError(err) {
 			return err
 		}
 		if len(rcs.Items) == 0 {
@@ -454,7 +455,7 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 	if err := pachClient.ListCommitF(client.NewRepo(op.ptr.Pipeline.Name), client.NewCommit(op.ptr.Pipeline.Name, op.pipelineInfo.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
 		return pachClient.StopJob(op.ptr.Pipeline.Name, commitInfo.Commit.ID)
 	}); err != nil {
-		if isNotFoundErr(err) {
+		if errutil.IsNotFoundError(err) {
 			return nil // already deleted
 		}
 		return errors.Wrapf(err, "could not finish output commits of pipeline %q", op.ptr.Pipeline.Name)

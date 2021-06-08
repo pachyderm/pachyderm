@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
@@ -302,7 +303,7 @@ func TestTTLExpire(t *testing.T) {
 	value := &types.BoolValue{}
 	err = clxn.ReadOnly(context.Background()).Get("key", value)
 	require.NotNil(t, err)
-	require.Matches(t, "not found", err.Error())
+	require.True(t, errutil.IsNotFoundError(err))
 }
 
 func TestTTLExtend(t *testing.T) {

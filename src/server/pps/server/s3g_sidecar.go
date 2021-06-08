@@ -17,6 +17,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -338,7 +339,7 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, jobID stri
 		err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Delete(
 			ppsutil.SidecarS3GatewayService(jobID),
 			&metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
-		if err != nil && strings.Contains(err.Error(), "not found") {
+		if err != nil && errutil.IsNotFoundError(err) {
 			return nil // service already deleted
 		}
 		return err

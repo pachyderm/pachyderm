@@ -1767,7 +1767,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(provBranch), provBranchInfo, func() error {
 				del(&provBranchInfo.Subvenance, branch)
 				return nil
-			}); err != nil && !isNotFoundErr(err) {
+			}); err != nil && !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "error deleting subvenance")
 			}
 		}
@@ -1798,10 +1798,6 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 	}
 	return nil
-}
-
-func isNotFoundErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
 func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, provBranch *pfs.Branch) error {

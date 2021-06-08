@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -404,7 +405,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		if in.Cron.Overwrite {
 			// get rid of any files, so the new file "overwrites" previous runs
 			err = pachClient.DeleteFile(client.NewCommit(in.Cron.Repo, "master", ""), "")
-			if err != nil && !isNotFoundErr(err) {
+			if err != nil && !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "delete error")
 			}
 		}

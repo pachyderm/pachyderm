@@ -8179,7 +8179,7 @@ func TestInspectJob(t *testing.T) {
 
 	_, err = c.InspectJob(repo, ci.Commit.ID)
 	require.YesError(t, err)
-	require.True(t, strings.Contains(err.Error(), "not found"))
+	require.True(t, errutil.IsNotFoundError(err))
 }
 
 func TestPipelineVersions(t *testing.T) {

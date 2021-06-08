@@ -429,7 +429,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 			}); err == nil {
 				// the repo already exists, so we need the same permissions as update
 				required = auth.Permission_REPO_WRITE
-			} else if isNotFoundErr(err) {
+			} else if errutil.IsNotFoundError(err) {
 				return nil
 			} else {
 				return err
@@ -441,7 +441,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		case pipelineOpDelete:
 			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 				Repo: client.NewRepo(output),
-			}); isNotFoundErr(err) {
+			}); errutil.IsNotFoundError(err) {
 				// special case: the pipeline output repo has been deleted (so the
 				// pipeline is now invalid). It should be possible to delete the pipeline.
 				return nil
@@ -580,7 +580,7 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 		jobInfo, err := pachClient.BlockJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, request.Full)
 		if err != nil {
 			// Not all commits are guaranteed to have an associated job - skip over it
-			if strings.Contains(err.Error(), "not found") {
+			if errutil.IsNotFoundError(err) {
 				return nil
 			}
 			return err
@@ -656,7 +656,7 @@ func (a *apiServer) listJob(
 	_f := func(string) error {
 		jobInfo, err := a.jobInfoFromPtr(ctx, jobPtr, len(inputCommits) > 0 || full)
 		if err != nil {
-			if isNotFoundErr(err) {
+			if errutil.IsNotFoundError(err) {
 				// This can happen if a user deletes an upstream commit and thereby
 				// deletes this job's output commit, but doesn't delete the etcdJobInfo.
 				// In this case, the job is effectively deleted, but isn't removed from
@@ -1062,7 +1062,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		containerName, rcName = "pachd", "pachd"
-	} else if request.Job != nil && (request.Job.Pipeline == nil || request.Job.Pipeline.Name == "") {
+	} else if request.Job.GetPipeline().GetName() == "" {
 		return errors.Errorf("pipeline must be specified for the given job")
 	} else {
 		containerName = client.PPSWorkerUserContainerName
@@ -1890,7 +1890,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 					Repo:        client.NewRepo(input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
 				},
-			); err != nil && !isAlreadyExistsErr(err) {
+			); err != nil && !errutil.IsAlreadyExistError(err) {
 				return err
 			}
 		}
@@ -2077,7 +2077,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 
 		// Put a pointer to the new PipelineInfo commit into the collection
 		err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(pipelineName, pipelinePtr)
-		if isAlreadyExistsErr(err) {
+		if errutil.IsAlreadyExistError(err) {
 			return newErrPipelineExists(pipelineName)
 		} else if err != nil {
 			return err
@@ -2104,30 +2104,31 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}); err != nil {
 		return errors.Wrapf(err, "could not create/update output branch")
 	}
+
 	if visitErr := pps.VisitInput(request.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
-			_, err = a.env.PfsServer().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
+			var prevHead *pfs.Commit
+			if branchInfo, err := a.env.PfsServer().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
 				Branch: client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
-			})
-
-			if err != nil && !isNotFoundErr(err) {
-				return err
-			} else {
-				var prevHead *pfs.Commit
-				if err == nil {
-					prevHead = client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, "")
+			}); err != nil {
+				if !errutil.IsNotFoundError(err) {
+					return err
 				}
-				return a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-					Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
-					Head:    prevHead,
-					Trigger: input.Pfs.Trigger,
-				})
+			} else {
+				prevHead = branchInfo.Head
 			}
+
+			return a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+				Head:    prevHead,
+				Trigger: input.Pfs.Trigger,
+			})
 		}
 		return nil
 	}); visitErr != nil {
 		return errors.Wrapf(visitErr, "could not create/update trigger branch")
 	}
+
 	if newPipelineInfo.EnableStats {
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
 			Repo:        statsBranch.Repo,
@@ -2220,21 +2221,11 @@ func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext,
 	// transaction, but doing an inconsistent read outside of the transaction
 	// would be pretty sketchy (and we'd have to worry about trying to get another
 	// postgres connection and possibly deadlocking).
-	jobs := []*pps.Job{}
 	job := &pps.StoredJobInfo{}
 	sort := &col.Options{Target: col.SortByCreateRevision, Order: col.SortAscend}
-	if err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobTerminalKey(pipeline, false), job, sort, func(string) error {
-		jobs = append(jobs, job.Job)
-		return nil
-	}); err != nil {
-		return err
-	}
-	for _, job := range jobs {
-		if err := a.stopJob(txnCtx, job, "pipeline updated"); err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobTerminalKey(pipeline, false), job, sort, func(string) error {
+		return a.stopJob(txnCtx, job.Job, "pipeline updated")
+	})
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
@@ -2287,7 +2278,7 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		}
 		service, err := kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 		if err != nil {
-			if !isNotFoundErr(err) {
+			if !errutil.IsNotFoundError(err) {
 				return nil, err
 			}
 		} else {
@@ -2504,7 +2495,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
-	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !isNotFoundErr(err) && !auth.IsErrNoRoleBinding(err) {
+	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
 		return nil, err
 	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline. This must be
@@ -2562,7 +2553,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		job := proto.Clone(jobPtr.Job).(*pps.Job)
 		eg.Go(func() error {
 			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: job})
-			if isNotFoundErr(err) || auth.IsErrNoRoleBinding(err) {
+			if errutil.IsNotFoundError(err) || auth.IsErrNoRoleBinding(err) {
 				return nil
 			}
 			return err
@@ -2752,7 +2743,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 			if cron.Overwrite {
 				// get rid of any files, so the new file "overwrites" previous runs
 				err = mf.DeleteFile("/")
-				if err != nil && !isNotFoundErr(err) {
+				if err != nil && !errutil.IsNotFoundError(err) {
 					return errors.Wrapf(err, "delete error")
 				}
 			}
@@ -2995,14 +2986,6 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 		return nil, err
 	}
 	return &pps.ActivateAuthResponse{}, nil
-}
-
-func isAlreadyExistsErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "already exists")
-}
-
-func isNotFoundErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
 // RepoNameToEnvString is a helper which uppercases a repo name for

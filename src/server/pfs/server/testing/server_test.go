@@ -4608,7 +4608,7 @@ func TestPFS(suite *testing.T) {
 					defer obj.EnableMonkeyTest()
 					buf.Reset()
 					err := env.PachClient.GetFile(commit, file, buf)
-					require.Matches(t, "not found", err.Error(), seedStr(seed))
+					require.True(t, errutil.IsNotFoundError(err), seedStr(seed))
 				}
 				return err
 			}, seedStr(seed))

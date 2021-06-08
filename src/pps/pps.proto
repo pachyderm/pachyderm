@@ -457,8 +457,8 @@ message InspectJobsetRequest {
 message InspectJobRequest {
   // Callers should set either Job or OutputCommit, not both.
   Job job = 1;
-  bool block_state = 3; // block until state is either FAILURE or SUCCESS
-  bool full = 4;
+  bool block_state = 2; // block until state is either FAILURE or SUCCESS
+  bool full = 3;
 }
 
 message ListJobRequest {

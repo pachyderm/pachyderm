@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -663,7 +664,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.Stor
 
 	// send RPC to k8s to create the secret there
 	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
-		if !isAlreadyExistsErr(err) {
+		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
 	}
@@ -726,7 +727,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 		},
 	}
 	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
-		if !isAlreadyExistsErr(err) {
+		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
 	}
@@ -760,7 +761,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 		},
 	}
 	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
-		if !isAlreadyExistsErr(err) {
+		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
 	}
@@ -794,7 +795,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 			},
 		}
 		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
-			if !isAlreadyExistsErr(err) {
+			if !errutil.IsAlreadyExistError(err) {
 				return err
 			}
 		}
