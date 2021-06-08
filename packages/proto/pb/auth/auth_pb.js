@@ -19,62 +19,62 @@ var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 goog.object.extend(proto, gogoproto_gogo_pb);
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 goog.object.extend(proto, google_protobuf_timestamp_pb);
-goog.exportSymbol('proto.auth.ActivateRequest', null, global);
-goog.exportSymbol('proto.auth.ActivateResponse', null, global);
-goog.exportSymbol('proto.auth.AuthenticateRequest', null, global);
-goog.exportSymbol('proto.auth.AuthenticateResponse', null, global);
-goog.exportSymbol('proto.auth.AuthorizeRequest', null, global);
-goog.exportSymbol('proto.auth.AuthorizeResponse', null, global);
-goog.exportSymbol('proto.auth.DeactivateRequest', null, global);
-goog.exportSymbol('proto.auth.DeactivateResponse', null, global);
-goog.exportSymbol('proto.auth.DeleteExpiredAuthTokensRequest', null, global);
-goog.exportSymbol('proto.auth.DeleteExpiredAuthTokensResponse', null, global);
-goog.exportSymbol('proto.auth.ExtractAuthTokensRequest', null, global);
-goog.exportSymbol('proto.auth.ExtractAuthTokensResponse', null, global);
-goog.exportSymbol('proto.auth.GetConfigurationRequest', null, global);
-goog.exportSymbol('proto.auth.GetConfigurationResponse', null, global);
-goog.exportSymbol('proto.auth.GetGroupsForPrincipalRequest', null, global);
-goog.exportSymbol('proto.auth.GetGroupsRequest', null, global);
-goog.exportSymbol('proto.auth.GetGroupsResponse', null, global);
-goog.exportSymbol('proto.auth.GetOIDCLoginRequest', null, global);
-goog.exportSymbol('proto.auth.GetOIDCLoginResponse', null, global);
-goog.exportSymbol('proto.auth.GetPermissionsForPrincipalRequest', null, global);
-goog.exportSymbol('proto.auth.GetPermissionsRequest', null, global);
-goog.exportSymbol('proto.auth.GetPermissionsResponse', null, global);
-goog.exportSymbol('proto.auth.GetRobotTokenRequest', null, global);
-goog.exportSymbol('proto.auth.GetRobotTokenResponse', null, global);
-goog.exportSymbol('proto.auth.GetRoleBindingRequest', null, global);
-goog.exportSymbol('proto.auth.GetRoleBindingResponse', null, global);
-goog.exportSymbol('proto.auth.GetUsersRequest', null, global);
-goog.exportSymbol('proto.auth.GetUsersResponse', null, global);
-goog.exportSymbol('proto.auth.Groups', null, global);
-goog.exportSymbol('proto.auth.ModifyMembersRequest', null, global);
-goog.exportSymbol('proto.auth.ModifyMembersResponse', null, global);
-goog.exportSymbol('proto.auth.ModifyRoleBindingRequest', null, global);
-goog.exportSymbol('proto.auth.ModifyRoleBindingResponse', null, global);
-goog.exportSymbol('proto.auth.OIDCConfig', null, global);
-goog.exportSymbol('proto.auth.Permission', null, global);
-goog.exportSymbol('proto.auth.Resource', null, global);
-goog.exportSymbol('proto.auth.ResourceType', null, global);
-goog.exportSymbol('proto.auth.RestoreAuthTokenRequest', null, global);
-goog.exportSymbol('proto.auth.RestoreAuthTokenResponse', null, global);
-goog.exportSymbol('proto.auth.RevokeAuthTokenRequest', null, global);
-goog.exportSymbol('proto.auth.RevokeAuthTokenResponse', null, global);
-goog.exportSymbol('proto.auth.RevokeAuthTokensForUserRequest', null, global);
-goog.exportSymbol('proto.auth.RevokeAuthTokensForUserResponse', null, global);
-goog.exportSymbol('proto.auth.RoleBinding', null, global);
-goog.exportSymbol('proto.auth.Roles', null, global);
-goog.exportSymbol('proto.auth.RotateRootTokenRequest', null, global);
-goog.exportSymbol('proto.auth.RotateRootTokenResponse', null, global);
-goog.exportSymbol('proto.auth.SessionInfo', null, global);
-goog.exportSymbol('proto.auth.SetConfigurationRequest', null, global);
-goog.exportSymbol('proto.auth.SetConfigurationResponse', null, global);
-goog.exportSymbol('proto.auth.SetGroupsForUserRequest', null, global);
-goog.exportSymbol('proto.auth.SetGroupsForUserResponse', null, global);
-goog.exportSymbol('proto.auth.TokenInfo', null, global);
-goog.exportSymbol('proto.auth.Users', null, global);
-goog.exportSymbol('proto.auth.WhoAmIRequest', null, global);
-goog.exportSymbol('proto.auth.WhoAmIResponse', null, global);
+goog.exportSymbol('proto.auth_v2.ActivateRequest', null, global);
+goog.exportSymbol('proto.auth_v2.ActivateResponse', null, global);
+goog.exportSymbol('proto.auth_v2.AuthenticateRequest', null, global);
+goog.exportSymbol('proto.auth_v2.AuthenticateResponse', null, global);
+goog.exportSymbol('proto.auth_v2.AuthorizeRequest', null, global);
+goog.exportSymbol('proto.auth_v2.AuthorizeResponse', null, global);
+goog.exportSymbol('proto.auth_v2.DeactivateRequest', null, global);
+goog.exportSymbol('proto.auth_v2.DeactivateResponse', null, global);
+goog.exportSymbol('proto.auth_v2.DeleteExpiredAuthTokensRequest', null, global);
+goog.exportSymbol('proto.auth_v2.DeleteExpiredAuthTokensResponse', null, global);
+goog.exportSymbol('proto.auth_v2.ExtractAuthTokensRequest', null, global);
+goog.exportSymbol('proto.auth_v2.ExtractAuthTokensResponse', null, global);
+goog.exportSymbol('proto.auth_v2.GetConfigurationRequest', null, global);
+goog.exportSymbol('proto.auth_v2.GetConfigurationResponse', null, global);
+goog.exportSymbol('proto.auth_v2.GetGroupsForPrincipalRequest', null, global);
+goog.exportSymbol('proto.auth_v2.GetGroupsRequest', null, global);
+goog.exportSymbol('proto.auth_v2.GetGroupsResponse', null, global);
+goog.exportSymbol('proto.auth_v2.GetOIDCLoginRequest', null, global);
+goog.exportSymbol('proto.auth_v2.GetOIDCLoginResponse', null, global);
+goog.exportSymbol('proto.auth_v2.GetPermissionsForPrincipalRequest', null, global);
+goog.exportSymbol('proto.auth_v2.GetPermissionsRequest', null, global);
+goog.exportSymbol('proto.auth_v2.GetPermissionsResponse', null, global);
+goog.exportSymbol('proto.auth_v2.GetRobotTokenRequest', null, global);
+goog.exportSymbol('proto.auth_v2.GetRobotTokenResponse', null, global);
+goog.exportSymbol('proto.auth_v2.GetRoleBindingRequest', null, global);
+goog.exportSymbol('proto.auth_v2.GetRoleBindingResponse', null, global);
+goog.exportSymbol('proto.auth_v2.GetUsersRequest', null, global);
+goog.exportSymbol('proto.auth_v2.GetUsersResponse', null, global);
+goog.exportSymbol('proto.auth_v2.Groups', null, global);
+goog.exportSymbol('proto.auth_v2.ModifyMembersRequest', null, global);
+goog.exportSymbol('proto.auth_v2.ModifyMembersResponse', null, global);
+goog.exportSymbol('proto.auth_v2.ModifyRoleBindingRequest', null, global);
+goog.exportSymbol('proto.auth_v2.ModifyRoleBindingResponse', null, global);
+goog.exportSymbol('proto.auth_v2.OIDCConfig', null, global);
+goog.exportSymbol('proto.auth_v2.Permission', null, global);
+goog.exportSymbol('proto.auth_v2.Resource', null, global);
+goog.exportSymbol('proto.auth_v2.ResourceType', null, global);
+goog.exportSymbol('proto.auth_v2.RestoreAuthTokenRequest', null, global);
+goog.exportSymbol('proto.auth_v2.RestoreAuthTokenResponse', null, global);
+goog.exportSymbol('proto.auth_v2.RevokeAuthTokenRequest', null, global);
+goog.exportSymbol('proto.auth_v2.RevokeAuthTokenResponse', null, global);
+goog.exportSymbol('proto.auth_v2.RevokeAuthTokensForUserRequest', null, global);
+goog.exportSymbol('proto.auth_v2.RevokeAuthTokensForUserResponse', null, global);
+goog.exportSymbol('proto.auth_v2.RoleBinding', null, global);
+goog.exportSymbol('proto.auth_v2.Roles', null, global);
+goog.exportSymbol('proto.auth_v2.RotateRootTokenRequest', null, global);
+goog.exportSymbol('proto.auth_v2.RotateRootTokenResponse', null, global);
+goog.exportSymbol('proto.auth_v2.SessionInfo', null, global);
+goog.exportSymbol('proto.auth_v2.SetConfigurationRequest', null, global);
+goog.exportSymbol('proto.auth_v2.SetConfigurationResponse', null, global);
+goog.exportSymbol('proto.auth_v2.SetGroupsForUserRequest', null, global);
+goog.exportSymbol('proto.auth_v2.SetGroupsForUserResponse', null, global);
+goog.exportSymbol('proto.auth_v2.TokenInfo', null, global);
+goog.exportSymbol('proto.auth_v2.Users', null, global);
+goog.exportSymbol('proto.auth_v2.WhoAmIRequest', null, global);
+goog.exportSymbol('proto.auth_v2.WhoAmIResponse', null, global);
 /**
  * Generated by JsPbCodeGenerator.
  * @param {Array=} opt_data Optional initial data array, typically from a
@@ -85,16 +85,16 @@ goog.exportSymbol('proto.auth.WhoAmIResponse', null, global);
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.ActivateRequest = function(opt_data) {
+proto.auth_v2.ActivateRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.ActivateRequest, jspb.Message);
+goog.inherits(proto.auth_v2.ActivateRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.ActivateRequest.displayName = 'proto.auth.ActivateRequest';
+  proto.auth_v2.ActivateRequest.displayName = 'proto.auth_v2.ActivateRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -106,16 +106,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.ActivateResponse = function(opt_data) {
+proto.auth_v2.ActivateResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.ActivateResponse, jspb.Message);
+goog.inherits(proto.auth_v2.ActivateResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.ActivateResponse.displayName = 'proto.auth.ActivateResponse';
+  proto.auth_v2.ActivateResponse.displayName = 'proto.auth_v2.ActivateResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -127,16 +127,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.DeactivateRequest = function(opt_data) {
+proto.auth_v2.DeactivateRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.DeactivateRequest, jspb.Message);
+goog.inherits(proto.auth_v2.DeactivateRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.DeactivateRequest.displayName = 'proto.auth.DeactivateRequest';
+  proto.auth_v2.DeactivateRequest.displayName = 'proto.auth_v2.DeactivateRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -148,16 +148,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.DeactivateResponse = function(opt_data) {
+proto.auth_v2.DeactivateResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.DeactivateResponse, jspb.Message);
+goog.inherits(proto.auth_v2.DeactivateResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.DeactivateResponse.displayName = 'proto.auth.DeactivateResponse';
+  proto.auth_v2.DeactivateResponse.displayName = 'proto.auth_v2.DeactivateResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -169,16 +169,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.RotateRootTokenRequest = function(opt_data) {
+proto.auth_v2.RotateRootTokenRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.RotateRootTokenRequest, jspb.Message);
+goog.inherits(proto.auth_v2.RotateRootTokenRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.RotateRootTokenRequest.displayName = 'proto.auth.RotateRootTokenRequest';
+  proto.auth_v2.RotateRootTokenRequest.displayName = 'proto.auth_v2.RotateRootTokenRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -190,16 +190,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.RotateRootTokenResponse = function(opt_data) {
+proto.auth_v2.RotateRootTokenResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.RotateRootTokenResponse, jspb.Message);
+goog.inherits(proto.auth_v2.RotateRootTokenResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.RotateRootTokenResponse.displayName = 'proto.auth.RotateRootTokenResponse';
+  proto.auth_v2.RotateRootTokenResponse.displayName = 'proto.auth_v2.RotateRootTokenResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -211,16 +211,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.OIDCConfig = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.OIDCConfig.repeatedFields_, null);
+proto.auth_v2.OIDCConfig = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.OIDCConfig.repeatedFields_, null);
 };
-goog.inherits(proto.auth.OIDCConfig, jspb.Message);
+goog.inherits(proto.auth_v2.OIDCConfig, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.OIDCConfig.displayName = 'proto.auth.OIDCConfig';
+  proto.auth_v2.OIDCConfig.displayName = 'proto.auth_v2.OIDCConfig';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -232,16 +232,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetConfigurationRequest = function(opt_data) {
+proto.auth_v2.GetConfigurationRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetConfigurationRequest, jspb.Message);
+goog.inherits(proto.auth_v2.GetConfigurationRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetConfigurationRequest.displayName = 'proto.auth.GetConfigurationRequest';
+  proto.auth_v2.GetConfigurationRequest.displayName = 'proto.auth_v2.GetConfigurationRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -253,16 +253,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetConfigurationResponse = function(opt_data) {
+proto.auth_v2.GetConfigurationResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetConfigurationResponse, jspb.Message);
+goog.inherits(proto.auth_v2.GetConfigurationResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetConfigurationResponse.displayName = 'proto.auth.GetConfigurationResponse';
+  proto.auth_v2.GetConfigurationResponse.displayName = 'proto.auth_v2.GetConfigurationResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -274,16 +274,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.SetConfigurationRequest = function(opt_data) {
+proto.auth_v2.SetConfigurationRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.SetConfigurationRequest, jspb.Message);
+goog.inherits(proto.auth_v2.SetConfigurationRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.SetConfigurationRequest.displayName = 'proto.auth.SetConfigurationRequest';
+  proto.auth_v2.SetConfigurationRequest.displayName = 'proto.auth_v2.SetConfigurationRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -295,16 +295,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.SetConfigurationResponse = function(opt_data) {
+proto.auth_v2.SetConfigurationResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.SetConfigurationResponse, jspb.Message);
+goog.inherits(proto.auth_v2.SetConfigurationResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.SetConfigurationResponse.displayName = 'proto.auth.SetConfigurationResponse';
+  proto.auth_v2.SetConfigurationResponse.displayName = 'proto.auth_v2.SetConfigurationResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -316,16 +316,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.TokenInfo = function(opt_data) {
+proto.auth_v2.TokenInfo = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.TokenInfo, jspb.Message);
+goog.inherits(proto.auth_v2.TokenInfo, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.TokenInfo.displayName = 'proto.auth.TokenInfo';
+  proto.auth_v2.TokenInfo.displayName = 'proto.auth_v2.TokenInfo';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -337,16 +337,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.AuthenticateRequest = function(opt_data) {
+proto.auth_v2.AuthenticateRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.AuthenticateRequest, jspb.Message);
+goog.inherits(proto.auth_v2.AuthenticateRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.AuthenticateRequest.displayName = 'proto.auth.AuthenticateRequest';
+  proto.auth_v2.AuthenticateRequest.displayName = 'proto.auth_v2.AuthenticateRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -358,16 +358,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.AuthenticateResponse = function(opt_data) {
+proto.auth_v2.AuthenticateResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.AuthenticateResponse, jspb.Message);
+goog.inherits(proto.auth_v2.AuthenticateResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.AuthenticateResponse.displayName = 'proto.auth.AuthenticateResponse';
+  proto.auth_v2.AuthenticateResponse.displayName = 'proto.auth_v2.AuthenticateResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -379,16 +379,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.WhoAmIRequest = function(opt_data) {
+proto.auth_v2.WhoAmIRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.WhoAmIRequest, jspb.Message);
+goog.inherits(proto.auth_v2.WhoAmIRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.WhoAmIRequest.displayName = 'proto.auth.WhoAmIRequest';
+  proto.auth_v2.WhoAmIRequest.displayName = 'proto.auth_v2.WhoAmIRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -400,16 +400,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.WhoAmIResponse = function(opt_data) {
+proto.auth_v2.WhoAmIResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.WhoAmIResponse, jspb.Message);
+goog.inherits(proto.auth_v2.WhoAmIResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.WhoAmIResponse.displayName = 'proto.auth.WhoAmIResponse';
+  proto.auth_v2.WhoAmIResponse.displayName = 'proto.auth_v2.WhoAmIResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -421,16 +421,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.Roles = function(opt_data) {
+proto.auth_v2.Roles = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.Roles, jspb.Message);
+goog.inherits(proto.auth_v2.Roles, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.Roles.displayName = 'proto.auth.Roles';
+  proto.auth_v2.Roles.displayName = 'proto.auth_v2.Roles';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -442,16 +442,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.RoleBinding = function(opt_data) {
+proto.auth_v2.RoleBinding = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.RoleBinding, jspb.Message);
+goog.inherits(proto.auth_v2.RoleBinding, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.RoleBinding.displayName = 'proto.auth.RoleBinding';
+  proto.auth_v2.RoleBinding.displayName = 'proto.auth_v2.RoleBinding';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -463,16 +463,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.Resource = function(opt_data) {
+proto.auth_v2.Resource = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.Resource, jspb.Message);
+goog.inherits(proto.auth_v2.Resource, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.Resource.displayName = 'proto.auth.Resource';
+  proto.auth_v2.Resource.displayName = 'proto.auth_v2.Resource';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -484,16 +484,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.Users = function(opt_data) {
+proto.auth_v2.Users = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.Users, jspb.Message);
+goog.inherits(proto.auth_v2.Users, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.Users.displayName = 'proto.auth.Users';
+  proto.auth_v2.Users.displayName = 'proto.auth_v2.Users';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -505,16 +505,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.Groups = function(opt_data) {
+proto.auth_v2.Groups = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.Groups, jspb.Message);
+goog.inherits(proto.auth_v2.Groups, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.Groups.displayName = 'proto.auth.Groups';
+  proto.auth_v2.Groups.displayName = 'proto.auth_v2.Groups';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -526,16 +526,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.AuthorizeRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.AuthorizeRequest.repeatedFields_, null);
+proto.auth_v2.AuthorizeRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.AuthorizeRequest.repeatedFields_, null);
 };
-goog.inherits(proto.auth.AuthorizeRequest, jspb.Message);
+goog.inherits(proto.auth_v2.AuthorizeRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.AuthorizeRequest.displayName = 'proto.auth.AuthorizeRequest';
+  proto.auth_v2.AuthorizeRequest.displayName = 'proto.auth_v2.AuthorizeRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -547,16 +547,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.AuthorizeResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.AuthorizeResponse.repeatedFields_, null);
+proto.auth_v2.AuthorizeResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.AuthorizeResponse.repeatedFields_, null);
 };
-goog.inherits(proto.auth.AuthorizeResponse, jspb.Message);
+goog.inherits(proto.auth_v2.AuthorizeResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.AuthorizeResponse.displayName = 'proto.auth.AuthorizeResponse';
+  proto.auth_v2.AuthorizeResponse.displayName = 'proto.auth_v2.AuthorizeResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -568,16 +568,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetPermissionsRequest = function(opt_data) {
+proto.auth_v2.GetPermissionsRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetPermissionsRequest, jspb.Message);
+goog.inherits(proto.auth_v2.GetPermissionsRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetPermissionsRequest.displayName = 'proto.auth.GetPermissionsRequest';
+  proto.auth_v2.GetPermissionsRequest.displayName = 'proto.auth_v2.GetPermissionsRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -589,16 +589,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetPermissionsForPrincipalRequest = function(opt_data) {
+proto.auth_v2.GetPermissionsForPrincipalRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetPermissionsForPrincipalRequest, jspb.Message);
+goog.inherits(proto.auth_v2.GetPermissionsForPrincipalRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetPermissionsForPrincipalRequest.displayName = 'proto.auth.GetPermissionsForPrincipalRequest';
+  proto.auth_v2.GetPermissionsForPrincipalRequest.displayName = 'proto.auth_v2.GetPermissionsForPrincipalRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -610,16 +610,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetPermissionsResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.GetPermissionsResponse.repeatedFields_, null);
+proto.auth_v2.GetPermissionsResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.GetPermissionsResponse.repeatedFields_, null);
 };
-goog.inherits(proto.auth.GetPermissionsResponse, jspb.Message);
+goog.inherits(proto.auth_v2.GetPermissionsResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetPermissionsResponse.displayName = 'proto.auth.GetPermissionsResponse';
+  proto.auth_v2.GetPermissionsResponse.displayName = 'proto.auth_v2.GetPermissionsResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -631,16 +631,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.ModifyRoleBindingRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.ModifyRoleBindingRequest.repeatedFields_, null);
+proto.auth_v2.ModifyRoleBindingRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.ModifyRoleBindingRequest.repeatedFields_, null);
 };
-goog.inherits(proto.auth.ModifyRoleBindingRequest, jspb.Message);
+goog.inherits(proto.auth_v2.ModifyRoleBindingRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.ModifyRoleBindingRequest.displayName = 'proto.auth.ModifyRoleBindingRequest';
+  proto.auth_v2.ModifyRoleBindingRequest.displayName = 'proto.auth_v2.ModifyRoleBindingRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -652,16 +652,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.ModifyRoleBindingResponse = function(opt_data) {
+proto.auth_v2.ModifyRoleBindingResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.ModifyRoleBindingResponse, jspb.Message);
+goog.inherits(proto.auth_v2.ModifyRoleBindingResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.ModifyRoleBindingResponse.displayName = 'proto.auth.ModifyRoleBindingResponse';
+  proto.auth_v2.ModifyRoleBindingResponse.displayName = 'proto.auth_v2.ModifyRoleBindingResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -673,16 +673,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetRoleBindingRequest = function(opt_data) {
+proto.auth_v2.GetRoleBindingRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetRoleBindingRequest, jspb.Message);
+goog.inherits(proto.auth_v2.GetRoleBindingRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetRoleBindingRequest.displayName = 'proto.auth.GetRoleBindingRequest';
+  proto.auth_v2.GetRoleBindingRequest.displayName = 'proto.auth_v2.GetRoleBindingRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -694,16 +694,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetRoleBindingResponse = function(opt_data) {
+proto.auth_v2.GetRoleBindingResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetRoleBindingResponse, jspb.Message);
+goog.inherits(proto.auth_v2.GetRoleBindingResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetRoleBindingResponse.displayName = 'proto.auth.GetRoleBindingResponse';
+  proto.auth_v2.GetRoleBindingResponse.displayName = 'proto.auth_v2.GetRoleBindingResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -715,16 +715,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.SessionInfo = function(opt_data) {
+proto.auth_v2.SessionInfo = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.SessionInfo, jspb.Message);
+goog.inherits(proto.auth_v2.SessionInfo, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.SessionInfo.displayName = 'proto.auth.SessionInfo';
+  proto.auth_v2.SessionInfo.displayName = 'proto.auth_v2.SessionInfo';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -736,16 +736,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetOIDCLoginRequest = function(opt_data) {
+proto.auth_v2.GetOIDCLoginRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetOIDCLoginRequest, jspb.Message);
+goog.inherits(proto.auth_v2.GetOIDCLoginRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetOIDCLoginRequest.displayName = 'proto.auth.GetOIDCLoginRequest';
+  proto.auth_v2.GetOIDCLoginRequest.displayName = 'proto.auth_v2.GetOIDCLoginRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -757,16 +757,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetOIDCLoginResponse = function(opt_data) {
+proto.auth_v2.GetOIDCLoginResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetOIDCLoginResponse, jspb.Message);
+goog.inherits(proto.auth_v2.GetOIDCLoginResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetOIDCLoginResponse.displayName = 'proto.auth.GetOIDCLoginResponse';
+  proto.auth_v2.GetOIDCLoginResponse.displayName = 'proto.auth_v2.GetOIDCLoginResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -778,16 +778,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetRobotTokenRequest = function(opt_data) {
+proto.auth_v2.GetRobotTokenRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetRobotTokenRequest, jspb.Message);
+goog.inherits(proto.auth_v2.GetRobotTokenRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetRobotTokenRequest.displayName = 'proto.auth.GetRobotTokenRequest';
+  proto.auth_v2.GetRobotTokenRequest.displayName = 'proto.auth_v2.GetRobotTokenRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -799,16 +799,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetRobotTokenResponse = function(opt_data) {
+proto.auth_v2.GetRobotTokenResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetRobotTokenResponse, jspb.Message);
+goog.inherits(proto.auth_v2.GetRobotTokenResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetRobotTokenResponse.displayName = 'proto.auth.GetRobotTokenResponse';
+  proto.auth_v2.GetRobotTokenResponse.displayName = 'proto.auth_v2.GetRobotTokenResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -820,16 +820,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.RevokeAuthTokenRequest = function(opt_data) {
+proto.auth_v2.RevokeAuthTokenRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.RevokeAuthTokenRequest, jspb.Message);
+goog.inherits(proto.auth_v2.RevokeAuthTokenRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.RevokeAuthTokenRequest.displayName = 'proto.auth.RevokeAuthTokenRequest';
+  proto.auth_v2.RevokeAuthTokenRequest.displayName = 'proto.auth_v2.RevokeAuthTokenRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -841,16 +841,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.RevokeAuthTokenResponse = function(opt_data) {
+proto.auth_v2.RevokeAuthTokenResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.RevokeAuthTokenResponse, jspb.Message);
+goog.inherits(proto.auth_v2.RevokeAuthTokenResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.RevokeAuthTokenResponse.displayName = 'proto.auth.RevokeAuthTokenResponse';
+  proto.auth_v2.RevokeAuthTokenResponse.displayName = 'proto.auth_v2.RevokeAuthTokenResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -862,16 +862,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.SetGroupsForUserRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.SetGroupsForUserRequest.repeatedFields_, null);
+proto.auth_v2.SetGroupsForUserRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.SetGroupsForUserRequest.repeatedFields_, null);
 };
-goog.inherits(proto.auth.SetGroupsForUserRequest, jspb.Message);
+goog.inherits(proto.auth_v2.SetGroupsForUserRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.SetGroupsForUserRequest.displayName = 'proto.auth.SetGroupsForUserRequest';
+  proto.auth_v2.SetGroupsForUserRequest.displayName = 'proto.auth_v2.SetGroupsForUserRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -883,16 +883,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.SetGroupsForUserResponse = function(opt_data) {
+proto.auth_v2.SetGroupsForUserResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.SetGroupsForUserResponse, jspb.Message);
+goog.inherits(proto.auth_v2.SetGroupsForUserResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.SetGroupsForUserResponse.displayName = 'proto.auth.SetGroupsForUserResponse';
+  proto.auth_v2.SetGroupsForUserResponse.displayName = 'proto.auth_v2.SetGroupsForUserResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -904,16 +904,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.ModifyMembersRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.ModifyMembersRequest.repeatedFields_, null);
+proto.auth_v2.ModifyMembersRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.ModifyMembersRequest.repeatedFields_, null);
 };
-goog.inherits(proto.auth.ModifyMembersRequest, jspb.Message);
+goog.inherits(proto.auth_v2.ModifyMembersRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.ModifyMembersRequest.displayName = 'proto.auth.ModifyMembersRequest';
+  proto.auth_v2.ModifyMembersRequest.displayName = 'proto.auth_v2.ModifyMembersRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -925,16 +925,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.ModifyMembersResponse = function(opt_data) {
+proto.auth_v2.ModifyMembersResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.ModifyMembersResponse, jspb.Message);
+goog.inherits(proto.auth_v2.ModifyMembersResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.ModifyMembersResponse.displayName = 'proto.auth.ModifyMembersResponse';
+  proto.auth_v2.ModifyMembersResponse.displayName = 'proto.auth_v2.ModifyMembersResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -946,16 +946,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetGroupsRequest = function(opt_data) {
+proto.auth_v2.GetGroupsRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetGroupsRequest, jspb.Message);
+goog.inherits(proto.auth_v2.GetGroupsRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetGroupsRequest.displayName = 'proto.auth.GetGroupsRequest';
+  proto.auth_v2.GetGroupsRequest.displayName = 'proto.auth_v2.GetGroupsRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -967,16 +967,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetGroupsForPrincipalRequest = function(opt_data) {
+proto.auth_v2.GetGroupsForPrincipalRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetGroupsForPrincipalRequest, jspb.Message);
+goog.inherits(proto.auth_v2.GetGroupsForPrincipalRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetGroupsForPrincipalRequest.displayName = 'proto.auth.GetGroupsForPrincipalRequest';
+  proto.auth_v2.GetGroupsForPrincipalRequest.displayName = 'proto.auth_v2.GetGroupsForPrincipalRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -988,16 +988,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetGroupsResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.GetGroupsResponse.repeatedFields_, null);
+proto.auth_v2.GetGroupsResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.GetGroupsResponse.repeatedFields_, null);
 };
-goog.inherits(proto.auth.GetGroupsResponse, jspb.Message);
+goog.inherits(proto.auth_v2.GetGroupsResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetGroupsResponse.displayName = 'proto.auth.GetGroupsResponse';
+  proto.auth_v2.GetGroupsResponse.displayName = 'proto.auth_v2.GetGroupsResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1009,16 +1009,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetUsersRequest = function(opt_data) {
+proto.auth_v2.GetUsersRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.GetUsersRequest, jspb.Message);
+goog.inherits(proto.auth_v2.GetUsersRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetUsersRequest.displayName = 'proto.auth.GetUsersRequest';
+  proto.auth_v2.GetUsersRequest.displayName = 'proto.auth_v2.GetUsersRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1030,16 +1030,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.GetUsersResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.GetUsersResponse.repeatedFields_, null);
+proto.auth_v2.GetUsersResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.GetUsersResponse.repeatedFields_, null);
 };
-goog.inherits(proto.auth.GetUsersResponse, jspb.Message);
+goog.inherits(proto.auth_v2.GetUsersResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.GetUsersResponse.displayName = 'proto.auth.GetUsersResponse';
+  proto.auth_v2.GetUsersResponse.displayName = 'proto.auth_v2.GetUsersResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1051,16 +1051,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.ExtractAuthTokensRequest = function(opt_data) {
+proto.auth_v2.ExtractAuthTokensRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.ExtractAuthTokensRequest, jspb.Message);
+goog.inherits(proto.auth_v2.ExtractAuthTokensRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.ExtractAuthTokensRequest.displayName = 'proto.auth.ExtractAuthTokensRequest';
+  proto.auth_v2.ExtractAuthTokensRequest.displayName = 'proto.auth_v2.ExtractAuthTokensRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1072,16 +1072,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.ExtractAuthTokensResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth.ExtractAuthTokensResponse.repeatedFields_, null);
+proto.auth_v2.ExtractAuthTokensResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.auth_v2.ExtractAuthTokensResponse.repeatedFields_, null);
 };
-goog.inherits(proto.auth.ExtractAuthTokensResponse, jspb.Message);
+goog.inherits(proto.auth_v2.ExtractAuthTokensResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.ExtractAuthTokensResponse.displayName = 'proto.auth.ExtractAuthTokensResponse';
+  proto.auth_v2.ExtractAuthTokensResponse.displayName = 'proto.auth_v2.ExtractAuthTokensResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1093,16 +1093,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.RestoreAuthTokenRequest = function(opt_data) {
+proto.auth_v2.RestoreAuthTokenRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.RestoreAuthTokenRequest, jspb.Message);
+goog.inherits(proto.auth_v2.RestoreAuthTokenRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.RestoreAuthTokenRequest.displayName = 'proto.auth.RestoreAuthTokenRequest';
+  proto.auth_v2.RestoreAuthTokenRequest.displayName = 'proto.auth_v2.RestoreAuthTokenRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1114,16 +1114,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.RestoreAuthTokenResponse = function(opt_data) {
+proto.auth_v2.RestoreAuthTokenResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.RestoreAuthTokenResponse, jspb.Message);
+goog.inherits(proto.auth_v2.RestoreAuthTokenResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.RestoreAuthTokenResponse.displayName = 'proto.auth.RestoreAuthTokenResponse';
+  proto.auth_v2.RestoreAuthTokenResponse.displayName = 'proto.auth_v2.RestoreAuthTokenResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1135,16 +1135,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.RevokeAuthTokensForUserRequest = function(opt_data) {
+proto.auth_v2.RevokeAuthTokensForUserRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.RevokeAuthTokensForUserRequest, jspb.Message);
+goog.inherits(proto.auth_v2.RevokeAuthTokensForUserRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.RevokeAuthTokensForUserRequest.displayName = 'proto.auth.RevokeAuthTokensForUserRequest';
+  proto.auth_v2.RevokeAuthTokensForUserRequest.displayName = 'proto.auth_v2.RevokeAuthTokensForUserRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1156,16 +1156,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.RevokeAuthTokensForUserResponse = function(opt_data) {
+proto.auth_v2.RevokeAuthTokensForUserResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.RevokeAuthTokensForUserResponse, jspb.Message);
+goog.inherits(proto.auth_v2.RevokeAuthTokensForUserResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.RevokeAuthTokensForUserResponse.displayName = 'proto.auth.RevokeAuthTokensForUserResponse';
+  proto.auth_v2.RevokeAuthTokensForUserResponse.displayName = 'proto.auth_v2.RevokeAuthTokensForUserResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1177,16 +1177,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.DeleteExpiredAuthTokensRequest = function(opt_data) {
+proto.auth_v2.DeleteExpiredAuthTokensRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.DeleteExpiredAuthTokensRequest, jspb.Message);
+goog.inherits(proto.auth_v2.DeleteExpiredAuthTokensRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.DeleteExpiredAuthTokensRequest.displayName = 'proto.auth.DeleteExpiredAuthTokensRequest';
+  proto.auth_v2.DeleteExpiredAuthTokensRequest.displayName = 'proto.auth_v2.DeleteExpiredAuthTokensRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1198,16 +1198,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.auth.DeleteExpiredAuthTokensResponse = function(opt_data) {
+proto.auth_v2.DeleteExpiredAuthTokensResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.auth.DeleteExpiredAuthTokensResponse, jspb.Message);
+goog.inherits(proto.auth_v2.DeleteExpiredAuthTokensResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.auth.DeleteExpiredAuthTokensResponse.displayName = 'proto.auth.DeleteExpiredAuthTokensResponse';
+  proto.auth_v2.DeleteExpiredAuthTokensResponse.displayName = 'proto.auth_v2.DeleteExpiredAuthTokensResponse';
 }
 
 
@@ -1225,8 +1225,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.ActivateRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.ActivateRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.ActivateRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.ActivateRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -1235,11 +1235,11 @@ proto.auth.ActivateRequest.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.ActivateRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.ActivateRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ActivateRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.ActivateRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     rootToken: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -1255,23 +1255,23 @@ proto.auth.ActivateRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.ActivateRequest}
+ * @return {!proto.auth_v2.ActivateRequest}
  */
-proto.auth.ActivateRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.ActivateRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.ActivateRequest;
-  return proto.auth.ActivateRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.ActivateRequest;
+  return proto.auth_v2.ActivateRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.ActivateRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.ActivateRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.ActivateRequest}
+ * @return {!proto.auth_v2.ActivateRequest}
  */
-proto.auth.ActivateRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.ActivateRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -1295,9 +1295,9 @@ proto.auth.ActivateRequest.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.ActivateRequest.prototype.serializeBinary = function() {
+proto.auth_v2.ActivateRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.ActivateRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.ActivateRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -1305,11 +1305,11 @@ proto.auth.ActivateRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.ActivateRequest} message
+ * @param {!proto.auth_v2.ActivateRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ActivateRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.ActivateRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRootToken();
   if (f.length > 0) {
@@ -1325,16 +1325,16 @@ proto.auth.ActivateRequest.serializeBinaryToWriter = function(message, writer) {
  * optional string root_token = 1;
  * @return {string}
  */
-proto.auth.ActivateRequest.prototype.getRootToken = function() {
+proto.auth_v2.ActivateRequest.prototype.getRootToken = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.ActivateRequest} returns this
+ * @return {!proto.auth_v2.ActivateRequest} returns this
  */
-proto.auth.ActivateRequest.prototype.setRootToken = function(value) {
+proto.auth_v2.ActivateRequest.prototype.setRootToken = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -1355,8 +1355,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.ActivateResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.ActivateResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.ActivateResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.ActivateResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -1365,11 +1365,11 @@ proto.auth.ActivateResponse.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.ActivateResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.ActivateResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ActivateResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.ActivateResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     pachToken: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -1385,23 +1385,23 @@ proto.auth.ActivateResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.ActivateResponse}
+ * @return {!proto.auth_v2.ActivateResponse}
  */
-proto.auth.ActivateResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.ActivateResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.ActivateResponse;
-  return proto.auth.ActivateResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.ActivateResponse;
+  return proto.auth_v2.ActivateResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.ActivateResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.ActivateResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.ActivateResponse}
+ * @return {!proto.auth_v2.ActivateResponse}
  */
-proto.auth.ActivateResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.ActivateResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -1425,9 +1425,9 @@ proto.auth.ActivateResponse.deserializeBinaryFromReader = function(msg, reader) 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.ActivateResponse.prototype.serializeBinary = function() {
+proto.auth_v2.ActivateResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.ActivateResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.ActivateResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -1435,11 +1435,11 @@ proto.auth.ActivateResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.ActivateResponse} message
+ * @param {!proto.auth_v2.ActivateResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ActivateResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.ActivateResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getPachToken();
   if (f.length > 0) {
@@ -1455,16 +1455,16 @@ proto.auth.ActivateResponse.serializeBinaryToWriter = function(message, writer) 
  * optional string pach_token = 1;
  * @return {string}
  */
-proto.auth.ActivateResponse.prototype.getPachToken = function() {
+proto.auth_v2.ActivateResponse.prototype.getPachToken = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.ActivateResponse} returns this
+ * @return {!proto.auth_v2.ActivateResponse} returns this
  */
-proto.auth.ActivateResponse.prototype.setPachToken = function(value) {
+proto.auth_v2.ActivateResponse.prototype.setPachToken = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -1485,8 +1485,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.DeactivateRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.DeactivateRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.DeactivateRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.DeactivateRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -1495,11 +1495,11 @@ proto.auth.DeactivateRequest.prototype.toObject = function(opt_includeInstance) 
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.DeactivateRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.DeactivateRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.DeactivateRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.DeactivateRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -1515,23 +1515,23 @@ proto.auth.DeactivateRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.DeactivateRequest}
+ * @return {!proto.auth_v2.DeactivateRequest}
  */
-proto.auth.DeactivateRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.DeactivateRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.DeactivateRequest;
-  return proto.auth.DeactivateRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.DeactivateRequest;
+  return proto.auth_v2.DeactivateRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.DeactivateRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.DeactivateRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.DeactivateRequest}
+ * @return {!proto.auth_v2.DeactivateRequest}
  */
-proto.auth.DeactivateRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.DeactivateRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -1551,9 +1551,9 @@ proto.auth.DeactivateRequest.deserializeBinaryFromReader = function(msg, reader)
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.DeactivateRequest.prototype.serializeBinary = function() {
+proto.auth_v2.DeactivateRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.DeactivateRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.DeactivateRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -1561,11 +1561,11 @@ proto.auth.DeactivateRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.DeactivateRequest} message
+ * @param {!proto.auth_v2.DeactivateRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.DeactivateRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.DeactivateRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -1586,8 +1586,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.DeactivateResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.DeactivateResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.DeactivateResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.DeactivateResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -1596,11 +1596,11 @@ proto.auth.DeactivateResponse.prototype.toObject = function(opt_includeInstance)
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.DeactivateResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.DeactivateResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.DeactivateResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.DeactivateResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -1616,23 +1616,23 @@ proto.auth.DeactivateResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.DeactivateResponse}
+ * @return {!proto.auth_v2.DeactivateResponse}
  */
-proto.auth.DeactivateResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.DeactivateResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.DeactivateResponse;
-  return proto.auth.DeactivateResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.DeactivateResponse;
+  return proto.auth_v2.DeactivateResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.DeactivateResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.DeactivateResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.DeactivateResponse}
+ * @return {!proto.auth_v2.DeactivateResponse}
  */
-proto.auth.DeactivateResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.DeactivateResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -1652,9 +1652,9 @@ proto.auth.DeactivateResponse.deserializeBinaryFromReader = function(msg, reader
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.DeactivateResponse.prototype.serializeBinary = function() {
+proto.auth_v2.DeactivateResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.DeactivateResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.DeactivateResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -1662,11 +1662,11 @@ proto.auth.DeactivateResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.DeactivateResponse} message
+ * @param {!proto.auth_v2.DeactivateResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.DeactivateResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.DeactivateResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -1687,8 +1687,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.RotateRootTokenRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.RotateRootTokenRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.RotateRootTokenRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.RotateRootTokenRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -1697,11 +1697,11 @@ proto.auth.RotateRootTokenRequest.prototype.toObject = function(opt_includeInsta
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.RotateRootTokenRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.RotateRootTokenRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RotateRootTokenRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.RotateRootTokenRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     rootToken: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -1717,23 +1717,23 @@ proto.auth.RotateRootTokenRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.RotateRootTokenRequest}
+ * @return {!proto.auth_v2.RotateRootTokenRequest}
  */
-proto.auth.RotateRootTokenRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.RotateRootTokenRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.RotateRootTokenRequest;
-  return proto.auth.RotateRootTokenRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.RotateRootTokenRequest;
+  return proto.auth_v2.RotateRootTokenRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.RotateRootTokenRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.RotateRootTokenRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.RotateRootTokenRequest}
+ * @return {!proto.auth_v2.RotateRootTokenRequest}
  */
-proto.auth.RotateRootTokenRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.RotateRootTokenRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -1757,9 +1757,9 @@ proto.auth.RotateRootTokenRequest.deserializeBinaryFromReader = function(msg, re
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.RotateRootTokenRequest.prototype.serializeBinary = function() {
+proto.auth_v2.RotateRootTokenRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.RotateRootTokenRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.RotateRootTokenRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -1767,11 +1767,11 @@ proto.auth.RotateRootTokenRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.RotateRootTokenRequest} message
+ * @param {!proto.auth_v2.RotateRootTokenRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RotateRootTokenRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.RotateRootTokenRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRootToken();
   if (f.length > 0) {
@@ -1787,16 +1787,16 @@ proto.auth.RotateRootTokenRequest.serializeBinaryToWriter = function(message, wr
  * optional string root_token = 1;
  * @return {string}
  */
-proto.auth.RotateRootTokenRequest.prototype.getRootToken = function() {
+proto.auth_v2.RotateRootTokenRequest.prototype.getRootToken = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.RotateRootTokenRequest} returns this
+ * @return {!proto.auth_v2.RotateRootTokenRequest} returns this
  */
-proto.auth.RotateRootTokenRequest.prototype.setRootToken = function(value) {
+proto.auth_v2.RotateRootTokenRequest.prototype.setRootToken = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -1817,8 +1817,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.RotateRootTokenResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.RotateRootTokenResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.RotateRootTokenResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.RotateRootTokenResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -1827,11 +1827,11 @@ proto.auth.RotateRootTokenResponse.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.RotateRootTokenResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.RotateRootTokenResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RotateRootTokenResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.RotateRootTokenResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     rootToken: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -1847,23 +1847,23 @@ proto.auth.RotateRootTokenResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.RotateRootTokenResponse}
+ * @return {!proto.auth_v2.RotateRootTokenResponse}
  */
-proto.auth.RotateRootTokenResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.RotateRootTokenResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.RotateRootTokenResponse;
-  return proto.auth.RotateRootTokenResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.RotateRootTokenResponse;
+  return proto.auth_v2.RotateRootTokenResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.RotateRootTokenResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.RotateRootTokenResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.RotateRootTokenResponse}
+ * @return {!proto.auth_v2.RotateRootTokenResponse}
  */
-proto.auth.RotateRootTokenResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.RotateRootTokenResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -1887,9 +1887,9 @@ proto.auth.RotateRootTokenResponse.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.RotateRootTokenResponse.prototype.serializeBinary = function() {
+proto.auth_v2.RotateRootTokenResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.RotateRootTokenResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.RotateRootTokenResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -1897,11 +1897,11 @@ proto.auth.RotateRootTokenResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.RotateRootTokenResponse} message
+ * @param {!proto.auth_v2.RotateRootTokenResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RotateRootTokenResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.RotateRootTokenResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRootToken();
   if (f.length > 0) {
@@ -1917,16 +1917,16 @@ proto.auth.RotateRootTokenResponse.serializeBinaryToWriter = function(message, w
  * optional string root_token = 1;
  * @return {string}
  */
-proto.auth.RotateRootTokenResponse.prototype.getRootToken = function() {
+proto.auth_v2.RotateRootTokenResponse.prototype.getRootToken = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.RotateRootTokenResponse} returns this
+ * @return {!proto.auth_v2.RotateRootTokenResponse} returns this
  */
-proto.auth.RotateRootTokenResponse.prototype.setRootToken = function(value) {
+proto.auth_v2.RotateRootTokenResponse.prototype.setRootToken = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -1937,7 +1937,7 @@ proto.auth.RotateRootTokenResponse.prototype.setRootToken = function(value) {
  * @private {!Array<number>}
  * @const
  */
-proto.auth.OIDCConfig.repeatedFields_ = [5];
+proto.auth_v2.OIDCConfig.repeatedFields_ = [5];
 
 
 
@@ -1954,8 +1954,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.OIDCConfig.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.OIDCConfig.toObject(opt_includeInstance, this);
+proto.auth_v2.OIDCConfig.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.OIDCConfig.toObject(opt_includeInstance, this);
 };
 
 
@@ -1964,11 +1964,11 @@ proto.auth.OIDCConfig.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.OIDCConfig} msg The msg instance to transform.
+ * @param {!proto.auth_v2.OIDCConfig} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.OIDCConfig.toObject = function(includeInstance, msg) {
+proto.auth_v2.OIDCConfig.toObject = function(includeInstance, msg) {
   var f, obj = {
     issuer: jspb.Message.getFieldWithDefault(msg, 1, ""),
     clientId: jspb.Message.getFieldWithDefault(msg, 2, ""),
@@ -1990,23 +1990,23 @@ proto.auth.OIDCConfig.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.OIDCConfig}
+ * @return {!proto.auth_v2.OIDCConfig}
  */
-proto.auth.OIDCConfig.deserializeBinary = function(bytes) {
+proto.auth_v2.OIDCConfig.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.OIDCConfig;
-  return proto.auth.OIDCConfig.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.OIDCConfig;
+  return proto.auth_v2.OIDCConfig.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.OIDCConfig} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.OIDCConfig} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.OIDCConfig}
+ * @return {!proto.auth_v2.OIDCConfig}
  */
-proto.auth.OIDCConfig.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.OIDCConfig.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -2054,9 +2054,9 @@ proto.auth.OIDCConfig.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.OIDCConfig.prototype.serializeBinary = function() {
+proto.auth_v2.OIDCConfig.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.OIDCConfig.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.OIDCConfig.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -2064,11 +2064,11 @@ proto.auth.OIDCConfig.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.OIDCConfig} message
+ * @param {!proto.auth_v2.OIDCConfig} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.OIDCConfig.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.OIDCConfig.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getIssuer();
   if (f.length > 0) {
@@ -2126,16 +2126,16 @@ proto.auth.OIDCConfig.serializeBinaryToWriter = function(message, writer) {
  * optional string issuer = 1;
  * @return {string}
  */
-proto.auth.OIDCConfig.prototype.getIssuer = function() {
+proto.auth_v2.OIDCConfig.prototype.getIssuer = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.OIDCConfig} returns this
+ * @return {!proto.auth_v2.OIDCConfig} returns this
  */
-proto.auth.OIDCConfig.prototype.setIssuer = function(value) {
+proto.auth_v2.OIDCConfig.prototype.setIssuer = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -2144,16 +2144,16 @@ proto.auth.OIDCConfig.prototype.setIssuer = function(value) {
  * optional string client_id = 2;
  * @return {string}
  */
-proto.auth.OIDCConfig.prototype.getClientId = function() {
+proto.auth_v2.OIDCConfig.prototype.getClientId = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.OIDCConfig} returns this
+ * @return {!proto.auth_v2.OIDCConfig} returns this
  */
-proto.auth.OIDCConfig.prototype.setClientId = function(value) {
+proto.auth_v2.OIDCConfig.prototype.setClientId = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -2162,16 +2162,16 @@ proto.auth.OIDCConfig.prototype.setClientId = function(value) {
  * optional string client_secret = 3;
  * @return {string}
  */
-proto.auth.OIDCConfig.prototype.getClientSecret = function() {
+proto.auth_v2.OIDCConfig.prototype.getClientSecret = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.OIDCConfig} returns this
+ * @return {!proto.auth_v2.OIDCConfig} returns this
  */
-proto.auth.OIDCConfig.prototype.setClientSecret = function(value) {
+proto.auth_v2.OIDCConfig.prototype.setClientSecret = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
@@ -2180,16 +2180,16 @@ proto.auth.OIDCConfig.prototype.setClientSecret = function(value) {
  * optional string redirect_uri = 4;
  * @return {string}
  */
-proto.auth.OIDCConfig.prototype.getRedirectUri = function() {
+proto.auth_v2.OIDCConfig.prototype.getRedirectUri = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.OIDCConfig} returns this
+ * @return {!proto.auth_v2.OIDCConfig} returns this
  */
-proto.auth.OIDCConfig.prototype.setRedirectUri = function(value) {
+proto.auth_v2.OIDCConfig.prototype.setRedirectUri = function(value) {
   return jspb.Message.setProto3StringField(this, 4, value);
 };
 
@@ -2198,16 +2198,16 @@ proto.auth.OIDCConfig.prototype.setRedirectUri = function(value) {
  * repeated string scopes = 5;
  * @return {!Array<string>}
  */
-proto.auth.OIDCConfig.prototype.getScopesList = function() {
+proto.auth_v2.OIDCConfig.prototype.getScopesList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 5));
 };
 
 
 /**
  * @param {!Array<string>} value
- * @return {!proto.auth.OIDCConfig} returns this
+ * @return {!proto.auth_v2.OIDCConfig} returns this
  */
-proto.auth.OIDCConfig.prototype.setScopesList = function(value) {
+proto.auth_v2.OIDCConfig.prototype.setScopesList = function(value) {
   return jspb.Message.setField(this, 5, value || []);
 };
 
@@ -2215,18 +2215,18 @@ proto.auth.OIDCConfig.prototype.setScopesList = function(value) {
 /**
  * @param {string} value
  * @param {number=} opt_index
- * @return {!proto.auth.OIDCConfig} returns this
+ * @return {!proto.auth_v2.OIDCConfig} returns this
  */
-proto.auth.OIDCConfig.prototype.addScopes = function(value, opt_index) {
+proto.auth_v2.OIDCConfig.prototype.addScopes = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 5, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.OIDCConfig} returns this
+ * @return {!proto.auth_v2.OIDCConfig} returns this
  */
-proto.auth.OIDCConfig.prototype.clearScopesList = function() {
+proto.auth_v2.OIDCConfig.prototype.clearScopesList = function() {
   return this.setScopesList([]);
 };
 
@@ -2235,16 +2235,16 @@ proto.auth.OIDCConfig.prototype.clearScopesList = function() {
  * optional bool require_email_verified = 6;
  * @return {boolean}
  */
-proto.auth.OIDCConfig.prototype.getRequireEmailVerified = function() {
+proto.auth_v2.OIDCConfig.prototype.getRequireEmailVerified = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 6, false));
 };
 
 
 /**
  * @param {boolean} value
- * @return {!proto.auth.OIDCConfig} returns this
+ * @return {!proto.auth_v2.OIDCConfig} returns this
  */
-proto.auth.OIDCConfig.prototype.setRequireEmailVerified = function(value) {
+proto.auth_v2.OIDCConfig.prototype.setRequireEmailVerified = function(value) {
   return jspb.Message.setProto3BooleanField(this, 6, value);
 };
 
@@ -2253,16 +2253,16 @@ proto.auth.OIDCConfig.prototype.setRequireEmailVerified = function(value) {
  * optional bool localhost_issuer = 7;
  * @return {boolean}
  */
-proto.auth.OIDCConfig.prototype.getLocalhostIssuer = function() {
+proto.auth_v2.OIDCConfig.prototype.getLocalhostIssuer = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 7, false));
 };
 
 
 /**
  * @param {boolean} value
- * @return {!proto.auth.OIDCConfig} returns this
+ * @return {!proto.auth_v2.OIDCConfig} returns this
  */
-proto.auth.OIDCConfig.prototype.setLocalhostIssuer = function(value) {
+proto.auth_v2.OIDCConfig.prototype.setLocalhostIssuer = function(value) {
   return jspb.Message.setProto3BooleanField(this, 7, value);
 };
 
@@ -2283,8 +2283,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetConfigurationRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetConfigurationRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.GetConfigurationRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetConfigurationRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -2293,11 +2293,11 @@ proto.auth.GetConfigurationRequest.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetConfigurationRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetConfigurationRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetConfigurationRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetConfigurationRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -2313,23 +2313,23 @@ proto.auth.GetConfigurationRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetConfigurationRequest}
+ * @return {!proto.auth_v2.GetConfigurationRequest}
  */
-proto.auth.GetConfigurationRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.GetConfigurationRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetConfigurationRequest;
-  return proto.auth.GetConfigurationRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetConfigurationRequest;
+  return proto.auth_v2.GetConfigurationRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetConfigurationRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetConfigurationRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetConfigurationRequest}
+ * @return {!proto.auth_v2.GetConfigurationRequest}
  */
-proto.auth.GetConfigurationRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetConfigurationRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -2349,9 +2349,9 @@ proto.auth.GetConfigurationRequest.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetConfigurationRequest.prototype.serializeBinary = function() {
+proto.auth_v2.GetConfigurationRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetConfigurationRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetConfigurationRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -2359,11 +2359,11 @@ proto.auth.GetConfigurationRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetConfigurationRequest} message
+ * @param {!proto.auth_v2.GetConfigurationRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetConfigurationRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetConfigurationRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -2384,8 +2384,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetConfigurationResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetConfigurationResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.GetConfigurationResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetConfigurationResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -2394,13 +2394,13 @@ proto.auth.GetConfigurationResponse.prototype.toObject = function(opt_includeIns
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetConfigurationResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetConfigurationResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetConfigurationResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetConfigurationResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    configuration: (f = msg.getConfiguration()) && proto.auth.OIDCConfig.toObject(includeInstance, f)
+    configuration: (f = msg.getConfiguration()) && proto.auth_v2.OIDCConfig.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -2414,23 +2414,23 @@ proto.auth.GetConfigurationResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetConfigurationResponse}
+ * @return {!proto.auth_v2.GetConfigurationResponse}
  */
-proto.auth.GetConfigurationResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.GetConfigurationResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetConfigurationResponse;
-  return proto.auth.GetConfigurationResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetConfigurationResponse;
+  return proto.auth_v2.GetConfigurationResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetConfigurationResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetConfigurationResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetConfigurationResponse}
+ * @return {!proto.auth_v2.GetConfigurationResponse}
  */
-proto.auth.GetConfigurationResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetConfigurationResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -2438,8 +2438,8 @@ proto.auth.GetConfigurationResponse.deserializeBinaryFromReader = function(msg, 
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.OIDCConfig;
-      reader.readMessage(value,proto.auth.OIDCConfig.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.OIDCConfig;
+      reader.readMessage(value,proto.auth_v2.OIDCConfig.deserializeBinaryFromReader);
       msg.setConfiguration(value);
       break;
     default:
@@ -2455,9 +2455,9 @@ proto.auth.GetConfigurationResponse.deserializeBinaryFromReader = function(msg, 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetConfigurationResponse.prototype.serializeBinary = function() {
+proto.auth_v2.GetConfigurationResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetConfigurationResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetConfigurationResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -2465,18 +2465,18 @@ proto.auth.GetConfigurationResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetConfigurationResponse} message
+ * @param {!proto.auth_v2.GetConfigurationResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetConfigurationResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetConfigurationResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getConfiguration();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.auth.OIDCConfig.serializeBinaryToWriter
+      proto.auth_v2.OIDCConfig.serializeBinaryToWriter
     );
   }
 };
@@ -2484,28 +2484,28 @@ proto.auth.GetConfigurationResponse.serializeBinaryToWriter = function(message, 
 
 /**
  * optional OIDCConfig configuration = 1;
- * @return {?proto.auth.OIDCConfig}
+ * @return {?proto.auth_v2.OIDCConfig}
  */
-proto.auth.GetConfigurationResponse.prototype.getConfiguration = function() {
-  return /** @type{?proto.auth.OIDCConfig} */ (
-    jspb.Message.getWrapperField(this, proto.auth.OIDCConfig, 1));
+proto.auth_v2.GetConfigurationResponse.prototype.getConfiguration = function() {
+  return /** @type{?proto.auth_v2.OIDCConfig} */ (
+    jspb.Message.getWrapperField(this, proto.auth_v2.OIDCConfig, 1));
 };
 
 
 /**
- * @param {?proto.auth.OIDCConfig|undefined} value
- * @return {!proto.auth.GetConfigurationResponse} returns this
+ * @param {?proto.auth_v2.OIDCConfig|undefined} value
+ * @return {!proto.auth_v2.GetConfigurationResponse} returns this
 */
-proto.auth.GetConfigurationResponse.prototype.setConfiguration = function(value) {
+proto.auth_v2.GetConfigurationResponse.prototype.setConfiguration = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.GetConfigurationResponse} returns this
+ * @return {!proto.auth_v2.GetConfigurationResponse} returns this
  */
-proto.auth.GetConfigurationResponse.prototype.clearConfiguration = function() {
+proto.auth_v2.GetConfigurationResponse.prototype.clearConfiguration = function() {
   return this.setConfiguration(undefined);
 };
 
@@ -2514,7 +2514,7 @@ proto.auth.GetConfigurationResponse.prototype.clearConfiguration = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.GetConfigurationResponse.prototype.hasConfiguration = function() {
+proto.auth_v2.GetConfigurationResponse.prototype.hasConfiguration = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -2535,8 +2535,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.SetConfigurationRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.SetConfigurationRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.SetConfigurationRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.SetConfigurationRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -2545,13 +2545,13 @@ proto.auth.SetConfigurationRequest.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.SetConfigurationRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.SetConfigurationRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SetConfigurationRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.SetConfigurationRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    configuration: (f = msg.getConfiguration()) && proto.auth.OIDCConfig.toObject(includeInstance, f)
+    configuration: (f = msg.getConfiguration()) && proto.auth_v2.OIDCConfig.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -2565,23 +2565,23 @@ proto.auth.SetConfigurationRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.SetConfigurationRequest}
+ * @return {!proto.auth_v2.SetConfigurationRequest}
  */
-proto.auth.SetConfigurationRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.SetConfigurationRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.SetConfigurationRequest;
-  return proto.auth.SetConfigurationRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.SetConfigurationRequest;
+  return proto.auth_v2.SetConfigurationRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.SetConfigurationRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.SetConfigurationRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.SetConfigurationRequest}
+ * @return {!proto.auth_v2.SetConfigurationRequest}
  */
-proto.auth.SetConfigurationRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.SetConfigurationRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -2589,8 +2589,8 @@ proto.auth.SetConfigurationRequest.deserializeBinaryFromReader = function(msg, r
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.OIDCConfig;
-      reader.readMessage(value,proto.auth.OIDCConfig.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.OIDCConfig;
+      reader.readMessage(value,proto.auth_v2.OIDCConfig.deserializeBinaryFromReader);
       msg.setConfiguration(value);
       break;
     default:
@@ -2606,9 +2606,9 @@ proto.auth.SetConfigurationRequest.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.SetConfigurationRequest.prototype.serializeBinary = function() {
+proto.auth_v2.SetConfigurationRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.SetConfigurationRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.SetConfigurationRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -2616,18 +2616,18 @@ proto.auth.SetConfigurationRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.SetConfigurationRequest} message
+ * @param {!proto.auth_v2.SetConfigurationRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SetConfigurationRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.SetConfigurationRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getConfiguration();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.auth.OIDCConfig.serializeBinaryToWriter
+      proto.auth_v2.OIDCConfig.serializeBinaryToWriter
     );
   }
 };
@@ -2635,28 +2635,28 @@ proto.auth.SetConfigurationRequest.serializeBinaryToWriter = function(message, w
 
 /**
  * optional OIDCConfig configuration = 1;
- * @return {?proto.auth.OIDCConfig}
+ * @return {?proto.auth_v2.OIDCConfig}
  */
-proto.auth.SetConfigurationRequest.prototype.getConfiguration = function() {
-  return /** @type{?proto.auth.OIDCConfig} */ (
-    jspb.Message.getWrapperField(this, proto.auth.OIDCConfig, 1));
+proto.auth_v2.SetConfigurationRequest.prototype.getConfiguration = function() {
+  return /** @type{?proto.auth_v2.OIDCConfig} */ (
+    jspb.Message.getWrapperField(this, proto.auth_v2.OIDCConfig, 1));
 };
 
 
 /**
- * @param {?proto.auth.OIDCConfig|undefined} value
- * @return {!proto.auth.SetConfigurationRequest} returns this
+ * @param {?proto.auth_v2.OIDCConfig|undefined} value
+ * @return {!proto.auth_v2.SetConfigurationRequest} returns this
 */
-proto.auth.SetConfigurationRequest.prototype.setConfiguration = function(value) {
+proto.auth_v2.SetConfigurationRequest.prototype.setConfiguration = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.SetConfigurationRequest} returns this
+ * @return {!proto.auth_v2.SetConfigurationRequest} returns this
  */
-proto.auth.SetConfigurationRequest.prototype.clearConfiguration = function() {
+proto.auth_v2.SetConfigurationRequest.prototype.clearConfiguration = function() {
   return this.setConfiguration(undefined);
 };
 
@@ -2665,7 +2665,7 @@ proto.auth.SetConfigurationRequest.prototype.clearConfiguration = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.SetConfigurationRequest.prototype.hasConfiguration = function() {
+proto.auth_v2.SetConfigurationRequest.prototype.hasConfiguration = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -2686,8 +2686,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.SetConfigurationResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.SetConfigurationResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.SetConfigurationResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.SetConfigurationResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -2696,11 +2696,11 @@ proto.auth.SetConfigurationResponse.prototype.toObject = function(opt_includeIns
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.SetConfigurationResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.SetConfigurationResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SetConfigurationResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.SetConfigurationResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -2716,23 +2716,23 @@ proto.auth.SetConfigurationResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.SetConfigurationResponse}
+ * @return {!proto.auth_v2.SetConfigurationResponse}
  */
-proto.auth.SetConfigurationResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.SetConfigurationResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.SetConfigurationResponse;
-  return proto.auth.SetConfigurationResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.SetConfigurationResponse;
+  return proto.auth_v2.SetConfigurationResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.SetConfigurationResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.SetConfigurationResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.SetConfigurationResponse}
+ * @return {!proto.auth_v2.SetConfigurationResponse}
  */
-proto.auth.SetConfigurationResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.SetConfigurationResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -2752,9 +2752,9 @@ proto.auth.SetConfigurationResponse.deserializeBinaryFromReader = function(msg, 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.SetConfigurationResponse.prototype.serializeBinary = function() {
+proto.auth_v2.SetConfigurationResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.SetConfigurationResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.SetConfigurationResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -2762,11 +2762,11 @@ proto.auth.SetConfigurationResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.SetConfigurationResponse} message
+ * @param {!proto.auth_v2.SetConfigurationResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SetConfigurationResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.SetConfigurationResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -2787,8 +2787,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.TokenInfo.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.TokenInfo.toObject(opt_includeInstance, this);
+proto.auth_v2.TokenInfo.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.TokenInfo.toObject(opt_includeInstance, this);
 };
 
 
@@ -2797,11 +2797,11 @@ proto.auth.TokenInfo.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.TokenInfo} msg The msg instance to transform.
+ * @param {!proto.auth_v2.TokenInfo} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.TokenInfo.toObject = function(includeInstance, msg) {
+proto.auth_v2.TokenInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
     subject: jspb.Message.getFieldWithDefault(msg, 1, ""),
     expiration: (f = msg.getExpiration()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f),
@@ -2819,23 +2819,23 @@ proto.auth.TokenInfo.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.TokenInfo}
+ * @return {!proto.auth_v2.TokenInfo}
  */
-proto.auth.TokenInfo.deserializeBinary = function(bytes) {
+proto.auth_v2.TokenInfo.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.TokenInfo;
-  return proto.auth.TokenInfo.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.TokenInfo;
+  return proto.auth_v2.TokenInfo.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.TokenInfo} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.TokenInfo} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.TokenInfo}
+ * @return {!proto.auth_v2.TokenInfo}
  */
-proto.auth.TokenInfo.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.TokenInfo.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -2868,9 +2868,9 @@ proto.auth.TokenInfo.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.TokenInfo.prototype.serializeBinary = function() {
+proto.auth_v2.TokenInfo.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.TokenInfo.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.TokenInfo.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -2878,11 +2878,11 @@ proto.auth.TokenInfo.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.TokenInfo} message
+ * @param {!proto.auth_v2.TokenInfo} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.TokenInfo.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.TokenInfo.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getSubject();
   if (f.length > 0) {
@@ -2913,16 +2913,16 @@ proto.auth.TokenInfo.serializeBinaryToWriter = function(message, writer) {
  * optional string subject = 1;
  * @return {string}
  */
-proto.auth.TokenInfo.prototype.getSubject = function() {
+proto.auth_v2.TokenInfo.prototype.getSubject = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.TokenInfo} returns this
+ * @return {!proto.auth_v2.TokenInfo} returns this
  */
-proto.auth.TokenInfo.prototype.setSubject = function(value) {
+proto.auth_v2.TokenInfo.prototype.setSubject = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -2931,7 +2931,7 @@ proto.auth.TokenInfo.prototype.setSubject = function(value) {
  * optional google.protobuf.Timestamp expiration = 2;
  * @return {?proto.google.protobuf.Timestamp}
  */
-proto.auth.TokenInfo.prototype.getExpiration = function() {
+proto.auth_v2.TokenInfo.prototype.getExpiration = function() {
   return /** @type{?proto.google.protobuf.Timestamp} */ (
     jspb.Message.getWrapperField(this, google_protobuf_timestamp_pb.Timestamp, 2));
 };
@@ -2939,18 +2939,18 @@ proto.auth.TokenInfo.prototype.getExpiration = function() {
 
 /**
  * @param {?proto.google.protobuf.Timestamp|undefined} value
- * @return {!proto.auth.TokenInfo} returns this
+ * @return {!proto.auth_v2.TokenInfo} returns this
 */
-proto.auth.TokenInfo.prototype.setExpiration = function(value) {
+proto.auth_v2.TokenInfo.prototype.setExpiration = function(value) {
   return jspb.Message.setWrapperField(this, 2, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.TokenInfo} returns this
+ * @return {!proto.auth_v2.TokenInfo} returns this
  */
-proto.auth.TokenInfo.prototype.clearExpiration = function() {
+proto.auth_v2.TokenInfo.prototype.clearExpiration = function() {
   return this.setExpiration(undefined);
 };
 
@@ -2959,7 +2959,7 @@ proto.auth.TokenInfo.prototype.clearExpiration = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.TokenInfo.prototype.hasExpiration = function() {
+proto.auth_v2.TokenInfo.prototype.hasExpiration = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -2968,16 +2968,16 @@ proto.auth.TokenInfo.prototype.hasExpiration = function() {
  * optional string hashed_token = 3;
  * @return {string}
  */
-proto.auth.TokenInfo.prototype.getHashedToken = function() {
+proto.auth_v2.TokenInfo.prototype.getHashedToken = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.TokenInfo} returns this
+ * @return {!proto.auth_v2.TokenInfo} returns this
  */
-proto.auth.TokenInfo.prototype.setHashedToken = function(value) {
+proto.auth_v2.TokenInfo.prototype.setHashedToken = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
@@ -2998,8 +2998,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.AuthenticateRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.AuthenticateRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.AuthenticateRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.AuthenticateRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -3008,11 +3008,11 @@ proto.auth.AuthenticateRequest.prototype.toObject = function(opt_includeInstance
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.AuthenticateRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.AuthenticateRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.AuthenticateRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.AuthenticateRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     oidcState: jspb.Message.getFieldWithDefault(msg, 1, ""),
     idToken: jspb.Message.getFieldWithDefault(msg, 2, "")
@@ -3029,23 +3029,23 @@ proto.auth.AuthenticateRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.AuthenticateRequest}
+ * @return {!proto.auth_v2.AuthenticateRequest}
  */
-proto.auth.AuthenticateRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.AuthenticateRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.AuthenticateRequest;
-  return proto.auth.AuthenticateRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.AuthenticateRequest;
+  return proto.auth_v2.AuthenticateRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.AuthenticateRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.AuthenticateRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.AuthenticateRequest}
+ * @return {!proto.auth_v2.AuthenticateRequest}
  */
-proto.auth.AuthenticateRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.AuthenticateRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3073,9 +3073,9 @@ proto.auth.AuthenticateRequest.deserializeBinaryFromReader = function(msg, reade
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.AuthenticateRequest.prototype.serializeBinary = function() {
+proto.auth_v2.AuthenticateRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.AuthenticateRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.AuthenticateRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -3083,11 +3083,11 @@ proto.auth.AuthenticateRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.AuthenticateRequest} message
+ * @param {!proto.auth_v2.AuthenticateRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.AuthenticateRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.AuthenticateRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getOidcState();
   if (f.length > 0) {
@@ -3110,16 +3110,16 @@ proto.auth.AuthenticateRequest.serializeBinaryToWriter = function(message, write
  * optional string oidc_state = 1;
  * @return {string}
  */
-proto.auth.AuthenticateRequest.prototype.getOidcState = function() {
+proto.auth_v2.AuthenticateRequest.prototype.getOidcState = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.AuthenticateRequest} returns this
+ * @return {!proto.auth_v2.AuthenticateRequest} returns this
  */
-proto.auth.AuthenticateRequest.prototype.setOidcState = function(value) {
+proto.auth_v2.AuthenticateRequest.prototype.setOidcState = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -3128,16 +3128,16 @@ proto.auth.AuthenticateRequest.prototype.setOidcState = function(value) {
  * optional string id_token = 2;
  * @return {string}
  */
-proto.auth.AuthenticateRequest.prototype.getIdToken = function() {
+proto.auth_v2.AuthenticateRequest.prototype.getIdToken = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.AuthenticateRequest} returns this
+ * @return {!proto.auth_v2.AuthenticateRequest} returns this
  */
-proto.auth.AuthenticateRequest.prototype.setIdToken = function(value) {
+proto.auth_v2.AuthenticateRequest.prototype.setIdToken = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -3158,8 +3158,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.AuthenticateResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.AuthenticateResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.AuthenticateResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.AuthenticateResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -3168,11 +3168,11 @@ proto.auth.AuthenticateResponse.prototype.toObject = function(opt_includeInstanc
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.AuthenticateResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.AuthenticateResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.AuthenticateResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.AuthenticateResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     pachToken: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -3188,23 +3188,23 @@ proto.auth.AuthenticateResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.AuthenticateResponse}
+ * @return {!proto.auth_v2.AuthenticateResponse}
  */
-proto.auth.AuthenticateResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.AuthenticateResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.AuthenticateResponse;
-  return proto.auth.AuthenticateResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.AuthenticateResponse;
+  return proto.auth_v2.AuthenticateResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.AuthenticateResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.AuthenticateResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.AuthenticateResponse}
+ * @return {!proto.auth_v2.AuthenticateResponse}
  */
-proto.auth.AuthenticateResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.AuthenticateResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3228,9 +3228,9 @@ proto.auth.AuthenticateResponse.deserializeBinaryFromReader = function(msg, read
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.AuthenticateResponse.prototype.serializeBinary = function() {
+proto.auth_v2.AuthenticateResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.AuthenticateResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.AuthenticateResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -3238,11 +3238,11 @@ proto.auth.AuthenticateResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.AuthenticateResponse} message
+ * @param {!proto.auth_v2.AuthenticateResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.AuthenticateResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.AuthenticateResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getPachToken();
   if (f.length > 0) {
@@ -3258,16 +3258,16 @@ proto.auth.AuthenticateResponse.serializeBinaryToWriter = function(message, writ
  * optional string pach_token = 1;
  * @return {string}
  */
-proto.auth.AuthenticateResponse.prototype.getPachToken = function() {
+proto.auth_v2.AuthenticateResponse.prototype.getPachToken = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.AuthenticateResponse} returns this
+ * @return {!proto.auth_v2.AuthenticateResponse} returns this
  */
-proto.auth.AuthenticateResponse.prototype.setPachToken = function(value) {
+proto.auth_v2.AuthenticateResponse.prototype.setPachToken = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -3288,8 +3288,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.WhoAmIRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.WhoAmIRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.WhoAmIRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.WhoAmIRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -3298,11 +3298,11 @@ proto.auth.WhoAmIRequest.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.WhoAmIRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.WhoAmIRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.WhoAmIRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.WhoAmIRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -3318,23 +3318,23 @@ proto.auth.WhoAmIRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.WhoAmIRequest}
+ * @return {!proto.auth_v2.WhoAmIRequest}
  */
-proto.auth.WhoAmIRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.WhoAmIRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.WhoAmIRequest;
-  return proto.auth.WhoAmIRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.WhoAmIRequest;
+  return proto.auth_v2.WhoAmIRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.WhoAmIRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.WhoAmIRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.WhoAmIRequest}
+ * @return {!proto.auth_v2.WhoAmIRequest}
  */
-proto.auth.WhoAmIRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.WhoAmIRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3354,9 +3354,9 @@ proto.auth.WhoAmIRequest.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.WhoAmIRequest.prototype.serializeBinary = function() {
+proto.auth_v2.WhoAmIRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.WhoAmIRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.WhoAmIRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -3364,11 +3364,11 @@ proto.auth.WhoAmIRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.WhoAmIRequest} message
+ * @param {!proto.auth_v2.WhoAmIRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.WhoAmIRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.WhoAmIRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -3389,8 +3389,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.WhoAmIResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.WhoAmIResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.WhoAmIResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.WhoAmIResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -3399,11 +3399,11 @@ proto.auth.WhoAmIResponse.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.WhoAmIResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.WhoAmIResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.WhoAmIResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.WhoAmIResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     username: jspb.Message.getFieldWithDefault(msg, 1, ""),
     expiration: (f = msg.getExpiration()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f)
@@ -3420,23 +3420,23 @@ proto.auth.WhoAmIResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.WhoAmIResponse}
+ * @return {!proto.auth_v2.WhoAmIResponse}
  */
-proto.auth.WhoAmIResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.WhoAmIResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.WhoAmIResponse;
-  return proto.auth.WhoAmIResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.WhoAmIResponse;
+  return proto.auth_v2.WhoAmIResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.WhoAmIResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.WhoAmIResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.WhoAmIResponse}
+ * @return {!proto.auth_v2.WhoAmIResponse}
  */
-proto.auth.WhoAmIResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.WhoAmIResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3465,9 +3465,9 @@ proto.auth.WhoAmIResponse.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.WhoAmIResponse.prototype.serializeBinary = function() {
+proto.auth_v2.WhoAmIResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.WhoAmIResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.WhoAmIResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -3475,11 +3475,11 @@ proto.auth.WhoAmIResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.WhoAmIResponse} message
+ * @param {!proto.auth_v2.WhoAmIResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.WhoAmIResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.WhoAmIResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getUsername();
   if (f.length > 0) {
@@ -3503,16 +3503,16 @@ proto.auth.WhoAmIResponse.serializeBinaryToWriter = function(message, writer) {
  * optional string username = 1;
  * @return {string}
  */
-proto.auth.WhoAmIResponse.prototype.getUsername = function() {
+proto.auth_v2.WhoAmIResponse.prototype.getUsername = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.WhoAmIResponse} returns this
+ * @return {!proto.auth_v2.WhoAmIResponse} returns this
  */
-proto.auth.WhoAmIResponse.prototype.setUsername = function(value) {
+proto.auth_v2.WhoAmIResponse.prototype.setUsername = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -3521,7 +3521,7 @@ proto.auth.WhoAmIResponse.prototype.setUsername = function(value) {
  * optional google.protobuf.Timestamp expiration = 2;
  * @return {?proto.google.protobuf.Timestamp}
  */
-proto.auth.WhoAmIResponse.prototype.getExpiration = function() {
+proto.auth_v2.WhoAmIResponse.prototype.getExpiration = function() {
   return /** @type{?proto.google.protobuf.Timestamp} */ (
     jspb.Message.getWrapperField(this, google_protobuf_timestamp_pb.Timestamp, 2));
 };
@@ -3529,18 +3529,18 @@ proto.auth.WhoAmIResponse.prototype.getExpiration = function() {
 
 /**
  * @param {?proto.google.protobuf.Timestamp|undefined} value
- * @return {!proto.auth.WhoAmIResponse} returns this
+ * @return {!proto.auth_v2.WhoAmIResponse} returns this
 */
-proto.auth.WhoAmIResponse.prototype.setExpiration = function(value) {
+proto.auth_v2.WhoAmIResponse.prototype.setExpiration = function(value) {
   return jspb.Message.setWrapperField(this, 2, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.WhoAmIResponse} returns this
+ * @return {!proto.auth_v2.WhoAmIResponse} returns this
  */
-proto.auth.WhoAmIResponse.prototype.clearExpiration = function() {
+proto.auth_v2.WhoAmIResponse.prototype.clearExpiration = function() {
   return this.setExpiration(undefined);
 };
 
@@ -3549,7 +3549,7 @@ proto.auth.WhoAmIResponse.prototype.clearExpiration = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.WhoAmIResponse.prototype.hasExpiration = function() {
+proto.auth_v2.WhoAmIResponse.prototype.hasExpiration = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -3570,8 +3570,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.Roles.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.Roles.toObject(opt_includeInstance, this);
+proto.auth_v2.Roles.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.Roles.toObject(opt_includeInstance, this);
 };
 
 
@@ -3580,11 +3580,11 @@ proto.auth.Roles.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.Roles} msg The msg instance to transform.
+ * @param {!proto.auth_v2.Roles} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.Roles.toObject = function(includeInstance, msg) {
+proto.auth_v2.Roles.toObject = function(includeInstance, msg) {
   var f, obj = {
     rolesMap: (f = msg.getRolesMap()) ? f.toObject(includeInstance, undefined) : []
   };
@@ -3600,23 +3600,23 @@ proto.auth.Roles.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.Roles}
+ * @return {!proto.auth_v2.Roles}
  */
-proto.auth.Roles.deserializeBinary = function(bytes) {
+proto.auth_v2.Roles.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.Roles;
-  return proto.auth.Roles.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.Roles;
+  return proto.auth_v2.Roles.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.Roles} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.Roles} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.Roles}
+ * @return {!proto.auth_v2.Roles}
  */
-proto.auth.Roles.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.Roles.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3642,9 +3642,9 @@ proto.auth.Roles.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.Roles.prototype.serializeBinary = function() {
+proto.auth_v2.Roles.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.Roles.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.Roles.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -3652,11 +3652,11 @@ proto.auth.Roles.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.Roles} message
+ * @param {!proto.auth_v2.Roles} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.Roles.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.Roles.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRolesMap(true);
   if (f && f.getLength() > 0) {
@@ -3671,7 +3671,7 @@ proto.auth.Roles.serializeBinaryToWriter = function(message, writer) {
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,boolean>}
  */
-proto.auth.Roles.prototype.getRolesMap = function(opt_noLazyCreate) {
+proto.auth_v2.Roles.prototype.getRolesMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,boolean>} */ (
       jspb.Message.getMapField(this, 1, opt_noLazyCreate,
       null));
@@ -3680,9 +3680,9 @@ proto.auth.Roles.prototype.getRolesMap = function(opt_noLazyCreate) {
 
 /**
  * Clears values from the map. The map will be non-null.
- * @return {!proto.auth.Roles} returns this
+ * @return {!proto.auth_v2.Roles} returns this
  */
-proto.auth.Roles.prototype.clearRolesMap = function() {
+proto.auth_v2.Roles.prototype.clearRolesMap = function() {
   this.getRolesMap().clear();
   return this;};
 
@@ -3703,8 +3703,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.RoleBinding.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.RoleBinding.toObject(opt_includeInstance, this);
+proto.auth_v2.RoleBinding.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.RoleBinding.toObject(opt_includeInstance, this);
 };
 
 
@@ -3713,13 +3713,13 @@ proto.auth.RoleBinding.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.RoleBinding} msg The msg instance to transform.
+ * @param {!proto.auth_v2.RoleBinding} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RoleBinding.toObject = function(includeInstance, msg) {
+proto.auth_v2.RoleBinding.toObject = function(includeInstance, msg) {
   var f, obj = {
-    entriesMap: (f = msg.getEntriesMap()) ? f.toObject(includeInstance, proto.auth.Roles.toObject) : []
+    entriesMap: (f = msg.getEntriesMap()) ? f.toObject(includeInstance, proto.auth_v2.Roles.toObject) : []
   };
 
   if (includeInstance) {
@@ -3733,23 +3733,23 @@ proto.auth.RoleBinding.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.RoleBinding}
+ * @return {!proto.auth_v2.RoleBinding}
  */
-proto.auth.RoleBinding.deserializeBinary = function(bytes) {
+proto.auth_v2.RoleBinding.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.RoleBinding;
-  return proto.auth.RoleBinding.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.RoleBinding;
+  return proto.auth_v2.RoleBinding.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.RoleBinding} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.RoleBinding} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.RoleBinding}
+ * @return {!proto.auth_v2.RoleBinding}
  */
-proto.auth.RoleBinding.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.RoleBinding.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3759,7 +3759,7 @@ proto.auth.RoleBinding.deserializeBinaryFromReader = function(msg, reader) {
     case 1:
       var value = msg.getEntriesMap();
       reader.readMessage(value, function(message, reader) {
-        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.auth.Roles.deserializeBinaryFromReader, "", new proto.auth.Roles());
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.auth_v2.Roles.deserializeBinaryFromReader, "", new proto.auth_v2.Roles());
          });
       break;
     default:
@@ -3775,9 +3775,9 @@ proto.auth.RoleBinding.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.RoleBinding.prototype.serializeBinary = function() {
+proto.auth_v2.RoleBinding.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.RoleBinding.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.RoleBinding.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -3785,15 +3785,15 @@ proto.auth.RoleBinding.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.RoleBinding} message
+ * @param {!proto.auth_v2.RoleBinding} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RoleBinding.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.RoleBinding.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getEntriesMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(1, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.auth.Roles.serializeBinaryToWriter);
+    f.serializeBinary(1, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.auth_v2.Roles.serializeBinaryToWriter);
   }
 };
 
@@ -3802,20 +3802,20 @@ proto.auth.RoleBinding.serializeBinaryToWriter = function(message, writer) {
  * map<string, Roles> entries = 1;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
- * @return {!jspb.Map<string,!proto.auth.Roles>}
+ * @return {!jspb.Map<string,!proto.auth_v2.Roles>}
  */
-proto.auth.RoleBinding.prototype.getEntriesMap = function(opt_noLazyCreate) {
-  return /** @type {!jspb.Map<string,!proto.auth.Roles>} */ (
+proto.auth_v2.RoleBinding.prototype.getEntriesMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.auth_v2.Roles>} */ (
       jspb.Message.getMapField(this, 1, opt_noLazyCreate,
-      proto.auth.Roles));
+      proto.auth_v2.Roles));
 };
 
 
 /**
  * Clears values from the map. The map will be non-null.
- * @return {!proto.auth.RoleBinding} returns this
+ * @return {!proto.auth_v2.RoleBinding} returns this
  */
-proto.auth.RoleBinding.prototype.clearEntriesMap = function() {
+proto.auth_v2.RoleBinding.prototype.clearEntriesMap = function() {
   this.getEntriesMap().clear();
   return this;};
 
@@ -3836,8 +3836,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.Resource.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.Resource.toObject(opt_includeInstance, this);
+proto.auth_v2.Resource.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.Resource.toObject(opt_includeInstance, this);
 };
 
 
@@ -3846,11 +3846,11 @@ proto.auth.Resource.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.Resource} msg The msg instance to transform.
+ * @param {!proto.auth_v2.Resource} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.Resource.toObject = function(includeInstance, msg) {
+proto.auth_v2.Resource.toObject = function(includeInstance, msg) {
   var f, obj = {
     type: jspb.Message.getFieldWithDefault(msg, 1, 0),
     name: jspb.Message.getFieldWithDefault(msg, 2, "")
@@ -3867,23 +3867,23 @@ proto.auth.Resource.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.Resource}
+ * @return {!proto.auth_v2.Resource}
  */
-proto.auth.Resource.deserializeBinary = function(bytes) {
+proto.auth_v2.Resource.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.Resource;
-  return proto.auth.Resource.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.Resource;
+  return proto.auth_v2.Resource.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.Resource} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.Resource} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.Resource}
+ * @return {!proto.auth_v2.Resource}
  */
-proto.auth.Resource.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.Resource.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3891,7 +3891,7 @@ proto.auth.Resource.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!proto.auth.ResourceType} */ (reader.readEnum());
+      var value = /** @type {!proto.auth_v2.ResourceType} */ (reader.readEnum());
       msg.setType(value);
       break;
     case 2:
@@ -3911,9 +3911,9 @@ proto.auth.Resource.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.Resource.prototype.serializeBinary = function() {
+proto.auth_v2.Resource.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.Resource.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.Resource.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -3921,11 +3921,11 @@ proto.auth.Resource.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.Resource} message
+ * @param {!proto.auth_v2.Resource} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.Resource.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.Resource.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getType();
   if (f !== 0.0) {
@@ -3946,18 +3946,18 @@ proto.auth.Resource.serializeBinaryToWriter = function(message, writer) {
 
 /**
  * optional ResourceType type = 1;
- * @return {!proto.auth.ResourceType}
+ * @return {!proto.auth_v2.ResourceType}
  */
-proto.auth.Resource.prototype.getType = function() {
-  return /** @type {!proto.auth.ResourceType} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+proto.auth_v2.Resource.prototype.getType = function() {
+  return /** @type {!proto.auth_v2.ResourceType} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
 };
 
 
 /**
- * @param {!proto.auth.ResourceType} value
- * @return {!proto.auth.Resource} returns this
+ * @param {!proto.auth_v2.ResourceType} value
+ * @return {!proto.auth_v2.Resource} returns this
  */
-proto.auth.Resource.prototype.setType = function(value) {
+proto.auth_v2.Resource.prototype.setType = function(value) {
   return jspb.Message.setProto3EnumField(this, 1, value);
 };
 
@@ -3966,16 +3966,16 @@ proto.auth.Resource.prototype.setType = function(value) {
  * optional string name = 2;
  * @return {string}
  */
-proto.auth.Resource.prototype.getName = function() {
+proto.auth_v2.Resource.prototype.getName = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.Resource} returns this
+ * @return {!proto.auth_v2.Resource} returns this
  */
-proto.auth.Resource.prototype.setName = function(value) {
+proto.auth_v2.Resource.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -3996,8 +3996,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.Users.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.Users.toObject(opt_includeInstance, this);
+proto.auth_v2.Users.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.Users.toObject(opt_includeInstance, this);
 };
 
 
@@ -4006,11 +4006,11 @@ proto.auth.Users.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.Users} msg The msg instance to transform.
+ * @param {!proto.auth_v2.Users} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.Users.toObject = function(includeInstance, msg) {
+proto.auth_v2.Users.toObject = function(includeInstance, msg) {
   var f, obj = {
     usernamesMap: (f = msg.getUsernamesMap()) ? f.toObject(includeInstance, undefined) : []
   };
@@ -4026,23 +4026,23 @@ proto.auth.Users.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.Users}
+ * @return {!proto.auth_v2.Users}
  */
-proto.auth.Users.deserializeBinary = function(bytes) {
+proto.auth_v2.Users.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.Users;
-  return proto.auth.Users.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.Users;
+  return proto.auth_v2.Users.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.Users} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.Users} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.Users}
+ * @return {!proto.auth_v2.Users}
  */
-proto.auth.Users.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.Users.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4068,9 +4068,9 @@ proto.auth.Users.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.Users.prototype.serializeBinary = function() {
+proto.auth_v2.Users.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.Users.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.Users.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4078,11 +4078,11 @@ proto.auth.Users.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.Users} message
+ * @param {!proto.auth_v2.Users} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.Users.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.Users.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getUsernamesMap(true);
   if (f && f.getLength() > 0) {
@@ -4097,7 +4097,7 @@ proto.auth.Users.serializeBinaryToWriter = function(message, writer) {
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,boolean>}
  */
-proto.auth.Users.prototype.getUsernamesMap = function(opt_noLazyCreate) {
+proto.auth_v2.Users.prototype.getUsernamesMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,boolean>} */ (
       jspb.Message.getMapField(this, 1, opt_noLazyCreate,
       null));
@@ -4106,9 +4106,9 @@ proto.auth.Users.prototype.getUsernamesMap = function(opt_noLazyCreate) {
 
 /**
  * Clears values from the map. The map will be non-null.
- * @return {!proto.auth.Users} returns this
+ * @return {!proto.auth_v2.Users} returns this
  */
-proto.auth.Users.prototype.clearUsernamesMap = function() {
+proto.auth_v2.Users.prototype.clearUsernamesMap = function() {
   this.getUsernamesMap().clear();
   return this;};
 
@@ -4129,8 +4129,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.Groups.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.Groups.toObject(opt_includeInstance, this);
+proto.auth_v2.Groups.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.Groups.toObject(opt_includeInstance, this);
 };
 
 
@@ -4139,11 +4139,11 @@ proto.auth.Groups.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.Groups} msg The msg instance to transform.
+ * @param {!proto.auth_v2.Groups} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.Groups.toObject = function(includeInstance, msg) {
+proto.auth_v2.Groups.toObject = function(includeInstance, msg) {
   var f, obj = {
     groupsMap: (f = msg.getGroupsMap()) ? f.toObject(includeInstance, undefined) : []
   };
@@ -4159,23 +4159,23 @@ proto.auth.Groups.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.Groups}
+ * @return {!proto.auth_v2.Groups}
  */
-proto.auth.Groups.deserializeBinary = function(bytes) {
+proto.auth_v2.Groups.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.Groups;
-  return proto.auth.Groups.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.Groups;
+  return proto.auth_v2.Groups.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.Groups} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.Groups} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.Groups}
+ * @return {!proto.auth_v2.Groups}
  */
-proto.auth.Groups.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.Groups.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4201,9 +4201,9 @@ proto.auth.Groups.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.Groups.prototype.serializeBinary = function() {
+proto.auth_v2.Groups.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.Groups.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.Groups.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4211,11 +4211,11 @@ proto.auth.Groups.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.Groups} message
+ * @param {!proto.auth_v2.Groups} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.Groups.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.Groups.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getGroupsMap(true);
   if (f && f.getLength() > 0) {
@@ -4230,7 +4230,7 @@ proto.auth.Groups.serializeBinaryToWriter = function(message, writer) {
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,boolean>}
  */
-proto.auth.Groups.prototype.getGroupsMap = function(opt_noLazyCreate) {
+proto.auth_v2.Groups.prototype.getGroupsMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,boolean>} */ (
       jspb.Message.getMapField(this, 1, opt_noLazyCreate,
       null));
@@ -4239,9 +4239,9 @@ proto.auth.Groups.prototype.getGroupsMap = function(opt_noLazyCreate) {
 
 /**
  * Clears values from the map. The map will be non-null.
- * @return {!proto.auth.Groups} returns this
+ * @return {!proto.auth_v2.Groups} returns this
  */
-proto.auth.Groups.prototype.clearGroupsMap = function() {
+proto.auth_v2.Groups.prototype.clearGroupsMap = function() {
   this.getGroupsMap().clear();
   return this;};
 
@@ -4252,7 +4252,7 @@ proto.auth.Groups.prototype.clearGroupsMap = function() {
  * @private {!Array<number>}
  * @const
  */
-proto.auth.AuthorizeRequest.repeatedFields_ = [2];
+proto.auth_v2.AuthorizeRequest.repeatedFields_ = [2];
 
 
 
@@ -4269,8 +4269,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.AuthorizeRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.AuthorizeRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.AuthorizeRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.AuthorizeRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -4279,13 +4279,13 @@ proto.auth.AuthorizeRequest.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.AuthorizeRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.AuthorizeRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.AuthorizeRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.AuthorizeRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    resource: (f = msg.getResource()) && proto.auth.Resource.toObject(includeInstance, f),
+    resource: (f = msg.getResource()) && proto.auth_v2.Resource.toObject(includeInstance, f),
     permissionsList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f
   };
 
@@ -4300,23 +4300,23 @@ proto.auth.AuthorizeRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.AuthorizeRequest}
+ * @return {!proto.auth_v2.AuthorizeRequest}
  */
-proto.auth.AuthorizeRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.AuthorizeRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.AuthorizeRequest;
-  return proto.auth.AuthorizeRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.AuthorizeRequest;
+  return proto.auth_v2.AuthorizeRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.AuthorizeRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.AuthorizeRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.AuthorizeRequest}
+ * @return {!proto.auth_v2.AuthorizeRequest}
  */
-proto.auth.AuthorizeRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.AuthorizeRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4324,12 +4324,12 @@ proto.auth.AuthorizeRequest.deserializeBinaryFromReader = function(msg, reader) 
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.Resource;
-      reader.readMessage(value,proto.auth.Resource.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.Resource;
+      reader.readMessage(value,proto.auth_v2.Resource.deserializeBinaryFromReader);
       msg.setResource(value);
       break;
     case 2:
-      var values = /** @type {!Array<!proto.auth.Permission>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
+      var values = /** @type {!Array<!proto.auth_v2.Permission>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
       for (var i = 0; i < values.length; i++) {
         msg.addPermissions(values[i]);
       }
@@ -4347,9 +4347,9 @@ proto.auth.AuthorizeRequest.deserializeBinaryFromReader = function(msg, reader) 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.AuthorizeRequest.prototype.serializeBinary = function() {
+proto.auth_v2.AuthorizeRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.AuthorizeRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.AuthorizeRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4357,18 +4357,18 @@ proto.auth.AuthorizeRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.AuthorizeRequest} message
+ * @param {!proto.auth_v2.AuthorizeRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.AuthorizeRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.AuthorizeRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getResource();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.auth.Resource.serializeBinaryToWriter
+      proto.auth_v2.Resource.serializeBinaryToWriter
     );
   }
   f = message.getPermissionsList();
@@ -4383,28 +4383,28 @@ proto.auth.AuthorizeRequest.serializeBinaryToWriter = function(message, writer) 
 
 /**
  * optional Resource resource = 1;
- * @return {?proto.auth.Resource}
+ * @return {?proto.auth_v2.Resource}
  */
-proto.auth.AuthorizeRequest.prototype.getResource = function() {
-  return /** @type{?proto.auth.Resource} */ (
-    jspb.Message.getWrapperField(this, proto.auth.Resource, 1));
+proto.auth_v2.AuthorizeRequest.prototype.getResource = function() {
+  return /** @type{?proto.auth_v2.Resource} */ (
+    jspb.Message.getWrapperField(this, proto.auth_v2.Resource, 1));
 };
 
 
 /**
- * @param {?proto.auth.Resource|undefined} value
- * @return {!proto.auth.AuthorizeRequest} returns this
+ * @param {?proto.auth_v2.Resource|undefined} value
+ * @return {!proto.auth_v2.AuthorizeRequest} returns this
 */
-proto.auth.AuthorizeRequest.prototype.setResource = function(value) {
+proto.auth_v2.AuthorizeRequest.prototype.setResource = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.AuthorizeRequest} returns this
+ * @return {!proto.auth_v2.AuthorizeRequest} returns this
  */
-proto.auth.AuthorizeRequest.prototype.clearResource = function() {
+proto.auth_v2.AuthorizeRequest.prototype.clearResource = function() {
   return this.setResource(undefined);
 };
 
@@ -4413,44 +4413,44 @@ proto.auth.AuthorizeRequest.prototype.clearResource = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.AuthorizeRequest.prototype.hasResource = function() {
+proto.auth_v2.AuthorizeRequest.prototype.hasResource = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
 
 /**
  * repeated Permission permissions = 2;
- * @return {!Array<!proto.auth.Permission>}
+ * @return {!Array<!proto.auth_v2.Permission>}
  */
-proto.auth.AuthorizeRequest.prototype.getPermissionsList = function() {
-  return /** @type {!Array<!proto.auth.Permission>} */ (jspb.Message.getRepeatedField(this, 2));
+proto.auth_v2.AuthorizeRequest.prototype.getPermissionsList = function() {
+  return /** @type {!Array<!proto.auth_v2.Permission>} */ (jspb.Message.getRepeatedField(this, 2));
 };
 
 
 /**
- * @param {!Array<!proto.auth.Permission>} value
- * @return {!proto.auth.AuthorizeRequest} returns this
+ * @param {!Array<!proto.auth_v2.Permission>} value
+ * @return {!proto.auth_v2.AuthorizeRequest} returns this
  */
-proto.auth.AuthorizeRequest.prototype.setPermissionsList = function(value) {
+proto.auth_v2.AuthorizeRequest.prototype.setPermissionsList = function(value) {
   return jspb.Message.setField(this, 2, value || []);
 };
 
 
 /**
- * @param {!proto.auth.Permission} value
+ * @param {!proto.auth_v2.Permission} value
  * @param {number=} opt_index
- * @return {!proto.auth.AuthorizeRequest} returns this
+ * @return {!proto.auth_v2.AuthorizeRequest} returns this
  */
-proto.auth.AuthorizeRequest.prototype.addPermissions = function(value, opt_index) {
+proto.auth_v2.AuthorizeRequest.prototype.addPermissions = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 2, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.AuthorizeRequest} returns this
+ * @return {!proto.auth_v2.AuthorizeRequest} returns this
  */
-proto.auth.AuthorizeRequest.prototype.clearPermissionsList = function() {
+proto.auth_v2.AuthorizeRequest.prototype.clearPermissionsList = function() {
   return this.setPermissionsList([]);
 };
 
@@ -4461,7 +4461,7 @@ proto.auth.AuthorizeRequest.prototype.clearPermissionsList = function() {
  * @private {!Array<number>}
  * @const
  */
-proto.auth.AuthorizeResponse.repeatedFields_ = [2,3];
+proto.auth_v2.AuthorizeResponse.repeatedFields_ = [2,3];
 
 
 
@@ -4478,8 +4478,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.AuthorizeResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.AuthorizeResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.AuthorizeResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.AuthorizeResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -4488,11 +4488,11 @@ proto.auth.AuthorizeResponse.prototype.toObject = function(opt_includeInstance) 
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.AuthorizeResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.AuthorizeResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.AuthorizeResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.AuthorizeResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     authorized: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
     satisfiedList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f,
@@ -4511,23 +4511,23 @@ proto.auth.AuthorizeResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.AuthorizeResponse}
+ * @return {!proto.auth_v2.AuthorizeResponse}
  */
-proto.auth.AuthorizeResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.AuthorizeResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.AuthorizeResponse;
-  return proto.auth.AuthorizeResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.AuthorizeResponse;
+  return proto.auth_v2.AuthorizeResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.AuthorizeResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.AuthorizeResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.AuthorizeResponse}
+ * @return {!proto.auth_v2.AuthorizeResponse}
  */
-proto.auth.AuthorizeResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.AuthorizeResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4539,13 +4539,13 @@ proto.auth.AuthorizeResponse.deserializeBinaryFromReader = function(msg, reader)
       msg.setAuthorized(value);
       break;
     case 2:
-      var values = /** @type {!Array<!proto.auth.Permission>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
+      var values = /** @type {!Array<!proto.auth_v2.Permission>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
       for (var i = 0; i < values.length; i++) {
         msg.addSatisfied(values[i]);
       }
       break;
     case 3:
-      var values = /** @type {!Array<!proto.auth.Permission>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
+      var values = /** @type {!Array<!proto.auth_v2.Permission>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
       for (var i = 0; i < values.length; i++) {
         msg.addMissing(values[i]);
       }
@@ -4567,9 +4567,9 @@ proto.auth.AuthorizeResponse.deserializeBinaryFromReader = function(msg, reader)
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.AuthorizeResponse.prototype.serializeBinary = function() {
+proto.auth_v2.AuthorizeResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.AuthorizeResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.AuthorizeResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4577,11 +4577,11 @@ proto.auth.AuthorizeResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.AuthorizeResponse} message
+ * @param {!proto.auth_v2.AuthorizeResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.AuthorizeResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.AuthorizeResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getAuthorized();
   if (f) {
@@ -4618,90 +4618,90 @@ proto.auth.AuthorizeResponse.serializeBinaryToWriter = function(message, writer)
  * optional bool authorized = 1;
  * @return {boolean}
  */
-proto.auth.AuthorizeResponse.prototype.getAuthorized = function() {
+proto.auth_v2.AuthorizeResponse.prototype.getAuthorized = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
 };
 
 
 /**
  * @param {boolean} value
- * @return {!proto.auth.AuthorizeResponse} returns this
+ * @return {!proto.auth_v2.AuthorizeResponse} returns this
  */
-proto.auth.AuthorizeResponse.prototype.setAuthorized = function(value) {
+proto.auth_v2.AuthorizeResponse.prototype.setAuthorized = function(value) {
   return jspb.Message.setProto3BooleanField(this, 1, value);
 };
 
 
 /**
  * repeated Permission satisfied = 2;
- * @return {!Array<!proto.auth.Permission>}
+ * @return {!Array<!proto.auth_v2.Permission>}
  */
-proto.auth.AuthorizeResponse.prototype.getSatisfiedList = function() {
-  return /** @type {!Array<!proto.auth.Permission>} */ (jspb.Message.getRepeatedField(this, 2));
+proto.auth_v2.AuthorizeResponse.prototype.getSatisfiedList = function() {
+  return /** @type {!Array<!proto.auth_v2.Permission>} */ (jspb.Message.getRepeatedField(this, 2));
 };
 
 
 /**
- * @param {!Array<!proto.auth.Permission>} value
- * @return {!proto.auth.AuthorizeResponse} returns this
+ * @param {!Array<!proto.auth_v2.Permission>} value
+ * @return {!proto.auth_v2.AuthorizeResponse} returns this
  */
-proto.auth.AuthorizeResponse.prototype.setSatisfiedList = function(value) {
+proto.auth_v2.AuthorizeResponse.prototype.setSatisfiedList = function(value) {
   return jspb.Message.setField(this, 2, value || []);
 };
 
 
 /**
- * @param {!proto.auth.Permission} value
+ * @param {!proto.auth_v2.Permission} value
  * @param {number=} opt_index
- * @return {!proto.auth.AuthorizeResponse} returns this
+ * @return {!proto.auth_v2.AuthorizeResponse} returns this
  */
-proto.auth.AuthorizeResponse.prototype.addSatisfied = function(value, opt_index) {
+proto.auth_v2.AuthorizeResponse.prototype.addSatisfied = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 2, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.AuthorizeResponse} returns this
+ * @return {!proto.auth_v2.AuthorizeResponse} returns this
  */
-proto.auth.AuthorizeResponse.prototype.clearSatisfiedList = function() {
+proto.auth_v2.AuthorizeResponse.prototype.clearSatisfiedList = function() {
   return this.setSatisfiedList([]);
 };
 
 
 /**
  * repeated Permission missing = 3;
- * @return {!Array<!proto.auth.Permission>}
+ * @return {!Array<!proto.auth_v2.Permission>}
  */
-proto.auth.AuthorizeResponse.prototype.getMissingList = function() {
-  return /** @type {!Array<!proto.auth.Permission>} */ (jspb.Message.getRepeatedField(this, 3));
+proto.auth_v2.AuthorizeResponse.prototype.getMissingList = function() {
+  return /** @type {!Array<!proto.auth_v2.Permission>} */ (jspb.Message.getRepeatedField(this, 3));
 };
 
 
 /**
- * @param {!Array<!proto.auth.Permission>} value
- * @return {!proto.auth.AuthorizeResponse} returns this
+ * @param {!Array<!proto.auth_v2.Permission>} value
+ * @return {!proto.auth_v2.AuthorizeResponse} returns this
  */
-proto.auth.AuthorizeResponse.prototype.setMissingList = function(value) {
+proto.auth_v2.AuthorizeResponse.prototype.setMissingList = function(value) {
   return jspb.Message.setField(this, 3, value || []);
 };
 
 
 /**
- * @param {!proto.auth.Permission} value
+ * @param {!proto.auth_v2.Permission} value
  * @param {number=} opt_index
- * @return {!proto.auth.AuthorizeResponse} returns this
+ * @return {!proto.auth_v2.AuthorizeResponse} returns this
  */
-proto.auth.AuthorizeResponse.prototype.addMissing = function(value, opt_index) {
+proto.auth_v2.AuthorizeResponse.prototype.addMissing = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.AuthorizeResponse} returns this
+ * @return {!proto.auth_v2.AuthorizeResponse} returns this
  */
-proto.auth.AuthorizeResponse.prototype.clearMissingList = function() {
+proto.auth_v2.AuthorizeResponse.prototype.clearMissingList = function() {
   return this.setMissingList([]);
 };
 
@@ -4710,16 +4710,16 @@ proto.auth.AuthorizeResponse.prototype.clearMissingList = function() {
  * optional string principal = 4;
  * @return {string}
  */
-proto.auth.AuthorizeResponse.prototype.getPrincipal = function() {
+proto.auth_v2.AuthorizeResponse.prototype.getPrincipal = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.AuthorizeResponse} returns this
+ * @return {!proto.auth_v2.AuthorizeResponse} returns this
  */
-proto.auth.AuthorizeResponse.prototype.setPrincipal = function(value) {
+proto.auth_v2.AuthorizeResponse.prototype.setPrincipal = function(value) {
   return jspb.Message.setProto3StringField(this, 4, value);
 };
 
@@ -4740,8 +4740,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetPermissionsRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetPermissionsRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.GetPermissionsRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetPermissionsRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -4750,13 +4750,13 @@ proto.auth.GetPermissionsRequest.prototype.toObject = function(opt_includeInstan
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetPermissionsRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetPermissionsRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetPermissionsRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetPermissionsRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    resource: (f = msg.getResource()) && proto.auth.Resource.toObject(includeInstance, f)
+    resource: (f = msg.getResource()) && proto.auth_v2.Resource.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -4770,23 +4770,23 @@ proto.auth.GetPermissionsRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetPermissionsRequest}
+ * @return {!proto.auth_v2.GetPermissionsRequest}
  */
-proto.auth.GetPermissionsRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.GetPermissionsRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetPermissionsRequest;
-  return proto.auth.GetPermissionsRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetPermissionsRequest;
+  return proto.auth_v2.GetPermissionsRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetPermissionsRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetPermissionsRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetPermissionsRequest}
+ * @return {!proto.auth_v2.GetPermissionsRequest}
  */
-proto.auth.GetPermissionsRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetPermissionsRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4794,8 +4794,8 @@ proto.auth.GetPermissionsRequest.deserializeBinaryFromReader = function(msg, rea
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.Resource;
-      reader.readMessage(value,proto.auth.Resource.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.Resource;
+      reader.readMessage(value,proto.auth_v2.Resource.deserializeBinaryFromReader);
       msg.setResource(value);
       break;
     default:
@@ -4811,9 +4811,9 @@ proto.auth.GetPermissionsRequest.deserializeBinaryFromReader = function(msg, rea
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetPermissionsRequest.prototype.serializeBinary = function() {
+proto.auth_v2.GetPermissionsRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetPermissionsRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetPermissionsRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4821,18 +4821,18 @@ proto.auth.GetPermissionsRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetPermissionsRequest} message
+ * @param {!proto.auth_v2.GetPermissionsRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetPermissionsRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetPermissionsRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getResource();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.auth.Resource.serializeBinaryToWriter
+      proto.auth_v2.Resource.serializeBinaryToWriter
     );
   }
 };
@@ -4840,28 +4840,28 @@ proto.auth.GetPermissionsRequest.serializeBinaryToWriter = function(message, wri
 
 /**
  * optional Resource resource = 1;
- * @return {?proto.auth.Resource}
+ * @return {?proto.auth_v2.Resource}
  */
-proto.auth.GetPermissionsRequest.prototype.getResource = function() {
-  return /** @type{?proto.auth.Resource} */ (
-    jspb.Message.getWrapperField(this, proto.auth.Resource, 1));
+proto.auth_v2.GetPermissionsRequest.prototype.getResource = function() {
+  return /** @type{?proto.auth_v2.Resource} */ (
+    jspb.Message.getWrapperField(this, proto.auth_v2.Resource, 1));
 };
 
 
 /**
- * @param {?proto.auth.Resource|undefined} value
- * @return {!proto.auth.GetPermissionsRequest} returns this
+ * @param {?proto.auth_v2.Resource|undefined} value
+ * @return {!proto.auth_v2.GetPermissionsRequest} returns this
 */
-proto.auth.GetPermissionsRequest.prototype.setResource = function(value) {
+proto.auth_v2.GetPermissionsRequest.prototype.setResource = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.GetPermissionsRequest} returns this
+ * @return {!proto.auth_v2.GetPermissionsRequest} returns this
  */
-proto.auth.GetPermissionsRequest.prototype.clearResource = function() {
+proto.auth_v2.GetPermissionsRequest.prototype.clearResource = function() {
   return this.setResource(undefined);
 };
 
@@ -4870,7 +4870,7 @@ proto.auth.GetPermissionsRequest.prototype.clearResource = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.GetPermissionsRequest.prototype.hasResource = function() {
+proto.auth_v2.GetPermissionsRequest.prototype.hasResource = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -4891,8 +4891,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetPermissionsForPrincipalRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetPermissionsForPrincipalRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.GetPermissionsForPrincipalRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetPermissionsForPrincipalRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -4901,13 +4901,13 @@ proto.auth.GetPermissionsForPrincipalRequest.prototype.toObject = function(opt_i
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetPermissionsForPrincipalRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetPermissionsForPrincipalRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetPermissionsForPrincipalRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetPermissionsForPrincipalRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    resource: (f = msg.getResource()) && proto.auth.Resource.toObject(includeInstance, f),
+    resource: (f = msg.getResource()) && proto.auth_v2.Resource.toObject(includeInstance, f),
     principal: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
@@ -4922,23 +4922,23 @@ proto.auth.GetPermissionsForPrincipalRequest.toObject = function(includeInstance
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetPermissionsForPrincipalRequest}
+ * @return {!proto.auth_v2.GetPermissionsForPrincipalRequest}
  */
-proto.auth.GetPermissionsForPrincipalRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.GetPermissionsForPrincipalRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetPermissionsForPrincipalRequest;
-  return proto.auth.GetPermissionsForPrincipalRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetPermissionsForPrincipalRequest;
+  return proto.auth_v2.GetPermissionsForPrincipalRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetPermissionsForPrincipalRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetPermissionsForPrincipalRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetPermissionsForPrincipalRequest}
+ * @return {!proto.auth_v2.GetPermissionsForPrincipalRequest}
  */
-proto.auth.GetPermissionsForPrincipalRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetPermissionsForPrincipalRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4946,8 +4946,8 @@ proto.auth.GetPermissionsForPrincipalRequest.deserializeBinaryFromReader = funct
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.Resource;
-      reader.readMessage(value,proto.auth.Resource.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.Resource;
+      reader.readMessage(value,proto.auth_v2.Resource.deserializeBinaryFromReader);
       msg.setResource(value);
       break;
     case 2:
@@ -4967,9 +4967,9 @@ proto.auth.GetPermissionsForPrincipalRequest.deserializeBinaryFromReader = funct
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetPermissionsForPrincipalRequest.prototype.serializeBinary = function() {
+proto.auth_v2.GetPermissionsForPrincipalRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetPermissionsForPrincipalRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetPermissionsForPrincipalRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4977,18 +4977,18 @@ proto.auth.GetPermissionsForPrincipalRequest.prototype.serializeBinary = functio
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetPermissionsForPrincipalRequest} message
+ * @param {!proto.auth_v2.GetPermissionsForPrincipalRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetPermissionsForPrincipalRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetPermissionsForPrincipalRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getResource();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.auth.Resource.serializeBinaryToWriter
+      proto.auth_v2.Resource.serializeBinaryToWriter
     );
   }
   f = message.getPrincipal();
@@ -5003,28 +5003,28 @@ proto.auth.GetPermissionsForPrincipalRequest.serializeBinaryToWriter = function(
 
 /**
  * optional Resource resource = 1;
- * @return {?proto.auth.Resource}
+ * @return {?proto.auth_v2.Resource}
  */
-proto.auth.GetPermissionsForPrincipalRequest.prototype.getResource = function() {
-  return /** @type{?proto.auth.Resource} */ (
-    jspb.Message.getWrapperField(this, proto.auth.Resource, 1));
+proto.auth_v2.GetPermissionsForPrincipalRequest.prototype.getResource = function() {
+  return /** @type{?proto.auth_v2.Resource} */ (
+    jspb.Message.getWrapperField(this, proto.auth_v2.Resource, 1));
 };
 
 
 /**
- * @param {?proto.auth.Resource|undefined} value
- * @return {!proto.auth.GetPermissionsForPrincipalRequest} returns this
+ * @param {?proto.auth_v2.Resource|undefined} value
+ * @return {!proto.auth_v2.GetPermissionsForPrincipalRequest} returns this
 */
-proto.auth.GetPermissionsForPrincipalRequest.prototype.setResource = function(value) {
+proto.auth_v2.GetPermissionsForPrincipalRequest.prototype.setResource = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.GetPermissionsForPrincipalRequest} returns this
+ * @return {!proto.auth_v2.GetPermissionsForPrincipalRequest} returns this
  */
-proto.auth.GetPermissionsForPrincipalRequest.prototype.clearResource = function() {
+proto.auth_v2.GetPermissionsForPrincipalRequest.prototype.clearResource = function() {
   return this.setResource(undefined);
 };
 
@@ -5033,7 +5033,7 @@ proto.auth.GetPermissionsForPrincipalRequest.prototype.clearResource = function(
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.GetPermissionsForPrincipalRequest.prototype.hasResource = function() {
+proto.auth_v2.GetPermissionsForPrincipalRequest.prototype.hasResource = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -5042,16 +5042,16 @@ proto.auth.GetPermissionsForPrincipalRequest.prototype.hasResource = function() 
  * optional string principal = 2;
  * @return {string}
  */
-proto.auth.GetPermissionsForPrincipalRequest.prototype.getPrincipal = function() {
+proto.auth_v2.GetPermissionsForPrincipalRequest.prototype.getPrincipal = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.GetPermissionsForPrincipalRequest} returns this
+ * @return {!proto.auth_v2.GetPermissionsForPrincipalRequest} returns this
  */
-proto.auth.GetPermissionsForPrincipalRequest.prototype.setPrincipal = function(value) {
+proto.auth_v2.GetPermissionsForPrincipalRequest.prototype.setPrincipal = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -5062,7 +5062,7 @@ proto.auth.GetPermissionsForPrincipalRequest.prototype.setPrincipal = function(v
  * @private {!Array<number>}
  * @const
  */
-proto.auth.GetPermissionsResponse.repeatedFields_ = [1,2];
+proto.auth_v2.GetPermissionsResponse.repeatedFields_ = [1,2];
 
 
 
@@ -5079,8 +5079,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetPermissionsResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetPermissionsResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.GetPermissionsResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetPermissionsResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -5089,11 +5089,11 @@ proto.auth.GetPermissionsResponse.prototype.toObject = function(opt_includeInsta
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetPermissionsResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetPermissionsResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetPermissionsResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetPermissionsResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     permissionsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f,
     rolesList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f
@@ -5110,23 +5110,23 @@ proto.auth.GetPermissionsResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetPermissionsResponse}
+ * @return {!proto.auth_v2.GetPermissionsResponse}
  */
-proto.auth.GetPermissionsResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.GetPermissionsResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetPermissionsResponse;
-  return proto.auth.GetPermissionsResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetPermissionsResponse;
+  return proto.auth_v2.GetPermissionsResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetPermissionsResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetPermissionsResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetPermissionsResponse}
+ * @return {!proto.auth_v2.GetPermissionsResponse}
  */
-proto.auth.GetPermissionsResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetPermissionsResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5134,7 +5134,7 @@ proto.auth.GetPermissionsResponse.deserializeBinaryFromReader = function(msg, re
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var values = /** @type {!Array<!proto.auth.Permission>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
+      var values = /** @type {!Array<!proto.auth_v2.Permission>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
       for (var i = 0; i < values.length; i++) {
         msg.addPermissions(values[i]);
       }
@@ -5156,9 +5156,9 @@ proto.auth.GetPermissionsResponse.deserializeBinaryFromReader = function(msg, re
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetPermissionsResponse.prototype.serializeBinary = function() {
+proto.auth_v2.GetPermissionsResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetPermissionsResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetPermissionsResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5166,11 +5166,11 @@ proto.auth.GetPermissionsResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetPermissionsResponse} message
+ * @param {!proto.auth_v2.GetPermissionsResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetPermissionsResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetPermissionsResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getPermissionsList();
   if (f.length > 0) {
@@ -5191,37 +5191,37 @@ proto.auth.GetPermissionsResponse.serializeBinaryToWriter = function(message, wr
 
 /**
  * repeated Permission permissions = 1;
- * @return {!Array<!proto.auth.Permission>}
+ * @return {!Array<!proto.auth_v2.Permission>}
  */
-proto.auth.GetPermissionsResponse.prototype.getPermissionsList = function() {
-  return /** @type {!Array<!proto.auth.Permission>} */ (jspb.Message.getRepeatedField(this, 1));
+proto.auth_v2.GetPermissionsResponse.prototype.getPermissionsList = function() {
+  return /** @type {!Array<!proto.auth_v2.Permission>} */ (jspb.Message.getRepeatedField(this, 1));
 };
 
 
 /**
- * @param {!Array<!proto.auth.Permission>} value
- * @return {!proto.auth.GetPermissionsResponse} returns this
+ * @param {!Array<!proto.auth_v2.Permission>} value
+ * @return {!proto.auth_v2.GetPermissionsResponse} returns this
  */
-proto.auth.GetPermissionsResponse.prototype.setPermissionsList = function(value) {
+proto.auth_v2.GetPermissionsResponse.prototype.setPermissionsList = function(value) {
   return jspb.Message.setField(this, 1, value || []);
 };
 
 
 /**
- * @param {!proto.auth.Permission} value
+ * @param {!proto.auth_v2.Permission} value
  * @param {number=} opt_index
- * @return {!proto.auth.GetPermissionsResponse} returns this
+ * @return {!proto.auth_v2.GetPermissionsResponse} returns this
  */
-proto.auth.GetPermissionsResponse.prototype.addPermissions = function(value, opt_index) {
+proto.auth_v2.GetPermissionsResponse.prototype.addPermissions = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.GetPermissionsResponse} returns this
+ * @return {!proto.auth_v2.GetPermissionsResponse} returns this
  */
-proto.auth.GetPermissionsResponse.prototype.clearPermissionsList = function() {
+proto.auth_v2.GetPermissionsResponse.prototype.clearPermissionsList = function() {
   return this.setPermissionsList([]);
 };
 
@@ -5230,16 +5230,16 @@ proto.auth.GetPermissionsResponse.prototype.clearPermissionsList = function() {
  * repeated string roles = 2;
  * @return {!Array<string>}
  */
-proto.auth.GetPermissionsResponse.prototype.getRolesList = function() {
+proto.auth_v2.GetPermissionsResponse.prototype.getRolesList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 2));
 };
 
 
 /**
  * @param {!Array<string>} value
- * @return {!proto.auth.GetPermissionsResponse} returns this
+ * @return {!proto.auth_v2.GetPermissionsResponse} returns this
  */
-proto.auth.GetPermissionsResponse.prototype.setRolesList = function(value) {
+proto.auth_v2.GetPermissionsResponse.prototype.setRolesList = function(value) {
   return jspb.Message.setField(this, 2, value || []);
 };
 
@@ -5247,18 +5247,18 @@ proto.auth.GetPermissionsResponse.prototype.setRolesList = function(value) {
 /**
  * @param {string} value
  * @param {number=} opt_index
- * @return {!proto.auth.GetPermissionsResponse} returns this
+ * @return {!proto.auth_v2.GetPermissionsResponse} returns this
  */
-proto.auth.GetPermissionsResponse.prototype.addRoles = function(value, opt_index) {
+proto.auth_v2.GetPermissionsResponse.prototype.addRoles = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 2, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.GetPermissionsResponse} returns this
+ * @return {!proto.auth_v2.GetPermissionsResponse} returns this
  */
-proto.auth.GetPermissionsResponse.prototype.clearRolesList = function() {
+proto.auth_v2.GetPermissionsResponse.prototype.clearRolesList = function() {
   return this.setRolesList([]);
 };
 
@@ -5269,7 +5269,7 @@ proto.auth.GetPermissionsResponse.prototype.clearRolesList = function() {
  * @private {!Array<number>}
  * @const
  */
-proto.auth.ModifyRoleBindingRequest.repeatedFields_ = [3];
+proto.auth_v2.ModifyRoleBindingRequest.repeatedFields_ = [3];
 
 
 
@@ -5286,8 +5286,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.ModifyRoleBindingRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.ModifyRoleBindingRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.ModifyRoleBindingRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.ModifyRoleBindingRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -5296,13 +5296,13 @@ proto.auth.ModifyRoleBindingRequest.prototype.toObject = function(opt_includeIns
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.ModifyRoleBindingRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.ModifyRoleBindingRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ModifyRoleBindingRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.ModifyRoleBindingRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    resource: (f = msg.getResource()) && proto.auth.Resource.toObject(includeInstance, f),
+    resource: (f = msg.getResource()) && proto.auth_v2.Resource.toObject(includeInstance, f),
     principal: jspb.Message.getFieldWithDefault(msg, 2, ""),
     rolesList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f
   };
@@ -5318,23 +5318,23 @@ proto.auth.ModifyRoleBindingRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.ModifyRoleBindingRequest}
+ * @return {!proto.auth_v2.ModifyRoleBindingRequest}
  */
-proto.auth.ModifyRoleBindingRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.ModifyRoleBindingRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.ModifyRoleBindingRequest;
-  return proto.auth.ModifyRoleBindingRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.ModifyRoleBindingRequest;
+  return proto.auth_v2.ModifyRoleBindingRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.ModifyRoleBindingRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.ModifyRoleBindingRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.ModifyRoleBindingRequest}
+ * @return {!proto.auth_v2.ModifyRoleBindingRequest}
  */
-proto.auth.ModifyRoleBindingRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.ModifyRoleBindingRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5342,8 +5342,8 @@ proto.auth.ModifyRoleBindingRequest.deserializeBinaryFromReader = function(msg, 
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.Resource;
-      reader.readMessage(value,proto.auth.Resource.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.Resource;
+      reader.readMessage(value,proto.auth_v2.Resource.deserializeBinaryFromReader);
       msg.setResource(value);
       break;
     case 2:
@@ -5367,9 +5367,9 @@ proto.auth.ModifyRoleBindingRequest.deserializeBinaryFromReader = function(msg, 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.ModifyRoleBindingRequest.prototype.serializeBinary = function() {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.ModifyRoleBindingRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.ModifyRoleBindingRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5377,18 +5377,18 @@ proto.auth.ModifyRoleBindingRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.ModifyRoleBindingRequest} message
+ * @param {!proto.auth_v2.ModifyRoleBindingRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ModifyRoleBindingRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.ModifyRoleBindingRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getResource();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.auth.Resource.serializeBinaryToWriter
+      proto.auth_v2.Resource.serializeBinaryToWriter
     );
   }
   f = message.getPrincipal();
@@ -5410,28 +5410,28 @@ proto.auth.ModifyRoleBindingRequest.serializeBinaryToWriter = function(message, 
 
 /**
  * optional Resource resource = 1;
- * @return {?proto.auth.Resource}
+ * @return {?proto.auth_v2.Resource}
  */
-proto.auth.ModifyRoleBindingRequest.prototype.getResource = function() {
-  return /** @type{?proto.auth.Resource} */ (
-    jspb.Message.getWrapperField(this, proto.auth.Resource, 1));
+proto.auth_v2.ModifyRoleBindingRequest.prototype.getResource = function() {
+  return /** @type{?proto.auth_v2.Resource} */ (
+    jspb.Message.getWrapperField(this, proto.auth_v2.Resource, 1));
 };
 
 
 /**
- * @param {?proto.auth.Resource|undefined} value
- * @return {!proto.auth.ModifyRoleBindingRequest} returns this
+ * @param {?proto.auth_v2.Resource|undefined} value
+ * @return {!proto.auth_v2.ModifyRoleBindingRequest} returns this
 */
-proto.auth.ModifyRoleBindingRequest.prototype.setResource = function(value) {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.setResource = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.ModifyRoleBindingRequest} returns this
+ * @return {!proto.auth_v2.ModifyRoleBindingRequest} returns this
  */
-proto.auth.ModifyRoleBindingRequest.prototype.clearResource = function() {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.clearResource = function() {
   return this.setResource(undefined);
 };
 
@@ -5440,7 +5440,7 @@ proto.auth.ModifyRoleBindingRequest.prototype.clearResource = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.ModifyRoleBindingRequest.prototype.hasResource = function() {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.hasResource = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -5449,16 +5449,16 @@ proto.auth.ModifyRoleBindingRequest.prototype.hasResource = function() {
  * optional string principal = 2;
  * @return {string}
  */
-proto.auth.ModifyRoleBindingRequest.prototype.getPrincipal = function() {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.getPrincipal = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.ModifyRoleBindingRequest} returns this
+ * @return {!proto.auth_v2.ModifyRoleBindingRequest} returns this
  */
-proto.auth.ModifyRoleBindingRequest.prototype.setPrincipal = function(value) {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.setPrincipal = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -5467,16 +5467,16 @@ proto.auth.ModifyRoleBindingRequest.prototype.setPrincipal = function(value) {
  * repeated string roles = 3;
  * @return {!Array<string>}
  */
-proto.auth.ModifyRoleBindingRequest.prototype.getRolesList = function() {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.getRolesList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
 };
 
 
 /**
  * @param {!Array<string>} value
- * @return {!proto.auth.ModifyRoleBindingRequest} returns this
+ * @return {!proto.auth_v2.ModifyRoleBindingRequest} returns this
  */
-proto.auth.ModifyRoleBindingRequest.prototype.setRolesList = function(value) {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.setRolesList = function(value) {
   return jspb.Message.setField(this, 3, value || []);
 };
 
@@ -5484,18 +5484,18 @@ proto.auth.ModifyRoleBindingRequest.prototype.setRolesList = function(value) {
 /**
  * @param {string} value
  * @param {number=} opt_index
- * @return {!proto.auth.ModifyRoleBindingRequest} returns this
+ * @return {!proto.auth_v2.ModifyRoleBindingRequest} returns this
  */
-proto.auth.ModifyRoleBindingRequest.prototype.addRoles = function(value, opt_index) {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.addRoles = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.ModifyRoleBindingRequest} returns this
+ * @return {!proto.auth_v2.ModifyRoleBindingRequest} returns this
  */
-proto.auth.ModifyRoleBindingRequest.prototype.clearRolesList = function() {
+proto.auth_v2.ModifyRoleBindingRequest.prototype.clearRolesList = function() {
   return this.setRolesList([]);
 };
 
@@ -5516,8 +5516,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.ModifyRoleBindingResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.ModifyRoleBindingResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.ModifyRoleBindingResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.ModifyRoleBindingResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -5526,11 +5526,11 @@ proto.auth.ModifyRoleBindingResponse.prototype.toObject = function(opt_includeIn
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.ModifyRoleBindingResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.ModifyRoleBindingResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ModifyRoleBindingResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.ModifyRoleBindingResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -5546,23 +5546,23 @@ proto.auth.ModifyRoleBindingResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.ModifyRoleBindingResponse}
+ * @return {!proto.auth_v2.ModifyRoleBindingResponse}
  */
-proto.auth.ModifyRoleBindingResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.ModifyRoleBindingResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.ModifyRoleBindingResponse;
-  return proto.auth.ModifyRoleBindingResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.ModifyRoleBindingResponse;
+  return proto.auth_v2.ModifyRoleBindingResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.ModifyRoleBindingResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.ModifyRoleBindingResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.ModifyRoleBindingResponse}
+ * @return {!proto.auth_v2.ModifyRoleBindingResponse}
  */
-proto.auth.ModifyRoleBindingResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.ModifyRoleBindingResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5582,9 +5582,9 @@ proto.auth.ModifyRoleBindingResponse.deserializeBinaryFromReader = function(msg,
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.ModifyRoleBindingResponse.prototype.serializeBinary = function() {
+proto.auth_v2.ModifyRoleBindingResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.ModifyRoleBindingResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.ModifyRoleBindingResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5592,11 +5592,11 @@ proto.auth.ModifyRoleBindingResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.ModifyRoleBindingResponse} message
+ * @param {!proto.auth_v2.ModifyRoleBindingResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ModifyRoleBindingResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.ModifyRoleBindingResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -5617,8 +5617,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetRoleBindingRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetRoleBindingRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.GetRoleBindingRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetRoleBindingRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -5627,13 +5627,13 @@ proto.auth.GetRoleBindingRequest.prototype.toObject = function(opt_includeInstan
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetRoleBindingRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetRoleBindingRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetRoleBindingRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetRoleBindingRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    resource: (f = msg.getResource()) && proto.auth.Resource.toObject(includeInstance, f)
+    resource: (f = msg.getResource()) && proto.auth_v2.Resource.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -5647,23 +5647,23 @@ proto.auth.GetRoleBindingRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetRoleBindingRequest}
+ * @return {!proto.auth_v2.GetRoleBindingRequest}
  */
-proto.auth.GetRoleBindingRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.GetRoleBindingRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetRoleBindingRequest;
-  return proto.auth.GetRoleBindingRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetRoleBindingRequest;
+  return proto.auth_v2.GetRoleBindingRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetRoleBindingRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetRoleBindingRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetRoleBindingRequest}
+ * @return {!proto.auth_v2.GetRoleBindingRequest}
  */
-proto.auth.GetRoleBindingRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetRoleBindingRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5671,8 +5671,8 @@ proto.auth.GetRoleBindingRequest.deserializeBinaryFromReader = function(msg, rea
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.Resource;
-      reader.readMessage(value,proto.auth.Resource.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.Resource;
+      reader.readMessage(value,proto.auth_v2.Resource.deserializeBinaryFromReader);
       msg.setResource(value);
       break;
     default:
@@ -5688,9 +5688,9 @@ proto.auth.GetRoleBindingRequest.deserializeBinaryFromReader = function(msg, rea
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetRoleBindingRequest.prototype.serializeBinary = function() {
+proto.auth_v2.GetRoleBindingRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetRoleBindingRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetRoleBindingRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5698,18 +5698,18 @@ proto.auth.GetRoleBindingRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetRoleBindingRequest} message
+ * @param {!proto.auth_v2.GetRoleBindingRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetRoleBindingRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetRoleBindingRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getResource();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.auth.Resource.serializeBinaryToWriter
+      proto.auth_v2.Resource.serializeBinaryToWriter
     );
   }
 };
@@ -5717,28 +5717,28 @@ proto.auth.GetRoleBindingRequest.serializeBinaryToWriter = function(message, wri
 
 /**
  * optional Resource resource = 1;
- * @return {?proto.auth.Resource}
+ * @return {?proto.auth_v2.Resource}
  */
-proto.auth.GetRoleBindingRequest.prototype.getResource = function() {
-  return /** @type{?proto.auth.Resource} */ (
-    jspb.Message.getWrapperField(this, proto.auth.Resource, 1));
+proto.auth_v2.GetRoleBindingRequest.prototype.getResource = function() {
+  return /** @type{?proto.auth_v2.Resource} */ (
+    jspb.Message.getWrapperField(this, proto.auth_v2.Resource, 1));
 };
 
 
 /**
- * @param {?proto.auth.Resource|undefined} value
- * @return {!proto.auth.GetRoleBindingRequest} returns this
+ * @param {?proto.auth_v2.Resource|undefined} value
+ * @return {!proto.auth_v2.GetRoleBindingRequest} returns this
 */
-proto.auth.GetRoleBindingRequest.prototype.setResource = function(value) {
+proto.auth_v2.GetRoleBindingRequest.prototype.setResource = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.GetRoleBindingRequest} returns this
+ * @return {!proto.auth_v2.GetRoleBindingRequest} returns this
  */
-proto.auth.GetRoleBindingRequest.prototype.clearResource = function() {
+proto.auth_v2.GetRoleBindingRequest.prototype.clearResource = function() {
   return this.setResource(undefined);
 };
 
@@ -5747,7 +5747,7 @@ proto.auth.GetRoleBindingRequest.prototype.clearResource = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.GetRoleBindingRequest.prototype.hasResource = function() {
+proto.auth_v2.GetRoleBindingRequest.prototype.hasResource = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -5768,8 +5768,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetRoleBindingResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetRoleBindingResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.GetRoleBindingResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetRoleBindingResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -5778,13 +5778,13 @@ proto.auth.GetRoleBindingResponse.prototype.toObject = function(opt_includeInsta
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetRoleBindingResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetRoleBindingResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetRoleBindingResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetRoleBindingResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    binding: (f = msg.getBinding()) && proto.auth.RoleBinding.toObject(includeInstance, f)
+    binding: (f = msg.getBinding()) && proto.auth_v2.RoleBinding.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -5798,23 +5798,23 @@ proto.auth.GetRoleBindingResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetRoleBindingResponse}
+ * @return {!proto.auth_v2.GetRoleBindingResponse}
  */
-proto.auth.GetRoleBindingResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.GetRoleBindingResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetRoleBindingResponse;
-  return proto.auth.GetRoleBindingResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetRoleBindingResponse;
+  return proto.auth_v2.GetRoleBindingResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetRoleBindingResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetRoleBindingResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetRoleBindingResponse}
+ * @return {!proto.auth_v2.GetRoleBindingResponse}
  */
-proto.auth.GetRoleBindingResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetRoleBindingResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5822,8 +5822,8 @@ proto.auth.GetRoleBindingResponse.deserializeBinaryFromReader = function(msg, re
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.RoleBinding;
-      reader.readMessage(value,proto.auth.RoleBinding.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.RoleBinding;
+      reader.readMessage(value,proto.auth_v2.RoleBinding.deserializeBinaryFromReader);
       msg.setBinding(value);
       break;
     default:
@@ -5839,9 +5839,9 @@ proto.auth.GetRoleBindingResponse.deserializeBinaryFromReader = function(msg, re
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetRoleBindingResponse.prototype.serializeBinary = function() {
+proto.auth_v2.GetRoleBindingResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetRoleBindingResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetRoleBindingResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5849,18 +5849,18 @@ proto.auth.GetRoleBindingResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetRoleBindingResponse} message
+ * @param {!proto.auth_v2.GetRoleBindingResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetRoleBindingResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetRoleBindingResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getBinding();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.auth.RoleBinding.serializeBinaryToWriter
+      proto.auth_v2.RoleBinding.serializeBinaryToWriter
     );
   }
 };
@@ -5868,28 +5868,28 @@ proto.auth.GetRoleBindingResponse.serializeBinaryToWriter = function(message, wr
 
 /**
  * optional RoleBinding binding = 1;
- * @return {?proto.auth.RoleBinding}
+ * @return {?proto.auth_v2.RoleBinding}
  */
-proto.auth.GetRoleBindingResponse.prototype.getBinding = function() {
-  return /** @type{?proto.auth.RoleBinding} */ (
-    jspb.Message.getWrapperField(this, proto.auth.RoleBinding, 1));
+proto.auth_v2.GetRoleBindingResponse.prototype.getBinding = function() {
+  return /** @type{?proto.auth_v2.RoleBinding} */ (
+    jspb.Message.getWrapperField(this, proto.auth_v2.RoleBinding, 1));
 };
 
 
 /**
- * @param {?proto.auth.RoleBinding|undefined} value
- * @return {!proto.auth.GetRoleBindingResponse} returns this
+ * @param {?proto.auth_v2.RoleBinding|undefined} value
+ * @return {!proto.auth_v2.GetRoleBindingResponse} returns this
 */
-proto.auth.GetRoleBindingResponse.prototype.setBinding = function(value) {
+proto.auth_v2.GetRoleBindingResponse.prototype.setBinding = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.GetRoleBindingResponse} returns this
+ * @return {!proto.auth_v2.GetRoleBindingResponse} returns this
  */
-proto.auth.GetRoleBindingResponse.prototype.clearBinding = function() {
+proto.auth_v2.GetRoleBindingResponse.prototype.clearBinding = function() {
   return this.setBinding(undefined);
 };
 
@@ -5898,7 +5898,7 @@ proto.auth.GetRoleBindingResponse.prototype.clearBinding = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.GetRoleBindingResponse.prototype.hasBinding = function() {
+proto.auth_v2.GetRoleBindingResponse.prototype.hasBinding = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -5919,8 +5919,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.SessionInfo.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.SessionInfo.toObject(opt_includeInstance, this);
+proto.auth_v2.SessionInfo.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.SessionInfo.toObject(opt_includeInstance, this);
 };
 
 
@@ -5929,11 +5929,11 @@ proto.auth.SessionInfo.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.SessionInfo} msg The msg instance to transform.
+ * @param {!proto.auth_v2.SessionInfo} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SessionInfo.toObject = function(includeInstance, msg) {
+proto.auth_v2.SessionInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
     nonce: jspb.Message.getFieldWithDefault(msg, 1, ""),
     email: jspb.Message.getFieldWithDefault(msg, 2, ""),
@@ -5951,23 +5951,23 @@ proto.auth.SessionInfo.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.SessionInfo}
+ * @return {!proto.auth_v2.SessionInfo}
  */
-proto.auth.SessionInfo.deserializeBinary = function(bytes) {
+proto.auth_v2.SessionInfo.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.SessionInfo;
-  return proto.auth.SessionInfo.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.SessionInfo;
+  return proto.auth_v2.SessionInfo.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.SessionInfo} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.SessionInfo} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.SessionInfo}
+ * @return {!proto.auth_v2.SessionInfo}
  */
-proto.auth.SessionInfo.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.SessionInfo.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5999,9 +5999,9 @@ proto.auth.SessionInfo.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.SessionInfo.prototype.serializeBinary = function() {
+proto.auth_v2.SessionInfo.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.SessionInfo.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.SessionInfo.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6009,11 +6009,11 @@ proto.auth.SessionInfo.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.SessionInfo} message
+ * @param {!proto.auth_v2.SessionInfo} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SessionInfo.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.SessionInfo.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getNonce();
   if (f.length > 0) {
@@ -6043,16 +6043,16 @@ proto.auth.SessionInfo.serializeBinaryToWriter = function(message, writer) {
  * optional string nonce = 1;
  * @return {string}
  */
-proto.auth.SessionInfo.prototype.getNonce = function() {
+proto.auth_v2.SessionInfo.prototype.getNonce = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.SessionInfo} returns this
+ * @return {!proto.auth_v2.SessionInfo} returns this
  */
-proto.auth.SessionInfo.prototype.setNonce = function(value) {
+proto.auth_v2.SessionInfo.prototype.setNonce = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -6061,16 +6061,16 @@ proto.auth.SessionInfo.prototype.setNonce = function(value) {
  * optional string email = 2;
  * @return {string}
  */
-proto.auth.SessionInfo.prototype.getEmail = function() {
+proto.auth_v2.SessionInfo.prototype.getEmail = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.SessionInfo} returns this
+ * @return {!proto.auth_v2.SessionInfo} returns this
  */
-proto.auth.SessionInfo.prototype.setEmail = function(value) {
+proto.auth_v2.SessionInfo.prototype.setEmail = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -6079,16 +6079,16 @@ proto.auth.SessionInfo.prototype.setEmail = function(value) {
  * optional bool conversion_err = 3;
  * @return {boolean}
  */
-proto.auth.SessionInfo.prototype.getConversionErr = function() {
+proto.auth_v2.SessionInfo.prototype.getConversionErr = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
 };
 
 
 /**
  * @param {boolean} value
- * @return {!proto.auth.SessionInfo} returns this
+ * @return {!proto.auth_v2.SessionInfo} returns this
  */
-proto.auth.SessionInfo.prototype.setConversionErr = function(value) {
+proto.auth_v2.SessionInfo.prototype.setConversionErr = function(value) {
   return jspb.Message.setProto3BooleanField(this, 3, value);
 };
 
@@ -6109,8 +6109,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetOIDCLoginRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetOIDCLoginRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.GetOIDCLoginRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetOIDCLoginRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -6119,11 +6119,11 @@ proto.auth.GetOIDCLoginRequest.prototype.toObject = function(opt_includeInstance
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetOIDCLoginRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetOIDCLoginRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetOIDCLoginRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetOIDCLoginRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -6139,23 +6139,23 @@ proto.auth.GetOIDCLoginRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetOIDCLoginRequest}
+ * @return {!proto.auth_v2.GetOIDCLoginRequest}
  */
-proto.auth.GetOIDCLoginRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.GetOIDCLoginRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetOIDCLoginRequest;
-  return proto.auth.GetOIDCLoginRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetOIDCLoginRequest;
+  return proto.auth_v2.GetOIDCLoginRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetOIDCLoginRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetOIDCLoginRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetOIDCLoginRequest}
+ * @return {!proto.auth_v2.GetOIDCLoginRequest}
  */
-proto.auth.GetOIDCLoginRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetOIDCLoginRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6175,9 +6175,9 @@ proto.auth.GetOIDCLoginRequest.deserializeBinaryFromReader = function(msg, reade
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetOIDCLoginRequest.prototype.serializeBinary = function() {
+proto.auth_v2.GetOIDCLoginRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetOIDCLoginRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetOIDCLoginRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6185,11 +6185,11 @@ proto.auth.GetOIDCLoginRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetOIDCLoginRequest} message
+ * @param {!proto.auth_v2.GetOIDCLoginRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetOIDCLoginRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetOIDCLoginRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -6210,8 +6210,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetOIDCLoginResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetOIDCLoginResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.GetOIDCLoginResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetOIDCLoginResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -6220,11 +6220,11 @@ proto.auth.GetOIDCLoginResponse.prototype.toObject = function(opt_includeInstanc
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetOIDCLoginResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetOIDCLoginResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetOIDCLoginResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetOIDCLoginResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     loginUrl: jspb.Message.getFieldWithDefault(msg, 1, ""),
     state: jspb.Message.getFieldWithDefault(msg, 2, "")
@@ -6241,23 +6241,23 @@ proto.auth.GetOIDCLoginResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetOIDCLoginResponse}
+ * @return {!proto.auth_v2.GetOIDCLoginResponse}
  */
-proto.auth.GetOIDCLoginResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.GetOIDCLoginResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetOIDCLoginResponse;
-  return proto.auth.GetOIDCLoginResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetOIDCLoginResponse;
+  return proto.auth_v2.GetOIDCLoginResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetOIDCLoginResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetOIDCLoginResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetOIDCLoginResponse}
+ * @return {!proto.auth_v2.GetOIDCLoginResponse}
  */
-proto.auth.GetOIDCLoginResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetOIDCLoginResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6285,9 +6285,9 @@ proto.auth.GetOIDCLoginResponse.deserializeBinaryFromReader = function(msg, read
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetOIDCLoginResponse.prototype.serializeBinary = function() {
+proto.auth_v2.GetOIDCLoginResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetOIDCLoginResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetOIDCLoginResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6295,11 +6295,11 @@ proto.auth.GetOIDCLoginResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetOIDCLoginResponse} message
+ * @param {!proto.auth_v2.GetOIDCLoginResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetOIDCLoginResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetOIDCLoginResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getLoginUrl();
   if (f.length > 0) {
@@ -6322,16 +6322,16 @@ proto.auth.GetOIDCLoginResponse.serializeBinaryToWriter = function(message, writ
  * optional string login_url = 1;
  * @return {string}
  */
-proto.auth.GetOIDCLoginResponse.prototype.getLoginUrl = function() {
+proto.auth_v2.GetOIDCLoginResponse.prototype.getLoginUrl = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.GetOIDCLoginResponse} returns this
+ * @return {!proto.auth_v2.GetOIDCLoginResponse} returns this
  */
-proto.auth.GetOIDCLoginResponse.prototype.setLoginUrl = function(value) {
+proto.auth_v2.GetOIDCLoginResponse.prototype.setLoginUrl = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -6340,16 +6340,16 @@ proto.auth.GetOIDCLoginResponse.prototype.setLoginUrl = function(value) {
  * optional string state = 2;
  * @return {string}
  */
-proto.auth.GetOIDCLoginResponse.prototype.getState = function() {
+proto.auth_v2.GetOIDCLoginResponse.prototype.getState = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.GetOIDCLoginResponse} returns this
+ * @return {!proto.auth_v2.GetOIDCLoginResponse} returns this
  */
-proto.auth.GetOIDCLoginResponse.prototype.setState = function(value) {
+proto.auth_v2.GetOIDCLoginResponse.prototype.setState = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -6370,8 +6370,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetRobotTokenRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetRobotTokenRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.GetRobotTokenRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetRobotTokenRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -6380,11 +6380,11 @@ proto.auth.GetRobotTokenRequest.prototype.toObject = function(opt_includeInstanc
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetRobotTokenRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetRobotTokenRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetRobotTokenRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetRobotTokenRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     robot: jspb.Message.getFieldWithDefault(msg, 1, ""),
     ttl: jspb.Message.getFieldWithDefault(msg, 2, 0)
@@ -6401,23 +6401,23 @@ proto.auth.GetRobotTokenRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetRobotTokenRequest}
+ * @return {!proto.auth_v2.GetRobotTokenRequest}
  */
-proto.auth.GetRobotTokenRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.GetRobotTokenRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetRobotTokenRequest;
-  return proto.auth.GetRobotTokenRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetRobotTokenRequest;
+  return proto.auth_v2.GetRobotTokenRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetRobotTokenRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetRobotTokenRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetRobotTokenRequest}
+ * @return {!proto.auth_v2.GetRobotTokenRequest}
  */
-proto.auth.GetRobotTokenRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetRobotTokenRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6445,9 +6445,9 @@ proto.auth.GetRobotTokenRequest.deserializeBinaryFromReader = function(msg, read
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetRobotTokenRequest.prototype.serializeBinary = function() {
+proto.auth_v2.GetRobotTokenRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetRobotTokenRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetRobotTokenRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6455,11 +6455,11 @@ proto.auth.GetRobotTokenRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetRobotTokenRequest} message
+ * @param {!proto.auth_v2.GetRobotTokenRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetRobotTokenRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetRobotTokenRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRobot();
   if (f.length > 0) {
@@ -6482,16 +6482,16 @@ proto.auth.GetRobotTokenRequest.serializeBinaryToWriter = function(message, writ
  * optional string robot = 1;
  * @return {string}
  */
-proto.auth.GetRobotTokenRequest.prototype.getRobot = function() {
+proto.auth_v2.GetRobotTokenRequest.prototype.getRobot = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.GetRobotTokenRequest} returns this
+ * @return {!proto.auth_v2.GetRobotTokenRequest} returns this
  */
-proto.auth.GetRobotTokenRequest.prototype.setRobot = function(value) {
+proto.auth_v2.GetRobotTokenRequest.prototype.setRobot = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -6500,16 +6500,16 @@ proto.auth.GetRobotTokenRequest.prototype.setRobot = function(value) {
  * optional int64 ttl = 2;
  * @return {number}
  */
-proto.auth.GetRobotTokenRequest.prototype.getTtl = function() {
+proto.auth_v2.GetRobotTokenRequest.prototype.getTtl = function() {
   return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
 };
 
 
 /**
  * @param {number} value
- * @return {!proto.auth.GetRobotTokenRequest} returns this
+ * @return {!proto.auth_v2.GetRobotTokenRequest} returns this
  */
-proto.auth.GetRobotTokenRequest.prototype.setTtl = function(value) {
+proto.auth_v2.GetRobotTokenRequest.prototype.setTtl = function(value) {
   return jspb.Message.setProto3IntField(this, 2, value);
 };
 
@@ -6530,8 +6530,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetRobotTokenResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetRobotTokenResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.GetRobotTokenResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetRobotTokenResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -6540,11 +6540,11 @@ proto.auth.GetRobotTokenResponse.prototype.toObject = function(opt_includeInstan
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetRobotTokenResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetRobotTokenResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetRobotTokenResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetRobotTokenResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     token: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -6560,23 +6560,23 @@ proto.auth.GetRobotTokenResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetRobotTokenResponse}
+ * @return {!proto.auth_v2.GetRobotTokenResponse}
  */
-proto.auth.GetRobotTokenResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.GetRobotTokenResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetRobotTokenResponse;
-  return proto.auth.GetRobotTokenResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetRobotTokenResponse;
+  return proto.auth_v2.GetRobotTokenResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetRobotTokenResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetRobotTokenResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetRobotTokenResponse}
+ * @return {!proto.auth_v2.GetRobotTokenResponse}
  */
-proto.auth.GetRobotTokenResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetRobotTokenResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6600,9 +6600,9 @@ proto.auth.GetRobotTokenResponse.deserializeBinaryFromReader = function(msg, rea
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetRobotTokenResponse.prototype.serializeBinary = function() {
+proto.auth_v2.GetRobotTokenResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetRobotTokenResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetRobotTokenResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6610,11 +6610,11 @@ proto.auth.GetRobotTokenResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetRobotTokenResponse} message
+ * @param {!proto.auth_v2.GetRobotTokenResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetRobotTokenResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetRobotTokenResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getToken();
   if (f.length > 0) {
@@ -6630,16 +6630,16 @@ proto.auth.GetRobotTokenResponse.serializeBinaryToWriter = function(message, wri
  * optional string token = 1;
  * @return {string}
  */
-proto.auth.GetRobotTokenResponse.prototype.getToken = function() {
+proto.auth_v2.GetRobotTokenResponse.prototype.getToken = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.GetRobotTokenResponse} returns this
+ * @return {!proto.auth_v2.GetRobotTokenResponse} returns this
  */
-proto.auth.GetRobotTokenResponse.prototype.setToken = function(value) {
+proto.auth_v2.GetRobotTokenResponse.prototype.setToken = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -6660,8 +6660,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.RevokeAuthTokenRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.RevokeAuthTokenRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.RevokeAuthTokenRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.RevokeAuthTokenRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -6670,11 +6670,11 @@ proto.auth.RevokeAuthTokenRequest.prototype.toObject = function(opt_includeInsta
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.RevokeAuthTokenRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.RevokeAuthTokenRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RevokeAuthTokenRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.RevokeAuthTokenRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     token: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -6690,23 +6690,23 @@ proto.auth.RevokeAuthTokenRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.RevokeAuthTokenRequest}
+ * @return {!proto.auth_v2.RevokeAuthTokenRequest}
  */
-proto.auth.RevokeAuthTokenRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.RevokeAuthTokenRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.RevokeAuthTokenRequest;
-  return proto.auth.RevokeAuthTokenRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.RevokeAuthTokenRequest;
+  return proto.auth_v2.RevokeAuthTokenRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.RevokeAuthTokenRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.RevokeAuthTokenRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.RevokeAuthTokenRequest}
+ * @return {!proto.auth_v2.RevokeAuthTokenRequest}
  */
-proto.auth.RevokeAuthTokenRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.RevokeAuthTokenRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6730,9 +6730,9 @@ proto.auth.RevokeAuthTokenRequest.deserializeBinaryFromReader = function(msg, re
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.RevokeAuthTokenRequest.prototype.serializeBinary = function() {
+proto.auth_v2.RevokeAuthTokenRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.RevokeAuthTokenRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.RevokeAuthTokenRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6740,11 +6740,11 @@ proto.auth.RevokeAuthTokenRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.RevokeAuthTokenRequest} message
+ * @param {!proto.auth_v2.RevokeAuthTokenRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RevokeAuthTokenRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.RevokeAuthTokenRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getToken();
   if (f.length > 0) {
@@ -6760,16 +6760,16 @@ proto.auth.RevokeAuthTokenRequest.serializeBinaryToWriter = function(message, wr
  * optional string token = 1;
  * @return {string}
  */
-proto.auth.RevokeAuthTokenRequest.prototype.getToken = function() {
+proto.auth_v2.RevokeAuthTokenRequest.prototype.getToken = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.RevokeAuthTokenRequest} returns this
+ * @return {!proto.auth_v2.RevokeAuthTokenRequest} returns this
  */
-proto.auth.RevokeAuthTokenRequest.prototype.setToken = function(value) {
+proto.auth_v2.RevokeAuthTokenRequest.prototype.setToken = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -6790,8 +6790,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.RevokeAuthTokenResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.RevokeAuthTokenResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.RevokeAuthTokenResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.RevokeAuthTokenResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -6800,11 +6800,11 @@ proto.auth.RevokeAuthTokenResponse.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.RevokeAuthTokenResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.RevokeAuthTokenResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RevokeAuthTokenResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.RevokeAuthTokenResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -6820,23 +6820,23 @@ proto.auth.RevokeAuthTokenResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.RevokeAuthTokenResponse}
+ * @return {!proto.auth_v2.RevokeAuthTokenResponse}
  */
-proto.auth.RevokeAuthTokenResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.RevokeAuthTokenResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.RevokeAuthTokenResponse;
-  return proto.auth.RevokeAuthTokenResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.RevokeAuthTokenResponse;
+  return proto.auth_v2.RevokeAuthTokenResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.RevokeAuthTokenResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.RevokeAuthTokenResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.RevokeAuthTokenResponse}
+ * @return {!proto.auth_v2.RevokeAuthTokenResponse}
  */
-proto.auth.RevokeAuthTokenResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.RevokeAuthTokenResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6856,9 +6856,9 @@ proto.auth.RevokeAuthTokenResponse.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.RevokeAuthTokenResponse.prototype.serializeBinary = function() {
+proto.auth_v2.RevokeAuthTokenResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.RevokeAuthTokenResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.RevokeAuthTokenResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6866,11 +6866,11 @@ proto.auth.RevokeAuthTokenResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.RevokeAuthTokenResponse} message
+ * @param {!proto.auth_v2.RevokeAuthTokenResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RevokeAuthTokenResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.RevokeAuthTokenResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -6881,7 +6881,7 @@ proto.auth.RevokeAuthTokenResponse.serializeBinaryToWriter = function(message, w
  * @private {!Array<number>}
  * @const
  */
-proto.auth.SetGroupsForUserRequest.repeatedFields_ = [2];
+proto.auth_v2.SetGroupsForUserRequest.repeatedFields_ = [2];
 
 
 
@@ -6898,8 +6898,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.SetGroupsForUserRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.SetGroupsForUserRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.SetGroupsForUserRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.SetGroupsForUserRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -6908,11 +6908,11 @@ proto.auth.SetGroupsForUserRequest.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.SetGroupsForUserRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.SetGroupsForUserRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SetGroupsForUserRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.SetGroupsForUserRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     username: jspb.Message.getFieldWithDefault(msg, 1, ""),
     groupsList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f
@@ -6929,23 +6929,23 @@ proto.auth.SetGroupsForUserRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.SetGroupsForUserRequest}
+ * @return {!proto.auth_v2.SetGroupsForUserRequest}
  */
-proto.auth.SetGroupsForUserRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.SetGroupsForUserRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.SetGroupsForUserRequest;
-  return proto.auth.SetGroupsForUserRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.SetGroupsForUserRequest;
+  return proto.auth_v2.SetGroupsForUserRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.SetGroupsForUserRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.SetGroupsForUserRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.SetGroupsForUserRequest}
+ * @return {!proto.auth_v2.SetGroupsForUserRequest}
  */
-proto.auth.SetGroupsForUserRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.SetGroupsForUserRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6973,9 +6973,9 @@ proto.auth.SetGroupsForUserRequest.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.SetGroupsForUserRequest.prototype.serializeBinary = function() {
+proto.auth_v2.SetGroupsForUserRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.SetGroupsForUserRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.SetGroupsForUserRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6983,11 +6983,11 @@ proto.auth.SetGroupsForUserRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.SetGroupsForUserRequest} message
+ * @param {!proto.auth_v2.SetGroupsForUserRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SetGroupsForUserRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.SetGroupsForUserRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getUsername();
   if (f.length > 0) {
@@ -7010,16 +7010,16 @@ proto.auth.SetGroupsForUserRequest.serializeBinaryToWriter = function(message, w
  * optional string username = 1;
  * @return {string}
  */
-proto.auth.SetGroupsForUserRequest.prototype.getUsername = function() {
+proto.auth_v2.SetGroupsForUserRequest.prototype.getUsername = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.SetGroupsForUserRequest} returns this
+ * @return {!proto.auth_v2.SetGroupsForUserRequest} returns this
  */
-proto.auth.SetGroupsForUserRequest.prototype.setUsername = function(value) {
+proto.auth_v2.SetGroupsForUserRequest.prototype.setUsername = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -7028,16 +7028,16 @@ proto.auth.SetGroupsForUserRequest.prototype.setUsername = function(value) {
  * repeated string groups = 2;
  * @return {!Array<string>}
  */
-proto.auth.SetGroupsForUserRequest.prototype.getGroupsList = function() {
+proto.auth_v2.SetGroupsForUserRequest.prototype.getGroupsList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 2));
 };
 
 
 /**
  * @param {!Array<string>} value
- * @return {!proto.auth.SetGroupsForUserRequest} returns this
+ * @return {!proto.auth_v2.SetGroupsForUserRequest} returns this
  */
-proto.auth.SetGroupsForUserRequest.prototype.setGroupsList = function(value) {
+proto.auth_v2.SetGroupsForUserRequest.prototype.setGroupsList = function(value) {
   return jspb.Message.setField(this, 2, value || []);
 };
 
@@ -7045,18 +7045,18 @@ proto.auth.SetGroupsForUserRequest.prototype.setGroupsList = function(value) {
 /**
  * @param {string} value
  * @param {number=} opt_index
- * @return {!proto.auth.SetGroupsForUserRequest} returns this
+ * @return {!proto.auth_v2.SetGroupsForUserRequest} returns this
  */
-proto.auth.SetGroupsForUserRequest.prototype.addGroups = function(value, opt_index) {
+proto.auth_v2.SetGroupsForUserRequest.prototype.addGroups = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 2, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.SetGroupsForUserRequest} returns this
+ * @return {!proto.auth_v2.SetGroupsForUserRequest} returns this
  */
-proto.auth.SetGroupsForUserRequest.prototype.clearGroupsList = function() {
+proto.auth_v2.SetGroupsForUserRequest.prototype.clearGroupsList = function() {
   return this.setGroupsList([]);
 };
 
@@ -7077,8 +7077,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.SetGroupsForUserResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.SetGroupsForUserResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.SetGroupsForUserResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.SetGroupsForUserResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -7087,11 +7087,11 @@ proto.auth.SetGroupsForUserResponse.prototype.toObject = function(opt_includeIns
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.SetGroupsForUserResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.SetGroupsForUserResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SetGroupsForUserResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.SetGroupsForUserResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -7107,23 +7107,23 @@ proto.auth.SetGroupsForUserResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.SetGroupsForUserResponse}
+ * @return {!proto.auth_v2.SetGroupsForUserResponse}
  */
-proto.auth.SetGroupsForUserResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.SetGroupsForUserResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.SetGroupsForUserResponse;
-  return proto.auth.SetGroupsForUserResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.SetGroupsForUserResponse;
+  return proto.auth_v2.SetGroupsForUserResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.SetGroupsForUserResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.SetGroupsForUserResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.SetGroupsForUserResponse}
+ * @return {!proto.auth_v2.SetGroupsForUserResponse}
  */
-proto.auth.SetGroupsForUserResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.SetGroupsForUserResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7143,9 +7143,9 @@ proto.auth.SetGroupsForUserResponse.deserializeBinaryFromReader = function(msg, 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.SetGroupsForUserResponse.prototype.serializeBinary = function() {
+proto.auth_v2.SetGroupsForUserResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.SetGroupsForUserResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.SetGroupsForUserResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7153,11 +7153,11 @@ proto.auth.SetGroupsForUserResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.SetGroupsForUserResponse} message
+ * @param {!proto.auth_v2.SetGroupsForUserResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.SetGroupsForUserResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.SetGroupsForUserResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -7168,7 +7168,7 @@ proto.auth.SetGroupsForUserResponse.serializeBinaryToWriter = function(message, 
  * @private {!Array<number>}
  * @const
  */
-proto.auth.ModifyMembersRequest.repeatedFields_ = [2,3];
+proto.auth_v2.ModifyMembersRequest.repeatedFields_ = [2,3];
 
 
 
@@ -7185,8 +7185,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.ModifyMembersRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.ModifyMembersRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.ModifyMembersRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.ModifyMembersRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -7195,11 +7195,11 @@ proto.auth.ModifyMembersRequest.prototype.toObject = function(opt_includeInstanc
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.ModifyMembersRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.ModifyMembersRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ModifyMembersRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.ModifyMembersRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     group: jspb.Message.getFieldWithDefault(msg, 1, ""),
     addList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f,
@@ -7217,23 +7217,23 @@ proto.auth.ModifyMembersRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.ModifyMembersRequest}
+ * @return {!proto.auth_v2.ModifyMembersRequest}
  */
-proto.auth.ModifyMembersRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.ModifyMembersRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.ModifyMembersRequest;
-  return proto.auth.ModifyMembersRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.ModifyMembersRequest;
+  return proto.auth_v2.ModifyMembersRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.ModifyMembersRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.ModifyMembersRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.ModifyMembersRequest}
+ * @return {!proto.auth_v2.ModifyMembersRequest}
  */
-proto.auth.ModifyMembersRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.ModifyMembersRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7265,9 +7265,9 @@ proto.auth.ModifyMembersRequest.deserializeBinaryFromReader = function(msg, read
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.ModifyMembersRequest.prototype.serializeBinary = function() {
+proto.auth_v2.ModifyMembersRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.ModifyMembersRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.ModifyMembersRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7275,11 +7275,11 @@ proto.auth.ModifyMembersRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.ModifyMembersRequest} message
+ * @param {!proto.auth_v2.ModifyMembersRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ModifyMembersRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.ModifyMembersRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getGroup();
   if (f.length > 0) {
@@ -7309,16 +7309,16 @@ proto.auth.ModifyMembersRequest.serializeBinaryToWriter = function(message, writ
  * optional string group = 1;
  * @return {string}
  */
-proto.auth.ModifyMembersRequest.prototype.getGroup = function() {
+proto.auth_v2.ModifyMembersRequest.prototype.getGroup = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.ModifyMembersRequest} returns this
+ * @return {!proto.auth_v2.ModifyMembersRequest} returns this
  */
-proto.auth.ModifyMembersRequest.prototype.setGroup = function(value) {
+proto.auth_v2.ModifyMembersRequest.prototype.setGroup = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -7327,16 +7327,16 @@ proto.auth.ModifyMembersRequest.prototype.setGroup = function(value) {
  * repeated string add = 2;
  * @return {!Array<string>}
  */
-proto.auth.ModifyMembersRequest.prototype.getAddList = function() {
+proto.auth_v2.ModifyMembersRequest.prototype.getAddList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 2));
 };
 
 
 /**
  * @param {!Array<string>} value
- * @return {!proto.auth.ModifyMembersRequest} returns this
+ * @return {!proto.auth_v2.ModifyMembersRequest} returns this
  */
-proto.auth.ModifyMembersRequest.prototype.setAddList = function(value) {
+proto.auth_v2.ModifyMembersRequest.prototype.setAddList = function(value) {
   return jspb.Message.setField(this, 2, value || []);
 };
 
@@ -7344,18 +7344,18 @@ proto.auth.ModifyMembersRequest.prototype.setAddList = function(value) {
 /**
  * @param {string} value
  * @param {number=} opt_index
- * @return {!proto.auth.ModifyMembersRequest} returns this
+ * @return {!proto.auth_v2.ModifyMembersRequest} returns this
  */
-proto.auth.ModifyMembersRequest.prototype.addAdd = function(value, opt_index) {
+proto.auth_v2.ModifyMembersRequest.prototype.addAdd = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 2, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.ModifyMembersRequest} returns this
+ * @return {!proto.auth_v2.ModifyMembersRequest} returns this
  */
-proto.auth.ModifyMembersRequest.prototype.clearAddList = function() {
+proto.auth_v2.ModifyMembersRequest.prototype.clearAddList = function() {
   return this.setAddList([]);
 };
 
@@ -7364,16 +7364,16 @@ proto.auth.ModifyMembersRequest.prototype.clearAddList = function() {
  * repeated string remove = 3;
  * @return {!Array<string>}
  */
-proto.auth.ModifyMembersRequest.prototype.getRemoveList = function() {
+proto.auth_v2.ModifyMembersRequest.prototype.getRemoveList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
 };
 
 
 /**
  * @param {!Array<string>} value
- * @return {!proto.auth.ModifyMembersRequest} returns this
+ * @return {!proto.auth_v2.ModifyMembersRequest} returns this
  */
-proto.auth.ModifyMembersRequest.prototype.setRemoveList = function(value) {
+proto.auth_v2.ModifyMembersRequest.prototype.setRemoveList = function(value) {
   return jspb.Message.setField(this, 3, value || []);
 };
 
@@ -7381,18 +7381,18 @@ proto.auth.ModifyMembersRequest.prototype.setRemoveList = function(value) {
 /**
  * @param {string} value
  * @param {number=} opt_index
- * @return {!proto.auth.ModifyMembersRequest} returns this
+ * @return {!proto.auth_v2.ModifyMembersRequest} returns this
  */
-proto.auth.ModifyMembersRequest.prototype.addRemove = function(value, opt_index) {
+proto.auth_v2.ModifyMembersRequest.prototype.addRemove = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.ModifyMembersRequest} returns this
+ * @return {!proto.auth_v2.ModifyMembersRequest} returns this
  */
-proto.auth.ModifyMembersRequest.prototype.clearRemoveList = function() {
+proto.auth_v2.ModifyMembersRequest.prototype.clearRemoveList = function() {
   return this.setRemoveList([]);
 };
 
@@ -7413,8 +7413,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.ModifyMembersResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.ModifyMembersResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.ModifyMembersResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.ModifyMembersResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -7423,11 +7423,11 @@ proto.auth.ModifyMembersResponse.prototype.toObject = function(opt_includeInstan
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.ModifyMembersResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.ModifyMembersResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ModifyMembersResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.ModifyMembersResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -7443,23 +7443,23 @@ proto.auth.ModifyMembersResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.ModifyMembersResponse}
+ * @return {!proto.auth_v2.ModifyMembersResponse}
  */
-proto.auth.ModifyMembersResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.ModifyMembersResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.ModifyMembersResponse;
-  return proto.auth.ModifyMembersResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.ModifyMembersResponse;
+  return proto.auth_v2.ModifyMembersResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.ModifyMembersResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.ModifyMembersResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.ModifyMembersResponse}
+ * @return {!proto.auth_v2.ModifyMembersResponse}
  */
-proto.auth.ModifyMembersResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.ModifyMembersResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7479,9 +7479,9 @@ proto.auth.ModifyMembersResponse.deserializeBinaryFromReader = function(msg, rea
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.ModifyMembersResponse.prototype.serializeBinary = function() {
+proto.auth_v2.ModifyMembersResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.ModifyMembersResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.ModifyMembersResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7489,11 +7489,11 @@ proto.auth.ModifyMembersResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.ModifyMembersResponse} message
+ * @param {!proto.auth_v2.ModifyMembersResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ModifyMembersResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.ModifyMembersResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -7514,8 +7514,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetGroupsRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetGroupsRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.GetGroupsRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetGroupsRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -7524,11 +7524,11 @@ proto.auth.GetGroupsRequest.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetGroupsRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetGroupsRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetGroupsRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetGroupsRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -7544,23 +7544,23 @@ proto.auth.GetGroupsRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetGroupsRequest}
+ * @return {!proto.auth_v2.GetGroupsRequest}
  */
-proto.auth.GetGroupsRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.GetGroupsRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetGroupsRequest;
-  return proto.auth.GetGroupsRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetGroupsRequest;
+  return proto.auth_v2.GetGroupsRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetGroupsRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetGroupsRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetGroupsRequest}
+ * @return {!proto.auth_v2.GetGroupsRequest}
  */
-proto.auth.GetGroupsRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetGroupsRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7580,9 +7580,9 @@ proto.auth.GetGroupsRequest.deserializeBinaryFromReader = function(msg, reader) 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetGroupsRequest.prototype.serializeBinary = function() {
+proto.auth_v2.GetGroupsRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetGroupsRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetGroupsRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7590,11 +7590,11 @@ proto.auth.GetGroupsRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetGroupsRequest} message
+ * @param {!proto.auth_v2.GetGroupsRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetGroupsRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetGroupsRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -7615,8 +7615,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetGroupsForPrincipalRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetGroupsForPrincipalRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.GetGroupsForPrincipalRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetGroupsForPrincipalRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -7625,11 +7625,11 @@ proto.auth.GetGroupsForPrincipalRequest.prototype.toObject = function(opt_includ
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetGroupsForPrincipalRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetGroupsForPrincipalRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetGroupsForPrincipalRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetGroupsForPrincipalRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     principal: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -7645,23 +7645,23 @@ proto.auth.GetGroupsForPrincipalRequest.toObject = function(includeInstance, msg
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetGroupsForPrincipalRequest}
+ * @return {!proto.auth_v2.GetGroupsForPrincipalRequest}
  */
-proto.auth.GetGroupsForPrincipalRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.GetGroupsForPrincipalRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetGroupsForPrincipalRequest;
-  return proto.auth.GetGroupsForPrincipalRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetGroupsForPrincipalRequest;
+  return proto.auth_v2.GetGroupsForPrincipalRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetGroupsForPrincipalRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetGroupsForPrincipalRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetGroupsForPrincipalRequest}
+ * @return {!proto.auth_v2.GetGroupsForPrincipalRequest}
  */
-proto.auth.GetGroupsForPrincipalRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetGroupsForPrincipalRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7685,9 +7685,9 @@ proto.auth.GetGroupsForPrincipalRequest.deserializeBinaryFromReader = function(m
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetGroupsForPrincipalRequest.prototype.serializeBinary = function() {
+proto.auth_v2.GetGroupsForPrincipalRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetGroupsForPrincipalRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetGroupsForPrincipalRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7695,11 +7695,11 @@ proto.auth.GetGroupsForPrincipalRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetGroupsForPrincipalRequest} message
+ * @param {!proto.auth_v2.GetGroupsForPrincipalRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetGroupsForPrincipalRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetGroupsForPrincipalRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getPrincipal();
   if (f.length > 0) {
@@ -7715,16 +7715,16 @@ proto.auth.GetGroupsForPrincipalRequest.serializeBinaryToWriter = function(messa
  * optional string principal = 1;
  * @return {string}
  */
-proto.auth.GetGroupsForPrincipalRequest.prototype.getPrincipal = function() {
+proto.auth_v2.GetGroupsForPrincipalRequest.prototype.getPrincipal = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.GetGroupsForPrincipalRequest} returns this
+ * @return {!proto.auth_v2.GetGroupsForPrincipalRequest} returns this
  */
-proto.auth.GetGroupsForPrincipalRequest.prototype.setPrincipal = function(value) {
+proto.auth_v2.GetGroupsForPrincipalRequest.prototype.setPrincipal = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -7735,7 +7735,7 @@ proto.auth.GetGroupsForPrincipalRequest.prototype.setPrincipal = function(value)
  * @private {!Array<number>}
  * @const
  */
-proto.auth.GetGroupsResponse.repeatedFields_ = [1];
+proto.auth_v2.GetGroupsResponse.repeatedFields_ = [1];
 
 
 
@@ -7752,8 +7752,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetGroupsResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetGroupsResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.GetGroupsResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetGroupsResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -7762,11 +7762,11 @@ proto.auth.GetGroupsResponse.prototype.toObject = function(opt_includeInstance) 
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetGroupsResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetGroupsResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetGroupsResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetGroupsResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     groupsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
@@ -7782,23 +7782,23 @@ proto.auth.GetGroupsResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetGroupsResponse}
+ * @return {!proto.auth_v2.GetGroupsResponse}
  */
-proto.auth.GetGroupsResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.GetGroupsResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetGroupsResponse;
-  return proto.auth.GetGroupsResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetGroupsResponse;
+  return proto.auth_v2.GetGroupsResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetGroupsResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetGroupsResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetGroupsResponse}
+ * @return {!proto.auth_v2.GetGroupsResponse}
  */
-proto.auth.GetGroupsResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetGroupsResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7822,9 +7822,9 @@ proto.auth.GetGroupsResponse.deserializeBinaryFromReader = function(msg, reader)
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetGroupsResponse.prototype.serializeBinary = function() {
+proto.auth_v2.GetGroupsResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetGroupsResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetGroupsResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7832,11 +7832,11 @@ proto.auth.GetGroupsResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetGroupsResponse} message
+ * @param {!proto.auth_v2.GetGroupsResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetGroupsResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetGroupsResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getGroupsList();
   if (f.length > 0) {
@@ -7852,16 +7852,16 @@ proto.auth.GetGroupsResponse.serializeBinaryToWriter = function(message, writer)
  * repeated string groups = 1;
  * @return {!Array<string>}
  */
-proto.auth.GetGroupsResponse.prototype.getGroupsList = function() {
+proto.auth_v2.GetGroupsResponse.prototype.getGroupsList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 1));
 };
 
 
 /**
  * @param {!Array<string>} value
- * @return {!proto.auth.GetGroupsResponse} returns this
+ * @return {!proto.auth_v2.GetGroupsResponse} returns this
  */
-proto.auth.GetGroupsResponse.prototype.setGroupsList = function(value) {
+proto.auth_v2.GetGroupsResponse.prototype.setGroupsList = function(value) {
   return jspb.Message.setField(this, 1, value || []);
 };
 
@@ -7869,18 +7869,18 @@ proto.auth.GetGroupsResponse.prototype.setGroupsList = function(value) {
 /**
  * @param {string} value
  * @param {number=} opt_index
- * @return {!proto.auth.GetGroupsResponse} returns this
+ * @return {!proto.auth_v2.GetGroupsResponse} returns this
  */
-proto.auth.GetGroupsResponse.prototype.addGroups = function(value, opt_index) {
+proto.auth_v2.GetGroupsResponse.prototype.addGroups = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.GetGroupsResponse} returns this
+ * @return {!proto.auth_v2.GetGroupsResponse} returns this
  */
-proto.auth.GetGroupsResponse.prototype.clearGroupsList = function() {
+proto.auth_v2.GetGroupsResponse.prototype.clearGroupsList = function() {
   return this.setGroupsList([]);
 };
 
@@ -7901,8 +7901,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetUsersRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetUsersRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.GetUsersRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetUsersRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -7911,11 +7911,11 @@ proto.auth.GetUsersRequest.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetUsersRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetUsersRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetUsersRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetUsersRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     group: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -7931,23 +7931,23 @@ proto.auth.GetUsersRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetUsersRequest}
+ * @return {!proto.auth_v2.GetUsersRequest}
  */
-proto.auth.GetUsersRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.GetUsersRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetUsersRequest;
-  return proto.auth.GetUsersRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetUsersRequest;
+  return proto.auth_v2.GetUsersRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetUsersRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetUsersRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetUsersRequest}
+ * @return {!proto.auth_v2.GetUsersRequest}
  */
-proto.auth.GetUsersRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetUsersRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7971,9 +7971,9 @@ proto.auth.GetUsersRequest.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetUsersRequest.prototype.serializeBinary = function() {
+proto.auth_v2.GetUsersRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetUsersRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetUsersRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7981,11 +7981,11 @@ proto.auth.GetUsersRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetUsersRequest} message
+ * @param {!proto.auth_v2.GetUsersRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetUsersRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetUsersRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getGroup();
   if (f.length > 0) {
@@ -8001,16 +8001,16 @@ proto.auth.GetUsersRequest.serializeBinaryToWriter = function(message, writer) {
  * optional string group = 1;
  * @return {string}
  */
-proto.auth.GetUsersRequest.prototype.getGroup = function() {
+proto.auth_v2.GetUsersRequest.prototype.getGroup = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.GetUsersRequest} returns this
+ * @return {!proto.auth_v2.GetUsersRequest} returns this
  */
-proto.auth.GetUsersRequest.prototype.setGroup = function(value) {
+proto.auth_v2.GetUsersRequest.prototype.setGroup = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -8021,7 +8021,7 @@ proto.auth.GetUsersRequest.prototype.setGroup = function(value) {
  * @private {!Array<number>}
  * @const
  */
-proto.auth.GetUsersResponse.repeatedFields_ = [1];
+proto.auth_v2.GetUsersResponse.repeatedFields_ = [1];
 
 
 
@@ -8038,8 +8038,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.GetUsersResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.GetUsersResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.GetUsersResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.GetUsersResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -8048,11 +8048,11 @@ proto.auth.GetUsersResponse.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.GetUsersResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.GetUsersResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetUsersResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.GetUsersResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     usernamesList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
@@ -8068,23 +8068,23 @@ proto.auth.GetUsersResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.GetUsersResponse}
+ * @return {!proto.auth_v2.GetUsersResponse}
  */
-proto.auth.GetUsersResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.GetUsersResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.GetUsersResponse;
-  return proto.auth.GetUsersResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.GetUsersResponse;
+  return proto.auth_v2.GetUsersResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.GetUsersResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.GetUsersResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.GetUsersResponse}
+ * @return {!proto.auth_v2.GetUsersResponse}
  */
-proto.auth.GetUsersResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.GetUsersResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8108,9 +8108,9 @@ proto.auth.GetUsersResponse.deserializeBinaryFromReader = function(msg, reader) 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.GetUsersResponse.prototype.serializeBinary = function() {
+proto.auth_v2.GetUsersResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.GetUsersResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.GetUsersResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8118,11 +8118,11 @@ proto.auth.GetUsersResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.GetUsersResponse} message
+ * @param {!proto.auth_v2.GetUsersResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.GetUsersResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.GetUsersResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getUsernamesList();
   if (f.length > 0) {
@@ -8138,16 +8138,16 @@ proto.auth.GetUsersResponse.serializeBinaryToWriter = function(message, writer) 
  * repeated string usernames = 1;
  * @return {!Array<string>}
  */
-proto.auth.GetUsersResponse.prototype.getUsernamesList = function() {
+proto.auth_v2.GetUsersResponse.prototype.getUsernamesList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 1));
 };
 
 
 /**
  * @param {!Array<string>} value
- * @return {!proto.auth.GetUsersResponse} returns this
+ * @return {!proto.auth_v2.GetUsersResponse} returns this
  */
-proto.auth.GetUsersResponse.prototype.setUsernamesList = function(value) {
+proto.auth_v2.GetUsersResponse.prototype.setUsernamesList = function(value) {
   return jspb.Message.setField(this, 1, value || []);
 };
 
@@ -8155,18 +8155,18 @@ proto.auth.GetUsersResponse.prototype.setUsernamesList = function(value) {
 /**
  * @param {string} value
  * @param {number=} opt_index
- * @return {!proto.auth.GetUsersResponse} returns this
+ * @return {!proto.auth_v2.GetUsersResponse} returns this
  */
-proto.auth.GetUsersResponse.prototype.addUsernames = function(value, opt_index) {
+proto.auth_v2.GetUsersResponse.prototype.addUsernames = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.GetUsersResponse} returns this
+ * @return {!proto.auth_v2.GetUsersResponse} returns this
  */
-proto.auth.GetUsersResponse.prototype.clearUsernamesList = function() {
+proto.auth_v2.GetUsersResponse.prototype.clearUsernamesList = function() {
   return this.setUsernamesList([]);
 };
 
@@ -8187,8 +8187,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.ExtractAuthTokensRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.ExtractAuthTokensRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.ExtractAuthTokensRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.ExtractAuthTokensRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -8197,11 +8197,11 @@ proto.auth.ExtractAuthTokensRequest.prototype.toObject = function(opt_includeIns
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.ExtractAuthTokensRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.ExtractAuthTokensRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ExtractAuthTokensRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.ExtractAuthTokensRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -8217,23 +8217,23 @@ proto.auth.ExtractAuthTokensRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.ExtractAuthTokensRequest}
+ * @return {!proto.auth_v2.ExtractAuthTokensRequest}
  */
-proto.auth.ExtractAuthTokensRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.ExtractAuthTokensRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.ExtractAuthTokensRequest;
-  return proto.auth.ExtractAuthTokensRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.ExtractAuthTokensRequest;
+  return proto.auth_v2.ExtractAuthTokensRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.ExtractAuthTokensRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.ExtractAuthTokensRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.ExtractAuthTokensRequest}
+ * @return {!proto.auth_v2.ExtractAuthTokensRequest}
  */
-proto.auth.ExtractAuthTokensRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.ExtractAuthTokensRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8253,9 +8253,9 @@ proto.auth.ExtractAuthTokensRequest.deserializeBinaryFromReader = function(msg, 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.ExtractAuthTokensRequest.prototype.serializeBinary = function() {
+proto.auth_v2.ExtractAuthTokensRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.ExtractAuthTokensRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.ExtractAuthTokensRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8263,11 +8263,11 @@ proto.auth.ExtractAuthTokensRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.ExtractAuthTokensRequest} message
+ * @param {!proto.auth_v2.ExtractAuthTokensRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ExtractAuthTokensRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.ExtractAuthTokensRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -8278,7 +8278,7 @@ proto.auth.ExtractAuthTokensRequest.serializeBinaryToWriter = function(message, 
  * @private {!Array<number>}
  * @const
  */
-proto.auth.ExtractAuthTokensResponse.repeatedFields_ = [1];
+proto.auth_v2.ExtractAuthTokensResponse.repeatedFields_ = [1];
 
 
 
@@ -8295,8 +8295,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.ExtractAuthTokensResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.ExtractAuthTokensResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.ExtractAuthTokensResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.ExtractAuthTokensResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -8305,14 +8305,14 @@ proto.auth.ExtractAuthTokensResponse.prototype.toObject = function(opt_includeIn
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.ExtractAuthTokensResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.ExtractAuthTokensResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ExtractAuthTokensResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.ExtractAuthTokensResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     tokensList: jspb.Message.toObjectList(msg.getTokensList(),
-    proto.auth.TokenInfo.toObject, includeInstance)
+    proto.auth_v2.TokenInfo.toObject, includeInstance)
   };
 
   if (includeInstance) {
@@ -8326,23 +8326,23 @@ proto.auth.ExtractAuthTokensResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.ExtractAuthTokensResponse}
+ * @return {!proto.auth_v2.ExtractAuthTokensResponse}
  */
-proto.auth.ExtractAuthTokensResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.ExtractAuthTokensResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.ExtractAuthTokensResponse;
-  return proto.auth.ExtractAuthTokensResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.ExtractAuthTokensResponse;
+  return proto.auth_v2.ExtractAuthTokensResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.ExtractAuthTokensResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.ExtractAuthTokensResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.ExtractAuthTokensResponse}
+ * @return {!proto.auth_v2.ExtractAuthTokensResponse}
  */
-proto.auth.ExtractAuthTokensResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.ExtractAuthTokensResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8350,8 +8350,8 @@ proto.auth.ExtractAuthTokensResponse.deserializeBinaryFromReader = function(msg,
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.TokenInfo;
-      reader.readMessage(value,proto.auth.TokenInfo.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.TokenInfo;
+      reader.readMessage(value,proto.auth_v2.TokenInfo.deserializeBinaryFromReader);
       msg.addTokens(value);
       break;
     default:
@@ -8367,9 +8367,9 @@ proto.auth.ExtractAuthTokensResponse.deserializeBinaryFromReader = function(msg,
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.ExtractAuthTokensResponse.prototype.serializeBinary = function() {
+proto.auth_v2.ExtractAuthTokensResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.ExtractAuthTokensResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.ExtractAuthTokensResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8377,18 +8377,18 @@ proto.auth.ExtractAuthTokensResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.ExtractAuthTokensResponse} message
+ * @param {!proto.auth_v2.ExtractAuthTokensResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.ExtractAuthTokensResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.ExtractAuthTokensResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getTokensList();
   if (f.length > 0) {
     writer.writeRepeatedMessage(
       1,
       f,
-      proto.auth.TokenInfo.serializeBinaryToWriter
+      proto.auth_v2.TokenInfo.serializeBinaryToWriter
     );
   }
 };
@@ -8396,38 +8396,38 @@ proto.auth.ExtractAuthTokensResponse.serializeBinaryToWriter = function(message,
 
 /**
  * repeated TokenInfo tokens = 1;
- * @return {!Array<!proto.auth.TokenInfo>}
+ * @return {!Array<!proto.auth_v2.TokenInfo>}
  */
-proto.auth.ExtractAuthTokensResponse.prototype.getTokensList = function() {
-  return /** @type{!Array<!proto.auth.TokenInfo>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.auth.TokenInfo, 1));
+proto.auth_v2.ExtractAuthTokensResponse.prototype.getTokensList = function() {
+  return /** @type{!Array<!proto.auth_v2.TokenInfo>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.auth_v2.TokenInfo, 1));
 };
 
 
 /**
- * @param {!Array<!proto.auth.TokenInfo>} value
- * @return {!proto.auth.ExtractAuthTokensResponse} returns this
+ * @param {!Array<!proto.auth_v2.TokenInfo>} value
+ * @return {!proto.auth_v2.ExtractAuthTokensResponse} returns this
 */
-proto.auth.ExtractAuthTokensResponse.prototype.setTokensList = function(value) {
+proto.auth_v2.ExtractAuthTokensResponse.prototype.setTokensList = function(value) {
   return jspb.Message.setRepeatedWrapperField(this, 1, value);
 };
 
 
 /**
- * @param {!proto.auth.TokenInfo=} opt_value
+ * @param {!proto.auth_v2.TokenInfo=} opt_value
  * @param {number=} opt_index
- * @return {!proto.auth.TokenInfo}
+ * @return {!proto.auth_v2.TokenInfo}
  */
-proto.auth.ExtractAuthTokensResponse.prototype.addTokens = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.auth.TokenInfo, opt_index);
+proto.auth_v2.ExtractAuthTokensResponse.prototype.addTokens = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.auth_v2.TokenInfo, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.auth.ExtractAuthTokensResponse} returns this
+ * @return {!proto.auth_v2.ExtractAuthTokensResponse} returns this
  */
-proto.auth.ExtractAuthTokensResponse.prototype.clearTokensList = function() {
+proto.auth_v2.ExtractAuthTokensResponse.prototype.clearTokensList = function() {
   return this.setTokensList([]);
 };
 
@@ -8448,8 +8448,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.RestoreAuthTokenRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.RestoreAuthTokenRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.RestoreAuthTokenRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.RestoreAuthTokenRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -8458,13 +8458,13 @@ proto.auth.RestoreAuthTokenRequest.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.RestoreAuthTokenRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.RestoreAuthTokenRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RestoreAuthTokenRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.RestoreAuthTokenRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    token: (f = msg.getToken()) && proto.auth.TokenInfo.toObject(includeInstance, f)
+    token: (f = msg.getToken()) && proto.auth_v2.TokenInfo.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -8478,23 +8478,23 @@ proto.auth.RestoreAuthTokenRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.RestoreAuthTokenRequest}
+ * @return {!proto.auth_v2.RestoreAuthTokenRequest}
  */
-proto.auth.RestoreAuthTokenRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.RestoreAuthTokenRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.RestoreAuthTokenRequest;
-  return proto.auth.RestoreAuthTokenRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.RestoreAuthTokenRequest;
+  return proto.auth_v2.RestoreAuthTokenRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.RestoreAuthTokenRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.RestoreAuthTokenRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.RestoreAuthTokenRequest}
+ * @return {!proto.auth_v2.RestoreAuthTokenRequest}
  */
-proto.auth.RestoreAuthTokenRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.RestoreAuthTokenRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8502,8 +8502,8 @@ proto.auth.RestoreAuthTokenRequest.deserializeBinaryFromReader = function(msg, r
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.auth.TokenInfo;
-      reader.readMessage(value,proto.auth.TokenInfo.deserializeBinaryFromReader);
+      var value = new proto.auth_v2.TokenInfo;
+      reader.readMessage(value,proto.auth_v2.TokenInfo.deserializeBinaryFromReader);
       msg.setToken(value);
       break;
     default:
@@ -8519,9 +8519,9 @@ proto.auth.RestoreAuthTokenRequest.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.RestoreAuthTokenRequest.prototype.serializeBinary = function() {
+proto.auth_v2.RestoreAuthTokenRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.RestoreAuthTokenRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.RestoreAuthTokenRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8529,18 +8529,18 @@ proto.auth.RestoreAuthTokenRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.RestoreAuthTokenRequest} message
+ * @param {!proto.auth_v2.RestoreAuthTokenRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RestoreAuthTokenRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.RestoreAuthTokenRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getToken();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.auth.TokenInfo.serializeBinaryToWriter
+      proto.auth_v2.TokenInfo.serializeBinaryToWriter
     );
   }
 };
@@ -8548,28 +8548,28 @@ proto.auth.RestoreAuthTokenRequest.serializeBinaryToWriter = function(message, w
 
 /**
  * optional TokenInfo token = 1;
- * @return {?proto.auth.TokenInfo}
+ * @return {?proto.auth_v2.TokenInfo}
  */
-proto.auth.RestoreAuthTokenRequest.prototype.getToken = function() {
-  return /** @type{?proto.auth.TokenInfo} */ (
-    jspb.Message.getWrapperField(this, proto.auth.TokenInfo, 1));
+proto.auth_v2.RestoreAuthTokenRequest.prototype.getToken = function() {
+  return /** @type{?proto.auth_v2.TokenInfo} */ (
+    jspb.Message.getWrapperField(this, proto.auth_v2.TokenInfo, 1));
 };
 
 
 /**
- * @param {?proto.auth.TokenInfo|undefined} value
- * @return {!proto.auth.RestoreAuthTokenRequest} returns this
+ * @param {?proto.auth_v2.TokenInfo|undefined} value
+ * @return {!proto.auth_v2.RestoreAuthTokenRequest} returns this
 */
-proto.auth.RestoreAuthTokenRequest.prototype.setToken = function(value) {
+proto.auth_v2.RestoreAuthTokenRequest.prototype.setToken = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.auth.RestoreAuthTokenRequest} returns this
+ * @return {!proto.auth_v2.RestoreAuthTokenRequest} returns this
  */
-proto.auth.RestoreAuthTokenRequest.prototype.clearToken = function() {
+proto.auth_v2.RestoreAuthTokenRequest.prototype.clearToken = function() {
   return this.setToken(undefined);
 };
 
@@ -8578,7 +8578,7 @@ proto.auth.RestoreAuthTokenRequest.prototype.clearToken = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.auth.RestoreAuthTokenRequest.prototype.hasToken = function() {
+proto.auth_v2.RestoreAuthTokenRequest.prototype.hasToken = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -8599,8 +8599,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.RestoreAuthTokenResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.RestoreAuthTokenResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.RestoreAuthTokenResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.RestoreAuthTokenResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -8609,11 +8609,11 @@ proto.auth.RestoreAuthTokenResponse.prototype.toObject = function(opt_includeIns
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.RestoreAuthTokenResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.RestoreAuthTokenResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RestoreAuthTokenResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.RestoreAuthTokenResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -8629,23 +8629,23 @@ proto.auth.RestoreAuthTokenResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.RestoreAuthTokenResponse}
+ * @return {!proto.auth_v2.RestoreAuthTokenResponse}
  */
-proto.auth.RestoreAuthTokenResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.RestoreAuthTokenResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.RestoreAuthTokenResponse;
-  return proto.auth.RestoreAuthTokenResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.RestoreAuthTokenResponse;
+  return proto.auth_v2.RestoreAuthTokenResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.RestoreAuthTokenResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.RestoreAuthTokenResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.RestoreAuthTokenResponse}
+ * @return {!proto.auth_v2.RestoreAuthTokenResponse}
  */
-proto.auth.RestoreAuthTokenResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.RestoreAuthTokenResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8665,9 +8665,9 @@ proto.auth.RestoreAuthTokenResponse.deserializeBinaryFromReader = function(msg, 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.RestoreAuthTokenResponse.prototype.serializeBinary = function() {
+proto.auth_v2.RestoreAuthTokenResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.RestoreAuthTokenResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.RestoreAuthTokenResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8675,11 +8675,11 @@ proto.auth.RestoreAuthTokenResponse.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.RestoreAuthTokenResponse} message
+ * @param {!proto.auth_v2.RestoreAuthTokenResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RestoreAuthTokenResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.RestoreAuthTokenResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -8700,8 +8700,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.RevokeAuthTokensForUserRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.RevokeAuthTokensForUserRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.RevokeAuthTokensForUserRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.RevokeAuthTokensForUserRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -8710,11 +8710,11 @@ proto.auth.RevokeAuthTokensForUserRequest.prototype.toObject = function(opt_incl
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.RevokeAuthTokensForUserRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.RevokeAuthTokensForUserRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RevokeAuthTokensForUserRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.RevokeAuthTokensForUserRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     username: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -8730,23 +8730,23 @@ proto.auth.RevokeAuthTokensForUserRequest.toObject = function(includeInstance, m
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.RevokeAuthTokensForUserRequest}
+ * @return {!proto.auth_v2.RevokeAuthTokensForUserRequest}
  */
-proto.auth.RevokeAuthTokensForUserRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.RevokeAuthTokensForUserRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.RevokeAuthTokensForUserRequest;
-  return proto.auth.RevokeAuthTokensForUserRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.RevokeAuthTokensForUserRequest;
+  return proto.auth_v2.RevokeAuthTokensForUserRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.RevokeAuthTokensForUserRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.RevokeAuthTokensForUserRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.RevokeAuthTokensForUserRequest}
+ * @return {!proto.auth_v2.RevokeAuthTokensForUserRequest}
  */
-proto.auth.RevokeAuthTokensForUserRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.RevokeAuthTokensForUserRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8770,9 +8770,9 @@ proto.auth.RevokeAuthTokensForUserRequest.deserializeBinaryFromReader = function
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.RevokeAuthTokensForUserRequest.prototype.serializeBinary = function() {
+proto.auth_v2.RevokeAuthTokensForUserRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.RevokeAuthTokensForUserRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.RevokeAuthTokensForUserRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8780,11 +8780,11 @@ proto.auth.RevokeAuthTokensForUserRequest.prototype.serializeBinary = function()
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.RevokeAuthTokensForUserRequest} message
+ * @param {!proto.auth_v2.RevokeAuthTokensForUserRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RevokeAuthTokensForUserRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.RevokeAuthTokensForUserRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getUsername();
   if (f.length > 0) {
@@ -8800,16 +8800,16 @@ proto.auth.RevokeAuthTokensForUserRequest.serializeBinaryToWriter = function(mes
  * optional string username = 1;
  * @return {string}
  */
-proto.auth.RevokeAuthTokensForUserRequest.prototype.getUsername = function() {
+proto.auth_v2.RevokeAuthTokensForUserRequest.prototype.getUsername = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.auth.RevokeAuthTokensForUserRequest} returns this
+ * @return {!proto.auth_v2.RevokeAuthTokensForUserRequest} returns this
  */
-proto.auth.RevokeAuthTokensForUserRequest.prototype.setUsername = function(value) {
+proto.auth_v2.RevokeAuthTokensForUserRequest.prototype.setUsername = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -8830,8 +8830,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.RevokeAuthTokensForUserResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.RevokeAuthTokensForUserResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.RevokeAuthTokensForUserResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.RevokeAuthTokensForUserResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -8840,11 +8840,11 @@ proto.auth.RevokeAuthTokensForUserResponse.prototype.toObject = function(opt_inc
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.RevokeAuthTokensForUserResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.RevokeAuthTokensForUserResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RevokeAuthTokensForUserResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.RevokeAuthTokensForUserResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -8860,23 +8860,23 @@ proto.auth.RevokeAuthTokensForUserResponse.toObject = function(includeInstance, 
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.RevokeAuthTokensForUserResponse}
+ * @return {!proto.auth_v2.RevokeAuthTokensForUserResponse}
  */
-proto.auth.RevokeAuthTokensForUserResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.RevokeAuthTokensForUserResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.RevokeAuthTokensForUserResponse;
-  return proto.auth.RevokeAuthTokensForUserResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.RevokeAuthTokensForUserResponse;
+  return proto.auth_v2.RevokeAuthTokensForUserResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.RevokeAuthTokensForUserResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.RevokeAuthTokensForUserResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.RevokeAuthTokensForUserResponse}
+ * @return {!proto.auth_v2.RevokeAuthTokensForUserResponse}
  */
-proto.auth.RevokeAuthTokensForUserResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.RevokeAuthTokensForUserResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8896,9 +8896,9 @@ proto.auth.RevokeAuthTokensForUserResponse.deserializeBinaryFromReader = functio
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.RevokeAuthTokensForUserResponse.prototype.serializeBinary = function() {
+proto.auth_v2.RevokeAuthTokensForUserResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.RevokeAuthTokensForUserResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.RevokeAuthTokensForUserResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8906,11 +8906,11 @@ proto.auth.RevokeAuthTokensForUserResponse.prototype.serializeBinary = function(
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.RevokeAuthTokensForUserResponse} message
+ * @param {!proto.auth_v2.RevokeAuthTokensForUserResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.RevokeAuthTokensForUserResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.RevokeAuthTokensForUserResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -8931,8 +8931,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.DeleteExpiredAuthTokensRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.DeleteExpiredAuthTokensRequest.toObject(opt_includeInstance, this);
+proto.auth_v2.DeleteExpiredAuthTokensRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.DeleteExpiredAuthTokensRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -8941,11 +8941,11 @@ proto.auth.DeleteExpiredAuthTokensRequest.prototype.toObject = function(opt_incl
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.DeleteExpiredAuthTokensRequest} msg The msg instance to transform.
+ * @param {!proto.auth_v2.DeleteExpiredAuthTokensRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.DeleteExpiredAuthTokensRequest.toObject = function(includeInstance, msg) {
+proto.auth_v2.DeleteExpiredAuthTokensRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -8961,23 +8961,23 @@ proto.auth.DeleteExpiredAuthTokensRequest.toObject = function(includeInstance, m
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.DeleteExpiredAuthTokensRequest}
+ * @return {!proto.auth_v2.DeleteExpiredAuthTokensRequest}
  */
-proto.auth.DeleteExpiredAuthTokensRequest.deserializeBinary = function(bytes) {
+proto.auth_v2.DeleteExpiredAuthTokensRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.DeleteExpiredAuthTokensRequest;
-  return proto.auth.DeleteExpiredAuthTokensRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.DeleteExpiredAuthTokensRequest;
+  return proto.auth_v2.DeleteExpiredAuthTokensRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.DeleteExpiredAuthTokensRequest} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.DeleteExpiredAuthTokensRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.DeleteExpiredAuthTokensRequest}
+ * @return {!proto.auth_v2.DeleteExpiredAuthTokensRequest}
  */
-proto.auth.DeleteExpiredAuthTokensRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.DeleteExpiredAuthTokensRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8997,9 +8997,9 @@ proto.auth.DeleteExpiredAuthTokensRequest.deserializeBinaryFromReader = function
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.DeleteExpiredAuthTokensRequest.prototype.serializeBinary = function() {
+proto.auth_v2.DeleteExpiredAuthTokensRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.DeleteExpiredAuthTokensRequest.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.DeleteExpiredAuthTokensRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -9007,11 +9007,11 @@ proto.auth.DeleteExpiredAuthTokensRequest.prototype.serializeBinary = function()
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.DeleteExpiredAuthTokensRequest} message
+ * @param {!proto.auth_v2.DeleteExpiredAuthTokensRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.DeleteExpiredAuthTokensRequest.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.DeleteExpiredAuthTokensRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -9032,8 +9032,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.auth.DeleteExpiredAuthTokensResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.auth.DeleteExpiredAuthTokensResponse.toObject(opt_includeInstance, this);
+proto.auth_v2.DeleteExpiredAuthTokensResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.auth_v2.DeleteExpiredAuthTokensResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -9042,11 +9042,11 @@ proto.auth.DeleteExpiredAuthTokensResponse.prototype.toObject = function(opt_inc
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.auth.DeleteExpiredAuthTokensResponse} msg The msg instance to transform.
+ * @param {!proto.auth_v2.DeleteExpiredAuthTokensResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.DeleteExpiredAuthTokensResponse.toObject = function(includeInstance, msg) {
+proto.auth_v2.DeleteExpiredAuthTokensResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -9062,23 +9062,23 @@ proto.auth.DeleteExpiredAuthTokensResponse.toObject = function(includeInstance, 
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.auth.DeleteExpiredAuthTokensResponse}
+ * @return {!proto.auth_v2.DeleteExpiredAuthTokensResponse}
  */
-proto.auth.DeleteExpiredAuthTokensResponse.deserializeBinary = function(bytes) {
+proto.auth_v2.DeleteExpiredAuthTokensResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.auth.DeleteExpiredAuthTokensResponse;
-  return proto.auth.DeleteExpiredAuthTokensResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.auth_v2.DeleteExpiredAuthTokensResponse;
+  return proto.auth_v2.DeleteExpiredAuthTokensResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.auth.DeleteExpiredAuthTokensResponse} msg The message object to deserialize into.
+ * @param {!proto.auth_v2.DeleteExpiredAuthTokensResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.auth.DeleteExpiredAuthTokensResponse}
+ * @return {!proto.auth_v2.DeleteExpiredAuthTokensResponse}
  */
-proto.auth.DeleteExpiredAuthTokensResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.auth_v2.DeleteExpiredAuthTokensResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -9098,9 +9098,9 @@ proto.auth.DeleteExpiredAuthTokensResponse.deserializeBinaryFromReader = functio
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.auth.DeleteExpiredAuthTokensResponse.prototype.serializeBinary = function() {
+proto.auth_v2.DeleteExpiredAuthTokensResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.auth.DeleteExpiredAuthTokensResponse.serializeBinaryToWriter(this, writer);
+  proto.auth_v2.DeleteExpiredAuthTokensResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -9108,11 +9108,11 @@ proto.auth.DeleteExpiredAuthTokensResponse.prototype.serializeBinary = function(
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.auth.DeleteExpiredAuthTokensResponse} message
+ * @param {!proto.auth_v2.DeleteExpiredAuthTokensResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.auth.DeleteExpiredAuthTokensResponse.serializeBinaryToWriter = function(message, writer) {
+proto.auth_v2.DeleteExpiredAuthTokensResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -9120,7 +9120,7 @@ proto.auth.DeleteExpiredAuthTokensResponse.serializeBinaryToWriter = function(me
 /**
  * @enum {number}
  */
-proto.auth.Permission = {
+proto.auth_v2.Permission = {
   UNKNOWN: 0,
   CLUSTER_MODIFY_BINDINGS: 100,
   CLUSTER_GET_BINDINGS: 101,
@@ -9187,10 +9187,10 @@ proto.auth.Permission = {
 /**
  * @enum {number}
  */
-proto.auth.ResourceType = {
+proto.auth_v2.ResourceType = {
   RESOURCE_TYPE_UNKNOWN: 0,
   CLUSTER: 1,
   REPO: 2
 };
 
-goog.object.extend(exports, proto.auth);
+goog.object.extend(exports, proto.auth_v2);

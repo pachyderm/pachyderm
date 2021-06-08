@@ -1,4 +1,4 @@
-// package: auth
+// package: auth_v2
 // file: auth/auth.proto
 
 /* tslint:disable */
@@ -38,7 +38,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
 }
 
 interface IAPIService_IActivate extends grpc.MethodDefinition<auth_auth_pb.ActivateRequest, auth_auth_pb.ActivateResponse> {
-    path: "/auth.API/Activate";
+    path: "/auth_v2.API/Activate";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.ActivateRequest>;
@@ -47,7 +47,7 @@ interface IAPIService_IActivate extends grpc.MethodDefinition<auth_auth_pb.Activ
     responseDeserialize: grpc.deserialize<auth_auth_pb.ActivateResponse>;
 }
 interface IAPIService_IDeactivate extends grpc.MethodDefinition<auth_auth_pb.DeactivateRequest, auth_auth_pb.DeactivateResponse> {
-    path: "/auth.API/Deactivate";
+    path: "/auth_v2.API/Deactivate";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.DeactivateRequest>;
@@ -56,7 +56,7 @@ interface IAPIService_IDeactivate extends grpc.MethodDefinition<auth_auth_pb.Dea
     responseDeserialize: grpc.deserialize<auth_auth_pb.DeactivateResponse>;
 }
 interface IAPIService_IGetConfiguration extends grpc.MethodDefinition<auth_auth_pb.GetConfigurationRequest, auth_auth_pb.GetConfigurationResponse> {
-    path: "/auth.API/GetConfiguration";
+    path: "/auth_v2.API/GetConfiguration";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.GetConfigurationRequest>;
@@ -65,7 +65,7 @@ interface IAPIService_IGetConfiguration extends grpc.MethodDefinition<auth_auth_
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetConfigurationResponse>;
 }
 interface IAPIService_ISetConfiguration extends grpc.MethodDefinition<auth_auth_pb.SetConfigurationRequest, auth_auth_pb.SetConfigurationResponse> {
-    path: "/auth.API/SetConfiguration";
+    path: "/auth_v2.API/SetConfiguration";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.SetConfigurationRequest>;
@@ -74,7 +74,7 @@ interface IAPIService_ISetConfiguration extends grpc.MethodDefinition<auth_auth_
     responseDeserialize: grpc.deserialize<auth_auth_pb.SetConfigurationResponse>;
 }
 interface IAPIService_IAuthenticate extends grpc.MethodDefinition<auth_auth_pb.AuthenticateRequest, auth_auth_pb.AuthenticateResponse> {
-    path: "/auth.API/Authenticate";
+    path: "/auth_v2.API/Authenticate";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.AuthenticateRequest>;
@@ -83,7 +83,7 @@ interface IAPIService_IAuthenticate extends grpc.MethodDefinition<auth_auth_pb.A
     responseDeserialize: grpc.deserialize<auth_auth_pb.AuthenticateResponse>;
 }
 interface IAPIService_IAuthorize extends grpc.MethodDefinition<auth_auth_pb.AuthorizeRequest, auth_auth_pb.AuthorizeResponse> {
-    path: "/auth.API/Authorize";
+    path: "/auth_v2.API/Authorize";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.AuthorizeRequest>;
@@ -92,7 +92,7 @@ interface IAPIService_IAuthorize extends grpc.MethodDefinition<auth_auth_pb.Auth
     responseDeserialize: grpc.deserialize<auth_auth_pb.AuthorizeResponse>;
 }
 interface IAPIService_IGetPermissions extends grpc.MethodDefinition<auth_auth_pb.GetPermissionsRequest, auth_auth_pb.GetPermissionsResponse> {
-    path: "/auth.API/GetPermissions";
+    path: "/auth_v2.API/GetPermissions";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.GetPermissionsRequest>;
@@ -101,7 +101,7 @@ interface IAPIService_IGetPermissions extends grpc.MethodDefinition<auth_auth_pb
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetPermissionsResponse>;
 }
 interface IAPIService_IGetPermissionsForPrincipal extends grpc.MethodDefinition<auth_auth_pb.GetPermissionsForPrincipalRequest, auth_auth_pb.GetPermissionsResponse> {
-    path: "/auth.API/GetPermissionsForPrincipal";
+    path: "/auth_v2.API/GetPermissionsForPrincipal";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.GetPermissionsForPrincipalRequest>;
@@ -110,7 +110,7 @@ interface IAPIService_IGetPermissionsForPrincipal extends grpc.MethodDefinition<
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetPermissionsResponse>;
 }
 interface IAPIService_IWhoAmI extends grpc.MethodDefinition<auth_auth_pb.WhoAmIRequest, auth_auth_pb.WhoAmIResponse> {
-    path: "/auth.API/WhoAmI";
+    path: "/auth_v2.API/WhoAmI";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.WhoAmIRequest>;
@@ -119,7 +119,7 @@ interface IAPIService_IWhoAmI extends grpc.MethodDefinition<auth_auth_pb.WhoAmIR
     responseDeserialize: grpc.deserialize<auth_auth_pb.WhoAmIResponse>;
 }
 interface IAPIService_IModifyRoleBinding extends grpc.MethodDefinition<auth_auth_pb.ModifyRoleBindingRequest, auth_auth_pb.ModifyRoleBindingResponse> {
-    path: "/auth.API/ModifyRoleBinding";
+    path: "/auth_v2.API/ModifyRoleBinding";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.ModifyRoleBindingRequest>;
@@ -128,7 +128,7 @@ interface IAPIService_IModifyRoleBinding extends grpc.MethodDefinition<auth_auth
     responseDeserialize: grpc.deserialize<auth_auth_pb.ModifyRoleBindingResponse>;
 }
 interface IAPIService_IGetRoleBinding extends grpc.MethodDefinition<auth_auth_pb.GetRoleBindingRequest, auth_auth_pb.GetRoleBindingResponse> {
-    path: "/auth.API/GetRoleBinding";
+    path: "/auth_v2.API/GetRoleBinding";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.GetRoleBindingRequest>;
@@ -137,7 +137,7 @@ interface IAPIService_IGetRoleBinding extends grpc.MethodDefinition<auth_auth_pb
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetRoleBindingResponse>;
 }
 interface IAPIService_IGetOIDCLogin extends grpc.MethodDefinition<auth_auth_pb.GetOIDCLoginRequest, auth_auth_pb.GetOIDCLoginResponse> {
-    path: "/auth.API/GetOIDCLogin";
+    path: "/auth_v2.API/GetOIDCLogin";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.GetOIDCLoginRequest>;
@@ -146,7 +146,7 @@ interface IAPIService_IGetOIDCLogin extends grpc.MethodDefinition<auth_auth_pb.G
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetOIDCLoginResponse>;
 }
 interface IAPIService_IGetRobotToken extends grpc.MethodDefinition<auth_auth_pb.GetRobotTokenRequest, auth_auth_pb.GetRobotTokenResponse> {
-    path: "/auth.API/GetRobotToken";
+    path: "/auth_v2.API/GetRobotToken";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.GetRobotTokenRequest>;
@@ -155,7 +155,7 @@ interface IAPIService_IGetRobotToken extends grpc.MethodDefinition<auth_auth_pb.
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetRobotTokenResponse>;
 }
 interface IAPIService_IRevokeAuthToken extends grpc.MethodDefinition<auth_auth_pb.RevokeAuthTokenRequest, auth_auth_pb.RevokeAuthTokenResponse> {
-    path: "/auth.API/RevokeAuthToken";
+    path: "/auth_v2.API/RevokeAuthToken";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.RevokeAuthTokenRequest>;
@@ -164,7 +164,7 @@ interface IAPIService_IRevokeAuthToken extends grpc.MethodDefinition<auth_auth_p
     responseDeserialize: grpc.deserialize<auth_auth_pb.RevokeAuthTokenResponse>;
 }
 interface IAPIService_IRevokeAuthTokensForUser extends grpc.MethodDefinition<auth_auth_pb.RevokeAuthTokensForUserRequest, auth_auth_pb.RevokeAuthTokensForUserResponse> {
-    path: "/auth.API/RevokeAuthTokensForUser";
+    path: "/auth_v2.API/RevokeAuthTokensForUser";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.RevokeAuthTokensForUserRequest>;
@@ -173,7 +173,7 @@ interface IAPIService_IRevokeAuthTokensForUser extends grpc.MethodDefinition<aut
     responseDeserialize: grpc.deserialize<auth_auth_pb.RevokeAuthTokensForUserResponse>;
 }
 interface IAPIService_ISetGroupsForUser extends grpc.MethodDefinition<auth_auth_pb.SetGroupsForUserRequest, auth_auth_pb.SetGroupsForUserResponse> {
-    path: "/auth.API/SetGroupsForUser";
+    path: "/auth_v2.API/SetGroupsForUser";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.SetGroupsForUserRequest>;
@@ -182,7 +182,7 @@ interface IAPIService_ISetGroupsForUser extends grpc.MethodDefinition<auth_auth_
     responseDeserialize: grpc.deserialize<auth_auth_pb.SetGroupsForUserResponse>;
 }
 interface IAPIService_IModifyMembers extends grpc.MethodDefinition<auth_auth_pb.ModifyMembersRequest, auth_auth_pb.ModifyMembersResponse> {
-    path: "/auth.API/ModifyMembers";
+    path: "/auth_v2.API/ModifyMembers";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.ModifyMembersRequest>;
@@ -191,7 +191,7 @@ interface IAPIService_IModifyMembers extends grpc.MethodDefinition<auth_auth_pb.
     responseDeserialize: grpc.deserialize<auth_auth_pb.ModifyMembersResponse>;
 }
 interface IAPIService_IGetGroups extends grpc.MethodDefinition<auth_auth_pb.GetGroupsRequest, auth_auth_pb.GetGroupsResponse> {
-    path: "/auth.API/GetGroups";
+    path: "/auth_v2.API/GetGroups";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.GetGroupsRequest>;
@@ -200,7 +200,7 @@ interface IAPIService_IGetGroups extends grpc.MethodDefinition<auth_auth_pb.GetG
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetGroupsResponse>;
 }
 interface IAPIService_IGetGroupsForPrincipal extends grpc.MethodDefinition<auth_auth_pb.GetGroupsForPrincipalRequest, auth_auth_pb.GetGroupsResponse> {
-    path: "/auth.API/GetGroupsForPrincipal";
+    path: "/auth_v2.API/GetGroupsForPrincipal";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.GetGroupsForPrincipalRequest>;
@@ -209,7 +209,7 @@ interface IAPIService_IGetGroupsForPrincipal extends grpc.MethodDefinition<auth_
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetGroupsResponse>;
 }
 interface IAPIService_IGetUsers extends grpc.MethodDefinition<auth_auth_pb.GetUsersRequest, auth_auth_pb.GetUsersResponse> {
-    path: "/auth.API/GetUsers";
+    path: "/auth_v2.API/GetUsers";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.GetUsersRequest>;
@@ -218,7 +218,7 @@ interface IAPIService_IGetUsers extends grpc.MethodDefinition<auth_auth_pb.GetUs
     responseDeserialize: grpc.deserialize<auth_auth_pb.GetUsersResponse>;
 }
 interface IAPIService_IExtractAuthTokens extends grpc.MethodDefinition<auth_auth_pb.ExtractAuthTokensRequest, auth_auth_pb.ExtractAuthTokensResponse> {
-    path: "/auth.API/ExtractAuthTokens";
+    path: "/auth_v2.API/ExtractAuthTokens";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.ExtractAuthTokensRequest>;
@@ -227,7 +227,7 @@ interface IAPIService_IExtractAuthTokens extends grpc.MethodDefinition<auth_auth
     responseDeserialize: grpc.deserialize<auth_auth_pb.ExtractAuthTokensResponse>;
 }
 interface IAPIService_IRestoreAuthToken extends grpc.MethodDefinition<auth_auth_pb.RestoreAuthTokenRequest, auth_auth_pb.RestoreAuthTokenResponse> {
-    path: "/auth.API/RestoreAuthToken";
+    path: "/auth_v2.API/RestoreAuthToken";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.RestoreAuthTokenRequest>;
@@ -236,7 +236,7 @@ interface IAPIService_IRestoreAuthToken extends grpc.MethodDefinition<auth_auth_
     responseDeserialize: grpc.deserialize<auth_auth_pb.RestoreAuthTokenResponse>;
 }
 interface IAPIService_IDeleteExpiredAuthTokens extends grpc.MethodDefinition<auth_auth_pb.DeleteExpiredAuthTokensRequest, auth_auth_pb.DeleteExpiredAuthTokensResponse> {
-    path: "/auth.API/DeleteExpiredAuthTokens";
+    path: "/auth_v2.API/DeleteExpiredAuthTokens";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.DeleteExpiredAuthTokensRequest>;
@@ -245,7 +245,7 @@ interface IAPIService_IDeleteExpiredAuthTokens extends grpc.MethodDefinition<aut
     responseDeserialize: grpc.deserialize<auth_auth_pb.DeleteExpiredAuthTokensResponse>;
 }
 interface IAPIService_IRotateRootToken extends grpc.MethodDefinition<auth_auth_pb.RotateRootTokenRequest, auth_auth_pb.RotateRootTokenResponse> {
-    path: "/auth.API/RotateRootToken";
+    path: "/auth_v2.API/RotateRootToken";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<auth_auth_pb.RotateRootTokenRequest>;

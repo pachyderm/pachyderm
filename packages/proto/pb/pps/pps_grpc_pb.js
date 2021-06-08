@@ -20,596 +20,596 @@ function deserialize_google_protobuf_Empty(buffer_arg) {
   return google_protobuf_empty_pb.Empty.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_ActivateAuthRequest(arg) {
+function serialize_pps_v2_ActivateAuthRequest(arg) {
   if (!(arg instanceof pps_pps_pb.ActivateAuthRequest)) {
-    throw new Error('Expected argument of type pps.ActivateAuthRequest');
+    throw new Error('Expected argument of type pps_v2.ActivateAuthRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_ActivateAuthRequest(buffer_arg) {
+function deserialize_pps_v2_ActivateAuthRequest(buffer_arg) {
   return pps_pps_pb.ActivateAuthRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_ActivateAuthResponse(arg) {
+function serialize_pps_v2_ActivateAuthResponse(arg) {
   if (!(arg instanceof pps_pps_pb.ActivateAuthResponse)) {
-    throw new Error('Expected argument of type pps.ActivateAuthResponse');
+    throw new Error('Expected argument of type pps_v2.ActivateAuthResponse');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_ActivateAuthResponse(buffer_arg) {
+function deserialize_pps_v2_ActivateAuthResponse(buffer_arg) {
   return pps_pps_pb.ActivateAuthResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_CreatePipelineJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.CreatePipelineJobRequest)) {
-    throw new Error('Expected argument of type pps.CreatePipelineJobRequest');
+function serialize_pps_v2_CreateJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.CreateJobRequest)) {
+    throw new Error('Expected argument of type pps_v2.CreateJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_CreatePipelineJobRequest(buffer_arg) {
-  return pps_pps_pb.CreatePipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_v2_CreateJobRequest(buffer_arg) {
+  return pps_pps_pb.CreateJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_CreatePipelineRequest(arg) {
+function serialize_pps_v2_CreatePipelineRequest(arg) {
   if (!(arg instanceof pps_pps_pb.CreatePipelineRequest)) {
-    throw new Error('Expected argument of type pps.CreatePipelineRequest');
+    throw new Error('Expected argument of type pps_v2.CreatePipelineRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_CreatePipelineRequest(buffer_arg) {
+function deserialize_pps_v2_CreatePipelineRequest(buffer_arg) {
   return pps_pps_pb.CreatePipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_CreateSecretRequest(arg) {
+function serialize_pps_v2_CreateSecretRequest(arg) {
   if (!(arg instanceof pps_pps_pb.CreateSecretRequest)) {
-    throw new Error('Expected argument of type pps.CreateSecretRequest');
+    throw new Error('Expected argument of type pps_v2.CreateSecretRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_CreateSecretRequest(buffer_arg) {
+function deserialize_pps_v2_CreateSecretRequest(buffer_arg) {
   return pps_pps_pb.CreateSecretRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_DatumInfo(arg) {
+function serialize_pps_v2_DatumInfo(arg) {
   if (!(arg instanceof pps_pps_pb.DatumInfo)) {
-    throw new Error('Expected argument of type pps.DatumInfo');
+    throw new Error('Expected argument of type pps_v2.DatumInfo');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_DatumInfo(buffer_arg) {
+function deserialize_pps_v2_DatumInfo(buffer_arg) {
   return pps_pps_pb.DatumInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_DeletePipelineJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.DeletePipelineJobRequest)) {
-    throw new Error('Expected argument of type pps.DeletePipelineJobRequest');
+function serialize_pps_v2_DeleteJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.DeleteJobRequest)) {
+    throw new Error('Expected argument of type pps_v2.DeleteJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_DeletePipelineJobRequest(buffer_arg) {
-  return pps_pps_pb.DeletePipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_v2_DeleteJobRequest(buffer_arg) {
+  return pps_pps_pb.DeleteJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_DeletePipelineRequest(arg) {
+function serialize_pps_v2_DeletePipelineRequest(arg) {
   if (!(arg instanceof pps_pps_pb.DeletePipelineRequest)) {
-    throw new Error('Expected argument of type pps.DeletePipelineRequest');
+    throw new Error('Expected argument of type pps_v2.DeletePipelineRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_DeletePipelineRequest(buffer_arg) {
+function deserialize_pps_v2_DeletePipelineRequest(buffer_arg) {
   return pps_pps_pb.DeletePipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_DeleteSecretRequest(arg) {
+function serialize_pps_v2_DeleteSecretRequest(arg) {
   if (!(arg instanceof pps_pps_pb.DeleteSecretRequest)) {
-    throw new Error('Expected argument of type pps.DeleteSecretRequest');
+    throw new Error('Expected argument of type pps_v2.DeleteSecretRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_DeleteSecretRequest(buffer_arg) {
+function deserialize_pps_v2_DeleteSecretRequest(buffer_arg) {
   return pps_pps_pb.DeleteSecretRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_FlushPipelineJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.FlushPipelineJobRequest)) {
-    throw new Error('Expected argument of type pps.FlushPipelineJobRequest');
+function serialize_pps_v2_FlushJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.FlushJobRequest)) {
+    throw new Error('Expected argument of type pps_v2.FlushJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_FlushPipelineJobRequest(buffer_arg) {
-  return pps_pps_pb.FlushPipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_v2_FlushJobRequest(buffer_arg) {
+  return pps_pps_pb.FlushJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_GetLogsRequest(arg) {
+function serialize_pps_v2_GetLogsRequest(arg) {
   if (!(arg instanceof pps_pps_pb.GetLogsRequest)) {
-    throw new Error('Expected argument of type pps.GetLogsRequest');
+    throw new Error('Expected argument of type pps_v2.GetLogsRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_GetLogsRequest(buffer_arg) {
+function deserialize_pps_v2_GetLogsRequest(buffer_arg) {
   return pps_pps_pb.GetLogsRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_InspectDatumRequest(arg) {
+function serialize_pps_v2_InspectDatumRequest(arg) {
   if (!(arg instanceof pps_pps_pb.InspectDatumRequest)) {
-    throw new Error('Expected argument of type pps.InspectDatumRequest');
+    throw new Error('Expected argument of type pps_v2.InspectDatumRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_InspectDatumRequest(buffer_arg) {
+function deserialize_pps_v2_InspectDatumRequest(buffer_arg) {
   return pps_pps_pb.InspectDatumRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_InspectPipelineJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.InspectPipelineJobRequest)) {
-    throw new Error('Expected argument of type pps.InspectPipelineJobRequest');
+function serialize_pps_v2_InspectJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.InspectJobRequest)) {
+    throw new Error('Expected argument of type pps_v2.InspectJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_InspectPipelineJobRequest(buffer_arg) {
-  return pps_pps_pb.InspectPipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_v2_InspectJobRequest(buffer_arg) {
+  return pps_pps_pb.InspectJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_InspectPipelineRequest(arg) {
+function serialize_pps_v2_InspectPipelineRequest(arg) {
   if (!(arg instanceof pps_pps_pb.InspectPipelineRequest)) {
-    throw new Error('Expected argument of type pps.InspectPipelineRequest');
+    throw new Error('Expected argument of type pps_v2.InspectPipelineRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_InspectPipelineRequest(buffer_arg) {
+function deserialize_pps_v2_InspectPipelineRequest(buffer_arg) {
   return pps_pps_pb.InspectPipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_InspectSecretRequest(arg) {
+function serialize_pps_v2_InspectSecretRequest(arg) {
   if (!(arg instanceof pps_pps_pb.InspectSecretRequest)) {
-    throw new Error('Expected argument of type pps.InspectSecretRequest');
+    throw new Error('Expected argument of type pps_v2.InspectSecretRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_InspectSecretRequest(buffer_arg) {
+function deserialize_pps_v2_InspectSecretRequest(buffer_arg) {
   return pps_pps_pb.InspectSecretRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_ListDatumRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.ListDatumRequest)) {
-    throw new Error('Expected argument of type pps.ListDatumRequest');
+function serialize_pps_v2_Job(arg) {
+  if (!(arg instanceof pps_pps_pb.Job)) {
+    throw new Error('Expected argument of type pps_v2.Job');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_ListDatumRequest(buffer_arg) {
+function deserialize_pps_v2_Job(buffer_arg) {
+  return pps_pps_pb.Job.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_JobInfo(arg) {
+  if (!(arg instanceof pps_pps_pb.JobInfo)) {
+    throw new Error('Expected argument of type pps_v2.JobInfo');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_JobInfo(buffer_arg) {
+  return pps_pps_pb.JobInfo.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_ListDatumRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.ListDatumRequest)) {
+    throw new Error('Expected argument of type pps_v2.ListDatumRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_ListDatumRequest(buffer_arg) {
   return pps_pps_pb.ListDatumRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_ListPipelineJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.ListPipelineJobRequest)) {
-    throw new Error('Expected argument of type pps.ListPipelineJobRequest');
+function serialize_pps_v2_ListJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.ListJobRequest)) {
+    throw new Error('Expected argument of type pps_v2.ListJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_ListPipelineJobRequest(buffer_arg) {
-  return pps_pps_pb.ListPipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_v2_ListJobRequest(buffer_arg) {
+  return pps_pps_pb.ListJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_ListPipelineRequest(arg) {
+function serialize_pps_v2_ListPipelineRequest(arg) {
   if (!(arg instanceof pps_pps_pb.ListPipelineRequest)) {
-    throw new Error('Expected argument of type pps.ListPipelineRequest');
+    throw new Error('Expected argument of type pps_v2.ListPipelineRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_ListPipelineRequest(buffer_arg) {
+function deserialize_pps_v2_ListPipelineRequest(buffer_arg) {
   return pps_pps_pb.ListPipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_LogMessage(arg) {
+function serialize_pps_v2_LogMessage(arg) {
   if (!(arg instanceof pps_pps_pb.LogMessage)) {
-    throw new Error('Expected argument of type pps.LogMessage');
+    throw new Error('Expected argument of type pps_v2.LogMessage');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_LogMessage(buffer_arg) {
+function deserialize_pps_v2_LogMessage(buffer_arg) {
   return pps_pps_pb.LogMessage.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_PipelineInfo(arg) {
+function serialize_pps_v2_PipelineInfo(arg) {
   if (!(arg instanceof pps_pps_pb.PipelineInfo)) {
-    throw new Error('Expected argument of type pps.PipelineInfo');
+    throw new Error('Expected argument of type pps_v2.PipelineInfo');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_PipelineInfo(buffer_arg) {
+function deserialize_pps_v2_PipelineInfo(buffer_arg) {
   return pps_pps_pb.PipelineInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_PipelineInfos(arg) {
+function serialize_pps_v2_PipelineInfos(arg) {
   if (!(arg instanceof pps_pps_pb.PipelineInfos)) {
-    throw new Error('Expected argument of type pps.PipelineInfos');
+    throw new Error('Expected argument of type pps_v2.PipelineInfos');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_PipelineInfos(buffer_arg) {
+function deserialize_pps_v2_PipelineInfos(buffer_arg) {
   return pps_pps_pb.PipelineInfos.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_PipelineJob(arg) {
-  if (!(arg instanceof pps_pps_pb.PipelineJob)) {
-    throw new Error('Expected argument of type pps.PipelineJob');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pps_PipelineJob(buffer_arg) {
-  return pps_pps_pb.PipelineJob.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_pps_PipelineJobInfo(arg) {
-  if (!(arg instanceof pps_pps_pb.PipelineJobInfo)) {
-    throw new Error('Expected argument of type pps.PipelineJobInfo');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pps_PipelineJobInfo(buffer_arg) {
-  return pps_pps_pb.PipelineJobInfo.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_pps_RestartDatumRequest(arg) {
+function serialize_pps_v2_RestartDatumRequest(arg) {
   if (!(arg instanceof pps_pps_pb.RestartDatumRequest)) {
-    throw new Error('Expected argument of type pps.RestartDatumRequest');
+    throw new Error('Expected argument of type pps_v2.RestartDatumRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_RestartDatumRequest(buffer_arg) {
+function deserialize_pps_v2_RestartDatumRequest(buffer_arg) {
   return pps_pps_pb.RestartDatumRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_RunCronRequest(arg) {
+function serialize_pps_v2_RunCronRequest(arg) {
   if (!(arg instanceof pps_pps_pb.RunCronRequest)) {
-    throw new Error('Expected argument of type pps.RunCronRequest');
+    throw new Error('Expected argument of type pps_v2.RunCronRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_RunCronRequest(buffer_arg) {
+function deserialize_pps_v2_RunCronRequest(buffer_arg) {
   return pps_pps_pb.RunCronRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_RunPipelineRequest(arg) {
+function serialize_pps_v2_RunPipelineRequest(arg) {
   if (!(arg instanceof pps_pps_pb.RunPipelineRequest)) {
-    throw new Error('Expected argument of type pps.RunPipelineRequest');
+    throw new Error('Expected argument of type pps_v2.RunPipelineRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_RunPipelineRequest(buffer_arg) {
+function deserialize_pps_v2_RunPipelineRequest(buffer_arg) {
   return pps_pps_pb.RunPipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_SecretInfo(arg) {
+function serialize_pps_v2_SecretInfo(arg) {
   if (!(arg instanceof pps_pps_pb.SecretInfo)) {
-    throw new Error('Expected argument of type pps.SecretInfo');
+    throw new Error('Expected argument of type pps_v2.SecretInfo');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_SecretInfo(buffer_arg) {
+function deserialize_pps_v2_SecretInfo(buffer_arg) {
   return pps_pps_pb.SecretInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_SecretInfos(arg) {
+function serialize_pps_v2_SecretInfos(arg) {
   if (!(arg instanceof pps_pps_pb.SecretInfos)) {
-    throw new Error('Expected argument of type pps.SecretInfos');
+    throw new Error('Expected argument of type pps_v2.SecretInfos');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_SecretInfos(buffer_arg) {
+function deserialize_pps_v2_SecretInfos(buffer_arg) {
   return pps_pps_pb.SecretInfos.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_StartPipelineRequest(arg) {
+function serialize_pps_v2_StartPipelineRequest(arg) {
   if (!(arg instanceof pps_pps_pb.StartPipelineRequest)) {
-    throw new Error('Expected argument of type pps.StartPipelineRequest');
+    throw new Error('Expected argument of type pps_v2.StartPipelineRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_StartPipelineRequest(buffer_arg) {
+function deserialize_pps_v2_StartPipelineRequest(buffer_arg) {
   return pps_pps_pb.StartPipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_StopPipelineJobRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.StopPipelineJobRequest)) {
-    throw new Error('Expected argument of type pps.StopPipelineJobRequest');
+function serialize_pps_v2_StopJobRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.StopJobRequest)) {
+    throw new Error('Expected argument of type pps_v2.StopJobRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_StopPipelineJobRequest(buffer_arg) {
-  return pps_pps_pb.StopPipelineJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_v2_StopJobRequest(buffer_arg) {
+  return pps_pps_pb.StopJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_StopPipelineRequest(arg) {
+function serialize_pps_v2_StopPipelineRequest(arg) {
   if (!(arg instanceof pps_pps_pb.StopPipelineRequest)) {
-    throw new Error('Expected argument of type pps.StopPipelineRequest');
+    throw new Error('Expected argument of type pps_v2.StopPipelineRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_StopPipelineRequest(buffer_arg) {
+function deserialize_pps_v2_StopPipelineRequest(buffer_arg) {
   return pps_pps_pb.StopPipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_UpdatePipelineJobStateRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.UpdatePipelineJobStateRequest)) {
-    throw new Error('Expected argument of type pps.UpdatePipelineJobStateRequest');
+function serialize_pps_v2_UpdateJobStateRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.UpdateJobStateRequest)) {
+    throw new Error('Expected argument of type pps_v2.UpdateJobStateRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_UpdatePipelineJobStateRequest(buffer_arg) {
-  return pps_pps_pb.UpdatePipelineJobStateRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_v2_UpdateJobStateRequest(buffer_arg) {
+  return pps_pps_pb.UpdateJobStateRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 
 var APIService = exports.APIService = {
-  createPipelineJob: {
-    path: '/pps.API/CreatePipelineJob',
+  createJob: {
+    path: '/pps_v2.API/CreateJob',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.CreatePipelineJobRequest,
-    responseType: pps_pps_pb.PipelineJob,
-    requestSerialize: serialize_pps_CreatePipelineJobRequest,
-    requestDeserialize: deserialize_pps_CreatePipelineJobRequest,
-    responseSerialize: serialize_pps_PipelineJob,
-    responseDeserialize: deserialize_pps_PipelineJob,
+    requestType: pps_pps_pb.CreateJobRequest,
+    responseType: pps_pps_pb.Job,
+    requestSerialize: serialize_pps_v2_CreateJobRequest,
+    requestDeserialize: deserialize_pps_v2_CreateJobRequest,
+    responseSerialize: serialize_pps_v2_Job,
+    responseDeserialize: deserialize_pps_v2_Job,
   },
-  inspectPipelineJob: {
-    path: '/pps.API/InspectPipelineJob',
+  inspectJob: {
+    path: '/pps_v2.API/InspectJob',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.InspectPipelineJobRequest,
-    responseType: pps_pps_pb.PipelineJobInfo,
-    requestSerialize: serialize_pps_InspectPipelineJobRequest,
-    requestDeserialize: deserialize_pps_InspectPipelineJobRequest,
-    responseSerialize: serialize_pps_PipelineJobInfo,
-    responseDeserialize: deserialize_pps_PipelineJobInfo,
+    requestType: pps_pps_pb.InspectJobRequest,
+    responseType: pps_pps_pb.JobInfo,
+    requestSerialize: serialize_pps_v2_InspectJobRequest,
+    requestDeserialize: deserialize_pps_v2_InspectJobRequest,
+    responseSerialize: serialize_pps_v2_JobInfo,
+    responseDeserialize: deserialize_pps_v2_JobInfo,
   },
-  // ListPipelineJob returns information about current and past Pachyderm jobs.
-listPipelineJob: {
-    path: '/pps.API/ListPipelineJob',
+  // ListJob returns information about current and past Pachyderm jobs.
+listJob: {
+    path: '/pps_v2.API/ListJob',
     requestStream: false,
     responseStream: true,
-    requestType: pps_pps_pb.ListPipelineJobRequest,
-    responseType: pps_pps_pb.PipelineJobInfo,
-    requestSerialize: serialize_pps_ListPipelineJobRequest,
-    requestDeserialize: deserialize_pps_ListPipelineJobRequest,
-    responseSerialize: serialize_pps_PipelineJobInfo,
-    responseDeserialize: deserialize_pps_PipelineJobInfo,
+    requestType: pps_pps_pb.ListJobRequest,
+    responseType: pps_pps_pb.JobInfo,
+    requestSerialize: serialize_pps_v2_ListJobRequest,
+    requestDeserialize: deserialize_pps_v2_ListJobRequest,
+    responseSerialize: serialize_pps_v2_JobInfo,
+    responseDeserialize: deserialize_pps_v2_JobInfo,
   },
-  flushPipelineJob: {
-    path: '/pps.API/FlushPipelineJob',
+  flushJob: {
+    path: '/pps_v2.API/FlushJob',
     requestStream: false,
     responseStream: true,
-    requestType: pps_pps_pb.FlushPipelineJobRequest,
-    responseType: pps_pps_pb.PipelineJobInfo,
-    requestSerialize: serialize_pps_FlushPipelineJobRequest,
-    requestDeserialize: deserialize_pps_FlushPipelineJobRequest,
-    responseSerialize: serialize_pps_PipelineJobInfo,
-    responseDeserialize: deserialize_pps_PipelineJobInfo,
+    requestType: pps_pps_pb.FlushJobRequest,
+    responseType: pps_pps_pb.JobInfo,
+    requestSerialize: serialize_pps_v2_FlushJobRequest,
+    requestDeserialize: deserialize_pps_v2_FlushJobRequest,
+    responseSerialize: serialize_pps_v2_JobInfo,
+    responseDeserialize: deserialize_pps_v2_JobInfo,
   },
-  deletePipelineJob: {
-    path: '/pps.API/DeletePipelineJob',
+  deleteJob: {
+    path: '/pps_v2.API/DeleteJob',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.DeletePipelineJobRequest,
+    requestType: pps_pps_pb.DeleteJobRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_DeletePipelineJobRequest,
-    requestDeserialize: deserialize_pps_DeletePipelineJobRequest,
+    requestSerialize: serialize_pps_v2_DeleteJobRequest,
+    requestDeserialize: deserialize_pps_v2_DeleteJobRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
-  stopPipelineJob: {
-    path: '/pps.API/StopPipelineJob',
+  stopJob: {
+    path: '/pps_v2.API/StopJob',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.StopPipelineJobRequest,
+    requestType: pps_pps_pb.StopJobRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_StopPipelineJobRequest,
-    requestDeserialize: deserialize_pps_StopPipelineJobRequest,
+    requestSerialize: serialize_pps_v2_StopJobRequest,
+    requestDeserialize: deserialize_pps_v2_StopJobRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   inspectDatum: {
-    path: '/pps.API/InspectDatum',
+    path: '/pps_v2.API/InspectDatum',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.InspectDatumRequest,
     responseType: pps_pps_pb.DatumInfo,
-    requestSerialize: serialize_pps_InspectDatumRequest,
-    requestDeserialize: deserialize_pps_InspectDatumRequest,
-    responseSerialize: serialize_pps_DatumInfo,
-    responseDeserialize: deserialize_pps_DatumInfo,
+    requestSerialize: serialize_pps_v2_InspectDatumRequest,
+    requestDeserialize: deserialize_pps_v2_InspectDatumRequest,
+    responseSerialize: serialize_pps_v2_DatumInfo,
+    responseDeserialize: deserialize_pps_v2_DatumInfo,
   },
   // ListDatum returns information about each datum fed to a Pachyderm job
 listDatum: {
-    path: '/pps.API/ListDatum',
+    path: '/pps_v2.API/ListDatum',
     requestStream: false,
     responseStream: true,
     requestType: pps_pps_pb.ListDatumRequest,
     responseType: pps_pps_pb.DatumInfo,
-    requestSerialize: serialize_pps_ListDatumRequest,
-    requestDeserialize: deserialize_pps_ListDatumRequest,
-    responseSerialize: serialize_pps_DatumInfo,
-    responseDeserialize: deserialize_pps_DatumInfo,
+    requestSerialize: serialize_pps_v2_ListDatumRequest,
+    requestDeserialize: deserialize_pps_v2_ListDatumRequest,
+    responseSerialize: serialize_pps_v2_DatumInfo,
+    responseDeserialize: deserialize_pps_v2_DatumInfo,
   },
   restartDatum: {
-    path: '/pps.API/RestartDatum',
+    path: '/pps_v2.API/RestartDatum',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.RestartDatumRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_RestartDatumRequest,
-    requestDeserialize: deserialize_pps_RestartDatumRequest,
+    requestSerialize: serialize_pps_v2_RestartDatumRequest,
+    requestDeserialize: deserialize_pps_v2_RestartDatumRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   createPipeline: {
-    path: '/pps.API/CreatePipeline',
+    path: '/pps_v2.API/CreatePipeline',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.CreatePipelineRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_CreatePipelineRequest,
-    requestDeserialize: deserialize_pps_CreatePipelineRequest,
+    requestSerialize: serialize_pps_v2_CreatePipelineRequest,
+    requestDeserialize: deserialize_pps_v2_CreatePipelineRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   inspectPipeline: {
-    path: '/pps.API/InspectPipeline',
+    path: '/pps_v2.API/InspectPipeline',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.InspectPipelineRequest,
     responseType: pps_pps_pb.PipelineInfo,
-    requestSerialize: serialize_pps_InspectPipelineRequest,
-    requestDeserialize: deserialize_pps_InspectPipelineRequest,
-    responseSerialize: serialize_pps_PipelineInfo,
-    responseDeserialize: deserialize_pps_PipelineInfo,
+    requestSerialize: serialize_pps_v2_InspectPipelineRequest,
+    requestDeserialize: deserialize_pps_v2_InspectPipelineRequest,
+    responseSerialize: serialize_pps_v2_PipelineInfo,
+    responseDeserialize: deserialize_pps_v2_PipelineInfo,
   },
   listPipeline: {
-    path: '/pps.API/ListPipeline',
+    path: '/pps_v2.API/ListPipeline',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.ListPipelineRequest,
     responseType: pps_pps_pb.PipelineInfos,
-    requestSerialize: serialize_pps_ListPipelineRequest,
-    requestDeserialize: deserialize_pps_ListPipelineRequest,
-    responseSerialize: serialize_pps_PipelineInfos,
-    responseDeserialize: deserialize_pps_PipelineInfos,
+    requestSerialize: serialize_pps_v2_ListPipelineRequest,
+    requestDeserialize: deserialize_pps_v2_ListPipelineRequest,
+    responseSerialize: serialize_pps_v2_PipelineInfos,
+    responseDeserialize: deserialize_pps_v2_PipelineInfos,
   },
   deletePipeline: {
-    path: '/pps.API/DeletePipeline',
+    path: '/pps_v2.API/DeletePipeline',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.DeletePipelineRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_DeletePipelineRequest,
-    requestDeserialize: deserialize_pps_DeletePipelineRequest,
+    requestSerialize: serialize_pps_v2_DeletePipelineRequest,
+    requestDeserialize: deserialize_pps_v2_DeletePipelineRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   startPipeline: {
-    path: '/pps.API/StartPipeline',
+    path: '/pps_v2.API/StartPipeline',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.StartPipelineRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_StartPipelineRequest,
-    requestDeserialize: deserialize_pps_StartPipelineRequest,
+    requestSerialize: serialize_pps_v2_StartPipelineRequest,
+    requestDeserialize: deserialize_pps_v2_StartPipelineRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   stopPipeline: {
-    path: '/pps.API/StopPipeline',
+    path: '/pps_v2.API/StopPipeline',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.StopPipelineRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_StopPipelineRequest,
-    requestDeserialize: deserialize_pps_StopPipelineRequest,
+    requestSerialize: serialize_pps_v2_StopPipelineRequest,
+    requestDeserialize: deserialize_pps_v2_StopPipelineRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   runPipeline: {
-    path: '/pps.API/RunPipeline',
+    path: '/pps_v2.API/RunPipeline',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.RunPipelineRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_RunPipelineRequest,
-    requestDeserialize: deserialize_pps_RunPipelineRequest,
+    requestSerialize: serialize_pps_v2_RunPipelineRequest,
+    requestDeserialize: deserialize_pps_v2_RunPipelineRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   runCron: {
-    path: '/pps.API/RunCron',
+    path: '/pps_v2.API/RunCron',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.RunCronRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_RunCronRequest,
-    requestDeserialize: deserialize_pps_RunCronRequest,
+    requestSerialize: serialize_pps_v2_RunCronRequest,
+    requestDeserialize: deserialize_pps_v2_RunCronRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   createSecret: {
-    path: '/pps.API/CreateSecret',
+    path: '/pps_v2.API/CreateSecret',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.CreateSecretRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_CreateSecretRequest,
-    requestDeserialize: deserialize_pps_CreateSecretRequest,
+    requestSerialize: serialize_pps_v2_CreateSecretRequest,
+    requestDeserialize: deserialize_pps_v2_CreateSecretRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   deleteSecret: {
-    path: '/pps.API/DeleteSecret',
+    path: '/pps_v2.API/DeleteSecret',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.DeleteSecretRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_DeleteSecretRequest,
-    requestDeserialize: deserialize_pps_DeleteSecretRequest,
+    requestSerialize: serialize_pps_v2_DeleteSecretRequest,
+    requestDeserialize: deserialize_pps_v2_DeleteSecretRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   listSecret: {
-    path: '/pps.API/ListSecret',
+    path: '/pps_v2.API/ListSecret',
     requestStream: false,
     responseStream: false,
     requestType: google_protobuf_empty_pb.Empty,
     responseType: pps_pps_pb.SecretInfos,
     requestSerialize: serialize_google_protobuf_Empty,
     requestDeserialize: deserialize_google_protobuf_Empty,
-    responseSerialize: serialize_pps_SecretInfos,
-    responseDeserialize: deserialize_pps_SecretInfos,
+    responseSerialize: serialize_pps_v2_SecretInfos,
+    responseDeserialize: deserialize_pps_v2_SecretInfos,
   },
   inspectSecret: {
-    path: '/pps.API/InspectSecret',
+    path: '/pps_v2.API/InspectSecret',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.InspectSecretRequest,
     responseType: pps_pps_pb.SecretInfo,
-    requestSerialize: serialize_pps_InspectSecretRequest,
-    requestDeserialize: deserialize_pps_InspectSecretRequest,
-    responseSerialize: serialize_pps_SecretInfo,
-    responseDeserialize: deserialize_pps_SecretInfo,
+    requestSerialize: serialize_pps_v2_InspectSecretRequest,
+    requestDeserialize: deserialize_pps_v2_InspectSecretRequest,
+    responseSerialize: serialize_pps_v2_SecretInfo,
+    responseDeserialize: deserialize_pps_v2_SecretInfo,
   },
   // DeleteAll deletes everything
 deleteAll: {
-    path: '/pps.API/DeleteAll',
+    path: '/pps_v2.API/DeleteAll',
     requestStream: false,
     responseStream: false,
     requestType: google_protobuf_empty_pb.Empty,
@@ -620,38 +620,38 @@ deleteAll: {
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   getLogs: {
-    path: '/pps.API/GetLogs',
+    path: '/pps_v2.API/GetLogs',
     requestStream: false,
     responseStream: true,
     requestType: pps_pps_pb.GetLogsRequest,
     responseType: pps_pps_pb.LogMessage,
-    requestSerialize: serialize_pps_GetLogsRequest,
-    requestDeserialize: deserialize_pps_GetLogsRequest,
-    responseSerialize: serialize_pps_LogMessage,
-    responseDeserialize: deserialize_pps_LogMessage,
+    requestSerialize: serialize_pps_v2_GetLogsRequest,
+    requestDeserialize: deserialize_pps_v2_GetLogsRequest,
+    responseSerialize: serialize_pps_v2_LogMessage,
+    responseDeserialize: deserialize_pps_v2_LogMessage,
   },
   // An internal call that causes PPS to put itself into an auth-enabled state
 // (all pipeline have tokens, correct permissions, etcd)
 activateAuth: {
-    path: '/pps.API/ActivateAuth',
+    path: '/pps_v2.API/ActivateAuth',
     requestStream: false,
     responseStream: false,
     requestType: pps_pps_pb.ActivateAuthRequest,
     responseType: pps_pps_pb.ActivateAuthResponse,
-    requestSerialize: serialize_pps_ActivateAuthRequest,
-    requestDeserialize: deserialize_pps_ActivateAuthRequest,
-    responseSerialize: serialize_pps_ActivateAuthResponse,
-    responseDeserialize: deserialize_pps_ActivateAuthResponse,
+    requestSerialize: serialize_pps_v2_ActivateAuthRequest,
+    requestDeserialize: deserialize_pps_v2_ActivateAuthRequest,
+    responseSerialize: serialize_pps_v2_ActivateAuthResponse,
+    responseDeserialize: deserialize_pps_v2_ActivateAuthResponse,
   },
   // An internal call used to move a job from one state to another
-updatePipelineJobState: {
-    path: '/pps.API/UpdatePipelineJobState',
+updateJobState: {
+    path: '/pps_v2.API/UpdateJobState',
     requestStream: false,
     responseStream: false,
-    requestType: pps_pps_pb.UpdatePipelineJobStateRequest,
+    requestType: pps_pps_pb.UpdateJobStateRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pps_UpdatePipelineJobStateRequest,
-    requestDeserialize: deserialize_pps_UpdatePipelineJobStateRequest,
+    requestSerialize: serialize_pps_v2_UpdateJobStateRequest,
+    requestDeserialize: deserialize_pps_v2_UpdateJobStateRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },

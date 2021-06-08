@@ -1,4 +1,4 @@
-// package: pfs
+// package: pfs_v2
 // file: pfs/pfs.proto
 
 /* tslint:disable */
@@ -48,7 +48,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
 }
 
 interface IAPIService_ICreateRepo extends grpc.MethodDefinition<pfs_pfs_pb.CreateRepoRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/CreateRepo";
+    path: "/pfs_v2.API/CreateRepo";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.CreateRepoRequest>;
@@ -57,7 +57,7 @@ interface IAPIService_ICreateRepo extends grpc.MethodDefinition<pfs_pfs_pb.Creat
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IInspectRepo extends grpc.MethodDefinition<pfs_pfs_pb.InspectRepoRequest, pfs_pfs_pb.RepoInfo> {
-    path: "/pfs.API/InspectRepo";
+    path: "/pfs_v2.API/InspectRepo";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.InspectRepoRequest>;
@@ -66,7 +66,7 @@ interface IAPIService_IInspectRepo extends grpc.MethodDefinition<pfs_pfs_pb.Insp
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.RepoInfo>;
 }
 interface IAPIService_IListRepo extends grpc.MethodDefinition<pfs_pfs_pb.ListRepoRequest, pfs_pfs_pb.ListRepoResponse> {
-    path: "/pfs.API/ListRepo";
+    path: "/pfs_v2.API/ListRepo";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ListRepoRequest>;
@@ -75,7 +75,7 @@ interface IAPIService_IListRepo extends grpc.MethodDefinition<pfs_pfs_pb.ListRep
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.ListRepoResponse>;
 }
 interface IAPIService_IDeleteRepo extends grpc.MethodDefinition<pfs_pfs_pb.DeleteRepoRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/DeleteRepo";
+    path: "/pfs_v2.API/DeleteRepo";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.DeleteRepoRequest>;
@@ -84,7 +84,7 @@ interface IAPIService_IDeleteRepo extends grpc.MethodDefinition<pfs_pfs_pb.Delet
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IStartCommit extends grpc.MethodDefinition<pfs_pfs_pb.StartCommitRequest, pfs_pfs_pb.Commit> {
-    path: "/pfs.API/StartCommit";
+    path: "/pfs_v2.API/StartCommit";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.StartCommitRequest>;
@@ -93,7 +93,7 @@ interface IAPIService_IStartCommit extends grpc.MethodDefinition<pfs_pfs_pb.Star
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.Commit>;
 }
 interface IAPIService_IFinishCommit extends grpc.MethodDefinition<pfs_pfs_pb.FinishCommitRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/FinishCommit";
+    path: "/pfs_v2.API/FinishCommit";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.FinishCommitRequest>;
@@ -102,7 +102,7 @@ interface IAPIService_IFinishCommit extends grpc.MethodDefinition<pfs_pfs_pb.Fin
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IInspectCommit extends grpc.MethodDefinition<pfs_pfs_pb.InspectCommitRequest, pfs_pfs_pb.CommitInfo> {
-    path: "/pfs.API/InspectCommit";
+    path: "/pfs_v2.API/InspectCommit";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.InspectCommitRequest>;
@@ -111,7 +111,7 @@ interface IAPIService_IInspectCommit extends grpc.MethodDefinition<pfs_pfs_pb.In
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
 }
 interface IAPIService_IListCommit extends grpc.MethodDefinition<pfs_pfs_pb.ListCommitRequest, pfs_pfs_pb.CommitInfo> {
-    path: "/pfs.API/ListCommit";
+    path: "/pfs_v2.API/ListCommit";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ListCommitRequest>;
@@ -120,7 +120,7 @@ interface IAPIService_IListCommit extends grpc.MethodDefinition<pfs_pfs_pb.ListC
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
 }
 interface IAPIService_ISquashCommit extends grpc.MethodDefinition<pfs_pfs_pb.SquashCommitRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/SquashCommit";
+    path: "/pfs_v2.API/SquashCommit";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.SquashCommitRequest>;
@@ -129,7 +129,7 @@ interface IAPIService_ISquashCommit extends grpc.MethodDefinition<pfs_pfs_pb.Squ
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IFlushCommit extends grpc.MethodDefinition<pfs_pfs_pb.FlushCommitRequest, pfs_pfs_pb.CommitInfo> {
-    path: "/pfs.API/FlushCommit";
+    path: "/pfs_v2.API/FlushCommit";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.FlushCommitRequest>;
@@ -138,7 +138,7 @@ interface IAPIService_IFlushCommit extends grpc.MethodDefinition<pfs_pfs_pb.Flus
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
 }
 interface IAPIService_ISubscribeCommit extends grpc.MethodDefinition<pfs_pfs_pb.SubscribeCommitRequest, pfs_pfs_pb.CommitInfo> {
-    path: "/pfs.API/SubscribeCommit";
+    path: "/pfs_v2.API/SubscribeCommit";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.SubscribeCommitRequest>;
@@ -147,7 +147,7 @@ interface IAPIService_ISubscribeCommit extends grpc.MethodDefinition<pfs_pfs_pb.
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
 }
 interface IAPIService_IClearCommit extends grpc.MethodDefinition<pfs_pfs_pb.ClearCommitRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/ClearCommit";
+    path: "/pfs_v2.API/ClearCommit";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ClearCommitRequest>;
@@ -156,7 +156,7 @@ interface IAPIService_IClearCommit extends grpc.MethodDefinition<pfs_pfs_pb.Clea
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_ICreateBranch extends grpc.MethodDefinition<pfs_pfs_pb.CreateBranchRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/CreateBranch";
+    path: "/pfs_v2.API/CreateBranch";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.CreateBranchRequest>;
@@ -165,7 +165,7 @@ interface IAPIService_ICreateBranch extends grpc.MethodDefinition<pfs_pfs_pb.Cre
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IInspectBranch extends grpc.MethodDefinition<pfs_pfs_pb.InspectBranchRequest, pfs_pfs_pb.BranchInfo> {
-    path: "/pfs.API/InspectBranch";
+    path: "/pfs_v2.API/InspectBranch";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.InspectBranchRequest>;
@@ -174,7 +174,7 @@ interface IAPIService_IInspectBranch extends grpc.MethodDefinition<pfs_pfs_pb.In
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.BranchInfo>;
 }
 interface IAPIService_IListBranch extends grpc.MethodDefinition<pfs_pfs_pb.ListBranchRequest, pfs_pfs_pb.BranchInfos> {
-    path: "/pfs.API/ListBranch";
+    path: "/pfs_v2.API/ListBranch";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ListBranchRequest>;
@@ -183,7 +183,7 @@ interface IAPIService_IListBranch extends grpc.MethodDefinition<pfs_pfs_pb.ListB
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.BranchInfos>;
 }
 interface IAPIService_IDeleteBranch extends grpc.MethodDefinition<pfs_pfs_pb.DeleteBranchRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/DeleteBranch";
+    path: "/pfs_v2.API/DeleteBranch";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.DeleteBranchRequest>;
@@ -192,7 +192,7 @@ interface IAPIService_IDeleteBranch extends grpc.MethodDefinition<pfs_pfs_pb.Del
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IModifyFile extends grpc.MethodDefinition<pfs_pfs_pb.ModifyFileRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/ModifyFile";
+    path: "/pfs_v2.API/ModifyFile";
     requestStream: true;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ModifyFileRequest>;
@@ -201,7 +201,7 @@ interface IAPIService_IModifyFile extends grpc.MethodDefinition<pfs_pfs_pb.Modif
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IGetFileTAR extends grpc.MethodDefinition<pfs_pfs_pb.GetFileRequest, google_protobuf_wrappers_pb.BytesValue> {
-    path: "/pfs.API/GetFileTAR";
+    path: "/pfs_v2.API/GetFileTAR";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.GetFileRequest>;
@@ -210,7 +210,7 @@ interface IAPIService_IGetFileTAR extends grpc.MethodDefinition<pfs_pfs_pb.GetFi
     responseDeserialize: grpc.deserialize<google_protobuf_wrappers_pb.BytesValue>;
 }
 interface IAPIService_IInspectFile extends grpc.MethodDefinition<pfs_pfs_pb.InspectFileRequest, pfs_pfs_pb.FileInfo> {
-    path: "/pfs.API/InspectFile";
+    path: "/pfs_v2.API/InspectFile";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.InspectFileRequest>;
@@ -219,7 +219,7 @@ interface IAPIService_IInspectFile extends grpc.MethodDefinition<pfs_pfs_pb.Insp
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.FileInfo>;
 }
 interface IAPIService_IListFile extends grpc.MethodDefinition<pfs_pfs_pb.ListFileRequest, pfs_pfs_pb.FileInfo> {
-    path: "/pfs.API/ListFile";
+    path: "/pfs_v2.API/ListFile";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ListFileRequest>;
@@ -228,7 +228,7 @@ interface IAPIService_IListFile extends grpc.MethodDefinition<pfs_pfs_pb.ListFil
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.FileInfo>;
 }
 interface IAPIService_IWalkFile extends grpc.MethodDefinition<pfs_pfs_pb.WalkFileRequest, pfs_pfs_pb.FileInfo> {
-    path: "/pfs.API/WalkFile";
+    path: "/pfs_v2.API/WalkFile";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.WalkFileRequest>;
@@ -237,7 +237,7 @@ interface IAPIService_IWalkFile extends grpc.MethodDefinition<pfs_pfs_pb.WalkFil
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.FileInfo>;
 }
 interface IAPIService_IGlobFile extends grpc.MethodDefinition<pfs_pfs_pb.GlobFileRequest, pfs_pfs_pb.FileInfo> {
-    path: "/pfs.API/GlobFile";
+    path: "/pfs_v2.API/GlobFile";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.GlobFileRequest>;
@@ -246,7 +246,7 @@ interface IAPIService_IGlobFile extends grpc.MethodDefinition<pfs_pfs_pb.GlobFil
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.FileInfo>;
 }
 interface IAPIService_IDiffFile extends grpc.MethodDefinition<pfs_pfs_pb.DiffFileRequest, pfs_pfs_pb.DiffFileResponse> {
-    path: "/pfs.API/DiffFile";
+    path: "/pfs_v2.API/DiffFile";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.DiffFileRequest>;
@@ -255,7 +255,7 @@ interface IAPIService_IDiffFile extends grpc.MethodDefinition<pfs_pfs_pb.DiffFil
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.DiffFileResponse>;
 }
 interface IAPIService_IActivateAuth extends grpc.MethodDefinition<pfs_pfs_pb.ActivateAuthRequest, pfs_pfs_pb.ActivateAuthResponse> {
-    path: "/pfs.API/ActivateAuth";
+    path: "/pfs_v2.API/ActivateAuth";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ActivateAuthRequest>;
@@ -264,7 +264,7 @@ interface IAPIService_IActivateAuth extends grpc.MethodDefinition<pfs_pfs_pb.Act
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.ActivateAuthResponse>;
 }
 interface IAPIService_IDeleteAll extends grpc.MethodDefinition<google_protobuf_empty_pb.Empty, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/DeleteAll";
+    path: "/pfs_v2.API/DeleteAll";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
@@ -273,7 +273,7 @@ interface IAPIService_IDeleteAll extends grpc.MethodDefinition<google_protobuf_e
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IFsck extends grpc.MethodDefinition<pfs_pfs_pb.FsckRequest, pfs_pfs_pb.FsckResponse> {
-    path: "/pfs.API/Fsck";
+    path: "/pfs_v2.API/Fsck";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.FsckRequest>;
@@ -282,7 +282,7 @@ interface IAPIService_IFsck extends grpc.MethodDefinition<pfs_pfs_pb.FsckRequest
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.FsckResponse>;
 }
 interface IAPIService_ICreateFileset extends grpc.MethodDefinition<pfs_pfs_pb.ModifyFileRequest, pfs_pfs_pb.CreateFilesetResponse> {
-    path: "/pfs.API/CreateFileset";
+    path: "/pfs_v2.API/CreateFileset";
     requestStream: true;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ModifyFileRequest>;
@@ -291,7 +291,7 @@ interface IAPIService_ICreateFileset extends grpc.MethodDefinition<pfs_pfs_pb.Mo
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CreateFilesetResponse>;
 }
 interface IAPIService_IGetFileset extends grpc.MethodDefinition<pfs_pfs_pb.GetFilesetRequest, pfs_pfs_pb.CreateFilesetResponse> {
-    path: "/pfs.API/GetFileset";
+    path: "/pfs_v2.API/GetFileset";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.GetFilesetRequest>;
@@ -300,7 +300,7 @@ interface IAPIService_IGetFileset extends grpc.MethodDefinition<pfs_pfs_pb.GetFi
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CreateFilesetResponse>;
 }
 interface IAPIService_IAddFileset extends grpc.MethodDefinition<pfs_pfs_pb.AddFilesetRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/AddFileset";
+    path: "/pfs_v2.API/AddFileset";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.AddFilesetRequest>;
@@ -309,7 +309,7 @@ interface IAPIService_IAddFileset extends grpc.MethodDefinition<pfs_pfs_pb.AddFi
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IRenewFileset extends grpc.MethodDefinition<pfs_pfs_pb.RenewFilesetRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs.API/RenewFileset";
+    path: "/pfs_v2.API/RenewFileset";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.RenewFilesetRequest>;
@@ -318,7 +318,7 @@ interface IAPIService_IRenewFileset extends grpc.MethodDefinition<pfs_pfs_pb.Ren
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
 interface IAPIService_IRunLoadTest extends grpc.MethodDefinition<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse> {
-    path: "/pfs.API/RunLoadTest";
+    path: "/pfs_v2.API/RunLoadTest";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.RunLoadTestRequest>;

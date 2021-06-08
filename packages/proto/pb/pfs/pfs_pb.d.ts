@@ -1,4 +1,4 @@
-// package: pfs
+// package: pfs_v2
 // file: pfs/pfs.proto
 
 /* tslint:disable */
@@ -444,89 +444,63 @@ export namespace CommitInfo {
     }
 }
 
-export class Job extends jspb.Message { 
+export class StoredCommitset extends jspb.Message { 
     getId(): string;
-    setId(value: string): Job;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): Job.AsObject;
-    static toObject(includeInstance: boolean, msg: Job): Job.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: Job, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): Job;
-    static deserializeBinaryFromReader(message: Job, reader: jspb.BinaryReader): Job;
-}
-
-export namespace Job {
-    export type AsObject = {
-        id: string,
-    }
-}
-
-export class StoredJobInfo extends jspb.Message { 
-
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): StoredJobInfo;
+    setId(value: string): StoredCommitset;
 
     hasOrigin(): boolean;
     clearOrigin(): void;
     getOrigin(): CommitOrigin | undefined;
-    setOrigin(value?: CommitOrigin): StoredJobInfo;
+    setOrigin(value?: CommitOrigin): StoredCommitset;
     clearCommitsList(): void;
     getCommitsList(): Array<Commit>;
-    setCommitsList(value: Array<Commit>): StoredJobInfo;
+    setCommitsList(value: Array<Commit>): StoredCommitset;
     addCommits(value?: Commit, index?: number): Commit;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): StoredJobInfo.AsObject;
-    static toObject(includeInstance: boolean, msg: StoredJobInfo): StoredJobInfo.AsObject;
+    toObject(includeInstance?: boolean): StoredCommitset.AsObject;
+    static toObject(includeInstance: boolean, msg: StoredCommitset): StoredCommitset.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: StoredJobInfo, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): StoredJobInfo;
-    static deserializeBinaryFromReader(message: StoredJobInfo, reader: jspb.BinaryReader): StoredJobInfo;
+    static serializeBinaryToWriter(message: StoredCommitset, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): StoredCommitset;
+    static deserializeBinaryFromReader(message: StoredCommitset, reader: jspb.BinaryReader): StoredCommitset;
 }
 
-export namespace StoredJobInfo {
+export namespace StoredCommitset {
     export type AsObject = {
-        job?: Job.AsObject,
+        id: string,
         origin?: CommitOrigin.AsObject,
         commitsList: Array<Commit.AsObject>,
     }
 }
 
-export class JobInfo extends jspb.Message { 
-
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): JobInfo;
+export class Commitset extends jspb.Message { 
+    getId(): string;
+    setId(value: string): Commitset;
 
     hasOrigin(): boolean;
     clearOrigin(): void;
     getOrigin(): CommitOrigin | undefined;
-    setOrigin(value?: CommitOrigin): JobInfo;
+    setOrigin(value?: CommitOrigin): Commitset;
     clearCommitsList(): void;
     getCommitsList(): Array<CommitInfo>;
-    setCommitsList(value: Array<CommitInfo>): JobInfo;
+    setCommitsList(value: Array<CommitInfo>): Commitset;
     addCommits(value?: CommitInfo, index?: number): CommitInfo;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): JobInfo.AsObject;
-    static toObject(includeInstance: boolean, msg: JobInfo): JobInfo.AsObject;
+    toObject(includeInstance?: boolean): Commitset.AsObject;
+    static toObject(includeInstance: boolean, msg: Commitset): Commitset.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: JobInfo, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): JobInfo;
-    static deserializeBinaryFromReader(message: JobInfo, reader: jspb.BinaryReader): JobInfo;
+    static serializeBinaryToWriter(message: Commitset, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Commitset;
+    static deserializeBinaryFromReader(message: Commitset, reader: jspb.BinaryReader): Commitset;
 }
 
-export namespace JobInfo {
+export namespace Commitset {
     export type AsObject = {
-        job?: Job.AsObject,
+        id: string,
         origin?: CommitOrigin.AsObject,
         commitsList: Array<CommitInfo.AsObject>,
     }
