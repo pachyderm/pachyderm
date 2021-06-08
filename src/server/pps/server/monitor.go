@@ -343,7 +343,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 						if err != nil {
 							return err
 						}
-						if nTasks < nClaims {
+						if nClaims < nTasks {
 							kubeClient := m.a.env.GetKubeClient()
 							namespace := m.a.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
