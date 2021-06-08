@@ -254,7 +254,7 @@ pachd:
       # hostPath indicates the path on the host where the PFS metadata
       # will be stored.  It must end in /.  It is analogous to the
       # --host-path argument to pachctl deploy.
-      hostPath: "/var/pachyderm/"
+      hostPath: ""
     microsoft:
       container: ""
       id: ""

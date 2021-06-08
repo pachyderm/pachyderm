@@ -2,6 +2,7 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
+{{- $randHostPath := printf "/var/pachyderm-%s/" (randAlphaNum 5) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -49,9 +50,9 @@ spec:
           value: {{ required ".Values.pachd.numShards is required." .Values.pachd.numShards | quote }}
         - name: STORAGE_BACKEND
           value: {{ required ".Values.pachd.storage.backend is required." .Values.pachd.storage.backend | quote }}
-        - name: STORAGE_HOST_PATH
           {{- if eq .Values.pachd.storage.backend "LOCAL" }}
-          value: {{ .Values.pachd.storage.local.hostPath }}pachd
+        - name: STORAGE_HOST_PATH
+          value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
           {{- end }}
         - name: WORKER_IMAGE
           value: "{{ .Values.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
@@ -364,7 +365,7 @@ spec:
       - name: pach-disk
         {{- if eq .Values.pachd.storage.backend "LOCAL" }}
         hostPath:
-          path: {{ .Values.pachd.storage.local.hostPath }}pachd
+          path: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
           type: DirectoryOrCreate
         {{- end }}
       - name: pachyderm-storage-secret
