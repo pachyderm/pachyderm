@@ -1000,7 +1000,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	// TODO: Auth?
 	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta, pfsState *pfs.File) error {
 		if common.DatumID(meta.Inputs) == request.Datum.ID {
-			response = convertDatumMetaToInfo(meta)
+			response = convertDatumMetaToInfo(meta, request.Datum.Job)
 			response.PfsState = pfsState
 		}
 		return nil
@@ -1016,14 +1016,14 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	// TODO: Auth?
 	if request.Input != nil {
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-			meta.State = datum.State_UNPROCESSED
-			di := convertDatumMetaToInfo(meta)
+			di := convertDatumMetaToInfo(meta, nil)
+			di.State = pps.DatumState_UNPROCESSED
 			di.Datum.ID = ""
 			return server.Send(di)
 		})
 	}
 	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
-		return server.Send(convertDatumMetaToInfo(meta))
+		return server.Send(convertDatumMetaToInfo(meta, request.Job))
 	})
 }
 
@@ -1055,7 +1055,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	})
 }
 
-func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
+func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo {
 	di := &pps.DatumInfo{
 		Datum: &pps.Datum{
 			Job: meta.Job,
@@ -1066,6 +1066,9 @@ func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
 	}
 	for _, input := range meta.Inputs {
 		di.Data = append(di.Data, input.FileInfo)
+	}
+	if !proto.Equal(meta.Job, sourceJob) {
+		di.State = pps.DatumState_SKIPPED
 	}
 	return di
 }

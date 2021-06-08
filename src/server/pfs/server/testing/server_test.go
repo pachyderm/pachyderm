@@ -2147,7 +2147,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("OffsetRead", func(t *testing.T) {
-		// TODO(2.0 required): Decide on how to expose offset read.
+		// TODO(2.0 optional): Decide on how to expose offset read.
 		t.Skip("Offset read exists (inefficient), just need to decide on how to expose it in V2")
 		//t.Parallel()
 		//env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -4331,7 +4331,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("ReadSizeLimited", func(t *testing.T) {
-		// TODO(2.0 required): Decide on how to expose offset read.
+		// TODO(2.0 optional): Decide on how to expose offset read.
 		t.Skip("Offset read exists (inefficient), just need to decide on how to expose it in V2")
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
