@@ -1,8 +1,8 @@
 import {extent} from 'd3-array';
 import {select} from 'd3-selection';
-import {D3ZoomEvent, zoom as d3Zoom} from 'd3-zoom';
+import {D3ZoomEvent, zoom as d3Zoom, zoomIdentity} from 'd3-zoom';
 import flatten from 'lodash/flatten';
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useParams, useHistory} from 'react-router';
 
 import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
@@ -11,6 +11,8 @@ import {DagDirection, Node} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 
 const SIDEBAR_WIDTH = 384;
+export const MAX_SCALE_VALUE = 1.5;
+const DEFAULT_MINIMUM_SCALE_VALUE = 0.6;
 
 export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const [svgSize] = useState({
@@ -22,12 +24,16 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const {viewState, setUrlFromViewState} = useUrlQueryState();
   const browserHistory = useHistory();
   const [sliderZoomValue, setSliderZoomValue] = useState(1);
-  const [minScale, setMinScale] = useState(0.6);
+  const [minScale, setMinScale] = useState(DEFAULT_MINIMUM_SCALE_VALUE);
+  const [interacted, setInteracted] = useState(false);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   const dagDirection = viewState.dagDirection || DagDirection.RIGHT;
 
   const rotateDag = () => {
+    // Reset interaction on rotations, in the future we might want to look into
+    // adjusting the current translation on roatation.
+    setInteracted(false);
     switch (dagDirection) {
       case DagDirection.DOWN:
         browserHistory.push(
@@ -59,6 +65,33 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     direction: dagDirection,
   });
 
+  const graphExtents = useMemo(() => {
+    const nodes = flatten((dags || []).map((dag) => dag.nodes));
+    const xExtent = extent(nodes, (n) => n.x);
+    const yExtent = extent(nodes, (n) => n.y);
+    const xMin = xExtent[0] || 0;
+    const xMax = xExtent[1] || svgSize.width;
+    const yMin = yExtent[0] || 0;
+    const yMax = yExtent[1] || svgSize.height;
+
+    return {xMin, xMax, yMin, yMax};
+  }, [dags, svgSize]);
+
+  const startScale = useMemo(() => {
+    const {xMax, xMin, yMax, yMin} = graphExtents;
+    const horizontal =
+      dagDirection === DagDirection.RIGHT || dagDirection === DagDirection.LEFT;
+
+    // multiply node dimensions by 2 to account for alignment padding
+    const xScale =
+      svgSize.width / (xMax - xMin + nodeWidth * (horizontal ? 2 : 1));
+    const yScale =
+      svgSize.height / (yMax - yMin + nodeHeight * (horizontal ? 1 : 2));
+
+    // 0.6 is the largest value allowed for the minimum zoom value
+    return Math.max(DEFAULT_MINIMUM_SCALE_VALUE, Math.min(xScale, yScale, 1.5));
+  }, [dagDirection, graphExtents, nodeHeight, nodeWidth, svgSize]);
+
   const applyZoom = (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
     const {transform} = event;
 
@@ -67,112 +100,116 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
       transform.toString(),
     );
     setSliderZoomValue(transform.k);
+
+    // capture interaction for mousewheel and panning events
+    if (event.sourceEvent) setInteracted(true);
   };
 
-  // initialize zoom and dags positioning
-  useEffect(() => {
-    const horizontal =
-      dagDirection === DagDirection.RIGHT || dagDirection === DagDirection.LEFT;
-    const nodes = flatten((dags || []).map((dag) => dag.nodes));
-    const xExtent = extent(nodes, (n) => n.x);
-    const yExtent = extent(nodes, (n) => n.y);
-    const xMin = xExtent[0] || 0;
-    const xMax = xExtent[1] || svgSize.width;
-    const yMin = yExtent[0] || 0;
-    const yMax = yExtent[1] || svgSize.height;
-    const xScale = svgSize.width / (xMax - xMin);
-    const yScale = svgSize.height / 2 / (yMax - yMin);
-    const startScale = Math.max(0.6, Math.min(xScale, yScale, 1.5));
-    const svg = select<SVGSVGElement, unknown>('#Svg');
-    const dagsNode = select<SVGGElement, unknown>('#Dags').node();
-    if (dagsNode) {
-      const {x, y, width, height} = dagsNode.getBBox();
-      zoomRef.current = d3Zoom<SVGSVGElement, unknown>()
-        .scaleExtent([Math.min(startScale, 0.6), 1.5])
-        .extent([
-          [0, 0],
-          [svgSize.width, svgSize.height],
-        ])
-        .translateExtent([
-          [x, y],
-          [x + width, y + height],
-        ])
-        .constrain((transform, extent, translateExtent) => {
-          const dx0 =
-              transform.invertX(extent[0][0]) -
-              (translateExtent[0][0] - width / 2),
-            dx1 =
-              transform.invertX(extent[1][0]) -
-              (translateExtent[1][0] + width / 2),
-            dy0 =
-              transform.invertY(extent[0][1]) -
-              (translateExtent[0][1] - height / 2),
-            dy1 =
-              transform.invertY(extent[1][1]) -
-              (translateExtent[1][1] + height / 2);
+  const centerDag = useCallback(
+    (isZoomOut = false) => {
+      if (zoomRef.current) {
+        const svg = select<SVGSVGElement, unknown>('#Svg');
+        const horizontal =
+          dagDirection === DagDirection.RIGHT ||
+          dagDirection === DagDirection.LEFT;
+        const {xMin, xMax, yMin, yMax} = graphExtents;
 
-          return transform.translate(
-            dx1 > dx0 ? (dx0 + dx1) / 2 : Math.min(0, dx0) || Math.max(0, dx1),
-            dy1 > dy0 ? (dy0 + dy1) / 2 : Math.min(0, dy0) || Math.max(0, dy1),
-          );
-        })
-        .on('zoom', applyZoom);
+        // translate to center of svg and align based on direction
+        const transform = zoomIdentity
+          .translate(
+            horizontal ? nodeWidth : svgSize.width / 2 - (xMin + xMax) / 2,
+            horizontal ? svgSize.height / 2 - (yMin + yMax) / 2 : nodeHeight,
+          )
+          .scale(startScale);
 
-      svg.call(zoomRef.current);
-
-      if (selectedNode) {
-        const centerNodeSelection = select<SVGGElement, Node>(
-          `#${selectedNode}GROUP`,
-        );
-        if (!centerNodeSelection.empty()) {
-          const centerNode = select<SVGGElement, Node>(
-            `#${selectedNode}GROUP`,
-          ).data()[0];
-          const selectedNodeCenterX =
-            (svgSize.width - SIDEBAR_WIDTH) / 2 - centerNode.x * 1.5;
-          const selectedNodeCenterY =
-            svgSize.height / 2 - centerNode.y * 1.5 - nodeHeight;
-
-          zoomRef.current.scaleTo(svg, 1.5, [
-            selectedNodeCenterX,
-            selectedNodeCenterY,
-          ]);
-
-          zoomRef.current.translateTo(
-            svg.transition().duration(250),
-            centerNode.x,
-            centerNode.y,
-            [(svgSize.width - SIDEBAR_WIDTH) / 2, svgSize.height / 2],
-          );
-        }
-      } else {
-        zoomRef.current.scaleTo(svg, startScale);
-        zoomRef.current.translateTo(svg, 0, 0, [
-          horizontal ? nodeWidth : svgSize.width / 2,
-          horizontal ? svgSize.height / 2 : nodeHeight,
-        ]);
-        zoomRef.current.translateBy(
-          svg,
-          horizontal ? 0 : -(xMin + xMax) / 2 - nodeWidth,
-          horizontal ? -(yMin + yMax) / 2 : 0,
-        );
+        // zoom.transform does not obey the constraints set on panning and zooming,
+        // if constraints are added this should be updated to use one of the methods that obeys them.
+        svg
+          .transition()
+          .duration(isZoomOut ? 250 : 0)
+          .call(zoomRef.current.transform, transform)
+          .end()
+          .then(() => setInteracted(false));
 
         setSliderZoomValue(startScale);
-        setMinScale(Math.min(startScale, 0.6));
+      }
+    },
+    [dagDirection, graphExtents, nodeHeight, nodeWidth, startScale, svgSize],
+  );
+
+  //initialize zoom and set minimum scale as dags update
+  useEffect(() => {
+    if (!zoomRef.current) {
+      zoomRef.current = d3Zoom<SVGSVGElement, unknown>().on('zoom', applyZoom);
+    }
+
+    // 0.6 is the largest value allowed for the minimum zoom value
+    zoomRef.current.scaleExtent([
+      Math.min(startScale, DEFAULT_MINIMUM_SCALE_VALUE),
+      MAX_SCALE_VALUE,
+    ]);
+
+    select<SVGSVGElement, unknown>('#Svg').call(zoomRef.current);
+
+    setMinScale(Math.min(startScale, DEFAULT_MINIMUM_SCALE_VALUE));
+  }, [startScale, svgSize.height, svgSize.width]);
+
+  // center dag or apply last translation if interacted with when dags update
+  useEffect(() => {
+    const svg = select<SVGSVGElement, unknown>('#Svg');
+
+    if (!selectedNode && zoomRef.current) {
+      // center and align dag if the user has not interacted with it yet
+      if (!interacted) {
+        centerDag();
+
+        // if the user has interacted apply previous transform against new constraints
+      } else {
+        const dagsNode = select<SVGGElement, unknown>('#Dags').node();
+        if (dagsNode) {
+          zoomRef.current.scaleBy(svg, 1);
+
+          zoomRef.current.translateBy(svg, 0, 0);
+        }
       }
     }
-  }, [
-    setMinScale,
-    setSliderZoomValue,
-    dags,
-    svgSize,
-    dagDirection,
-    nodeWidth,
-    nodeHeight,
-    selectedNode,
-  ]);
+  }, [centerDag, interacted, selectedNode]);
+
+  // zoom and pan to selected node
+  useEffect(() => {
+    const centerNodeSelection = select<SVGGElement, Node>(
+      `#${selectedNode}GROUP`,
+    );
+
+    if (!centerNodeSelection.empty() && zoomRef.current) {
+      setInteracted(true);
+      const svg = select<SVGSVGElement, unknown>('#Svg');
+
+      const centerNode = centerNodeSelection.data()[0];
+
+      const selectedNodeCenterX =
+        (svgSize.width - SIDEBAR_WIDTH) / 2 -
+        (centerNode.x + nodeWidth / 2) * MAX_SCALE_VALUE;
+      const selectedNodeCenterY =
+        svgSize.height / 2 - (centerNode.y + nodeHeight / 2) * MAX_SCALE_VALUE;
+
+      const transform = zoomIdentity
+        .translate(selectedNodeCenterX, selectedNodeCenterY)
+        .scale(MAX_SCALE_VALUE);
+
+      // zoom.transform does not obey the constraints set on panning and zooming,
+      // if constraints are added this should be updated to use one of the methods that obeys them.
+      zoomRef.current.transform(svg.transition(), transform);
+    }
+  }, [selectedNode, nodeHeight, nodeWidth, svgSize]);
+
+  // reset interaction on empty canvas
+  useEffect(() => {
+    if (dags && dags.length === 0) setInteracted(false);
+  }, [dags]);
 
   const applySliderZoom = (e: React.FormEvent<HTMLInputElement>) => {
+    setInteracted(true);
     const nextScale = Number(e.currentTarget.value) / 100;
     zoomRef.current &&
       zoomRef.current.scaleTo(
@@ -182,12 +219,8 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   };
 
   const zoomOut = useCallback(() => {
-    zoomRef.current &&
-      select<SVGSVGElement, unknown>('#Svg')
-        .transition()
-        .duration(250)
-        .call(zoomRef.current.scaleTo, minScale);
-  }, [minScale]);
+    centerDag(true);
+  }, [centerDag]);
 
   useEffect(() => {
     const zoomOutListener = (event: KeyboardEvent) => {

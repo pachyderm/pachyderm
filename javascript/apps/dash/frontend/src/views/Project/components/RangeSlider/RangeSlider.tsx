@@ -2,24 +2,34 @@ import React from 'react';
 
 import styles from './RangeSlider.module.css';
 
-type DagProps = {
+interface RangeSliderProps
+  extends Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    'type' | 'className' | 'min' | 'max' | 'number' | 'value'
+  > {
   min: string;
   max: string;
-  handleChange: React.ChangeEventHandler<HTMLInputElement> | undefined;
   value: number;
-};
+}
 
-const DAG: React.FC<DagProps> = ({min, max, handleChange, value}) => {
+const RangeSlider: React.FC<RangeSliderProps> = ({
+  min,
+  max,
+  onChange,
+  value,
+  ...rest
+}) => {
   return (
     <input
       type="range"
       min={min}
       max={max}
-      onChange={handleChange}
+      onChange={onChange}
       value={value}
       className={styles.base}
+      {...rest}
     />
   );
 };
 
-export default DAG;
+export default RangeSlider;

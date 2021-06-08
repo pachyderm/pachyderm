@@ -55,7 +55,7 @@
   height: 1rem;
 }
 
-.controlButton:hover .svgControl {
+.controlButton:hover:active .svgControl {
   fill: var(--pachyderm-plum);
 }
 
