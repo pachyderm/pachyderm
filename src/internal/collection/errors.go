@@ -68,7 +68,7 @@ func IsErrTransactionConflict(err error) bool {
 }
 
 // ErrNotUnique indicates that an indexed query expected to have exactly one
-// result had more than one result.
+// result but had more than one result.
 type ErrNotUnique struct {
 	Type  string
 	Index string

@@ -207,7 +207,7 @@ func ParseBranch(arg string) (*pfs.Branch, error) {
 }
 
 // ParseJob takes an argument of the form "pipeline@job-id" and returns
-// the corresponding *pfs.Job.
+// the corresponding *pps.Job.
 func ParseJob(arg string) (*pps.Job, error) {
 	parts := strings.SplitN(arg, "@", 2)
 	if parts[0] == "" {
