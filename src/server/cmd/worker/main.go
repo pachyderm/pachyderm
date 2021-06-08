@@ -17,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/cmd/worker/assets"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
