@@ -4551,6 +4551,45 @@ func TestPFS(suite *testing.T) {
 		assert.Len(t, walkFile("/"), 7)
 	})
 
+	suite.Run("WalkFileEmpty", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		repo := "test"
+		latestCommit := client.NewCommit(repo, "master", "")
+		checks := func() {
+			cb := func(fi *pfs.FileInfo) error {
+				if assert.Equal(t, fi.FileType, pfs.FileType_DIR) && assert.Equal(t, fi.File.Path, "/") {
+					return nil
+				}
+				return errors.New("should not have returned any file results for an empty commit")
+			}
+			checkNotFound := func(path string) {
+				err := env.PachClient.WalkFile(latestCommit, path, cb)
+				require.YesError(t, err)
+				require.Matches(t, "file .* not found in repo", err.Error())
+			}
+			require.NoError(t, env.PachClient.WalkFile(latestCommit, "", cb))
+			require.NoError(t, env.PachClient.WalkFile(latestCommit, "/", cb))
+			checkNotFound("foo")
+			checkNotFound("/foo")
+			checkNotFound("foo/bar")
+			checkNotFound("/foo/bar")
+		}
+
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		// TODO(global ids): uncomment this code once global ids land and branches have default heads
+		//require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
+		//checks() // Test the default empty head commit
+
+		_, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		checks() // Test an empty open commit
+
+		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
+		checks() // Test an empty closed commit
+	})
+
 	suite.Run("ReadSizeLimited", func(t *testing.T) {
 		// TODO(2.0 required): Decide on how to expose offset read.
 		t.Skip("Offset read exists (inefficient), just need to decide on how to expose it in V2")
