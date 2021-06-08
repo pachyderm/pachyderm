@@ -103,7 +103,8 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
       "max_queue_size": int,
       "chunk_spec": {
         "number": int,
-        "size_bytes": int
+        "size_bytes": int,
+        "chunks_per_worker": int
       },
       "scheduling_spec": {
         "node_selector": {string: string},
@@ -999,9 +1000,13 @@ against this limit.
 
 ### Chunk Spec (optional)
 `chunk_spec` specifies how a pipeline should chunk its datums.
- A chunk is the unit of work that workers claim. Each worker claims 1 or more datums 
- and it commits a full chunk once it's done processing it.
- 
+ A chunk is the unit of work that workers claim. Each worker claims 1 or more
+ datums and it commits a full chunk once it's done processing it. Generally you
+ should set this if your pipeline is experiencing "stragglers." I.e. situations
+ where most of the workers are idle but a few are still processing jobs. It can
+ fix this problem by spreading the datums out in to more granular chunks for
+ the workers to process.
+
 `chunk_spec.number` if nonzero, specifies that each chunk should contain `number`
  datums. Chunks may contain fewer if the total number of datums don't
  divide evenly. If you lower the chunk number to 1 it'll update after every datum, 
@@ -1011,6 +1016,9 @@ against this limit.
 `chunk_spec.size_bytes` , if nonzero, specifies a target size for each chunk of datums.
  Chunks may be larger or smaller than `size_bytes`, but will usually be
  pretty close to `size_bytes` in size.
+
+`chunk_spec.chunks_per_worker, if nonzero, specifies how many chunks should be
+ created for each worker. It can't be set with number or size_bytes.
 
 ### Scheduling Spec (optional)
 `scheduling_spec` specifies how the pods for a pipeline should be scheduled.
