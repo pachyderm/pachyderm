@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -212,6 +213,9 @@ func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.JobInfo, error)
 			return jobInfo, nil
 		}
 		return nil, err
+	}
+	if ppsutil.IsTerminal(jobInfo.State) {
+		return nil, ppsserver.ErrJobFinished{jobInfo.Job}
 	}
 	reg.logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
 	return jobInfo, nil
