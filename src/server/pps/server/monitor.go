@@ -339,16 +339,16 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 						driver.WorkNamespace(pipelineInfo),
 					)
 					for {
-						unclaimedTasks, err := worker.UnclaimedTasks(pachClient.Ctx())
+						nTasks, nClaims, err := worker.TaskCount(pachClient.Ctx())
 						if err != nil {
 							return err
 						}
-						if unclaimedTasks > 0 {
+						if nTasks < nClaims {
 							kubeClient := m.a.env.GetKubeClient()
 							namespace := m.a.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
 							scale, err := rc.GetScale(pipelineInfo.WorkerRc, metav1.GetOptions{})
-							n := int64(scale.Spec.Replicas) + int64(unclaimedTasks)
+							n := nTasks
 							if n > int64(pipelineInfo.ParallelismSpec.Constant) {
 								n = int64(pipelineInfo.ParallelismSpec.Constant)
 							}
@@ -360,6 +360,10 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 								if _, err := rc.UpdateScale(pipelineInfo.WorkerRc, scale); err != nil {
 									return err
 								}
+							}
+							// We've already attained max scale, no reason to keep polling.
+							if n == int64(pipelineInfo.ParallelismSpec.Constant) {
+								return nil
 							}
 						}
 						select {

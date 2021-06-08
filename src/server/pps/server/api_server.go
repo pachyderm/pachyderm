@@ -2472,15 +2472,15 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		pipelineInfo.WorkersAvailable = int64(len(workerStatus))
 		pipelineInfo.WorkersRequested = int64(pipelinePtr.Parallelism)
 	}
-	unclaimedTasks, err := work.NewWorker(
+	tasks, claims, err := work.NewWorker(
 		a.env.GetEtcdClient(),
 		a.etcdPrefix,
 		driver.WorkNamespace(pipelineInfo),
-	).UnclaimedTasks(txnCtx.ClientContext)
+	).TaskCount(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	pipelineInfo.UnclaimedTasks = int64(unclaimedTasks)
+	pipelineInfo.UnclaimedTasks = tasks - claims
 	return pipelineInfo, nil
 }
 

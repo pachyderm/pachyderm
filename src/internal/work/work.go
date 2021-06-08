@@ -392,21 +392,15 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 	}
 }
 
-// UnclaimedTasks returns how many unclaimed tasks there are in the queue.
-func (w *Worker) UnclaimedTasks(ctx context.Context) (int, error) {
+// TaskCount returns how many subtasks are in the queue and how many are claimed.
+func (w *Worker) TaskCount(ctx context.Context) (int64, int64, error) {
 	subTasks, rev, err := w.subtaskCol.ReadOnly(ctx).CountRev(0)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	claims, _, err := w.claimCol.ReadOnly(ctx).CountRev(rev)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	result := subTasks - claims
-	if result < 0 {
-		// This is defensive, it shouldn't be possible to get more claims than
-		// subtasks.
-		result = 0
-	}
-	return int(subTasks - claims), nil
+	return subTasks, claims, nil
 }
