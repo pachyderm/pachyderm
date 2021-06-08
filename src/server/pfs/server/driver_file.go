@@ -39,7 +39,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 			// The commit is already finished - if the commit was explicitly specified,
 			// error out, otherwise we can make a child commit since this is the branch head.
 			if commitID != "" {
-				return pfsserver.ErrCommitFinished{commitInfo.Commit}
+				return pfsserver.ErrCommitFinished{Commit: commitInfo.Commit}
 			}
 			parentID, err := d.getFileset(ctx, commitInfo.Commit)
 			if err != nil {
