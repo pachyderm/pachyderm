@@ -517,15 +517,13 @@ func (d *driver) startCommit(
 		// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 		// happen if 'branch' is new and diverges from the existing branch in
 		// 'parent').
-		// Clone the parent proto because resolveCommit will modify it.
-		parent = proto.Clone(parent).(*pfs.Commit)
 		parentCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, parent)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parent commit not found")
 		}
 		// fail if the parent commit has not been finished
 		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s has not been finished", pfsdb.CommitKey(parent))
+			return nil, errors.Errorf("parent commit %s has not been finished", pfsdb.CommitKey(parentCommitInfo.Commit))
 		}
 
 		newCommitInfo.ParentCommit = parentCommitInfo.Commit
@@ -534,7 +532,7 @@ func (d *driver) startCommit(
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(parentCommitInfo.Commit), parentCommitInfo); err != nil {
 			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
 			// missing/invalid commit ID
-			return nil, errors.Wrapf(err, "could not resolve parent commit %s", pfsdb.CommitKey(parent))
+			return nil, errors.Wrapf(err, "could not resolve parent commit %s", pfsdb.CommitKey(parentCommitInfo.Commit))
 		}
 	}
 
@@ -903,15 +901,15 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 		switch blockState {
 		case pfs.CommitState_READY:
 			for _, branch := range commitInfo.DirectProvenance {
-				if _, err := d.inspectCommit(ctx, branch.NewCommit(commit.ID), pfs.CommitState_FINISHED); err != nil {
+				if _, err := d.inspectCommit(ctx, branch.NewCommit(commitInfo.Commit.ID), pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
 		case pfs.CommitState_FINISHED:
 			// Watch the CommitInfo until the commit has been finished
-			if err := d.commits.ReadOnly(ctx).WatchOneF(pfsdb.CommitKey(commit), func(ev *watch.Event) error {
+			if err := d.commits.ReadOnly(ctx).WatchOneF(pfsdb.CommitKey(commitInfo.Commit), func(ev *watch.Event) error {
 				if ev.Type == watch.EventDelete {
-					return pfsserver.ErrCommitDeleted{Commit: commit}
+					return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
 				}
 
 				var key string
@@ -1038,8 +1036,6 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 			commit = cis[i%len(cis)].ParentCommit
 		}
 	}
-	userCommit.Branch = proto.Clone(commitInfo.Commit.Branch).(*pfs.Branch)
-	userCommit.ID = commitInfo.Commit.ID
 	return commitInfo, nil
 }
 
@@ -1095,14 +1091,18 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := d.inspectCommit(ctx, from, pfs.CommitState_STARTED); err != nil {
+		ci, err := d.inspectCommit(ctx, from, pfs.CommitState_STARTED)
+		if err != nil {
 			return err
 		}
+		from = ci.Commit
 	}
 	if to != nil {
-		if _, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED); err != nil {
+		ci, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
+		if err != nil {
 			return err
 		}
+		to = ci.Commit
 	}
 
 	// if number is 0, we return all commits that match the criteria
@@ -1455,7 +1455,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		// We don't want to include the `from` commit itself
 		if !(seen[commitInfo.Commit.ID] || (from != nil && from.ID == commitInfo.Commit.ID)) {
 			// Wait for the commit to enter the right state
-			commitInfo, err := d.inspectCommit(ctx, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
+			commitInfo, err := d.inspectCommit(ctx, commitInfo.Commit, state)
 			if err != nil {
 				return err
 			}
@@ -1476,7 +1476,7 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 	if commitInfo.Finished != nil {
 		return errors.Errorf("cannot clear finished commit")
 	}
-	return d.commitStore.DropFilesets(ctx, commit)
+	return d.commitStore.DropFilesets(ctx, commitInfo.Commit)
 }
 
 // createBranch creates a new branch or updates an existing branch (must be one
@@ -1544,13 +1544,13 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			}
 		}
 
-		if commit.ID == txnCtx.CommitsetID && proto.Equal(commit.Branch, branchInfo.Branch) {
+		if ci.Commit.ID == txnCtx.CommitsetID && proto.Equal(ci.Commit.Branch, branchInfo.Branch) {
 			// We can reuse the existing commit only if it is already on this branch
-			branchInfo.Head = commit
-		} else if branchInfo.Head == nil || branchInfo.Head.ID != commit.ID {
+			branchInfo.Head = ci.Commit
+		} else if branchInfo.Head == nil || branchInfo.Head.ID != ci.Commit.ID {
 			// Create an alias of the head commit onto this branch - this will move the
 			// head of the branch and update the repo size if necessary
-			aliasCommitInfo, err := d.aliasCommit(txnCtx, commit, branch)
+			aliasCommitInfo, err := d.aliasCommit(txnCtx, ci.Commit, branch)
 			if err != nil {
 				return err
 			}
@@ -1635,7 +1635,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return err
 	}
 
-	if commit != nil && ci.Finished != nil {
+	if ci != nil && ci.Finished != nil {
 		if err = d.triggerCommit(txnCtx, ci.Commit); err != nil {
 			return err
 		}
