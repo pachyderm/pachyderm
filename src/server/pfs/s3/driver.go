@@ -195,7 +195,7 @@ func (d *WorkerDriver) bucket(pc *client.APIClient, r *http.Request, name string
 }
 
 func (d *WorkerDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
-	if bucket.Commit.Branch.Repo.Name == "" || bucket.Commit.Branch.Name == "" {
+	if bucket.Commit == nil {
 		return bucketCapabilities{}, s2.NoSuchBucketError(r)
 	} else if bucket == d.outputBucket {
 		return bucketCapabilities{
