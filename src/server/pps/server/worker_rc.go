@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -26,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -802,54 +800,5 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 		}
 	}
 
-	var hasGitInput bool
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) error {
-		if input.Git != nil {
-			hasGitInput = true
-			return errutil.ErrBreak
-		}
-		return nil
-	})
-	if hasGitInput {
-		return a.checkOrDeployGithookService()
-	}
 	return nil
-}
-
-func (a *apiServer) checkOrDeployGithookService() error {
-	kubeClient := a.env.GetKubeClient()
-	_, err := getGithookService(kubeClient, a.namespace)
-	if err != nil {
-		if errors.As(err, &errGithookServiceNotFound{}) {
-			svc := assets.GithookService(a.namespace)
-			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
-			return err
-		}
-		return err
-	}
-	// service already exists
-	return nil
-}
-
-func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Service, error) {
-	labels := map[string]string{
-		"app":   "githook",
-		"suite": suite,
-	}
-	serviceList, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ListOptions",
-			APIVersion: "v1",
-		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(serviceList.Items) != 1 {
-		return nil, &errGithookServiceNotFound{
-			errors.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
-		}
-	}
-	return &serviceList.Items[0], nil
 }

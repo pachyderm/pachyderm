@@ -78,7 +78,7 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
       "datum_tries": int,
       "job_timeout": string,
       "input": {
-        <"pfs", "cross", "union", "join", "group", "cron", or "git" see below>
+        <"pfs", "cross", "union", "join", "group" or "cron" see below>
       },
       "s3_out": bool,
       "reprocess_spec": string,
@@ -238,16 +238,6 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
         "overwrite": bool
     }
 
-
-    ------------------------------------
-    "git" input
-    ------------------------------------
-
-    "git": {
-      "URL": string,
-      "name": string,
-      "branch": string
-    }
 
     ```
 === "YAML Sample"
@@ -559,7 +549,6 @@ exceptions, such as a spout, which does not need an `input`.
     "join": join_input,
     "group": group_input,
     "cron": cron_input,
-    "git": git_input,
 }
 ```
 
@@ -862,35 +851,6 @@ you want to join with other data.
 
 * `input.pfs.lazy` — see the description in [PFS Input](#pfs-input).
 * `input.pfs.empty_files` — see the description in [PFS Input](#pfs-input).
-
-#### Git Input
-
-!!! Warning
-    Git Inputs are an [experimental feature](../../contributing/supported-releases/#experimental).
-
-Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository.
-
-**Note:** This only works on cloud deployments, not local clusters.
-
-`input.git.URL` must be a URL of the form: `https://github.com/foo/bar.git`
-
-`input.git.name` is the name for the input, its semantics are similar to
-those of `input.pfs.name`. It is optional.
-
-`input.git.branch` is the name of the git branch to use as input.
-
-Git inputs also require some additional configuration. In order for new commits on your git repository to correspond to new commits on the Pachyderm Git Input repo, we need to setup a git webhook. At the moment, only GitHub is supported. (Though if you ask nicely, we can add support for GitLab or BitBucket).
-
-1. Create your Pachyderm pipeline with the Git Input.
-
-2. To get the URL of the webhook to your cluster, do `pachctl inspect pipeline` on your pipeline. You should see a `Githook URL` field with a URL set. Note - this will only work if you've deployed to a cloud provider (e.g. AWS, GKE). If you see `pending` as the value (and you've deployed on a cloud provider), it's possible that the service is still being provisioned. You can check `kubectl get svc` to make sure you see the `githook` service running.
-
-3. To setup the GitHub webhook, navigate to:
-
-```
-https://github.com/<your_org>/<your_repo>/settings/hooks/new
-```
-Or navigate to webhooks under settings. Then you'll want to copy the `Githook URL` into the 'Payload URL' field.
 
 ### Output Branch (optional)
 

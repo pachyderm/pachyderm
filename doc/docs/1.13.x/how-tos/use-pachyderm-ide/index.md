@@ -77,5 +77,5 @@ who write code in Python, in particular, might
 find it convenient to avoid the Docker build workflow, others might want to
 enable Docker in JupyterHub or build Docker images from their local machines.
 
-In the [OpenCV Example for JupyterHub](https://github.com/pachyderm/python-pachyderm/tree/master/examples/opencv),
+In the [OpenCV Example for JupyterHub](https://github.com/pachyderm/python-pachyderm/tree/1.13.x/examples/opencv),
 both methods are used in the same notebook cell.
