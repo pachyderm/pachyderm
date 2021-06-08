@@ -320,7 +320,8 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-	// bucket name cannot exceed 63 characters long
+	// S3 client limits bucket name length to 63 chars, but we also want to query with commit
+	// so we need to be conservative with the length of the repo name here
 	repo := tu.UniqueString("testLOP")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	commit, err := pachClient.StartCommit(repo, "master")
@@ -343,8 +344,12 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	}
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
-	// Check whether using commit_id works
+	// Query by commit.repo
 	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s", commit.ID, repo), "", false, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
+
+	// Query by commit.branch.repo
+	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s.%s", commit.ID, commit.Branch.Name, repo), "", false, make(chan struct{}))
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
 	// Request that will list all files in master starting with 1

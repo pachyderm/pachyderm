@@ -75,8 +75,11 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
 	var repo, branch, commit string
 	branch = "master"
-	parts := strings.SplitN(name, ".", 2)
-	if len(parts) == 2 {
+
+	parts := strings.SplitN(name, ".", 3)
+	if len(parts) == 3 {
+		commit, branch, repo = parts[0], parts[1], parts[2]
+	} else if len(parts) == 2 {
 		if uuid.IsUUIDWithoutDashes(parts[0]) {
 			commit = parts[0]
 		} else {
