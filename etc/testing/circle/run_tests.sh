@@ -26,6 +26,9 @@ export TESTFLAGS
 minikube status
 kubectl version
 
+# any tests that build images will do it directly in minikube's docker registry
+eval $(minikube docker-env)
+
 echo "Running test suite based on BUCKET=$BUCKET"
 
 function test_bucket {
@@ -63,7 +66,7 @@ go clean -testcache
 
 case "${BUCKET}" in
  MISC)
-    #make lint
+    make lint
     make check-buckets
     make enterprise-code-checkin-test
     make test-cmds

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package pfs;
+package pfs_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/pfs";
 
 import "google/protobuf/empty.proto";
@@ -51,7 +51,7 @@ message RepoAuthInfo {
   // The callers access level to the relevant repo. These are very granular
   // permissions - for the end user it makes sense to show them the roles
   // they have instead.
-  repeated auth.Permission permissions = 1;
+  repeated auth_v2.Permission permissions = 1;
 
   // The caller's roles on the relevant repo. This includes inherited
   // roles from the cluster, group membership, etc.

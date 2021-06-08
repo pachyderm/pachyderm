@@ -130,7 +130,7 @@ func BenchmarkRollingHash(b *testing.B) {
 		hash.Write(initialWindow)
 		for _, bt := range data {
 			hash.Roll(bt)
-			//lint:ignore SA9003 benchmark is simulating exact usecase
+			// nolint:staticcheck // benchmark is simulating exact usecase
 			if hash.Sum64()&splitMask == 0 {
 			}
 		}

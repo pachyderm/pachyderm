@@ -232,9 +232,6 @@ func inputMetrics(input *pps.Input, metrics *Metrics) {
 	if input.Cron != nil {
 		metrics.InputCron++
 	}
-	if input.Git != nil {
-		metrics.InputGit++
-	}
 	if input.Pfs != nil {
 		pfsInputMetrics(input.Pfs, metrics)
 	}

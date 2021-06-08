@@ -413,7 +413,7 @@ func (d *driver) addFileset(txnCtx *txncontext.TransactionContext, commit *pfs.C
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{commitInfo.Commit}
+		return pfsserver.ErrCommitFinished{Commit: commitInfo.Commit}
 	}
 	return d.commitStore.AddFilesetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID)
 }

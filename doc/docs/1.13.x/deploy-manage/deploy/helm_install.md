@@ -33,7 +33,7 @@ This page gives you a high level view of the steps to follow to install Pachyder
         In the case of an installation using Helm, those same parameters values will now **be specified in a YAML configuration file** as follows.
 
 ### Edit a values.yaml file
-Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/helmchart/tree/master/examples). Pick the example that fits your target deployment and update the relevant fields according to the parameters gathered in the previous step.   
+Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/helmchart/tree/1.13.x/examples). Pick the example that fits your target deployment and update the relevant fields according to the parameters gathered in the previous step.   
 
 See the [conversion table](#conversion-table) at the end of this page. It should help you pass easily from the `pachctl deploy` arguments and flags to their attributes counterpart in values.yaml.
 

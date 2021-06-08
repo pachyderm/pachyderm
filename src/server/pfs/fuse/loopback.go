@@ -412,7 +412,7 @@ func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 		return fs.ToErrno(err)
 	}
 
-	var err error = nil
+	var err error
 	st := syscall.Stat_t{}
 	err = syscall.Lstat(p, &st)
 	if err != nil {

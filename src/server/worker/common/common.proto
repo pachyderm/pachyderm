@@ -7,8 +7,8 @@ import "pfs/pfs.proto";
 import "gogoproto/gogo.proto";
 
 message Input {
-  pfs.FileInfo file_info = 1;
-  pfs.Commit parent_commit = 2;
+  pfs_v2.FileInfo file_info = 1;
+  pfs_v2.Commit parent_commit = 2;
   string name = 3;
   string join_on = 4;
   bool outer_join = 5;

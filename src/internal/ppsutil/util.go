@@ -292,11 +292,6 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 				input.Cron.Commit = commit.ID
 			}
 		}
-		if input.Git != nil {
-			if commit, ok := branchToCommit[key(client.NewBranch(input.Git.Name, input.Git.Branch))]; ok {
-				input.Git.Commit = commit.ID
-			}
-		}
 		return nil
 	})
 	return jobInput
@@ -352,7 +347,7 @@ func IsTerminal(state pps.JobState) bool {
 // UpdateJobState performs the operations involved with a job state transition.
 func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.StoredJobInfo, state pps.JobState, reason string) error {
 	if IsTerminal(jobPtr.State) {
-		return ppsServer.ErrJobFinished{jobPtr.Job}
+		return ppsServer.ErrJobFinished{Job: jobPtr.Job}
 	}
 
 	// Update pipeline
@@ -428,16 +423,17 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 	return err
 }
 
-func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
+func GetStatsCommit(commitInfo *pfs.CommitInfo) (*pfs.Commit, error) {
 	outputRepo := commitInfo.Commit.Branch.Repo.Name
 	for _, commitRange := range commitInfo.Subvenance {
 		repo := commitRange.Lower.Branch.Repo
 		if repo.Type == pfs.MetaRepoType && repo.Name == outputRepo {
-			return commitRange.Lower
+			return commitRange.Lower, nil
 		}
 	}
-	// TODO: Getting here would be a bug in 2.0, log?
-	return nil
+	// This may happen in the case the commitInfo represents an output commit for a Spout or Service pipeline,
+	// since stats aren't enabled in those cases
+	return nil, errors.Errorf("could not find a stats commit for commit %v", commitInfo.Commit.ID)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with

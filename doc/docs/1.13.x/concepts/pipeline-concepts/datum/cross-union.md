@@ -191,6 +191,6 @@ Run 9: /pfs/A/3.txt
 
 - [Cross Input](../../../../reference/pipeline_spec/#cross-input)
 - [Union Input](../../../../reference/pipeline_spec/#union-input)
-- [Distributed hyperparameter tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter)
+- [Distributed hyperparameter tuning](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/ml/hyperparameter)
 
 <!-- Add a link to an interactive tutorial when it's ready-->

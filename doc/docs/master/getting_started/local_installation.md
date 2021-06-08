@@ -37,6 +37,7 @@ Before you deploy Pachyderm, make sure that you have installed:
 - A Kubernetes cluster running on your local environment: 
       - [Docker Desktop](#using-kubernetes-on-docker-desktop),
       - [Minikube](#using-minikube)
+      - [Kind](#using-kind)
       - Oracle® VirtualBox™
 - [Pachyderm Command Line Interface](#install-pachctl)
 - [Helm](https://helm.sh/docs/intro/install/) depending on your installation choice.
@@ -80,37 +81,27 @@ by following these steps:
    ```
    ```
    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-   service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   56d
+   service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   5d
    ```
 
    * To reset your Kubernetes cluster that runs on Docker Desktop, click
    the **Reset Kubernetes cluster** button. See image above. 
 
-### Using Kind (https://kind.sigs.k8s.io/)
+### Using Kind
 
-If you want to use Kind please note that this is experimental still.
+!!! Note
+      Please note that Kind is *experimental* still.
 
-1. Install Kind according to https://kind.sigs.k8s.io/
+1. Install Kind according to its [documentation](https://kind.sigs.k8s.io/).
 
-2. Install pachctl as per instructions below (Deploy Pachyderm), please note NOT to deploy just yet!
-
-3.  Deploy pachd in kind 
-    ```shell
-      pachctl deploy local --no-expose-docker-socket
-      ```
-      
-4. Continue as given below (in Deploy Pachyderm) until you reach 
-      ```shell
-      pachctl config ...
-      ```
-      
-5. Configure Pachyderm to connect directly to the Kind instance:
-
-      ```shell
-      pachctl config update context `pachctl config get active-context` --pachd-address=127.0.0.1
-      ```
-      
-6. Again - note that this IS experimental and for example GPU support is unverified.
+1. From the command prompt, confirm that Kubernetes is running:
+   ```shell
+   kubectl get all
+   ```
+   ```
+   NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+   service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   5d
+   ```
 
 ### Install `pachctl`
 
@@ -205,6 +196,11 @@ deploy Pachyderm on your local cluster by following these steps:
          ```shell
          kubectl create -f ./pachyderm.json
          ```
+!!! Note
+    If you are using Kind:
+    ```shell
+      pachctl deploy local --no-expose-docker-socket
+    ```
 
 ### Using Helm
 * Get the Repo Info:

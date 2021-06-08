@@ -172,7 +172,7 @@ func TestConfigListContext(t *testing.T) {
 	`))
 
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
+		echo {{.license}} | pachctl license activate
 		pachctl enterprise get-state | match ACTIVE
 		`,
 		"license", tu.GetTestEnterpriseCode(t),

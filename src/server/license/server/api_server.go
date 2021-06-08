@@ -383,7 +383,7 @@ func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserCluste
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	clusters := make([]*lc.UserClusterInfo, 0)
-	if err := a.env.GetDBClient().SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters`); err != nil {
+	if err := a.env.GetDBClient().SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters WHERE is_enterprise_server = false`); err != nil {
 		return nil, err
 	}
 	return &lc.ListUserClustersResponse{

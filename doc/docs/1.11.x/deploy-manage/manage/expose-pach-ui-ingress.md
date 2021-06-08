@@ -42,8 +42,8 @@ For production deployments, deploy with the `--tls` flag.
    Traefik documentation.
 
    ```shell
-   kubectl apply -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/traefik-ingress/roles.yaml
-   kubectl apply -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/traefik-ingress/traefik-daemonset.yaml
+   kubectl apply -f https://raw.githubusercontent.com/pachyderm/pachyderm/1.13.x/examples/traefik-ingress/roles.yaml
+   kubectl apply -f https://raw.githubusercontent.com/pachyderm/pachyderm/1.13.x/examples/traefik-ingress/traefik-daemonset.yaml
    ```
 
 1. Deploy the Ingress resource. The following text is an example
