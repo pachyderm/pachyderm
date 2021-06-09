@@ -332,7 +332,8 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-	//
+	// S3 client limits bucket name to 63 chars, and our commit_ids are 32 chars,
+	// leaving us with 31 free chars to use
 	repo := tu.UniqueString("testLOP")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	commit, err := pachClient.StartCommit(repo, "master")
