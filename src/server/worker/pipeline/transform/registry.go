@@ -213,9 +213,6 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 			reg.limiter.Release()
 		}
 	}()
-	if jobInfo.Started == nil {
-		jobInfo.Started = types.TimestampNow()
-	}
 	commitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
@@ -237,7 +234,14 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 	if err := reg.initializeJobChain(metaCommitInfo); err != nil {
 		return err
 	}
+	asyncStarted := false
 	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
+	// Don't leak the cancellation if we error before starting the async code
+	defer func() {
+		if !asyncStarted {
+			cancel()
+		}
+	}()
 	driver := reg.driver.WithContext(jobCtx)
 	// Build the pending job to send out to workers - this will block if
 	// we have too many already
@@ -248,6 +252,13 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 		commitInfo:     commitInfo,
 		metaCommitInfo: metaCommitInfo,
 		cancel:         cancel,
+	}
+	if jobInfo.State == pps.JobState_JOB_CREATED {
+		jobInfo.State = pps.JobState_JOB_STARTING
+		jobInfo.Started = types.TimestampNow()
+		if err := pj.writeJobInfo(); err != nil {
+			return err
+		}
 	}
 	// Inputs must be ready before we can construct a datum iterator, so do this
 	// synchronously to ensure correct order in the jobChain.
@@ -278,8 +289,11 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 		}
 		afterTime = time.Until(startTime.Add(timeout))
 	}
+
 	asyncEg, jobCtx = errgroup.WithContext(pj.driver.PachClient().Ctx())
 	pj.driver = reg.driver.WithContext(jobCtx)
+	asyncStarted = true
+
 	asyncEg.Go(func() error {
 		defer pj.cancel()
 		if pj.ji.JobTimeout != nil {
@@ -296,6 +310,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 			return nil
 		})
 	})
+
 	asyncEg.Go(func() error {
 		defer pj.cancel()
 		mutex := &sync.Mutex{}
@@ -374,6 +389,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 		mutex.Lock()
 		return nil
 	})
+
 	go func() {
 		defer reg.limiter.Release()
 		// Make sure the job has been removed from the job chain.

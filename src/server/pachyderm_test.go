@@ -5927,7 +5927,6 @@ func TestSkippedDatums(t *testing.T) {
 		require.Equal(t, 2, len(jobs))
 
 		datums, err := c.ListDatumAll(jobs[1].Job.ID)
-		fmt.Printf("got datums: %v\n", datums)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(datums))
 
@@ -7490,7 +7489,7 @@ func TestCancelJob(t *testing.T) {
 	var jobInfo *pps.JobInfo
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, -1, true)
+			jobInfos, err := c.ListJob(pipeline, nil, -1, true)
 			if err != nil {
 				return err
 			}
@@ -7572,13 +7571,13 @@ func TestCancelManyJobs(t *testing.T) {
 	))
 
 	// Create 10 input commits, to spawn 10 jobs
-	var commits [10]*pfs.Commit
-	var err error
+	var commits []*pfs.Commit
 	for i := 0; i < 10; i++ {
-		commits[i], err = c.StartCommit(repo, "master")
-		require.NoError(t, c.PutFile(commits[i], "file", strings.NewReader("foo")))
+		commit, err := c.StartCommit(repo, "master")
+		require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo")))
 		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(repo, commits[0].Branch.Name, commits[i].ID))
+		require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
+		commits = append(commits, commit)
 	}
 
 	// For each expected job: watch to make sure the input job comes up, make
@@ -7718,14 +7717,6 @@ func TestSquashCommitsetRunsJob(t *testing.T) {
 	require.NoError(t, c.PutFile(commit1, "/data", strings.NewReader("commit 1 data"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
 
-	commit2, err := c.StartCommit(repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.DeleteFile(commit2, "/time"))
-	require.NoError(t, c.PutFile(commit2, "/time", strings.NewReader("600"), client.WithAppendPutFile()))
-	require.NoError(t, c.DeleteFile(commit2, "/data"))
-	require.NoError(t, c.PutFile(commit2, "/data", strings.NewReader("commit 2 data"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
-
 	// Create sleep + copy pipeline
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -7744,13 +7735,21 @@ func TestSquashCommitsetRunsJob(t *testing.T) {
 		false,
 	))
 
+	commit2, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(commit2, "/time"))
+	require.NoError(t, c.PutFile(commit2, "/time", strings.NewReader("600"), client.WithAppendPutFile()))
+	require.NoError(t, c.DeleteFile(commit2, "/data"))
+	require.NoError(t, c.PutFile(commit2, "/data", strings.NewReader("commit 2 data"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
+
 	// Wait until PPS has started processing commit2
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
 			// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
 			// submitted, change ListJob here to filter on commit1 as the input commit,
 			// rather than inspecting the input in the test
-			jobInfos, err := c.ListJob(pipeline, nil, -1, true)
+			jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit2}, -1, true)
 			if err != nil {
 				return err
 			}
@@ -7858,12 +7857,11 @@ func TestEntryPoint(t *testing.T) {
 		false,
 	))
 
-	commitInfos, err := c.BlockCommitsetAll(commit1.ID)
+	commitInfo, err := c.BlockCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit, "file", &buf))
+	require.NoError(t, c.GetFile(commitInfo.Commit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 }
 
@@ -7934,15 +7932,14 @@ func TestUserWorkingDir(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	commitInfos, err := c.BlockCommitsetAll(commit.ID)
+	commitInfo, err := c.BlockCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit, "whoami", &buf))
+	require.NoError(t, c.GetFile(commitInfo.Commit, "whoami", &buf))
 	require.Equal(t, "test\n", buf.String())
 	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfos[0].Commit, "pwd", &buf))
+	require.NoError(t, c.GetFile(commitInfo.Commit, "pwd", &buf))
 	require.Equal(t, "/home/test\n", buf.String())
 }
 
