@@ -13,13 +13,14 @@ type dirInserter struct {
 	x FileSet
 }
 
-// NewDirInserter creates a file set that inserts directory entries.
+// NewDirInserter creates a FileSet that inserts directory entries.
 func NewDirInserter(x FileSet) FileSet {
 	return &dirInserter{x: x}
 }
 
 // Iterate calls cb once for every file in lexicographical order by path
-func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
+func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, del ...bool) error {
+	var count int
 	lastPath := ""
 	var emit func(p string, f File) error
 	emit = func(p string, f File) error {
@@ -38,11 +39,18 @@ func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, _ ...boo
 		if err := emit(parent, df); err != nil {
 			return err
 		}
+		count++
 		return emit(p, f)
 	}
-	return s.x.Iterate(ctx, func(f File) error {
+	if err := s.x.Iterate(ctx, func(f File) error {
 		return emit(f.Index().Path, f)
-	})
+	}, del...); err != nil {
+		return err
+	}
+	if count == 0 {
+		return cb(&dirFile{path: "/"})
+	}
+	return nil
 }
 
 func parentOf(x string) string {

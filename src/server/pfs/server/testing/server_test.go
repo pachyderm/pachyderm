@@ -1997,7 +1997,13 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, len(fileInfos))
 
-		// TODO: test deleting "."
+		// One-off commit directory deletion
+		masterCommit := client.NewCommit(repo, "master", "")
+		require.NoError(t, env.PachClient.PutFile(masterCommit, "/dir/foo", strings.NewReader("foo")))
+		require.NoError(t, env.PachClient.DeleteFile(masterCommit, "/"))
+		fileInfos, err = env.PachClient.ListFileAll(masterCommit, "/")
+		require.NoError(t, err)
+		require.Equal(t, 0, len(fileInfos))
 	})
 
 	suite.Run("ListCommit", func(t *testing.T) {
@@ -4078,10 +4084,6 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("PutFileCommit", func(t *testing.T) {
-		// TODO(2.0 required): Concurrent one-off commits are not safe in V2. We should either make them safe through
-		// a transactional create & finish (probably create a fileset then transactionally create & finish commit),
-		// or block concurrent operations until it completes.
-		t.Skip("Concurrent one-off commits are not safe in V2")
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -4218,6 +4220,45 @@ func TestPFS(suite *testing.T) {
 		assert.ElementsMatch(t, []string{"/dir1/", "/dir1/file1.1", "/dir1/file1.2"}, walkFile("/dir1"))
 		assert.ElementsMatch(t, []string{"/dir1/file1.1"}, walkFile("/dir1/file1.1"))
 		assert.Len(t, walkFile("/"), 7)
+	})
+
+	suite.Run("WalkFileEmpty", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		repo := "test"
+		latestCommit := client.NewCommit(repo, "master", "")
+		checks := func() {
+			cb := func(fi *pfs.FileInfo) error {
+				if assert.Equal(t, fi.FileType, pfs.FileType_DIR) && assert.Equal(t, fi.File.Path, "/") {
+					return nil
+				}
+				return errors.New("should not have returned any file results for an empty commit")
+			}
+			checkNotFound := func(path string) {
+				err := env.PachClient.WalkFile(latestCommit, path, cb)
+				require.YesError(t, err)
+				require.Matches(t, "file .* not found in repo", err.Error())
+			}
+			require.NoError(t, env.PachClient.WalkFile(latestCommit, "", cb))
+			require.NoError(t, env.PachClient.WalkFile(latestCommit, "/", cb))
+			checkNotFound("foo")
+			checkNotFound("/foo")
+			checkNotFound("foo/bar")
+			checkNotFound("/foo/bar")
+		}
+
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		// TODO(global ids): uncomment this code once global ids land and branches have default heads
+		//require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
+		//checks() // Test the default empty head commit
+
+		_, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		checks() // Test an empty open commit
+
+		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
+		checks() // Test an empty closed commit
 	})
 
 	suite.Run("ReadSizeLimited", func(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func masterListBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
@@ -320,7 +321,9 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-	repo := tu.UniqueString("testlistobjectspaginated")
+	// S3 client limits bucket name length to 63 chars, but we also want to query with commit
+	// so we need to be conservative with the length of the repo name here
+	repo := tu.UniqueString("testLOP")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	commit, err := pachClient.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -340,6 +343,14 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	for i := 0; i <= 1000; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
 	}
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
+
+	// Query by commit.repo
+	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s", commit.ID, repo), "", false, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
+
+	// Query by commit.branch.repo
+	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s.%s", commit.ID, commit.Branch.Name, repo), "", false, make(chan struct{}))
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
 	// Request that will list all files in master starting with 1
@@ -414,6 +425,76 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+}
+
+func masterListSystemRepoBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("listsystemrepo")
+	require.NoError(t, pachClient.CreateRepo(repo))
+	specRepo := client.NewSystemRepo(repo, pfs.SpecRepoType)
+	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
+	require.NoError(t, err)
+	metaRepo := client.NewSystemRepo(repo, pfs.MetaRepoType)
+	_, err = pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: metaRepo})
+	require.NoError(t, err)
+
+	// create a master branch on each
+	require.NoError(t, pachClient.CreateBranch(repo, "master", "", "", nil))
+	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})
+	require.NoError(t, err)
+	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: metaRepo.NewBranch("master")})
+	require.NoError(t, err)
+
+	buckets, err := minioClient.ListBuckets()
+	require.NoError(t, err)
+
+	var hasMaster, hasMeta bool
+	for _, bucket := range buckets {
+		if bucket.Name == fmt.Sprintf("master.%s", repo) {
+			hasMaster = true
+		} else if bucket.Name == fmt.Sprintf("master.%s.%s", pfs.MetaRepoType, repo) {
+			hasMeta = true
+		} else {
+			require.NotEqual(t, bucket.Name, fmt.Sprintf("master.%s.%s", pfs.SpecRepoType, repo))
+		}
+	}
+
+	require.True(t, hasMaster)
+	require.True(t, hasMeta)
+}
+
+func masterResolveSystemRepoBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testsystemrepo")
+	require.NoError(t, pachClient.CreateRepo(repo))
+	// create a branch named "spec" in the repo
+	branch := pfs.SpecRepoType
+	require.NoError(t, pachClient.CreateBranch(repo, branch, "", "", nil))
+
+	// as well as a branch named "master" on an associated repo of type "spec"
+	specRepo := client.NewSystemRepo(repo, pfs.SpecRepoType)
+	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
+	require.NoError(t, err)
+	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})
+	require.NoError(t, err)
+
+	bucketSuffix := fmt.Sprintf("%s.%s", branch, repo)
+
+	r := strings.NewReader("user")
+	_, err = minioClient.PutObject(bucketSuffix, "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
+
+	r2 := strings.NewReader("spec")
+	_, err = minioClient.PutObject(fmt.Sprintf("master.%s", bucketSuffix), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
+
+	// a two-part name should resolve to the user repo
+	fetchedContent, err := getObject(t, minioClient, bucketSuffix, "file")
+	require.NoError(t, err)
+	require.Equal(t, "user", fetchedContent)
+
+	// while the fully-specified name goes to the indicated system repo
+	fetchedContent, err = getObject(t, minioClient, fmt.Sprintf("master.%s", bucketSuffix), "file")
+	require.NoError(t, err)
+	require.Equal(t, "spec", fetchedContent)
 }
 
 // TODO: This should be readded as an integration test (probably in src/server/pachyderm_test.go).
@@ -498,6 +579,12 @@ func TestMasterDriver(t *testing.T) {
 		})
 		t.Run("ListObjectsRecursive", func(t *testing.T) {
 			masterListObjectsRecursive(t, pachClient, minioClient)
+		})
+		t.Run("ListSystemRepoBucket", func(t *testing.T) {
+			masterListSystemRepoBuckets(t, pachClient, minioClient)
+		})
+		t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
+			masterResolveSystemRepoBucket(t, pachClient, minioClient)
 		})
 		// TODO: Refer to masterAuthV2 function definition.
 		//t.Run("AuthV2", func(t *testing.T) {
