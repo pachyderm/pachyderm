@@ -11,7 +11,6 @@ import http.client
 from pathlib import Path
 
 ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
-PIPELINE_BUILD_DIR = "etc/pipeline-build"
 
 DELETABLE_RESOURCES = [
     "roles.rbac.authorization.k8s.io",
@@ -63,7 +62,7 @@ class BaseDriver:
         host_path = Path("/var") / f"pachyderm-{secrets.token_hex(5)}"
         return ["local", "-d", "--no-guaranteed", f"--host-path={host_path}"]
 
-    async def deploy(self, builder_images):
+    async def deploy(self):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
 
         deployments_str = await capture(*deploy_args)
@@ -73,7 +72,7 @@ class BaseDriver:
 
         await asyncio.gather(*pull_images)
 
-        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local", *builder_images]
+        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
 
         await asyncio.gather(*[self.push_image(i) for i in push_images])
         await run("kubectl", "create", "-f", "-", stdin=deployments_str)
@@ -106,8 +105,8 @@ class MinikubeDriver(BaseDriver):
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
-    async def deploy(self, builder_images):
-        await super().deploy(builder_images)
+    async def deploy(self):
+        await super().deploy()
 
         # enable direct connect
         ip = (await capture("minikube", "ip")).strip()
@@ -233,7 +232,6 @@ async def ping():
 async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
     parser.add_argument("--target", default="", help="Where to deploy")
-    parser.add_argument("--builders", action="store_true", help="Deploy images used in pipeline builds")
     args = parser.parse_args()
 
     if "GOPATH" not in os.environ:
@@ -286,17 +284,7 @@ async def main():
         driver.reset(),
     )
 
-    builder_images = []
-    if args.builders:
-        procs = []
-        version = await get_client_version()
-        for language in (d for d in os.listdir(PIPELINE_BUILD_DIR) if os.path.isdir(os.path.join(PIPELINE_BUILD_DIR, d))):
-            builder_image = f"pachyderm/{language}-build:{version}"
-            procs.append(run("docker", "build", "-t", builder_image, ".", cwd=os.path.join(PIPELINE_BUILD_DIR, language)))
-            builder_images.append(builder_image)
-        await asyncio.gather(*procs)
-    
-    await driver.deploy(builder_images)
+    await driver.deploy()
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)
