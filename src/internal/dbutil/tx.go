@@ -3,8 +3,10 @@ package dbutil
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -54,7 +56,7 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 		}
 		return tryTxFunc(tx, cb)
 	}, backoffStrategy, func(err error, _ time.Duration) error {
-		if isSerializationFailure(err) {
+		if isTransactionError(err) {
 			return nil
 		}
 		return err
@@ -71,10 +73,28 @@ func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 	return tx.Commit()
 }
 
-func isSerializationFailure(err error) bool {
-	pqErr, ok := err.(*pq.Error)
-	if !ok {
-		return false
+func isTransactionError(err error) bool {
+	pqerr := &pq.Error{}
+	if errors.As(err, pqerr) {
+		return pgerrcode.IsTransactionRollback(string(pqerr.Code))
 	}
-	return pqErr.Code.Name() == "serialization_failure"
+	return IsErrTransactionConflict(err)
+}
+
+// ErrTransactionConflict should be used by user code to indicate a conflict in
+// the transaction that should be reattempted.
+type ErrTransactionConflict struct{}
+
+func (err ErrTransactionConflict) Is(other error) bool {
+	_, ok := other.(ErrTransactionConflict)
+	return ok
+}
+
+func (err ErrTransactionConflict) Error() string {
+	return "transaction conflict, will be reattempted"
+}
+
+// IsErrTransactionConflict determines if an error is an ErrTransactionConflict error
+func IsErrTransactionConflict(err error) bool {
+	return errors.Is(err, ErrTransactionConflict{})
 }

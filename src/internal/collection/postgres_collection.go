@@ -14,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -87,69 +88,29 @@ func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection 
 	return &postgresReadWriteCollection{c, tx}
 }
 
+type ErrTransactionConflict = dbutil.ErrTransactionConflict
+
 // NewSQLTx starts a transaction on the given DB, passes it to the callback, and
 // finishes the transaction afterwards. If the callback was successful, the
 // transaction is committed. If any errors occur, the transaction is rolled
 // back.  This will reattempt the transaction forever.
 func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	attemptTx := func() error {
-		tx, err := db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-
-		err = apply(tx)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		return errors.EnsureStack(tx.Commit())
-	}
-
-	for {
-		if err := attemptTx(); err != nil {
-			if !isTransactionError(err) {
-				return err
-			}
-		} else {
-			return nil
-		}
-	}
+	return dbutil.WithTx(ctx, db, apply)
 }
 
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
 func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	attemptTx := func() error {
-		tx, err := db.BeginTxx(ctx, nil)
-		if err != nil {
-			return errors.EnsureStack(err)
+	return NewSQLTx(ctx, db, func(tx *sqlx.Tx) error {
+		if err := apply(tx); err != nil {
+			return err
 		}
-		defer tx.Rollback()
-		return apply(tx)
-	}
-	for {
-		if err := attemptTx(); err != nil {
-			if !isTransactionError(err) {
-				return err
-			}
-		} else {
-			return nil
-		}
-	}
+		return tx.Rollback()
+	})
 }
 
 func (c *postgresCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
 	return errors.New("Claim is not supported on postgres collections")
-}
-
-func isTransactionError(err error) bool {
-	pqerr := &pq.Error{}
-	if errors.As(err, pqerr) {
-		return pgerrcode.IsTransactionRollback(string(pqerr.Code))
-	}
-	return IsErrTransactionConflict(err)
 }
 
 func isDuplicateKeyError(err error) bool {
