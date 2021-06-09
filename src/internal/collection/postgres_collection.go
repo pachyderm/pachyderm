@@ -101,12 +101,16 @@ func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) erro
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
 func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	return NewSQLTx(ctx, db, func(tx *sqlx.Tx) error {
+	err := NewSQLTx(ctx, db, func(tx *sqlx.Tx) error {
 		if err := apply(tx); err != nil {
 			return err
 		}
 		return tx.Rollback()
 	})
+	if strings.Contains(err.Error(), "transaction has already been committed or rolled back") {
+		err = nil
+	}
+	return err
 }
 
 func (c *postgresCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {

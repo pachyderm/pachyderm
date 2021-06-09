@@ -15,6 +15,7 @@ import (
 
 type withTxConfig struct {
 	sql.TxOptions
+	backoff.BackOff
 }
 
 // WithTxOption parameterizes the WithTx function
@@ -34,28 +35,36 @@ func WithReadOnly() WithTxOption {
 	}
 }
 
+// WithBackOff sets the BackOff used when retrying
+func WithBackOff(bo backoff.BackOff) WithTxOption {
+	return func(c *withTxConfig) {
+		c.BackOff = bo
+	}
+}
+
 // WithTx calls cb with a transaction,
 // The transaction is committed IFF cb returns nil.
 // If cb returns an error the transaction is rolled back.
 func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts ...WithTxOption) error {
+	backoffStrategy := backoff.NewExponentialBackOff()
+	backoffStrategy.InitialInterval = 10 * time.Millisecond
+	backoffStrategy.MaxElapsedTime = 0
 	c := &withTxConfig{
 		TxOptions: sql.TxOptions{
 			Isolation: sql.LevelSerializable,
 		},
+		BackOff: backoffStrategy,
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
-	backoffStrategy := backoff.NewExponentialBackOff()
-	backoffStrategy.InitialInterval = 10 * time.Millisecond
-	backoffStrategy.MaxElapsedTime = 0
 	return backoff.RetryUntilCancel(ctx, func() error {
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
 		if err != nil {
 			return err
 		}
 		return tryTxFunc(tx, cb)
-	}, backoffStrategy, func(err error, _ time.Duration) error {
+	}, c.BackOff, func(err error, _ time.Duration) error {
 		if isTransactionError(err) {
 			return nil
 		}
