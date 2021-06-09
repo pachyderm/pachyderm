@@ -9,7 +9,6 @@ include etc/govars.mk
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Don't set the version to the git hash in CI, as it breaks the go build cache.
 ifdef CIRCLE_BRANCH
-	export VERSION_ADDITIONAL = -CIbuild
 	export GC_FLAGS = ""
 else
 	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
@@ -277,12 +276,12 @@ test-object-clients:
 	go test -count=1 ./src/server/pkg/obj/testing -timeout $(TIMEOUT) -parallel=2
 
 test-libs:
-	go test -count=1 ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
-	go test -count=1 ./src/server/pkg/hashtree -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/cert -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/localcache -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/work -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
+	go test -v -count=1 ./src/server/pkg/hashtree -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/pkg/cert -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/pkg/localcache -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/pkg/work -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true

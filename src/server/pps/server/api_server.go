@@ -2641,6 +2641,9 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 						if auth.IsErrNotActivated(err) {
 							return nil // no auth work to do
 						}
+						if auth.IsErrRevokeUnknownToken(err) {
+							return nil // the token was already revoked
+						}
 						return grpcutil.ScrubGRPC(err)
 					}
 				}
@@ -3316,7 +3319,10 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 					&auth.RevokeAuthTokenRequest{
 						Token: pipelinePtr.AuthToken,
 					})
-				return grpcutil.ScrubGRPC(err)
+				if err != nil && !auth.IsErrRevokeUnknownToken(err) && !auth.IsErrNotActivated(err) {
+					return grpcutil.ScrubGRPC(err)
+				}
+				return nil
 			}); err != nil {
 				return nil, errors.Wrapf(err, "error revoking old auth token")
 			}

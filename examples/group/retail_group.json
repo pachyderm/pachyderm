@@ -32,9 +32,8 @@
     ]
    },
    "transform": {
-    "build": { 
-      "language":"python",
-      "path": "./src"
-    }
+    "cmd": [ "python", "main.py" ],
+    "image": "pachyderm/example-group:1.12.2"
   }
 }
+ 

@@ -1,3 +1,6 @@
+>![pach_logo](../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Variant Discovery with GATK
 
 ![alt tag](pipeline.png)
@@ -170,6 +173,6 @@ a350a349-5ddb-4e19-bdda-66d7edbf9447 likelihoods/e783989ca367428ea2df6406a23bea6
 c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1cb About an hour ago  18 seconds 0       1 + 0 / 1 107.5MiB 4.667MiB success
 ```
 
-If you are using the [Enterprise Edition](https://docs.pachyderm.com/latest/enterprise/), you should be able to see the DAG and data as shown below:
+If you are using the [Enterprise Edition](https://docs.pachyderm.com/1.13.x/enterprise/), you should be able to see the DAG and data as shown below:
 
 ![alt tag](dash.png)

@@ -1,3 +1,6 @@
+>![pach_logo](../../img/pach_logo.svg) INFO - Pachyderm 2.0 introduces profound architectural changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # ML pipeline for Iris Classification - R, Python, or Julia
 
 ![alt tag](pipeline.png)
@@ -24,7 +27,7 @@ Finally, we provide some [Resources](README.md#resources) for you for further ex
 ## Getting Started
 
 - Clone this repo.
-- Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/latest/getting_started/local_installation/).
+- Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/1.13.x/getting_started/local_installation/).
 
 ## 1. Make sure Pachyderm is running
 
@@ -374,4 +377,4 @@ We could get this model to examine it, rerun it, revert to a different model, et
 - Join the [Pachyderm Slack team](http://slack.pachyderm.io/) to ask questions, get help, and talk about production deploys.
 - Follow [Pachyderm on Twitter](https://twitter.com/pachyderminc),
 - Find [Pachyderm on GitHub](https://github.com/pachyderm/pachyderm), and
-- [Spin up Pachyderm](https://docs.pachyderm.com/latest/getting_started/) by running just a few commands to try this and [other examples](https://docs.pachyderm.com/latest/examples/examples/) locally.
+- [Spin up Pachyderm](https://docs.pachyderm.com/1.13.x/getting_started/) by running just a few commands to try this and [other examples](https://docs.pachyderm.com/1.13.x/examples/examples/) locally.

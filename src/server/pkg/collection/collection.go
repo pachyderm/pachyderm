@@ -385,7 +385,7 @@ func (c *readWriteCollection) Delete(key string) error {
 	if c.indexes != nil && c.template != nil {
 		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
-			if err := c.Get(key, val.(proto.Message)); err == nil {
+			if err := c.Get(key, val); err == nil {
 				if index.Multi {
 					indexPaths := c.getMultiIndexPaths(val, index, key)
 					for _, indexPath := range indexPaths {

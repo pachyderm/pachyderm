@@ -2,6 +2,7 @@ package dbutil
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -17,15 +18,22 @@ const (
 	DefaultPostgresHost = "127.0.0.1"
 	// DefaultPostgresPort for tests
 	DefaultPostgresPort = 32228
+	// DefaultPostgresDatabase for tests
+	DefaultPostgresDatabase = "pgc"
 	// TestPostgresUser is the default postgres user
-	TestPostgresUser = "postgres"
+	TestPostgresUser = "pachyderm"
 )
 
 // NewTestDB connects to postgres using the default settings, creates a database with a unique name
 // then calls cb with a sqlx.DB configured to use the newly created database.
 // After cb returns the database is dropped.
 func NewTestDB(t testing.TB) *sqlx.DB {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s sslmode=disable", DefaultPostgresHost, DefaultPostgresPort, TestPostgresUser)
+	host := os.Getenv("POSTGRES_SERVICE_HOST")
+	if host == "" {
+		host = DefaultPostgresHost
+	}
+
+	dsn := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable", host, DefaultPostgresPort, TestPostgresUser, DefaultPostgresDatabase)
 	db := sqlx.MustOpen("postgres", dsn)
 	dbName := fmt.Sprintf("test_%d", time.Now().UnixNano())
 	db.MustExec("CREATE DATABASE " + dbName)
