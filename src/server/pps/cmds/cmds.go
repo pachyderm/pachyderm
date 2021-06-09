@@ -14,14 +14,12 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -31,13 +29,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
-	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	prompt "github.com/c-bata/go-prompt"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
-	glob "github.com/pachyderm/ohmyglob"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -584,7 +580,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	commands = append(commands, cmdutil.CreateDocsAlias(pipelineDocs, "pipeline", " pipeline$"))
 
-	var build bool
 	var pushImages bool
 	var registry string
 	var username string
@@ -593,11 +588,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(false, build, pushImages, registry, username, pipelinePath, false)
+			return pipelineHelper(false, pushImages, registry, username, pipelinePath, false)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
-	createPipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
@@ -608,11 +602,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(reprocess, build, pushImages, registry, username, pipelinePath, true)
+			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, true)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
-	updatePipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
@@ -983,11 +976,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	return commands
 }
 
-func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, username, pipelinePath string, update bool) error {
-	if build && pushImages {
-		logrus.Warning("`--push-images` is redundant, as it's already enabled with `--build`")
-	}
-
+func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelinePath string, update bool) error {
 	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 	if err != nil {
 		return err
@@ -1026,57 +1015,17 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			request.Reprocess = reprocess
 		}
 
-		isLocal := true
-		url, err := url.Parse(pipelinePath)
-		if pipelinePath != "-" && err == nil && url.Scheme != "" {
-			isLocal = false
-		}
-
-		if request.Transform != nil && request.Transform.Build != nil {
-			if !isLocal {
-				return errors.Errorf("cannot use build step-enabled pipelines that aren't local")
-			}
-			if request.Spout != nil {
-				return errors.New("build step-enabled pipelines do not work with spouts")
-			}
-			if request.Input == nil {
-				return errors.New("no `input` specified")
-			}
-			if request.Transform.Build.Language == "" && request.Transform.Build.Image == "" {
-				return errors.New("must specify either a build `language` or `image`")
-			}
-			if request.Transform.Build.Language != "" && request.Transform.Build.Image != "" {
-				return errors.New("cannot specify both a build `language` and `image`")
-			}
-			if err := ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) error {
-				inputName := ppsclient.InputName(input)
-				if inputName == "build" || inputName == "source" {
-					return errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-			pipelineParentPath, _ := filepath.Split(pipelinePath)
-			if err := buildHelper(pc, request, pipelineParentPath, update); err != nil {
-				return err
-			}
-		} else if build || pushImages {
-			if build && !isLocal {
-				return errors.Errorf("cannot build pipeline because it is not local")
-			}
+		if pushImages {
 			if request.Transform == nil {
 				return errors.New("must specify a pipeline `transform`")
 			}
 			pipelineParentPath, _ := filepath.Split(pipelinePath)
-			if err := dockerBuildHelper(request, build, registry, username, pipelineParentPath); err != nil {
+			if err := dockerBuildHelper(request, registry, username, pipelineParentPath); err != nil {
 				return err
 			}
 		}
 
-		// Don't warn if transform.build is set because latest is almost always
-		// legit for build-enabled pipelines.
-		if request.Transform != nil && request.Transform.Build == nil && request.Transform.Image != "" {
+		if request.Transform != nil && request.Transform.Image != "" {
 			if !strings.Contains(request.Transform.Image, ":") {
 				fmt.Fprintf(os.Stderr,
 					"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
@@ -1103,7 +1052,7 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 	return nil
 }
 
-func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, registry, username, pipelineParentPath string) error {
+func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, registry, username, pipelineParentPath string) error {
 	// create docker client
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
@@ -1156,37 +1105,6 @@ func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, reg
 	}
 	destTag := uuid.NewWithoutDashes()
 
-	if build {
-		dockerfile := request.Transform.Dockerfile
-		if dockerfile == "" {
-			dockerfile = "./Dockerfile"
-		}
-
-		contextDir, dockerfile := filepath.Split(dockerfile)
-		if !filepath.IsAbs(contextDir) {
-			contextDir = filepath.Join(pipelineParentPath, contextDir)
-		}
-
-		destImage := fmt.Sprintf("%s:%s", repo, destTag)
-
-		fmt.Printf("Building %q, this may take a while.\n", destImage)
-
-		err := dockerClient.BuildImage(docker.BuildImageOptions{
-			Name:         destImage,
-			ContextDir:   contextDir,
-			Dockerfile:   dockerfile,
-			OutputStream: os.Stdout,
-		})
-		if err != nil {
-			return errors.Wrapf(err, "could not build docker image")
-		}
-
-		// Now that we've built into `destTag`, change the
-		// `sourceTag` to be the same so that the push will work with
-		// the right image
-		sourceTag = destTag
-	}
-
 	sourceImage := fmt.Sprintf("%s:%s", repo, sourceTag)
 	destImage := fmt.Sprintf("%s:%s", repo, destTag)
 
@@ -1211,145 +1129,6 @@ func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, reg
 	}
 
 	request.Transform.Image = destImage
-	return nil
-}
-
-// TODO: if transactions ever add support for pipeline creation, use them here
-// to create everything atomically
-func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineRequest, pipelineParentPath string, update bool) error {
-	buildPath := request.Transform.Build.Path
-	if buildPath == "" {
-		buildPath = "."
-	}
-	if !filepath.IsAbs(buildPath) {
-		buildPath = filepath.Join(pipelineParentPath, buildPath)
-	}
-	if _, err := os.Stat(buildPath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("build path %s does not exist", buildPath)
-		}
-		return errors.Wrapf(err, "could not stat build path %s", buildPath)
-	}
-
-	buildPipelineName := fmt.Sprintf("%s_build", request.Pipeline.Name)
-
-	image := request.Transform.Build.Image
-	if image == "" {
-		pachctlVersion := version.PrettyPrintVersion(version.Version)
-		image = fmt.Sprintf("pachyderm/%s-build:%s", request.Transform.Build.Language, pachctlVersion)
-	}
-	if request.Transform.Image == "" {
-		request.Transform.Image = image
-	}
-
-	// utility function for creating an input used as part of a build step
-	createBuildPipelineInput := func(name string) *ppsclient.Input {
-		return &ppsclient.Input{
-			Pfs: &ppsclient.PFSInput{
-				Name:   name,
-				Glob:   "/",
-				Repo:   buildPipelineName,
-				Branch: name,
-			},
-		}
-	}
-
-	// create the source repo
-	if err := pc.UpdateRepo(buildPipelineName); err != nil {
-		return errors.Wrapf(err, "failed to create repo for build step-enabled pipeline")
-	}
-
-	if err := txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
-		return txClient.CreatePipeline(
-			buildPipelineName,
-			image,
-			[]string{"sh", "./build.sh"},
-			[]string{},
-			&ppsclient.ParallelismSpec{Constant: 1},
-			createBuildPipelineInput("source"),
-			"build",
-			update,
-		)
-	}); err != nil {
-		return errors.Wrapf(err, "failed to create build pipeline for build step-enabled pipeline")
-	}
-
-	// retrieve ignores (if any)
-	ignores := []*glob.Glob{}
-	ignorePath := filepath.Join(buildPath, ".pachignore")
-	if _, err := os.Stat(ignorePath); err == nil {
-		f, err := os.Open(ignorePath)
-		if err != nil {
-			return errors.Wrapf(err, "failed to read build step ignore file %s", ignorePath)
-		}
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			line := scanner.Text()
-			g, err := glob.Compile(line)
-			if err != nil {
-				return errors.Wrapf(err, "build step ignore file %s: failed to compile glob %s", ignorePath, line)
-			}
-			ignores = append(ignores, g)
-		}
-	}
-
-	// insert the source code
-	if err := pc.WithModifyFileClient(client.NewCommit(buildPipelineName, "source", ""), func(mf pachdclient.ModifyFile) error {
-		if update {
-			if err := mf.DeleteFile("/"); err != nil {
-				return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
-			}
-		}
-		return filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
-			if info == nil {
-				return errors.Errorf("%s doesn't exist", srcFilePath)
-			}
-			if info.IsDir() {
-				return nil
-			}
-
-			destFilePath, err := filepath.Rel(buildPath, srcFilePath)
-			if err != nil {
-				return errors.Wrapf(err, "failed to discover relative path for %s", srcFilePath)
-			}
-			for _, g := range ignores {
-				if g.Match(destFilePath) {
-					return nil
-				}
-			}
-
-			f, err := progress.Open(srcFilePath)
-			if err != nil {
-				return errors.Wrapf(err, "failed to open file %s for source code in build step-enabled pipeline", srcFilePath)
-			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-
-			if err := mf.PutFile(destFilePath, f); err != nil {
-				return errors.Wrapf(err, "failed to put file %s->%s for source code in build step-enabled pipeline", srcFilePath, destFilePath)
-			}
-
-			return nil
-		})
-	}); err != nil {
-		return err
-	}
-
-	// modify the pipeline to use the build assets
-	request.Input = &ppsclient.Input{
-		Cross: []*ppsclient.Input{
-			createBuildPipelineInput("source"),
-			createBuildPipelineInput("build"),
-			request.Input,
-		},
-	}
-	if request.Transform.Cmd == nil || len(request.Transform.Cmd) == 0 {
-		request.Transform.Cmd = []string{"sh", "/pfs/build/run.sh"}
-	}
-
 	return nil
 }
 

@@ -17,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/cmd/worker/assets"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
@@ -30,16 +29,6 @@ import (
 
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
-
-	// Copy certs embedded via go-bindata to /etc/ssl/certs. Because the
-	// container running this app is user-specified, we don't otherwise have
-	// control over the certs that are available.
-	//
-	// If an error occurs, don't hard-fail, but do record if any certs are
-	// known to be missing so we can inform the user.
-	if err := assets.RestoreAssets("/", "etc/ssl/certs"); err != nil {
-		log.Warnf("failed to inject TLS certs: %v", err)
-	}
 
 	// append pachyderm bins to path to allow use of pachctl
 	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")

@@ -34,13 +34,6 @@ message Transform {
   string user = 11;
   string working_dir = 12;
   string dockerfile = 13;
-  BuildSpec build = 14;
-}
-
-message BuildSpec {
-  string path = 1;
-  string language = 2;
-  string image = 3;
 }
 
 message TFJob {

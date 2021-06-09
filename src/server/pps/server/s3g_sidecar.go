@@ -187,9 +187,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	pps.VisitInput(jobInfo.Input, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
-				Repo:   in.Pfs.Repo,
-				Branch: in.Pfs.Branch,
-				Commit: in.Pfs.Commit,
+				Commit: client.NewSystemRepo(in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
 				Name:   in.Pfs.Name,
 			})
 		}
@@ -198,9 +196,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	var outputBucket *s3.Bucket
 	if s.s.pipelineInfo.S3Out {
 		outputBucket = &s3.Bucket{
-			Repo:   jobInfo.OutputCommit.Branch.Repo.Name,
-			Branch: jobInfo.OutputCommit.Branch.Name,
-			Commit: jobInfo.OutputCommit.ID,
+			Commit: jobInfo.OutputCommit,
 			Name:   "out",
 		}
 	}

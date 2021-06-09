@@ -40,7 +40,6 @@ func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 			"MaxBranches":         metrics.MaxBranches,
 			"PpsSpout":            metrics.PpsSpout,
 			"PpsSpoutService":     metrics.PpsSpoutService,
-			"PpsBuild":            metrics.PpsBuild,
 			"CfgEgress":           metrics.CfgEgress,
 			"CfgStandby":          metrics.CfgStandby,
 			"CfgS3Gateway":        metrics.CfgS3Gateway,

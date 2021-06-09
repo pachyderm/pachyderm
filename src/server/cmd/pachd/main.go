@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
-	healthclient "github.com/pachyderm/pachyderm/v2/src/health"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -39,7 +38,8 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
-	"github.com/pachyderm/pachyderm/v2/src/server/health"
+	"google.golang.org/grpc/health"
+
 	pach_http "github.com/pachyderm/pachyderm/v2/src/server/http"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
@@ -57,6 +57,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var mode string
@@ -78,7 +79,7 @@ func main() {
 	case mode == "full":
 		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
-		cmdutil.Main(doEnterpriseMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(doEnterpriseMode, &serviceenv.GlobalConfiguration{})
 	case mode == "sidecar":
 		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
 	default:
@@ -196,9 +197,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			return err
 		}
 
-		healthServer := health.NewHealthServer()
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
-			healthclient.RegisterHealthServer(externalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -232,7 +234,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
-		healthServer.Ready()
+		healthServer.Resume()
 		return nil
 	}); err != nil {
 		return err
@@ -276,9 +278,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			return err
 		}
 
-		healthServer := health.NewHealthServer()
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
-			healthclient.RegisterHealthServer(internalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -325,7 +328,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
-		healthServer.Ready()
+		healthServer.Resume()
 		return nil
 	}); err != nil {
 		return err
@@ -475,7 +478,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("Health", func() error {
-		healthclient.RegisterHealthServer(server.Server, health.NewHealthServer())
+		healthServer := health.NewServer()
+		grpc_health_v1.RegisterHealthServer(server.Server, healthServer)
 		return nil
 	}); err != nil {
 		return err
@@ -664,9 +668,10 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		healthServer := health.NewHealthServer()
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
-			healthclient.RegisterHealthServer(externalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -691,7 +696,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
-		healthServer.Ready()
+		healthServer.Resume()
 		return nil
 	}); err != nil {
 		return err
@@ -797,9 +802,10 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		healthServer := health.NewHealthServer()
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
-			healthclient.RegisterHealthServer(internalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -820,7 +826,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
-		healthServer.Ready()
+		healthServer.Resume()
 		return nil
 	}); err != nil {
 		return err

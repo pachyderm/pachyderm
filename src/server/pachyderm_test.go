@@ -7049,7 +7049,7 @@ func TestListDatumDuringJob(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					"sleep 1;",
+					"sleep 5;",
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
