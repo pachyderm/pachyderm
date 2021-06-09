@@ -79,7 +79,7 @@ func main() {
 	case mode == "full":
 		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
-		cmdutil.Main(doEnterpriseMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(doEnterpriseMode, &serviceenv.GlobalConfiguration{})
 	case mode == "sidecar":
 		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
 	default:
