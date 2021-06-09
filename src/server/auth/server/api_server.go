@@ -2233,9 +2233,10 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionConte
 	tokens := a.tokens.ReadWrite(txnCtx.Stm)
 	var tokenInfo auth.TokenInfo
 	if err := tokens.Get(auth.HashToken(req.Token), &tokenInfo); err != nil {
-		if !col.IsErrNotFound(err) {
-			return nil, err
+		if col.IsErrNotFound(err) {
+			return nil, auth.ErrRevokeUnknownToken
 		}
+		return nil, err
 	}
 	if !isAdmin && tokenInfo.Subject != callerInfo.Subject {
 		return nil, &auth.ErrNotAuthorized{

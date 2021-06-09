@@ -87,6 +87,9 @@ var (
 	// ErrExpiredToken is returned by the Auth API if a restored token expired in
 	// the past.
 	ErrExpiredToken = status.Error(codes.Internal, "token expiration is in the past")
+
+	// ErrRevokeUnknownToken is returned by the Auth API if a token to be revoked doesn't exist
+	ErrRevokeUnknownToken = status.Error(codes.Internal, "token has expired or is already revoked")
 )
 
 // IsErrNotActivated checks if an error is a ErrNotActivated
@@ -97,6 +100,16 @@ func IsErrNotActivated(err error) bool {
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
 	return strings.Contains(err.Error(), status.Convert(ErrNotActivated).Message())
+}
+
+// IsErrRevokeUnknownToken checks if an error is a ErrRevokeUnknownToken
+func IsErrRevokeUnknownToken(err error) bool {
+	if err == nil {
+		return false
+	}
+	// TODO(msteffen) This is unstructured because we have no way to propagate
+	// structured errors across GRPC boundaries. Fix
+	return strings.Contains(err.Error(), status.Convert(ErrRevokeUnknownToken).Message())
 }
 
 // IsErrPartiallyActivated checks if an error is a ErrPartiallyActivated
