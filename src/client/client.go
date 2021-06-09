@@ -15,6 +15,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	// Import registers the grpc GZIP encoder
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -29,7 +30,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/health"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -107,7 +107,7 @@ type APIClient struct {
 	clientConn *grpc.ClientConn
 
 	// healthClient is a cached healthcheck client connected to 'addr'
-	healthClient health.HealthClient
+	healthClient grpc_health_v1.HealthClient
 
 	// streamSemaphore limits the number of concurrent message streams between
 	// this client and pachd
@@ -810,7 +810,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
 	c.clientConn = clientConn
-	c.healthClient = health.NewHealthClient(clientConn)
+	c.healthClient = grpc_health_v1.NewHealthClient(clientConn)
 	return nil
 }
 

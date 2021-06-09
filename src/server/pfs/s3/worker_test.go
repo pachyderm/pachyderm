@@ -261,22 +261,17 @@ func TestWorkerDriver(t *testing.T) {
 
 	driver := NewWorkerDriver(
 		[]*Bucket{
-			&Bucket{
-				Repo:   inputRepo,
-				Branch: inputMasterCommit.Branch.Name,
-				Commit: inputMasterCommit.ID,
+			{
+				Commit: inputMasterCommit,
 				Name:   "in1",
 			},
-			&Bucket{
-				Repo:   inputRepo,
-				Branch: inputDevelopCommit.Branch.Name,
-				Commit: inputDevelopCommit.ID,
+			{
+				Commit: inputDevelopCommit,
 				Name:   "in2",
 			},
 		},
 		&Bucket{
-			Repo:   outputRepo,
-			Branch: outputBranch,
+			Commit: client.NewRepo(outputRepo).NewCommit(outputBranch, ""),
 			Name:   "out",
 		},
 	)

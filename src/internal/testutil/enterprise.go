@@ -36,7 +36,7 @@ func ActivateEnterprise(t testing.TB, c *client.APIClient) {
 			Secret:           "localhost",
 			Address:          "grpc://localhost:650",
 			UserAddress:      "grpc://localhost:650",
-			EnterpriseServer: false,
+			EnterpriseServer: true,
 		})
 	if err != nil && !license.IsErrDuplicateClusterID(err) {
 		require.NoError(t, err)
