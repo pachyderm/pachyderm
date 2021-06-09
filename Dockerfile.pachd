@@ -1,14 +1,19 @@
-FROM alpine:3.10
+FROM alpine:3.10 AS pachyderm_build
+
+RUN mkdir -p /tmp/to-copy/tmp && chmod -R 777 /tmp/to-copy 
+RUN apk add -U ca-certificates
+
+FROM scratch
 
 MAINTAINER jdoliner@pachyerm.io
 
 LABEL name="Pachyderm" \
       vendor="Pachyderm"
 
-RUN apk -U add ca-certificates
-
 COPY LICENSE /licenses
 COPY pachd /pachd
 COPY dex-assets /dex-assets
+COPY --from=pachyderm_build /tmp/to-copy /
+COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 ENTRYPOINT ["/pachd"]
