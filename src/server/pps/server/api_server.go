@@ -2098,15 +2098,6 @@ func (a *apiServer) CreatePipelineInTransaction(
 		provenance = nil
 	}
 
-	if update && request.Reprocess {
-		// If we are reprocessing, create a new commit without a parent in the output branch and meta repo
-		if _, err := a.env.PfsServer().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
-			Branch: outputBranch,
-		}); err != nil {
-			return errors.Wrapf(err, "could not create commit in output branch")
-		}
-	}
-
 	// Create or update the output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
 	if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
@@ -2806,7 +2797,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			return err
 		}
 
-		// Don't create the jobs for spouts
+		// Don't create jobs for spouts
 		if pipelineInfo.Type == pps.StoredPipelineInfo_PIPELINE_TYPE_SPOUT {
 			continue
 		}
