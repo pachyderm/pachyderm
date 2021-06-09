@@ -21,12 +21,13 @@ import RepoDetails from './components/RepoDetails';
 import useProjectSidebar from './hooks/useProjectSidebar';
 
 const ProjectSidebar = () => {
-  const {projectId, handleClose, sidebarSize} = useProjectSidebar();
+  const {projectId, handleClose, sidebarSize, overlay} = useProjectSidebar();
 
   return (
     <Route path={[JOBS_PATH, JOB_PATH, REPO_PATH, PIPELINE_PATH]}>
       <Sidebar
-        overlay
+        fixed
+        overlay={overlay}
         size={sidebarSize}
         onClose={handleClose}
         data-testid={'ProjectSidebar__sidebar'}

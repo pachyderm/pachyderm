@@ -12,15 +12,27 @@
   width: 19rem;
 }
 
+.overlay.sm {
+  width: calc(100vw - 19rem);
+}
+
 .base.md {
   width: 24.0625rem;
+}
+
+.overlay.md {
+  width: calc(100vw - 24.0625rem);
 }
 
 .base.lg {
   width: 33.375rem;
 }
 
-.overlay {
+.overlay.lg {
+  width: calc(100vw - 33.375rem);
+}
+
+.fixed {
   position: fixed;
   right: 0;
   top: var(--header-height);
@@ -29,6 +41,22 @@
   transform: scaleX(0);
   transform-origin: right;
   transition: width 0.1s ease-out, transform 0.1s ease-out;
+}
+
+.fixed.open {
+  transform: scaleX(1);
+}
+
+.overlay {
+  position: fixed;
+  background-color: var(--border-grey);
+  opacity: .3;
+  top: var(--header-height);
+  left: 0;
+  bottom: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.1s ease-out;
 }
 
 .overlay.open {

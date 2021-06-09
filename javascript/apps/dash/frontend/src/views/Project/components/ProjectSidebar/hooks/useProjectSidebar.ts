@@ -34,6 +34,7 @@ const useProjectSidebar = () => {
     projectId,
     handleClose,
     sidebarSize,
+    overlay: match?.path === JOBS_PATH,
   };
 };
 
