@@ -25,6 +25,7 @@ import (
 
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"golang.org/x/net/context"
@@ -105,7 +106,7 @@ func runSTM(s STM, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) 
 		for {
 			s.reset()
 			if err := apply(s); err != nil {
-				if IsErrTransactionConflict(err) {
+				if dbutil.IsErrTransactionConflict(err) {
 					continue
 				} else {
 					out.err = err

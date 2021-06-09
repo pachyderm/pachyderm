@@ -3,6 +3,7 @@ package dbutil
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -13,6 +14,7 @@ import (
 
 type withTxConfig struct {
 	sql.TxOptions
+	backoff.BackOff
 }
 
 // WithTxOption parameterizes the WithTx function
@@ -32,29 +34,37 @@ func WithReadOnly() WithTxOption {
 	}
 }
 
+// WithBackOff sets the BackOff used when retrying
+func WithBackOff(bo backoff.BackOff) WithTxOption {
+	return func(c *withTxConfig) {
+		c.BackOff = bo
+	}
+}
+
 // WithTx calls cb with a transaction,
 // The transaction is committed IFF cb returns nil.
 // If cb returns an error the transaction is rolled back.
 func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts ...WithTxOption) error {
+	backoffStrategy := backoff.NewExponentialBackOff()
+	backoffStrategy.InitialInterval = 10 * time.Millisecond
+	backoffStrategy.MaxElapsedTime = 0
 	c := &withTxConfig{
 		TxOptions: sql.TxOptions{
 			Isolation: sql.LevelSerializable,
 		},
+		BackOff: backoffStrategy,
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
-	backoffStrategy := backoff.NewExponentialBackOff()
-	backoffStrategy.InitialInterval = 10 * time.Millisecond
-	backoffStrategy.MaxElapsedTime = 0
 	return backoff.RetryUntilCancel(ctx, func() error {
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
 		if err != nil {
 			return err
 		}
 		return tryTxFunc(tx, cb)
-	}, backoffStrategy, func(err error, _ time.Duration) error {
-		if isSerializationFailure(err) {
+	}, c.BackOff, func(err error, _ time.Duration) error {
+		if isTransactionError(err) {
 			return nil
 		}
 		return err
@@ -71,10 +81,28 @@ func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 	return tx.Commit()
 }
 
-func isSerializationFailure(err error) bool {
-	pqErr, ok := err.(*pq.Error)
-	if !ok {
-		return false
+func isTransactionError(err error) bool {
+	pqerr := &pq.Error{}
+	if errors.As(err, &pqerr) {
+		return pqerr.Code.Class() == "40"
 	}
-	return pqErr.Code.Name() == "serialization_failure"
+	return IsErrTransactionConflict(err)
+}
+
+// ErrTransactionConflict should be used by user code to indicate a conflict in
+// the transaction that should be reattempted.
+type ErrTransactionConflict struct{}
+
+func (err ErrTransactionConflict) Is(other error) bool {
+	_, ok := other.(ErrTransactionConflict)
+	return ok
+}
+
+func (err ErrTransactionConflict) Error() string {
+	return "transaction conflict, will be reattempted"
+}
+
+// IsErrTransactionConflict determines if an error is an ErrTransactionConflict error
+func IsErrTransactionConflict(err error) bool {
+	return errors.Is(err, ErrTransactionConflict{})
 }
