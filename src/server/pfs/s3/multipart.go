@@ -59,11 +59,11 @@ func multipartKeepArgs(path string) (repo string, branch string, key string, upl
 }
 
 func parentDirPath(bucket *Bucket, key string, uploadID string) string {
-	commitID := bucket.Commit
+	commitID := bucket.Commit.ID
 	if commitID == "" {
 		commitID = "latest"
 	}
-	return path.Join(bucket.Repo, bucket.Branch, commitID, key, uploadID)
+	return path.Join(bucket.Commit.Branch.Repo.Name, bucket.Commit.Branch.Repo.Type, bucket.Commit.Branch.Name, commitID, key, uploadID)
 }
 
 func chunkPath(bucket *Bucket, key string, uploadID string, partNumber int) string {
@@ -245,11 +245,11 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	}
 
 	// check if the destination file already exists, and if so, delete it
-	_, err = pc.InspectFile(client.NewCommit(bucket.Repo, bucket.Branch, bucket.Commit), key)
+	_, err = pc.InspectFile(bucket.Commit, key)
 	if err != nil && !pfsServer.IsFileNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 		return nil, err
 	} else if err == nil {
-		err = pc.DeleteFile(client.NewCommit(bucket.Repo, bucket.Branch, bucket.Commit), key)
+		err = pc.DeleteFile(bucket.Commit, key)
 		if err != nil {
 			if errutil.IsWriteToOutputBranchError(err) {
 				return nil, writeToOutputBranchError(r)
@@ -283,7 +283,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 			return nil, s2.EntityTooSmallError(r)
 		}
 
-		err = pc.CopyFile(client.NewCommit(bucket.Repo, bucket.Branch, bucket.Commit), key, client.NewCommit(c.repo, "master", ""), srcPath, client.WithAppendCopyFile())
+		err = pc.CopyFile(bucket.Commit, key, client.NewCommit(c.repo, "master", ""), srcPath, client.WithAppendCopyFile())
 		if err != nil {
 			if errutil.IsWriteToOutputBranchError(err) {
 				return nil, writeToOutputBranchError(r)
@@ -297,7 +297,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		return nil, err
 	}
 
-	fileInfo, err := pc.InspectFile(client.NewCommit(bucket.Repo, bucket.Branch, bucket.Commit), key)
+	fileInfo, err := pc.InspectFile(bucket.Commit, key)
 	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
