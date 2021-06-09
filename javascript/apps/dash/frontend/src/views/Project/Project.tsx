@@ -60,7 +60,7 @@ const Project: React.FC = () => {
               applySliderZoom(d)
             }
             value={sliderZoomValue * 100}
-            disabled={dags.length === 0}
+            disabled={dags?.length === 0}
           />
           <Tooltip
             className={styles.tooltip}
@@ -71,7 +71,7 @@ const Project: React.FC = () => {
             <button
               className={styles.controlButton}
               onClick={zoomOut}
-              disabled={dags.length === 0}
+              disabled={dags?.length === 0}
             >
               <ZoomOutSvg
                 aria-label="Zoom Out"
@@ -82,7 +82,7 @@ const Project: React.FC = () => {
           <button
             className={classnames(styles.controlButton, [styles[dagDirection]])}
             onClick={rotateDag}
-            disabled={dags.length === 0}
+            disabled={dags?.length === 0}
           >
             <RotateSvg
               aria-label={'Rotate Dag'}

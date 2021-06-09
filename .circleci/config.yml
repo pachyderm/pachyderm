@@ -23,6 +23,14 @@ jobs:
             - run: cd javascript/apps/dash/frontend && npm ci
             - run: cd javascript/apps/dash/frontend && npm run lint
             - run: cd javascript/apps/dash/frontend && npm run test
+    build:
+        resource_class: xlarge
+        docker:
+            - image: circleci/node:14.16.0
+        steps:
+            - checkout
+            - run: cd javascript/apps/dash && make ci
+            - run: cd javascript/apps/dash && make build
     live-automation:
         resource_class: xlarge
         docker:
@@ -53,6 +61,7 @@ workflows:
         jobs:
             - backend-test
             - frontend-test
+            - build
     live-automation:
         triggers:
             - schedule:
