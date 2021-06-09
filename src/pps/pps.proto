@@ -380,6 +380,16 @@ message StoredPipelineInfo {
   // k8s privileges and without knowing the number of cluster nodes in the
   // Coefficient case.
   uint64 parallelism = 10;
+
+  // The pipeline type is stored here so that we can internally know the type of
+  // the pipeline without loading the spec from PFS - this field is not in the
+  // full PipelineInfo as that would be redundant.
+  enum PipelineType {
+    PIPELINE_TYPE_TRANSFORM = 0;
+    PIPELINE_TYPE_SPOUT = 1;
+    PIPELINE_TYPE_SERVICE = 2;
+  }
+  PipelineType type = 11;
 }
 
 message PipelineInfo {

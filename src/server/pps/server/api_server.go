@@ -77,10 +77,6 @@ var (
 	suite = "pachyderm"
 )
 
-func newErrPipelineNotFound(pipeline string) error {
-	return errors.Errorf("pipeline %v not found", pipeline)
-}
-
 func newErrPipelineExists(pipeline string) error {
 	return errors.Errorf("pipeline %v already exists", pipeline)
 }
@@ -1523,8 +1519,6 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 		latestPipelineInfo, err := a.latestPipelineInfo(txnCtx, pipelineName)
 		if err != nil {
 			return nil, err
-		} else if latestPipelineInfo == nil {
-			return nil, newErrPipelineNotFound(pipelineName)
 		}
 		if prevPipelineVersion != latestPipelineInfo.Version {
 			return nil, errors.Errorf("pipeline operation aborted due to concurrent pipeline update")
@@ -1804,9 +1798,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 func (a *apiServer) latestPipelineInfo(txnCtx *txncontext.TransactionContext, pipelineName string) (*pps.PipelineInfo, error) {
 	pipelinePtr := pps.StoredPipelineInfo{}
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(pipelineName, &pipelinePtr); err != nil {
-		if col.IsErrNotFound(err) {
-			return nil, nil
-		}
 		return nil, err
 	}
 	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
@@ -1824,7 +1815,10 @@ func (a *apiServer) pipelineInfosForUpdate(txnCtx *txncontext.TransactionContext
 	// spec commit isn't working.
 	oldPipelineInfo, err := a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
 	if err != nil {
-		return nil, nil, err
+		if !col.IsErrNotFound(err) {
+			return nil, nil, err
+		}
+		// Continue with a 'nil' oldPipelineInfo if it does not already exist
 	}
 
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
@@ -2012,6 +2006,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 			pipelinePtr.Reason = ""
 			// Update pipeline parallelism
 			pipelinePtr.Parallelism = uint64(parallelism)
+			// Update the stored type
+			pipelinePtr.Type = pipelineTypeFromInfo(newPipelineInfo)
 
 			// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
 			if err := func() error {
@@ -2061,6 +2057,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			OriginalSpecCommit: specCommit,
 			State:              pps.PipelineState_PIPELINE_STARTING,
 			Parallelism:        uint64(parallelism),
+			Type:               pipelineTypeFromInfo(newPipelineInfo),
 		}
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
@@ -2101,17 +2098,22 @@ func (a *apiServer) CreatePipelineInTransaction(
 		provenance = nil
 	}
 
-	// Create/update output branch (creating new output commit for the pipeline
-	// and restarting the pipeline)
 	if update && request.Reprocess {
 		// If we are reprocessing, create a new commit without a parent in the output branch and meta repo
-	} else {
-		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     outputBranch,
-			Provenance: provenance,
+		if _, err := a.env.PfsServer().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
+			Branch: outputBranch,
 		}); err != nil {
-			return errors.Wrapf(err, "could not create/update output branch")
+			return errors.Wrapf(err, "could not create commit in output branch")
 		}
+	}
+
+	// Create or update the output branch (creating new output commit for the pipeline
+	// and restarting the pipeline)
+	if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+		Branch:     outputBranch,
+		Provenance: provenance,
+	}); err != nil {
+		return errors.Wrapf(err, "could not create/update output branch")
 	}
 
 	if visitErr := pps.VisitInput(request.Input, func(input *pps.Input) error {
@@ -2153,6 +2155,15 @@ func (a *apiServer) CreatePipelineInTransaction(
 		}
 	}
 	return nil
+}
+
+func pipelineTypeFromInfo(pipelineInfo *pps.PipelineInfo) pps.StoredPipelineInfo_PipelineType {
+	if pipelineInfo.Spout != nil {
+		return pps.StoredPipelineInfo_PIPELINE_TYPE_SPOUT
+	} else if pipelineInfo.Service != nil {
+		return pps.StoredPipelineInfo_PIPELINE_TYPE_SERVICE
+	}
+	return pps.StoredPipelineInfo_PIPELINE_TYPE_TRANSFORM
 }
 
 // setPipelineDefaults sets the default values for a pipeline info
@@ -2617,8 +2628,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		pipelineInfo, err := a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
 		if err != nil {
 			return err
-		} else if pipelineInfo == nil {
-			return newErrPipelineNotFound(request.Pipeline.Name)
 		}
 
 		// check if the caller is authorized to update this pipeline
@@ -2666,8 +2675,6 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		pipelineInfo, err := a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
 		if err != nil {
 			return err
-		} else if pipelineInfo == nil {
-			return newErrPipelineNotFound(request.Pipeline.Name)
 		}
 
 		// check if the caller is authorized to update this pipeline
@@ -2780,6 +2787,11 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 	}
 
 	for _, commitInfo := range commitInfos {
+		// Skip alias commits and any commits which have already been finished
+		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS || commitInfo.Finished != nil {
+			continue
+		}
+
 		// Skip commits from system repos
 		if commitInfo.Commit.Branch.Repo.Type != pfs.UserRepoType {
 			continue
@@ -2794,8 +2806,8 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			return err
 		}
 
-		// TODO(global ids): don't create the jobs for certain states or for spouts (can't detect spouts without loading pipeline spec?)
-		if pipelineInfo.Stopped {
+		// Don't create the jobs for spouts
+		if pipelineInfo.Type == pps.StoredPipelineInfo_PIPELINE_TYPE_SPOUT {
 			continue
 		}
 
@@ -2806,10 +2818,6 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			continue // Job already exists, skip it
 		} else if !col.IsErrNotFound(err) {
 			return err
-		}
-
-		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS || commitInfo.Finished != nil {
-			continue // Skip alias commits and any commits which have already been finished
 		}
 
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
