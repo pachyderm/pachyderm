@@ -32,9 +32,7 @@ require (
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
 	github.com/hanwen/go-fuse/v2 v2.0.3
-	github.com/hashicorp/go-retryablehttp v0.5.4 // indirect
 	github.com/hashicorp/golang-lru v0.5.3
-	github.com/hashicorp/vault v1.1.3
 	github.com/itchyny/gojq v0.11.2
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
@@ -61,7 +59,6 @@ require (
 	github.com/prometheus/common v0.9.1
 	github.com/robfig/cron v1.2.0
 	github.com/russellhaering/goxmldsig v1.1.0 // indirect
-	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/segmentio/analytics-go v0.0.0-20160426181448-2d840d861c32
 	github.com/segmentio/backo-go v0.0.0-20160424052352-204274ad699c // indirect

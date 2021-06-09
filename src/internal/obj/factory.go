@@ -78,9 +78,6 @@ const (
 	AmazonIDEnvVar           = "AMAZON_ID"
 	AmazonSecretEnvVar       = "AMAZON_SECRET"
 	AmazonTokenEnvVar        = "AMAZON_TOKEN"
-	AmazonVaultAddrEnvVar    = "AMAZON_VAULT_ADDR"
-	AmazonVaultRoleEnvVar    = "AMAZON_VAULT_ROLE"
-	AmazonVaultTokenEnvVar   = "AMAZON_VAULT_TOKEN"
 	AmazonDistributionEnvVar = "AMAZON_DISTRIBUTION"
 	CustomEndpointEnvVar     = "CUSTOM_ENDPOINT"
 )
@@ -159,9 +156,6 @@ var EnvVarToSecretKey = []struct {
 	{Key: AmazonIDEnvVar, Value: "amazon-id"},
 	{Key: AmazonSecretEnvVar, Value: "amazon-secret"},
 	{Key: AmazonTokenEnvVar, Value: "amazon-token"},
-	{Key: AmazonVaultAddrEnvVar, Value: "amazon-vault-addr"},
-	{Key: AmazonVaultRoleEnvVar, Value: "amazon-vault-role"},
-	{Key: AmazonVaultTokenEnvVar, Value: "amazon-vault-token"},
 	{Key: AmazonDistributionEnvVar, Value: "amazon-distribution"},
 	{Key: CustomEndpointEnvVar, Value: "custom-endpoint"},
 	{Key: RetriesEnvVar, Value: "retries"},
@@ -405,7 +399,7 @@ func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 		}
 	}
 
-	// Retrieve either static or vault credentials; if neither are found, we will
+	// Retrieve static credentials; if not found,
 	// use IAM roles (i.e. the EC2 metadata service)
 	var creds AmazonCreds
 	creds.ID, err = readSecretFile("/amazon-id")
@@ -417,18 +411,6 @@ func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 		return nil, err
 	}
 	creds.Token, err = readSecretFile("/amazon-token")
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	creds.VaultAddress, err = readSecretFile("/amazon-vault-addr")
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	creds.VaultRole, err = readSecretFile("/amazon-vault-role")
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	creds.VaultToken, err = readSecretFile("/amazon-vault-token")
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
@@ -461,9 +443,6 @@ func NewAmazonClientFromEnv() (Client, error) {
 	creds.ID, _ = os.LookupEnv(AmazonIDEnvVar)
 	creds.Secret, _ = os.LookupEnv(AmazonSecretEnvVar)
 	creds.Token, _ = os.LookupEnv(AmazonTokenEnvVar)
-	creds.VaultAddress, _ = os.LookupEnv(AmazonVaultAddrEnvVar)
-	creds.VaultRole, _ = os.LookupEnv(AmazonVaultRoleEnvVar)
-	creds.VaultToken, _ = os.LookupEnv(AmazonVaultTokenEnvVar)
 
 	distribution, _ := os.LookupEnv(AmazonDistributionEnvVar)
 	// Get endpoint for custom deployment (optional).
