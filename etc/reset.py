@@ -63,31 +63,17 @@ class BaseDriver:
         host_path = Path("/var") / f"pachyderm-{secrets.token_hex(5)}"
         return ["local", "-d", "--no-guaranteed", f"--host-path={host_path}"]
 
-    async def deploy(self, dash, builder_images):
+    async def deploy(self, builder_images):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
-        if not dash:
-            deploy_args.append("--no-dashboard")
 
         deployments_str = await capture(*deploy_args)
         deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
-
-        dash_spec = find_in_json(deployments_json, lambda j: \
-            isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)
-        grpc_proxy_spec = find_in_json(deployments_json, lambda j: \
-            isinstance(j, dict) and j.get("name") == "grpc-proxy")
         
         pull_images = [run("docker", "pull", ETCD_IMAGE)]
-        if dash_spec is not None:
-            pull_images.append(run("docker", "pull", dash_spec["image"]))
-        if grpc_proxy_spec is not None:
-            pull_images.append(run("docker", "pull", grpc_proxy_spec["image"]))
+
         await asyncio.gather(*pull_images)
 
         push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local", *builder_images]
-        if dash_spec is not None:
-            push_images.append(dash_spec["image"])
-        if grpc_proxy_spec is not None:
-            push_images.append(grpc_proxy_spec["image"])
 
         await asyncio.gather(*[self.push_image(i) for i in push_images])
         await run("kubectl", "create", "-f", "-", stdin=deployments_str)
@@ -120,8 +106,8 @@ class MinikubeDriver(BaseDriver):
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
-    async def deploy(self, dash, builder_images):
-        await super().deploy(dash, builder_images)
+    async def deploy(self, builder_images):
+        await super().deploy(builder_images)
 
         # enable direct connect
         ip = (await capture("minikube", "ip")).strip()
@@ -247,7 +233,6 @@ async def ping():
 async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
     parser.add_argument("--target", default="", help="Where to deploy")
-    parser.add_argument("--dash", action="store_true", help="Deploy dash")
     parser.add_argument("--builders", action="store_true", help="Deploy images used in pipeline builds")
     args = parser.parse_args()
 
@@ -311,7 +296,7 @@ async def main():
             builder_images.append(builder_image)
         await asyncio.gather(*procs)
     
-    await driver.deploy(args.dash, builder_images)
+    await driver.deploy(builder_images)
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)
