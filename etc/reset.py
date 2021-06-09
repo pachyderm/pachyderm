@@ -11,8 +11,6 @@ import http.client
 from pathlib import Path
 
 ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
-IDE_USER_IMAGE = "pachyderm/ide-user:local"
-IDE_HUB_IMAGE = "pachyderm/ide-hub:local"
 PIPELINE_BUILD_DIR = "etc/pipeline-build"
 
 DELETABLE_RESOURCES = [
@@ -46,17 +44,9 @@ class BaseDriver:
         return name
 
     async def reset(self):
-        # Check for the presence of the pachyderm IDE to see whether it should
-        # be undeployed too. Using kubectl rather than helm here because
-        # this'll work even if the helm CLI is not installed.
-        undeploy_args = []
-        jupyterhub_apps = json.loads(await capture("kubectl", "get", "pod", "-lapp=jupyterhub", "-o", "json"))
-        if len(jupyterhub_apps["items"]) > 0:
-            undeploy_args.append("--ide")
-
          # ignore errors here because most likely no cluster is just deployed
          # yet
-        await run("pachctl", "undeploy", "--metadata", *undeploy_args, stdin="y\n", raise_on_error=False)
+        await run("pachctl", "undeploy", "--metadata", stdin="y\n", raise_on_error=False)
         # clear out resources not removed from the undeploy process
         await run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
@@ -73,7 +63,7 @@ class BaseDriver:
         host_path = Path("/var") / f"pachyderm-{secrets.token_hex(5)}"
         return ["local", "-d", "--no-guaranteed", f"--host-path={host_path}"]
 
-    async def deploy(self, dash, ide, builder_images):
+    async def deploy(self, dash, builder_images):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
         if not dash:
             deploy_args.append("--no-dashboard")
@@ -104,16 +94,6 @@ class BaseDriver:
 
         await retry(ping, attempts=60)
 
-        if ide:
-            await asyncio.gather(*[self.push_image(i) for i in [IDE_USER_IMAGE, IDE_HUB_IMAGE]])
-
-            await run("pachctl", "enterprise", "activate", stdin=os.environ["PACH_ENTERPRISE_KEY"])
-            await run("pachctl", "auth", "activate", stdin="admin\n")
-            await run("pachctl", "deploy", "ide", 
-                "--user-image", self.image(IDE_USER_IMAGE),
-                "--hub-image", self.image(IDE_HUB_IMAGE),
-            )
-
 class MinikubeDriver(BaseDriver):
     async def reset(self):
         is_minikube_running = True
@@ -140,8 +120,8 @@ class MinikubeDriver(BaseDriver):
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
-    async def deploy(self, dash, ide, builder_images):
-        await super().deploy(dash, ide, builder_images)
+    async def deploy(self, dash, builder_images):
+        await super().deploy(dash, builder_images)
 
         # enable direct connect
         ip = (await capture("minikube", "ip")).strip()
@@ -268,7 +248,6 @@ async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
     parser.add_argument("--target", default="", help="Where to deploy")
     parser.add_argument("--dash", action="store_true", help="Deploy dash")
-    parser.add_argument("--ide", action="store_true", help="Deploy IDE")
     parser.add_argument("--builders", action="store_true", help="Deploy images used in pipeline builds")
     args = parser.parse_args()
 
@@ -276,8 +255,6 @@ async def main():
         raise Exception("Must set GOPATH")
     if "PACH_CA_CERTS" in os.environ:
         raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
-    if args.ide and "PACH_ENTERPRISE_KEY" not in os.environ:
-        raise Exception("Must set PACH_ENTERPRISE_KEY")
 
     driver = None
 
@@ -334,7 +311,7 @@ async def main():
             builder_images.append(builder_image)
         await asyncio.gather(*procs)
     
-    await driver.deploy(args.dash, args.ide, builder_images)
+    await driver.deploy(args.dash, builder_images)
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)
