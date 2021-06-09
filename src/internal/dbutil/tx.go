@@ -6,7 +6,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgerrcode"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -84,8 +83,8 @@ func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 
 func isTransactionError(err error) bool {
 	pqerr := &pq.Error{}
-	if errors.As(err, pqerr) {
-		return pgerrcode.IsTransactionRollback(string(pqerr.Code))
+	if errors.As(err, &pqerr) {
+		return pqerr.Code.Class() == "40"
 	}
 	return IsErrTransactionConflict(err)
 }
