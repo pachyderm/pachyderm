@@ -244,6 +244,7 @@ func (d *driver) updateTransaction(
 	txn *transaction.Transaction,
 	f func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error),
 ) (*transaction.TransactionInfo, error) {
+	// we want to respect ErrBreak, so we have to smuggle some information out of the transaction
 	var gotBreak bool
 	// local info will hold a version of the transaction with any modifications needed to get the current version to run
 	// it will only be written to the collection after the update operation is successful
@@ -265,26 +266,26 @@ func (d *driver) updateTransaction(
 			gotBreak = true
 			return nil
 		}
+		gotBreak = false
 		return err
 	}
 
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
 		var err error
-		gotBreak = false
 		if writeTxn {
 			err = d.txnEnv.WithWriteContext(ctx, attempt)
 		} else {
 			err = d.txnEnv.WithReadContext(ctx, attempt)
 		}
-		if gotBreak {
+		if err == nil && gotBreak {
 			return localInfo, nil // no need to update
 		}
 
 		if err == nil {
-			// only persist the transaction if we succeeded, otherwise we'll just update localInfo
+			// only persist the transaction if we succeeded, otherwise just update localInfo
 			var storedInfo transaction.TransactionInfo
-			if updateErr := col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
+			if err = col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
 				// Update the existing transaction with the new requests/responses
 				return d.transactions.ReadWrite(sqlTx).Update(txn.ID, &storedInfo, func() error {
 					if storedInfo.Version != localInfo.Version {
@@ -295,11 +296,9 @@ func (d *driver) updateTransaction(
 					storedInfo.Version += 1
 					return nil
 				})
-			}); updateErr == nil {
+			}); err == nil {
 				// update succeeded, put the incremented version in the returned info
 				localInfo.Version = storedInfo.Version
-			} else if updateErr != nil && err == nil {
-				err = updateErr
 			}
 		}
 		// if we got a transactionModifiedError trying to update the stored TransactionInfo, just try again
