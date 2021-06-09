@@ -39,6 +39,10 @@ See the [conversion table](#conversion-table) at the end of this page. It should
 
 See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters.
 
+!!! Warning
+    When deploying Pachyderm using the "pachctl deploy" command (which was the only option prior to 1.13), **k8s CPU and memory requests and limits** were created for pachd, even if they were not explicitly set by flags on the command line. With the Helm Chart deployment, that is not the case.  If you don't provide values in the values.yaml file, then those requests and limits are simply not set. 
+
+    For Production deployments, Pachyderm strongly recommends that you **create your values.yaml file with CPU and memory requests and limits for both pachd and etcd** set to values appropriate to your specific environment. For reference, with `pachctl deploy` the defaults used were 1 CPU and 2 GB memory for each.    
 ###  Install the Pachyderm Helm Chart
 1. Get your Helm Repo Info
     ```shell

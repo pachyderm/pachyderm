@@ -101,9 +101,6 @@ docker-build-pipeline-build: install
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
 
-docker-build-netcat:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_netcat etc/netcat
-
 docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
@@ -481,7 +478,6 @@ check-buckets:
 	docker-build \
 	docker-build-pipeline-build \
 	docker-build-proto \
-	docker-build-netcat \
 	docker-build-gpu \
 	docker-build-kafka \
 	docker-build-spout-test \

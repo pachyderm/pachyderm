@@ -8,17 +8,6 @@ to configure your custom deployment:
 * `--local-roles`: You can use the `--local-roles` flag to change
 the kind of role the `pachyderm` service account uses
 from cluster-wide (`ClusterRole`) to namespace-specific (`Role`).
-Using `--local-roles` inhibits your ability to use the
-[coefficient parallelism](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#parallelism-spec-optional)
-feature. After you set the `--local-roles` flag,
-you might see a message similar to this in the `pachd` pod Kubernetes logs:
-
-  ```
-  ERROR unable to access kubernetes nodeslist, Pachyderm will continue to work 
-  but it will not be possible to use COEFFICIENT parallelism. error: nodes is 
-  forbidden: User "system:serviceaccount:pachyderm-test-1:pachyderm" cannot 
-  list nodes at the cluster scope
-  ```
 
 **Resource requests and limits flags:**
 
