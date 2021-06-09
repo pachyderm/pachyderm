@@ -27,6 +27,7 @@ import (
 	"github.com/robfig/cron"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -34,13 +35,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
+	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
 const crashingBackoff = time.Second * 15
+const scaleUpInterval = time.Second * 30
 
 //////////////////////////////////////////////////////////////////////////////
 //                     Locking Functions                                    //
@@ -189,7 +193,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		return nil
 	})
-	if pipelineInfo.Standby {
+	if pipelineInfo.Standby || pipelineInfo.Autoscaling {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
 		// standby when SubscribeCommit takes too long to return.
 		ciChan := make(chan *pfs.CommitInfo, 1)
@@ -325,6 +329,53 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 			}, backoff.NewInfiniteBackOff(),
 				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipeline))
 		})
+		if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > 1 && pipelineInfo.Autoscaling {
+			eg.Go(func() error {
+				pachClient := m.a.env.GetPachClient(ctx)
+				return backoff.RetryUntilCancel(ctx, func() error {
+					worker := work.NewWorker(
+						m.a.env.GetEtcdClient(),
+						m.a.etcdPrefix,
+						driver.WorkNamespace(pipelineInfo),
+					)
+					for {
+						nTasks, nClaims, err := worker.TaskCount(pachClient.Ctx())
+						if err != nil {
+							return err
+						}
+						if nClaims < nTasks {
+							kubeClient := m.a.env.GetKubeClient()
+							namespace := m.a.namespace
+							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
+							scale, err := rc.GetScale(pipelineInfo.WorkerRc, metav1.GetOptions{})
+							n := nTasks
+							if n > int64(pipelineInfo.ParallelismSpec.Constant) {
+								n = int64(pipelineInfo.ParallelismSpec.Constant)
+							}
+							if err != nil {
+								return err
+							}
+							if int64(scale.Spec.Replicas) < n {
+								scale.Spec.Replicas = int32(n)
+								if _, err := rc.UpdateScale(pipelineInfo.WorkerRc, scale); err != nil {
+									return err
+								}
+							}
+							// We've already attained max scale, no reason to keep polling.
+							if n == int64(pipelineInfo.ParallelismSpec.Constant) {
+								return nil
+							}
+						}
+						select {
+						case <-time.After(scaleUpInterval):
+						case <-pachClient.Ctx().Done():
+							return pachClient.Ctx().Err()
+						}
+					}
+				}, backoff.NewInfiniteBackOff(),
+					backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
+			})
+		}
 	}
 	if err := eg.Wait(); err != nil {
 		log.Printf("error in monitorPipeline: %v", err)

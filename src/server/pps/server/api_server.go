@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math"
 	"path"
 	"sort"
 	"strings"
@@ -52,12 +51,17 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
+	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
+	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
@@ -284,12 +288,7 @@ func validateTransform(transform *pps.Transform) error {
 func (a *apiServer) validateKube() {
 	errors := false
 	kubeClient := a.env.GetKubeClient()
-	_, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
-	if err != nil {
-		errors = true
-		logrus.Errorf("unable to access kubernetes nodeslist, Pachyderm will continue to work but it will not be possible to use COEFFICIENT parallelism. error: %v", err)
-	}
-	_, err = kubeClient.CoreV1().Pods(a.namespace).Watch(metav1.ListOptions{Watch: true})
+	_, err := kubeClient.CoreV1().Pods(a.namespace).Watch(metav1.ListOptions{Watch: true})
 	if err != nil {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
@@ -1116,7 +1115,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	}
 	if a.env.Config().LokiLogging || request.UseLokiBackend {
 		pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
-		resp, err := pachClient.Enterprise.GetState(context.Background(),
+		resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
 			&enterpriseclient.GetStateRequest{})
 		if err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
@@ -1124,7 +1123,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if resp.State == enterpriseclient.State_ACTIVE {
 			return a.getLogsLoki(request, apiGetLogsServer)
 		}
-		return errors.Errorf("enterprise must be enabled to use loki logging")
+		enterprisemetrics.IncEnterpriseFailures()
+		return errors.Errorf("%s requires an activation key to use Loki for logs. %s\n\n%s",
+			enterprisetext.OpenSourceProduct, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -1459,6 +1460,39 @@ func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps
 	return request, nil
 }
 
+func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name); err == nil {
+		// Pipeline already exists so we allow people to update it even if
+		// they're over the limits.
+		return nil
+	}
+	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
+		&enterpriseclient.GetStateRequest{})
+	if err != nil {
+		return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
+	}
+	if resp.State == enterpriseclient.State_ACTIVE {
+		// Enterprise is enabled so anything goes.
+		return nil
+	}
+	pipelines, err := a.pipelines.ReadOnly(ctx).Count()
+	if err != nil {
+		return err
+	}
+	if pipelines >= enterpriselimits.Pipelines {
+		enterprisemetrics.IncEnterpriseFailures()
+		return errors.Errorf("%s requires an activation key to create more than %d total pipelines (you have %d). %s\n\n%s",
+			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, pipelines, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+	}
+	if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > enterpriselimits.Parallelism {
+		enterprisemetrics.IncEnterpriseFailures()
+		return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
+			enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+	}
+	return nil
+}
+
 func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
@@ -1484,14 +1518,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 		return err
 	}
 	if pipelineInfo.ParallelismSpec != nil {
-		if pipelineInfo.ParallelismSpec.Coefficient < 0 {
-			return errors.New("ParallelismSpec.Coefficient cannot be negative")
-		}
-		if pipelineInfo.ParallelismSpec.Constant != 0 &&
-			pipelineInfo.ParallelismSpec.Coefficient != 0 {
-			return errors.New("contradictory parallelism strategies: must set at " +
-				"most one of ParallelismSpec.Constant and ParallelismSpec.Coefficient")
-		}
 		if pipelineInfo.Service != nil && pipelineInfo.ParallelismSpec.Constant != 1 {
 			return errors.New("services can only be run with a constant parallelism of 1")
 		}
@@ -1728,23 +1754,10 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 // that can be stored in StoredPipelineInfo.Parallelism
 func getExpectedNumWorkers(kc *kube.Clientset, pipelineInfo *pps.PipelineInfo) (int, error) {
 	switch pspec := pipelineInfo.ParallelismSpec; {
-	case pspec == nil, pspec.Constant == 0 && pspec.Coefficient == 0:
+	case pspec == nil, pspec.Constant == 0:
 		return 1, nil
-	case pspec.Constant > 0 && pspec.Coefficient == 0:
+	case pspec.Constant > 0:
 		return int(pspec.Constant), nil
-	case pspec.Constant == 0 && pspec.Coefficient > 0:
-		// Start ('coefficient' * 'nodes') workers. Determine number of workers
-		nodeList, err := kc.CoreV1().Nodes().List(metav1.ListOptions{})
-		if err != nil {
-			return 0, errors.Wrapf(err, "unable to retrieve node list from k8s to determine parallelism")
-		}
-		if len(nodeList.Items) == 0 {
-			return 0, errors.Errorf("unable to determine parallelism for %q: no k8s nodes found",
-				pipelineInfo.Pipeline.Name)
-		}
-		numNodes := len(nodeList.Items)
-		floatParallelism := math.Floor(pspec.Coefficient * float64(numNodes))
-		return int(math.Max(floatParallelism, 1)), nil
 	default:
 		return 0, errors.Errorf("unable to interpret ParallelismSpec %+v", pspec)
 	}
@@ -1841,6 +1854,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
 		ReprocessSpec:         request.ReprocessSpec,
+		Autoscaling:           request.Autoscaling,
 	}
 
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
@@ -1903,6 +1917,10 @@ func (a *apiServer) pipelineInfosForUpdate(txnCtx *txncontext.TransactionContext
 
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
 	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := a.validateEnterpriseChecks(txnCtx.ClientContext, newPipelineInfo); err != nil {
 		return nil, nil, err
 	}
 
@@ -2378,6 +2396,15 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		pipelineInfo.WorkersAvailable = int64(len(workerStatus))
 		pipelineInfo.WorkersRequested = int64(pipelinePtr.Parallelism)
 	}
+	tasks, claims, err := work.NewWorker(
+		a.env.GetEtcdClient(),
+		a.etcdPrefix,
+		driver.WorkNamespace(pipelineInfo),
+	).TaskCount(txnCtx.ClientContext)
+	if err != nil {
+		return nil, err
+	}
+	pipelineInfo.UnclaimedTasks = tasks - claims
 	return pipelineInfo, nil
 }
 

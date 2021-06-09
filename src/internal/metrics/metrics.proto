@@ -59,4 +59,5 @@ message Metrics {
     uint64 max_parallelism         = 51; // Max parallelism set
     uint64 min_parallelism         = 52; // Min parallelism set
     uint64 num_parallelism         = 53; // Number of pipelines with parallelism set
+    int64 enterprise_failures      = 54; // Number of times a command has failed due to an enterprise check
 }

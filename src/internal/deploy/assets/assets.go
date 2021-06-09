@@ -66,7 +66,7 @@ var (
 	}, {
 		APIGroups: []string{""},
 		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
-		Resources: []string{"replicationcontrollers", "services"},
+		Resources: []string{"replicationcontrollers", "services", "replicationcontrollers/scale"},
 	}, {
 		APIGroups: []string{""},
 		Verbs:     []string{"get", "list", "watch", "create", "update", "delete", "deletecollection"},

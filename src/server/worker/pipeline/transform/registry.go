@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -34,6 +35,10 @@ import (
 )
 
 // TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
+
+const (
+	defaultChunksPerWorker int64 = 4
+)
 
 type hasher struct {
 	name string
@@ -225,6 +230,9 @@ func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.JobInfo, error)
 			return jobInfo, nil
 		}
 		return nil, err
+	}
+	if ppsutil.IsTerminal(jobInfo.State) {
+		return nil, ppsserver.ErrJobFinished{Job: jobInfo.Job}
 	}
 	reg.logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
 	return jobInfo, nil
@@ -508,14 +516,16 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	// Set up the datum set spec for the job.
 	// When the datum set spec is not set, evenly distribute the datums.
 	var setSpec *datum.SetSpec
+	chunksPerWorker := defaultChunksPerWorker
 	if pj.driver.PipelineInfo().ChunkSpec != nil {
 		setSpec = &datum.SetSpec{
 			Number:    pj.driver.PipelineInfo().ChunkSpec.Number,
 			SizeBytes: pj.driver.PipelineInfo().ChunkSpec.SizeBytes,
 		}
+		chunksPerWorker = pj.driver.PipelineInfo().ChunkSpec.ChunksPerWorker
 	}
 	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
-		setSpec = &datum.SetSpec{Number: numDatums / int64(reg.concurrency)}
+		setSpec = &datum.SetSpec{Number: numDatums / (int64(reg.concurrency) * chunksPerWorker)}
 		if setSpec.Number == 0 {
 			setSpec.Number = 1
 		}
