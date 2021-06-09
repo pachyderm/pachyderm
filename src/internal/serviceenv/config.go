@@ -29,6 +29,19 @@ type GlobalConfiguration struct {
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
 	PostgresDBName      string `env:"POSTGRES_DATABASE_NAME"`
 
+	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
+	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
+	LogLevel             string `env:"LOG_LEVEL,default=info"`
+	AuthEtcdPrefix       string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
+	IdentityEtcdPrefix   string `env:"PACHYDERM_IDENTITY_ETCD_PREFIX,default=pachyderm_identity"`
+	EnterpriseEtcdPrefix string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
+	Metrics              bool   `env:"METRICS,default=true"`
+	MetricsEndpoint      string `env:"METRICS_ENDPOINT,default="`
+
+	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
+	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
+	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
+
 	// PPSSpecCommitID and PPSPipelineName are only set for workers and sidecar
 	// pachd instances. Because both pachd and worker need to know the spec commit
 	// (the worker so that it can avoid jobs for other versions of the same pipelines
@@ -50,32 +63,20 @@ type PachdSpecificConfiguration struct {
 	StorageConfiguration
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
-	EtcdPrefix                 string `env:"ETCD_PREFIX,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
-	AuthEtcdPrefix             string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
-	IdentityEtcdPrefix         string `env:"PACHYDERM_IDENTITY_ETCD_PREFIX,default=pachyderm_identity"`
-	EnterpriseEtcdPrefix       string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
-	Metrics                    bool   `env:"METRICS,default=true"`
 	Init                       bool   `env:"INIT,default=false"`
 	WorkerImage                string `env:"WORKER_IMAGE,default="`
 	WorkerSidecarImage         string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy      string `env:"WORKER_IMAGE_PULL_POLICY,default="`
-	LogLevel                   string `env:"LOG_LEVEL,default=info"`
 	IAMRole                    string `env:"IAM_ROLE,default="`
 	ImagePullSecret            string `env:"IMAGE_PULL_SECRET,default="`
 	NoExposeDockerSocket       bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
-	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
-	MetricsEndpoint            string `env:"METRICS_ENDPOINT,default="`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName string `env:"PACHD_POD_NAME,required"`
-
-	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
-	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
-	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 }
 
 // StorageConfiguration contains the storage configuration.

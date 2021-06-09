@@ -16,10 +16,9 @@ const (
 	EmptyStr = "(empty)"
 
 	// default system repo types
-	UserRepoType  = "user"
-	MetaRepoType  = "meta"
-	BuildRepoType = "build"
-	SpecRepoType  = "spec"
+	UserRepoType = "user"
+	MetaRepoType = "meta"
+	SpecRepoType = "spec"
 )
 
 // NewHash returns a hash that PFS uses internally to compute checksums.

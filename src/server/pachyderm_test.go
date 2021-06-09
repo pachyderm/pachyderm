@@ -7095,7 +7095,7 @@ func TestListDatumDuringJob(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					"sleep 1;",
+					"sleep 5;",
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
@@ -8926,8 +8926,6 @@ func TestExtractPipeline(t *testing.T) {
 	//	// and we want them to match.
 	//	request.Input.Pfs.Name = "input"
 	//	request.Input.Pfs.Branch = "master"
-	//	// Can't set both parallelism spec values
-	//	request.ParallelismSpec.Coefficient = 0
 	//	// If service, can only set as Constant:1
 	//	request.ParallelismSpec.Constant = 1
 	//	// CacheSize must parse as a memory value
@@ -9904,4 +9902,84 @@ func TestSystemRepoDependence(t *testing.T) {
 	// spec repo should have been deleted
 	require.YesError(t, err)
 	require.True(t, errutil.IsNotFoundError(grpcutil.ScrubGRPC(err)))
+}
+
+func TestPipelineAutoscaling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineAutoscaling_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					"sleep 30",
+				},
+			},
+			Input:           client.NewPFSInput(dataRepo, "/*"),
+			Autoscaling:     true,
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
+		},
+	)
+	require.NoError(t, err)
+
+	fileIndex := 0
+	commitNFiles := func(n int) {
+		commit1, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		for i := fileIndex; i < fileIndex+n; i++ {
+			err := c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+			require.NoError(t, err)
+		}
+		require.NoError(t, c.FinishCommit(dataRepo, "master", commit1.ID))
+		fileIndex += n
+		replicas := n
+		if replicas > 4 {
+			replicas = 4
+		}
+		monitorReplicas(t, pipeline, replicas)
+	}
+	commitNFiles(1)
+	commitNFiles(3)
+	commitNFiles(8)
+}
+
+func monitorReplicas(t testing.TB, pipeline string, n int) {
+	c := tu.GetPachClient(t)
+	kc := tu.GetKubeClient(t)
+	rcName := ppsutil.PipelineRcName(pipeline, 1)
+	enoughReplicas := false
+	tooManyReplicas := false
+	require.NoErrorWithinTRetry(t, 120*time.Second, func() error {
+		for {
+			scale, err := kc.CoreV1().ReplicationControllers("default").GetScale(rcName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			if int(scale.Spec.Replicas) >= n {
+				enoughReplicas = true
+			}
+			if int(scale.Spec.Replicas) > n {
+				tooManyReplicas = true
+			}
+			ci, err := c.InspectCommit(pipeline, "master", "")
+			require.NoError(t, err)
+			if ci.Finished != nil {
+				return nil
+			}
+			time.Sleep(time.Second * 2)
+		}
+	})
+	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
+	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
 }

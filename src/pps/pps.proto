@@ -34,13 +34,6 @@ message Transform {
   string user = 11;
   string working_dir = 12;
   string dockerfile = 13;
-  BuildSpec build = 14;
-}
-
-message BuildSpec {
-  string path = 1;
-  string language = 2;
-  string image = 3;
 }
 
 message TFJob {
@@ -146,16 +139,6 @@ message ParallelismSpec {
   // then Pachyderm will choose the number of workers that is started,
   // (currently it chooses the number of workers in the cluster)
   uint64 constant = 1;
-
-  // Starts the pipeline/job with number of workers equal to 'coefficient' * N,
-  // where N is the number of nodes in the kubernetes cluster.
-  //
-  // For example, if each Kubernetes node has four CPUs, you might set
-  // 'coefficient' to four, so that there are four Pachyderm workers per
-  // Kubernetes node, and each Pachyderm worker gets one CPU. If you want to
-  // reserve half the nodes in your cluster for other tasks, you might set
-  // 'coefficient' to 0.5.
-  double coefficient = 2;
 }
 
 message InputFile {
@@ -373,12 +356,7 @@ message StoredPipelineInfo {
   JobState last_job_state = 9;
 
   // parallelism tracks the literal number of workers that this pipeline should
-  // run. Unlike PipelineInfo.ParallelismSpec, this accounts for the number of
-  // nodes in the k8s cluster if Coefficient parallelism is used (i.e. if
-  // Coefficient is 2 and the cluster has 5 nodes, this will be set to 10 by
-  // pachd). This allows the worker master to shard work correctly without
-  // k8s privileges and without knowing the number of cluster nodes in the
-  // Coefficient case.
+  // run.
   uint64 parallelism = 10;
 
   // The pipeline type is stored here so that we can internally know the type of
@@ -448,6 +426,10 @@ message PipelineInfo {
   bool s3_out = 36;
   Metadata metadata = 37;
   string reprocess_spec = 38;
+  // Set at call time, not stored in etcd
+  int64 unclaimed_tasks = 39;
+  string worker_rc = 40;
+  bool autoscaling = 41;
 }
 
 message PipelineInfos {
@@ -616,6 +598,10 @@ message ChunkSpec {
   // Chunks may be larger or smaller than size_bytes, but will usually be
   // pretty close to size_bytes in size.
   int64 size_bytes = 2;
+
+  // chunks_per_worker, if nonzero, specifies how many chunks should be created
+  // for each worker. It can't be set with number or size_bytes.
+  int64 chunks_per_worker = 3;
 }
 
 message SchedulingSpec {
@@ -665,6 +651,7 @@ message CreatePipelineRequest {
   pfs_v2.Commit spec_commit = 29;
   Metadata metadata = 30;
   string reprocess_spec = 31;
+  bool autoscaling = 32;
 }
 
 message InspectPipelineRequest {

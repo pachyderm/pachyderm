@@ -49,24 +49,6 @@ func IsErrExists(err error) bool {
 	return errors.Is(err, ErrExists{})
 }
 
-// ErrTransactionConflict should be used by user code to indicate a conflict in
-// the transaction that should be reattempted.
-type ErrTransactionConflict struct{}
-
-func (err ErrTransactionConflict) Is(other error) bool {
-	_, ok := other.(ErrTransactionConflict)
-	return ok
-}
-
-func (err ErrTransactionConflict) Error() string {
-	return "transaction conflict, will be reattempted"
-}
-
-// IsErrTransactionConflict determines if an error is an ErrTransactionConflict error
-func IsErrTransactionConflict(err error) bool {
-	return errors.Is(err, ErrTransactionConflict{})
-}
-
 // ErrNotUnique indicates that an indexed query expected to have exactly one
 // result but had more than one result.
 type ErrNotUnique struct {

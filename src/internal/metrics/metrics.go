@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	log "github.com/sirupsen/logrus"
@@ -245,6 +246,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	if err == nil {
 		metrics.ActivationCode = enterpriseState.ActivationCode
 	}
+	metrics.EnterpriseFailures = enterprisemetrics.GetEnterpriseFailures()
 
 	// Pipeline info
 	resp, err := r.env.PpsServer().ListPipeline(ctx, &pps.ListPipelineRequest{AllowIncomplete: true})
@@ -336,9 +338,6 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 			if pi.Transform != nil {
 				if pi.Transform.ErrCmd != nil {
 					metrics.CfgErrcmd++
-				}
-				if pi.Transform.Build != nil {
-					metrics.PpsBuild++
 				}
 			}
 			if pi.TFJob != nil {

@@ -66,7 +66,7 @@ var (
 	}, {
 		APIGroups: []string{""},
 		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
-		Resources: []string{"replicationcontrollers", "services"},
+		Resources: []string{"replicationcontrollers", "services", "replicationcontrollers/scale"},
 	}, {
 		APIGroups: []string{""},
 		Verbs:     []string{"get", "list", "watch", "create", "update", "delete", "deletecollection"},
@@ -944,22 +944,6 @@ func AmazonSecret(region, bucket, id, secret, token, distribution, endpoint stri
 	return s
 }
 
-// AmazonVaultSecret creates an amazon secret with the following parameters:
-//   region         - AWS region
-//   bucket         - S3 bucket name
-//   vaultAddress   - address/hostport of vault
-//   vaultRole      - pachd's role in vault
-//   vaultToken     - pachd's vault token
-//   distribution   - cloudfront distribution
-//   advancedConfig - advanced configuration
-func AmazonVaultSecret(region, bucket, vaultAddress, vaultRole, vaultToken, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
-	s := amazonBasicSecret(region, bucket, distribution, advancedConfig)
-	s["amazon-vault-addr"] = []byte(vaultAddress)
-	s["amazon-vault-role"] = []byte(vaultRole)
-	s["amazon-vault-token"] = []byte(vaultToken)
-	return s
-}
-
 // AmazonIAMRoleSecret creates an amazon secret with the following parameters:
 //   region         - AWS region
 //   bucket         - S3 bucket name
@@ -1203,11 +1187,6 @@ type AmazonCreds struct {
 	ID     string // Access Key ID
 	Secret string // Secret Access Key
 	Token  string // Access token (if using temporary security credentials
-
-	// Vault options (if getting AWS credentials from Vault)
-	VaultAddress string // normally addresses come from env, but don't have vault service name
-	VaultRole    string
-	VaultToken   string
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
@@ -1220,8 +1199,6 @@ func WriteAmazonAssets(encoder serde.Encoder, opts *AssetOpts, region string, bu
 		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro, advancedConfig)
 	} else if creds.ID != "" {
 		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro, "", advancedConfig)
-	} else if creds.VaultAddress != "" {
-		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro, advancedConfig)
 	}
 	return WriteSecret(encoder, secret, opts)
 }

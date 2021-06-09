@@ -161,7 +161,7 @@ and test basic Pachyderm functionality. Pachyderm automatically starts
 port-forwarding from `pachctl` to `pachd`. Therefore, the traffic
 from the local machine goes to the `pachd` endpoint through the
 Kubernetes API. However, to open a persistent tunnel to other ports, including
-the Pachyderm dashboard, git and authentication hooks, the built-in HTTP
+the Pachyderm dashboard, authentication callbacks, the built-in HTTP
 file API, and other, you need to run port-forwarding explicitly.
 
 Also, if you are connecting with port-forward, you are using the `0.0.0.0`.

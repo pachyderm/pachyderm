@@ -37,6 +37,10 @@ import (
 
 // TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
 
+const (
+	defaultChunksPerWorker int64 = 4
+)
+
 type hasher struct {
 	name string
 	salt string
@@ -506,14 +510,16 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	// Set up the datum set spec for the job.
 	// When the datum set spec is not set, evenly distribute the datums.
 	var setSpec *datum.SetSpec
+	chunksPerWorker := defaultChunksPerWorker
 	if pj.driver.PipelineInfo().ChunkSpec != nil {
 		setSpec = &datum.SetSpec{
 			Number:    pj.driver.PipelineInfo().ChunkSpec.Number,
 			SizeBytes: pj.driver.PipelineInfo().ChunkSpec.SizeBytes,
 		}
+		chunksPerWorker = pj.driver.PipelineInfo().ChunkSpec.ChunksPerWorker
 	}
 	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
-		setSpec = &datum.SetSpec{Number: numDatums / int64(reg.concurrency)}
+		setSpec = &datum.SetSpec{Number: numDatums / (int64(reg.concurrency) * chunksPerWorker)}
 		if setSpec.Number == 0 {
 			setSpec.Number = 1
 		}
