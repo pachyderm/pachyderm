@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/s2"
@@ -70,31 +71,41 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 }
 
 func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
-	branch := "master"
-	var repo string
-	parts := strings.SplitN(name, ".", 2)
-	if len(parts) == 2 {
-		branch = parts[0]
-		repo = parts[1]
+	var repo, commit string
+	commit = "master"
+	// Bucketn name syntax: [commitID.][branch.]repoName
+	parts := strings.SplitN(name, ".", 3)
+	if len(parts) == 3 {
+		// Support commit.branch.repo syntax, so that we are interoperable with v2 syntax
+		// but we don't need the branch info, since repo + commit is unique
+		commit, repo = parts[0], parts[2]
+	} else if len(parts) == 2 {
+		// commit is overloaded, can be either a branch name or a commit_id
+		commit, repo = parts[0], parts[1]
 	} else {
 		repo = parts[0]
 	}
 
 	return &Bucket{
 		Repo:   repo,
-		Commit: branch,
+		Commit: commit,
 		Name:   name,
 	}, nil
 }
 
 func (d *MasterDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
-	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Commit)
-	if err != nil {
-		return bucketCapabilities{}, maybeNotFoundError(r, err)
+	readable := true
+	// A bucket is readable if the corresponding branch points to a commit
+	if !uuid.IsUUIDWithoutDashes(bucket.Commit) {
+		branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Commit)
+		if err != nil {
+			return bucketCapabilities{}, maybeNotFoundError(r, err)
+		}
+		readable = branchInfo.Head != nil
 	}
 
 	return bucketCapabilities{
-		readable:         branchInfo.Head != nil,
+		readable:         readable,
 		writable:         true,
 		historicVersions: true,
 	}, nil
