@@ -160,7 +160,8 @@ type Job {
 
 enum NodeType {
   PIPELINE
-  REPO
+  OUTPUT_REPO
+  INPUT_REPO
   EGRESS
 }
 

@@ -1,7 +1,7 @@
 import classNames from 'classnames';
 import React from 'react';
 
-import {JobState, Link as LinkType} from '@graphqlTypes';
+import {Link as LinkType} from '@graphqlTypes';
 
 import convertNodeStateToDagState from '../../utils/convertNodeStateToDagState';
 
@@ -16,14 +16,12 @@ type LinkProps = {
 
 const Link: React.FC<LinkProps> = ({link, isInteractive, offset}) => {
   const {d, hoveredNode, selectedNode, transferring} = useLink(link, offset);
-
   const classes = classNames(
     styles.link,
-    styles[` ${convertNodeStateToDagState(link.sourceState)}Source`],
-    styles[` ${convertNodeStateToDagState(link.targetState)}Target`],
+    styles[`${convertNodeStateToDagState(link.sourceState)}Source`],
+    styles[`${convertNodeStateToDagState(link.targetState)}Target`],
     {
       [styles.transferring]: transferring,
-      [styles.error]: link.state === JobState.JOB_FAILURE,
       [styles.selected]:
         (isInteractive && [selectedNode, hoveredNode].includes(link.source)) ||
         [selectedNode, hoveredNode].includes(link.target),

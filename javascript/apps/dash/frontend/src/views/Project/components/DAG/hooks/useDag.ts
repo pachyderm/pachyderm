@@ -54,8 +54,8 @@ const useDag = ({
 
     // adjust rect for hover state and dag selection
     setRectBox({
-      x: minX,
-      y: minY - nodeHeight / 2,
+      x: horizontal ? 0 : minX,
+      y: horizontal ? minY - nodeHeight / 2 : 0,
       width: maxX - minX + nodeWidth,
       height: maxY - minY + nodeHeight * 1.5,
     });

@@ -18,7 +18,10 @@ const useRouteController = () => {
   const navigateToNode = useCallback(
     (n: Node) => {
       if (n.type === NodeType.EGRESS) return;
-      else if (n.type === NodeType.REPO) {
+      else if (
+        n.type === NodeType.OUTPUT_REPO ||
+        n.type === NodeType.INPUT_REPO
+      ) {
         browserHistory.push(
           repoRoute({
             branchId: 'master',

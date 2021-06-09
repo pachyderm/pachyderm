@@ -209,7 +209,8 @@ export type NodeSelector = {
 
 export enum NodeType {
   PIPELINE = 'PIPELINE',
-  REPO = 'REPO',
+  OUTPUT_REPO = 'OUTPUT_REPO',
+  INPUT_REPO = 'INPUT_REPO',
   EGRESS = 'EGRESS',
 }
 

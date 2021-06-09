@@ -1,7 +1,7 @@
 import {Node, NodeType} from '@graphqlTypes';
 
 export const deriveNameFromNodeNameAndType = (name: string, type: NodeType) => {
-  if (type === NodeType.REPO) {
+  if (type === NodeType.OUTPUT_REPO || type === NodeType.INPUT_REPO) {
     return name.replace('_repo', '');
   }
   return name;

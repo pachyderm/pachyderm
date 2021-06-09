@@ -77,16 +77,34 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     return {xMin, xMax, yMin, yMax};
   }, [dags, svgSize]);
 
+  const getScale = (
+    svgMeasurement: number,
+    max: number,
+    min: number,
+    padding: number,
+  ) => {
+    const dagSize = max - min + padding;
+    return dagSize > 0 ? svgMeasurement / dagSize : 1;
+  };
+
   const startScale = useMemo(() => {
     const {xMax, xMin, yMax, yMin} = graphExtents;
     const horizontal =
       dagDirection === DagDirection.RIGHT || dagDirection === DagDirection.LEFT;
 
     // multiply node dimensions by 2 to account for alignment padding
-    const xScale =
-      svgSize.width / (xMax - xMin + nodeWidth * (horizontal ? 2 : 1));
-    const yScale =
-      svgSize.height / (yMax - yMin + nodeHeight * (horizontal ? 1 : 2));
+    const xScale = getScale(
+      svgSize.width,
+      xMax,
+      xMin,
+      nodeWidth * (horizontal ? 2 : 1),
+    );
+    const yScale = getScale(
+      svgSize.height,
+      yMax,
+      yMin,
+      nodeHeight * (horizontal ? 1 : 2),
+    );
 
     // 0.6 is the largest value allowed for the minimum zoom value
     return Math.max(DEFAULT_MINIMUM_SCALE_VALUE, Math.min(xScale, yScale, 1.5));
@@ -117,8 +135,12 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
         // translate to center of svg and align based on direction
         const transform = zoomIdentity
           .translate(
-            horizontal ? nodeWidth : svgSize.width / 2 - (xMin + xMax) / 2,
-            horizontal ? svgSize.height / 2 - (yMin + yMax) / 2 : nodeHeight,
+            horizontal
+              ? nodeWidth
+              : svgSize.width / 2 - (xMin + xMax) / 2 - nodeWidth,
+            horizontal
+              ? svgSize.height / 2 - (yMin + yMax) / 2 - nodeHeight
+              : nodeHeight,
           )
           .scale(startScale);
 
@@ -181,7 +203,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
       `#${selectedNode}GROUP`,
     );
 
-    if (!centerNodeSelection.empty() && zoomRef.current) {
+    if (!centerNodeSelection.empty() && zoomRef.current && !loading) {
       setInteracted(true);
       const svg = select<SVGSVGElement, unknown>('#Svg');
 
@@ -201,7 +223,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
       // if constraints are added this should be updated to use one of the methods that obeys them.
       zoomRef.current.transform(svg.transition(), transform);
     }
-  }, [selectedNode, nodeHeight, nodeWidth, svgSize]);
+  }, [loading, nodeHeight, nodeWidth, selectedNode, svgSize]);
 
   // reset interaction on empty canvas
   useEffect(() => {

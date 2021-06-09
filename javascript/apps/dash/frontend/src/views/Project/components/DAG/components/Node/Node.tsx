@@ -74,7 +74,8 @@ const Node: React.FC<NodeProps> = ({
 
   const getNodeImageHref = (node: GraphQLNode) => {
     switch (node.type) {
-      case NodeType.REPO:
+      case NodeType.OUTPUT_REPO:
+      case NodeType.INPUT_REPO:
         return '/dag_repo.svg';
       case NodeType.PIPELINE:
         return '/dag_pipeline.svg';
@@ -115,7 +116,10 @@ const Node: React.FC<NodeProps> = ({
         <LeaveJobButton
           onClick={handleLeaveJobClick}
           onClose={closeLeaveJob}
-          isRepo={node.type === NodeType.REPO}
+          isRepo={
+            node.type === NodeType.OUTPUT_REPO ||
+            node.type === NodeType.INPUT_REPO
+          }
         />
       )}
 
@@ -126,6 +130,15 @@ const Node: React.FC<NodeProps> = ({
         transform={`scale(${nodeHeight / ORIGINAL_NODE_IMAGE_HEIGHT})`}
         href={getNodeImageHref(node)}
       />
+
+      {node.type === NodeType.OUTPUT_REPO && (
+        <image
+          x={NODE_IMAGE_X_OFFSET - 7}
+          y={NODE_IMAGE_Y_OFFSET + 20}
+          pointerEvents="none"
+          href="/dag_output_plus.svg"
+        />
+      )}
 
       {!isEgress && (
         <image

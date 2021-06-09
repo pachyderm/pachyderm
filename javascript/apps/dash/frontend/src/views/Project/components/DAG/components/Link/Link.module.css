@@ -1,3 +1,12 @@
+@keyframes selected {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 200;
+  }
+}
+
 .link {
   stroke: var(--pachyderm-black);
   stroke-width: 1px;
@@ -9,25 +18,22 @@
   cursor: pointer;
 }
 
-.link.transferring,
 .link.selected{
-  stroke: var(--pachyderm-green);
   stroke-width: 1.5px;
-  marker-end: url(#end-arrow-active);
+  stroke-dasharray: 5;
+  animation: selected linear 10s infinite reverse;
 }
 
 .link.errorTarget.selected,
 .link.errorSource.selected {
   stroke: var(--error-red);
-  stroke-width: 1.5px;
   marker-end: url(#end-arrow-error);
 }
 
-.link.errorSource,
 .link.busySource {
-  stroke-dasharray: 0.25rem;
+  stroke-dasharray: 5;
 }
 
 .circle {
-  fill: var(--pachyderm-green);
+  fill: var(--success-green);
 }

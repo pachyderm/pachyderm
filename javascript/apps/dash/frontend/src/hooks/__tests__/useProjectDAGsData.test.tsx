@@ -75,7 +75,7 @@ describe('useProjects', () => {
     expect(node4Id).toBeInTheDocument();
 
     const node0name = await findByText('0 node name: montage_repo');
-    const node0type = await findByText('0 node type: REPO');
+    const node0type = await findByText('0 node type: OUTPUT_REPO');
     const node0state = await findByText('0 node state:');
     const node1state = await findByText('1 node state: PIPELINE_FAILURE');
 

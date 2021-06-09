@@ -68,7 +68,10 @@ const deriveVertices = (
 
   const repoNodes = repos.map((r) => ({
     name: `${r.repo?.name}_repo`,
-    type: NodeType.REPO,
+    type:
+      r.repo && pipelineMap[r.repo.name]
+        ? NodeType.OUTPUT_REPO
+        : NodeType.INPUT_REPO,
     state: null,
     access: hasRepoReadPermissions(r.authInfo?.permissionsList),
     created: r.created,
@@ -352,7 +355,8 @@ const dagResolver: DagResolver = {
             const componentRepos = repos.filter((repo) =>
               component.nodes.find(
                 (c) =>
-                  c.type === NodeType.REPO &&
+                  (c.type === NodeType.OUTPUT_REPO ||
+                    c.type === NodeType.INPUT_REPO) &&
                   c.name === `${repo.repo?.name}_repo`,
               ),
             );
