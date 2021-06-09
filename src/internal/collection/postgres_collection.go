@@ -107,7 +107,7 @@ func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error
 		}
 		return tx.Rollback()
 	})
-	if strings.Contains(err.Error(), "transaction has already been committed or rolled back") {
+	if err == sql.ErrTxDone {
 		err = nil
 	}
 	return err
