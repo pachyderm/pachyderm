@@ -35,7 +35,7 @@ const JobList: React.FC<JobListProps> = ({
 
   return (
     <>
-      {showStatusFilter && !loading && (
+      {showStatusFilter && (
         <JobListStatusFilter jobs={jobs} selectedFilters={selectedFilters} />
       )}
 

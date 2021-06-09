@@ -7,7 +7,7 @@
 }
 
 .base.expandActions {
-  min-width: 32.1875rem;
+  max-width: 44.1875rem;
 }
 
 .skeleton {
@@ -36,7 +36,6 @@
 
 .base.expandActions .item {
   padding-left: 1.625rem;
-  padding-right: 3.875rem;
 }
 
 .item:nth-of-type(1) {

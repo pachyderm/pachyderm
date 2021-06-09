@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@apollo/client": "3.3.1",
-    "@pachyderm/components": "1.2.1",
+    "@pachyderm/components": "1.2.2",
     "@pachyderm/polyfills": "0.0.1",
     "@sentry/browser": "5.19.1",
     "classnames": "2.2.6",

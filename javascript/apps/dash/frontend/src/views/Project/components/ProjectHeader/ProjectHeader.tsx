@@ -33,7 +33,7 @@ const ProjectHeader = () => {
           <SkeletonDisplayText
             data-testid="ProjectHeader__projectNameLoader"
             className={styles.projectNameLoader}
-            blueShimmer
+            color="grey"
           />
         ) : (
           <Tooltip

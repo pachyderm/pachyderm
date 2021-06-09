@@ -3,6 +3,7 @@ import classnames from 'classnames';
 import React from 'react';
 import {Route} from 'react-router';
 
+import LoadingSkeleton from '@dash-frontend/components/LoadingSkeleton';
 import View from '@dash-frontend/components/View';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 
@@ -44,12 +45,8 @@ const Project: React.FC = () => {
         <h1>{JSON.stringify(error)}</h1>
       </View>
     );
-  if (loading || !dags)
-    return (
-      <View>
-        <h1>Loading...</h1>
-      </View>
-    );
+
+  if (loading) return <LoadingSkeleton />;
 
   return (
     <>
@@ -116,7 +113,7 @@ const Project: React.FC = () => {
               ))}
             </defs>
             <g id="Dags">
-              {dags.map((dag) => {
+              {dags?.map((dag) => {
                 return (
                   <DAG
                     data={dag}

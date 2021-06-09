@@ -17,9 +17,13 @@ describe('Landing', () => {
   });
 
   it('should display projects', async () => {
-    const {findAllByRole} = render(<Landing />);
+    const {findAllByRole, findByRole} = render(<Landing />);
 
-    expect(await findAllByRole('row')).toHaveLength(6);
+    expect(
+      await findByRole('heading', {name: 'Data Cleaning Process', level: 3}),
+    ).toBeInTheDocument();
+
+    expect(await findAllByRole('row', {})).toHaveLength(6);
   });
 
   it('should allow users to search for projects by name', async () => {
@@ -65,11 +69,10 @@ describe('Landing', () => {
   });
 
   it('should display the project status', async () => {
-    const {findAllByText} = render(<Landing />);
+    const {findAllByTestId} = render(<Landing />);
 
-    // one extra due to filter dropdown
-    expect(await findAllByText('Healthy')).toHaveLength(5);
-    expect(await findAllByText('Unhealthy')).toHaveLength(3);
+    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(4);
+    expect(await findAllByTestId('ProjectStatus__UNHEALTHY')).toHaveLength(2);
   });
 
   it('should display project creation date in MM/DD/YYY format', async () => {
@@ -148,10 +151,11 @@ describe('Landing', () => {
   });
 
   it('should allow the user to filter projects by status', async () => {
-    const {findAllByText, findByRole, findByLabelText} = render(<Landing />);
+    const {findByRole, findByLabelText, findAllByTestId, queryByTestId} =
+      render(<Landing />);
 
-    expect(await findAllByText('Healthy')).toHaveLength(5);
-    expect(await findAllByText('Unhealthy')).toHaveLength(3);
+    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(4);
+    expect(await findAllByTestId('ProjectStatus__UNHEALTHY')).toHaveLength(2);
 
     const filterDropdown = await findByRole('button', {name: 'Show: All'});
     userEvent.click(filterDropdown);
@@ -162,8 +166,8 @@ describe('Landing', () => {
       await findByRole('button', {name: 'Show: Unhealthy'}),
     ).toBeInTheDocument();
 
-    expect(await findAllByText('Healthy')).toHaveLength(1);
-    expect(await findAllByText('Unhealthy')).toHaveLength(3);
+    expect(await findAllByTestId('ProjectStatus__UNHEALTHY')).toHaveLength(2);
+    expect(queryByTestId('ProjectStatus__HEALTHY')).not.toBeInTheDocument();
 
     const unHealthyButton = await findByLabelText('Unhealthy');
 
@@ -173,8 +177,8 @@ describe('Landing', () => {
       await findByRole('button', {name: 'Show: None'}),
     ).toBeInTheDocument();
 
-    expect(await findAllByText('Healthy')).toHaveLength(1);
-    expect(await findAllByText('Unhealthy')).toHaveLength(1);
+    expect(queryByTestId('ProjectStatus__HEALTHY')).not.toBeInTheDocument();
+    expect(queryByTestId('ProjectStatus__UNHEALTHY')).not.toBeInTheDocument();
 
     userEvent.click(healthyButton);
 
@@ -182,8 +186,8 @@ describe('Landing', () => {
       await findByRole('button', {name: 'Show: Healthy'}),
     ).toBeInTheDocument();
 
-    expect(await findAllByText('Healthy')).toHaveLength(5);
-    expect(await findAllByText('Unhealthy')).toHaveLength(1);
+    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(4);
+    expect(queryByTestId('ProjectStatus__UNHEALTHY')).not.toBeInTheDocument();
   });
 
   it('should display an all tab when viewing just the default project', async () => {

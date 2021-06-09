@@ -5,6 +5,7 @@ import Sidebar from '@dash-frontend/components/Sidebar';
 import View from '@dash-frontend/components/View';
 
 import LandingHeader from './components/LandingHeader';
+import LandingSkeleton from './components/LandingSkeleton';
 import ProjectPreview from './components/ProjectPreview';
 import ProjectRow from './components/ProjectRow';
 import {useLandingView} from './hooks/useLandingView';
@@ -26,7 +27,7 @@ const Landing: React.FC = () => {
     setSelectedProject,
   } = useLandingView();
 
-  if (loading) return null; // TODO loading view
+  if (loading) return <LandingSkeleton />;
 
   return (
     <>

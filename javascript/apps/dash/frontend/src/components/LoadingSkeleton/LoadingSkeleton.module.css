@@ -1,0 +1,22 @@
+.loadingHeader {
+  background-color: var(--background-black);
+  height: var(--header-height);
+  width: 100%;
+}
+
+.loadingBase {
+  width: 100%;
+  background-color: var(--background-grey);
+  display: inline-flex;
+}
+
+.sidebar {
+  width: 19rem;
+  background-color: var(--white);
+  border-left: solid 1px var(--line-grey);
+  height: calc(100vh - var(--header-height));
+}
+
+.projects {
+  flex: 1
+}

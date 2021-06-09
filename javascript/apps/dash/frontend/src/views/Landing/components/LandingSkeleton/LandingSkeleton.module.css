@@ -1,0 +1,22 @@
+.base {
+  background-color: var(--background-grey);
+  display: flex;
+  flex: 1;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate; 
+  border-spacing: 0 1rem;
+}
+
+.loadingProject {
+  border: solid 10px black inset;
+  box-shadow: 0 1px 2px 0 var(--border-grey);
+  border-radius: 3px;
+  height: 7.875rem;
+}
+
+.loadingProjectCell {
+  background-color: var(--white);
+}

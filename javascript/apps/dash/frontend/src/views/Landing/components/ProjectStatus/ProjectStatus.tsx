@@ -20,7 +20,7 @@ const ProjectStatus: React.FC<ProjectStatusType> = ({status}) => {
   return (
     <Group spacing={8} align="center">
       <Circle color={color} />
-      {capitalize(status)}
+      <div data-testid={`ProjectStatus__${status}`}>{capitalize(status)}</div>
     </Group>
   );
 };
