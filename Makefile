@@ -82,21 +82,16 @@ release:
 	@make release-pachctl
 	@echo "Release $(VERSION) completed"
 
-release-helper: release-docker-images docker-push docker-push-pipeline-build
+release-helper: release-docker-images docker-push
 
 release-docker-images:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
 docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
-
-docker-build-pipeline-build: install
-	VERSION=$$($(PACHCTL) version --client-only) DOCKER_BUILDKIT=1 \
-	  goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -136,12 +131,6 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachd:$(VERSION)
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
-
-docker-push-pipeline-build: install
-	$(SKIP) ls etc/pipeline-build | xargs -I {} docker push pachyderm/{}-build:$$($(PACHCTL) version --client-only)
-
-docker-push-pipeline-build-to-minikube: install
-	$(SKIP) ls etc/pipeline-build | xargs -I {} etc/kube/push-to-minikube.sh pachyderm/{}-build:$$($(PACHCTL) version --client-only)
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -476,7 +465,6 @@ check-buckets:
 	release-docker-images \
 	release-pachctl \
 	docker-build \
-	docker-build-pipeline-build \
 	docker-build-proto \
 	docker-build-gpu \
 	docker-build-kafka \
@@ -488,7 +476,6 @@ check-buckets:
 	docker-build-test-entrypoint \
 	docker-tag \
 	docker-push \
-	docker-push-pipeline-build \
 	check-buckets \
 	check-kubectl \
 	check-kubectl-connection \
