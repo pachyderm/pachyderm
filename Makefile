@@ -538,8 +538,6 @@ check-buckets:
 	launch-logging \
 	launch-loki \
 	clean-launch-loki \
-	launch-dex \
-	clean-launch-dex \
 	launch-enterprise \
 	logs \
 	follow-logs \

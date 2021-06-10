@@ -35,9 +35,6 @@ const (
 	// oidc etcd object prefix
 	oidcAuthnPrefix = "/oidc-authns"
 
-	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
-	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
-
 	// configKey is a key (in etcd, in the config collection) that maps to the
 	// auth configuration. This is the only key in that collection (due to
 	// implemenation details of our config library, we can't use an empty key)
@@ -411,7 +408,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		// Generate a new Pachyderm token and write it
-		t, err := a.generateAndInsertAuthToken(ctx, username, defaultSessionTTLSecs)
+		t, err := a.generateAndInsertAuthToken(ctx, username, int64(60*a.env.Config().SessionDurationMinutes))
 		if err != nil {
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
@@ -440,8 +437,8 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		// If the token would be longer-lived than the default pach token,
 		// TTL clamp the expiration to the default TTL.
 		expirationSecs := int64(time.Until(token.Expiry).Seconds())
-		if expirationSecs > defaultSessionTTLSecs {
-			expirationSecs = defaultSessionTTLSecs
+		if expirationSecs > int64(60*a.env.Config().SessionDurationMinutes) {
+			expirationSecs = int64(60 * a.env.Config().SessionDurationMinutes)
 		}
 
 		t, err := a.generateAndInsertAuthToken(ctx, username, expirationSecs)
