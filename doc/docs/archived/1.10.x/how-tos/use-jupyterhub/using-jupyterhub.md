@@ -5,7 +5,7 @@ the `python-pachyderm` client is preinstalled in your JupyterHub instance
 This section describes a few basic operations that you can execute from JupyterHub
 to interact with Pachyderm.
 
-After you log in, use the [python-pachyderm](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#header-functions)
+After you log in, use the [python-pachyderm](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#header-functions)
 client API to manage Pachyderm directly from your Jupyter notebook.
 
 You need to create a new Notebook and add your code in a new cell.
