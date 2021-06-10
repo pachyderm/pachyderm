@@ -1502,7 +1502,7 @@ func TestDeleteAllRepos(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(aliceRepo))
 
 	// alice calls DeleteAll. It passes, but only deletes the repos she was authorized to delete
-	_, err := aliceClient.PfsAPIClient.DeleteRepo(aliceClient.Ctx(), &pfs.DeleteRepoRequest{All: true})
+	_, err := aliceClient.PfsAPIClient.DeleteAll(aliceClient.Ctx(), &types.Empty{})
 	require.NoError(t, err)
 
 	listResp, err := aliceClient.ListRepo()

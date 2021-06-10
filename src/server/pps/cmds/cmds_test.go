@@ -679,7 +679,8 @@ func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo in
-		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
+		echo "foo" | pachctl put file in@master:/file1
+		echo "bar" | pachctl put file in@master:/file2
 	`).Run())
 
 	cmd := tu.BashCmd(`
