@@ -5100,27 +5100,49 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.CreateRepo("count"))
 			require.NoError(t, c.CreateBranchTrigger("count", "trigger", "", "", &pfs.Trigger{
 				Branch:  "master",
-				Commits: 3, // trigger every 2 commits
+				Commits: 2, // trigger every 2 commits
 			}))
-			countCommit := client.NewCommit("count", "master", "")
-			// Second commit should trigger (branch starts with one on it)
-			require.NoError(t, c.PutFile(countCommit, "file1", strings.NewReader("bar")))
+
 			bi, err := c.InspectBranch("count", "trigger")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
-			head := bi.Head.ID
+			head := bi.Head
+
+			masterHead := client.NewCommit("count", "master", "")
+			// The first commit shouldn't trigger
+			require.NoError(t, c.PutFile(masterHead, "file1", strings.NewReader("foo")))
+			bi, err = c.InspectBranch("count", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head)
+
+			// Second commit should trigger
+			require.NoError(t, c.PutFile(masterHead, "file2", strings.NewReader("bar")))
+			bi, err = c.InspectBranch("count", "trigger")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head)
+			head = bi.Head
+
+			// The trigger commit should have the same ID as the master commit
+			bi, err = c.InspectBranch("count", "master")
+			require.NoError(t, err)
+			require.Equal(t, head.ID, bi.Head.ID)
 
 			// Third commit shouldn't trigger
-			require.NoError(t, c.PutFile(countCommit, "file2", strings.NewReader("fizz")))
+			require.NoError(t, c.PutFile(masterHead, "file3", strings.NewReader("fizz")))
 			bi, err = c.InspectBranch("count", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head)
 
 			// Fourth commit should trigger
-			require.NoError(t, c.PutFile(countCommit, "file3", strings.NewReader("buzz")))
+			require.NoError(t, c.PutFile(masterHead, "file4", strings.NewReader("buzz")))
 			bi, err = c.InspectBranch("count", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head)
+			head = bi.Head
+
+			// The trigger commit should have the same ID as the master commit
+			bi, err = c.InspectBranch("count", "master")
+			require.NoError(t, err)
+			require.Equal(t, head.ID, bi.Head.ID)
 		})
 
 		t.Run("Or", func(t *testing.T) {

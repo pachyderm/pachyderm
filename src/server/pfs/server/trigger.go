@@ -136,7 +136,7 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 			commits++
 			if ci.ParentCommit != nil && oldHead.Commit.ID != ci.ParentCommit.ID {
 				var err error
-				ci, err = d.inspectCommit(txnCtx.ClientContext, ci.ParentCommit, pfs.CommitState_STARTED)
+				ci, err = d.resolveCommit(txnCtx.SqlTx, ci.ParentCommit)
 				if err != nil {
 					return false, err
 				}
