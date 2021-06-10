@@ -2621,7 +2621,7 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
-	jobInfos, err := aliceClient.BlockJobsetAll(commit1.ID, false)
+	jobInfos, err := aliceClient.BlockJobsetAll(commit1.ID)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobInfos))
 
