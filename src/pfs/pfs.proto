@@ -204,7 +204,7 @@ message FinishCommitRequest {
 
 message InspectCommitRequest {
   Commit commit = 1;
-  // BlockState causes inspect commit to block until the commit is in the desired state.
+  // Block causes inspect commit to block until the commit is in the desired state.
   CommitState block = 2;
 }
 

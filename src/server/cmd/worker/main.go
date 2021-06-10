@@ -53,7 +53,7 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	// because the value in etcd might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	pipelinePtr.OriginalSpecCommit.ID = env.Config().PPSSpecCommitID
+	pipelinePtr.SpecCommit.ID = env.Config().PPSSpecCommitID
 	return ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 }
 

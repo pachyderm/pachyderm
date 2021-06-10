@@ -192,8 +192,8 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 		}
 		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
-				Commit:     metaCommitInfo.ParentCommit,
-				BlockState: pfs.CommitState_FINISHED,
+				Commit: metaCommitInfo.ParentCommit,
+				Block:  pfs.CommitState_FINISHED,
 			})
 		if err != nil {
 			return err
@@ -220,8 +220,8 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 	commitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     jobInfo.OutputCommit,
-			BlockState: pfs.CommitState_STARTED,
+			Commit: jobInfo.OutputCommit,
+			Block:  pfs.CommitState_STARTED,
 		})
 	if err != nil {
 		return err
@@ -229,8 +229,8 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 	metaCommitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     ppsutil.MetaCommit(jobInfo.OutputCommit),
-			BlockState: pfs.CommitState_STARTED,
+			Commit: ppsutil.MetaCommit(jobInfo.OutputCommit),
+			Block:  pfs.CommitState_STARTED,
 		})
 	if err != nil {
 		return err
@@ -341,7 +341,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 					err = errors.Unwrap(err)
 				}
 				// Get job state, increment restarts, write job state
-				pj.ji, err = pj.driver.PachClient().InspectJob(pj.ji.Job.Pipeline.Name, pj.ji.Job.ID)
+				pj.ji, err = pj.driver.PachClient().InspectJob(pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, false)
 				if err != nil {
 					return err
 				}
@@ -355,8 +355,8 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 				pj.commitInfo, err = pachClient.PfsAPIClient.InspectCommit(
 					pachClient.Ctx(),
 					&pfs.InspectCommitRequest{
-						Commit:     pj.commitInfo.Commit,
-						BlockState: pfs.CommitState_STARTED,
+						Commit: pj.commitInfo.Commit,
+						Block:  pfs.CommitState_STARTED,
 					})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
@@ -371,8 +371,8 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 				pj.metaCommitInfo, err = pachClient.PfsAPIClient.InspectCommit(
 					pachClient.Ctx(),
 					&pfs.InspectCommitRequest{
-						Commit:     pj.metaCommitInfo.Commit,
-						BlockState: pfs.CommitState_STARTED,
+						Commit: pj.metaCommitInfo.Commit,
+						Block:  pfs.CommitState_STARTED,
 					})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
@@ -410,8 +410,8 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 	defer pj.cancel()
 	ci, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     pj.ji.OutputCommit,
-			BlockState: pfs.CommitState_FINISHED,
+			Commit: pj.ji.OutputCommit,
+			Block:  pfs.CommitState_FINISHED,
 		})
 	if err != nil {
 		if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {

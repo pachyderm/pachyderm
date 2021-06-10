@@ -124,7 +124,7 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	// Update trace with any new pipeline info from getPipelineInfo()
 	tracing.TagAnySpan(ctx,
 		"current-state", op.ptr.State.String(),
-		"spec-commit", pretty.CompactPrintCommitSafe(op.ptr.OriginalSpecCommit))
+		"spec-commit", pretty.CompactPrintCommitSafe(op.ptr.SpecCommit))
 	// set op.pipelineInfo
 	if err := op.getPipelineInfo(); err != nil {
 		return nil, err

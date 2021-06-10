@@ -216,7 +216,7 @@ func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionCon
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectCommit(ctx, request.Commit, request.BlockState)
+	return a.driver.inspectCommit(ctx, request.Commit, request.Block)
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC

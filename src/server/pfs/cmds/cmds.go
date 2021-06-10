@@ -372,8 +372,8 @@ $ {{alias}} test -p XXX`,
 			commitInfo, err := c.PfsAPIClient.InspectCommit(
 				c.Ctx(),
 				&pfs.InspectCommitRequest{
-					Commit:     commit,
-					BlockState: pfs.CommitState_STARTED,
+					Commit: commit,
+					Block:  pfs.CommitState_STARTED,
 				})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)

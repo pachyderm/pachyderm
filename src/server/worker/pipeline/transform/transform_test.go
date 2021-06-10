@@ -91,10 +91,10 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	// Put the pipeline info into the collection (which is read by the master)
 	err = env.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 		storedPipelineInfo := &pps.StoredPipelineInfo{
-			State:              pps.PipelineState_PIPELINE_STARTING,
-			Version:            1,
-			OriginalSpecCommit: specCommit,
-			Parallelism:        1,
+			State:       pps.PipelineState_PIPELINE_STARTING,
+			Version:     1,
+			SpecCommit:  specCommit,
+			Parallelism: 1,
 		}
 		return env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name, storedPipelineInfo)
 	})

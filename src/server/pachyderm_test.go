@@ -1207,7 +1207,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		commitInfo, err := c.BlockCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID)
+		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// We expect the job to fail, and have 1 datum processed, recovered, and failed each
@@ -1233,7 +1233,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		commitInfo, err = c.BlockCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err = c.InspectJob(pipeline, commitInfo.Commit.ID)
+		jobInfo, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// so we expect the job to succeed, and to have recovered 2 datums
@@ -1267,7 +1267,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		commitInfo, err := c.BlockCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID)
+		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// We expect there to be one recovered datum
@@ -1292,7 +1292,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		commitInfo, err = c.BlockCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err = c.InspectJob(pipeline, commitInfo.Commit.ID)
+		jobInfo, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// Now the recovered datum should have been processed
@@ -3813,7 +3813,7 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, commit1.ID, jobInfos[1].Job.ID)
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfo, err := c.InspectJob(pipelineName, commit1.ID)
+		jobInfo, err := c.InspectJob(pipelineName, commit1.ID, false)
 		require.NoError(t, err)
 		if jobInfo.State != pps.JobState_JOB_RUNNING {
 			return errors.Errorf("jobInfos[0] has the wrong state")
@@ -5802,7 +5802,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	//	require.Equal(t, 3, len(jobs))
 	//
 	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	//	_, err = c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
 	//	require.NoError(t, err)
 	//	resp, err = c.ListDatumAll(jobs[0].Job.ID, 0, 0)
 	//	require.NoError(t, err)
@@ -7511,7 +7511,7 @@ func TestCancelJob(t *testing.T) {
 	// Wait until the job is cancelled
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			updatedJobInfo, err := c.InspectJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+			updatedJobInfo, err := c.InspectJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
 			if err != nil {
 				return err
 			}
@@ -7612,7 +7612,7 @@ func TestCancelManyJobs(t *testing.T) {
 				// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
 				// submitted, change ListJob here to filter on commit1 as the input commit,
 				// rather than inspecting the input in the test
-				updatedJobInfo, err := c.InspectJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+				updatedJobInfo, err := c.InspectJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
 				if err != nil {
 					return err
 				}
@@ -8135,7 +8135,7 @@ func TestInspectJob(t *testing.T) {
 	ci, err := c.InspectCommit(repo, "master", "")
 	require.NoError(t, err)
 
-	_, err = c.InspectJob(repo, ci.Commit.ID)
+	_, err = c.InspectJob(repo, ci.Commit.ID, false)
 	require.YesError(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
 }
@@ -8375,7 +8375,7 @@ func TestDeferredCross(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 1)
 
-	jobInfo, err := c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+	jobInfo, err := c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 
 	headCommit, err := c.InspectCommit(dataSet, "master", "")

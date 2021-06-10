@@ -196,26 +196,28 @@ func (c APIClient) FinishCommit(repoName string, branchName string, commitID str
 }
 
 // InspectCommit returns info about a specific Commit.
-func (c APIClient) InspectCommit(repoName string, branchName string, commitID string) (*pfs.CommitInfo, error) {
+func (c APIClient) InspectCommit(repoName string, branchName string, commitID string) (_ *pfs.CommitInfo, retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_STARTED)
 }
 
 // BlockCommit returns info about a specific Commit, but blocks until that
 // commit has been finished.
-func (c APIClient) BlockCommit(repoName string, branchName string, commitID string) (*pfs.CommitInfo, error) {
+func (c APIClient) BlockCommit(repoName string, branchName string, commitID string) (_ *pfs.CommitInfo, retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_FINISHED)
 }
 
-func (c APIClient) inspectCommit(repoName string, branchName string, commitID string, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+func (c APIClient) inspectCommit(repoName string, branchName string, commitID string, block pfs.CommitState) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
 		c.Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     NewCommit(repoName, branchName, commitID),
-			BlockState: blockState,
+			Commit: NewCommit(repoName, branchName, commitID),
+			Block:  block,
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return commitInfo, nil
 }
@@ -359,10 +361,7 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
-func (c APIClient) inspectCommitset(id string, block bool, cb func(*pfs.CommitInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
+func (c APIClient) inspectCommitset(id string, block bool, cb func(*pfs.CommitInfo) error) error {
 	req := &pfs.InspectCommitsetRequest{
 		Commitset: NewCommitset(id),
 		Block:     block,
@@ -389,7 +388,8 @@ func (c APIClient) inspectCommitset(id string, block bool, cb func(*pfs.CommitIn
 }
 
 // InspectCommitset returns info about a specific Commitset.
-func (c APIClient) InspectCommitset(id string) ([]*pfs.CommitInfo, error) {
+func (c APIClient) InspectCommitset(id string) (_ []*pfs.CommitInfo, retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pfs.CommitInfo{}
 	if err := c.inspectCommitset(id, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
@@ -402,7 +402,8 @@ func (c APIClient) InspectCommitset(id string) ([]*pfs.CommitInfo, error) {
 
 // BlockCommitset blocks until all of a Commitset's commits are finished.  To
 // wait for an individual commit, use BlockCommit instead.
-func (c APIClient) BlockCommitsetAll(id string) ([]*pfs.CommitInfo, error) {
+func (c APIClient) BlockCommitsetAll(id string) (_ []*pfs.CommitInfo, retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pfs.CommitInfo{}
 	if err := c.BlockCommitset(id, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
@@ -413,7 +414,8 @@ func (c APIClient) BlockCommitsetAll(id string) ([]*pfs.CommitInfo, error) {
 	return result, nil
 }
 
-func (c APIClient) BlockCommitset(id string, cb func(*pfs.CommitInfo) error) error {
+func (c APIClient) BlockCommitset(id string, cb func(*pfs.CommitInfo) error) (retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	if err := c.inspectCommitset(id, true, cb); err != nil {
 		return err
 	}

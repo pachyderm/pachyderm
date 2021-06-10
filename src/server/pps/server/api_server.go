@@ -475,7 +475,6 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionCo
 		return ppsServer.ErrJobFinished{Job: jobPtr.Job}
 	}
 
-	jobPtr.Started = request.Started
 	jobPtr.Restart = request.Restart
 	jobPtr.DataProcessed = request.DataProcessed
 	jobPtr.DataSkipped = request.DataSkipped
@@ -502,7 +501,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(ppsdb.JobKey(request.Job), jobPtr); err != nil {
 		return nil, err
 	}
-	if request.BlockState {
+	if request.Block {
 		watcher, err := jobs.WatchOne(ppsdb.JobKey(request.Job))
 		if err != nil {
 			return nil, err
@@ -569,7 +568,7 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
 			return nil
 		}
-		jobInfo, err := pachClient.InspectJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, request.Full)
+		jobInfo, err := pachClient.InspectJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, false)
 		if err != nil {
 			// Not all commits are guaranteed to have an associated job - skip over it
 			if errutil.IsNotFoundError(err) {
@@ -797,7 +796,7 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.StoredJobInf
 	// was created, this prevents races between updating a pipeline and
 	// previous jobs running.
 	specCommit := client.NewSystemRepo(result.Job.Pipeline.Name, pfs.SpecRepoType).NewCommit("master", result.OutputCommit.ID)
-	pipelinePtr.OriginalSpecCommit = specCommit
+	pipelinePtr.SpecCommit = specCommit
 	if full {
 		pachClient := a.env.GetPachClient(ctx)
 		// If the commits for the job have been squashed, the pipeline spec can no
@@ -2076,7 +2075,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			// Update pipelinePtr version
 			pipelinePtr.Version = newPipelineInfo.Version
 			// Update pipelinePtr to point to the new commit
-			pipelinePtr.OriginalSpecCommit = specCommit
+			pipelinePtr.SpecCommit = specCommit
 			// Reset pipeline state (PPS master/pipeline controller recreates RC)
 			pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
 			// Clear any failure reasons
@@ -2129,12 +2128,12 @@ func (a *apiServer) CreatePipelineInTransaction(
 		// pipelinePtr will be written to the collection, pointing at 'commit'. May
 		// include an auth token
 		pipelinePtr := &pps.StoredPipelineInfo{
-			Pipeline:           request.Pipeline,
-			Version:            newPipelineInfo.Version,
-			OriginalSpecCommit: specCommit,
-			State:              pps.PipelineState_PIPELINE_STARTING,
-			Parallelism:        uint64(parallelism),
-			Type:               pipelineTypeFromInfo(newPipelineInfo),
+			Pipeline:    request.Pipeline,
+			Version:     newPipelineInfo.Version,
+			SpecCommit:  specCommit,
+			State:       pps.PipelineState_PIPELINE_STARTING,
+			Parallelism: uint64(parallelism),
+			Type:        pipelineTypeFromInfo(newPipelineInfo),
 		}
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
@@ -2352,7 +2351,7 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		return nil, err
 	}
 	// TODO(global ids): how should we treat ancestry here?  Alias commits are going to gum it up.
-	pipelinePtr.OriginalSpecCommit.ID = ancestry.Add(pipelinePtr.OriginalSpecCommit.ID, ancestors)
+	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
 	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
 	pachClient := a.env.GetPachClient(txnCtx.ClientContext)
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
@@ -3107,8 +3106,8 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 	ci, err := pachClient.PfsAPIClient.InspectCommit(
 		pachClient.Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     commit,
-			BlockState: pfs.CommitState_STARTED,
+			Commit: commit,
+			Block:  pfs.CommitState_STARTED,
 		})
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)

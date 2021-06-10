@@ -124,7 +124,7 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.Store
 	// ensure we are authorized to read the pipeline's spec commit, but don't propagate that back out
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
 	pachClient.SetAuthToken(ptr.AuthToken)
-	if err := pachClient.GetFile(ptr.OriginalSpecCommit, ppsconsts.SpecFile, &buf); err != nil {
+	if err := pachClient.GetFile(ptr.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
 	} else {
 		if err := result.Unmarshal(buf.Bytes()); err != nil {
@@ -414,7 +414,6 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 		Job:           jobInfo.Job,
 		State:         jobInfo.State,
 		Reason:        jobInfo.Reason,
-		Started:       jobInfo.Started,
 		Restart:       jobInfo.Restart,
 		DataProcessed: jobInfo.DataProcessed,
 		DataSkipped:   jobInfo.DataSkipped,

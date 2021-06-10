@@ -1509,7 +1509,7 @@ func (m *FinishCommitRequest) GetEmpty() bool {
 
 type InspectCommitRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
-	// BlockState causes inspect commit to block until the commit is in the desired state.
+	// Block causes inspect commit to block until the commit is in the desired state.
 	Block                CommitState `protobuf:"varint,2,opt,name=block,proto3,enum=pfs_v2.CommitState" json:"block,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`

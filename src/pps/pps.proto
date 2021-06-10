@@ -347,7 +347,7 @@ enum PipelineState {
 message StoredPipelineInfo {
   Pipeline pipeline = 1;
   uint64 version = 2;
-  pfs_v2.Commit original_spec_commit = 3; // The first spec commit for this version of the pipeline
+  pfs_v2.Commit spec_commit = 3; // The first spec commit for this version of the pipeline
   bool stopped = 4;
   PipelineState state = 5;
   string reason = 6;
@@ -443,7 +443,6 @@ message Jobset {
 message InspectJobsetRequest {
   Jobset jobset = 1;
   bool block = 2; // When true, block until all jobs in the set are finished
-  bool full = 3;
 }
 
 message InspectJobRequest {

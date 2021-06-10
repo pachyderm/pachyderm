@@ -305,7 +305,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// 	c.Ctx(),
 		// 	&pfs.InspectCommitRequest{
 		// 		Commit:     client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", ""),
-		// 		BlockState: pfs.CommitState_STARTED,
+		// 		Block: pfs.CommitState_STARTED,
 		// 	})
 		// require.NoError(t, err)
 		// require.Equal(t, 3, len(commitInfo.Subvenance))

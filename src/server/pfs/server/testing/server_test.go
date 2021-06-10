@@ -4027,8 +4027,8 @@ func TestPFS(suite *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 		_, err = env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit:     client.NewCommit("B", "master", ""),
-			BlockState: pfs.CommitState_READY,
+			Commit: client.NewCommit("B", "master", ""),
+			Block:  pfs.CommitState_READY,
 		})
 		require.YesError(t, err)
 
@@ -4038,8 +4038,8 @@ func TestPFS(suite *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 		_, err = env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit:     client.NewCommit("B", "master", ""),
-			BlockState: pfs.CommitState_READY,
+			Commit: client.NewCommit("B", "master", ""),
+			Block:  pfs.CommitState_READY,
 		})
 		require.NoError(t, err)
 
@@ -4050,8 +4050,8 @@ func TestPFS(suite *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 		_, err = env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit:     client.NewCommit("C", "master", ""),
-			BlockState: pfs.CommitState_READY,
+			Commit: client.NewCommit("C", "master", ""),
+			Block:  pfs.CommitState_READY,
 		})
 		require.NoError(t, err)
 	})

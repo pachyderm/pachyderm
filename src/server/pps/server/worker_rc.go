@@ -608,7 +608,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *
 	return &workerOptions{
 		rcName:                rcName,
 		s3GatewayPort:         s3GatewayPort,
-		specCommit:            ptr.OriginalSpecCommit.ID,
+		specCommit:            ptr.SpecCommit.ID,
 		labels:                labels,
 		annotations:           annotations,
 		parallelism:           int32(0), // pipelines start w/ 0 workers & are scaled up
