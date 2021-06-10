@@ -66,7 +66,8 @@ const Project: React.FC = () => {
             className={styles.tooltip}
             tooltipKey="zoomOut"
             size="large"
-            tooltipText={`Zoom Out to See All\nOr\nUse keyboard shortcut Shift + 2`}
+            placement="bottom"
+            tooltipText={`Click to reset canvas, or\nuse keyboard shortcut "Shift + 2"`}
           >
             <button
               className={styles.controlButton}
@@ -74,9 +75,10 @@ const Project: React.FC = () => {
               disabled={dags?.length === 0}
             >
               <ZoomOutSvg
-                aria-label="Zoom Out"
+                aria-label="Reset Canvas"
                 className={classnames(styles.svgControl, styles.zoomOutSvg)}
               />
+              <label className={styles.controlLabel}>Reset Canvas</label>
             </button>
           </Tooltip>
           <button
@@ -85,7 +87,7 @@ const Project: React.FC = () => {
             disabled={dags?.length === 0}
           >
             <RotateSvg
-              aria-label={'Rotate Dag'}
+              aria-label={'Rotate Canvas'}
               className={classnames(styles.svgControl, styles.rotateSvg)}
             />
           </button>

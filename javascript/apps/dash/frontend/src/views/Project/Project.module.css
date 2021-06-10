@@ -17,10 +17,22 @@
   align-items: center;
 }
 
+.controlLabel {
+  color: var(--pachyderm-black);
+  font-weight: 600;
+  margin-bottom: 0;
+  margin-left: 0.5rem;
+  font-size: var(--font-size-body-medium);
+}
+
 .controlButton {
   border: none;
   background-color: transparent;
-  margin-left: 1.875rem;
+  margin-left: 1rem;
+}
+
+.controlButton.UP, .controlButton.DOWN, .controlButton.RIGHT, .controlButton.LEFT {
+  margin-top: -0.5rem;
 }
 
 .controlButton.UP {
