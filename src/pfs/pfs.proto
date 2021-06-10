@@ -171,7 +171,6 @@ message ListRepoResponse {
 message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
-  bool all = 3;
 }
 
 // CommitState describes the states a commit can be in.
