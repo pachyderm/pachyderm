@@ -792,6 +792,12 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 		hasNewCommits = true
 
+		// Do not propagate an open commit onto spout output branches (which should
+		// only have a single provenance on a spec commit)
+		if len(subvBI.Provenance) == 1 && subvBI.Provenance[0].Repo.Type == pfs.SpecRepoType {
+			continue
+		}
+
 		// Create aliases for any provenant branches which are not already part of this Commitset
 		for _, provOfSubvB := range subvBI.Provenance {
 			provOfSubvBI, err := getBranchInfo(provOfSubvB)
@@ -1308,8 +1314,7 @@ func (d *driver) squashCommitset(txnCtx *txncontext.TransactionContext, commitse
 				if commitInfo.ParentCommit == nil || !proto.Equal(commitInfo.ParentCommit.Branch, commitInfo.Commit.Branch) {
 					// Create a new empty commit for the branch head
 					var err error
-					closed := len(branchInfo.Provenance) == 0 // For input branches, we make a closed default head commit
-					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo, closed)
+					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo)
 					if err != nil {
 						return err
 					}
@@ -1549,10 +1554,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// If the branch still has no head, create an empty commit on it so that we
 	// can maintain an invariant that branches always have a head commit.
 	if branchInfo.Head == nil {
-		// Spouts want a closed head commit, but we can't tell if it's a spout from
-		// here - instead, they will close it in the worker startup.
-		closed := len(provenance) == 0 // For input branches, we make a closed default head commit
-		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo, closed)
+		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo)
 		if err != nil {
 			return err
 		}
@@ -1798,7 +1800,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 			// We are creating this branch for the first time, set the Branch and Head
 			provBranchInfo.Branch = provBranch
 
-			head, err := d.makeEmptyCommit(txnCtx, provBranchInfo, true)
+			head, err := d.makeEmptyCommit(txnCtx, provBranchInfo)
 			if err != nil {
 				return err
 			}
@@ -1831,7 +1833,18 @@ func (d *driver) deleteAll(txnCtx *txncontext.TransactionContext) error {
 	return nil
 }
 
-func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, closed bool) (*pfs.Commit, error) {
+func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo) (*pfs.Commit, error) {
+	// Input repos and spouts want a closed head commit, so decide if we leave
+	// it open by the presence of branch provenance.  If it's only provenant on
+	// a spec repo, we assume it's a spout and close the commit.
+	closed := true
+	for _, prov := range branchInfo.DirectProvenance {
+		if prov.Repo.Type != pfs.SpecRepoType {
+			closed = false
+			break
+		}
+	}
+
 	commit := branchInfo.Branch.NewCommit(txnCtx.CommitsetID)
 	commitInfo := &pfs.CommitInfo{
 		Commit:           commit,

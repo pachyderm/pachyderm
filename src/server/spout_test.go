@@ -390,28 +390,16 @@ func testSpout(t *testing.T, usePachctl bool) {
 			})
 		require.NoError(t, err)
 
-		// TODO(global ids): check commitset instead
-		// get some commits
-		// pipelineInfo, err := c.InspectPipeline(pipeline)
-		// require.NoError(t, err)
-		// countBreakFunc := newCountBreakFunc(3)
-		// and we want to make sure that these commits all have the same provenance
-		// provenanceID := ""
-		// var count int
-		// require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "", pipelineInfo.SpecCommit.NewProvenance(), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
-		// 	return countBreakFunc(func() error {
-		// 		require.Equal(t, 1, len(ci.Provenance))
-		// 		provenance := ci.Provenance[0].Commit
-		// 		if count == 0 {
-		// 			// set first one
-		// 			provenanceID = provenance.ID
-		// 		} else {
-		// 			require.Equal(t, provenanceID, provenance.ID)
-		// 		}
-		// 		count++
-		// 		return nil
-		// 	})
-		// }))
+		// and we want to make sure that these commits all have provenance on the spec repo
+		specBranch := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewBranch("master")
+		countBreakFunc := newCountBreakFunc(3)
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+			return countBreakFunc(func() error {
+				require.Equal(t, 1, len(ci.DirectProvenance))
+				require.Equal(t, specBranch, ci.DirectProvenance[0])
+				return nil
+			})
+		}))
 
 		// now we'll update the pipeline
 		_, err = c.PpsAPIClient.CreatePipeline(
@@ -434,27 +422,15 @@ func testSpout(t *testing.T, usePachctl bool) {
 			})
 		require.NoError(t, err)
 
-		// TODO(global ids): check commitset instead
-		// pipelineInfo, err = c.InspectPipeline(pipeline)
-		// require.NoError(t, err)
-		// countBreakFunc = newCountBreakFunc(3)
-		// count = 0
-		// require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "", pipelineInfo.SpecCommit.NewProvenance(), "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
-		// 	return countBreakFunc(func() error {
-		// 		require.Equal(t, 1, len(ci.Provenance))
-		// 		provenance := ci.Provenance[0].Commit
-		// 		if count == 0 {
-		// 			// this time, we expect our commits to have different provenance from the commits earlier
-		// 			require.NotEqual(t, provenanceID, provenance.ID)
-		// 			provenanceID = provenance.ID
-		// 		} else {
-		// 			// but they should still have the same provenance as each other
-		// 			require.Equal(t, provenanceID, provenance.ID)
-		// 		}
-		// 		count++
-		// 		return nil
-		// 	})
-		// }))
+		countBreakFunc = newCountBreakFunc(3)
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+			return countBreakFunc(func() error {
+				require.Equal(t, 1, len(ci.DirectProvenance))
+				require.Equal(t, specBranch, ci.DirectProvenance[0])
+				return nil
+			})
+		}))
+
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
