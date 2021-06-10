@@ -773,6 +773,12 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 	// Iterate through downstream branches and determine which need a new commit.
 	hasNewCommits := false
 	for _, subvBI := range subvBIs {
+		// Do not propagate an open commit onto spout output branches (which should
+		// only have a single provenance on a spec commit)
+		if len(subvBI.Provenance) == 1 && subvBI.Provenance[0].Repo.Type == pfs.SpecRepoType {
+			continue
+		}
+
 		// We need to create new commits or aliases if any of this branch and its
 		// provenances disagree on their commitset.
 		ids := []string{subvBI.Head.ID}
@@ -791,12 +797,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			continue
 		}
 		hasNewCommits = true
-
-		// Do not propagate an open commit onto spout output branches (which should
-		// only have a single provenance on a spec commit)
-		if len(subvBI.Provenance) == 1 && subvBI.Provenance[0].Repo.Type == pfs.SpecRepoType {
-			continue
-		}
 
 		// Create aliases for any provenant branches which are not already part of this Commitset
 		for _, provOfSubvB := range subvBI.Provenance {

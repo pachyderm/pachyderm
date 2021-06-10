@@ -153,10 +153,10 @@ func (s *Set) WithDatum(meta *Meta, cb func(*Datum) error, opts ...Option) error
 	d := newDatum(s, meta, opts...)
 
 	var err error
-	for i := 0; i < d.numRetries; i++ {
+	for i := 0; i <= d.numRetries; i++ {
 		err = d.withData(func() (retErr error) {
 			defer func() {
-				if retErr == nil || i == d.numRetries-1 {
+				if retErr == nil || i == d.numRetries {
 					retErr = d.finish(retErr)
 				}
 			}()

@@ -39,7 +39,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -606,8 +605,7 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 // squashed.  We may need to recursively squash commitsets to prevent this.
 func (a *apiServer) intersectCommitsets(ctx context.Context, commits []*pfs.Commit) (map[string]struct{}, error) {
 	walkCommits := func(startCommit *pfs.Commit) (map[string]struct{}, error) {
-		result := map[string]struct{}{}  // key is the commitset id
-		visited := map[string]struct{}{} // key is a commit key
+		result := map[string]struct{}{} // key is the commitset id
 		queue := []*pfs.Commit{}
 
 		// Walk upwards until finding a concrete commit
@@ -618,7 +616,6 @@ func (a *apiServer) intersectCommitsets(ctx context.Context, commits []*pfs.Comm
 				return nil, err
 			}
 			if commitInfo.Origin.Kind != pfs.OriginKind_ALIAS || commitInfo.ParentCommit == nil {
-				visited[pfsdb.CommitKey(cursor)] = struct{}{}
 				result[cursor.ID] = struct{}{}
 				queue = append(queue, commitInfo.ChildCommits...)
 				break
@@ -630,17 +627,13 @@ func (a *apiServer) intersectCommitsets(ctx context.Context, commits []*pfs.Comm
 		for len(queue) > 0 {
 			cursor = queue[0]
 			queue = queue[1:]
-			if _, ok := visited[pfsdb.CommitKey(cursor)]; ok {
-				continue
-			}
-			visited[pfsdb.CommitKey(cursor)] = struct{}{}
-			result[cursor.ID] = struct{}{}
 
 			commitInfo, err := a.resolveCommit(ctx, cursor)
 			if err != nil {
 				return nil, err
 			}
 			if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
+				result[cursor.ID] = struct{}{}
 				for _, childCommit := range commitInfo.ChildCommits {
 					queue = append(queue, childCommit)
 				}
