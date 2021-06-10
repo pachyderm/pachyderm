@@ -213,7 +213,6 @@ func TestSpoutPachctl(t *testing.T) {
 
 func testSpout(t *testing.T, usePachctl bool) {
 	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
 	c := tu.GetPachClient(t)
 
 	putFileCommand := func(branch, flags, file string) string {
@@ -453,9 +452,6 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, c.DeleteAll())
 	})
 	t.Run("SpoutService", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestSpoutService_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
 		annotations := map[string]string{"foo": "bar"}
 
 		// Create a pipeline that listens for tcp connections
@@ -486,7 +482,6 @@ func testSpout(t *testing.T, usePachctl bool) {
 				ParallelismSpec: &pps.ParallelismSpec{
 					Constant: 1,
 				},
-				Input:  client.NewPFSInput(dataRepo, "/"),
 				Update: false,
 				Spout: &pps.Spout{
 					Service: &pps.Service{
@@ -507,17 +502,18 @@ func testSpout(t *testing.T, usePachctl bool) {
 		backoff.Retry(func() error {
 			raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
 			if err != nil {
-				fmt.Printf("error resolving: %v\n", err)
 				return err
 			}
 
 			conn, err := net.DialTCP("tcp", nil, raddr)
 			if err != nil {
-				fmt.Printf("error connecting: %v\n", err)
 				return err
 			}
 			tarwriter := tar.NewWriter(conn)
-			defer tarwriter.Close()
+			defer func() {
+				require.NoError(t, tarwriter.Close())
+				require.NoError(t, conn.Close())
+			}()
 			headerinfo := &tar.Header{
 				Name: "file1",
 				Size: int64(len("foo")),
@@ -525,13 +521,11 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 			err = tarwriter.WriteHeader(headerinfo)
 			if err != nil {
-				fmt.Printf("error writing: %v\n", err)
 				return err
 			}
 
 			_, err = tarwriter.Write([]byte("foo"))
 			if err != nil {
-				fmt.Printf("error writing2: %v\n", err)
 				return err
 			}
 			return nil
