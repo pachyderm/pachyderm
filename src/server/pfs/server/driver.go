@@ -653,14 +653,6 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 		// First load the parent commit and update it to point to the child
 		parentCommitInfo := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(parent), parentCommitInfo, func() error {
-			/* TODO(global ids): don't merge this while commented out
-			if parentCommitInfo.Finished == nil {
-				// We allow aliases on the same branch as the original
-				if !proto.Equal(branch, parent.Branch) {
-					return errors.Errorf("cannot create an alias for an open commit from a different branch: %s -> %s", pfsdb.CommitKey(parent), pfsdb.BranchKey(branch))
-				}
-			}
-			*/
 			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, commit)
 			return nil
 		}); err != nil {
