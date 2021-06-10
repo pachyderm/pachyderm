@@ -12,6 +12,7 @@ type APIServer interface {
 	pps_client.APIServer
 
 	NewPropagater(*txncontext.TransactionContext) txncontext.PpsPropagater
+	NewJobStopper(*txncontext.TransactionContext) txncontext.PpsJobStopper
 
 	StopJobInTransaction(*txncontext.TransactionContext, *pps_client.StopJobRequest) error
 	UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error

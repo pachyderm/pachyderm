@@ -33,7 +33,7 @@ package datum
 //			}
 //			return di.Iterate(func(meta *Meta) error {
 //				allInputs = append(allInputs, meta.Inputs)
-//				return s.WithDatum(context.Background(), meta, func(d *Datum) error {
+//				return s.WithDatum(meta, func(d *Datum) error {
 //					return processFiles(path.Join(d.PFSStorageRoot(), OutputPrefix), path.Join(d.PFSStorageRoot(), inputName), func(_ []byte) []byte {
 //						return []byte("output")
 //					})

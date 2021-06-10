@@ -26,6 +26,8 @@ type TransactionContext struct {
 	PfsPropagater PfsPropagater
 	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
 	PpsPropagater PpsPropagater
+	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
+	PpsJobStopper PpsJobStopper
 }
 
 // PropagateJobs notifies PPS that there are new commits in the transaction's
@@ -33,6 +35,12 @@ type TransactionContext struct {
 // transaction (if all operations complete successfully).
 func (t *TransactionContext) PropagateJobs() {
 	t.PpsPropagater.PropagateJobs()
+}
+
+// StopJobs notifies PPS that some commits have been removed and the jobs
+// associated with them should be stopped.
+func (t *TransactionContext) StopJobs(commitset *pfs.Commitset) {
+	t.PpsJobStopper.StopJobs(commitset)
 }
 
 // PropagateBranch saves a branch to be propagated at the end of the transaction
@@ -69,5 +77,13 @@ type PfsPropagater interface {
 // of a transaction.  It is defined here to avoid a circular dependency.
 type PpsPropagater interface {
 	PropagateJobs()
+	Run() error
+}
+
+// PpsJobStopper is the interface that PPS implements to stop jobs of deleted
+// commitsets at the end of a transaction.  It is defined here to avoid a
+// circular dependency.
+type PpsJobStopper interface {
+	StopJobs(commitset *pfs.Commitset)
 	Run() error
 }

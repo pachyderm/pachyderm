@@ -56,7 +56,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			inputs := meta.Inputs
 			logger = logger.WithData(inputs)
 			env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs)
-			return s.WithDatum(ctx, meta, func(d *datum.Datum) error {
+			return s.WithDatum(meta, func(d *datum.Datum) error {
 				return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
 					return d.Run(ctx, func(runCtx context.Context) error {
 						return driver.RunUserCode(runCtx, logger, env)

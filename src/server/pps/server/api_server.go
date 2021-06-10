@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -563,16 +564,13 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.API_InspectJobsetServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-
-	// Note that while this will return jobs in the same topological sort as the
-	// commitset, it will block on commits that don't have a job associated with
-	// them (aliases and input commits, for example).
 	pachClient := a.env.GetPachClient(server.Context())
-	return pachClient.BlockCommitset(request.Jobset.ID, func(ci *pfs.CommitInfo) error {
+
+	cb := func(ci *pfs.CommitInfo) error {
 		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
 			return nil
 		}
-		jobInfo, err := pachClient.BlockJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, request.Full)
+		jobInfo, err := pachClient.InspectJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, request.Full)
 		if err != nil {
 			// Not all commits are guaranteed to have an associated job - skip over it
 			if errutil.IsNotFoundError(err) {
@@ -581,7 +579,95 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 			return err
 		}
 		return server.Send(jobInfo)
-	})
+	}
+
+	// Note that while this will return jobs in the same topological sort as the
+	// commitset, it will block on commits that don't have a job associated with
+	// them (aliases and input commits, for example).
+	if request.Block {
+		return pachClient.BlockCommitset(request.Jobset.ID, cb)
+	}
+	commitInfos, err := pachClient.InspectCommitset(request.Jobset.ID)
+	if err != nil {
+		return err
+	}
+	for _, ci := range commitInfos {
+		if err := cb(ci); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// intersectCommitsets finds all commitsets which involve the specified commits
+// (or aliases of the specified commits)
+// TODO(global ids): this assumes that all aliases are equivalent to their first
+// ancestor non-alias commit, but that may not be true if the ancestor has been
+// squashed.  We may need to recursively squash commitsets to prevent this.
+func (a *apiServer) intersectCommitsets(ctx context.Context, commits []*pfs.Commit) (map[string]struct{}, error) {
+	walkCommits := func(startCommit *pfs.Commit) (map[string]struct{}, error) {
+		result := map[string]struct{}{}  // key is the commitset id
+		visited := map[string]struct{}{} // key is a commit key
+		queue := []*pfs.Commit{}
+
+		// Walk upwards until finding a concrete commit
+		cursor := startCommit
+		for {
+			commitInfo, err := a.resolveCommit(ctx, cursor)
+			if err != nil {
+				return nil, err
+			}
+			if commitInfo.Origin.Kind != pfs.OriginKind_ALIAS || commitInfo.ParentCommit == nil {
+				visited[pfsdb.CommitKey(cursor)] = struct{}{}
+				result[cursor.ID] = struct{}{}
+				queue = append(queue, commitInfo.ChildCommits...)
+				break
+			}
+			cursor = commitInfo.ParentCommit
+		}
+
+		// Now find all descendent aliases
+		for len(queue) > 0 {
+			cursor = queue[0]
+			queue = queue[1:]
+			if _, ok := visited[pfsdb.CommitKey(cursor)]; ok {
+				continue
+			}
+			visited[pfsdb.CommitKey(cursor)] = struct{}{}
+			result[cursor.ID] = struct{}{}
+
+			commitInfo, err := a.resolveCommit(ctx, cursor)
+			if err != nil {
+				return nil, err
+			}
+			if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
+				for _, childCommit := range commitInfo.ChildCommits {
+					queue = append(queue, childCommit)
+				}
+			}
+		}
+		return result, nil
+	}
+
+	var intersection map[string]struct{}
+	for _, commit := range commits {
+		result, err := walkCommits(commit)
+		if err != nil {
+			return nil, err
+		}
+		if intersection == nil {
+			intersection = result
+		} else {
+			newIntersection := map[string]struct{}{}
+			for commitsetID := range result {
+				if _, ok := intersection[commitsetID]; ok {
+					newIntersection[commitsetID] = struct{}{}
+				}
+			}
+			intersection = newIntersection
+		}
+	}
+	return intersection, nil
 }
 
 // listJob is the internal implementation of ListJob shared between ListJob and
@@ -609,12 +695,11 @@ func (a *apiServer) listJob(
 		}
 	}
 
-	var err error
-	for i, inputCommit := range inputCommits {
-		inputCommits[i], err = a.resolveCommit(ctx, inputCommit)
-		if err != nil {
-			return err
-		}
+	// For each specified input commit, build the set of commitset IDs which
+	// belong to all of them.
+	commitsets, err := a.intersectCommitsets(ctx, inputCommits)
+	if err != nil {
+		return err
 	}
 
 	var jqCode *gojq.Code
@@ -649,36 +734,18 @@ func (a *apiServer) listJob(
 	jobs := a.jobs.ReadOnly(ctx)
 	jobPtr := &pps.StoredJobInfo{}
 	_f := func(string) error {
-		jobInfo, err := a.jobInfoFromPtr(ctx, jobPtr, len(inputCommits) > 0 || full)
+		jobInfo, err := a.jobInfoFromPtr(ctx, jobPtr, full)
 		if err != nil {
-			if errutil.IsNotFoundError(err) {
-				// This can happen if a user deletes an upstream commit and thereby
-				// deletes this job's output commit, but doesn't delete the etcdJobInfo.
-				// In this case, the job is effectively deleted, but isn't removed from
-				// etcd yet.
-				return nil
-			} else if auth.IsErrNotAuthorized(err) {
-				return nil // skip job--see note under 'authIsActive && pipeline != nil'
+			if auth.IsErrNotAuthorized(err) {
+				return nil // skip job--see note at top of function
 			}
 			return err
 		}
 
 		if len(inputCommits) > 0 {
-			found := make([]bool, len(inputCommits))
-			pps.VisitInput(jobInfo.Input, func(in *pps.Input) error {
-				if in.Pfs != nil {
-					for i, inputCommit := range inputCommits {
-						if in.Pfs.Commit == inputCommit.ID {
-							found[i] = true
-						}
-					}
-				}
+			// Only include the job if it's in the set of intersected commitset IDs
+			if _, ok := commitsets[jobInfo.Job.ID]; !ok {
 				return nil
-			})
-			for _, found := range found {
-				if !found {
-					return nil
-				}
 			}
 		}
 
@@ -742,12 +809,13 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.StoredJobInf
 	pipelinePtr.OriginalSpecCommit = specCommit
 	if full {
 		pachClient := a.env.GetPachClient(ctx)
-		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
+		// If the commits for the job have been squashed, the pipeline spec can no
+		// longer be read for this job
+		pipelineInfo, err := ppsutil.GetPipelineInfoAllowIncomplete(pachClient, pipelinePtr)
 		if err != nil {
 			return nil, err
 		}
 		result.Transform = pipelineInfo.Transform
-		result.PipelineVersion = pipelineInfo.Version
 		result.ParallelismSpec = pipelineInfo.ParallelismSpec
 		result.Egress = pipelineInfo.Egress
 		result.Service = pipelineInfo.Service
@@ -3043,7 +3111,7 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 	return podList.Items, nil
 }
 
-func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit, error) {
+func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	pachClient := a.env.GetPachClient(ctx)
 	ci, err := pachClient.PfsAPIClient.InspectCommit(
 		pachClient.Ctx(),
@@ -3054,7 +3122,7 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return ci.Commit, nil
+	return ci, nil
 }
 
 func labels(app string) map[string]string {

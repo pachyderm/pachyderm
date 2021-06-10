@@ -1414,6 +1414,10 @@ func (d *driver) squashCommitset(txnCtx *txncontext.TransactionContext, commitse
 		}
 	}
 
+	// 5) notify PPS that this commitset has been squashed so it can clean up any
+	// jobs associated with it at the end of the transaction
+	txnCtx.StopJobs(commitset)
+
 	return nil
 }
 

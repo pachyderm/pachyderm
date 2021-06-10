@@ -7695,12 +7695,15 @@ func TestSquashCommitsetPropagation(t *testing.T) {
 // which deletes the job's output commit and cancels the job. This should start
 // another job that processes the original input HEAD commit's parent.
 func TestSquashCommitsetRunsJob(t *testing.T) {
+	// TODO(required 2.0): this test depends on old squash commit behavior and may
+	// not be possible to make work with global ids.  If we change squashing
+	// commits to also squash aliased commitsets, this may make sense again.
+	t.Skip("Squashing commitsets does not make jobs like this with global IDs")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
 	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
 
 	// Create an input repo
 	repo := tu.UniqueString("TestSquashCommitsetRunsJob")
@@ -7716,6 +7719,14 @@ func TestSquashCommitsetRunsJob(t *testing.T) {
 	require.NoError(t, c.PutFile(commit1, "/time", strings.NewReader("1"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(commit1, "/data", strings.NewReader("commit 1 data"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
+
+	commit2, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(commit2, "/time"))
+	require.NoError(t, c.PutFile(commit2, "/time", strings.NewReader("600"), client.WithAppendPutFile()))
+	require.NoError(t, c.DeleteFile(commit2, "/data"))
+	require.NoError(t, c.PutFile(commit2, "/data", strings.NewReader("commit 2 data"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
 
 	// Create sleep + copy pipeline
 	pipeline := tu.UniqueString("pipeline")
@@ -7735,65 +7746,23 @@ func TestSquashCommitsetRunsJob(t *testing.T) {
 		false,
 	))
 
-	commit2, err := c.StartCommit(repo, "master")
+	// Check that there are no jobs for commit1
+	jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit1}, -1, true)
 	require.NoError(t, err)
-	require.NoError(t, c.DeleteFile(commit2, "/time"))
-	require.NoError(t, c.PutFile(commit2, "/time", strings.NewReader("600"), client.WithAppendPutFile()))
-	require.NoError(t, c.DeleteFile(commit2, "/data"))
-	require.NoError(t, c.PutFile(commit2, "/data", strings.NewReader("commit 2 data"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
+	require.Equal(t, 0, len(jobInfos))
 
-	// Wait until PPS has started processing commit2
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		return backoff.Retry(func() error {
-			// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
-			// submitted, change ListJob here to filter on commit1 as the input commit,
-			// rather than inspecting the input in the test
-			jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit2}, -1, true)
-			if err != nil {
-				return err
-			}
-			if len(jobInfos) != 1 {
-				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
-			}
-			return pps.VisitInput(jobInfos[0].Input, func(input *pps.Input) error {
-				if input.Pfs == nil {
-					return errors.Errorf("expected a single PFS input, but got: %v", jobInfos[0].Input)
-				}
-				if input.Pfs.Commit != commit2.ID {
-					return errors.Errorf("expected job to process %s, but instead processed: %s", commit2.ID, jobInfos[0].Input)
-				}
-				return nil
-			})
-		}, backoff.NewTestingBackOff())
-	})
+	// Check that PPS has generated a job for commit2
+	jobInfos, err = c.ListJob(pipeline, []*pfs.Commit{commit2}, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
 
 	// Delete the second commit in the input repo
 	require.NoError(t, c.SquashCommitset(commit2.ID))
 
-	// Wait until PPS has started processing commit1
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		return backoff.Retry(func() error {
-			// TODO(msteffen): as above, change ListJob here to filter on commit2 as
-			// the input, rather than inspecting the input in the test
-			jobInfos, err := c.ListJob(pipeline, nil, -1, true)
-			if err != nil {
-				return err
-			}
-			if len(jobInfos) != 1 {
-				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
-			}
-			return pps.VisitInput(jobInfos[0].Input, func(input *pps.Input) error {
-				if input.Pfs == nil {
-					return errors.Errorf("expected a single PFS input, but got: %v", jobInfos[0].Input)
-				}
-				if input.Pfs.Commit != commit1.ID {
-					return errors.Errorf("expected job to process %s, but instead processed: %s", commit1.ID, jobInfos[0].Input)
-				}
-				return nil
-			})
-		}, backoff.NewTestingBackOff())
-	})
+	// Check that PPS has generated a job for commit1
+	jobInfos, err = c.ListJob(pipeline, []*pfs.Commit{commit1}, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
 
 	commitInfo, err := c.BlockCommit(pipeline, "master", "")
 	require.NoError(t, err)
@@ -7901,7 +7870,7 @@ func TestUserWorkingDir(t *testing.T) {
 	}
 
 	c := tu.GetPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestUserWorkingDir_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
