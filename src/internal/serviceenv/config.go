@@ -38,6 +38,9 @@ type GlobalConfiguration struct {
 	Metrics              bool   `env:"METRICS,default=true"`
 	MetricsEndpoint      string `env:"METRICS_ENDPOINT,default="`
 
+	// SessionDurationMinutes it how long auth tokens are valid for, defaults to 30 days (30 * 24 * 60)
+	SessionDurationMinutes int `env:"SESSION_DURATION_MINUTES,default=43200"`
+
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
 	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
 	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
