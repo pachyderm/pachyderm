@@ -15,6 +15,7 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/mattn/go-isatty"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -218,7 +219,6 @@ or type (e.g. csv, binary, images, etc).`,
 
 			request := &pfsclient.DeleteRepoRequest{
 				Force: force,
-				All:   all,
 			}
 			if len(args) > 0 {
 				if all {
@@ -230,7 +230,11 @@ or type (e.g. csv, binary, images, etc).`,
 			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
+				if all {
+					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &types.Empty{})
+				} else {
+					_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
+				}
 				return err
 			})
 			return grpcutil.ScrubGRPC(err)
