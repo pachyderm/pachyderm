@@ -1,0 +1,39 @@
+@keyframes dotPulse {
+  0% {
+    box-shadow: 0 0 0 0px var(--border-grey);
+  }
+  30% {
+    box-shadow: 0 0 0 5px var(--border-grey);
+  }
+  60%,
+  100% {
+    box-shadow: 0 0 0 0px var(--border-grey);
+  }
+}
+
+.base, .base::before, .base::after {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background-color: var(--border-grey);
+  animation: dotPulse 1s infinite ease-in;
+}
+
+.base {
+  margin-left: 50%;
+  top: 50%;
+  animation-delay: .25s;  
+}
+
+.base::before {
+  content: '';
+  margin-left: -30px;
+  animation-delay: 0s;
+}
+  
+.base::after {
+  content: '';
+  margin-left: 30px;
+  animation-delay: 0.5s;
+}

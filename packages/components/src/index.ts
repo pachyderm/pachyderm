@@ -23,6 +23,7 @@ export * from './Info';
 export * from './Input';
 export * from './Label';
 export * from './Link';
+export * from './LoadingDots';
 export * from './Modal';
 export * from './Page';
 export * from './RadioButton';
