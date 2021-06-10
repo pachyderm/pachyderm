@@ -634,9 +634,7 @@ func (a *apiServer) intersectCommitsets(ctx context.Context, commits []*pfs.Comm
 			}
 			if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
 				result[cursor.ID] = struct{}{}
-				for _, childCommit := range commitInfo.ChildCommits {
-					queue = append(queue, childCommit)
-				}
+				queue = append(queue, commitInfo.ChildCommits...)
 			}
 		}
 		return result, nil

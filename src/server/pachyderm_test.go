@@ -9933,7 +9933,7 @@ func monitorReplicas(t testing.TB, pipeline string, n int) {
 	rcName := ppsutil.PipelineRcName(pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
-	require.NoErrorWithinTRetry(t, 120*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
 		for {
 			scale, err := kc.CoreV1().ReplicationControllers("default").GetScale(rcName, metav1.GetOptions{})
 			if err != nil {
