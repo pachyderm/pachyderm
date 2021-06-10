@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -15,6 +16,16 @@ type mockNewPropagater struct {
 }
 
 func (mock *mockNewPropagater) Use(cb newPropagaterFunc) {
+	mock.handler = cb
+}
+
+type newJobStopperFunc func(*txncontext.TransactionContext) txncontext.PpsJobStopper
+
+type mockNewJobStopper struct {
+	handler newJobStopperFunc
+}
+
+func (mock *mockNewJobStopper) Use(cb newJobStopperFunc) {
 	mock.handler = cb
 }
 
@@ -58,6 +69,7 @@ type ppsTransactionAPI struct {
 type MockPPSTransactionServer struct {
 	api                         ppsTransactionAPI
 	NewPropagater               mockNewPropagater
+	NewJobStopper               mockNewJobStopper
 	StopJobInTransaction        mockStopJobInTransaction
 	UpdateJobStateInTransaction mockUpdateJobStateInTransaction
 	CreatePipelineInTransaction mockCreatePipelineInTransaction
@@ -73,6 +85,18 @@ func (api *ppsTransactionAPI) NewPropagater(txnCtx *txncontext.TransactionContex
 		return api.mock.NewPropagater.handler(txnCtx)
 	}
 	return &MockPPSPropagater{}
+}
+
+type MockPPSJobStopper struct{}
+
+func (mpp *MockPPSJobStopper) StopJobs(*pfs.Commitset) {}
+func (mpp *MockPPSJobStopper) Run() error              { return nil }
+
+func (api *ppsTransactionAPI) NewJobStopper(txnCtx *txncontext.TransactionContext) txncontext.PpsJobStopper {
+	if api.mock.NewJobStopper.handler != nil {
+		return api.mock.NewJobStopper.handler(txnCtx)
+	}
+	return &MockPPSJobStopper{}
 }
 
 func (api *ppsTransactionAPI) StopJobInTransaction(txnCtx *txncontext.TransactionContext, req *pps.StopJobRequest) error {
