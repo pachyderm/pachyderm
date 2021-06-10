@@ -43,11 +43,15 @@ func safeTrim(s string, l int) string {
 // PrintJobInfo pretty-prints job info.
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
-	fmt.Fprintf(w, "%s\t", jobInfo.Pipeline.Name)
-	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
+	fmt.Fprintf(w, "%s\t", jobInfo.Job.Pipeline.Name)
+	if jobInfo.Started != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
+		}
 	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
+		fmt.Fprintf(w, "-\t")
 	}
 	if jobInfo.Finished != nil {
 		fmt.Fprintf(w, "%s\t", pretty.TimeDifference(jobInfo.Started, jobInfo.Finished))
@@ -132,7 +136,7 @@ func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
 func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}}
-Pipeline: {{.Pipeline.Name}} {{if .ParentJob}}
+Pipeline: {{.Job.Pipeline.Name}}{{if .ParentJob}}
 Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
@@ -172,8 +176,7 @@ ParallelismSpec: {{.ParallelismSpec}}
 {{jobInput .}}
 Transform:
 {{prettyTransform .Transform}} {{if .OutputCommit}}
-Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .StatsCommit }}
-Stats Commit: {{.StatsCommit.ID}} {{end}} {{ if .Egress }}
+Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Egress }}
 Egress: {{.Egress.URL}} {{end}}
 `)
 	if err != nil {

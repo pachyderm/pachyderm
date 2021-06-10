@@ -93,6 +93,7 @@ enum OriginKind {
   USER = 0;
   AUTO = 1;
   FSCK = 2;
+  ALIAS = 3;
 }
 
 message CommitOrigin {
@@ -102,15 +103,8 @@ message CommitOrigin {
 // collection of currently-open commits in etcd are collections of Commit
 // protos)
 message Commit {
-  string id = 1 [(gogoproto.customname) = "ID"];
-  Branch branch = 2;
-}
-
-// CommitRange represents chain of commits with Lower being an ancestor of
-// Upper or, in the case of a range of size 1, the same commit.
-message CommitRange {
-  Commit lower = 1;
-  Commit upper = 2;
+  Branch branch = 1;
+  string id = 2 [(gogoproto.customname) = "ID"];
 }
 
 // CommitProvenance keeps track of where (i.e. which branch) a certain commit
@@ -131,32 +125,11 @@ message CommitInfo {
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finished = 7;
   uint64 size_bytes = 8;
-
-  // the commits and their original branches on which this commit is provenant
-  repeated CommitProvenance provenance = 9;
-
-  // ReadyProvenance is the number of provenant commits which have been
-  // finished, if ReadyProvenance == len(Provenance) then the commit is ready
-  // to be processed by pps.
-  int64 ready_provenance = 10;
-
-  repeated CommitRange subvenance = 11;
-
-  int64 subvenant_commits_success = 12;
-  int64 subvenant_commits_failure = 13;
-  int64 subvenant_commits_total = 14;
-}
-
-message StoredCommitset {
-  string id = 1 [(gogoproto.customname) = "ID"];
-  CommitOrigin origin = 2;
-  repeated Commit commits = 3;
+  repeated Branch direct_provenance = 9;
 }
 
 message Commitset {
   string id = 1 [(gogoproto.customname) = "ID"];
-  CommitOrigin origin = 2;
-  repeated CommitInfo commits = 3;
 }
 
 enum FileType {
@@ -215,7 +188,6 @@ message StartCommitRequest {
   // description is a user-provided string describing this commit
   string description = 2;
   Branch branch = 3;
-  repeated CommitProvenance provenance = 4;
 }
 
 message FinishCommitRequest {
@@ -231,8 +203,8 @@ message FinishCommitRequest {
 
 message InspectCommitRequest {
   Commit commit = 1;
-  // BlockState causes inspect commit to block until the commit is in the desired state.
-  CommitState block_state = 2;
+  // Block causes inspect commit to block until the commit is in the desired state.
+  CommitState block = 2;
 }
 
 message ListCommitRequest {
@@ -243,27 +215,22 @@ message ListCommitRequest {
   bool reverse = 5;  // Return commits oldest to newest
 }
 
-message CommitInfos {
-  repeated CommitInfo commit_info = 1;
+message InspectCommitsetRequest {
+  Commitset commitset = 1;
+  bool block = 2; // When true, block until all commits in the set are finished
 }
 
-message SquashCommitRequest {
-  Commit commit = 1;
-}
-
-message FlushCommitRequest {
-  repeated Commit commits = 1;
-  repeated Repo to_repos = 2;
+message SquashCommitsetRequest {
+  Commitset commitset = 1;
 }
 
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
-  CommitProvenance prov = 3;
   // only commits created since this commit are returned
-  Commit from = 4;
+  Commit from = 3;
   // Don't return commits until they're in (at least) the desired state.
-  CommitState state = 5;
+  CommitState state = 4;
 }
 
 message ClearCommitRequest {
@@ -275,6 +242,7 @@ message CreateBranchRequest {
   Branch branch = 2;
   repeated Branch provenance = 3;
   Trigger trigger = 4;
+  bool new_commitset = 5; // overrides the default behavior of using the same Commitset as 'head'
 }
 
 message InspectBranchRequest {
@@ -490,20 +458,19 @@ service API {
   rpc StartCommit(StartCommitRequest) returns (Commit) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // ClearCommit removes all data from the commit.
+  rpc ClearCommit(ClearCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
-  // SquashCommit squashes a commit into it's parent.
-  rpc SquashCommit(SquashCommitRequest) returns (google.protobuf.Empty) {}
-  // FlushCommit waits for downstream commits to finish.
-  rpc FlushCommit(FlushCommitRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
-  // ClearCommit removes all data from the commit.
-  rpc ClearCommit(ClearCommitRequest) returns (google.protobuf.Empty) {}
-  // TODO: BuildCommit?
-  //rpc BuildCommit(BuildCommitRequest) returns (Commit) {}
+
+  // InspectCommitset returns the info about a Commitset.
+  rpc InspectCommitset(InspectCommitsetRequest) returns (stream CommitInfo) {}
+  // SquashCommitset squashes the commits of a Commitset into their children.
+  rpc SquashCommitset(SquashCommitsetRequest) returns (google.protobuf.Empty) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}

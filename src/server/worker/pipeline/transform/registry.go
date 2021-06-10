@@ -19,6 +19,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -26,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -191,8 +192,8 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 		}
 		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
-				Commit:     metaCommitInfo.ParentCommit,
-				BlockState: pfs.CommitState_FINISHED,
+				Commit: metaCommitInfo.ParentCommit,
+				Block:  pfs.CommitState_FINISHED,
 			})
 		if err != nil {
 			return err
@@ -207,38 +208,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 	return nil
 }
 
-func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.JobInfo, error) {
-	pachClient := reg.driver.PachClient()
-	pipelineInfo := reg.driver.PipelineInfo()
-	jobInfo, err := pachClient.InspectJobOutputCommit(pipelineInfo.Pipeline.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID, false)
-	if err != nil {
-		// TODO: It would be better for this to be a structured error.
-		if strings.Contains(err.Error(), "not found") {
-			var statsCommit *pfs.Commit
-			if statsCommit, err = ppsutil.GetStatsCommit(commitInfo); err != nil {
-				return nil, err
-			}
-			job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
-			if err != nil {
-				return nil, err
-			}
-			jobInfo, err = pachClient.InspectJob(job.ID, false)
-			if err != nil {
-				return nil, err
-			}
-			reg.logger.Logf("created new job %q for output commit %q", jobInfo.Job.ID, jobInfo.OutputCommit.ID)
-			return jobInfo, nil
-		}
-		return nil, err
-	}
-	if ppsutil.IsTerminal(jobInfo.State) {
-		return nil, ppsserver.ErrJobFinished{Job: jobInfo.Job}
-	}
-	reg.logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
-	return jobInfo, nil
-}
-
-func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
+func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 	var asyncEg *errgroup.Group
 	reg.limiter.Acquire()
 	defer func() {
@@ -247,15 +217,20 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 			reg.limiter.Release()
 		}
 	}()
-	jobInfo, err := reg.ensureJob(commitInfo)
+	commitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
+		reg.driver.PachClient().Ctx(),
+		&pfs.InspectCommitRequest{
+			Commit: jobInfo.OutputCommit,
+			Block:  pfs.CommitState_STARTED,
+		})
 	if err != nil {
 		return err
 	}
 	metaCommitInfo, err := reg.driver.PachClient().PfsAPIClient.InspectCommit(
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     jobInfo.StatsCommit,
-			BlockState: pfs.CommitState_STARTED,
+			Commit: ppsutil.MetaCommit(jobInfo.OutputCommit),
+			Block:  pfs.CommitState_STARTED,
 		})
 	if err != nil {
 		return err
@@ -263,7 +238,14 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 	if err := reg.initializeJobChain(metaCommitInfo); err != nil {
 		return err
 	}
+	asyncStarted := false
 	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
+	// Don't leak the cancellation if we error before starting the async code
+	defer func() {
+		if !asyncStarted {
+			cancel()
+		}
+	}()
 	driver := reg.driver.WithContext(jobCtx)
 	// Build the pending job to send out to workers - this will block if
 	// we have too many already
@@ -274,6 +256,12 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 		commitInfo:     commitInfo,
 		metaCommitInfo: metaCommitInfo,
 		cancel:         cancel,
+	}
+	if jobInfo.State == pps.JobState_JOB_CREATED {
+		jobInfo.State = pps.JobState_JOB_STARTING
+		if err := pj.writeJobInfo(); err != nil {
+			return err
+		}
 	}
 	// Inputs must be ready before we can construct a datum iterator, so do this
 	// synchronously to ensure correct order in the jobChain.
@@ -291,7 +279,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 		return err
 	}
 	outputDit := datum.NewCommitIterator(pachClient, pj.metaCommitInfo.Commit)
-	pj.jdit = reg.jobChain.CreateJob(pj.driver.PachClient().Ctx(), pj.ji.Job.ID, dit, outputDit)
+	pj.jdit = reg.jobChain.CreateJob(pj.driver.PachClient().Ctx(), pj.ji.Job, dit, outputDit)
 	var afterTime time.Duration
 	if pj.ji.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(pj.ji.Started)
@@ -304,8 +292,11 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 		}
 		afterTime = time.Until(startTime.Add(timeout))
 	}
+
 	asyncEg, jobCtx = errgroup.WithContext(pj.driver.PachClient().Ctx())
 	pj.driver = reg.driver.WithContext(jobCtx)
+	asyncStarted = true
+
 	asyncEg.Go(func() error {
 		defer pj.cancel()
 		if pj.ji.JobTimeout != nil {
@@ -322,6 +313,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 			return nil
 		})
 	})
+
 	asyncEg.Go(func() error {
 		defer pj.cancel()
 		mutex := &sync.Mutex{}
@@ -349,7 +341,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 					err = errors.Unwrap(err)
 				}
 				// Get job state, increment restarts, write job state
-				pj.ji, err = pj.driver.PachClient().InspectJob(pj.ji.Job.ID, false)
+				pj.ji, err = pj.driver.PachClient().InspectJob(pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, false)
 				if err != nil {
 					return err
 				}
@@ -363,8 +355,8 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 				pj.commitInfo, err = pachClient.PfsAPIClient.InspectCommit(
 					pachClient.Ctx(),
 					&pfs.InspectCommitRequest{
-						Commit:     pj.commitInfo.Commit,
-						BlockState: pfs.CommitState_STARTED,
+						Commit: pj.commitInfo.Commit,
+						Block:  pfs.CommitState_STARTED,
 					})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
@@ -379,8 +371,8 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 				pj.metaCommitInfo, err = pachClient.PfsAPIClient.InspectCommit(
 					pachClient.Ctx(),
 					&pfs.InspectCommitRequest{
-						Commit:     pj.metaCommitInfo.Commit,
-						BlockState: pfs.CommitState_STARTED,
+						Commit: pj.metaCommitInfo.Commit,
+						Block:  pfs.CommitState_STARTED,
 					})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
@@ -400,6 +392,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 		mutex.Lock()
 		return nil
 	})
+
 	go func() {
 		defer reg.limiter.Release()
 		// Make sure the job has been removed from the job chain.
@@ -417,8 +410,8 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 	defer pj.cancel()
 	ci, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit:     pj.ji.OutputCommit,
-			BlockState: pfs.CommitState_FINISHED,
+			Commit: pj.ji.OutputCommit,
+			Block:  pfs.CommitState_FINISHED,
 		})
 	if err != nil {
 		if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
@@ -430,7 +423,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 			if err := pj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobPtr := &pps.StoredJobInfo{}
-				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(pj.ji.Job.ID, jobPtr); err != nil {
+				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobPtr); err != nil {
 					return err
 				}
 				return pj.driver.DeleteJob(sqlTx, jobPtr)
@@ -663,14 +656,9 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
 	var failed []string
 	blockCommit := func(name string, commit *pfs.Commit) error {
-		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
-			&pfs.InspectCommitRequest{
-				Commit:     commit,
-				BlockState: pfs.CommitState_FINISHED,
-			})
+		ci, err := pachClient.BlockCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
-			return errors.Wrapf(err, "error blocking on commit %s@%s",
-				commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			return errors.Wrapf(err, "error blocking on commit %s", pfsdb.CommitKey(commit))
 		}
 		if strings.Contains(ci.Description, pfs.EmptyStr) {
 			failed = append(failed, name)

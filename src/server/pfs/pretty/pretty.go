@@ -19,7 +19,7 @@ const (
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tPROGRESS\tDESCRIPTION\n"
+	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tDESCRIPTION\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// FileHeader is the header for files.
@@ -153,15 +153,6 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 	} else {
 		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.SizeBytes)))
 	}
-	if commitInfo.SubvenantCommitsTotal == 0 {
-		fmt.Fprintf(w, "-\t")
-	} else {
-		fmt.Fprintf(w, "%s\t", pretty.ProgressBar(
-			8,
-			int(commitInfo.SubvenantCommitsSuccess),
-			int(commitInfo.SubvenantCommitsTotal-commitInfo.SubvenantCommitsSuccess-commitInfo.SubvenantCommitsFailure),
-			int(commitInfo.SubvenantCommitsFailure)))
-	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Description)
 	fmt.Fprintln(w)
 }
@@ -191,8 +182,7 @@ Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}
-Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Commit.Branch.Repo.Name}}@{{.Commit.ID}} ({{.Commit.Branch.Name}}) {{end}} {{end}}
+Size: {{prettySize .SizeBytes}}
 `)
 	if err != nil {
 		return err

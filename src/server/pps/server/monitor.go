@@ -32,13 +32,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
@@ -201,12 +201,10 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
 				pachClient := m.a.env.GetPachClient(ctx)
-				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "",
-					pipelineInfo.SpecCommit.NewProvenance(),
-					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
-						ciChan <- ci
-						return nil
-					})
+				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+					ciChan <- ci
+					return nil
+				})
 			}, backoff.NewInfiniteBackOff(),
 				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipeline))
 		})
@@ -285,7 +283,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 							if _, err := pachClient.BlockCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID); err != nil {
 								return err
 							}
-							if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID, true); err != nil {
+							if _, err := pachClient.InspectJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, true); err != nil {
 								return err
 							}
 
@@ -423,11 +421,11 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 	pachClient := m.a.env.GetPachClient(ctx)
 	// make sure there isn't an unfinished commit on the branch
 	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master", "")
-	if err != nil && !pfsserver.IsNoHeadErr(err) {
+	if err != nil {
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
-		if err = pachClient.SquashCommit(in.Cron.Repo, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID); err != nil {
+		if err = pachClient.SquashCommitset(commitInfo.Commit.ID); err != nil {
 			return err
 		}
 	}
@@ -458,7 +456,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		if in.Cron.Overwrite {
 			// get rid of any files, so the new file "overwrites" previous runs
 			err = pachClient.DeleteFile(client.NewCommit(in.Cron.Repo, "master", ""), "")
-			if err != nil && !isNotFoundErr(err) && !pfsserver.IsNoHeadErr(err) {
+			if err != nil && !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "delete error")
 			}
 		}
@@ -486,7 +484,7 @@ func (m *ppsMaster) getLatestCronTime(ctx context.Context, in *pps.Input) (time.
 	var latestTime time.Time
 	pachClient := m.a.env.GetPachClient(ctx)
 	files, err := pachClient.ListFileAll(client.NewCommit(in.Cron.Repo, "master", ""), "")
-	if err != nil && !pfsserver.IsNoHeadErr(err) {
+	if err != nil {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {
 		// File not found, this happens the first time the pipeline is run

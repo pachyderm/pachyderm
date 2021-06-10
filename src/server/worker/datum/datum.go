@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	io "io"
 	"os"
 	"path"
@@ -17,7 +16,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -151,26 +149,24 @@ func (s *Set) UploadMeta(meta *Meta, opts ...Option) error {
 
 // WithDatum provides a scoped environment for a datum within the datum set.
 // TODO: Handle datum concurrency here, and potentially move symlinking here.
-func (s *Set) WithDatum(ctx context.Context, meta *Meta, cb func(*Datum) error, opts ...Option) error {
+func (s *Set) WithDatum(meta *Meta, cb func(*Datum) error, opts ...Option) error {
 	d := newDatum(s, meta, opts...)
-	cancelCtx, cancel := context.WithCancel(ctx)
-	attemptsLeft := d.numRetries + 1
-	return backoff.RetryUntilCancel(cancelCtx, func() error {
-		return d.withData(func() (retErr error) {
+
+	var err error
+	for i := 0; i <= d.numRetries; i++ {
+		err = d.withData(func() (retErr error) {
 			defer func() {
-				attemptsLeft--
-				if retErr == nil || attemptsLeft == 0 {
+				if retErr == nil || i == d.numRetries {
 					retErr = d.finish(retErr)
-					cancel()
 				}
 			}()
 			return cb(d)
 		})
-	}, &backoff.ZeroBackOff{}, func(err error, _ time.Duration) error {
-		// TODO: Tagged logger here?
-		fmt.Println("withDatum:", err)
-		return nil
-	})
+		if err == nil {
+			return nil
+		}
+	}
+	return err
 }
 
 // Datum manages a datum.

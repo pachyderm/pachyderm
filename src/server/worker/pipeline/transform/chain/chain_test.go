@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
@@ -45,7 +46,11 @@ func newTestChain(pachClient *client.APIClient, metas ...*datum.Meta) *JobChain 
 	return NewJobChain(pachClient, hasher)
 }
 
-func newMeta(jobID, name string) *datum.Meta {
+func newJob() *pps.Job {
+	return client.NewJob("pipeline", uuid.NewWithoutDashes())
+}
+
+func newMeta(job *pps.Job, name string) *datum.Meta {
 	inputs := []*common.Input{
 		&common.Input{
 			FileInfo: &pfs.FileInfo{
@@ -56,17 +61,17 @@ func newMeta(jobID, name string) *datum.Meta {
 		},
 	}
 	return &datum.Meta{
-		JobID:  jobID,
+		Job:    job,
 		Inputs: inputs,
 		Hash:   common.HashDatum("", "", inputs),
 	}
 }
 
-func newTestMetas(jobID string) []*datum.Meta {
+func newTestMetas(job *pps.Job) []*datum.Meta {
 	return []*datum.Meta{
-		newMeta(jobID, "a"),
-		newMeta(jobID, "b"),
-		newMeta(jobID, "c"),
+		newMeta(job, "a"),
+		newMeta(job, "b"),
+		newMeta(job, "c"),
 	}
 }
 
@@ -83,40 +88,40 @@ func requireIteratorContents(t *testing.T, jdi *JobDatumIterator, metas []*datum
 func TestEmptyBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 	chain := newTestChain(env.PachClient)
-	jobID := uuid.NewWithoutDashes()
-	jobMetas := newTestMetas(jobID)
+	job := newJob()
+	jobMetas := newTestMetas(job)
 	ti := newTestIterator(jobMetas)
-	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
+	jdi := chain.CreateJob(context.Background(), job, ti, ti)
 	requireIteratorContents(t, jdi, jobMetas)
 }
 
 func TestAdditiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
-	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[:2]...)
-	jobID := uuid.NewWithoutDashes()
-	jobMetas := newTestMetas(jobID)
+	chain := newTestChain(env.PachClient, newTestMetas(newJob())[:2]...)
+	job := newJob()
+	jobMetas := newTestMetas(job)
 	ti := newTestIterator(jobMetas)
-	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
+	jdi := chain.CreateJob(context.Background(), job, ti, ti)
 	requireIteratorContents(t, jdi, jobMetas[2:])
 }
 
 func TestSubtractiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
-	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())...)
-	jobID := uuid.NewWithoutDashes()
-	jobMetas := newTestMetas(jobID)[1:]
+	chain := newTestChain(env.PachClient, newTestMetas(newJob())...)
+	job := newJob()
+	jobMetas := newTestMetas(job)[1:]
 	ti := newTestIterator(jobMetas)
-	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
+	jdi := chain.CreateJob(context.Background(), job, ti, ti)
 	requireIteratorContents(t, jdi, nil)
 }
 
 func TestAdditiveSubtractiveOnBase(t *testing.T) {
 	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
-	chain := newTestChain(env.PachClient, newTestMetas(uuid.NewWithoutDashes())[1:]...)
-	jobID := uuid.NewWithoutDashes()
-	jobMetas := newTestMetas(jobID)[:2]
+	chain := newTestChain(env.PachClient, newTestMetas(newJob())[1:]...)
+	job := newJob()
+	jobMetas := newTestMetas(job)[:2]
 	ti := newTestIterator(jobMetas)
-	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
+	jdi := chain.CreateJob(context.Background(), job, ti, ti)
 	requireIteratorContents(t, jdi, jobMetas[:1])
 }
 

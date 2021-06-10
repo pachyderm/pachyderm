@@ -48,16 +48,18 @@ message Egress {
 }
 
 message Job {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  Pipeline pipeline = 1;
+  string id = 2 [(gogoproto.customname) = "ID"];
 }
 
 enum JobState {
-  JOB_STARTING = 0;
-  JOB_RUNNING = 1;
-  JOB_FAILURE = 2;
-  JOB_SUCCESS = 3;
-  JOB_KILLED = 4;
-  JOB_EGRESSING = 5;
+  JOB_CREATED = 0;
+  JOB_STARTING = 1;
+  JOB_RUNNING = 2;
+  JOB_FAILURE = 3;
+  JOB_SUCCESS = 4;
+  JOB_KILLED = 5;
+  JOB_EGRESSING = 6;
 }
 
 message Metadata {
@@ -140,7 +142,7 @@ message ParallelismSpec {
 }
 
 message InputFile {
-  // This file's absolute path within its pfs_v2 repo.
+  // This file's absolute path within its pfs repo.
   string path = 1;
 
   // This file's hash
@@ -149,8 +151,8 @@ message InputFile {
 
 message Datum {
   // ID is the hash computed from all the files
-  string id = 1 [(gogoproto.customname) = "ID"];
-  Job job = 2;
+  Job job = 1;
+  string id = 2 [(gogoproto.customname) = "ID"];
 }
 
 enum DatumState {
@@ -236,7 +238,7 @@ message GPUSpec {
 // the lifetime of the job but aren't used in the execution of the job.
 message StoredJobInfo {
   Job job = 1;
-  Pipeline pipeline = 2;
+  uint64 pipeline_version = 2;
   pfs_v2.Commit output_commit = 3;
   // Job restart count (e.g. due to datum failure)
   uint64 restart = 4;
@@ -251,54 +253,50 @@ message StoredJobInfo {
   // Download/process/upload time and download/upload bytes
   ProcessStats stats = 10;
 
-  pfs_v2.Commit stats_commit = 11;
-  JobState state = 12;
-  string reason = 13;
-  google.protobuf.Timestamp started = 14;
-  google.protobuf.Timestamp finished = 15;
+  JobState state = 11;
+  string reason = 12;
+  google.protobuf.Timestamp started = 13;
+  google.protobuf.Timestamp finished = 14;
 }
 
 message JobInfo {
   Job job = 1;
   Transform transform = 2;                     // requires ListJobRequest.Full
-  Pipeline pipeline = 3;
-  uint64 pipeline_version = 4;
-  pfs_v2.Commit spec_commit = 5;
-  ParallelismSpec parallelism_spec = 6;        // requires ListJobRequest.Full
-  Egress egress = 7;                           // requires ListJobRequest.Full
-  Job parent_job = 8;
-  google.protobuf.Timestamp started = 9;
-  google.protobuf.Timestamp finished = 10;
-  pfs_v2.Commit output_commit = 11;
-  JobState state = 12;
-  string reason = 13;  // reason explains why the job is in the current state
-  Service service = 14;                        // requires ListJobRequest.Full
-  Spout spout = 15;                            // requires ListJobRequest.Full
-  pfs_v2.Repo output_repo = 16;
-  string output_branch = 17;                   // requires ListJobRequest.Full
-  uint64 restart = 18;
-  int64 data_processed = 19;
-  int64 data_skipped = 20;
-  int64 data_failed = 21;
-  int64 data_recovered = 22;
-  int64 data_total = 23;
-  ProcessStats stats = 24;
-  repeated WorkerStatus worker_status = 25;
-  ResourceSpec resource_requests = 26;         // requires ListJobRequest.Full
-  ResourceSpec resource_limits = 27;           // requires ListJobRequest.Full
-  ResourceSpec sidecar_resource_limits = 28;   // requires ListJobRequest.Full
-  Input input = 29;                            // requires ListJobRequest.Full
-  pfs_v2.BranchInfo new_branch = 30;
-  pfs_v2.Commit stats_commit = 31;
-  bool enable_stats = 32;                      // requires ListJobRequest.Full
-  string salt = 33;                            // requires ListJobRequest.Full
-  ChunkSpec chunk_spec = 34;                   // requires ListJobRequest.Full
-  google.protobuf.Duration datum_timeout = 35; // requires ListJobRequest.Full
-  google.protobuf.Duration job_timeout = 36;   // requires ListJobRequest.Full
-  int64 datum_tries = 37;                      // requires ListJobRequest.Full
-  SchedulingSpec scheduling_spec = 38;         // requires ListJobRequest.Full
-  string pod_spec = 39;                        // requires ListJobRequest.Full
-  string pod_patch = 40;                       // requires ListJobRequest.Full
+  uint64 pipeline_version = 3;
+  ParallelismSpec parallelism_spec = 4;       // requires ListJobRequest.Full
+  Egress egress = 5;                          // requires ListJobRequest.Full
+  Job parent_job = 6;
+  google.protobuf.Timestamp started = 7;
+  google.protobuf.Timestamp finished = 8;
+  pfs_v2.Commit output_commit = 9;
+  JobState state = 10;
+  string reason = 11;  // reason explains why the job is in the current state
+  Service service = 12;                        // requires ListJobRequest.Full
+  Spout spout = 13;                            // requires ListJobRequest.Full
+  pfs_v2.Repo output_repo = 14;
+  string output_branch = 15;                   // requires ListJobRequest.Full
+  uint64 restart = 16;
+  int64 data_processed = 17;
+  int64 data_skipped = 18;
+  int64 data_failed = 19;
+  int64 data_recovered = 20;
+  int64 data_total = 21;
+  ProcessStats stats = 22;
+  repeated WorkerStatus worker_status = 23;
+  ResourceSpec resource_requests = 24;         // requires ListJobRequest.Full
+  ResourceSpec resource_limits = 25;           // requires ListJobRequest.Full
+  ResourceSpec sidecar_resource_limits = 26;   // requires ListJobRequest.Full
+  Input input = 27;                            // requires ListJobRequest.Full
+  pfs_v2.BranchInfo new_branch = 28;
+  bool enable_stats = 29;                      // requires ListJobRequest.Full
+  string salt = 30;                            // requires ListJobRequest.Full
+  ChunkSpec chunk_spec = 31;                   // requires ListJobRequest.Full
+  google.protobuf.Duration datum_timeout = 32; // requires ListJobRequest.Full
+  google.protobuf.Duration job_timeout = 33;   // requires ListJobRequest.Full
+  int64 datum_tries = 34;                      // requires ListJobRequest.Full
+  SchedulingSpec scheduling_spec = 35;         // requires ListJobRequest.Full
+  string pod_spec = 36;                        // requires ListJobRequest.Full
+  string pod_patch = 37;                       // requires ListJobRequest.Full
 }
 
 enum WorkerState {
@@ -347,17 +345,29 @@ enum PipelineState {
 // PFS (and, by pointing to a PFS commit, de facto tracks the pipeline's
 // version)
 message StoredPipelineInfo {
-  PipelineState state = 1;
-  string reason = 2;
-  pfs_v2.Commit spec_commit = 3;
-  map<int32, int32> job_counts = 4;
-  string auth_token = 5;
-  JobState last_job_state = 6;
+  Pipeline pipeline = 1;
+  uint64 version = 2;
+  pfs_v2.Commit spec_commit = 3; // The first spec commit for this version of the pipeline
+  bool stopped = 4;
+  PipelineState state = 5;
+  string reason = 6;
+  map<int32, int32> job_counts = 7;
+  string auth_token = 8;
+  JobState last_job_state = 9;
 
   // parallelism tracks the literal number of workers that this pipeline should
   // run.
-  uint64 parallelism = 7;
-  Pipeline pipeline = 8;
+  uint64 parallelism = 10;
+
+  // The pipeline type is stored here so that we can internally know the type of
+  // the pipeline without loading the spec from PFS - this field is not in the
+  // full PipelineInfo as that would be redundant.
+  enum PipelineType {
+    PIPELINE_TYPE_TRANSFORM = 0;
+    PIPELINE_TYPE_SPOUT = 1;
+    PIPELINE_TYPE_SERVICE = 2;
+  }
+  PipelineType type = 11;
 }
 
 message PipelineInfo {
@@ -408,61 +418,43 @@ message PipelineInfo {
   ChunkSpec chunk_spec = 28;
   google.protobuf.Duration datum_timeout = 29;
   google.protobuf.Duration job_timeout = 30;
-  pfs_v2.Commit spec_commit = 32;
-  bool standby = 33;
-  int64 datum_tries = 34;
-  SchedulingSpec scheduling_spec = 35;
-  string pod_spec = 36;
-  string pod_patch = 37;
-  bool s3_out = 38;
-  Metadata metadata = 39;
-  string reprocess_spec = 40;
+  bool standby = 31;
+  int64 datum_tries = 32;
+  SchedulingSpec scheduling_spec = 33;
+  string pod_spec = 34;
+  string pod_patch = 35;
+  bool s3_out = 36;
+  Metadata metadata = 37;
+  string reprocess_spec = 38;
   // Set at call time, not stored in etcd
-  int64 unclaimed_tasks = 41;
-  string worker_rc = 42;
-  bool autoscaling = 43;
+  int64 unclaimed_tasks = 39;
+  string worker_rc = 40;
+  bool autoscaling = 41;
 }
 
 message PipelineInfos {
   repeated PipelineInfo pipeline_info = 1;
 }
 
-message CreateJobRequest {
-  Pipeline pipeline = 1;
-  pfs_v2.Commit output_commit = 2;
+message Jobset {
+  string id = 1 [(gogoproto.customname) = "ID"];
+}
 
-  // Fields below should only be set when restoring an extracted job.
-  uint64 restart = 3;
-
-  // Counts of how many times we processed or skipped a datum
-  int64 data_processed = 4;
-  int64 data_skipped = 5;
-  int64 data_total = 6;
-  int64 data_failed = 7;
-  int64 data_recovered = 8;
-
-  // Download/process/upload time and download/upload bytes
-  ProcessStats stats = 9;
-
-  pfs_v2.Commit stats_commit = 10;
-  JobState state = 11;
-  string reason = 12;
-  google.protobuf.Timestamp started = 13;
-  google.protobuf.Timestamp finished = 14;
+message InspectJobsetRequest {
+  Jobset jobset = 1;
+  bool block = 2; // When true, block until all jobs in the set are finished
 }
 
 message InspectJobRequest {
   // Callers should set either Job or OutputCommit, not both.
   Job job = 1;
-  pfs_v2.Commit output_commit = 2;
-  bool block_state = 3; // block until state is either FAILURE or SUCCESS
-  bool full = 4;
+  bool block = 2; // block until state is either FAILURE or SUCCESS
+  bool full = 3;
 }
 
 message ListJobRequest {
   Pipeline pipeline = 1;                // nil means all pipelines
   repeated pfs_v2.Commit input_commit = 2; // nil means all inputs
-  pfs_v2.Commit output_commit = 3;         // nil means all outputs
 
   // History indicates return jobs from historical versions of pipelines
   // semantics are:
@@ -484,9 +476,10 @@ message ListJobRequest {
   string jqFilter = 6;
 }
 
-message FlushJobRequest {
-  repeated pfs_v2.Commit commits = 1;
-  repeated Pipeline to_pipelines = 2;
+// Streams open jobs until canceled
+message SubscribeJobRequest {
+  Pipeline pipeline = 1;
+  bool full = 2; // Same as ListJobRequest.Full
 }
 
 message DeleteJobRequest {
@@ -495,7 +488,6 @@ message DeleteJobRequest {
 
 message StopJobRequest {
   Job job = 1;
-  pfs_v2.Commit output_commit = 2;
   string reason = 3;
 }
 
@@ -503,13 +495,13 @@ message UpdateJobStateRequest {
   Job job = 1;
   JobState state = 2;
   string reason = 3;
-  uint64 restart = 4;
-  int64 data_processed = 5;
-  int64 data_skipped = 6;
-  int64 data_failed = 7;
-  int64 data_recovered = 8;
-  int64 data_total = 9;
-  ProcessStats stats = 10;
+  uint64 restart = 5;
+  int64 data_processed = 6;
+  int64 data_skipped = 7;
+  int64 data_failed = 8;
+  int64 data_recovered = 9;
+  int64 data_total = 10;
+  ProcessStats stats = 11;
 }
 
 message GetLogsRequest {
@@ -740,11 +732,11 @@ message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
 service API {
-  rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
+  rpc InspectJobset(InspectJobsetRequest) returns (stream JobInfo) {}
   // ListJob returns information about current and past Pachyderm jobs.
   rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
-  rpc FlushJob(FlushJobRequest) returns (stream JobInfo) {}
+  rpc SubscribeJob(SubscribeJobRequest) returns (stream JobInfo) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}

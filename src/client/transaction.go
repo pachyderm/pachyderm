@@ -302,8 +302,8 @@ func (c *pfsBuilderClient) FinishCommit(ctx context.Context, req *pfs.FinishComm
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{FinishCommit: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) SquashCommit(ctx context.Context, req *pfs.SquashCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{SquashCommit: req})
+func (c *pfsBuilderClient) SquashCommitset(ctx context.Context, req *pfs.SquashCommitsetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{SquashCommitset: req})
 	return nil, nil
 }
 func (c *pfsBuilderClient) CreateBranch(ctx context.Context, req *pfs.CreateBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
@@ -347,8 +347,8 @@ func (c *pfsBuilderClient) InspectCommit(ctx context.Context, req *pfs.InspectCo
 func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (pfs.API_ListCommitClient, error) {
 	return nil, unsupportedError("ListCommit")
 }
-func (c *pfsBuilderClient) FlushCommit(ctx context.Context, req *pfs.FlushCommitRequest, opts ...grpc.CallOption) (pfs.API_FlushCommitClient, error) {
-	return nil, unsupportedError("FlushCommit")
+func (c *pfsBuilderClient) InspectCommitset(ctx context.Context, req *pfs.InspectCommitsetRequest, opts ...grpc.CallOption) (pfs.API_InspectCommitsetClient, error) {
+	return nil, unsupportedError("InspectCommitset")
 }
 func (c *pfsBuilderClient) SubscribeCommit(ctx context.Context, req *pfs.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs.API_SubscribeCommitClient, error) {
 	return nil, unsupportedError("SubscribeCommit")
@@ -405,8 +405,8 @@ func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTest
 	return nil, unsupportedError("RunLoadTest")
 }
 
-func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequest, opts ...grpc.CallOption) (*pps.Job, error) {
-	return nil, unsupportedError("CreateJob")
+func (c *ppsBuilderClient) InspectJobset(ctx context.Context, req *pps.InspectJobsetRequest, opts ...grpc.CallOption) (pps.API_InspectJobsetClient, error) {
+	return nil, unsupportedError("InspectJobset")
 }
 func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.JobInfo, error) {
 	return nil, unsupportedError("InspectJob")
@@ -414,8 +414,8 @@ func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRe
 func (c *ppsBuilderClient) ListJob(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (pps.API_ListJobClient, error) {
 	return nil, unsupportedError("ListJob")
 }
-func (c *ppsBuilderClient) FlushJob(ctx context.Context, req *pps.FlushJobRequest, opts ...grpc.CallOption) (pps.API_FlushJobClient, error) {
-	return nil, unsupportedError("FlushJob")
+func (c *ppsBuilderClient) SubscribeJob(ctx context.Context, req *pps.SubscribeJobRequest, opts ...grpc.CallOption) (pps.API_SubscribeJobClient, error) {
+	return nil, unsupportedError("SubscribeJob")
 }
 func (c *ppsBuilderClient) DeleteJob(ctx context.Context, req *pps.DeleteJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteJob")

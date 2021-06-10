@@ -16,6 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -27,7 +29,7 @@ var (
 	pipelineIndex *col.Index = &col.Index{
 		Name: "Pipeline",
 		Extract: func(val proto.Message) string {
-			return val.(*pps.JobInfo).Pipeline.Name
+			return val.(*pps.JobInfo).Job.Pipeline.Name
 		},
 	}
 )
@@ -65,11 +67,10 @@ func TestDryrun(t *testing.T) {
 	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	job := &pps.JobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p1"),
+		Job: client.NewJob("p1", "j1"),
 	}
 	err := col.NewDryrunSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		return jobInfos.ReadWrite(stm).Put(job.Job.ID, job)
+		return jobInfos.ReadWrite(stm).Put(ppsdb.JobKey(job.Job), job)
 	})
 	require.NoError(t, err)
 
@@ -85,28 +86,24 @@ func TestDeletePrefix(t *testing.T) {
 	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
-		Job:      client.NewJob("prefix/suffix/job"),
-		Pipeline: client.NewPipeline("p"),
+		Job: client.NewJob("p", "prefix/suffix/Job"),
 	}
 	j2 := &pps.JobInfo{
-		Job:      client.NewJob("prefix/suffix/job2"),
-		Pipeline: client.NewPipeline("p"),
+		Job: client.NewJob("p", "prefix/suffix/Job2"),
 	}
 	j3 := &pps.JobInfo{
-		Job:      client.NewJob("prefix/job3"),
-		Pipeline: client.NewPipeline("p"),
+		Job: client.NewJob("p", "prefix/Job3"),
 	}
 	j4 := &pps.JobInfo{
-		Job:      client.NewJob("job4"),
-		Pipeline: client.NewPipeline("p"),
+		Job: client.NewJob("p", "Job4"),
 	}
 
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		rw := jobInfos.ReadWrite(stm)
-		rw.Put(j1.Job.ID, j1)
-		rw.Put(j2.Job.ID, j2)
-		rw.Put(j3.Job.ID, j3)
-		rw.Put(j4.Job.ID, j4)
+		rw.Put(ppsdb.JobKey(j1.Job), j1)
+		rw.Put(ppsdb.JobKey(j2.Job), j2)
+		rw.Put(ppsdb.JobKey(j3.Job), j3)
+		rw.Put(ppsdb.JobKey(j4.Job), j4)
 		return nil
 	})
 	require.NoError(t, err)
@@ -115,46 +112,46 @@ func TestDeletePrefix(t *testing.T) {
 		job := &pps.JobInfo{}
 		rw := jobInfos.ReadWrite(stm)
 
-		rw.DeleteAllPrefix("prefix/suffix")
-		if err := rw.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
+		rw.DeleteAllPrefix("p@prefix/suffix")
+		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
-		if err := rw.Get(j2.Job.ID, job); !col.IsErrNotFound(err) {
+		if err := rw.Get(ppsdb.JobKey(j2.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
-		if err := rw.Get(j3.Job.ID, job); err != nil {
+		if err := rw.Get(ppsdb.JobKey(j3.Job), job); err != nil {
 			return err
 		}
-		if err := rw.Get(j4.Job.ID, job); err != nil {
+		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
 			return err
 		}
 
-		rw.DeleteAllPrefix("prefix")
-		if err := rw.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
+		rw.DeleteAllPrefix("p@prefix")
+		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
-		if err := rw.Get(j2.Job.ID, job); !col.IsErrNotFound(err) {
+		if err := rw.Get(ppsdb.JobKey(j2.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
-		if err := rw.Get(j3.Job.ID, job); !col.IsErrNotFound(err) {
+		if err := rw.Get(ppsdb.JobKey(j3.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j3.Job.ID)
 		}
-		if err := rw.Get(j4.Job.ID, job); err != nil {
+		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
 			return err
 		}
 
-		rw.Put(j1.Job.ID, j1)
-		if err := rw.Get(j1.Job.ID, job); err != nil {
+		rw.Put(ppsdb.JobKey(j1.Job), j1)
+		if err := rw.Get(ppsdb.JobKey(j1.Job), job); err != nil {
 			return err
 		}
 
-		rw.DeleteAllPrefix("prefix/suffix")
-		if err := rw.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
+		rw.DeleteAllPrefix("p@prefix/suffix")
+		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
 
-		rw.Put(j2.Job.ID, j2)
-		if err := rw.Get(j2.Job.ID, job); err != nil {
+		rw.Put(ppsdb.JobKey(j2.Job), j2)
+		if err := rw.Get(ppsdb.JobKey(j2.Job), job); err != nil {
 			return err
 		}
 
@@ -164,11 +161,11 @@ func TestDeletePrefix(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	ro := jobInfos.ReadOnly(context.Background())
-	require.True(t, col.IsErrNotFound(ro.Get(j1.Job.ID, job)))
-	require.NoError(t, ro.Get(j2.Job.ID, job))
+	require.True(t, col.IsErrNotFound(ro.Get(ppsdb.JobKey(j1.Job), job)))
+	require.NoError(t, ro.Get(ppsdb.JobKey(j2.Job), job))
 	require.Equal(t, j2, job)
-	require.True(t, col.IsErrNotFound(ro.Get(j3.Job.ID, job)))
-	require.NoError(t, ro.Get(j4.Job.ID, job))
+	require.True(t, col.IsErrNotFound(ro.Get(ppsdb.JobKey(j3.Job), job)))
+	require.NoError(t, ro.Get(ppsdb.JobKey(j4.Job), job))
 	require.Equal(t, j4, job)
 }
 
@@ -180,22 +177,19 @@ func TestIndex(t *testing.T) {
 	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
-		Job:      client.NewJob("j1"),
-		Pipeline: client.NewPipeline("p1"),
+		Job: client.NewJob("p1", "j1"),
 	}
 	j2 := &pps.JobInfo{
-		Job:      client.NewJob("j2"),
-		Pipeline: client.NewPipeline("p1"),
+		Job: client.NewJob("p1", "j2"),
 	}
 	j3 := &pps.JobInfo{
-		Job:      client.NewJob("j3"),
-		Pipeline: client.NewPipeline("p2"),
+		Job: client.NewJob("p2", "j3"),
 	}
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		rw := jobInfos.ReadWrite(stm)
-		rw.Put(j1.Job.ID, j1)
-		rw.Put(j2.Job.ID, j2)
-		rw.Put(j3.Job.ID, j3)
+		rw.Put(ppsdb.JobKey(j1.Job), j1)
+		rw.Put(ppsdb.JobKey(j2.Job), j2)
+		rw.Put(ppsdb.JobKey(j3.Job), j3)
 		return nil
 	})
 	require.NoError(t, err)
@@ -204,7 +198,7 @@ func TestIndex(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	i := 1
-	require.NoError(t, ro.GetByIndex(pipelineIndex, j1.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
+	require.NoError(t, ro.GetByIndex(pipelineIndex, j1.Job.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j1, job)
@@ -218,7 +212,7 @@ func TestIndex(t *testing.T) {
 	}))
 
 	i = 1
-	require.NoError(t, ro.GetByIndex(pipelineIndex, j3.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
+	require.NoError(t, ro.GetByIndex(pipelineIndex, j3.Job.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j3, job)
@@ -309,7 +303,7 @@ func TestTTLExpire(t *testing.T) {
 	value := &types.BoolValue{}
 	err = clxn.ReadOnly(context.Background()).Get("key", value)
 	require.NotNil(t, err)
-	require.Matches(t, "not found", err.Error())
+	require.True(t, errutil.IsNotFoundError(err))
 }
 
 func TestTTLExtend(t *testing.T) {

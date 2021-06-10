@@ -54,7 +54,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 		// there is no need to persist the TransactionInfo to the collection
 		info := &transaction.TransactionInfo{
 			Transaction: &transaction.Transaction{
-				ID: uuid.New(),
+				ID: uuid.NewWithoutDashes(),
 			},
 			Requests: req,
 			Started:  now(),
@@ -73,7 +73,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	info := &transaction.TransactionInfo{
 		Transaction: &transaction.Transaction{
-			ID: uuid.New(),
+			ID: uuid.NewWithoutDashes(),
 		},
 		Requests: []*transaction.TransactionRequest{},
 		Started:  now(),
@@ -143,6 +143,10 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
 	}
 
+	// Set the transaction's CommitsetID to be the same as the transaction ID, which
+	// will be used for any newly made commits.
+	txnCtx.CommitsetID = info.Transaction.ID
+
 	directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
 	for i, request := range info.Requests {
 		var err error
@@ -153,14 +157,11 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 		} else if request.DeleteRepo != nil {
 			err = directTxn.DeleteRepo(request.DeleteRepo)
 		} else if request.StartCommit != nil {
-			// Do a little extra work here so we can make sure the new commit ID is
-			// the same every time.  We store the response the first time and reuse
-			// the commit ID on subsequent runs.
-			response.Commit, err = directTxn.StartCommit(request.StartCommit, response.Commit)
+			response.Commit, err = directTxn.StartCommit(request.StartCommit)
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
-		} else if request.SquashCommit != nil {
-			err = directTxn.SquashCommit(request.SquashCommit)
+		} else if request.SquashCommitset != nil {
+			err = directTxn.SquashCommitset(request.SquashCommitset)
 		} else if request.CreateBranch != nil {
 			err = directTxn.CreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {
@@ -178,13 +179,13 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 				response.CreatePipelineResponse = &transaction.CreatePipelineTransactionResponse{}
 			}
 			filesetID := &response.CreatePipelineResponse.FilesetId
-			prevSpecCommit := &response.CreatePipelineResponse.PrevSpecCommit
+			prevPipelineVersion := &response.CreatePipelineResponse.PrevPipelineVersion
 
-			// CreatePipeline may update the fileset and prevSpecCommit even if it
-			// fails (because these refer to things outside of the transaction) - we
-			// need to save them into the response so they can be seen the next time
-			// the transaction is attempted.
-			err = directTxn.CreatePipeline(request.CreatePipeline, filesetID, prevSpecCommit)
+			// CreatePipeline may update the fileset and prevPipelineVersion even if
+			// it fails (because these refer to things outside of the transaction) -
+			// we need to save them into the response so they can be seen the next
+			// time the transaction is attempted.
+			err = directTxn.CreatePipeline(request.CreatePipeline, filesetID, prevPipelineVersion)
 		} else {
 			err = errors.New("unrecognized transaction request type")
 		}

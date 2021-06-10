@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -25,9 +26,9 @@ type PfsWrites interface {
 	CreateRepo(*pfs.CreateRepoRequest) error
 	DeleteRepo(*pfs.DeleteRepoRequest) error
 
-	StartCommit(*pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
+	StartCommit(*pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
-	SquashCommit(*pfs.SquashCommitRequest) error
+	SquashCommitset(*pfs.SquashCommitsetRequest) error
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
@@ -40,7 +41,7 @@ type PfsWrites interface {
 type PpsWrites interface {
 	StopJob(*pps.StopJobRequest) error
 	UpdateJobState(*pps.UpdateJobStateRequest) error
-	CreatePipeline(*pps.CreatePipelineRequest, *string, **pfs.Commit) error
+	CreatePipeline(*pps.CreatePipelineRequest, *string, *uint64) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -123,9 +124,9 @@ func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
 	return t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
+func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	req := proto.Clone(original).(*pfs.StartCommitRequest)
-	return t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req, commit)
+	return t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) error {
@@ -133,9 +134,9 @@ func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) erro
 	return t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) SquashCommit(original *pfs.SquashCommitRequest) error {
-	req := proto.Clone(original).(*pfs.SquashCommitRequest)
-	return t.txnEnv.serviceEnv.PfsServer().SquashCommitInTransaction(t.txnCtx, req)
+func (t *directTransaction) SquashCommitset(original *pfs.SquashCommitsetRequest) error {
+	req := proto.Clone(original).(*pfs.SquashCommitsetRequest)
+	return t.txnEnv.serviceEnv.PfsServer().SquashCommitsetInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
@@ -163,9 +164,9 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 	return t.txnEnv.serviceEnv.AuthServer().ModifyRoleBindingInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, filesetID *string, prevSpecCommit **pfs.Commit) error {
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, filesetID *string, prevPipelineVersion *uint64) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevSpecCommit)
+	return t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevPipelineVersion)
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
@@ -197,7 +198,7 @@ func (t *appendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
 	return err
 }
 
-func (t *appendTransaction) StartCommit(req *pfs.StartCommitRequest, _ *pfs.Commit) (*pfs.Commit, error) {
+func (t *appendTransaction) StartCommit(req *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	res, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StartCommit: req})
 	if err != nil {
 		return nil, err
@@ -210,8 +211,8 @@ func (t *appendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
 	return err
 }
 
-func (t *appendTransaction) SquashCommit(req *pfs.SquashCommitRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommit: req})
+func (t *appendTransaction) SquashCommitset(req *pfs.SquashCommitsetRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommitset: req})
 	return err
 }
 
@@ -235,7 +236,7 @@ func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error
 	return err
 }
 
-func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ *string, _ **pfs.Commit) error {
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ *string, _ *uint64) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
 	return err
 }
@@ -253,8 +254,10 @@ func (t *appendTransaction) DeleteRoleBinding(original *auth.Resource) error {
 // transaction is present in the RPC context.  If an active transaction is
 // present, any calls into the Transaction are first dry-run then appended
 // to the transaction.  If there is no active transaction, the request will be
-// run directly through the selected server.
-func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transaction) error) error {
+// run directly through the selected server.  A second callback may be provided
+// to override the generated transaction ID in the case that an existing
+// transaction is not being used.
+func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transaction) error, overrideID func(*txncontext.TransactionContext) (string, error)) error {
 	activeTxn, err := client.GetTransaction(ctx)
 	if err != nil {
 		return err
@@ -267,6 +270,16 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 
 	return env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		directTxn := NewDirectTransaction(env, txnCtx)
+		if overrideID != nil {
+			id, err := overrideID(txnCtx)
+			if err != nil {
+				return err
+			}
+			if id != "" {
+				txnCtx.CommitsetID = id
+			}
+		}
+
 		return cb(directTxn)
 	})
 }
@@ -278,10 +291,15 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 		txnCtx := &txncontext.TransactionContext{
 			ClientContext: ctx,
 			SqlTx:         sqlTx,
+			CommitsetID:   uuid.NewWithoutDashes(),
+			Timestamp:     types.TimestampNow(),
 		}
 		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, uuid.NewWithoutDashes())
-			txnCtx.CommitFinisher = env.serviceEnv.PfsServer().NewPipelineFinisher(txnCtx)
+			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
+		}
+		if env.serviceEnv.PpsServer() != nil {
+			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
+			txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
 		}
 
 		err := cb(txnCtx)
@@ -298,12 +316,17 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
 	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		txnCtx := &txncontext.TransactionContext{
-			ClientContext:  ctx,
-			SqlTx:          sqlTx,
-			CommitFinisher: nil, // don't alter any pipeline commits in a read-only setting
+			ClientContext: ctx,
+			SqlTx:         sqlTx,
+			CommitsetID:   uuid.NewWithoutDashes(),
+			Timestamp:     types.TimestampNow(),
 		}
 		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(sqlTx, uuid.NewWithoutDashes())
+			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
+		}
+		if env.serviceEnv.PpsServer() != nil {
+			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
+			txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
 		}
 
 		err := cb(txnCtx)

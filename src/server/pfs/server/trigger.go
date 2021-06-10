@@ -4,7 +4,6 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 
@@ -16,86 +15,73 @@ import (
 )
 
 // triggerCommit is called when a commit is finished, it updates branches in
-// the repo if they trigger on the change and returns all branches which were
-// moved by this call.
+// the repo if they trigger on the change
 func (d *driver) triggerCommit(
 	txnCtx *txncontext.TransactionContext,
 	commit *pfs.Commit,
-) ([]*pfs.Branch, error) {
+) error {
 	repoInfo := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
-		return nil, err
+		return err
 	}
-	newHead := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), newHead); err != nil {
-		return nil, err
+	commitInfo := &pfs.CommitInfo{}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
+		return err
 	}
-	// find which branches this commit is the head of
-	headBranches := make(map[string]bool)
-	// The commit _was_ the branch head at some point in time, although it is
-	// not guaranteed to still be the branch head. This can happen on a
-	// downstream pipeline with triggers - the upstream pipeline may have
-	// multiple unfinished commits in its output branch that will be finished
-	// one at a time. Without this code, only finishing the _last_ commit would
-	// have a chance of triggering.
-	headBranches[newHead.Commit.Branch.Name] = true
-	for _, b := range repoInfo.Branches {
-		bi := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), bi); err != nil {
-			return nil, err
+
+	// Track any branches that are triggered and their new (alias) head commit
+	triggeredBranches := map[string]*pfs.CommitInfo{}
+	triggeredBranches[commitInfo.Commit.Branch.Name] = commitInfo
+
+	var triggerBranch func(branch *pfs.Branch) (*pfs.CommitInfo, error)
+	triggerBranch = func(branch *pfs.Branch) (*pfs.CommitInfo, error) {
+		if newHead, ok := triggeredBranches[branch.Name]; ok {
+			return newHead, nil
 		}
-		if bi.Head != nil && bi.Head.ID == commit.ID {
-			headBranches[b.Name] = true
-		}
-	}
-	triggeredBranches := map[string]bool{}
-	var result []*pfs.Branch
-	var triggerBranch func(branch *pfs.Branch) error
-	triggerBranch = func(branch *pfs.Branch) error {
-		if triggeredBranches[branch.Name] {
-			return nil
-		}
-		triggeredBranches[branch.Name] = true
+
 		bi := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(branch), bi); err != nil {
-			return err
-		}
-		if bi.Trigger != nil {
-			if err := triggerBranch(commit.Branch.Repo.NewBranch(bi.Trigger.Branch)); err != nil && !col.IsErrNotFound(err) {
-				return err
-			}
-			if headBranches[bi.Trigger.Branch] {
-				var oldHead *pfs.CommitInfo
-				if bi.Head != nil {
-					oldHead = &pfs.CommitInfo{}
-					if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(bi.Head), oldHead); err != nil {
-						return err
-					}
-				}
-				triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
-				if err != nil {
-					return err
-				}
-				if triggered {
-					if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(pfsdb.BranchKey(bi.Branch), bi, func() error {
-						bi.Head = newHead.Commit
-						return nil
-					}); err != nil {
-						return err
-					}
-					result = append(result, proto.Clone(commit.Branch).(*pfs.Branch))
-					headBranches[bi.Branch.Name] = true
-				}
-			}
-		}
-		return nil
-	}
-	for _, b := range repoInfo.Branches {
-		if err := triggerBranch(b); err != nil {
 			return nil, err
 		}
+
+		triggeredBranches[branch.Name] = nil
+		if bi.Trigger != nil {
+			newHead, err := triggerBranch(commit.Branch.Repo.NewBranch(bi.Trigger.Branch))
+			if err != nil && !col.IsErrNotFound(err) {
+				return nil, err
+			}
+
+			if newHead != nil {
+				oldHead := &pfs.CommitInfo{}
+				if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(bi.Head), oldHead); err != nil {
+					return nil, err
+				}
+
+				triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
+				if err != nil {
+					return nil, err
+				}
+
+				if triggered {
+					aliasCommit, err := d.aliasCommit(txnCtx, newHead.Commit, bi.Branch)
+					if err != nil {
+						return nil, err
+					}
+					triggeredBranches[branch.Name] = aliasCommit
+					if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		return nil, nil
 	}
-	return result, nil
+	for _, b := range repoInfo.Branches {
+		if _, err := triggerBranch(b); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // isTriggered checks to see if a branch should be updated from oldHead to
@@ -148,9 +134,9 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		var commits int64
 		for commits < t.Commits {
 			commits++
-			if ci.ParentCommit != nil && (oldHead == nil || oldHead.Commit.ID != ci.ParentCommit.ID) {
+			if ci.ParentCommit != nil && oldHead.Commit.ID != ci.ParentCommit.ID {
 				var err error
-				ci, err = d.inspectCommit(txnCtx.ClientContext, ci.ParentCommit, pfs.CommitState_STARTED)
+				ci, err = d.resolveCommit(txnCtx.SqlTx, ci.ParentCommit)
 				if err != nil {
 					return false, err
 				}

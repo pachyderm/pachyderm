@@ -108,7 +108,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 							return driver.RunUserErrorHandlingCode(runCtx, logger, env)
 						}))
 					}
-					return s.WithDatum(ctx, meta, func(d *datum.Datum) error {
+					return s.WithDatum(meta, func(d *datum.Datum) error {
 						cancelCtx, cancel := context.WithCancel(ctx)
 						defer cancel()
 						return status.withDatum(inputs, cancel, func() error {

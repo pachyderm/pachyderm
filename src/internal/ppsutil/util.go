@@ -31,13 +31,17 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 )
+
+// JobKey is the string representation of a Job suitable for use as an indexing key
+func JobKey(job *pps.Job) string {
+	return fmt.Sprintf("%s@%s", job.Pipeline.Name, job.ID)
+}
 
 // PipelineRepo creates a pfs repo for a given pipeline.
 func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
@@ -131,11 +135,11 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.Store
 	if result.Pipeline == nil {
 		result.Pipeline = ptr.Pipeline
 	}
+	result.Stopped = ptr.Stopped
 	result.State = ptr.State
 	result.Reason = ptr.Reason
 	result.JobCounts = ptr.JobCounts
 	result.LastJobState = ptr.LastJobState
-	result.SpecCommit = ptr.SpecCommit
 	return result, nil
 }
 
@@ -270,27 +274,15 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 }
 
 // JobInput fills in the commits for an Input
-func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
-	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
-	branchToCommit := make(map[string]*pfs.Commit)
-	key := pfsdb.BranchKey
-	// for a given branch, the commit assigned to it will be the latest commit on that branch
-	// this is ensured by the way we sort the commit provenance when creating the outputCommit
-	for _, prov := range outputCommitInfo.Provenance {
-		branchToCommit[key(prov.Commit.Branch)] = prov.Commit
-	}
+func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
+	commitsetID := outputCommit.ID
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
-			pfsBranch := client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType).NewBranch(input.Pfs.Branch)
-			if commit, ok := branchToCommit[key(pfsBranch)]; ok {
-				input.Pfs.Commit = commit.ID
-			}
+			input.Pfs.Commit = commitsetID
 		}
 		if input.Cron != nil {
-			if commit, ok := branchToCommit[key(client.NewBranch(input.Cron.Repo, "master"))]; ok {
-				input.Cron.Commit = commit.ID
-			}
+			input.Cron.Commit = commitsetID
 		}
 		return nil
 	})
@@ -338,7 +330,7 @@ func IsTerminal(state pps.JobState) bool {
 	switch state {
 	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
 		return true
-	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_EGRESSING:
+	case pps.JobState_JOB_CREATED, pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_EGRESSING:
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
@@ -353,7 +345,7 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 
 	// Update pipeline
 	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+	if err := pipelines.Get(jobPtr.Job.Pipeline.Name, pipelinePtr); err != nil {
 		return err
 	}
 	if pipelinePtr.JobCounts == nil {
@@ -364,7 +356,7 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	}
 	pipelinePtr.JobCounts[int32(state)]++
 	pipelinePtr.LastJobState = state
-	if err := pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+	if err := pipelines.Put(jobPtr.Job.Pipeline.Name, pipelinePtr); err != nil {
 		return err
 	}
 
@@ -372,15 +364,24 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	var err error
 	if state == pps.JobState_JOB_STARTING {
 		jobPtr.Started, err = types.TimestampProto(time.Now())
+		if err != nil {
+			return err
+		}
 	} else if IsTerminal(state) {
+		if jobPtr.Started == nil {
+			jobPtr.Started, err = types.TimestampProto(time.Now())
+			if err != nil {
+				return err
+			}
+		}
 		jobPtr.Finished, err = types.TimestampProto(time.Now())
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	jobPtr.State = state
 	jobPtr.Reason = reason
-	return jobs.Put(jobPtr.Job.ID, jobPtr)
+	return jobs.Put(JobKey(jobPtr.Job), jobPtr)
 }
 
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
@@ -398,7 +399,7 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: jobInfo.StatsCommit,
+			Commit: MetaCommit(jobInfo.OutputCommit),
 			Empty:  empty,
 		}); err != nil {
 			return err
@@ -424,17 +425,8 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 	return err
 }
 
-func GetStatsCommit(commitInfo *pfs.CommitInfo) (*pfs.Commit, error) {
-	outputRepo := commitInfo.Commit.Branch.Repo.Name
-	for _, commitRange := range commitInfo.Subvenance {
-		repo := commitRange.Lower.Branch.Repo
-		if repo.Type == pfs.MetaRepoType && repo.Name == outputRepo {
-			return commitRange.Lower, nil
-		}
-	}
-	// This may happen in the case the commitInfo represents an output commit for a Spout or Service pipeline,
-	// since stats aren't enabled in those cases
-	return nil, errors.Errorf("could not find a stats commit for commit %v", commitInfo.Commit.ID)
+func MetaCommit(commit *pfs.Commit) *pfs.Commit {
+	return client.NewSystemRepo(commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with

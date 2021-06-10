@@ -220,22 +220,20 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 		return maybeNotFoundError(r, grpcutil.ScrubGRPC(err))
 	}
 
-	if branchInfo.Head != nil {
-		hasFiles := false
-		err = pc.WalkFile(branchInfo.Head, "", func(fileInfo *pfsClient.FileInfo) error {
-			if fileInfo.FileType == pfsClient.FileType_FILE {
-				hasFiles = true
-				return errutil.ErrBreak
-			}
-			return nil
-		})
-		if err != nil {
-			return s2.InternalError(r, err)
+	hasFiles := false
+	err = pc.WalkFile(branchInfo.Head, "", func(fileInfo *pfsClient.FileInfo) error {
+		if fileInfo.FileType == pfsClient.FileType_FILE {
+			hasFiles = true
+			return errutil.ErrBreak
 		}
+		return nil
+	})
+	if err != nil {
+		return s2.InternalError(r, err)
+	}
 
-		if hasFiles {
-			return s2.BucketNotEmptyError(r)
-		}
+	if hasFiles {
+		return s2.BucketNotEmptyError(r)
 	}
 
 	_, err = pc.PfsAPIClient.DeleteBranch(pc.Ctx(), &pfs.DeleteBranchRequest{Branch: bucket.Commit.Branch})

@@ -91,7 +91,7 @@ type Driver interface {
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
 	DeleteJob(*sqlx.Tx, *pps.StoredJobInfo) error
-	UpdateJobState(string, pps.JobState, string) error
+	UpdateJobState(*pps.Job, pps.JobState, string) error
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
@@ -443,10 +443,10 @@ func (d *driver) RunUserErrorHandlingCode(
 	return nil
 }
 
-func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string) error {
+func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 		jobPtr := &pps.StoredJobInfo{}
-		if err := d.Jobs().ReadWrite(sqlTx).Get(jobID, jobPtr); err != nil {
+		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobPtr); err != nil {
 			return err
 		}
 		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobPtr, state, reason))
@@ -458,7 +458,7 @@ func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string)
 // their output commit is deleted.
 func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobPtr *pps.StoredJobInfo) error {
 	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := d.Pipelines().ReadWrite(sqlTx).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
+	if err := d.Pipelines().ReadWrite(sqlTx).Update(jobPtr.Job.Pipeline.Name, pipelinePtr, func() error {
 		if pipelinePtr.JobCounts == nil {
 			pipelinePtr.JobCounts = make(map[int32]int32)
 		}
@@ -469,7 +469,7 @@ func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobPtr *pps.StoredJobInfo) error {
 	}); err != nil {
 		return err
 	}
-	return d.Jobs().ReadWrite(sqlTx).Delete(jobPtr.Job.ID)
+	return d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobPtr.Job))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {

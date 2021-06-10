@@ -149,22 +149,22 @@ type Hasher interface {
 
 type jobIterator struct {
 	iterator Iterator
-	jobID    string
+	job      *pps.Job
 	hasher   Hasher
 }
 
 // NewJobIterator creates a new job iterator.
-func NewJobIterator(iterator Iterator, jobID string, hasher Hasher) Iterator {
+func NewJobIterator(iterator Iterator, job *pps.Job, hasher Hasher) Iterator {
 	return &jobIterator{
 		iterator: iterator,
-		jobID:    jobID,
+		job:      job,
 		hasher:   hasher,
 	}
 }
 
 func (ji *jobIterator) Iterate(cb func(*Meta) error) error {
 	return ji.iterator.Iterate(func(meta *Meta) error {
-		meta.JobID = ji.jobID
+		meta.Job = ji.job
 		meta.Hash = ji.hasher.Hash(meta.Inputs)
 		return cb(meta)
 	})

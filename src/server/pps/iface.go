@@ -2,7 +2,6 @@ package pps
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	pfs_client "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pps_client "github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -12,7 +11,10 @@ import (
 type APIServer interface {
 	pps_client.APIServer
 
+	NewPropagater(*txncontext.TransactionContext) txncontext.PpsPropagater
+	NewJobStopper(*txncontext.TransactionContext) txncontext.PpsJobStopper
+
 	StopJobInTransaction(*txncontext.TransactionContext, *pps_client.StopJobRequest) error
 	UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error
-	CreatePipelineInTransaction(*txncontext.TransactionContext, *pps_client.CreatePipelineRequest, *string, **pfs_client.Commit) error
+	CreatePipelineInTransaction(*txncontext.TransactionContext, *pps_client.CreatePipelineRequest, *string, *uint64) error
 }

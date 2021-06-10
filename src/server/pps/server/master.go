@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -235,7 +236,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 	}
 	for _, service := range services.Items {
 		if err := kubeClient.CoreV1().Services(namespace).Delete(service.Name, opts); err != nil {
-			if !isNotFoundErr(err) {
+			if !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "could not delete service %q", service.Name)
 			}
 		}
@@ -248,7 +249,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 	}
 	for _, secret := range secrets.Items {
 		if err := kubeClient.CoreV1().Secrets(namespace).Delete(secret.Name, opts); err != nil {
-			if !isNotFoundErr(err) {
+			if !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "could not delete secret %q", secret.Name)
 			}
 		}
@@ -262,7 +263,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 	}
 	for _, rc := range rcs.Items {
 		if err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(rc.Name, opts); err != nil {
-			if !isNotFoundErr(err) {
+			if !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "could not delete RC %q", rc.Name)
 			}
 		}

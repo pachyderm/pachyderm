@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -29,8 +30,8 @@ import (
 
 const (
 	pipelineNameLabel         = "pipelineName"
-	pachVersionAnnotation     = "version"
-	specCommitAnnotation      = "specCommit"
+	pachVersionAnnotation     = "pachVersion"
+	pipelineVersionAnnotation = "pipelineVersion"
 	hashedAuthTokenAnnotation = "authTokenHash"
 )
 
@@ -106,6 +107,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
+	}, {
+		Name:  client.PPSPipelineNameEnv,
+		Value: pipelineInfo.Pipeline.Name,
 	}, {
 		Name: "PACHD_POD_NAME",
 		ValueFrom: &v1.EnvVarSource{
@@ -562,7 +566,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *
 	annotations := map[string]string{
 		pipelineNameLabel:         pipelineName,
 		pachVersionAnnotation:     version.PrettyVersion(),
-		specCommitAnnotation:      ptr.SpecCommit.ID,
+		pipelineVersionAnnotation: strconv.FormatUint(ptr.Version, 10),
 		hashedAuthTokenAnnotation: hashAuthToken(ptr.AuthToken),
 	}
 	if a.iamRole != "" {
@@ -660,7 +664,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.Stor
 
 	// send RPC to k8s to create the secret there
 	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
-		if !isAlreadyExistsErr(err) {
+		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
 	}
@@ -723,7 +727,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 		},
 	}
 	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
-		if !isAlreadyExistsErr(err) {
+		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
 	}
@@ -757,7 +761,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 		},
 	}
 	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
-		if !isAlreadyExistsErr(err) {
+		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
 	}
@@ -791,7 +795,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 			},
 		}
 		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
-			if !isAlreadyExistsErr(err) {
+			if !errutil.IsAlreadyExistError(err) {
 				return err
 			}
 		}

@@ -53,26 +53,6 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
 }
 
-// SquashCommitInTransaction is identical to SquashCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) SquashCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitRequest) error {
-	userCommit := request.Commit
-	// Validate arguments
-	if userCommit == nil {
-		return errors.New("commit cannot be nil")
-	}
-	if userCommit.Branch == nil {
-		return errors.New("commit branch cannot be nil")
-	}
-	if userCommit.Branch.Repo == nil {
-		return errors.New("commit repo cannot be nil")
-	}
-	if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_DELETE_COMMIT); err != nil {
-		return err
-	}
-	return a.apiServer.SquashCommitInTransaction(txnCtx, request)
-}
-
 // InspectFile implements the protobuf pfs.InspectFile RPC
 func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	if err := validateFile(request.File); err != nil {
@@ -151,6 +131,20 @@ func (a *validatedAPIServer) InspectCommit(ctx context.Context, req *pfs.Inspect
 		return nil, errors.New("commit cannot be nil")
 	}
 	return a.apiServer.InspectCommit(ctx, req)
+}
+
+func (a *validatedAPIServer) InspectCommitset(request *pfs.InspectCommitsetRequest, server pfs.API_InspectCommitsetServer) error {
+	if request.Commitset == nil {
+		return errors.New("commitset cannot be nil")
+	}
+	return a.apiServer.InspectCommitset(request, server)
+}
+
+func (a *validatedAPIServer) SquashCommitset(ctx context.Context, request *pfs.SquashCommitsetRequest) (*types.Empty, error) {
+	if request.Commitset == nil {
+		return nil, errors.New("commitset cannot be nil")
+	}
+	return a.apiServer.SquashCommitset(ctx, request)
 }
 
 func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) error {

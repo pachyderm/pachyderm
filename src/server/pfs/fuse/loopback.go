@@ -648,7 +648,7 @@ func (n *loopbackNode) commit(repo string) (string, error) {
 	defer n.root().mu.Unlock()
 	// You can access branches that don't exist, which allows you to create
 	// branches through the fuse mount.
-	if errutil.IsNotFoundError(err) || bi.Head == nil {
+	if errutil.IsNotFoundError(err) {
 		n.root().commits[repo] = ""
 		return "", nil
 	}

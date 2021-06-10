@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -70,12 +71,12 @@ func (cs *postgresCommitStore) AddFilesetTx(tx *sqlx.Tx, commit *pfs.Commit, id 
 	if _, err := tx.Exec(
 		`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
 	VALUES ($1, $2)
-`, commit.ID, id); err != nil {
+`, pfsdb.CommitKey(commit), id); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(
 		`DELETE FROM pfs.commit_totals WHERE commit_id = $1
-		`, commit.ID); err != nil {
+		`, pfsdb.CommitKey(commit)); err != nil {
 		return err
 	}
 	return cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL)
@@ -148,7 +149,7 @@ func (cs *postgresCommitStore) dropDiff(tx *sqlx.Tx, commit *pfs.Commit) error {
 			return err
 		}
 	}
-	if _, err := tx.Exec(`DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, commit.ID); err != nil {
+	if _, err := tx.Exec(`DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, pfsdb.CommitKey(commit)); err != nil {
 		return err
 	}
 	return nil
@@ -160,7 +161,7 @@ func getDiff(tx *sqlx.Tx, commit *pfs.Commit) ([]fileset.ID, error) {
 		`SELECT fileset_id FROM pfs.commit_diffs
 		WHERE commit_id = $1
 		ORDER BY num
-		`, commit.ID); err != nil {
+		`, pfsdb.CommitKey(commit)); err != nil {
 		return nil, err
 	}
 	return ids, nil
@@ -171,7 +172,7 @@ func getTotal(tx *sqlx.Tx, commit *pfs.Commit) (*fileset.ID, error) {
 	if err := tx.Get(&id,
 		`SELECT fileset_id FROM pfs.commit_totals
 		WHERE commit_id = $1
-	`, commit.ID); err != nil {
+	`, pfsdb.CommitKey(commit)); err != nil {
 		return nil, err
 	}
 	return &id, nil
@@ -189,7 +190,7 @@ func dropTotal(tx *sqlx.Tx, tr track.Tracker, commit *pfs.Commit) error {
 	if err := tr.DeleteTx(tx, trackID); err != nil {
 		return err
 	}
-	_, err = tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, commit.ID)
+	_, err = tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(commit))
 	return err
 }
 
@@ -204,30 +205,30 @@ func setTotal(tx *sqlx.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID) 
 	ON CONFLICT (commit_id) DO UPDATE
 	SET fileset_id = $2
 	WHERE commit_totals.commit_id = $1
-	`, commit.ID, id)
+	`, pfsdb.CommitKey(commit), id)
 	return err
 }
 
 func commitDiffTrackerID(commit *pfs.Commit, fs fileset.ID) string {
-	return commitTrackerPrefix + commit.ID + "/diff/" + fs.HexString()
+	return commitTrackerPrefix + pfsdb.CommitKey(commit) + "/diff/" + fs.HexString()
 }
 
 func commitTotalTrackerID(commit *pfs.Commit, fs fileset.ID) string {
-	return commitTrackerPrefix + commit.ID + "/total/" + fs.HexString()
+	return commitTrackerPrefix + pfsdb.CommitKey(commit) + "/total/" + fs.HexString()
 }
 
 // SetupPostgresCommitStoreV0 runs SQL to setup the commit store.
 func SetupPostgresCommitStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 		CREATE TABLE pfs.commit_diffs (
-			commit_id VARCHAR(64) NOT NULL,
+			commit_id TEXT NOT NULL,
 			num BIGSERIAL NOT NULL,
 			fileset_id UUID NOT NULL,
 			PRIMARY KEY(commit_id, num)
 		);
 
 		CREATE TABLE pfs.commit_totals (
-			commit_id VARCHAR(64) NOT NULL,
+			commit_id TEXT NOT NULL,
 			fileset_id UUID NOT NULL,
 			PRIMARY KEY(commit_id)
 		);

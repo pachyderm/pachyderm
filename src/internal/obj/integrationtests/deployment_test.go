@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -258,15 +257,9 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	dataRepo := "data"
 	require.NoError(t, pachClient.CreateRepo(dataRepo))
 
-	// Upload some files
-	commit1, err := pachClient.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, pachClient.PutFile(commit1, "file", strings.NewReader("foo")))
-	require.NoError(t, pachClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-
 	// Create a pipeline
 	pipelineRepo := tu.UniqueString("pipeline")
-	_, err = pachClient.PpsAPIClient.CreatePipeline(context.Background(), &pps.CreatePipelineRequest{
+	_, err := pachClient.PpsAPIClient.CreatePipeline(context.Background(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipelineRepo),
 		Transform: &pps.Transform{
 			Image: "",
@@ -287,14 +280,21 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	})
 	require.NoError(t, err)
 
-	// Wait for the output commit
-	commitInfos, err := pachClient.FlushCommitAll([]*pfs.Commit{commit1}, nil)
+	// Upload some files
+	commit1, err := pachClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.NoError(t, pachClient.PutFile(commit1, "file", strings.NewReader("foo")))
+	require.NoError(t, pachClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
+
+	// Wait for the output commit
+	commitInfos, err := pachClient.BlockCommitsetAll(commit1.ID)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(commitInfos))
 
 	// Check the pipeline output
 	var buf bytes.Buffer
-	require.NoError(t, pachClient.GetFile(commitInfos[0].Commit, "file", &buf))
+	outputCommit := client.NewCommit(pipelineRepo, "master", commit1.ID)
+	require.NoError(t, pachClient.GetFile(outputCommit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 }
 

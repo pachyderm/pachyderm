@@ -48,3 +48,25 @@ func (err ErrExists) Error() string {
 func IsErrExists(err error) bool {
 	return errors.Is(err, ErrExists{})
 }
+
+// ErrNotUnique indicates that an indexed query expected to have exactly one
+// result but had more than one result.
+type ErrNotUnique struct {
+	Type  string
+	Index string
+	Value string
+}
+
+func (err ErrNotUnique) Is(other error) bool {
+	_, ok := other.(ErrNotUnique)
+	return ok
+}
+
+func (err ErrNotUnique) Error() string {
+	return fmt.Sprintf("more than one matching row found in %s on index %s with value %s", err.Type, err.Index, err.Value)
+}
+
+// IsErrNotUnique determines if an error is an ErrNotUnique error
+func IsErrNotUnique(err error) bool {
+	return errors.Is(err, ErrNotUnique{})
+}

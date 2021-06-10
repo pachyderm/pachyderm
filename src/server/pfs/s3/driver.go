@@ -110,13 +110,13 @@ func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string
 }
 
 func (d *MasterDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
-	branchInfo, err := pc.PfsAPIClient.InspectBranch(pc.Ctx(), &pfs.InspectBranchRequest{Branch: bucket.Commit.Branch})
+	_, err := pc.PfsAPIClient.InspectBranch(pc.Ctx(), &pfs.InspectBranchRequest{Branch: bucket.Commit.Branch})
 	if err != nil {
 		return bucketCapabilities{}, maybeNotFoundError(r, grpcutil.ScrubGRPC(err))
 	}
 
 	return bucketCapabilities{
-		readable:         branchInfo.Head != nil,
+		readable:         true,
 		writable:         true,
 		historicVersions: true,
 	}, nil

@@ -93,6 +93,11 @@ type PostgresReadWriteCollection interface {
 	// a large number of rows. Consider using a read-only collection if possible
 	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
 
+	// GetUniqueByIndex is identical to GetByIndex except it is an error if
+	// exactly one row is not found.
+	// TODO: decide if we should merge this with GetByIndex and use an `Options`.
+	GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error
+
 	// Unsupported operations - only here during migration so we can compile
 	// TODO: remove these before merging into master
 	TTL(key string) (int64, error)

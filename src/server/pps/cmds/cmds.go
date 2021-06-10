@@ -24,7 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
@@ -104,16 +104,25 @@ If the job fails, the output commit will not be populated with data.`,
 
 	var block bool
 	inspectJob := &cobra.Command{
-		Use:   "{{alias}} <job>",
+		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			job, err := cmdutil.ParseJob(args[0])
+			if err != nil {
+				return err
+			}
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.InspectJob(args[0], block, true)
+			var jobInfo *pps.JobInfo
+			if block {
+				jobInfo, err = client.BlockJob(job.Pipeline.Name, job.ID, true)
+			} else {
+				jobInfo, err = client.InspectJob(job.Pipeline.Name, job.ID, true)
+			}
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
 			}
@@ -139,7 +148,6 @@ If the job fails, the output commit will not be populated with data.`,
 	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
 
 	var pipelineName string
-	var outputCommitStr string
 	var inputCommitStrs []string
 	var history string
 	var stateStrs []string
@@ -170,13 +178,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
 			}
-			var outputCommit *pfs.Commit
-			if outputCommitStr != "" {
-				outputCommit, err = cmdutil.ParseCommit(outputCommitStr)
-				if err != nil {
-					return err
-				}
-			}
 			var filter string
 			if len(stateStrs) > 0 {
 				filter, err = ParseJobStates(stateStrs)
@@ -194,14 +195,14 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(ji *ppsclient.JobInfo) error {
+					return client.ListJobFilterF(pipelineName, commits, history, true, filter, func(ji *ppsclient.JobInfo) error {
 						return e.EncodeProto(ji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(ji *ppsclient.JobInfo) error {
+				if err := client.ListJobFilterF(pipelineName, commits, history, false, filter, func(ji *ppsclient.JobInfo) error {
 					pretty.PrintJobInfo(writer, ji, fullTimestamps)
 					return nil
 				}); err != nil {
@@ -213,8 +214,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit. format: <repo>@<branch-or-commit>")
-	listJob.MarkFlagCustom("output", "__pachctl_get_repo_commit")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
 	listJob.Flags().AddFlagSet(outputFlags)
@@ -232,80 +231,21 @@ $ {{alias}} -p foo -i bar@YYY`,
 		})
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
-	var pipelines cmdutil.RepeatedStringArg
-	flushJob := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit> ...",
-		Short: "Wait for all jobs caused by the specified commits to finish and return them.",
-		Long:  "Wait for all jobs caused by the specified commits to finish and return them.",
-		Example: `
-# Return jobs caused by foo@XXX and bar@YYY.
-$ {{alias}} foo@XXX bar@YYY
-
-# Return jobs caused by foo@XXX leading to pipelines bar and baz.
-$ {{alias}} foo@XXX -p bar -p baz`,
-		Run: cmdutil.Run(func(args []string) error {
-			if output != "" && !raw {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
-			}
-			commits, err := cmdutil.ParseCommits(args)
-			if err != nil {
-				return err
-			}
-
-			c, err := pachdclient.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			var writer *tabwriter.Writer
-			if !raw {
-				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			}
-			e := encoder(output)
-			if err := c.FlushJob(commits, pipelines, func(ji *ppsclient.JobInfo) error {
-				if raw {
-					if err := e.EncodeProto(ji); err != nil {
-						return err
-					}
-					return nil
-				}
-				pretty.PrintJobInfo(writer, ji, fullTimestamps)
-				return nil
-			}); err != nil {
-				return err
-			}
-			if !raw {
-				return writer.Flush()
-			}
-			return nil
-		}),
-	}
-	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
-	flushJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	flushJob.Flags().AddFlagSet(outputFlags)
-	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
-	shell.RegisterCompletionFunc(flushJob,
-		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
-			if flag == "--pipeline" || flag == "-p" {
-				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-			}
-			cs, cf := shell.BranchCompletion(flag, text, maxCompletions)
-			return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-		})
-	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
-
 	deleteJob := &cobra.Command{
-		Use:   "{{alias}} <job>",
+		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			job, err := cmdutil.ParseJob(args[0])
+			if err != nil {
+				return err
+			}
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			if err := client.DeleteJob(args[0]); err != nil {
+			if err := client.DeleteJob(job.Pipeline.Name, job.ID); err != nil {
 				cmdutil.ErrorAndExit("error from DeleteJob: %s", err.Error())
 			}
 			return nil
@@ -315,16 +255,20 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 	commands = append(commands, cmdutil.CreateAlias(deleteJob, "delete job"))
 
 	stopJob := &cobra.Command{
-		Use:   "{{alias}} <job>",
+		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			job, err := cmdutil.ParseJob(args[0])
+			if err != nil {
+				return err
+			}
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			if err := client.StopJob(args[0]); err != nil {
+			if err := client.StopJob(job.Pipeline.Name, job.ID); err != nil {
 				cmdutil.ErrorAndExit("error from StopJob: %s", err.Error())
 			}
 			return nil
@@ -347,10 +291,14 @@ each datum.`,
 	commands = append(commands, cmdutil.CreateDocsAlias(datumDocs, "datum", " datum$"))
 
 	restartDatum := &cobra.Command{
-		Use:   "{{alias}} <job> <datum-path1>,<datum-path2>,...",
+		Use:   "{{alias}} <pipeline>@<job> <datum-path1>,<datum-path2>,...",
 		Short: "Restart a datum.",
 		Long:  "Restart a datum.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			job, err := cmdutil.ParseJob(args[0])
+			if err != nil {
+				return err
+			}
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -367,16 +315,20 @@ each datum.`,
 					i++
 				}
 			}
-			return client.RestartDatum(args[0], datumFilter)
+			return client.RestartDatum(job.Pipeline.Name, job.ID, datumFilter)
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(restartDatum, "restart datum"))
 
 	listDatum := &cobra.Command{
-		Use:   "{{alias}} <job>",
+		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
+			job, err := cmdutil.ParseJob(args[0])
+			if err != nil {
+				return err
+			}
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -406,7 +358,7 @@ each datum.`,
 			if len(args) != 1 {
 				return errors.Errorf("must specify one job")
 			}
-			return client.ListDatum(args[0], printF)
+			return client.ListDatum(job.Pipeline.Name, job.ID, printF)
 		}),
 	}
 	listDatum.Flags().AddFlagSet(outputFlags)
@@ -414,16 +366,20 @@ each datum.`,
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
 
 	inspectDatum := &cobra.Command{
-		Use:   "{{alias}} <job> <datum>",
+		Use:   "{{alias}} <pipeline>@<job> <datum>",
 		Short: "Display detailed info about a single datum.",
 		Long:  "Display detailed info about a single datum. Requires the pipeline to have stats enabled.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			job, err := cmdutil.ParseJob(args[0])
+			if err != nil {
+				return err
+			}
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			datumInfo, err := client.InspectDatum(args[0], args[1])
+			datumInfo, err := client.InspectDatum(job.Pipeline.Name, job.ID, args[1])
 			if err != nil {
 				return err
 			}
@@ -440,7 +396,7 @@ each datum.`,
 	commands = append(commands, cmdutil.CreateAlias(inspectDatum, "inspect datum"))
 
 	var (
-		jobID       string
+		jobStr      string
 		datumID     string
 		commaInputs string // comma-separated list of input files of interest
 		master      bool
@@ -476,7 +432,7 @@ each datum.`,
 	}
 
 	getLogs := &cobra.Command{
-		Use:   "{{alias}} [--pipeline=<pipeline>|--job=<job>] [--datum=<datum>]",
+		Use:   "{{alias}} [--pipeline=<pipeline>|--job=<pipeline>@<job>] [--datum=<datum>]",
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
 		Example: `
@@ -515,6 +471,20 @@ each datum.`,
 				return errors.Errorf("tail has been deprecated and removed from Pachyderm, use --since instead")
 			}
 
+			if pipelineName != "" && jobStr != "" {
+				return errors.Errorf("only one of pipeline or job should be specified")
+			}
+
+			var jobID string
+			if jobStr != "" {
+				job, err := cmdutil.ParseJob(jobStr)
+				if err != nil {
+					return err
+				}
+				pipelineName = job.Pipeline.Name
+				jobID = job.ID
+			}
+
 			// Issue RPC
 			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
@@ -542,7 +512,7 @@ each datum.`,
 	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	getLogs.Flags().StringVarP(&jobID, "job", "j", "", "Filter for log lines from "+
+	getLogs.Flags().StringVarP(&jobStr, "job", "j", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
 	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
 	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
@@ -613,7 +583,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
 	runPipeline := &cobra.Command{
-		Use:   "{{alias}} <pipeline> [<repo>@[<branch>|<commit>|<branch>=<commit>]...]",
+		Use:   "{{alias}} <pipeline> [--job=<job>] [<repo>@[<branch>|<commit>|<branch>=<commit>]...]",
 		Short: "Run an existing Pachyderm pipeline on the specified commits-branch pairs.",
 		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If you only specify a branch, Pachyderm uses the HEAD commit to complete the pair. Similarly, if you only specify a commit, Pachyderm will try to use the branch the commit originated on. Note: Pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data.",
 		Example: `
@@ -642,14 +612,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			err = client.RunPipeline(args[0], prov, jobID)
+			err = client.RunPipeline(args[0], prov, jobStr)
 			if err != nil {
 				return err
 			}
 			return nil
 		}),
 	}
-	runPipeline.Flags().StringVar(&jobID, "job", "", "rerun the given job")
+	runPipeline.Flags().StringVar(&jobStr, "job", "", "rerun the given job")
 	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
 
 	runCron := &cobra.Command{

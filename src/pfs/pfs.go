@@ -5,6 +5,7 @@ import (
 	"hash"
 
 	"github.com/gogo/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 )
 

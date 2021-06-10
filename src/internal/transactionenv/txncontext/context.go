@@ -3,6 +3,7 @@ package txncontext
 import (
 	"context"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -17,37 +18,50 @@ type TransactionContext struct {
 	ClientContext context.Context
 	// SqlTx is the ongoing database transaction.
 	SqlTx *sqlx.Tx
+	// CommitsetID is the ID of the Commitset corresponding to PFS changes in this transaction.
+	CommitsetID string
+	// Timestamp is the canonical timestamp to be used for writes in this transaction.
+	Timestamp *types.Timestamp
 	// PfsPropagater applies commits at the end of the transaction.
 	PfsPropagater PfsPropagater
-	// CommitFinisher finishes commits for a pipeline at the end of a transaction
-	CommitFinisher PipelineCommitFinisher
+	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
+	PpsPropagater PpsPropagater
+	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
+	PpsJobStopper PpsJobStopper
 }
 
-// PropagateCommit saves a branch to be propagated at the end of the transaction
+// PropagateJobs notifies PPS that there are new commits in the transaction's
+// commitset that need jobs to be created at the end of the transaction
+// transaction (if all operations complete successfully).
+func (t *TransactionContext) PropagateJobs() {
+	t.PpsPropagater.PropagateJobs()
+}
+
+// StopJobs notifies PPS that some commits have been removed and the jobs
+// associated with them should be stopped.
+func (t *TransactionContext) StopJobs(commitset *pfs.Commitset) {
+	t.PpsJobStopper.StopJobs(commitset)
+}
+
+// PropagateBranch saves a branch to be propagated at the end of the transaction
 // (if all operations complete successfully).  This is used to batch together
 // propagations and dedupe downstream commits in PFS.
-func (t *TransactionContext) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error {
-	return t.PfsPropagater.PropagateCommit(branch, isNewCommit)
+func (t *TransactionContext) PropagateBranch(branch *pfs.Branch) error {
+	return t.PfsPropagater.PropagateBranch(branch)
 }
 
-// Finish applies the commitFinisher and pfsPropagator, is set
+// Finish applies the deferred logic in the pfsPropagator and ppsPropagator to
+// the transaction
 func (t *TransactionContext) Finish() error {
-	if t.CommitFinisher != nil {
-		if err := t.CommitFinisher.Run(); err != nil {
+	if t.PfsPropagater != nil {
+		if err := t.PfsPropagater.Run(); err != nil {
 			return err
 		}
 	}
-	if t.PfsPropagater != nil {
-		return t.PfsPropagater.Run()
-	}
-	return nil
-}
-
-// FinishPipelineCommits saves a pipeline output branch to have its commits
-// finished at the end of the transaction
-func (t *TransactionContext) FinishPipelineCommits(branch *pfs.Branch) error {
-	if t.CommitFinisher != nil {
-		return t.CommitFinisher.FinishPipelineCommits(branch)
+	if t.PpsPropagater != nil {
+		if err := t.PpsPropagater.Run(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -55,13 +69,21 @@ func (t *TransactionContext) FinishPipelineCommits(branch *pfs.Branch) error {
 // PfsPropagater is the interface that PFS implements to propagate commits at
 // the end of a transaction.  It is defined here to avoid a circular dependency.
 type PfsPropagater interface {
-	PropagateCommit(branch *pfs.Branch, isNewCommit bool) error
+	PropagateBranch(branch *pfs.Branch) error
 	Run() error
 }
 
-// PipelineCommitFinisher is an interface to facilitate finishing pipeline commits
-// at the end of a transaction
-type PipelineCommitFinisher interface {
-	FinishPipelineCommits(branch *pfs.Branch) error
+// PpsPropagater is the interface that PPS implements to start jobs at the end
+// of a transaction.  It is defined here to avoid a circular dependency.
+type PpsPropagater interface {
+	PropagateJobs()
+	Run() error
+}
+
+// PpsJobStopper is the interface that PPS implements to stop jobs of deleted
+// commitsets at the end of a transaction.  It is defined here to avoid a
+// circular dependency.
+type PpsJobStopper interface {
+	StopJobs(commitset *pfs.Commitset)
 	Run() error
 }

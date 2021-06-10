@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/spf13/cobra"
 )
@@ -111,7 +112,7 @@ func isValidBranch(name string) bool {
 	return err == nil
 }
 
-func repoFromString(name string) *pfs.Repo {
+func ParseRepo(name string) *pfs.Repo {
 	var repo pfs.Repo
 	if strings.Contains(name, ".") {
 		repoParts := strings.SplitN(name, ".", 2)
@@ -163,7 +164,7 @@ func parseFile(arg string) (*pfs.File, int, error) {
 			commit = parts[1]
 		}
 	}
-	return repoFromString(repo).NewCommit(branch, commit).NewFile(path), numFields, nil
+	return ParseRepo(repo).NewCommit(branch, commit).NewFile(path), numFields, nil
 }
 
 // ParseCommit takes an argument of the form "repo[@branch-or-commit]" and
@@ -203,6 +204,19 @@ func ParseBranch(arg string) (*pfs.Branch, error) {
 		return nil, err
 	}
 	return commit.Branch, nil
+}
+
+// ParseJob takes an argument of the form "pipeline@job-id" and returns
+// the corresponding *pps.Job.
+func ParseJob(arg string) (*pps.Job, error) {
+	parts := strings.SplitN(arg, "@", 2)
+	if parts[0] == "" {
+		return nil, errors.Errorf("invalid format \"%s\": pipeline must be specified", arg)
+	}
+	if len(parts) != 2 {
+		return nil, errors.Errorf("invalid format \"%s\": expected pipeline@job-id", arg)
+	}
+	return client.NewJob(parts[0], parts[1]), nil
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the

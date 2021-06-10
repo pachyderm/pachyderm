@@ -208,7 +208,7 @@ __custom_func() {
 				__pachctl_get_repo_branch
 			fi
 			;;
-		pachctl_finish_commit | pachctl_inspect_commit | pachctl_delete_commit | pachctl_create_branch | pachctl_start_commit)
+		pachctl_finish_commit | pachctl_inspect_commit | pachctl_squash_commit | pachctl_create_branch | pachctl_start_commit)
 			if __is_active_arg 0; then
 				__pachctl_get_repo_commit
 			fi
@@ -239,7 +239,7 @@ __custom_func() {
 				__pachctl_get_pipeline
 			fi
 			;;
-		pachctl_flush_job | pachctl_flush_commit)
+		pachctl_wait_commit)
 			__pachctl_get_repo_commit
 			;;
 		# Deprecated v1.8 commands - remove later
@@ -296,9 +296,6 @@ __custom_func() {
 			if __is_active_arg 0; then
 				__pachctl_get_pipeline
 			fi
-			;;
-		pachctl_flush-job | pachctl_flush-commit)
-			__pachctl_get_repo_slash_commit
 			;;
 		*)
 			;;
@@ -748,6 +745,12 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(deleteDocs, "delete"))
 
+	squashDocs := &cobra.Command{
+		Short: "Squash an existing Pachyderm resource.",
+		Long:  "Squash an existing Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(squashDocs, "squash"))
+
 	createDocs := &cobra.Command{
 		Short: "Create a new instance of a Pachyderm resource.",
 		Long:  "Create a new instance of a Pachyderm resource.",
@@ -784,11 +787,11 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(finishDocs, "finish"))
 
-	flushDocs := &cobra.Command{
+	waitDocs := &cobra.Command{
 		Short: "Wait for the side-effects of a Pachyderm resource to propagate.",
 		Long:  "Wait for the side-effects of a Pachyderm resource to propagate.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAlias(flushDocs, "flush"))
+	subcommands = append(subcommands, cmdutil.CreateAlias(waitDocs, "wait"))
 
 	subscribeDocs := &cobra.Command{
 		Short: "Wait for notifications of changes to a Pachyderm resource.",
@@ -909,13 +912,14 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"diff",
 			"edit",
 			"finish",
-			"flush",
+			"wait",
 			"get",
 			"glob",
 			"inspect",
 			"list",
 			"put",
 			"restart",
+			"squash",
 			"start",
 			"stop",
 			"subscribe",

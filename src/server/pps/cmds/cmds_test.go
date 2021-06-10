@@ -113,7 +113,7 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		`,
 		"pipeline", tu.UniqueString("p-")).Run())
 	require.NoError(t, tu.BashCmd(`
-		pachctl flush commit data@master
+		pachctl wait commit data@master
 
 		# make sure the results have the full pipeline info, including version
 		pachctl list job --raw --history=all \
@@ -175,7 +175,7 @@ func TestJSONMultiplePipelines(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
-		pachctl flush commit input@master
+		pachctl wait commit second@master
 		pachctl get file second@master:/foo | match foo
 		pachctl get file second@master:/bar | match bar
 		pachctl get file second@master:/baz | match baz
@@ -222,7 +222,7 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
-		pachctl flush commit input@master
+		pachctl wait commit first@master
 		pachctl get file first@master:/foo | match foo
 		pachctl get file first@master:/bar | match bar
 		pachctl get file first@master:/baz | match baz
@@ -368,7 +368,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
-		pachctl flush commit input@master
+		pachctl wait commit second@master
 		pachctl get file second@master:/foo | match foo
 		pachctl get file second@master:/bar | match bar
 		pachctl get file second@master:/baz | match baz
@@ -411,7 +411,7 @@ func TestListPipelineFilter(t *testing.T) {
 		EOF
 
 		echo foo | pachctl put file input@master:/foo
-		pachctl flush commit input@master
+		pachctl wait commit {{.pipeline}}@master
 		# make sure we see the pipeline with the appropriate state filters
 		pachctl list pipeline | match {{.pipeline}}
 		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline}}
@@ -543,7 +543,7 @@ func TestYAMLSecret(t *testing.T) {
 		        env_var: MY_SECRET
 		        key: my-key
 		EOF
-		pachctl flush commit input@master
+		pachctl wait commit pipeline@master
 		pachctl get file pipeline@master:/vars | match MY_SECRET=my-value
 		`,
 	).Run())

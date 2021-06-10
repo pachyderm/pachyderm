@@ -51,6 +51,7 @@ type GlobalConfiguration struct {
 	// and the sidecar so that it can serve the S3 gateway) it's stored in the
 	// GlobalConfiguration, but it isn't set in a cluster's main pachd containers.
 	PPSSpecCommitID string `env:"PPS_SPEC_COMMIT"`
+	// The name of the pipeline that this worker belongs to
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
 }
 
