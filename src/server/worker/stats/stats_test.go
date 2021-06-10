@@ -269,7 +269,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	jobs, err := c.ListJob(pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	jobInfo, err := c.BlockJob(pipeline, jobs[0].Job.ID)
+	jobInfo, err := c.BlockJob(pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }

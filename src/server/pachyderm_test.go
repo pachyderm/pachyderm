@@ -1165,7 +1165,7 @@ func TestPipelineFailure(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	jobInfo, err := c.BlockJob(pipeline, jobInfos[0].Job.ID)
+	jobInfo, err := c.BlockJob(pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
@@ -2144,7 +2144,7 @@ func TestJobCounts(t *testing.T) {
 	require.Equal(t, commit.ID, jobInfos[0].Job.ID)
 	ctx, cancel := context.WithTimeout(c.Ctx(), time.Second*30)
 	defer cancel() //cleanup resources
-	_, err = c.WithCtx(ctx).BlockJob(pipeline, jobInfos[0].Job.ID)
+	_, err = c.WithCtx(ctx).BlockJob(pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 
 	// check that the job has been accounted for
@@ -2197,7 +2197,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	jobInfo, err := c.BlockJob(pipeline, jobInfos[0].Job.ID)
+	jobInfo, err := c.BlockJob(pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 
@@ -2254,7 +2254,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.Equal(t, 2, len(jobInfos))
 	require.Equal(t, commit.ID, jobInfos[0].Job.ID)
 
-	jobInfo, err := c.BlockJob(pipelineName, jobInfos[0].Job.ID)
+	jobInfo, err := c.BlockJob(pipelineName, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -3824,12 +3824,12 @@ func TestStopJob(t *testing.T) {
 	// Now stop the first job
 	err = c.StopJob(pipelineName, commit1.ID)
 	require.NoError(t, err)
-	jobInfo, err := c.BlockJob(pipelineName, commit1.ID)
+	jobInfo, err := c.BlockJob(pipelineName, commit1.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
 	// Check that the second job completes
-	jobInfo, err = c.BlockJob(pipelineName, commit2.ID)
+	jobInfo, err = c.BlockJob(pipelineName, commit2.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -5455,7 +5455,7 @@ func TestPipelineWithStats(t *testing.T) {
 
 	//// Block on the job being complete before we call ListDatum again so we're
 	//// sure the datums have actually been processed.
-	//_, err = c.BlockJob(pipeline, jobs[0].Job.ID)
+	//_, err = c.BlockJob(pipeline, jobs[0].Job.ID, false)
 	//require.NoError(t, err)
 
 	//resp, err = c.ListDatumAll(jobs[0].Job.ID, 0, 0)
@@ -5522,7 +5522,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	//	require.NoError(t, err)
 	//	require.Equal(t, 1, len(jobs))
 	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID)
+	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID, false)
 	//	require.NoError(t, err)
 	//
 	//	resp, err := c.ListDatumAll(pipeline, jobs[0].Job.ID, 0, 0)
@@ -5596,7 +5596,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	//	}, backoff.NewTestingBackOff()))
 	//
 	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID)
+	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID, false)
 	//	require.NoError(t, err)
 	//
 	//	resp, err := c.ListDatumAll(jobs[0].Job.ID, pageSize, 0)
@@ -5668,7 +5668,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	//	require.Equal(t, 1, len(jobs))
 	//
 	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID)
+	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID, false)
 	//	require.NoError(t, err)
 	//
 	//	resp, err := c.ListDatumAll(pipeline, jobs[0].Job.ID, 0, 0)
@@ -5695,7 +5695,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	//	require.Equal(t, 2, len(jobs))
 	//
 	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID)
+	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID, false)
 	//	require.NoError(t, err)
 	//
 	//	resp, err = c.ListDatumAll(pipeline, jobs[0].Job.ID, 0, 0)
@@ -5764,7 +5764,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	//	require.Equal(t, 1, len(jobs))
 	//
 	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID)
+	//	_, err = c.BlockJob(pipeline, jobs[0].Job.ID, false)
 	//	require.NoError(t, err)
 	//	resp, err := c.ListDatumAll(pipeline, jobs[0].Job.ID, 0, 0)
 	//	require.NoError(t, err)
@@ -6324,7 +6324,7 @@ func TestFixPipeline(t *testing.T) {
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
-		jobInfo, err := c.BlockJob(jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID)
+		jobInfo, err := c.BlockJob(jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 		return nil
@@ -6351,7 +6351,7 @@ func TestFixPipeline(t *testing.T) {
 		if len(jobInfos) != 2 {
 			return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
 		}
-		jobInfo, err := c.BlockJob(jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID)
+		jobInfo, err := c.BlockJob(jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 		return nil
@@ -7047,7 +7047,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.BlockJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+	jobInfo, err := c.BlockJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 
@@ -7207,7 +7207,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	require.Equal(t, 1, len(jobs))
 
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.BlockJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+	jobInfo, err := c.BlockJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -7260,7 +7260,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.Equal(t, 1, len(jobs))
 
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.BlockJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+	jobInfo, err := c.BlockJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfo.State.String())
 	started, err := types.TimestampFromProto(jobInfo.Started)
