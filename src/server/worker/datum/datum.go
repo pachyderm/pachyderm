@@ -370,7 +370,7 @@ func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar
 		}
 		return tarutil.Export(storageRoot, bufW, opts...)
 	}, func(r io.Reader) error {
-		return mf.PutFileTar(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
+		return mf.PutFileTAR(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
 	}); err != nil {
 		return err
 	}
