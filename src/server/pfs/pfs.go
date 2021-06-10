@@ -95,15 +95,6 @@ type ErrCommitOnOutputBranch struct {
 	Branch *pfs.Branch
 }
 
-// ErrParentNotFinished represents an error where an attempt was made to finish
-// a commit whose parent has not yet been finished.  This situation should only
-// arise on output branches, as input commits cannot be started until their
-// parent has been finished.
-type ErrParentNotFinished struct {
-	ChildCommit  *pfs.Commit
-	ParentCommit *pfs.Commit
-}
-
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, pretty.CompactPrintRepo(e.File.Commit.Branch.Repo), e.File.Commit.ID)
 }
@@ -164,10 +155,6 @@ func (e ErrCommitOnOutputBranch) Error() string {
 	return fmt.Sprintf("cannot start a commit on an output branch: %s", pfsdb.BranchKey(e.Branch))
 }
 
-func (e ErrParentNotFinished) Error() string {
-	return fmt.Sprintf("cannot finish commit %s because parent commit %s is not yet finished", pfsdb.CommitKey(e.ChildCommit), pfsdb.CommitKey(e.ParentCommit))
-}
-
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
 	commitsetNotFoundRe       = regexp.MustCompile("no commits found for commitset")
@@ -182,7 +169,6 @@ var (
 	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
 	inconsistentCommitRe      = regexp.MustCompile("branch already has a commit in this transaction")
 	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
-	parentNotFinishedRe       = regexp.MustCompile("cannot finish commit .+ because parent commit .+ is not yet finished")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -301,13 +287,4 @@ func IsCommitOnOutputBranchErr(err error) bool {
 		return false
 	}
 	return commitOnOutputBranchRe.MatchString(err.Error())
-}
-
-// IsParentNotFinishedErr returns true if the err is due to an attempt to
-// finish a commit while the parent commit is still open.
-func IsParentNotFinishedErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	return parentNotFinishedRe.MatchString(err.Error())
 }
