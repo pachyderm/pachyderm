@@ -368,7 +368,6 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 	}
 	for _, repoInfo := range repoInfos {
 		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name); err != nil {
-			// TODO: It would be better for this to be a structured error.
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("input-repos", repoInfo.Repo.Name)
 				return collectDebugFile(tw, "commits", func(w io.Writer) error {

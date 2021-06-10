@@ -103,8 +103,8 @@ message CommitOrigin {
 // collection of currently-open commits in etcd are collections of Commit
 // protos)
 message Commit {
-  string id = 1 [(gogoproto.customname) = "ID"];
-  Branch branch = 2;
+  Branch branch = 1;
+  string id = 2 [(gogoproto.customname) = "ID"];
 }
 
 // CommitProvenance keeps track of where (i.e. which branch) a certain commit
@@ -205,7 +205,7 @@ message FinishCommitRequest {
 message InspectCommitRequest {
   Commit commit = 1;
   // BlockState causes inspect commit to block until the commit is in the desired state.
-  CommitState block_state = 2;
+  CommitState block = 2;
 }
 
 message ListCommitRequest {

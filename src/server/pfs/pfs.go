@@ -304,7 +304,7 @@ func IsCommitOnOutputBranchErr(err error) bool {
 }
 
 // IsParentNotFinishedErr returns true if the err is due to an attempt to
-// start a commit in an input branch while the parent commit is still open.
+// finish a commit while the parent commit is still open.
 func IsParentNotFinishedErr(err error) bool {
 	if err == nil {
 		return false

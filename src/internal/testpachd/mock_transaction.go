@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-// This code can all go away if we ever get the ability to run a PPS server without external dependencies
 type newPropagaterFunc func(*txncontext.TransactionContext) txncontext.PpsPropagater
 
 type mockNewPropagater struct {

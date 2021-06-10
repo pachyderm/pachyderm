@@ -404,7 +404,7 @@ func (c APIClient) InspectCommitset(id string) ([]*pfs.CommitInfo, error) {
 // wait for an individual commit, use BlockCommit instead.
 func (c APIClient) BlockCommitsetAll(id string) ([]*pfs.CommitInfo, error) {
 	result := []*pfs.CommitInfo{}
-	if err := c.inspectCommitset(id, true, func(ci *pfs.CommitInfo) error {
+	if err := c.BlockCommitset(id, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {

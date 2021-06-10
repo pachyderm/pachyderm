@@ -259,7 +259,6 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 	}
 	if jobInfo.State == pps.JobState_JOB_CREATED {
 		jobInfo.State = pps.JobState_JOB_STARTING
-		jobInfo.Started = types.TimestampNow()
 		if err := pj.writeJobInfo(); err != nil {
 			return err
 		}

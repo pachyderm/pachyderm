@@ -95,6 +95,7 @@ type PostgresReadWriteCollection interface {
 
 	// GetUniqueByIndex is identical to GetByIndex except it is an error if
 	// exactly one row is not found.
+	// TODO: decide if we should merge this with GetByIndex and use an `Options`.
 	GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error
 
 	// Unsupported operations - only here during migration so we can compile

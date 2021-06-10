@@ -625,10 +625,10 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	deleteCommitset := &cobra.Command{
+	squashCommitset := &cobra.Command{
 		Use:   "{{alias}} <commitset>",
-		Short: "Delete the commits of a commitset.",
-		Long:  "Delete the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
+		Short: "Squash the commits of a commitset.",
+		Long:  "Squash the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -641,8 +641,8 @@ $ {{alias}} test@master --new`,
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(deleteCommitset, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteCommitset, "delete commitset"))
+	shell.RegisterCompletionFunc(squashCommitset, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(squashCommitset, "squash commitset"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",

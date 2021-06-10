@@ -507,11 +507,13 @@ func testSpout(t *testing.T, usePachctl bool) {
 		backoff.Retry(func() error {
 			raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
 			if err != nil {
+				fmt.Printf("error resolving: %v\n", err)
 				return err
 			}
 
 			conn, err := net.DialTCP("tcp", nil, raddr)
 			if err != nil {
+				fmt.Printf("error connecting: %v\n", err)
 				return err
 			}
 			tarwriter := tar.NewWriter(conn)
@@ -523,11 +525,13 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 			err = tarwriter.WriteHeader(headerinfo)
 			if err != nil {
+				fmt.Printf("error writing: %v\n", err)
 				return err
 			}
 
 			_, err = tarwriter.Write([]byte("foo"))
 			if err != nil {
+				fmt.Printf("error writing2: %v\n", err)
 				return err
 			}
 			return nil

@@ -571,6 +571,15 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if description != "" {
 		commitInfo.Description = description
 	}
+	if commitInfo.ParentCommit != nil {
+		parentCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, commitInfo.ParentCommit)
+		if err != nil {
+			return err
+		}
+		if parentCommitInfo.Finished == nil {
+			return pfsserver.ErrParentNotFinished{ChildCommit: commitInfo.Commit, ParentCommit: parentCommitInfo.Commit}
+		}
+	}
 	commitInfo.Finished = txnCtx.Timestamp
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
 		return err

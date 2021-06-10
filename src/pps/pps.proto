@@ -48,8 +48,8 @@ message Egress {
 }
 
 message Job {
-  string id = 1 [(gogoproto.customname) = "ID"];
-  Pipeline pipeline = 2;
+  Pipeline pipeline = 1;
+  string id = 2 [(gogoproto.customname) = "ID"];
 }
 
 enum JobState {
@@ -151,8 +151,8 @@ message InputFile {
 
 message Datum {
   // ID is the hash computed from all the files
-  string id = 1 [(gogoproto.customname) = "ID"];
-  Job job = 2;
+  Job job = 1;
+  string id = 2 [(gogoproto.customname) = "ID"];
 }
 
 enum DatumState {
@@ -449,7 +449,7 @@ message InspectJobsetRequest {
 message InspectJobRequest {
   // Callers should set either Job or OutputCommit, not both.
   Job job = 1;
-  bool block_state = 2; // block until state is either FAILURE or SUCCESS
+  bool block = 2; // block until state is either FAILURE or SUCCESS
   bool full = 3;
 }
 
@@ -477,7 +477,7 @@ message ListJobRequest {
   string jqFilter = 6;
 }
 
-// Streams active jobs until canceled
+// Streams open jobs until canceled
 message SubscribeJobRequest {
   Pipeline pipeline = 1;
   bool full = 2; // Same as ListJobRequest.Full
@@ -496,7 +496,6 @@ message UpdateJobStateRequest {
   Job job = 1;
   JobState state = 2;
   string reason = 3;
-  google.protobuf.Timestamp started = 4;
   uint64 restart = 5;
   int64 data_processed = 6;
   int64 data_skipped = 7;

@@ -208,7 +208,7 @@ __custom_func() {
 				__pachctl_get_repo_branch
 			fi
 			;;
-		pachctl_finish_commit | pachctl_inspect_commit | pachctl_delete_commit | pachctl_create_branch | pachctl_start_commit)
+		pachctl_finish_commit | pachctl_inspect_commit | pachctl_squash_commit | pachctl_create_branch | pachctl_start_commit)
 			if __is_active_arg 0; then
 				__pachctl_get_repo_commit
 			fi
@@ -745,6 +745,12 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(deleteDocs, "delete"))
 
+	squashDocs := &cobra.Command{
+		Short: "Squash an existing Pachyderm resource.",
+		Long:  "Squash an existing Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(squashDocs, "squash"))
+
 	createDocs := &cobra.Command{
 		Short: "Create a new instance of a Pachyderm resource.",
 		Long:  "Create a new instance of a Pachyderm resource.",
@@ -913,6 +919,7 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"list",
 			"put",
 			"restart",
+			"squash",
 			"start",
 			"stop",
 			"subscribe",
