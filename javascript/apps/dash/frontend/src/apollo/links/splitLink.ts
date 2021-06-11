@@ -5,7 +5,9 @@ import {SubscriptionClient} from 'subscriptions-transport-ws/dist/client';
 
 const wsClientCreate = () => {
   return new SubscriptionClient(
-    `ws://${window.location.hostname}${process.env.REACT_APP_BACKEND_SUBSCRIPTIONS_PREFIX}`,
+    `${window.location.protocol.startsWith('https:') ? 'wss' : 'ws'}://${
+      window.location.hostname
+    }${process.env.REACT_APP_BACKEND_SUBSCRIPTIONS_PREFIX}`,
     {
       reconnect: true,
       connectionParams: () => {
