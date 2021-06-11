@@ -324,7 +324,7 @@ each datum.`,
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			job, err := cmdutil.ParseJob(args[0])
 			if err != nil {
 				return err
@@ -354,9 +354,6 @@ each datum.`,
 				printF = func(di *ppsclient.DatumInfo) error {
 					return e.EncodeProto(di)
 				}
-			}
-			if len(args) != 1 {
-				return errors.Errorf("must specify one job")
 			}
 			return client.ListDatum(job.Pipeline.Name, job.ID, printF)
 		}),
