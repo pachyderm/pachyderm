@@ -203,8 +203,8 @@ message FinishCommitRequest {
 
 message InspectCommitRequest {
   Commit commit = 1;
-  // Block causes inspect commit to block until the commit is in the desired state.
-  CommitState block = 2;
+  // Wait causes inspect commit to wait until the commit is in the desired state.
+  CommitState wait = 2;
 }
 
 message ListCommitRequest {
@@ -217,7 +217,7 @@ message ListCommitRequest {
 
 message InspectCommitsetRequest {
   Commitset commitset = 1;
-  bool block = 2; // When true, block until all commits in the set are finished
+  bool wait = 2; // When true, wait until all commits in the set are finished
 }
 
 message SquashCommitsetRequest {

@@ -856,7 +856,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 //
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
-func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block pfs.CommitState) (*pfs.CommitInfo, error) {
 	if commit.Branch.Repo.Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commit,
@@ -887,7 +887,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 	}
 
 	if commitInfo.Finished == nil {
-		switch blockState {
+		switch block {
 		case pfs.CommitState_READY:
 			for _, branch := range commitInfo.DirectProvenance {
 				if _, err := d.inspectCommit(ctx, branch.NewCommit(commit.ID), pfs.CommitState_FINISHED); err != nil {
