@@ -189,8 +189,7 @@ func TestCopy(t *testing.T) {
 	}))
 	// No new chunks should get created by the copy.
 	finalChunkCount := countChunks(t, fileSets)
-	// TODO: figure out why we make 1 more chunk.
-	require.Equal(t, initialChunkCount, finalChunkCount-1)
+	require.Equal(t, initialChunkCount, finalChunkCount)
 }
 
 func countChunks(t *testing.T, s *Storage) (count int64) {
