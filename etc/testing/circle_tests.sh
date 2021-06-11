@@ -3,8 +3,6 @@
 set -xeuo pipefail
 
 # Get a kubernetes cluster
-# Specify the slots so that future builds on this branch+suite id automatically
-# clean up previous VMs and pools
 echo "==== KUBECONFIG ===="
 cat kubeconfig
 echo "===================="
