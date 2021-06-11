@@ -5,12 +5,6 @@ set -xeuo pipefail
 # Get a kubernetes cluster
 # Specify the slots so that future builds on this branch+suite id automatically
 # clean up previous VMs and pools
-BRANCH="${CIRCLE_BRANCH:-$GITHUB_REF}"
-echo "Getting VM."
-time testctl get --config .testfaster.yml --slot "${BRANCH},${BUCKET}" \
-    --retain-slots "${RETAIN_SLOTS}" --pool-slot "pachyderm,${BRANCH}"
-echo "Finished getting VM."
-
 echo "==== KUBECONFIG ===="
 cat kubeconfig
 echo "===================="
@@ -30,7 +24,7 @@ echo "Finished fetching new code in VM"
 
 # NB: https://serverfault.com/questions/482907/setting-a-variable-for-a-given-ssh-host
 
-ENV_VARS=(PPS_BUCKETS AUTH_BUCKETS GOPROXY ENT_ACT_CODE BUCKET CIRCLE_BRANCH RUN_BAD_TESTS DOCKER_PWD)
+ENV_VARS=(PPS_BUCKETS AUTH_BUCKETS GOPROXY ENT_ACT_CODE BUCKET RUN_BAD_TESTS DOCKER_PWD)
 
 # For object tests, provide the parameters and credentials for running against object storage providers
 if [[ "$BUCKET" == "OBJECT" ]]; then
