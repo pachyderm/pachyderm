@@ -57,12 +57,6 @@ func (c *Commit) NewFile(path string) *File {
 	}
 }
 
-func (c *Commit) NewProvenance() *CommitProvenance {
-	return &CommitProvenance{
-		Commit: proto.Clone(c).(*Commit),
-	}
-}
-
 func (b *Branch) NewCommit(id string) *Commit {
 	return &Commit{
 		Branch: proto.Clone(b).(*Branch),

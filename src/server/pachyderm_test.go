@@ -661,8 +661,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline with non-empty provenance
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//			client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
+	//		return c.RunPipeline(pipeline, []*pfs.Commit{
+	//			client.NewCommit(dataRepo, "branchA", commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -696,9 +696,9 @@ func TestRunPipeline(t *testing.T) {
 	//	require.Equal(t, "data A\ndata A2\ndata B\ndata B2\n", buffer.String())
 
 	//	// now run the pipeline provenant on the old commits
-	//	require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//		client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
-	//		client.NewCommitProvenance(dataRepo, "branchB", commitB2.ID),
+	//	require.NoError(t, c.RunPipeline(pipeline, []*pfs.Commit{
+	//		client.NewCommit(dataRepo, "branchA", commitA.ID),
+	//		client.NewCommit(dataRepo, "branchB", commitB2.ID),
 	//	}, ""))
 
 	//	// and ensure that the file now has the info from the correct versions of the commits
@@ -786,8 +786,8 @@ func TestRunPipeline(t *testing.T) {
 	//	require.NoError(t, err)
 
 	//	// now run the pipeline with unrelated provenance
-	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//		client.NewCommitProvenance(dataRepo, "unrelated", commitU.ID)}, ""))
+	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.Commit{
+	//		client.NewCommit(dataRepo, "unrelated", commitU.ID)}, ""))
 	//})
 
 	//// Test with downstream pipeline
@@ -859,8 +859,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+	//		return c.RunPipeline(pipeline, []*pfs.Commit{
+	//			client.NewCommit(dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -952,8 +952,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+	//		return c.RunPipeline(pipeline, []*pfs.Commit{
+	//			client.NewCommit(dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -1021,9 +1021,9 @@ func TestRunPipeline(t *testing.T) {
 	//	require.NoError(t, err)
 
 	//	// now run the pipeline with provenance from the same branch
-	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//		client.NewCommitProvenance(dataRepo, branchA, commitA1.ID),
-	//		client.NewCommitProvenance(dataRepo, branchA, commitA2.ID),
+	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.Commit{
+	//		client.NewCommit(dataRepo, branchA, commitA1.ID),
+	//		client.NewCommit(dataRepo, branchA, commitA2.ID),
 	//	}, ""))
 	//})
 	//// Test on pipeline that should always fail
@@ -1111,8 +1111,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+	//		return c.RunPipeline(pipeline, []*pfs.Commit{
+	//			client.NewCommit(dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
