@@ -173,15 +173,16 @@ func (w *Writer) roll(data []byte) error {
 				return err
 			}
 			offset = i + 1
+			continue
 		}
-	}
-	for w.numChunkBytesAnnotation+len(data[offset:]) >= w.chunkSize.max {
-		bytesLeft := w.chunkSize.max - w.numChunkBytesAnnotation
-		w.writeData(data[offset : offset+bytesLeft])
-		if err := w.createChunk(); err != nil {
-			return err
+		// TODO: This can be optimized a bit by accounting for it before rolling the data.
+		if w.numChunkBytesAnnotation+len(data[offset:i+1]) >= w.chunkSize.max {
+			w.writeData(data[offset : i+1])
+			if err := w.createChunk(); err != nil {
+				return err
+			}
+			offset = i + 1
 		}
-		offset += bytesLeft
 	}
 	w.writeData(data[offset:])
 	return nil
@@ -427,6 +428,7 @@ func (w *Writer) Close() error {
 			return err
 		}
 		if len(w.annotations) > 0 {
+			w.last = true
 			if err := w.createChunk(); err != nil {
 				return err
 			}

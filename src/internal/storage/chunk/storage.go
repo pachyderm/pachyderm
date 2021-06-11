@@ -117,6 +117,11 @@ func (s *Storage) StableHash(ctx context.Context, dataRefs []*DataRef) ([]byte, 
 			return nil, err
 		}
 	}
+	if cw != nil {
+		if err := cw.Close(); err != nil {
+			return nil, err
+		}
+	}
 	return h.Sum(nil), nil
 }
 
