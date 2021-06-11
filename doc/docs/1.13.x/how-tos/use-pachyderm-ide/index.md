@@ -37,7 +37,7 @@ code.
 official Python client for Pachyderm. For Python developers who prefer to
 communicate with Pachyderm directly through the API, rather than by using
 the `pachctl` tool, `python-pachyderm` is the right choice.
-The [API Documentation](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html)
+The [API Documentation](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html)
 describes various API operations that you can execute to interact with
 Pachyderm.
 
@@ -46,7 +46,7 @@ Pachyderm.
 ### Difference in Pipeline Creation Methods
 
 `python-pachyderm` supports the standard
-[create_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#python_pachyderm.Client.create_pipeline)
+[create_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#python_pachyderm.Client.create_pipeline)
 method that is
 also available through the Pachyderm CLI and UI. When you use
 `create_pipeline`, you need to build a new Docker image and push
@@ -57,7 +57,7 @@ use this method for all non-Python code.
 
 When you use `python-pachyderm`, in addition to the
 `create_pipeline` method,
-you can use the [create_python_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#python_pachyderm.create_python_pipeline)
+you can use the [create_python_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#python_pachyderm.create_python_pipeline)
 function that does not require
 you to include your code in a Docker image and rebuild it each time you make
 a change. Instead, this function creates a PFS repository

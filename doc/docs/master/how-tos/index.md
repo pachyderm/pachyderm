@@ -20,9 +20,6 @@ data operations in Pachyderm.
           <li><a href="developer-workflow/working-with-pipelines" class="md-typeset md-link">
           Working with Data and Pipelines</a>
           </li>
-          <li><a href="developer-workflow/build-pipelines" class="md-typeset md-link">
-          Build pipelines</a>
-          </li>
           <li><a href="developer-workflow/build-flag" class="md-typeset md-link">
           Build Flag</a>
           </li>

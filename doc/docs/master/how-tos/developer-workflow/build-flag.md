@@ -1,6 +1,6 @@
 # The Build Flag
 
-The `--build` flag is one way to improve development speed when working with pipelines. Unlike [build pipelines](build-pipelines.md), this method still uses docker images. This feature is particularly useful if you want to continue to work with docker images, e.g. because your team is accustomed to them, or because you need the added flexibility.
+The `--build` flag is one way to improve development speed when working with pipelines. 
 
 The `--build` flag performs the following steps:
 
