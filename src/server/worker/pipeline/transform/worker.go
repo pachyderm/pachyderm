@@ -119,7 +119,6 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 							})
 						})
 					}, opts...)
-
 				})
 			}, opts...)
 		})
