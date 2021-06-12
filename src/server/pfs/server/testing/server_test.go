@@ -696,7 +696,7 @@ func TestPFS(suite *testing.T) {
 		require.True(t, finished.After(tFinished))
 	})
 
-	suite.Run("InspectCommitBlock", func(t *testing.T) {
+	suite.Run("InspectCommitWait", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -711,7 +711,7 @@ func TestPFS(suite *testing.T) {
 			return env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID)
 		})
 
-		commitInfo, err := env.PachClient.BlockCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+		commitInfo, err := env.PachClient.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 		require.NoError(t, err)
 		require.NotNil(t, commitInfo.Finished)
 
@@ -2509,7 +2509,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit2.ID, branchInfos[1].Head.ID) // original branch should remain unchanged
 	})
 
-	suite.Run("BlockCommitset", func(t *testing.T) {
+	suite.Run("WaitCommitset", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2524,16 +2524,16 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
 		require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
 
-		commitInfos, err := env.PachClient.BlockCommitsetAll(ACommit.ID)
+		commitInfos, err := env.PachClient.WaitCommitsetAll(ACommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, ACommit, commitInfos[0].Commit)
 		require.Equal(t, BCommit, commitInfos[1].Commit)
 	})
 
-	// BlockCommitset2 implements the following DAG:
+	// WaitCommitset2 implements the following DAG:
 	// A ─▶ B ─▶ C ─▶ D
-	suite.Run("BlockCommitset2", func(t *testing.T) {
+	suite.Run("WaitCommitset2", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2562,7 +2562,7 @@ func TestPFS(suite *testing.T) {
 		}()
 
 		// Wait for the commits to finish
-		commitInfos, err := env.PachClient.BlockCommitsetAll(ACommit.ID)
+		commitInfos, err := env.PachClient.WaitCommitsetAll(ACommit.ID)
 		require.NoError(t, err)
 		BCommit := client.NewCommit("B", "master", ACommit.ID)
 		CCommit := client.NewCommit("C", "master", ACommit.ID)
@@ -2581,7 +2581,7 @@ func TestPFS(suite *testing.T) {
 	//   ◀
 	//  ╱
 	// B
-	suite.Run("BlockCommitset3", func(t *testing.T) {
+	suite.Run("WaitCommitset3", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2607,7 +2607,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 
 		// The first two commits will be A and B, but they aren't deterministically sorted
-		commitInfos, err := env.PachClient.BlockCommitsetAll(ACommit.ID)
+		commitInfos, err := env.PachClient.WaitCommitsetAll(ACommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 		expected := []*pfs.Commit{ACommit, client.NewCommit("B", "master", ACommit.ID)}
@@ -2615,7 +2615,7 @@ func TestPFS(suite *testing.T) {
 		require.ImagesEqual(t, expected, actual, CommitToID)
 		require.Equal(t, client.NewCommit("C", "master", ACommit.ID), commitInfos[2].Commit)
 
-		commitInfos, err = env.PachClient.BlockCommitsetAll(BCommit.ID)
+		commitInfos, err = env.PachClient.WaitCommitsetAll(BCommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 		expected = []*pfs.Commit{client.NewCommit("A", "master", BCommit.ID), BCommit}
@@ -2624,7 +2624,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, client.NewCommit("C", "master", BCommit.ID), commitInfos[2].Commit)
 	})
 
-	suite.Run("BlockCommitsetWithNoDownstreamRepos", func(t *testing.T) {
+	suite.Run("WaitCommitsetWithNoDownstreamRepos", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2633,13 +2633,13 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
-		commitInfos, err := env.PachClient.BlockCommitsetAll(commit.ID)
+		commitInfos, err := env.PachClient.WaitCommitsetAll(commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
 	})
 
-	suite.Run("BlockOpenCommit", func(t *testing.T) {
+	suite.Run("WaitOpenCommit", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2665,14 +2665,14 @@ func TestPFS(suite *testing.T) {
 		})
 
 		// Wait for the commit to finish
-		commitInfos, err := env.PachClient.BlockCommitsetAll(commit.ID)
+		commitInfos, err := env.PachClient.WaitCommitsetAll(commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
 		require.Equal(t, client.NewCommit("B", "master", commit.ID), commitInfos[1].Commit)
 	})
 
-	suite.Run("BlockUninvolvedBranch", func(t *testing.T) {
+	suite.Run("WaitUninvolvedBranch", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2683,11 +2683,11 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// Blocking on a commit that doesn't exist does not work
-		_, err = env.PachClient.BlockCommit("B", "master", commit.ID)
+		_, err = env.PachClient.WaitCommit("B", "master", commit.ID)
 		require.YesError(t, err)
 	})
 
-	suite.Run("BlockNonExistentBranch", func(t *testing.T) {
+	suite.Run("WaitNonExistentBranch", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2696,26 +2696,26 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// Blocking on a branch that doesn't exist does not work
-		_, err = env.PachClient.BlockCommit("A", "foo", commit.ID)
+		_, err = env.PachClient.WaitCommit("A", "foo", commit.ID)
 		require.YesError(t, err)
 
-		_, err = env.PachClient.BlockCommit("A", "foo", "")
-		require.YesError(t, err)
-	})
-
-	suite.Run("EmptyBlock", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-
-		_, err := env.PachClient.BlockCommitsetAll("")
+		_, err = env.PachClient.WaitCommit("A", "foo", "")
 		require.YesError(t, err)
 	})
 
-	suite.Run("BlockNonExistentCommitset", func(t *testing.T) {
+	suite.Run("EmptyWait", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.BlockCommitsetAll("fake-commitset")
+		_, err := env.PachClient.WaitCommitsetAll("")
+		require.YesError(t, err)
+	})
+
+	suite.Run("WaitNonExistentCommitset", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		_, err := env.PachClient.WaitCommitsetAll("fake-commitset")
 		require.YesError(t, err)
 		require.True(t, pfsserver.IsCommitsetNotFoundErr(err))
 	})
@@ -4028,7 +4028,7 @@ func TestPFS(suite *testing.T) {
 		defer cancel()
 		_, err = env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 			Commit: client.NewCommit("B", "master", ""),
-			Block:  pfs.CommitState_READY,
+			Wait:   pfs.CommitState_READY,
 		})
 		require.YesError(t, err)
 
@@ -4039,7 +4039,7 @@ func TestPFS(suite *testing.T) {
 		defer cancel()
 		_, err = env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 			Commit: client.NewCommit("B", "master", ""),
-			Block:  pfs.CommitState_READY,
+			Wait:   pfs.CommitState_READY,
 		})
 		require.NoError(t, err)
 
@@ -4051,7 +4051,7 @@ func TestPFS(suite *testing.T) {
 		defer cancel()
 		_, err = env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 			Commit: client.NewCommit("C", "master", ""),
-			Block:  pfs.CommitState_READY,
+			Wait:   pfs.CommitState_READY,
 		})
 		require.NoError(t, err)
 	})
@@ -4543,7 +4543,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		commitsetID := commitInfoA.Commit.ID
 
-		commitInfos, err := env.PachClient.BlockCommitsetAll(commitsetID)
+		commitInfos, err := env.PachClient.WaitCommitsetAll(commitsetID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commitInfoA.Commit, commitInfos[0].Commit)
@@ -4554,7 +4554,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, commitsetID, commitInfoB.Commit.ID)
 
-		commitInfos, err = env.PachClient.BlockCommitsetAll(commitsetID)
+		commitInfos, err = env.PachClient.WaitCommitsetAll(commitsetID)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 
@@ -4573,7 +4573,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, commitsetID, commitInfoC.Commit.ID)
 
-		commitInfos, err = env.PachClient.BlockCommitsetAll(commitsetID)
+		commitInfos, err = env.PachClient.WaitCommitsetAll(commitsetID)
 		require.NoError(t, err)
 		require.Equal(t, 5, len(commitInfos))
 		expectedCommits = append(expectedCommits, []string{

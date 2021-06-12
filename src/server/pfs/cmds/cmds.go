@@ -377,7 +377,7 @@ $ {{alias}} test -p XXX`,
 				c.Ctx(),
 				&pfs.InspectCommitRequest{
 					Commit: commit,
-					Block:  pfs.CommitState_STARTED,
+					Wait:   pfs.CommitState_STARTED,
 				})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -517,17 +517,17 @@ $ {{alias}} XXX -b bar@baz`,
 				}
 			}()
 
-			blockCommit := func(commit *pfs.Commit) error {
-				ci, err := c.BlockCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			waitCommit := func(commit *pfs.Commit) error {
+				ci, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 				if err != nil {
 					return err
 				}
 				return writeCommitInfo(ci)
 			}
 
-			blockBranches := func(commitsetID string) error {
+			waitBranches := func(commitsetID string) error {
 				for _, branch := range toBranches {
-					if err := blockCommit(client.NewCommit(branch.Repo.Name, branch.Name, commitsetID)); err != nil {
+					if err := waitCommit(client.NewCommit(branch.Repo.Name, branch.Name, commitsetID)); err != nil {
 						return err
 					}
 				}
@@ -544,16 +544,16 @@ $ {{alias}} XXX -b bar@baz`,
 					if err != nil {
 						return err
 					}
-					return blockBranches(ci.Commit.ID)
+					return waitBranches(ci.Commit.ID)
 				}
 				// We are just waiting on a single commit, block on it and exit
-				return blockCommit(commit)
+				return waitCommit(commit)
 			} else {
 				if len(toBranches) == 0 {
-					return blockBranches(commitsetID)
+					return waitBranches(commitsetID)
 				}
 				// We are waiting for the entire commitset to finish
-				commitInfos, err := c.BlockCommitsetAll(commitsetID)
+				commitInfos, err := c.WaitCommitsetAll(commitsetID)
 				if err != nil {
 					return err
 				}
