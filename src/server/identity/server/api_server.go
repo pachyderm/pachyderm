@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	dexHTTPPort = ":658"
+	dexHTTPPort = ":1658"
 
 	configKey = 1
 )

@@ -61,7 +61,7 @@ func TestGetState(t *testing.T) {
 		&enterprise.ActivateRequest{
 			Id:            "localhost",
 			Secret:        "localhost",
-			LicenseServer: "grpc://localhost:650",
+			LicenseServer: "grpc://localhost:1650",
 		})
 	require.NoError(t, err)
 
@@ -104,7 +104,7 @@ func TestGetActivationCode(t *testing.T) {
 		&enterprise.ActivateRequest{
 			Id:            "localhost",
 			Secret:        "localhost",
-			LicenseServer: "grpc://localhost:650",
+			LicenseServer: "grpc://localhost:1650",
 		})
 	require.NoError(t, err)
 
@@ -226,7 +226,7 @@ func TestHeartbeatDeleted(t *testing.T) {
 		&lc.AddClusterRequest{
 			Id:      "localhost",
 			Secret:  "localhost",
-			Address: "grpc://localhost:650",
+			Address: "grpc://localhost:1650",
 		})
 	require.NoError(t, err)
 

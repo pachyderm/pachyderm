@@ -158,7 +158,7 @@ func TestClusterCRUD(t *testing.T) {
 	// Add a new cluster
 	newCluster, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:                  "new",
-		Address:             "grpc://localhost:650",
+		Address:             "grpc://localhost:1650",
 		UserAddress:         "grpc://localhost:999",
 		ClusterDeploymentId: "some-deployment-id",
 		EnterpriseServer:    false,
@@ -170,11 +170,11 @@ func TestClusterCRUD(t *testing.T) {
 	expectedStatuses := map[string]*license.ClusterStatus{
 		"localhost": {
 			Id:      "localhost",
-			Address: "grpc://localhost:650",
+			Address: "grpc://localhost:1650",
 		},
 		"new": {
 			Id:      "new",
-			Address: "grpc://localhost:650",
+			Address: "grpc://localhost:1650",
 		},
 	}
 
@@ -216,13 +216,13 @@ func TestClusterCRUD(t *testing.T) {
 	// Update the cluster
 	_, err = client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
 		Id:                  "new",
-		Address:             "localhost:653",
+		Address:             "localhost:1653",
 		UserAddress:         "localhost:1000",
 		ClusterDeploymentId: "another-deployment-id",
 	})
 	require.NoError(t, err)
 
-	expectedStatuses["new"].Address = "localhost:653"
+	expectedStatuses["new"].Address = "localhost:1653"
 
 	expectedUserClusters["new"].Address = "localhost:1000"
 	expectedUserClusters["new"].ClusterDeploymentId = "another-deployment-id"
@@ -312,7 +312,7 @@ func TestAddClusterNoLicense(t *testing.T) {
 	client := tu.GetPachClient(t)
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
-		Address: "grpc://localhost:650",
+		Address: "grpc://localhost:1650",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "enterprise license is not valid", err.Error())
@@ -428,7 +428,7 @@ func TestListUserClusters(t *testing.T) {
 
 	_, err = client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:                  "new",
-		Address:             "grpc://localhost:650",
+		Address:             "grpc://localhost:1650",
 		UserAddress:         "grpc://localhost:999",
 		ClusterDeploymentId: "some-deployment-id",
 		EnterpriseServer:    false,
