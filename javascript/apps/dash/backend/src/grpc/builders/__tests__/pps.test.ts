@@ -1,5 +1,4 @@
 import {
-  buildSpecFromObject,
   chunkSpecFromObject,
   cronInputFromObject,
   egressFromObject,
@@ -43,18 +42,6 @@ describe('grpc/builders/pps', () => {
     expect(secretMount.getEnvVar()).toBe('testVar');
   });
 
-  it('should create BuildSpec from an object', () => {
-    const buildSpec = buildSpecFromObject({
-      path: '/test',
-      language: 'python',
-      image: 'python:3',
-    });
-
-    expect(buildSpec.getPath()).toBe('/test');
-    expect(buildSpec.getLanguage()).toBe('python');
-    expect(buildSpec.getImage()).toBe('python:3');
-  });
-
   it('should create Transform from an object', () => {
     const transform = transformFromObject({
       image: 'pachyderm/opencv',
@@ -76,11 +63,6 @@ describe('grpc/builders/pps', () => {
       user: 'peter',
       workingDir: '/test',
       dockerfile: 'docker',
-      build: {
-        path: '/test',
-        language: 'python',
-        image: 'python:3',
-      },
     });
 
     expect(transform.getImage()).toBe('pachyderm/opencv');
@@ -97,9 +79,6 @@ describe('grpc/builders/pps', () => {
     expect(transform.getDebug()).toBe(true);
     expect(transform.getUser()).toBe('peter');
     expect(transform.getWorkingDir()).toBe('/test');
-    expect(transform.getBuild()?.getPath()).toBe('/test');
-    expect(transform.getBuild()?.getLanguage()).toBe('python');
-    expect(transform.getBuild()?.getImage()).toBe('python:3');
   });
 
   it('should create Transform from an object with defaults', () => {
@@ -119,7 +98,6 @@ describe('grpc/builders/pps', () => {
     expect(transform.getDebug()).toBe(false);
     expect(transform.getUser()).toBe('');
     expect(transform.getWorkingDir()).toBe('');
-    expect(transform.getBuild()).toBe(undefined);
   });
 
   it('should create TFJob from an object', () => {
@@ -133,11 +111,9 @@ describe('grpc/builders/pps', () => {
   it('should create ParallelismSpec from an object', () => {
     const parallelismSpec = parallelismSpecFromObject({
       constant: 1,
-      coefficient: 3,
     });
 
     expect(parallelismSpec.getConstant()).toBe(1);
-    expect(parallelismSpec.getCoefficient()).toBe(3);
   });
 
   it('should create Egress from an object', () => {
@@ -410,7 +386,6 @@ describe('grpc/builders/pps', () => {
     expect(pipelineInfo.getChunkSpec()).toBe(undefined);
     expect(pipelineInfo.getDatumTimeout()).toBe(undefined);
     expect(pipelineInfo.getJobTimeout()).toBe(undefined);
-    expect(pipelineInfo.getSpecCommit()).toBe(undefined);
     expect(pipelineInfo.getDatumTries()).toBe(0);
     expect(pipelineInfo.getPodSpec()).toBe('');
     expect(pipelineInfo.getPodPatch()).toBe('');
@@ -430,7 +405,6 @@ describe('grpc/builders/pps', () => {
       tfJob: {tfJob: 'example-job'},
       parallelismSpec: {
         constant: 1,
-        coefficient: 3,
       },
       egress: {
         url: 's3://bucket/dir',
@@ -517,7 +491,6 @@ describe('grpc/builders/pps', () => {
     expect(pipelineInfo.getVersion()).toBe(4);
     expect(pipelineInfo.getTransform()?.getImage()).toBe('pachyderm/opencv');
     expect(pipelineInfo.getTfJob()?.getTfJob()).toBe('example-job');
-    expect(pipelineInfo.getParallelismSpec()?.getCoefficient()).toBe(3);
     expect(pipelineInfo.getEgress()?.getUrl()).toBe('s3://bucket/dir');
     expect(pipelineInfo.getCreatedAt()?.getSeconds()).toBe(1614736724);
     expect(pipelineInfo.getState()).toBe(3);
@@ -541,9 +514,6 @@ describe('grpc/builders/pps', () => {
     expect(pipelineInfo.getChunkSpec()?.getNumber()).toBe(123);
     expect(pipelineInfo.getDatumTimeout()?.getSeconds()).toBe(23424);
     expect(pipelineInfo.getJobTimeout()?.getSeconds()).toBe(564645);
-    expect(pipelineInfo.getSpecCommit()?.getId()).toBe(
-      '4af40d34a0384f23a5b98d3bd7eaece1',
-    );
     expect(pipelineInfo.getDatumTries()).toBe(12);
     expect(pipelineInfo.getPodSpec()).toBe('podSpec');
     expect(pipelineInfo.getPodPatch()).toBe('podPatch');
@@ -584,16 +554,14 @@ it('should create PipelineJob from an object', () => {
 it('should create JobInfo from an object', () => {
   const pipelineJob = jobInfoFromObject({
     state: 1,
-    job: {id: '1'},
+    job: {id: '1', pipeline: {name: 'montage'}},
     createdAt: {
       seconds: 564645,
       nanos: 0,
     },
-    pipeline: {name: 'montage'},
   });
 
   expect(pipelineJob.getState()).toBe(1);
   expect(pipelineJob.getStarted()?.getSeconds()).toBe(564645);
   expect(pipelineJob.getJob()?.getId()).toBe('1');
-  expect(pipelineJob.getPipeline()?.getName()).toBe('montage');
 });

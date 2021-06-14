@@ -153,6 +153,7 @@ export type Job = {
 };
 
 export enum JobState {
+  JOB_CREATED = 'JOB_CREATED',
   JOB_STARTING = 'JOB_STARTING',
   JOB_RUNNING = 'JOB_RUNNING',
   JOB_FAILURE = 'JOB_FAILURE',
@@ -234,6 +235,7 @@ export type Pipeline = {
   state: PipelineState;
   stopped: Scalars['Boolean'];
   recentError?: Maybe<Scalars['String']>;
+  numOfJobsCreated: Scalars['Int'];
   numOfJobsStarting: Scalars['Int'];
   numOfJobsRunning: Scalars['Int'];
   numOfJobsFailing: Scalars['Int'];
@@ -925,6 +927,7 @@ export type PipelineResolvers<
     ParentType,
     ContextType
   >;
+  numOfJobsCreated?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   numOfJobsStarting?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   numOfJobsRunning?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   numOfJobsFailing?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;

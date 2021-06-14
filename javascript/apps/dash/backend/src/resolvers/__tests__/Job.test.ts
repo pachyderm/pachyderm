@@ -24,7 +24,7 @@ describe('Pipeline Job Resolver', () => {
     });
 
     const expectedJobs = jobs['1'].filter(
-      (jobs) => jobs.getPipeline()?.getName() === 'montage',
+      (jobs) => jobs.getJob()?.getPipeline()?.getName() === 'montage',
     );
 
     expect(errors.length).toBe(0);

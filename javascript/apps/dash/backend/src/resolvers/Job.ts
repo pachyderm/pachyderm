@@ -14,7 +14,7 @@ const pipelineJobResolver: PipelineJobResolver = {
       let jq = '';
 
       if (pipelineId) {
-        jq = `select(.pipeline.name == "${pipelineId}")`;
+        jq = `select(.job.pipeline.name == "${pipelineId}")`;
       }
 
       const jobs = await pachClient

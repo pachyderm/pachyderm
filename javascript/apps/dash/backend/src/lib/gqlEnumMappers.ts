@@ -41,6 +41,8 @@ export const toGQLPipelineState = (
 
 export const toGQLJobState = (jobState: JobState) => {
   switch (jobState) {
+    case JobState.JOB_CREATED:
+      return GQLJobState.JOB_CREATED;
     case JobState.JOB_EGRESSING:
       return GQLJobState.JOB_EGRESSING;
     case JobState.JOB_FAILURE:

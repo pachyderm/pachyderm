@@ -45,6 +45,7 @@ enum PipelineState {
 
 # This enum is replaced with the one from pps on type generation
 enum JobState {
+  JOB_CREATED
   JOB_STARTING
   JOB_RUNNING
   JOB_FAILURE
@@ -88,6 +89,7 @@ type Pipeline {
   state: PipelineState!
   stopped: Boolean!
   recentError: String
+  numOfJobsCreated: Int!
   numOfJobsStarting: Int!
   numOfJobsRunning: Int!
   numOfJobsFailing: Int!

@@ -57,8 +57,9 @@ describe('JobList', () => {
     const {queryAllByRole, queryByText} = within(getByRole('list'));
 
     expect(queryAllByRole('listitem').length).toBe(
-      jobs['1'].filter((job) => job.getPipeline()?.getName() === 'montage')
-        .length,
+      jobs['1'].filter(
+        (job) => job.getJob()?.getPipeline()?.getName() === 'montage',
+      ).length,
     );
     expect(queryByText('Success')).toBeInTheDocument();
   });

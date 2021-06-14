@@ -1,5 +1,4 @@
 import {
-  BuildSpec,
   ChunkSpec,
   CronInput,
   Egress,
@@ -23,12 +22,7 @@ import {
   JobInfo,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
-import {
-  commitFromObject,
-  CommitObject,
-  triggerFromObject,
-  TriggerObject,
-} from './pfs';
+import {CommitObject, triggerFromObject, TriggerObject} from './pfs';
 import {
   durationFromObject,
   DurationObject,
@@ -47,12 +41,6 @@ export type SecretMountObject = {
   envVar: SecretMount.AsObject['envVar'];
 };
 
-export type BuildSpecObject = {
-  path: BuildSpec.AsObject['path'];
-  language: BuildSpec.AsObject['language'];
-  image: BuildSpec.AsObject['image'];
-};
-
 export type TransformObject = {
   image: Transform.AsObject['image'];
   cmdList: Transform.AsObject['cmdList'];
@@ -68,7 +56,6 @@ export type TransformObject = {
   user?: Transform.AsObject['user'];
   workingDir?: Transform.AsObject['workingDir'];
   dockerfile?: Transform.AsObject['dockerfile'];
-  build?: BuildSpecObject;
 };
 
 export type TFJobObject = {
@@ -77,7 +64,6 @@ export type TFJobObject = {
 
 export type ParallelismSpecObject = {
   constant: ParallelismSpec.AsObject['constant'];
-  coefficient: ParallelismSpec.AsObject['coefficient'];
 };
 
 export type EgressObject = {
@@ -202,12 +188,9 @@ export type JobObject = {
 };
 
 export type JobInfoObject = {
-  job: Pick<Job.AsObject, 'id'>;
+  job: Pick<Job.AsObject, 'id' | 'pipeline'>;
   createdAt: JobInfo.AsObject['started'];
   state: JobState;
-  pipeline: {
-    name: Pipeline.AsObject['name'];
-  };
 };
 
 export const pipelineFromObject = ({name}: PipelineObject) => {
@@ -232,19 +215,6 @@ export const secretMountFromObject = ({
   return secretMount;
 };
 
-export const buildSpecFromObject = ({
-  path,
-  language,
-  image,
-}: BuildSpecObject) => {
-  const buildSpec = new BuildSpec();
-  buildSpec.setPath(path);
-  buildSpec.setLanguage(language);
-  buildSpec.setImage(image);
-
-  return buildSpec;
-};
-
 export const transformFromObject = ({
   image,
   cmdList,
@@ -258,7 +228,6 @@ export const transformFromObject = ({
   user = '',
   workingDir = '',
   dockerfile = '',
-  build,
 }: TransformObject) => {
   const transform = new Transform();
   transform.setImage(image);
@@ -280,9 +249,6 @@ export const transformFromObject = ({
   transform.setUser(user);
   transform.setWorkingDir(workingDir);
   transform.setDockerfile(dockerfile);
-  if (build) {
-    transform.setBuild(buildSpecFromObject(build));
-  }
 
   return transform;
 };
@@ -296,11 +262,9 @@ export const tfJobFromObject = ({tfJob}: TFJobObject) => {
 
 export const parallelismSpecFromObject = ({
   constant,
-  coefficient,
 }: ParallelismSpecObject) => {
   const parallelismSpec = new ParallelismSpec();
   parallelismSpec.setConstant(constant);
-  parallelismSpec.setCoefficient(coefficient);
 
   return parallelismSpec;
 };
@@ -510,7 +474,6 @@ export const pipelineInfoFromObject = ({
   chunkSpec,
   datumTimeout,
   jobTimeout,
-  specCommit,
   standby = false,
   datumTries = 0,
   podSpec = '',
@@ -576,9 +539,6 @@ export const pipelineInfoFromObject = ({
   if (jobTimeout) {
     pipelineInfo.setJobTimeout(durationFromObject(jobTimeout));
   }
-  if (specCommit) {
-    pipelineInfo.setSpecCommit(commitFromObject(specCommit));
-  }
 
   pipelineInfo.setDescription(description);
   pipelineInfo.setCacheSize(cacheSize);
@@ -617,18 +577,16 @@ export const jobFromObject = ({id}: JobObject) => {
 };
 
 export const jobInfoFromObject = ({
-  job: {id},
+  job: {id, pipeline: {name} = {name: ''}},
   createdAt,
   state,
-  pipeline: {name},
 }: JobInfoObject) => {
   const jobInfo = new JobInfo()
     .setState(state)
     .setStarted(
       timestampFromObject({seconds: createdAt?.seconds || 0, nanos: 0}),
     )
-    .setJob(new Job().setId(id))
-    .setPipeline(new Pipeline().setName(name));
+    .setJob(new Job().setId(id).setPipeline(new Pipeline().setName(name)));
 
   return jobInfo;
 };

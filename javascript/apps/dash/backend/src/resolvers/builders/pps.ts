@@ -36,6 +36,7 @@ export const pipelineInfoToGQLPipeline = (
     state: toGQLPipelineState(pipelineInfo.state),
     stopped: pipelineInfo.stopped,
     recentError: pipelineInfo.recentError,
+    numOfJobsCreated: jobStates[JobState.JOB_CREATED] || 0,
     numOfJobsStarting: jobStates[JobState.JOB_STARTING] || 0,
     numOfJobsRunning: jobStates[JobState.JOB_RUNNING] || 0,
     numOfJobsFailing: jobStates[JobState.JOB_FAILURE] || 0,
@@ -77,7 +78,7 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
     state: toGQLJobState(jobInfo.state),
     createdAt: jobInfo.started?.seconds || 0,
     finishedAt: jobInfo.finished?.seconds,
-    pipelineName: jobInfo.pipeline?.name || '',
+    pipelineName: jobInfo.job?.pipeline?.name || '',
     transform: jobInfo.transform,
     inputString: jobInfo.input
       ? JSON.stringify(jobInfo.input, null, 2)

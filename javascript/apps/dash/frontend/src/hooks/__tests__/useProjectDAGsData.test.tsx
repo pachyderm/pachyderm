@@ -96,8 +96,8 @@ describe('useProjects', () => {
     expect(link3id).toBeInTheDocument();
     expect(link4id).toBeInTheDocument();
 
-    const link0state = await findByText('0 link state: JOB_STARTING');
-    const link1state = await findByText('1 link state: JOB_STARTING');
+    const link0state = await findByText('0 link state: JOB_CREATED');
+    const link1state = await findByText('1 link state: JOB_CREATED');
 
     expect(link0state).toBeInTheDocument();
     expect(link1state).toBeInTheDocument();
