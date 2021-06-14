@@ -227,6 +227,12 @@ message Groups {
   map<string, bool> groups = 1;
 }
 
+message Role {
+  string name = 1;
+  repeated Permission permissions = 2;
+  repeated ResourceType resource_types = 3; 
+}
+
 //// Authorization API
 
 message AuthorizeRequest {
