@@ -213,7 +213,7 @@ func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionCon
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectCommit(ctx, request.Commit, request.Block)
+	return a.driver.inspectCommit(ctx, request.Commit, request.Wait)
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
@@ -240,7 +240,7 @@ func (a *apiServer) InspectCommitsetInTransaction(txnCtx *txncontext.Transaction
 func (a *apiServer) InspectCommitset(request *pfs.InspectCommitsetRequest, server pfs.API_InspectCommitsetServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectCommitset(server.Context(), request.Commitset, request.Block, server.Send)
+	return a.driver.inspectCommitset(server.Context(), request.Commitset, request.Wait, server.Send)
 }
 
 // SquashCommitsetInTransaction is identical to SquashCommitset except that it can run

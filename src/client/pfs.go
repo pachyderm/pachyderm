@@ -194,19 +194,19 @@ func (c APIClient) InspectCommit(repoName string, branchName string, commitID st
 	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_STARTED)
 }
 
-// BlockCommit returns info about a specific Commit, but blocks until that
+// WaitCommit returns info about a specific Commit, but blocks until that
 // commit has been finished.
-func (c APIClient) BlockCommit(repoName string, branchName string, commitID string) (_ *pfs.CommitInfo, retErr error) {
+func (c APIClient) WaitCommit(repoName string, branchName string, commitID string) (_ *pfs.CommitInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_FINISHED)
 }
 
-func (c APIClient) inspectCommit(repoName string, branchName string, commitID string, block pfs.CommitState) (*pfs.CommitInfo, error) {
+func (c APIClient) inspectCommit(repoName string, branchName string, commitID string, wait pfs.CommitState) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
 		c.Ctx(),
 		&pfs.InspectCommitRequest{
 			Commit: NewCommit(repoName, branchName, commitID),
-			Block:  block,
+			Wait:   wait,
 		},
 	)
 	if err != nil {
@@ -354,10 +354,10 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
-func (c APIClient) inspectCommitset(id string, block bool, cb func(*pfs.CommitInfo) error) error {
+func (c APIClient) inspectCommitset(id string, wait bool, cb func(*pfs.CommitInfo) error) error {
 	req := &pfs.InspectCommitsetRequest{
 		Commitset: NewCommitset(id),
-		Block:     block,
+		Wait:      wait,
 	}
 	client, err := c.PfsAPIClient.InspectCommitset(c.Ctx(), req)
 	if err != nil {
@@ -393,12 +393,12 @@ func (c APIClient) InspectCommitset(id string) (_ []*pfs.CommitInfo, retErr erro
 	return result, nil
 }
 
-// BlockCommitset blocks until all of a Commitset's commits are finished.  To
-// wait for an individual commit, use BlockCommit instead.
-func (c APIClient) BlockCommitsetAll(id string) (_ []*pfs.CommitInfo, retErr error) {
+// WaitCommitsetAll blocks until all of a Commitset's commits are finished.  To
+// wait for an individual commit, use WaitCommit instead.
+func (c APIClient) WaitCommitsetAll(id string) (_ []*pfs.CommitInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pfs.CommitInfo{}
-	if err := c.BlockCommitset(id, func(ci *pfs.CommitInfo) error {
+	if err := c.WaitCommitset(id, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -407,7 +407,10 @@ func (c APIClient) BlockCommitsetAll(id string) (_ []*pfs.CommitInfo, retErr err
 	return result, nil
 }
 
-func (c APIClient) BlockCommitset(id string, cb func(*pfs.CommitInfo) error) (retErr error) {
+// WaitCommitset blocks until each of a Commitset's commits are finished,
+// passing them to the given callback as they finish.  To wait for an individual
+// commit, use WaitCommit instead.
+func (c APIClient) WaitCommitset(id string, cb func(*pfs.CommitInfo) error) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	if err := c.inspectCommitset(id, true, cb); err != nil {
 		return err

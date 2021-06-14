@@ -2,6 +2,16 @@
 
 set -e
 
+INSTALLED_GOVER="`go version | cut -d ' ' -f 3`"
+EXPECTED_GOVER=go1.16.4
+if [ ${INSTALLED_GOVER} != "${EXPECTED_GOVER}" ]
+then
+    echo "Current go version "${INSTALLED_GOVER}
+    echo "Expected go version "${EXPECTED_GOVER}
+    echo "Install the expected version of go before doing a release!"
+    exit 1
+fi
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 source "${SCRIPT_DIR}/../govars.sh"
 

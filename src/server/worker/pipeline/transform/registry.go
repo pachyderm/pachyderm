@@ -193,7 +193,7 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
 				Commit: metaCommitInfo.ParentCommit,
-				Block:  pfs.CommitState_FINISHED,
+				Wait:   pfs.CommitState_FINISHED,
 			})
 		if err != nil {
 			return err
@@ -221,7 +221,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
 			Commit: jobInfo.OutputCommit,
-			Block:  pfs.CommitState_STARTED,
+			Wait:   pfs.CommitState_STARTED,
 		})
 	if err != nil {
 		return err
@@ -230,7 +230,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 		reg.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
 			Commit: ppsutil.MetaCommit(jobInfo.OutputCommit),
-			Block:  pfs.CommitState_STARTED,
+			Wait:   pfs.CommitState_STARTED,
 		})
 	if err != nil {
 		return err
@@ -356,7 +356,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 					pachClient.Ctx(),
 					&pfs.InspectCommitRequest{
 						Commit: pj.commitInfo.Commit,
-						Block:  pfs.CommitState_STARTED,
+						Wait:   pfs.CommitState_STARTED,
 					})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
@@ -372,7 +372,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 					pachClient.Ctx(),
 					&pfs.InspectCommitRequest{
 						Commit: pj.metaCommitInfo.Commit,
-						Block:  pfs.CommitState_STARTED,
+						Wait:   pfs.CommitState_STARTED,
 					})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
@@ -411,7 +411,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 	ci, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
 			Commit: pj.ji.OutputCommit,
-			Block:  pfs.CommitState_FINISHED,
+			Wait:   pfs.CommitState_FINISHED,
 		})
 	if err != nil {
 		if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
@@ -655,8 +655,8 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 
 func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
 	var failed []string
-	blockCommit := func(name string, commit *pfs.Commit) error {
-		ci, err := pachClient.BlockCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+	waitCommit := func(name string, commit *pfs.Commit) error {
+		ci, err := pachClient.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
 			return errors.Wrapf(err, "error blocking on commit %s", pfsdb.CommitKey(commit))
 		}
@@ -667,7 +667,7 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 	}
 	visitErr := pps.VisitInput(jobInfo.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Commit != "" {
-			if err := blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit)); err != nil {
+			if err := waitCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit)); err != nil {
 				return err
 			}
 		}

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 )
@@ -17,7 +18,7 @@ type groupLookupFn func(ctx context.Context, subject string) ([]string, error)
 type authorizeRequest struct {
 	subject              string
 	permissions          map[auth.Permission]bool
-	roleMap              map[string]bool
+	roleMap              map[string]*auth.Role
 	satisfiedPermissions []auth.Permission
 	groupsForSubject     groupLookupFn
 	groups               []string
@@ -26,18 +27,21 @@ type authorizeRequest struct {
 func newAuthorizeRequest(subject string, permissions map[auth.Permission]bool, groupsForSubject groupLookupFn) *authorizeRequest {
 	return &authorizeRequest{
 		subject:              subject,
-		roleMap:              make(map[string]bool),
+		roleMap:              make(map[string]*auth.Role),
 		permissions:          permissions,
 		groupsForSubject:     groupsForSubject,
 		satisfiedPermissions: make([]auth.Permission, 0),
 	}
 }
 
-func (r *authorizeRequest) roles() []string {
+func (r *authorizeRequest) rolesForResourceType(rt auth.ResourceType) []string {
 	roles := make([]string, 0, len(r.roleMap))
-	for r := range r.roleMap {
-		roles = append(roles, r)
+	for r, def := range r.roleMap {
+		if roleAppliesToResource(def, rt) {
+			roles = append(roles, r)
+		}
 	}
+	sort.Strings(roles)
 	return roles
 }
 
@@ -111,14 +115,15 @@ func (r *authorizeRequest) evaluateRoleBindingForSubject(subject string, binding
 			if _, ok := r.roleMap[role]; ok {
 				continue
 			}
-			r.roleMap[role] = true
 
-			permissions, err := permissionsForRole(role)
+			roleDefinition, err := getRole(role)
 			if err != nil {
 				return err
 			}
 
-			for _, permission := range permissions {
+			r.roleMap[role] = roleDefinition
+
+			for _, permission := range roleDefinition.Permissions {
 				if _, ok := r.permissions[permission]; ok {
 					r.satisfiedPermissions = append(r.satisfiedPermissions, permission)
 					delete(r.permissions, permission)

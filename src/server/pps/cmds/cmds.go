@@ -102,7 +102,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAlias(jobDocs, "job", " job$"))
 
-	var block bool
+	var wait bool
 	inspectJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return info about a job.",
@@ -118,8 +118,8 @@ If the job fails, the output commit will not be populated with data.`,
 			}
 			defer client.Close()
 			var jobInfo *pps.JobInfo
-			if block {
-				jobInfo, err = client.BlockJob(job.Pipeline.Name, job.ID, true)
+			if wait {
+				jobInfo, err = client.WaitJob(job.Pipeline.Name, job.ID, true)
 			} else {
 				jobInfo, err = client.InspectJob(job.Pipeline.Name, job.ID, true)
 			}
@@ -141,7 +141,7 @@ If the job fails, the output commit will not be populated with data.`,
 			return pretty.PrintDetailedJobInfo(os.Stdout, pji)
 		}),
 	}
-	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
+	inspectJob.Flags().BoolVarP(&wait, "wait", "w", false, "wait until the job has either succeeded or failed")
 	inspectJob.Flags().AddFlagSet(outputFlags)
 	inspectJob.Flags().AddFlagSet(fullTimestampsFlags)
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
@@ -324,7 +324,7 @@ each datum.`,
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			job, err := cmdutil.ParseJob(args[0])
 			if err != nil {
 				return err
@@ -354,9 +354,6 @@ each datum.`,
 				printF = func(di *ppsclient.DatumInfo) error {
 					return e.EncodeProto(di)
 				}
-			}
-			if len(args) != 1 {
-				return errors.Errorf("must specify one job")
 			}
 			return client.ListDatum(job.Pipeline.Name, job.ID, printF)
 		}),

@@ -29,7 +29,7 @@ builds:
       - amd64
   -
     id: worker_init
-    dir: etc/worker 
+    dir: etc/worker
     main: init.go
     binary: worker_init
     env:
@@ -83,7 +83,7 @@ dockers:
       - LICENSE
     build_flag_templates:
       - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"    
+      - "--label=release={{.Version}}"
   -
     image_templates:
       - pachyderm/pachctl
@@ -110,7 +110,7 @@ dockers:
     goos: linux
     goarch: amd64
     skip_push: false
-    dockerfile: Dockerfile.worker 
+    dockerfile: Dockerfile.worker
     build_flag_templates:
       - "--progress=plain"
       - "--label=version={{.Version}}"

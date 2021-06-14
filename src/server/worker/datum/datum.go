@@ -445,11 +445,12 @@ type Deleter func(*Meta) error
 func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient client.ModifyFile) Deleter {
 	return func(meta *Meta) error {
 		ID := common.DatumID(meta.Inputs)
+		tagOption := client.WithTagDeleteFile(ID)
 		// Delete the datum directory in the meta output.
-		if err := metaOutputClient.DeleteFile(path.Join(MetaPrefix, ID) + "/"); err != nil {
+		if err := metaOutputClient.DeleteFile(path.Join(MetaPrefix, ID)+"/", tagOption); err != nil {
 			return err
 		}
-		if err := metaOutputClient.DeleteFile(path.Join(PFSPrefix, ID) + "/"); err != nil {
+		if err := metaOutputClient.DeleteFile(path.Join(PFSPrefix, ID)+"/", tagOption); err != nil {
 			return err
 		}
 		// Delete the content output by the datum.
@@ -467,7 +468,7 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 			if err != nil {
 				return err
 			}
-			if err := pfsOutputClient.DeleteFile(file, client.WithTagDeleteFile(ID)); err != nil {
+			if err := pfsOutputClient.DeleteFile(file, tagOption); err != nil {
 				return err
 			}
 		}
