@@ -37,9 +37,8 @@ func requestOIDCLogin(c *client.APIClient, openBrowser bool) (string, error) {
 		"")
 
 	if openBrowser {
-		err = browser.OpenURL(authURL)
-		if err != nil {
-			return "", err
+		if browser.OpenURL(authURL) != nil {
+			fmt.Println("Couldn't open a browser, visit the page manually.")
 		}
 	}
 
