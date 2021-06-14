@@ -16,4 +16,6 @@ COPY dex-assets /dex-assets
 COPY --from=pachyderm_build /tmp/to-copy /
 COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+USER 1000:1000
+
 ENTRYPOINT ["/pachd"]
