@@ -20,7 +20,7 @@ func TestPostgresCollections(suite *testing.T) {
 	newCollection := func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		config := serviceenv.ConfigFromOptions(testutil.NewTestDBConfig(t))
 		options := []dbutil.Option{
-			dbutil.WithHostPort(config.PostgresServiceHost, config.PostgresServicePort),
+			dbutil.WithHostPort(config.PostgresHost, config.PostgresPort),
 			dbutil.WithDBName(config.PostgresDBName),
 			dbutil.WithMaxOpenConns(1), // All tests should be able to run on a single connection
 		}

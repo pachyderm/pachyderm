@@ -35,8 +35,8 @@ func ConfigFromOptions(opts ...ConfigOption) *Configuration {
 
 func WithPostgresHostPort(host string, port int) ConfigOption {
 	return func(config *Configuration) {
-		config.PostgresServiceHost = host
-		config.PostgresServicePort = port
+		config.PostgresHost = host
+		config.PostgresPort = port
 	}
 }
 

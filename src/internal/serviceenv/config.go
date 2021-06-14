@@ -23,9 +23,9 @@ type GlobalConfiguration struct {
 	LokiHost            string `env:"LOKI_SERVICE_HOST"`
 	LokiPort            string `env:"LOKI_SERVICE_PORT"`
 	OidcPort            uint16 `env:"OIDC_PORT,default=1657"`
-	PostgresServiceHost string `env:"POSTGRES_SERVICE_HOST"`
-	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
-	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
+	PostgresServiceHost string `env:"POSTGRES_HOST"`
+	PostgresServicePort int    `env:"POSTGRES_PORT"`
+	PostgresServiceSSL  string `env:"POSTGRES_SSL,default=disable"`
 	PostgresDBName      string `env:"POSTGRES_DATABASE_NAME"`
 	PostgresUser        string `env:"POSTGRES_USER,default=postgres"`
 	PostgresPassword    string `env:"POSTGRES_PASSWORD"`
