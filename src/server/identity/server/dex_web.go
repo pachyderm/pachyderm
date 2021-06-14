@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -102,9 +103,20 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 		})
 	}
 
+	var err error
+	idTokenExpiry := 6 * time.Hour
+
+	if config.IdTokenExpiry != "" {
+		idTokenExpiry, err = time.ParseDuration(config.IdTokenExpiry)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	serverConfig := dex_server.Config{
 		Storage:            storage,
 		Issuer:             config.Issuer,
+		IDTokensValidFor:   idTokenExpiry,
 		SkipApprovalScreen: true,
 		Web: dex_server.WebConfig{
 			Issuer:  "Pachyderm",
@@ -116,7 +128,6 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 	}
 
 	var ctx context.Context
-	var err error
 	ctx, w.serverCancel = context.WithCancel(context.Background())
 	w.server, err = dex_server.NewServer(ctx, serverConfig)
 	if err != nil {
