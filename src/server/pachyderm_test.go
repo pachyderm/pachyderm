@@ -9930,6 +9930,97 @@ func TestPipelineAutoscaling(t *testing.T) {
 	commitNFiles(8)
 }
 
+func TestListDeletedDatums(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	twoRepo := tu.UniqueString("TestListDeletedDatums_Two")
+	threeRepo := tu.UniqueString("TestListDeletedDatums_Three")
+	require.NoError(t, c.CreateRepo(twoRepo))
+	require.NoError(t, c.CreateRepo(threeRepo))
+
+	input := client.NewJoinInput(
+		client.NewPFSInput(twoRepo, "/(*)"),
+		client.NewPFSInput(threeRepo, "/(*)"),
+	)
+	input.Join[0].Pfs.JoinOn = "$1"
+	input.Join[1].Pfs.JoinOn = "$1"
+
+	// put files into the repo based on divisibility by 2 and 3
+	twoCommit, err := c.StartCommit(twoRepo, "master")
+	require.NoError(t, err)
+	threeCommit, err := c.StartCommit(threeRepo, "master")
+	require.NoError(t, err)
+
+	const fileLimit = 12
+	for i := 0; i < fileLimit; i++ {
+		if i%2 == 0 {
+			require.NoError(t, c.PutFile(twoCommit, strconv.Itoa(i), strings.NewReader("fizz")))
+		}
+		if i%3 == 0 {
+			require.NoError(t, c.PutFile(threeCommit, strconv.Itoa(i), strings.NewReader("buzz")))
+		}
+	}
+	require.NoError(t, c.FinishCommit(twoRepo, "master", twoCommit.ID))
+	require.NoError(t, c.FinishCommit(threeRepo, "master", threeCommit.ID))
+
+	pipeline := tu.UniqueString("pipeline")
+	createAndCheckJoin := func(twoOuter, threeOuter bool) {
+		input.Join[0].Pfs.OuterJoin = twoOuter
+		input.Join[1].Pfs.OuterJoin = threeOuter
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: []string{"touch pfs/out/ignore"},
+				},
+				Input:  input,
+				Update: true,
+			},
+		)
+		require.NoError(t, err)
+		// wait for job and get its datums
+		jobs, err := c.ListJob(pipeline, nil, 0, false)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+		id := jobs[0].Job.ID
+		info, err := c.BlockJob(pipeline, id, false)
+		require.NoError(t, err)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, info.State)
+		datums, err := c.ListDatumAll(pipeline, id)
+		require.NoError(t, err)
+
+		// find which file numbers are present in the datums
+		numSet := make(map[int]struct{})
+		for _, d := range datums {
+			key, err := strconv.Atoi(path.Base(d.Data[0].File.Path))
+			require.NoError(t, err)
+			numSet[key] = struct{}{}
+		}
+		// we shouldn't have any duplicate keys across datums for any of these joins
+		require.Equal(t, len(numSet), len(datums))
+
+		// now check against what should be included
+		for i := 0; i < fileLimit; i++ {
+			expected := (i%6 == 0) || (i%2 == 0 && twoOuter) || (i%3 == 0 && threeOuter)
+			_, ok := numSet[i]
+			require.Equal(t, expected, ok)
+		}
+	}
+
+	// first a completely outer join with all datums
+	createAndCheckJoin(true, true)
+	// then the half-outer joins, which should be smaller
+	createAndCheckJoin(true, false)
+	createAndCheckJoin(false, true)
+	// finally the smallest, should only have datums divisible by 6
+	createAndCheckJoin(false, false)
+}
+
 func monitorReplicas(t testing.TB, pipeline string, n int) {
 	c := tu.GetPachClient(t)
 	kc := tu.GetKubeClient(t)
