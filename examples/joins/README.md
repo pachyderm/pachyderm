@@ -43,8 +43,8 @@ Run a quick:
 $ pachctl version
 
 COMPONENT           VERSION
-pachctl             1.12.0
-pachd               1.12.0
+pachctl             2.0.0
+pachd               2.0.0
 ```
 Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of pachctl and pachd. 
 ## 2. Data structure and naming convention

@@ -56,7 +56,7 @@ below.
 
 ### Update client version [apply step only when running point-release target]
 
-Update `src/client/version/client.go` version values.
+Update `src/version/client.go` version values.
 
 - for a major release, increment the MajorVersion and set the MinorVersion and
   MicroVersion to 0; e.g. `2.0.0`.
@@ -69,7 +69,7 @@ Commit these changes locally (you will push to GitHub in a later step):
 
 ```shell
 make VERSION_ADDITIONAL= install
-git add src/client/version/client.go
+git add src/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
