@@ -218,17 +218,6 @@ function deserialize_pfs_v2_FinishCommitRequest(buffer_arg) {
   return pfs_pfs_pb.FinishCommitRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_FlushCommitRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.FlushCommitRequest)) {
-    throw new Error('Expected argument of type pfs_v2.FlushCommitRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pfs_v2_FlushCommitRequest(buffer_arg) {
-  return pfs_pfs_pb.FlushCommitRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_pfs_v2_FsckRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.FsckRequest)) {
     throw new Error('Expected argument of type pfs_v2.FsckRequest');
@@ -304,6 +293,17 @@ function serialize_pfs_v2_InspectCommitRequest(arg) {
 
 function deserialize_pfs_v2_InspectCommitRequest(buffer_arg) {
   return pfs_pfs_pb.InspectCommitRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_InspectCommitsetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.InspectCommitsetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.InspectCommitsetRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_InspectCommitsetRequest(buffer_arg) {
+  return pfs_pfs_pb.InspectCommitsetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_InspectFileRequest(arg) {
@@ -438,15 +438,15 @@ function deserialize_pfs_v2_RunLoadTestResponse(buffer_arg) {
   return pfs_pfs_pb.RunLoadTestResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_SquashCommitRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.SquashCommitRequest)) {
-    throw new Error('Expected argument of type pfs_v2.SquashCommitRequest');
+function serialize_pfs_v2_SquashCommitsetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.SquashCommitsetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.SquashCommitsetRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pfs_v2_SquashCommitRequest(buffer_arg) {
-  return pfs_pfs_pb.SquashCommitRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pfs_v2_SquashCommitsetRequest(buffer_arg) {
+  return pfs_pfs_pb.SquashCommitsetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_StartCommitRequest(arg) {
@@ -556,6 +556,18 @@ finishCommit: {
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
+  // ClearCommit removes all data from the commit.
+clearCommit: {
+    path: '/pfs_v2.API/ClearCommit',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.ClearCommitRequest,
+    responseType: google_protobuf_empty_pb.Empty,
+    requestSerialize: serialize_pfs_v2_ClearCommitRequest,
+    requestDeserialize: deserialize_pfs_v2_ClearCommitRequest,
+    responseSerialize: serialize_google_protobuf_Empty,
+    responseDeserialize: deserialize_google_protobuf_Empty,
+  },
   // InspectCommit returns the info about a commit.
 inspectCommit: {
     path: '/pfs_v2.API/InspectCommit',
@@ -580,30 +592,6 @@ listCommit: {
     responseSerialize: serialize_pfs_v2_CommitInfo,
     responseDeserialize: deserialize_pfs_v2_CommitInfo,
   },
-  // SquashCommit squashes a commit into it's parent.
-squashCommit: {
-    path: '/pfs_v2.API/SquashCommit',
-    requestStream: false,
-    responseStream: false,
-    requestType: pfs_pfs_pb.SquashCommitRequest,
-    responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pfs_v2_SquashCommitRequest,
-    requestDeserialize: deserialize_pfs_v2_SquashCommitRequest,
-    responseSerialize: serialize_google_protobuf_Empty,
-    responseDeserialize: deserialize_google_protobuf_Empty,
-  },
-  // FlushCommit waits for downstream commits to finish.
-flushCommit: {
-    path: '/pfs_v2.API/FlushCommit',
-    requestStream: false,
-    responseStream: true,
-    requestType: pfs_pfs_pb.FlushCommitRequest,
-    responseType: pfs_pfs_pb.CommitInfo,
-    requestSerialize: serialize_pfs_v2_FlushCommitRequest,
-    requestDeserialize: deserialize_pfs_v2_FlushCommitRequest,
-    responseSerialize: serialize_pfs_v2_CommitInfo,
-    responseDeserialize: deserialize_pfs_v2_CommitInfo,
-  },
   // SubscribeCommit subscribes for new commits on a given branch.
 subscribeCommit: {
     path: '/pfs_v2.API/SubscribeCommit',
@@ -616,15 +604,27 @@ subscribeCommit: {
     responseSerialize: serialize_pfs_v2_CommitInfo,
     responseDeserialize: deserialize_pfs_v2_CommitInfo,
   },
-  // ClearCommit removes all data from the commit.
-clearCommit: {
-    path: '/pfs_v2.API/ClearCommit',
+  // InspectCommitset returns the info about a Commitset.
+inspectCommitset: {
+    path: '/pfs_v2.API/InspectCommitset',
+    requestStream: false,
+    responseStream: true,
+    requestType: pfs_pfs_pb.InspectCommitsetRequest,
+    responseType: pfs_pfs_pb.CommitInfo,
+    requestSerialize: serialize_pfs_v2_InspectCommitsetRequest,
+    requestDeserialize: deserialize_pfs_v2_InspectCommitsetRequest,
+    responseSerialize: serialize_pfs_v2_CommitInfo,
+    responseDeserialize: deserialize_pfs_v2_CommitInfo,
+  },
+  // SquashCommitset squashes the commits of a Commitset into their children.
+squashCommitset: {
+    path: '/pfs_v2.API/SquashCommitset',
     requestStream: false,
     responseStream: false,
-    requestType: pfs_pfs_pb.ClearCommitRequest,
+    requestType: pfs_pfs_pb.SquashCommitsetRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pfs_v2_ClearCommitRequest,
-    requestDeserialize: deserialize_pfs_v2_ClearCommitRequest,
+    requestSerialize: serialize_pfs_v2_SquashCommitsetRequest,
+    requestDeserialize: deserialize_pfs_v2_SquashCommitsetRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },

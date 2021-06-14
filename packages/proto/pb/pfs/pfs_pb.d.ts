@@ -287,13 +287,13 @@ export namespace CommitOrigin {
 }
 
 export class Commit extends jspb.Message { 
-    getId(): string;
-    setId(value: string): Commit;
 
     hasBranch(): boolean;
     clearBranch(): void;
     getBranch(): Branch | undefined;
     setBranch(value?: Branch): Commit;
+    getId(): string;
+    setId(value: string): Commit;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Commit.AsObject;
@@ -307,37 +307,8 @@ export class Commit extends jspb.Message {
 
 export namespace Commit {
     export type AsObject = {
-        id: string,
         branch?: Branch.AsObject,
-    }
-}
-
-export class CommitRange extends jspb.Message { 
-
-    hasLower(): boolean;
-    clearLower(): void;
-    getLower(): Commit | undefined;
-    setLower(value?: Commit): CommitRange;
-
-    hasUpper(): boolean;
-    clearUpper(): void;
-    getUpper(): Commit | undefined;
-    setUpper(value?: Commit): CommitRange;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): CommitRange.AsObject;
-    static toObject(includeInstance: boolean, msg: CommitRange): CommitRange.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: CommitRange, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): CommitRange;
-    static deserializeBinaryFromReader(message: CommitRange, reader: jspb.BinaryReader): CommitRange;
-}
-
-export namespace CommitRange {
-    export type AsObject = {
-        lower?: Commit.AsObject,
-        upper?: Commit.AsObject,
+        id: string,
     }
 }
 
@@ -398,22 +369,10 @@ export class CommitInfo extends jspb.Message {
     setFinished(value?: google_protobuf_timestamp_pb.Timestamp): CommitInfo;
     getSizeBytes(): number;
     setSizeBytes(value: number): CommitInfo;
-    clearProvenanceList(): void;
-    getProvenanceList(): Array<CommitProvenance>;
-    setProvenanceList(value: Array<CommitProvenance>): CommitInfo;
-    addProvenance(value?: CommitProvenance, index?: number): CommitProvenance;
-    getReadyProvenance(): number;
-    setReadyProvenance(value: number): CommitInfo;
-    clearSubvenanceList(): void;
-    getSubvenanceList(): Array<CommitRange>;
-    setSubvenanceList(value: Array<CommitRange>): CommitInfo;
-    addSubvenance(value?: CommitRange, index?: number): CommitRange;
-    getSubvenantCommitsSuccess(): number;
-    setSubvenantCommitsSuccess(value: number): CommitInfo;
-    getSubvenantCommitsFailure(): number;
-    setSubvenantCommitsFailure(value: number): CommitInfo;
-    getSubvenantCommitsTotal(): number;
-    setSubvenantCommitsTotal(value: number): CommitInfo;
+    clearDirectProvenanceList(): void;
+    getDirectProvenanceList(): Array<Branch>;
+    setDirectProvenanceList(value: Array<Branch>): CommitInfo;
+    addDirectProvenance(value?: Branch, index?: number): Branch;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CommitInfo.AsObject;
@@ -435,58 +394,13 @@ export namespace CommitInfo {
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         sizeBytes: number,
-        provenanceList: Array<CommitProvenance.AsObject>,
-        readyProvenance: number,
-        subvenanceList: Array<CommitRange.AsObject>,
-        subvenantCommitsSuccess: number,
-        subvenantCommitsFailure: number,
-        subvenantCommitsTotal: number,
-    }
-}
-
-export class StoredCommitset extends jspb.Message { 
-    getId(): string;
-    setId(value: string): StoredCommitset;
-
-    hasOrigin(): boolean;
-    clearOrigin(): void;
-    getOrigin(): CommitOrigin | undefined;
-    setOrigin(value?: CommitOrigin): StoredCommitset;
-    clearCommitsList(): void;
-    getCommitsList(): Array<Commit>;
-    setCommitsList(value: Array<Commit>): StoredCommitset;
-    addCommits(value?: Commit, index?: number): Commit;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): StoredCommitset.AsObject;
-    static toObject(includeInstance: boolean, msg: StoredCommitset): StoredCommitset.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: StoredCommitset, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): StoredCommitset;
-    static deserializeBinaryFromReader(message: StoredCommitset, reader: jspb.BinaryReader): StoredCommitset;
-}
-
-export namespace StoredCommitset {
-    export type AsObject = {
-        id: string,
-        origin?: CommitOrigin.AsObject,
-        commitsList: Array<Commit.AsObject>,
+        directProvenanceList: Array<Branch.AsObject>,
     }
 }
 
 export class Commitset extends jspb.Message { 
     getId(): string;
     setId(value: string): Commitset;
-
-    hasOrigin(): boolean;
-    clearOrigin(): void;
-    getOrigin(): CommitOrigin | undefined;
-    setOrigin(value?: CommitOrigin): Commitset;
-    clearCommitsList(): void;
-    getCommitsList(): Array<CommitInfo>;
-    setCommitsList(value: Array<CommitInfo>): Commitset;
-    addCommits(value?: CommitInfo, index?: number): CommitInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Commitset.AsObject;
@@ -501,8 +415,6 @@ export class Commitset extends jspb.Message {
 export namespace Commitset {
     export type AsObject = {
         id: string,
-        origin?: CommitOrigin.AsObject,
-        commitsList: Array<CommitInfo.AsObject>,
     }
 }
 
@@ -648,8 +560,6 @@ export class DeleteRepoRequest extends jspb.Message {
     setRepo(value?: Repo): DeleteRepoRequest;
     getForce(): boolean;
     setForce(value: boolean): DeleteRepoRequest;
-    getAll(): boolean;
-    setAll(value: boolean): DeleteRepoRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeleteRepoRequest.AsObject;
@@ -665,7 +575,6 @@ export namespace DeleteRepoRequest {
     export type AsObject = {
         repo?: Repo.AsObject,
         force: boolean,
-        all: boolean,
     }
 }
 
@@ -682,10 +591,6 @@ export class StartCommitRequest extends jspb.Message {
     clearBranch(): void;
     getBranch(): Branch | undefined;
     setBranch(value?: Branch): StartCommitRequest;
-    clearProvenanceList(): void;
-    getProvenanceList(): Array<CommitProvenance>;
-    setProvenanceList(value: Array<CommitProvenance>): StartCommitRequest;
-    addProvenance(value?: CommitProvenance, index?: number): CommitProvenance;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): StartCommitRequest.AsObject;
@@ -702,7 +607,6 @@ export namespace StartCommitRequest {
         parent?: Commit.AsObject,
         description: string,
         branch?: Branch.AsObject,
-        provenanceList: Array<CommitProvenance.AsObject>,
     }
 }
 
@@ -744,8 +648,8 @@ export class InspectCommitRequest extends jspb.Message {
     clearCommit(): void;
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): InspectCommitRequest;
-    getBlockState(): CommitState;
-    setBlockState(value: CommitState): InspectCommitRequest;
+    getBlock(): CommitState;
+    setBlock(value: CommitState): InspectCommitRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectCommitRequest.AsObject;
@@ -760,7 +664,7 @@ export class InspectCommitRequest extends jspb.Message {
 export namespace InspectCommitRequest {
     export type AsObject = {
         commit?: Commit.AsObject,
-        blockState: CommitState,
+        block: CommitState,
     }
 }
 
@@ -805,75 +709,52 @@ export namespace ListCommitRequest {
     }
 }
 
-export class CommitInfos extends jspb.Message { 
-    clearCommitInfoList(): void;
-    getCommitInfoList(): Array<CommitInfo>;
-    setCommitInfoList(value: Array<CommitInfo>): CommitInfos;
-    addCommitInfo(value?: CommitInfo, index?: number): CommitInfo;
+export class InspectCommitsetRequest extends jspb.Message { 
+
+    hasCommitset(): boolean;
+    clearCommitset(): void;
+    getCommitset(): Commitset | undefined;
+    setCommitset(value?: Commitset): InspectCommitsetRequest;
+    getBlock(): boolean;
+    setBlock(value: boolean): InspectCommitsetRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): CommitInfos.AsObject;
-    static toObject(includeInstance: boolean, msg: CommitInfos): CommitInfos.AsObject;
+    toObject(includeInstance?: boolean): InspectCommitsetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InspectCommitsetRequest): InspectCommitsetRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: CommitInfos, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): CommitInfos;
-    static deserializeBinaryFromReader(message: CommitInfos, reader: jspb.BinaryReader): CommitInfos;
+    static serializeBinaryToWriter(message: InspectCommitsetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InspectCommitsetRequest;
+    static deserializeBinaryFromReader(message: InspectCommitsetRequest, reader: jspb.BinaryReader): InspectCommitsetRequest;
 }
 
-export namespace CommitInfos {
+export namespace InspectCommitsetRequest {
     export type AsObject = {
-        commitInfoList: Array<CommitInfo.AsObject>,
+        commitset?: Commitset.AsObject,
+        block: boolean,
     }
 }
 
-export class SquashCommitRequest extends jspb.Message { 
+export class SquashCommitsetRequest extends jspb.Message { 
 
-    hasCommit(): boolean;
-    clearCommit(): void;
-    getCommit(): Commit | undefined;
-    setCommit(value?: Commit): SquashCommitRequest;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SquashCommitRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: SquashCommitRequest): SquashCommitRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SquashCommitRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SquashCommitRequest;
-    static deserializeBinaryFromReader(message: SquashCommitRequest, reader: jspb.BinaryReader): SquashCommitRequest;
-}
-
-export namespace SquashCommitRequest {
-    export type AsObject = {
-        commit?: Commit.AsObject,
-    }
-}
-
-export class FlushCommitRequest extends jspb.Message { 
-    clearCommitsList(): void;
-    getCommitsList(): Array<Commit>;
-    setCommitsList(value: Array<Commit>): FlushCommitRequest;
-    addCommits(value?: Commit, index?: number): Commit;
-    clearToReposList(): void;
-    getToReposList(): Array<Repo>;
-    setToReposList(value: Array<Repo>): FlushCommitRequest;
-    addToRepos(value?: Repo, index?: number): Repo;
+    hasCommitset(): boolean;
+    clearCommitset(): void;
+    getCommitset(): Commitset | undefined;
+    setCommitset(value?: Commitset): SquashCommitsetRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): FlushCommitRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: FlushCommitRequest): FlushCommitRequest.AsObject;
+    toObject(includeInstance?: boolean): SquashCommitsetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SquashCommitsetRequest): SquashCommitsetRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: FlushCommitRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): FlushCommitRequest;
-    static deserializeBinaryFromReader(message: FlushCommitRequest, reader: jspb.BinaryReader): FlushCommitRequest;
+    static serializeBinaryToWriter(message: SquashCommitsetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SquashCommitsetRequest;
+    static deserializeBinaryFromReader(message: SquashCommitsetRequest, reader: jspb.BinaryReader): SquashCommitsetRequest;
 }
 
-export namespace FlushCommitRequest {
+export namespace SquashCommitsetRequest {
     export type AsObject = {
-        commitsList: Array<Commit.AsObject>,
-        toReposList: Array<Repo.AsObject>,
+        commitset?: Commitset.AsObject,
     }
 }
 
@@ -885,11 +766,6 @@ export class SubscribeCommitRequest extends jspb.Message {
     setRepo(value?: Repo): SubscribeCommitRequest;
     getBranch(): string;
     setBranch(value: string): SubscribeCommitRequest;
-
-    hasProv(): boolean;
-    clearProv(): void;
-    getProv(): CommitProvenance | undefined;
-    setProv(value?: CommitProvenance): SubscribeCommitRequest;
 
     hasFrom(): boolean;
     clearFrom(): void;
@@ -912,7 +788,6 @@ export namespace SubscribeCommitRequest {
     export type AsObject = {
         repo?: Repo.AsObject,
         branch: string,
-        prov?: CommitProvenance.AsObject,
         from?: Commit.AsObject,
         state: CommitState,
     }
@@ -961,6 +836,8 @@ export class CreateBranchRequest extends jspb.Message {
     clearTrigger(): void;
     getTrigger(): Trigger | undefined;
     setTrigger(value?: Trigger): CreateBranchRequest;
+    getNewCommitset(): boolean;
+    setNewCommitset(value: boolean): CreateBranchRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateBranchRequest.AsObject;
@@ -978,6 +855,7 @@ export namespace CreateBranchRequest {
         branch?: Branch.AsObject,
         provenanceList: Array<Branch.AsObject>,
         trigger?: Trigger.AsObject,
+        newCommitset: boolean,
     }
 }
 
@@ -1701,6 +1579,7 @@ export enum OriginKind {
     USER = 0,
     AUTO = 1,
     FSCK = 2,
+    ALIAS = 3,
 }
 
 export enum FileType {
