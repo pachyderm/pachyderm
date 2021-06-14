@@ -9986,7 +9986,7 @@ func TestListDeletedDatums(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobs))
 		id := jobs[0].Job.ID
-		info, err := c.BlockJob(pipeline, id, false)
+		info, err := c.WaitJob(pipeline, id, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, info.State)
 		datums, err := c.ListDatumAll(pipeline, id)
