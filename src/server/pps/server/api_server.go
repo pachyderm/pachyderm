@@ -501,7 +501,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(ppsdb.JobKey(request.Job), jobPtr); err != nil {
 		return nil, err
 	}
-	if request.Block {
+	if request.Wait {
 		watcher, err := jobs.WatchOne(ppsdb.JobKey(request.Job))
 		if err != nil {
 			return nil, err
@@ -582,8 +582,8 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 	// Note that while this will return jobs in the same topological sort as the
 	// commitset, it will block on commits that don't have a job associated with
 	// them (aliases and input commits, for example).
-	if request.Block {
-		return pachClient.BlockCommitset(request.Jobset.ID, cb)
+	if request.Wait {
+		return pachClient.WaitCommitset(request.Jobset.ID, cb)
 	}
 	commitInfos, err := pachClient.InspectCommitset(request.Jobset.ID)
 	if err != nil {
@@ -3107,7 +3107,7 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 		pachClient.Ctx(),
 		&pfs.InspectCommitRequest{
 			Commit: commit,
-			Block:  pfs.CommitState_STARTED,
+			Wait:   pfs.CommitState_STARTED,
 		})
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
