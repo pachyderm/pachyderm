@@ -62,7 +62,7 @@ class BaseDriver:
         host_path = Path("/var") / f"pachyderm-{secrets.token_hex(5)}"
         return ["local", "-d", "--no-guaranteed", f"--host-path={host_path}"]
 
-    async def deploy(self, builder_images):
+    async def deploy(self):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
 
         deployments_str = await capture(*deploy_args)
@@ -72,7 +72,7 @@ class BaseDriver:
 
         await asyncio.gather(*pull_images)
 
-        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local", *builder_images]
+        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
 
         await asyncio.gather(*[self.push_image(i) for i in push_images])
         await run("kubectl", "create", "-f", "-", stdin=deployments_str)
@@ -105,8 +105,8 @@ class MinikubeDriver(BaseDriver):
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
-    async def deploy(self, builder_images):
-        await super().deploy(builder_images)
+    async def deploy(self):
+        await super().deploy()
 
         # enable direct connect
         ip = (await capture("minikube", "ip")).strip()
@@ -283,6 +283,8 @@ async def main():
         run("make", "install"),
         driver.reset(),
     )
+
+    await driver.deploy()
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)

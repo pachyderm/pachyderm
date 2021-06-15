@@ -85,4 +85,7 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 	}).
 	Apply("license clusters client_id column", func(ctx context.Context, env migrations.Env) error {
 		return license.AddClusterClientIdColumn(ctx, env.Tx)
+	}).
+	Apply("identity config token lifetime", func(ctx context.Context, env migrations.Env) error {
+		return identity.AddTokenExpiryConfig(ctx, env.Tx)
 	})

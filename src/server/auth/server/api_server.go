@@ -569,7 +569,7 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 	}
 
 	return &auth.GetPermissionsResponse{
-		Roles:       request.roles(),
+		Roles:       request.rolesForResourceType(req.Resource.Type),
 		Permissions: request.satisfied(),
 	}, nil
 
@@ -637,7 +637,7 @@ func rolesFromRoleSlice(rs []string) (*auth.Roles, error) {
 	}
 
 	for _, r := range rs {
-		if _, err := permissionsForRole(r); err != nil {
+		if _, err := getRole(r); err != nil {
 			return nil, err
 		}
 	}

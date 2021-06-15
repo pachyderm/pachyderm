@@ -476,7 +476,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -512,7 +512,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// make sure the pipeline still runs (i.e. it's not running as alice)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.BlockCommit(pipeline, "master", commit.ID)
+		_, err := rootClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 }
@@ -555,7 +555,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -593,7 +593,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, rootClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.BlockCommit(pipeline, "master", commit.ID)
+		_, err := rootClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 }
@@ -1034,7 +1034,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -1096,7 +1096,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 
 	// Wait for pipeline to process input commit & go into standby
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := c.BlockCommit(pipeline, "master", "")
+		_, err := c.WaitCommit(pipeline, "master", "")
 		return err
 	})
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
@@ -1118,7 +1118,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	err = c.PutFile(client.NewCommit(repo, "master", ""), "/file.2", strings.NewReader("1"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := c.BlockCommit(pipeline, "master", "")
+		_, err := c.WaitCommit(pipeline, "master", "")
 		return err
 	})
 }
@@ -1219,7 +1219,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		_, err = aliceClient.BlockCommitsetAll(inputHead.Commit.ID)
+		_, err = aliceClient.WaitCommitsetAll(inputHead.Commit.ID)
 		return err
 	})
 
@@ -1238,7 +1238,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		false,
 	))
 	require.NoErrorWithinT(t, time.Minute, func() error {
-		_, err := aliceClient.BlockCommit(pipeline2, "master", "")
+		_, err := aliceClient.WaitCommit(pipeline2, "master", "")
 		return err
 	})
 	pipelineCommit := client.NewCommit(pipeline2, "master", "")
@@ -1298,7 +1298,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// make sure the pipeline either fails or restarts RC & finishes
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.BlockCommit(pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 

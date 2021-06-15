@@ -856,7 +856,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 //
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
-func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs.CommitState) (*pfs.CommitInfo, error) {
 	if commit.Branch.Repo.Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commit,
@@ -887,7 +887,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 	}
 
 	if commitInfo.Finished == nil {
-		switch blockState {
+		switch wait {
 		case pfs.CommitState_READY:
 			for _, branch := range commitInfo.DirectProvenance {
 				if _, err := d.inspectCommit(ctx, branch.NewCommit(commit.ID), pfs.CommitState_FINISHED); err != nil {
@@ -1235,7 +1235,7 @@ func (d *driver) inspectCommitsetImmediate(txnCtx *txncontext.TransactionContext
 	return result, nil
 }
 
-func (d *driver) inspectCommitset(ctx context.Context, commitset *pfs.Commitset, block bool, cb func(*pfs.CommitInfo) error) error {
+func (d *driver) inspectCommitset(ctx context.Context, commitset *pfs.Commitset, wait bool, cb func(*pfs.CommitInfo) error) error {
 	sent := map[string]struct{}{}
 
 	// The commits in this Commitset may change if any triggers or CreateBranches
@@ -1254,7 +1254,7 @@ reloadCommitset:
 		reload := false
 		for _, commitInfo := range commitInfos {
 			// If we aren't blocking, we can just loop over everything once and return
-			if block {
+			if wait {
 				if _, ok := sent[pfsdb.CommitKey(commitInfo.Commit)]; ok {
 					continue
 				}

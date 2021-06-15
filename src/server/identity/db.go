@@ -32,3 +32,11 @@ CREATE TABLE IF NOT EXISTS identity.config (
 `)
 	return err
 }
+
+// AddTokenExpiryConfig adds expiry fields for token lifespan to the server config
+func AddTokenExpiryConfig(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+ALTER TABLE identity.config ADD COLUMN
+	id_token_expiry VARCHAR(4096)`)
+	return err
+}
