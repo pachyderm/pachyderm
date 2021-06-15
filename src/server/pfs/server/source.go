@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -21,14 +20,13 @@ type Source interface {
 }
 
 type source struct {
-	storage    *chunk.Storage
 	commitInfo *pfs.CommitInfo
 	fileSet    fileset.FileSet
 	full       bool
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
-func NewSource(storage *chunk.Storage, commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
+func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
 	sc := &sourceConfig{}
 	for _, opt := range opts {
 		opt(sc)
@@ -38,7 +36,6 @@ func NewSource(storage *chunk.Storage, commitInfo *pfs.CommitInfo, fs fileset.Fi
 		fs = sc.filter(fs)
 	}
 	return &source{
-		storage:    storage,
 		commitInfo: commitInfo,
 		fileSet:    fs,
 		full:       sc.full,

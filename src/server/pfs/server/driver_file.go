@@ -187,7 +187,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {
 			}, true)
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	return NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file}), nil
 }
 
@@ -208,7 +208,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 			})
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	var ret *pfs.FileInfo
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
@@ -246,7 +246,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, cb fun
 			})
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(name, cleanPath(fi.File.Path)) {
 			return cb(fi)
@@ -271,7 +271,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 			})
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)
@@ -296,7 +296,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 			}, true)
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if mf(fi.File.Path) {
 			return cb(fi)
@@ -365,7 +365,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 				})
 			}),
 		}
-		old = NewSource(d.storage.ChunkStorage(), oldCommitInfo, fs, opts...)
+		old = NewSource(oldCommitInfo, fs, opts...)
 	}
 	newCommitInfo, fs, err := d.openCommit(ctx, newCommit, index.WithPrefix(newName), index.WithTag(newFile.Tag))
 	if err != nil {
@@ -379,7 +379,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 			})
 		}),
 	}
-	new := NewSource(d.storage.ChunkStorage(), newCommitInfo, fs, opts...)
+	new := NewSource(newCommitInfo, fs, opts...)
 	diff := NewDiffer(old, new)
 	return diff.Iterate(ctx, cb)
 }
