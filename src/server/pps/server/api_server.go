@@ -85,10 +85,6 @@ func newErrPipelineExists(pipeline string) error {
 	return errors.Errorf("pipeline %v already exists", pipeline)
 }
 
-func newErrPipelineUpdate(pipeline string, reason string) error {
-	return errors.Errorf("pipeline %v update error: %s", pipeline, reason)
-}
-
 // apiServer implements the public interface of the Pachyderm Pipeline System,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
@@ -815,9 +811,8 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.StoredJobInf
 		result.ResourceLimits = pipelineInfo.ResourceLimits
 		result.SidecarResourceLimits = pipelineInfo.SidecarResourceLimits
 		result.Input = ppsutil.JobInput(pipelineInfo, result.OutputCommit)
-		result.EnableStats = pipelineInfo.EnableStats
 		result.Salt = pipelineInfo.Salt
-		result.ChunkSpec = pipelineInfo.ChunkSpec
+		result.DatumSetSpec = pipelineInfo.DatumSetSpec
 		result.DatumTimeout = pipelineInfo.DatumTimeout
 		result.JobTimeout = pipelineInfo.JobTimeout
 		result.DatumTries = pipelineInfo.DatumTries
@@ -1437,9 +1432,6 @@ func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps
 	if request.CacheSize != "" {
 		return nil, errors.Errorf("CacheSize not implemented")
 	}
-	if request.Service == nil && request.Spout == nil {
-		request.EnableStats = true
-	}
 	if request.MaxQueueSize != 0 {
 		return nil, errors.Errorf("MaxQueueSize not implemented")
 	}
@@ -1544,9 +1536,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 		}
 	}
 	if pipelineInfo.Spout != nil {
-		if pipelineInfo.EnableStats {
-			return errors.Errorf("spouts are not allowed to have a stats branch")
-		}
 		if pipelineInfo.Spout.Service == nil && pipelineInfo.Input != nil {
 			return errors.Errorf("spout pipelines (without a service) must not have an input")
 		}
@@ -1816,12 +1805,11 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		SidecarResourceLimits: request.SidecarResourceLimits,
 		Description:           request.Description,
 		CacheSize:             request.CacheSize,
-		EnableStats:           request.EnableStats,
 		Salt:                  request.Salt,
 		MaxQueueSize:          request.MaxQueueSize,
 		Service:               request.Service,
 		Spout:                 request.Spout,
-		ChunkSpec:             request.ChunkSpec,
+		DatumSetSpec:          request.DatumSetSpec,
 		DatumTimeout:          request.DatumTimeout,
 		JobTimeout:            request.JobTimeout,
 		Standby:               request.Standby,
@@ -1854,10 +1842,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		}
 		if !request.Reprocess {
 			pipelineInfo.Salt = oldPipelineInfo.Salt
-		}
-		// Cannot disable stats after it has been enabled.
-		if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
-			return nil, newErrPipelineUpdate(pipelineInfo.Pipeline.Name, "cannot disable stats")
 		}
 	}
 
@@ -2207,7 +2191,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return errors.Wrapf(visitErr, "could not create/update trigger branch")
 	}
 
-	if newPipelineInfo.EnableStats {
+	if request.Service == nil && request.Spout == nil {
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
 			Repo:        statsBranch.Repo,
 			Description: fmt.Sprint("Meta repo for", pipelineName),

@@ -1095,7 +1095,6 @@ func TestRunPipeline(t *testing.T) {
 	//					"echo ran-pipeline",
 	//				},
 	//			},
-	//			EnableStats: true,
 	//			Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
 	//		})
 	//	require.NoError(t, err)
@@ -2625,9 +2624,8 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 					Cmd:   []string{"bash"},
 					Stdin: []string{"sleep 1"},
 				},
-				Input:       client.NewPFSInput(dataRepo, "/*"),
-				Update:      true,
-				EnableStats: true,
+				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Update: true,
 			})
 		require.NoError(t, err)
 	}
@@ -3835,15 +3833,6 @@ func TestStopJob(t *testing.T) {
 }
 
 func TestGetLogs(t *testing.T) {
-	testGetLogs(t, false)
-}
-
-func TestGetLogsWithStats(t *testing.T) {
-	t.Skip("no logs with stats")
-	testGetLogs(t, true)
-}
-
-func testGetLogs(t *testing.T, enableStats bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3871,8 +3860,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 					"echo %s", // %s tests a formatting bug we had (#2729)
 				},
 			},
-			Input:       client.NewPFSInput(dataRepo, "/*"),
-			EnableStats: enableStats,
+			Input: client.NewPFSInput(dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -5425,7 +5413,6 @@ func TestPipelineWithStats(t *testing.T) {
 	//			},
 	//		},
 	//		Input:       client.NewPFSInput(dataRepo, "/*"),
-	//		EnableStats: true,
 	//		ParallelismSpec: &pps.ParallelismSpec{
 	//			Constant: 4,
 	//		},
@@ -5507,7 +5494,6 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	//				},
 	//			},
 	//			Input:       client.NewPFSInput(dataRepo, "/*"),
-	//			EnableStats: true,
 	//			ParallelismSpec: &pps.ParallelismSpec{
 	//				Constant: 4,
 	//			},
@@ -5575,7 +5561,6 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	//				},
 	//			},
 	//			Input:       client.NewPFSInput(dataRepo, "/*"),
-	//			EnableStats: true,
 	//			ParallelismSpec: &pps.ParallelismSpec{
 	//				Constant: 4,
 	//			},
@@ -5652,7 +5637,6 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	//				},
 	//			},
 	//			Input:       client.NewPFSInput(dataRepo, "/*"),
-	//			EnableStats: true,
 	//			ParallelismSpec: &pps.ParallelismSpec{
 	//				Constant: 1,
 	//			},
@@ -5748,7 +5732,6 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	//				},
 	//			},
 	//			Input:       client.NewPFSInput(dataRepo, "/*"),
-	//			EnableStats: true,
 	//			ParallelismSpec: &pps.ParallelismSpec{
 	//				Constant: 1,
 	//			},
@@ -5836,8 +5819,7 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
 			},
-			Input:       client.NewPFSInput(dataRepo, "/*"),
-			EnableStats: true,
+			Input: client.NewPFSInput(dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
@@ -5854,7 +5836,6 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 					Glob:     "/*",
 				},
 			},
-			EnableStats: true,
 		})
 	require.NoError(t, err)
 
@@ -5895,8 +5876,7 @@ func TestSkippedDatums(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input:       client.NewPFSInput(dataRepo, "/*"),
-			EnableStats: true,
+			Input: client.NewPFSInput(dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -6493,7 +6473,7 @@ func TestMaxQueueSize(t *testing.T) {
 				Constant: 2,
 			},
 			MaxQueueSize: 1,
-			ChunkSpec: &pps.ChunkSpec{
+			DatumSetSpec: &pps.DatumSetSpec{
 				Number: 10,
 			},
 		})
@@ -6888,7 +6868,7 @@ func TestServiceEnvVars(t *testing.T) {
 	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
 }
 
-func TestChunkSpec(t *testing.T) {
+func TestDatumSetSpec(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -6896,7 +6876,7 @@ func TestChunkSpec(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestChunkSpec_data")
+	dataRepo := tu.UniqueString("TestDatumSetSpec_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -6908,7 +6888,7 @@ func TestChunkSpec(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	t.Run("number", func(t *testing.T) {
-		pipeline := tu.UniqueString("TestChunkSpec")
+		pipeline := tu.UniqueString("TestDatumSetSpec")
 		c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
@@ -6918,8 +6898,8 @@ func TestChunkSpec(t *testing.T) {
 						fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 					},
 				},
-				Input:     client.NewPFSInput(dataRepo, "/*"),
-				ChunkSpec: &pps.ChunkSpec{Number: 1},
+				Input:        client.NewPFSInput(dataRepo, "/*"),
+				DatumSetSpec: &pps.DatumSetSpec{Number: 1},
 			})
 
 		commitInfo, err := c.WaitCommit(pipeline, "master", "")
@@ -6932,7 +6912,7 @@ func TestChunkSpec(t *testing.T) {
 		}
 	})
 	t.Run("size", func(t *testing.T) {
-		pipeline := tu.UniqueString("TestChunkSpec")
+		pipeline := tu.UniqueString("TestDatumSetSpec")
 		c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
@@ -6942,8 +6922,8 @@ func TestChunkSpec(t *testing.T) {
 						fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 					},
 				},
-				Input:     client.NewPFSInput(dataRepo, "/*"),
-				ChunkSpec: &pps.ChunkSpec{SizeBytes: 5},
+				Input:        client.NewPFSInput(dataRepo, "/*"),
+				DatumSetSpec: &pps.DatumSetSpec{SizeBytes: 5},
 			})
 
 		commitInfo, err := c.WaitCommit(pipeline, "master", "")
@@ -7037,7 +7017,6 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 				},
 			},
 			Input:        client.NewPFSInput(dataRepo, "/*"),
-			EnableStats:  true,
 			DatumTimeout: types.DurationProto(duration),
 		},
 	)
@@ -7104,10 +7083,9 @@ func TestListDatumDuringJob(t *testing.T) {
 				},
 			},
 			Input:        client.NewPFSInput(dataRepo, "/*"),
-			EnableStats:  true,
 			DatumTimeout: types.DurationProto(duration),
-			ChunkSpec: &pps.ChunkSpec{
-				Number: 2, // since we set the ChunkSpec number to 2, we expect our datums to be processed in 5 chunks (10 files / 2 files per chunk)
+			DatumSetSpec: &pps.DatumSetSpec{
+				Number: 2, // since we set the DatumSetSpec number to 2, we expect our datums to be processed in 5 datum sets (10 files / 2 files per set)
 			},
 		},
 	)
@@ -7245,9 +7223,8 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input:       client.NewPFSInput(dataRepo, "/*"),
-			EnableStats: true,
-			JobTimeout:  types.DurationProto(duration),
+			Input:      client.NewPFSInput(dataRepo, "/*"),
+			JobTimeout: types.DurationProto(duration),
 		},
 	)
 	require.NoError(t, err)
@@ -7968,8 +7945,7 @@ func TestStatsDeleteAll(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
 			},
-			Input:       client.NewPFSInput(dataRepo, "/"),
-			EnableStats: true,
+			Input: client.NewPFSInput(dataRepo, "/"),
 		})
 	require.NoError(t, err)
 
@@ -7992,8 +7968,7 @@ func TestStatsDeleteAll(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
 			},
-			Input:       client.NewPFSInput(dataRepo, "/*"),
-			EnableStats: true,
+			Input: client.NewPFSInput(dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -8921,10 +8896,6 @@ func TestExtractPipeline(t *testing.T) {
 	//	// Update and reprocess don't get extracted back either so don't set it.
 	//	request.Update = false
 	//	request.Reprocess = false
-	//	// Spouts can't have stats, so disable stats in that case
-	//	if request.Spout != nil {
-	//		request.EnableStats = false
-	//	}
 	//
 	//	// Create the pipeline
 	//	_, err := c.PpsAPIClient.CreatePipeline(

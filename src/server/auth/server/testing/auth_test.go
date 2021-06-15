@@ -1705,7 +1705,6 @@ func TestInspectDatum(t *testing.T) {
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 			Input:           client.NewPFSInput(repo, "/*"),
-			EnableStats:     true,
 		})
 	require.NoError(t, err)
 
@@ -1859,7 +1858,6 @@ func TestInspectDatum(t *testing.T) {
 //			},
 //			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 //			Input:           client.NewPFSInput(repo, "/*"),
-//			EnableStats:     true,
 //		})
 //	require.NoError(t, err)
 //

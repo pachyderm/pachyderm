@@ -55,7 +55,6 @@ func TestPrometheusStats(t *testing.T) {
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
-			EnableStats:  true,
 		},
 	)
 	require.NoError(t, err)
@@ -251,7 +250,6 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
-			EnableStats:  true,
 		},
 	)
 	require.NoError(t, err)

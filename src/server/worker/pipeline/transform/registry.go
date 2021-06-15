@@ -38,7 +38,7 @@ import (
 // TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
 
 const (
-	defaultChunksPerWorker int64 = 4
+	defaultDatumSetsPerWorker int64 = 4
 )
 
 type hasher struct {
@@ -509,16 +509,16 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	// Set up the datum set spec for the job.
 	// When the datum set spec is not set, evenly distribute the datums.
 	var setSpec *datum.SetSpec
-	chunksPerWorker := defaultChunksPerWorker
-	if pj.driver.PipelineInfo().ChunkSpec != nil {
+	datumSetsPerWorker := defaultDatumSetsPerWorker
+	if pj.driver.PipelineInfo().DatumSetSpec != nil {
 		setSpec = &datum.SetSpec{
-			Number:    pj.driver.PipelineInfo().ChunkSpec.Number,
-			SizeBytes: pj.driver.PipelineInfo().ChunkSpec.SizeBytes,
+			Number:    pj.driver.PipelineInfo().DatumSetSpec.Number,
+			SizeBytes: pj.driver.PipelineInfo().DatumSetSpec.SizeBytes,
 		}
-		chunksPerWorker = pj.driver.PipelineInfo().ChunkSpec.ChunksPerWorker
+		datumSetsPerWorker = pj.driver.PipelineInfo().DatumSetSpec.PerWorker
 	}
 	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
-		setSpec = &datum.SetSpec{Number: numDatums / (int64(reg.concurrency) * chunksPerWorker)}
+		setSpec = &datum.SetSpec{Number: numDatums / (int64(reg.concurrency) * datumSetsPerWorker)}
 		if setSpec.Number == 0 {
 			setSpec.Number = 1
 		}
