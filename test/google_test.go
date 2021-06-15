@@ -75,13 +75,14 @@ func TestGoogleWorkerServiceAccount(t *testing.T) {
 
 func TestGoogleValues(t *testing.T) {
 	var (
-		bucket              = "fake-bucket"
-		cred                = `INSERT JSON HERE`
-		pachdServiceAccount = "128"
-		serviceAccount      = "a-service-account"
-		helmChartPath       = "../pachyderm"
-		provisioner         = "kubernetes.io/gce-pd"
-		checks              = map[string]bool{
+		bucket               = "fake-bucket"
+		cred                 = `INSERT JSON HERE`
+		pachdServiceAccount  = "128"
+		serviceAccount       = "a-service-account"
+		helmChartPath        = "../pachyderm"
+		provisioner          = "kubernetes.io/gce-pd"
+		expectedStorageClass = "etcd-storage-class"
+		checks               = map[string]bool{
 			"bucket":                false,
 			"cred":                  false,
 			"service account":       false,
@@ -208,13 +209,13 @@ func TestGoogleValues(t *testing.T) {
 				continue
 			}
 			for _, v := range resource.Spec.VolumeClaimTemplates {
-				if _, ok := v.Annotations["volume.beta.kubernetes.io/storage-class"]; !ok {
+				if *v.Spec.StorageClassName != expectedStorageClass {
 					continue
 				}
 				checks["volume claim template"] = true
 			}
 		case *storageV1.StorageClass:
-			if resource.Name != "etcd-storage-class" {
+			if resource.Name != expectedStorageClass {
 				continue
 			}
 			if resource.Provisioner != provisioner {

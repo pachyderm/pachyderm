@@ -114,15 +114,10 @@ func TestHub(t *testing.T) {
 				continue
 			}
 			for _, pvc := range object.Spec.VolumeClaimTemplates {
-				for k, v := range pvc.Annotations {
-					if k != "volume.beta.kubernetes.io/storage-class" {
-						continue
-					}
-					if v != "ssd-storage-class" {
-						t.Errorf("storage class is %q, not ssd-storage-class", v)
-					}
-					checks["etcd storage class"] = true
+				if *pvc.Spec.StorageClassName != "ssd-storage-class" {
+					t.Errorf("storage class is %q, not ssd-storage-class", *pvc.Spec.StorageClassName)
 				}
+				checks["etcd storage class"] = true
 			}
 			for _, cc := range object.Spec.Template.Spec.Containers {
 				if cc.Name != "etcd" {
