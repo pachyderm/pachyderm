@@ -8648,8 +8648,6 @@ func TestFileHistory(t *testing.T) {
 // pipelines can be created (i.e. that the PPS master doesn't crashloop due to
 // the missing output repo).
 func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
-	// TODO(required 2.0)
-	t.Skip("Broken as of global IDs, needs investigation")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8718,16 +8716,12 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	// the pipeline either restarts the RC and recreates the output repo, or fails
 	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "/file.2", strings.NewReader("2"), client.WithAppendPutFile()))
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		// TODO(msteffen): While not currently possible, PFS could return
-		// CommitDeleted here. This should detect that error, but first:
-		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
-		//   handling code)
-		// - packages depending on that code should be migrated
-		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if _, err := c.WaitCommit(pipeline, "master", ""); err != nil {
-			return errors.Wrapf(err, "unexpected error value")
+		inputHead, err := c.InspectCommit(repo, "master", "")
+		if err != nil {
+			return err
 		}
-		return nil
+		_, err = c.WaitCommitsetAll(inputHead.Commit.ID)
+		return err
 	})
 
 	// Create a new pipeline, make sure WaitCommit eventually returns, and check
