@@ -1219,7 +1219,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		_, err = aliceClient.WaitCommitsetAll(inputHead.Commit.ID)
+		_, err = aliceClient.WaitCommitSetAll(inputHead.Commit.ID)
 		return err
 	})
 

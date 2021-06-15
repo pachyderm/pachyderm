@@ -8720,7 +8720,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		_, err = c.WaitCommitsetAll(inputHead.Commit.ID)
+		_, err = c.WaitCommitSetAll(inputHead.Commit.ID)
 		return err
 	})
 
