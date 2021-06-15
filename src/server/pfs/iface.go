@@ -28,5 +28,5 @@ type APIServer interface {
 	InspectBranchInTransaction(*txncontext.TransactionContext, *pfs_client.InspectBranchRequest) (*pfs_client.BranchInfo, error)
 	DeleteBranchInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteBranchRequest) error
 
-	AddFilesetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFilesetRequest) error
+	AddFileSetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFileSetRequest) error
 }

@@ -5424,7 +5424,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		fsclient, err := env.PachClient.NewCreateFilesetClient()
+		fsclient, err := env.PachClient.NewCreateFileSetClient()
 		require.NoError(t, err)
 		data := []byte("test data")
 		spec := fileSetSpec{
@@ -5434,9 +5434,9 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, fsclient.PutFileTar(spec.makeTarStream()))
 		resp, err := fsclient.Close()
 		require.NoError(t, err)
-		t.Logf("tmp fileset id: %s", resp.FilesetId)
-		require.NoError(t, env.PachClient.RenewFileSet(resp.FilesetId, 60*time.Second))
-		fis, err := env.PachClient.ListFileAll(client.NewCommit(client.FileSetsRepoName, "", resp.FilesetId), "/")
+		t.Logf("tmp fileset id: %s", resp.FileSetId)
+		require.NoError(t, env.PachClient.RenewFileSet(resp.FileSetId, 60*time.Second))
+		fis, err := env.PachClient.ListFileAll(client.NewCommit(client.FileSetsRepoName, "", resp.FileSetId), "/")
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 	})

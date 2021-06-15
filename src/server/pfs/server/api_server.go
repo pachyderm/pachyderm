@@ -740,63 +740,63 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	return nil
 }
 
-// CreateFileset implements the pfs.CreateFileset RPC
-func (a *apiServer) CreateFileset(server pfs.API_CreateFilesetServer) (retErr error) {
+// CreateFileSet implements the pfs.CreateFileSet RPC
+func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr error) {
 	request, err := server.Recv()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
-	fsID, err := a.driver.createFileset(server.Context(), func(uw *fileset.UnorderedWriter) error {
+	fsID, err := a.driver.createFileSet(server.Context(), func(uw *fileset.UnorderedWriter) error {
 		_, err := a.modifyFile(server.Context(), uw, server, request)
 		return err
 	})
 	if err != nil {
 		return err
 	}
-	return server.SendAndClose(&pfs.CreateFilesetResponse{
-		FilesetId: fsID.HexString(),
+	return server.SendAndClose(&pfs.CreateFileSetResponse{
+		FileSetId: fsID.HexString(),
 	})
 }
 
-func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error) {
-	filesetID, err := a.driver.getFileset(ctx, req.Commit)
+func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error) {
+	filesetID, err := a.driver.getFileSet(ctx, req.Commit)
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.CreateFilesetResponse{
-		FilesetId: filesetID.HexString(),
+	return &pfs.CreateFileSetResponse{
+		FileSetId: filesetID.HexString(),
 	}, nil
 }
 
-func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
+func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (*types.Empty, error) {
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.AddFilesetInTransaction(txnCtx, req)
+		return a.AddFileSetInTransaction(txnCtx, req)
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) AddFilesetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.AddFilesetRequest) error {
-	fsid, err := fileset.ParseID(request.FilesetId)
+func (a *apiServer) AddFileSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.AddFileSetRequest) error {
+	fsid, err := fileset.ParseID(request.FileSetId)
 	if err != nil {
 		return err
 	}
-	if err := a.driver.addFileset(txnCtx, request.Commit, *fsid); err != nil {
+	if err := a.driver.addFileSet(txnCtx, request.Commit, *fsid); err != nil {
 		return err
 	}
 	return nil
 }
 
-// RenewFileset implements the pfs.RenewFileset RPC
-func (a *apiServer) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest) (*types.Empty, error) {
-	fsid, err := fileset.ParseID(req.FilesetId)
+// RenewFileSet implements the pfs.RenewFileSet RPC
+func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (*types.Empty, error) {
+	fsid, err := fileset.ParseID(req.FileSetId)
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.renewFileset(ctx, *fsid, time.Duration(req.TtlSeconds)*time.Second); err != nil {
+	if err := a.driver.renewFileSet(ctx, *fsid, time.Duration(req.TtlSeconds)*time.Second); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

@@ -178,7 +178,7 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 			if response.CreatePipelineResponse == nil {
 				response.CreatePipelineResponse = &transaction.CreatePipelineTransactionResponse{}
 			}
-			filesetID := &response.CreatePipelineResponse.FilesetId
+			filesetID := &response.CreatePipelineResponse.FileSetId
 			prevPipelineVersion := &response.CreatePipelineResponse.PrevPipelineVersion
 
 			// CreatePipeline may update the fileset and prevPipelineVersion even if

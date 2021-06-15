@@ -556,21 +556,21 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 						if err != nil {
 							return err
 						}
-						renewer.Remove(data.FilesetId)
-						if _, err := pachClient.PfsAPIClient.AddFileset(
+						renewer.Remove(data.FileSetId)
+						if _, err := pachClient.PfsAPIClient.AddFileSet(
 							pachClient.Ctx(),
-							&pfs.AddFilesetRequest{
+							&pfs.AddFileSetRequest{
 								Commit:    pj.commitInfo.Commit,
-								FilesetId: data.OutputFilesetId,
+								FileSetId: data.OutputFileSetId,
 							},
 						); err != nil {
 							return grpcutil.ScrubGRPC(err)
 						}
-						if _, err := pachClient.PfsAPIClient.AddFileset(
+						if _, err := pachClient.PfsAPIClient.AddFileSet(
 							pachClient.Ctx(),
-							&pfs.AddFilesetRequest{
+							&pfs.AddFileSetRequest{
 								Commit:    pj.metaCommitInfo.Commit,
-								FilesetId: data.MetaFilesetId,
+								FileSetId: data.MetaFileSetId,
 							},
 						); err != nil {
 							return grpcutil.ScrubGRPC(err)
@@ -605,19 +605,19 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 }
 
 func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(client.ModifyFile) error, renewer *renew.StringSet) (*work.Task, error) {
-	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		return upload(mf)
 	})
 	if err != nil {
 		return nil, err
 	}
-	renewer.Add(resp.FilesetId)
+	renewer.Add(resp.FileSetId)
 	data, err := serializeDatumSet(&DatumSet{
 		JobID:        pj.ji.Job.ID,
 		OutputCommit: pj.commitInfo.Commit,
 		// TODO: It might make sense for this to be a hash of the constituent datums?
 		// That could make it possible to recover from a master restart.
-		FilesetId: resp.FilesetId,
+		FileSetId: resp.FileSetId,
 	})
 	if err != nil {
 		return nil, err

@@ -112,25 +112,25 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient = pachClient.WithCtx(ctx)
 		// Upload the datums from the current job and parent job datum iterators into the datum fileset format.
-		filesetID, err := jdi.uploadDatumFileset(pachClient, jdi.dit)
+		filesetID, err := jdi.uploadDatumFileSet(pachClient, jdi.dit)
 		if err != nil {
 			return err
 		}
 		renewer.Add(filesetID)
-		parentFilesetID, err := jdi.uploadDatumFileset(pachClient, jdi.parent.dit)
+		parentFileSetID, err := jdi.uploadDatumFileSet(pachClient, jdi.parent.dit)
 		if err != nil {
 			return err
 		}
-		renewer.Add(parentFilesetID)
+		renewer.Add(parentFileSetID)
 		// Create the output datum fileset for the new datums (datums that do not exist in the parent job).
 		// TODO: Logging?
-		var outputFilesetID string
-		skippedFilesetID, err := jdi.withDatumFileset(pachClient, func(skippedSet *datum.Set) error {
+		var outputFileSetID string
+		skippedFileSetID, err := jdi.withDatumFileSet(pachClient, func(skippedSet *datum.Set) error {
 			filesetIterator := datum.NewFileSetIterator(pachClient, filesetID)
-			parentFilesetIterator := datum.NewFileSetIterator(pachClient, parentFilesetID)
+			parentFileSetIterator := datum.NewFileSetIterator(pachClient, parentFileSetID)
 			var err error
-			if outputFilesetID, err = jdi.withDatumFileset(pachClient, func(outputSet *datum.Set) error {
-				return datum.Merge([]datum.Iterator{parentFilesetIterator, filesetIterator}, func(metas []*datum.Meta) error {
+			if outputFileSetID, err = jdi.withDatumFileSet(pachClient, func(outputSet *datum.Set) error {
+				return datum.Merge([]datum.Iterator{parentFileSetIterator, filesetIterator}, func(metas []*datum.Meta) error {
 					if len(metas) == 1 {
 						if !proto.Equal(metas[0].Job, jdi.job) {
 							return nil
@@ -146,14 +146,14 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 			}); err != nil {
 				return err
 			}
-			renewer.Add(outputFilesetID)
+			renewer.Add(outputFileSetID)
 			return nil
 		})
 		if err != nil {
 			return err
 		}
-		renewer.Add(skippedFilesetID)
-		if err := datum.NewFileSetIterator(pachClient, outputFilesetID).Iterate(cb); err != nil {
+		renewer.Add(skippedFileSetID)
+		if err := datum.NewFileSetIterator(pachClient, outputFileSetID).Iterate(cb); err != nil {
 			return err
 		}
 		select {
@@ -163,9 +163,9 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 		}
 		// Create the output datum fileset for the skipped datums that were not processed by the parent (failed, recovered, etc.).
 		// Also create deletion operations appropriately.
-		skippedFilesetIterator := datum.NewFileSetIterator(pachClient, skippedFilesetID)
-		outputFilesetID, err = jdi.withDatumFileset(pachClient, func(s *datum.Set) error {
-			return datum.Merge([]datum.Iterator{jdi.parent.outputDit, skippedFilesetIterator}, func(metas []*datum.Meta) error {
+		skippedFileSetIterator := datum.NewFileSetIterator(pachClient, skippedFileSetID)
+		outputFileSetID, err = jdi.withDatumFileSet(pachClient, func(s *datum.Set) error {
+			return datum.Merge([]datum.Iterator{jdi.parent.outputDit, skippedFileSetIterator}, func(metas []*datum.Meta) error {
 				if len(metas) == 1 {
 					// Datum was skipped, but does not exist in the parent job output.
 					if proto.Equal(metas[0].Job, jdi.job) {
@@ -189,28 +189,28 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 		if err != nil {
 			return err
 		}
-		renewer.Add(outputFilesetID)
-		return datum.NewFileSetIterator(pachClient, outputFilesetID).Iterate(cb)
+		renewer.Add(outputFileSetID)
+		return datum.NewFileSetIterator(pachClient, outputFileSetID).Iterate(cb)
 	})
 }
 
-func (jdi *JobDatumIterator) uploadDatumFileset(pachClient *client.APIClient, dit datum.Iterator) (string, error) {
-	return jdi.withDatumFileset(pachClient, func(s *datum.Set) error {
+func (jdi *JobDatumIterator) uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, error) {
+	return jdi.withDatumFileSet(pachClient, func(s *datum.Set) error {
 		return dit.Iterate(func(meta *datum.Meta) error {
 			return s.UploadMeta(meta)
 		})
 	})
 }
 
-func (jdi *JobDatumIterator) withDatumFileset(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
-	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
+func (jdi *JobDatumIterator) withDatumFileSet(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
 		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(mf))
 	})
 	if err != nil {
 		return "", err
 	}
-	return resp.FilesetId, nil
+	return resp.FileSetId, nil
 }
 
 func (jdi *JobDatumIterator) deleteDatum(meta *datum.Meta) error {

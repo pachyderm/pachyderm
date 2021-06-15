@@ -397,7 +397,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 	// and then delete them
 	for _, ci := range commitInfos {
-		if err := d.commitStore.DropFilesetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
+		if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
 			return err
 		}
 	}
@@ -1297,7 +1297,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 		}
 
 		// Delete the commit's filesets
-		if err := d.commitStore.DropFilesetsTx(txnCtx.SqlTx, commitInfo.Commit); err != nil {
+		if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, commitInfo.Commit); err != nil {
 			return err
 		}
 
@@ -1466,7 +1466,7 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 	if commitInfo.Finished != nil {
 		return errors.Errorf("cannot clear finished commit")
 	}
-	return d.commitStore.DropFilesets(ctx, commit)
+	return d.commitStore.DropFileSets(ctx, commit)
 }
 
 // createBranch creates a new branch or updates an existing branch (must be one

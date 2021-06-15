@@ -146,10 +146,10 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/DiffFile":         authDisabledOr(authenticated),
 	"/pfs_v2.API/DeleteAll":        authDisabledOr(authenticated),
 	"/pfs_v2.API/Fsck":             authDisabledOr(authenticated),
-	"/pfs_v2.API/CreateFileset":    authDisabledOr(authenticated),
-	"/pfs_v2.API/GetFileset":       authDisabledOr(authenticated),
-	"/pfs_v2.API/AddFileset":       authDisabledOr(authenticated),
-	"/pfs_v2.API/RenewFileset":     authDisabledOr(authenticated),
+	"/pfs_v2.API/CreateFileSet":    authDisabledOr(authenticated),
+	"/pfs_v2.API/GetFileSet":       authDisabledOr(authenticated),
+	"/pfs_v2.API/AddFileSet":       authDisabledOr(authenticated),
+	"/pfs_v2.API/RenewFileSet":     authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTest":      authDisabledOr(authenticated),
 
 	//

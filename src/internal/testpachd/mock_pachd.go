@@ -421,10 +421,10 @@ type globFileFunc func(*pfs.GlobFileRequest, pfs.API_GlobFileServer) error
 type diffFileFunc func(*pfs.DiffFileRequest, pfs.API_DiffFileServer) error
 type deleteAllPFSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
-type createFilesetFunc func(pfs.API_CreateFilesetServer) error
-type addFilesetFunc func(context.Context, *pfs.AddFilesetRequest) (*types.Empty, error)
-type getFilesetFunc func(context.Context, *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error)
-type renewFilesetFunc func(context.Context, *pfs.RenewFilesetRequest) (*types.Empty, error)
+type createFileSetFunc func(pfs.API_CreateFileSetServer) error
+type addFileSetFunc func(context.Context, *pfs.AddFileSetRequest) (*types.Empty, error)
+type getFileSetFunc func(context.Context, *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error)
+type renewFileSetFunc func(context.Context, *pfs.RenewFileSetRequest) (*types.Empty, error)
 type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
@@ -453,10 +453,10 @@ type mockGlobFile struct{ handler globFileFunc }
 type mockDiffFile struct{ handler diffFileFunc }
 type mockDeleteAllPFS struct{ handler deleteAllPFSFunc }
 type mockFsck struct{ handler fsckFunc }
-type mockCreateFileset struct{ handler createFilesetFunc }
-type mockAddFileset struct{ handler addFilesetFunc }
-type mockGetFileset struct{ handler getFilesetFunc }
-type mockRenewFileset struct{ handler renewFilesetFunc }
+type mockCreateFileSet struct{ handler createFileSetFunc }
+type mockAddFileSet struct{ handler addFileSetFunc }
+type mockGetFileSet struct{ handler getFileSetFunc }
+type mockRenewFileSet struct{ handler renewFileSetFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)   { mock.handler = cb }
@@ -485,10 +485,10 @@ func (mock *mockGlobFile) Use(cb globFileFunc)                 { mock.handler = 
 func (mock *mockDiffFile) Use(cb diffFileFunc)                 { mock.handler = cb }
 func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)         { mock.handler = cb }
 func (mock *mockFsck) Use(cb fsckFunc)                         { mock.handler = cb }
-func (mock *mockCreateFileset) Use(cb createFilesetFunc)       { mock.handler = cb }
-func (mock *mockAddFileset) Use(cb addFilesetFunc)             { mock.handler = cb }
-func (mock *mockGetFileset) Use(cb getFilesetFunc)             { mock.handler = cb }
-func (mock *mockRenewFileset) Use(cb renewFilesetFunc)         { mock.handler = cb }
+func (mock *mockCreateFileSet) Use(cb createFileSetFunc)       { mock.handler = cb }
+func (mock *mockAddFileSet) Use(cb addFileSetFunc)             { mock.handler = cb }
+func (mock *mockGetFileSet) Use(cb getFileSetFunc)             { mock.handler = cb }
+func (mock *mockRenewFileSet) Use(cb renewFileSetFunc)         { mock.handler = cb }
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)           { mock.handler = cb }
 
 type pfsServerAPI struct {
@@ -523,10 +523,10 @@ type mockPFSServer struct {
 	DiffFile         mockDiffFile
 	DeleteAll        mockDeleteAllPFS
 	Fsck             mockFsck
-	CreateFileset    mockCreateFileset
-	AddFileset       mockAddFileset
-	GetFileset       mockGetFileset
-	RenewFileset     mockRenewFileset
+	CreateFileSet    mockCreateFileSet
+	AddFileSet       mockAddFileSet
+	GetFileSet       mockGetFileSet
+	RenewFileSet     mockRenewFileSet
 	RunLoadTest      mockRunLoadTest
 }
 
@@ -686,29 +686,29 @@ func (api *pfsServerAPI) Fsck(req *pfs.FsckRequest, serv pfs.API_FsckServer) err
 	}
 	return errors.Errorf("unhandled pachd mock pfs.Fsck")
 }
-func (api *pfsServerAPI) CreateFileset(srv pfs.API_CreateFilesetServer) error {
-	if api.mock.CreateFileset.handler != nil {
-		return api.mock.CreateFileset.handler(srv)
+func (api *pfsServerAPI) CreateFileSet(srv pfs.API_CreateFileSetServer) error {
+	if api.mock.CreateFileSet.handler != nil {
+		return api.mock.CreateFileSet.handler(srv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.CreateFileset")
+	return errors.Errorf("unhandled pachd mock pfs.CreateFileSet")
 }
-func (api *pfsServerAPI) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
-	if api.mock.AddFileset.handler != nil {
-		return api.mock.AddFileset.handler(ctx, req)
+func (api *pfsServerAPI) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (*types.Empty, error) {
+	if api.mock.AddFileSet.handler != nil {
+		return api.mock.AddFileSet.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileset")
+	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileSet")
 }
-func (api *pfsServerAPI) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error) {
-	if api.mock.AddFileset.handler != nil {
-		return api.mock.GetFileset.handler(ctx, req)
+func (api *pfsServerAPI) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error) {
+	if api.mock.AddFileSet.handler != nil {
+		return api.mock.GetFileSet.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileset")
+	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileSet")
 }
-func (api *pfsServerAPI) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest) (*types.Empty, error) {
-	if api.mock.RenewFileset.handler != nil {
-		return api.mock.RenewFileset.handler(ctx, req)
+func (api *pfsServerAPI) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (*types.Empty, error) {
+	if api.mock.RenewFileSet.handler != nil {
+		return api.mock.RenewFileSet.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.RenewFileset")
+	return nil, errors.Errorf("unhandled pachd mock pfs.RenewFileSet")
 }
 func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error) {
 	if api.mock.RunLoadTest.handler != nil {

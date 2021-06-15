@@ -1557,23 +1557,23 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-func (a *apiServer) writePipelineInfoToFileset(ctx context.Context, pipelineInfo *pps.PipelineInfo) (string, error) {
+func (a *apiServer) writePipelineInfoToFileSet(ctx context.Context, pipelineInfo *pps.PipelineInfo) (string, error) {
 	data, err := pipelineInfo.Marshal()
 	if err != nil {
 		return "", errors.Wrapf(err, "could not marshal PipelineInfo")
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		err := mf.PutFile(ppsconsts.SpecFile, bytes.NewReader(data))
 		return err
 	})
 	if err != nil {
 		return "", err
 	}
-	return resp.FilesetId, nil
+	return resp.FileSetId, nil
 }
 
-// commitPipelineInfoFromFileset is a helper for all pipeline updates that
+// commitPipelineInfoFromFileSet is a helper for all pipeline updates that
 // creates a commit with 'pipelineInfo' in SpecRepo (in PFS). It's called in
 // both the case where a user is updating a pipeline and the case where a user
 // is creating a new pipeline.
@@ -1581,7 +1581,7 @@ func (a *apiServer) writePipelineInfoToFileset(ctx context.Context, pipelineInfo
 // transactionality) the new pipelineInfo is only applied on top of the previous
 // pipelineInfo - if the version of the pipeline has changed, this operation
 // will error out.
-func (a *apiServer) commitPipelineInfoFromFileset(
+func (a *apiServer) commitPipelineInfoFromFileSet(
 	txnCtx *txncontext.TransactionContext,
 	pipelineName string,
 	filesetID string,
@@ -1605,9 +1605,9 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 		return nil, errors.Wrapf(err, "could not marshal PipelineInfo")
 	}
 
-	if err := a.env.PfsServer().AddFilesetInTransaction(txnCtx, &pfs.AddFilesetRequest{
+	if err := a.env.PfsServer().AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{
 		Commit:    commit,
-		FilesetId: filesetID,
+		FileSetId: filesetID,
 	}); err != nil {
 		return nil, err
 	}
@@ -1737,7 +1737,7 @@ func getExpectedNumWorkers(kc *kube.Clientset, pipelineInfo *pps.PipelineInfo) (
 //   pipeline's spec branch is in the pipeline output branch's provenance
 // - CreatePipeline will always create a new output commit, but that's done
 //   by CreateBranch at the bottom of the function, which sets the new output
-//   branch provenance, rather than commitPipelineInfoFromFileset higher up.
+//   branch provenance, rather than commitPipelineInfoFromFileSet higher up.
 // - This is because CreatePipeline calls hardStopPipeline towards the top,
 // 	 breaking the provenance connection from the spec branch to the output branch
 // - For straightforward pipeline updates (e.g. new pipeline image)
@@ -1892,7 +1892,7 @@ func (a *apiServer) pipelineInfosForUpdate(txnCtx *txncontext.TransactionContext
 func (a *apiServer) CreatePipelineInTransaction(
 	txnCtx *txncontext.TransactionContext,
 	request *pps.CreatePipelineRequest,
-	specFilesetID *string,
+	specFileSetID *string,
 	prevPipelineVersion *uint64,
 ) error {
 	oldPipelineInfo, newPipelineInfo, err := a.pipelineInfosForUpdate(txnCtx, request)
@@ -1901,26 +1901,26 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 	pipelineName := request.Pipeline.Name
 
-	if *specFilesetID != "" {
+	if *specFileSetID != "" {
 		// If we already have a fileset, try to renew it - if that fails, invalidate it
-		if err := a.env.GetPachClient(txnCtx.ClientContext).RenewFileSet(*specFilesetID, 600*time.Second); err != nil {
-			*specFilesetID = ""
+		if err := a.env.GetPachClient(txnCtx.ClientContext).RenewFileSet(*specFileSetID, 600*time.Second); err != nil {
+			*specFileSetID = ""
 		}
 	}
 
 	// If the expected pipeline version doesn't match up with oldPipelineInfo, we
 	// need to recreate the fileset
-	staleFileset := false
+	staleFileSet := false
 	if oldPipelineInfo == nil {
-		staleFileset = (*prevPipelineVersion != 0)
+		staleFileSet = (*prevPipelineVersion != 0)
 	} else {
-		staleFileset = oldPipelineInfo.Version != *prevPipelineVersion
+		staleFileSet = oldPipelineInfo.Version != *prevPipelineVersion
 	}
 
-	if staleFileset || *specFilesetID == "" {
+	if staleFileSet || *specFileSetID == "" {
 		// No existing fileset or the old one expired, create a new fileset - the
 		// pipeline spec to be written into a fileset outside of the transaction.
-		*specFilesetID, err = a.writePipelineInfoToFileset(txnCtx.ClientContext, newPipelineInfo)
+		*specFileSetID, err = a.writePipelineInfoToFileSet(txnCtx.ClientContext, newPipelineInfo)
 		if err != nil {
 			return err
 		}
@@ -2036,7 +2036,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		// There is, so we use that as the spec commit, rather than making a new one
 		specCommit = commitInfo.Commit
 	} else {
-		specCommit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineName, *specFilesetID, *prevPipelineVersion)
+		specCommit, err = a.commitPipelineInfoFromFileSet(txnCtx, pipelineName, *specFileSetID, *prevPipelineVersion)
 		if err != nil {
 			return err
 		}
