@@ -605,7 +605,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			prov, err := cmdutil.ParseCommitProvenances(args[1:])
+			prov, err := cmdutil.ParseCommits(args[1:])
 			if err != nil {
 				return err
 			}
