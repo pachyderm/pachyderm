@@ -6,7 +6,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
@@ -76,55 +75,4 @@ func (s *Storage) List(ctx context.Context, cb func(id ID) error) error {
 // NewDeleter creates a deleter for use with a tracker.GC
 func (s *Storage) NewDeleter() track.Deleter {
 	return &deleter{}
-}
-
-// StableHash returns a stable hash for a set of data refs.
-func (s *Storage) StableHash(ctx context.Context, dataRefs []*DataRef) ([]byte, error) {
-	if len(dataRefs) == 1 {
-		return dataRefs[0].Hash, nil
-	}
-	var cw *Writer
-	h := pachhash.New()
-	for i, dataRef := range dataRefs {
-		if cw != nil {
-			if err := cw.Copy(dataRef); err != nil {
-				return nil, err
-			}
-			if stableSplitPoint(dataRef) {
-				if err := cw.Close(); err != nil {
-					return nil, err
-				}
-				cw = nil
-			}
-			continue
-		}
-		if !stableSplitPoint(dataRef) && i != len(dataRefs)-1 {
-			cw = s.NewWriter(ctx, "resolve-writer", func(annotations []*Annotation) error {
-				if annotations[0].NextDataRef != nil {
-					_, err := h.Write(annotations[0].NextDataRef.Hash)
-					return err
-				}
-				return nil
-			}, WithNoUpload())
-			cw.Annotate(&Annotation{})
-			if err := cw.Copy(dataRef); err != nil {
-				return nil, err
-			}
-			continue
-		}
-		_, err := h.Write(dataRef.Hash)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if cw != nil {
-		if err := cw.Close(); err != nil {
-			return nil, err
-		}
-	}
-	return h.Sum(nil), nil
-}
-
-func stableSplitPoint(dataRef *DataRef) bool {
-	return !dataRef.Ref.Edge && dataRef.OffsetBytes+dataRef.SizeBytes == dataRef.Ref.SizeBytes
 }
