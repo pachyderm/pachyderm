@@ -314,11 +314,10 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		Spout:                 pipelineInfo.Spout,
 		SchedulingSpec:        pipelineInfo.SchedulingSpec,
 		DatumTries:            pipelineInfo.DatumTries,
-		Standby:               pipelineInfo.Standby,
 		S3Out:                 pipelineInfo.S3Out,
 		Metadata:              pipelineInfo.Metadata,
 		ReprocessSpec:         pipelineInfo.ReprocessSpec,
-		Autoscaling:           pipelineInfo.Autoscaling,
+		DisableAutoscaling:    pipelineInfo.DisableAutoscaling,
 	}
 }
 

@@ -326,9 +326,6 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 					metrics.PpsSpoutService++
 				}
 			}
-			if pi.Standby {
-				metrics.CfgStandby++
-			}
 			if pi.S3Out {
 				metrics.CfgS3Gateway++
 			}

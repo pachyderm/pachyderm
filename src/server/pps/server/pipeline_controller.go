@@ -520,7 +520,7 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 			return // prior attempt succeeded
 		}
 		rc.Spec.Replicas = new(int32)
-		if op.pipelineInfo.Autoscaling {
+		if !op.pipelineInfo.DisableAutoscaling {
 			*rc.Spec.Replicas = 1
 		} else {
 			*rc.Spec.Replicas = int32(parallelism)

@@ -1812,7 +1812,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		DatumSetSpec:          request.DatumSetSpec,
 		DatumTimeout:          request.DatumTimeout,
 		JobTimeout:            request.JobTimeout,
-		Standby:               request.Standby,
 		DatumTries:            request.DatumTries,
 		SchedulingSpec:        request.SchedulingSpec,
 		PodSpec:               request.PodSpec,
@@ -1820,7 +1819,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
 		ReprocessSpec:         request.ReprocessSpec,
-		Autoscaling:           request.Autoscaling,
+		DisableAutoscaling:    request.DisableAutoscaling,
 	}
 
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
