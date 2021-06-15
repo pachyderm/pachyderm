@@ -999,7 +999,10 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	// TODO: Auth?
 	if request.Input != nil {
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-			return server.Send(convertDatumMetaToInfo(meta))
+			meta.State = datum.State_UNPROCESSED
+			di := convertDatumMetaToInfo(meta)
+			di.Datum.ID = ""
+			return server.Send(di)
 		})
 	}
 	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
@@ -1057,6 +1060,8 @@ func convertDatumState(state datum.State) pps.DatumState {
 		return pps.DatumState_FAILED
 	case datum.State_RECOVERED:
 		return pps.DatumState_RECOVERED
+	case datum.State_UNPROCESSED:
+		return pps.DatumState_UNPROCESSED
 	default:
 		return pps.DatumState_SUCCESS
 	}
