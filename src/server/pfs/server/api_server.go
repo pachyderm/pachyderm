@@ -399,14 +399,12 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			}
 			return bytesRead, err
 		}
-		fmt.Println("got message")
 		switch mod := msg.Body.(type) {
 		case *pfs.ModifyFileRequest_AddFile:
 			var err error
 			var n int64
 			p := mod.AddFile.Path
 			t := mod.AddFile.Tag
-			fmt.Println("path: ", p, "tag: ", t)
 			switch src := mod.AddFile.Source.(type) {
 			case *pfs.AddFile_Raw:
 				n, err = putFileRaw(uw, p, t, src.Raw)
