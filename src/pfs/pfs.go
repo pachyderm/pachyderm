@@ -36,6 +36,13 @@ func DecodeHash(hash string) ([]byte, error) {
 	return hex.DecodeString(hash)
 }
 
+func (r *Repo) String() string {
+	if r.Type == UserRepoType {
+		return r.Name
+	}
+	return r.Name + "." + r.Type
+}
+
 func (r *Repo) NewBranch(name string) *Branch {
 	return &Branch{
 		Repo: proto.Clone(r).(*Repo),
@@ -57,9 +64,17 @@ func (c *Commit) NewFile(path string) *File {
 	}
 }
 
+func (c *Commit) String() string {
+	return c.Branch.String() + "=" + c.ID
+}
+
 func (b *Branch) NewCommit(id string) *Commit {
 	return &Commit{
 		Branch: proto.Clone(b).(*Branch),
 		ID:     id,
 	}
+}
+
+func (b *Branch) String() string {
+	return b.Repo.String() + "@" + b.Name
 }

@@ -11,7 +11,6 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
 func equalBranches(a, b []*pfs.Branch) bool {
@@ -54,7 +53,7 @@ type ErrBranchProvenanceTransitivity struct {
 func (e ErrBranchProvenanceTransitivity) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: branch provenance was not transitive\n")
-	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + pretty.CompactPrintRepo(e.BranchInfo.Branch.Repo) + "\n")
+	msg.WriteString("on branch " + e.BranchInfo.Branch.String() + "\n")
 	fullMap := make(map[string]*pfs.Branch)
 	provMap := make(map[string]*pfs.Branch)
 	for _, branch := range e.FullProvenance {
@@ -67,7 +66,7 @@ func (e ErrBranchProvenanceTransitivity) Error() string {
 	msg.WriteString("the following branches are missing from the provenance:\n")
 	for k, v := range fullMap {
 		if _, ok := provMap[k]; !ok {
-			msg.WriteString(v.Name + " in repo " + pretty.CompactPrintRepo(v.Repo) + "\n")
+			msg.WriteString(v.Name + " in repo " + v.Repo.String() + "\n")
 		}
 	}
 	return msg.String()
@@ -89,7 +88,7 @@ type ErrBranchInfoNotFound struct {
 }
 
 func (e ErrBranchInfoNotFound) Error() string {
-	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, pretty.CompactPrintRepo(e.Branch.Repo))
+	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, e.Branch.Repo)
 }
 
 // ErrCommitInfoNotFound Commit info could not be found. Typically because of an incomplete deletion of a commit.

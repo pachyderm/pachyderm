@@ -29,7 +29,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -176,7 +175,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	var existingRepoInfo pfs.RepoInfo
 	err = repos.Get(pfsdb.RepoKey(repo), &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
-		return errors.Wrapf(err, "error checking whether \"%s\" exists", pretty.CompactPrintRepo(repo))
+		return errors.Wrapf(err, "error checking whether %q exists", repo)
 	} else if err == nil {
 		// Existing repo case--just update the repo description.
 		if !update {
@@ -227,7 +226,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 				[]string{auth.RepoOwnerRole},
 				&auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
 			); err != nil && (!col.IsErrExists(err) || repo.Type == pfs.UserRepoType) {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo \"%s\"", pretty.CompactPrintRepo(repo))
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo %q", repo)
 			}
 		}
 		return repos.Create(pfsdb.RepoKey(repo), &pfs.RepoInfo{
@@ -253,7 +252,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 			if auth.IsErrNotActivated(err) {
 				return result, nil
 			}
-			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", pretty.CompactPrintRepo(repo))
+			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repo)
 		}
 		result.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
 	}
@@ -289,7 +288,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", pretty.CompactPrintRepo(repoInfo.Repo))
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repoInfo.Repo)
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, proto.Clone(repoInfo).(*pfs.RepoInfo))
@@ -316,7 +315,7 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 		for _, branch := range repo.Branches {
 			bi, err := d.inspectBranch(txnCtx, branch)
 			if err != nil {
-				return errors.Wrapf(err, "error inspecting branch %s", pretty.CompactPrintBranch(branch))
+				return errors.Wrapf(err, "error inspecting branch %s", branch)
 			}
 			branchInfos = append(branchInfos, bi)
 		}
@@ -329,7 +328,7 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 		// multiple repos are provided) we delete them in the right order.
 		branch := branchInfos[len(branchInfos)-1-i].Branch
 		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
-			return errors.Wrapf(err, "delete branch %s", pretty.CompactPrintBranch(branch))
+			return errors.Wrapf(err, "delete branch %s", branch)
 		}
 	}
 	return nil
@@ -345,7 +344,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	err := repos.Get(pfsdb.RepoKey(repo), &repoInfo)
 	if err != nil {
 		if !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "error checking whether \"%s\" exists", pretty.CompactPrintRepo(repo))
+			return errors.Wrapf(err, "error checking whether %q exists", repo)
 		}
 	}
 
@@ -958,7 +957,7 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 	// Now that ancestry has been parsed out, check if the ID is a branch name
 	if commit.ID != "" && !uuid.IsUUIDWithoutDashes(commit.ID) {
 		if commit.Branch.Name != "" {
-			return nil, errors.Errorf("invalid commit ID given with a branch (%s): %s\n", pretty.CompactPrintBranch(commit.Branch), commit.ID)
+			return nil, errors.Errorf("invalid commit ID given with a branch (%s): %s\n", commit.Branch, commit.ID)
 		}
 		commit.Branch.Name = commit.ID
 		commit.ID = ""
@@ -1067,7 +1066,7 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		return err
 	}
 	if from != nil && !proto.Equal(from.Branch.Repo, repo) || to != nil && !proto.Equal(to.Branch.Repo, repo) {
-		return errors.Errorf("`from` and `to` commits need to be from repo %s", pretty.CompactPrintRepo(repo))
+		return errors.Errorf("`from` and `to` commits need to be from repo %s", repo)
 	}
 
 	// Make sure that the repo exists
@@ -1421,7 +1420,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		return errors.New("repo cannot be nil")
 	}
 	if from != nil && !proto.Equal(from.Branch.Repo, repo) {
-		return errors.Errorf("the `from` commit needs to be from repo %s", pretty.CompactPrintRepo(repo))
+		return errors.Errorf("the `from` commit needs to be from repo %s", repo)
 	}
 
 	// keep track of the commits that have been sent
