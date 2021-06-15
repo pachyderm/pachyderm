@@ -5493,8 +5493,8 @@ func TestPFS(suite *testing.T) {
 					Body: &pfs.ModifyFileRequest_AddFile{
 						AddFile: &pfs.AddFile{
 							Path: file,
-							Source: &pfs.AddFile_RawFileSource{
-								RawFileSource: &types.BytesValue{},
+							Source: &pfs.AddFile_Raw{
+								Raw: &types.BytesValue{},
 							},
 						},
 					},
@@ -5526,8 +5526,8 @@ func TestPFS(suite *testing.T) {
 				Body: &pfs.ModifyFileRequest_AddFile{
 					AddFile: &pfs.AddFile{
 						Path: filePath,
-						Source: &pfs.AddFile_RawFileSource{
-							RawFileSource: &types.BytesValue{Value: []byte(fileContent)},
+						Source: &pfs.AddFile_Raw{
+							Raw: &types.BytesValue{Value: []byte(fileContent)},
 						},
 					},
 				},

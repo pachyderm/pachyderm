@@ -138,20 +138,24 @@ func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOpti
 				return err
 			}
 		}
-		if err := mfc.sendPutFile(&pfs.AddFile{
-			Path: path,
-			Tag:  config.tag,
-		}); err != nil {
-			return err
-		}
+		emptyFile := true
 		if _, err := grpcutil.ChunkReader(r, func(data []byte) error {
+			emptyFile = false
 			return mfc.sendPutFile(&pfs.AddFile{
-				Source: &pfs.AddFile_RawFileSource{
-					RawFileSource: &types.BytesValue{Value: data},
+				Path: path,
+				Tag:  config.tag,
+				Source: &pfs.AddFile_Raw{
+					Raw: &types.BytesValue{Value: data},
 				},
 			})
 		}); err != nil {
 			return err
+		}
+		if emptyFile {
+			return mfc.sendPutFile(&pfs.AddFile{
+				Path: path,
+				Tag:  config.tag,
+			})
 		}
 		return nil
 	})
@@ -192,27 +196,24 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 			if hdr.Typeflag == tar.TypeDir {
 				return nil
 			}
+			p := hdr.Name
 			if !config.append {
 				if err := mfc.sendDeleteFile(&pfs.DeleteFile{
-					Path: hdr.Name,
+					Path: p,
 					Tag:  config.tag,
 				}); err != nil {
 					return err
 				}
-			}
-			if err := mfc.sendPutFile(&pfs.AddFile{
-				Path: hdr.Name,
-				Tag:  config.tag,
-			}); err != nil {
-				return err
 			}
 			return withPipe(func(w io.Writer) error {
 				return f.Content(w)
 			}, func(r io.Reader) error {
 				_, err := grpcutil.ChunkReader(r, func(data []byte) error {
 					return mfc.sendPutFile(&pfs.AddFile{
-						Source: &pfs.AddFile_RawFileSource{
-							RawFileSource: &types.BytesValue{Value: data},
+						Path: p,
+						Tag:  config.tag,
+						Source: &pfs.AddFile_Raw{
+							Raw: &types.BytesValue{Value: data},
 						},
 					})
 				})
@@ -239,9 +240,8 @@ func (mfc *modifyFileCore) PutFileURL(path, url string, recursive bool, opts ...
 		pf := &pfs.AddFile{
 			Path: path,
 			Tag:  config.tag,
-			Source: &pfs.AddFile_UrlFileSource{
-				UrlFileSource: &pfs.URLFileSource{
-					Path:      path,
+			Source: &pfs.AddFile_Url{
+				Url: &pfs.URLFileSource{
 					URL:       url,
 					Recursive: recursive,
 				},

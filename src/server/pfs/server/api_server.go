@@ -390,19 +390,7 @@ type modifyFileSource interface {
 // modifyFile reads from a modifyFileSource until io.EOF and writes changes to an UnorderedWriter.
 // SetCommit messages will result in an error.
 func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter, server modifyFileSource) (int64, error) {
-	var (
-		bytesRead   int64
-		currentPath string
-		currentTag  string
-	)
-	setPathAndTag := func(p, t string) {
-		if p != "" {
-			currentPath = p
-		}
-		if t != "" {
-			currentTag = t
-		}
-	}
+	var bytesRead int64
 	for {
 		msg, err := server.Recv()
 		if err != nil {
@@ -411,22 +399,22 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			}
 			return bytesRead, err
 		}
+		fmt.Println("got message")
 		switch mod := msg.Body.(type) {
 		case *pfs.ModifyFileRequest_AddFile:
-			setPathAndTag(mod.AddFile.Path, mod.AddFile.Tag)
-			if currentPath == "" {
-				return bytesRead, errors.Errorf("cannot perform operation, no path set")
-			}
 			var err error
 			var n int64
+			p := mod.AddFile.Path
+			t := mod.AddFile.Tag
+			fmt.Println("path: ", p, "tag: ", t)
 			switch src := mod.AddFile.Source.(type) {
-			case *pfs.AddFile_RawFileSource:
-				n, err = putFileRaw(uw, currentPath, currentTag, src.RawFileSource)
-			case *pfs.AddFile_UrlFileSource:
-				n, err = putFileURL(ctx, uw, currentPath, currentTag, src.UrlFileSource)
+			case *pfs.AddFile_Raw:
+				n, err = putFileRaw(uw, p, t, src.Raw)
+			case *pfs.AddFile_Url:
+				n, err = putFileURL(ctx, uw, p, t, src.Url)
 			default:
 				// need to write empty data to path
-				n, err = putFileRaw(uw, currentPath, currentTag, &types.BytesValue{})
+				n, err = putFileRaw(uw, p, t, &types.BytesValue{})
 			}
 			if err != nil {
 				return bytesRead, err
@@ -436,26 +424,16 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			if err := deleteFile(uw, mod.DeleteFile); err != nil {
 				return bytesRead, err
 			}
-			currentPath, currentTag = "", ""
 		case *pfs.ModifyFileRequest_CopyFile:
 			cf := mod.CopyFile
 			if err := a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Tag); err != nil {
 				return bytesRead, err
 			}
-			currentPath, currentTag = "", ""
 		case *pfs.ModifyFileRequest_SetCommit:
 			return bytesRead, errors.Errorf("cannot set commit")
 		default:
 			return bytesRead, errors.Errorf("unrecognized message type")
 		}
-	}
-	// if someone was trying to create an empty file, we need to do that now
-	if currentPath != "" {
-		n, err := putFileRaw(uw, currentPath, currentTag, &types.BytesValue{})
-		if err != nil {
-			return bytesRead, err
-		}
-		bytesRead += n
 	}
 	return bytesRead, nil
 }
@@ -467,7 +445,7 @@ func putFileRaw(uw *fileset.UnorderedWriter, path, tag string, src *types.BytesV
 	return int64(len(src.Value)), nil
 }
 
-func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, path, tag string, src *pfs.URLFileSource) (n int64, retErr error) {
+func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.URLFileSource) (n int64, retErr error) {
 	url, err := url.Parse(src.URL)
 	if err != nil {
 		return 0, err
@@ -487,11 +465,11 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, path, tag stri
 				retErr = err
 			}
 		}()
-		return 0, uw.Put(path, tag, true, resp.Body)
+		return 0, uw.Put(dstPath, tag, true, resp.Body)
 	default:
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
-			return 0, errors.Wrapf(err, "error parsing url %v", src.URL)
+			return 0, errors.Wrapf(err, "error parsing url %v", src)
 		}
 		objClient, err := obj.NewClientFromURLAndSecret(url, false)
 		if err != nil {
@@ -503,14 +481,14 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, path, tag stri
 				return obj.WithPipe(func(w io.Writer) error {
 					return objClient.Get(ctx, name, w)
 				}, func(r io.Reader) error {
-					return uw.Put(filepath.Join(src.Path, strings.TrimPrefix(name, path)), tag, true, r)
+					return uw.Put(filepath.Join(dstPath, strings.TrimPrefix(name, path)), tag, true, r)
 				})
 			})
 		}
 		return 0, obj.WithPipe(func(w io.Writer) error {
 			return objClient.Get(ctx, url.Object, w)
 		}, func(r io.Reader) error {
-			return uw.Put(src.Path, tag, true, r)
+			return uw.Put(dstPath, tag, true, r)
 		})
 	}
 }

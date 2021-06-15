@@ -264,15 +264,14 @@ message AddFile {
   string path = 1;
   string tag = 2;
   oneof source {
-    google.protobuf.BytesValue raw_file_source = 4;
-    URLFileSource url_file_source = 5;
+    google.protobuf.BytesValue raw = 3;
+    URLFileSource url = 4;
   }
 }
 
 message URLFileSource {
-  string path = 1;
-  string URL = 2;
-  bool recursive = 3;
+  string URL = 1;
+  bool recursive = 2;
 }
 
 message DeleteFile {
@@ -293,8 +292,6 @@ message ModifyFileRequest {
     AddFile add_file = 2;
     DeleteFile delete_file = 3;
     CopyFile copy_file = 4;
-
-    google.protobuf.BytesValue tar_data = 5; 
   }
 }
 
