@@ -98,62 +98,6 @@ func TestCopy(t *testing.T) {
 	}
 }
 
-func TestStableHash(t *testing.T) {
-	_, chunks := newTestStorage(t)
-	seed := time.Now().UTC().UnixNano()
-	msg := fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
-	random := rand.New(rand.NewSource(seed))
-	data := randutil.Bytes(random, 100*units.MB)
-	var dataRefs []*DataRef
-	write := func(data []byte) {
-		w := chunks.NewWriter(context.Background(), uuid.NewWithoutDashes(), func(annotations []*Annotation) error {
-			if annotations[0].NextDataRef != nil {
-				dataRefs = append(dataRefs, annotations[0].NextDataRef)
-			}
-			return nil
-		})
-		w.Annotate(&Annotation{})
-		_, err := w.Write(data)
-		require.NoError(t, err, msg)
-		require.NoError(t, w.Close(), msg)
-	}
-	// Compute hash after writing to one writer.
-	write(data)
-	require.True(t, len(dataRefs) > 1, msg)
-	stableHash, err := chunks.StableHash(context.Background(), dataRefs)
-	require.NoError(t, err, msg)
-	// Compute hash after writing to two writers.
-	dataRefs = nil
-	size := len(data) / 2
-	for offset := 0; offset < len(data); offset += size {
-		write(data[offset : offset+size])
-	}
-	require.True(t, len(dataRefs) > 1, msg)
-	hash, err := chunks.StableHash(context.Background(), dataRefs)
-	require.NoError(t, err, msg)
-	require.True(t, bytes.Equal(stableHash, hash), msg)
-	// Compute hash after writing to ten writers.
-	dataRefs = nil
-	size = len(data) / 10
-	for offset := 0; offset < len(data); offset += size {
-		write(data[offset : offset+size])
-	}
-	require.True(t, len(dataRefs) > 1, msg)
-	hash, err = chunks.StableHash(context.Background(), dataRefs)
-	require.NoError(t, err, msg)
-	require.True(t, bytes.Equal(stableHash, hash), msg)
-	// Compute hash after writing to one hundred writers.
-	dataRefs = nil
-	size = len(data) / 100
-	for offset := 0; offset < len(data); offset += size {
-		write(data[offset : offset+size])
-	}
-	require.True(t, len(dataRefs) > 1, msg)
-	hash, err = chunks.StableHash(context.Background(), dataRefs)
-	require.NoError(t, err, msg)
-	require.True(t, bytes.Equal(stableHash, hash), msg)
-}
-
 func BenchmarkWriter(b *testing.B) {
 	_, chunks := newTestStorage(b)
 	seed := time.Now().UTC().UnixNano()

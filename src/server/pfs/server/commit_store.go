@@ -14,25 +14,25 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-var errNoTotalFileset = errors.Errorf("no total fileset")
+var errNoTotalFileSet = errors.Errorf("no total fileset")
 
 const commitTrackerPrefix = "commit/"
 
 type commitStore interface {
-	// AddFileset appends a fileset to the diff.
-	AddFileset(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error
-	// AddFilesetTx is identical to AddFileset except it runs in the provided transaction.
-	AddFilesetTx(tx *sqlx.Tx, commit *pfs.Commit, filesetID fileset.ID) error
-	// SetTotalFileset sets the total fileset for the commit, overwriting whatever is there.
-	SetTotalFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
-	// GetTotalFileset returns the total fileset for a commit.
-	GetTotalFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
-	// GetDiffFileset returns the diff fileset for a commit
-	GetDiffFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
-	// DropFilesets clears the diff and total filesets for the commit.
-	DropFilesets(ctx context.Context, commit *pfs.Commit) error
-	// DropFilesetsTx is identical to DropFilesets except it runs in the provided transaction.
-	DropFilesetsTx(tx *sqlx.Tx, commit *pfs.Commit) error
+	// AddFileSet appends a fileset to the diff.
+	AddFileSet(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error
+	// AddFileSetTx is identical to AddFileSet except it runs in the provided transaction.
+	AddFileSetTx(tx *sqlx.Tx, commit *pfs.Commit, filesetID fileset.ID) error
+	// SetTotalFileSet sets the total fileset for the commit, overwriting whatever is there.
+	SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
+	// GetTotalFileSet returns the total fileset for a commit.
+	GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
+	// GetDiffFileSet returns the diff fileset for a commit
+	GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
+	// DropFileSets clears the diff and total filesets for the commit.
+	DropFileSets(ctx context.Context, commit *pfs.Commit) error
+	// DropFileSetsTx is identical to DropFileSets except it runs in the provided transaction.
+	DropFileSetsTx(tx *sqlx.Tx, commit *pfs.Commit) error
 }
 
 var _ commitStore = &postgresCommitStore{}
@@ -53,13 +53,13 @@ func newPostgresCommitStore(db *sqlx.DB, tr track.Tracker, s *fileset.Storage) *
 	}
 }
 
-func (cs *postgresCommitStore) AddFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
+func (cs *postgresCommitStore) AddFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		return cs.AddFilesetTx(tx, commit, id)
+		return cs.AddFileSetTx(tx, commit, id)
 	})
 }
 
-func (cs *postgresCommitStore) AddFilesetTx(tx *sqlx.Tx, commit *pfs.Commit, id fileset.ID) error {
+func (cs *postgresCommitStore) AddFileSetTx(tx *sqlx.Tx, commit *pfs.Commit, id fileset.ID) error {
 	id2, err := cs.s.CloneTx(tx, id, defaultTTL)
 	if err != nil {
 		return err
@@ -82,7 +82,7 @@ func (cs *postgresCommitStore) AddFilesetTx(tx *sqlx.Tx, commit *pfs.Commit, id 
 	return cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL)
 }
 
-func (cs *postgresCommitStore) GetTotalFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+func (cs *postgresCommitStore) GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	var id *fileset.ID
 	if err := dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
 		var err error
@@ -91,7 +91,7 @@ func (cs *postgresCommitStore) GetTotalFileset(ctx context.Context, commit *pfs.
 			return err
 		}
 		if id == nil {
-			return errNoTotalFileset
+			return errNoTotalFileSet
 		}
 		id, err = cs.s.CloneTx(tx, *id, defaultTTL)
 		return err
@@ -101,7 +101,7 @@ func (cs *postgresCommitStore) GetTotalFileset(ctx context.Context, commit *pfs.
 	return id, nil
 }
 
-func (cs *postgresCommitStore) GetDiffFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	var ids []fileset.ID
 	if err := dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
 		var err error
@@ -116,7 +116,7 @@ func (cs *postgresCommitStore) GetDiffFileset(ctx context.Context, commit *pfs.C
 	return cs.s.Compose(ctx, ids, defaultTTL)
 }
 
-func (cs *postgresCommitStore) SetTotalFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
+func (cs *postgresCommitStore) SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
 		if err := dropTotal(tx, cs.tr, commit); err != nil {
 			return err
@@ -125,13 +125,13 @@ func (cs *postgresCommitStore) SetTotalFileset(ctx context.Context, commit *pfs.
 	})
 }
 
-func (cs *postgresCommitStore) DropFilesets(ctx context.Context, commit *pfs.Commit) error {
+func (cs *postgresCommitStore) DropFileSets(ctx context.Context, commit *pfs.Commit) error {
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		return cs.DropFilesetsTx(tx, commit)
+		return cs.DropFileSetsTx(tx, commit)
 	})
 }
 
-func (cs *postgresCommitStore) DropFilesetsTx(tx *sqlx.Tx, commit *pfs.Commit) error {
+func (cs *postgresCommitStore) DropFileSetsTx(tx *sqlx.Tx, commit *pfs.Commit) error {
 	if err := dropTotal(tx, cs.tr, commit); err != nil {
 		return err
 	}

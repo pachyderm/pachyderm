@@ -42,7 +42,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 			if commitID != "" {
 				return pfsserver.ErrCommitFinished{Commit: commitInfo.Commit}
 			}
-			parentID, err := d.getFileset(ctx, commitInfo.Commit)
+			parentID, err := d.getFileSet(ctx, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
@@ -63,7 +63,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet,
 		if err != nil {
 			return err
 		}
-		if err := d.commitStore.AddFilesetTx(txnCtx.SqlTx, commit, *id); err != nil {
+		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return err
 		}
 		return d.finishCommit(txnCtx, commit, "")
@@ -72,7 +72,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet,
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
 func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *renew.StringSet, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
-	parentID, err := d.getFileset(ctx, commit)
+	parentID, err := d.getFileSet(ctx, commit)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *renew.S
 	if err != nil {
 		return err
 	}
-	return d.commitStore.AddFileset(ctx, commit, *id)
+	return d.commitStore.AddFileSet(ctx, commit, *id)
 }
 
 func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
@@ -128,7 +128,7 @@ func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit, opts ...ind
 	if err != nil {
 		return nil, nil, err
 	}
-	id, err := d.getFileset(ctx, commitInfo.Commit)
+	id, err := d.getFileSet(ctx, commitInfo.Commit)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -187,7 +187,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {
 			}, true)
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	return NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file}), nil
 }
 
@@ -208,7 +208,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 			})
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	var ret *pfs.FileInfo
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
@@ -246,7 +246,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, cb fun
 			})
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(name, cleanPath(fi.File.Path)) {
 			return cb(fi)
@@ -271,7 +271,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 			})
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)
@@ -296,7 +296,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 			}, true)
 		}),
 	}
-	s := NewSource(d.storage.ChunkStorage(), commitInfo, fs, opts...)
+	s := NewSource(commitInfo, fs, opts...)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if mf(fi.File.Path) {
 			return cb(fi)
@@ -365,7 +365,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 				})
 			}),
 		}
-		old = NewSource(d.storage.ChunkStorage(), oldCommitInfo, fs, opts...)
+		old = NewSource(oldCommitInfo, fs, opts...)
 	}
 	newCommitInfo, fs, err := d.openCommit(ctx, newCommit, index.WithPrefix(newName), index.WithTag(newFile.Tag))
 	if err != nil {
@@ -379,13 +379,13 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 			})
 		}),
 	}
-	new := NewSource(d.storage.ChunkStorage(), newCommitInfo, fs, opts...)
+	new := NewSource(newCommitInfo, fs, opts...)
 	diff := NewDiffer(old, new)
 	return diff.Iterate(ctx, cb)
 }
 
-// createFileset creates a new temporary fileset and returns it.
-func (d *driver) createFileset(ctx context.Context, cb func(*fileset.UnorderedWriter) error) (*fileset.ID, error) {
+// createFileSet creates a new temporary fileset and returns it.
+func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWriter) error) (*fileset.ID, error) {
 	var id *fileset.ID
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		var err error
@@ -397,7 +397,7 @@ func (d *driver) createFileset(ctx context.Context, cb func(*fileset.UnorderedWr
 	return id, nil
 }
 
-func (d *driver) renewFileset(ctx context.Context, id fileset.ID, ttl time.Duration) error {
+func (d *driver) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Duration) error {
 	if ttl < time.Second {
 		return errors.Errorf("ttl (%d) must be at least one second", ttl)
 	}
@@ -408,7 +408,7 @@ func (d *driver) renewFileset(ctx context.Context, id fileset.ID, ttl time.Durat
 	return err
 }
 
-func (d *driver) addFileset(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
+func (d *driver) addFileSet(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
 	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
@@ -416,10 +416,10 @@ func (d *driver) addFileset(txnCtx *txncontext.TransactionContext, commit *pfs.C
 	if commitInfo.Finished != nil {
 		return pfsserver.ErrCommitFinished{Commit: commitInfo.Commit}
 	}
-	return d.commitStore.AddFilesetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID)
+	return d.commitStore.AddFileSetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID)
 }
 
-func (d *driver) getFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	commitInfo, err := d.getCommit(ctx, commit)
 	if err != nil {
 		return nil, err
@@ -430,13 +430,13 @@ func (d *driver) getFileset(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	var ids []fileset.ID
 	if commitInfo.ParentCommit != nil {
 		// ¯\_(ツ)_/¯
-		parentId, err := d.getFileset(ctx, commitInfo.ParentCommit)
+		parentId, err := d.getFileSet(ctx, commitInfo.ParentCommit)
 		if err != nil {
 			return nil, err
 		}
 		ids = append(ids, *parentId)
 	}
-	id, err := d.commitStore.GetDiffFileset(ctx, commitInfo.Commit)
+	id, err := d.commitStore.GetDiffFileSet(ctx, commitInfo.Commit)
 	if err != nil {
 		return nil, err
 	}
@@ -453,14 +453,14 @@ func (d *driver) getOrComputeTotal(ctx context.Context, commit *pfs.Commit) (*fi
 		return nil, errors.Errorf("attempted to compute total of unfinished commit")
 	}
 	commit = commitInfo.Commit
-	id, err := d.commitStore.GetTotalFileset(ctx, commit)
-	if err != nil && err != errNoTotalFileset {
+	id, err := d.commitStore.GetTotalFileSet(ctx, commit)
+	if err != nil && err != errNoTotalFileSet {
 		return nil, err
 	}
 	if err == nil {
 		return id, nil
 	}
-	id, err = d.commitStore.GetDiffFileset(ctx, commit)
+	id, err = d.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, err
 	}
@@ -477,15 +477,15 @@ func (d *driver) getOrComputeTotal(ctx context.Context, commit *pfs.Commit) (*fi
 	if err != nil {
 		return nil, err
 	}
-	if err := d.commitStore.SetTotalFileset(ctx, commit, *output); err != nil {
+	if err := d.commitStore.SetTotalFileSet(ctx, commit, *output); err != nil {
 		return nil, err
 	}
-	return d.commitStore.GetTotalFileset(ctx, commit)
+	return d.commitStore.GetTotalFileSet(ctx, commit)
 }
 
 // sizeOfCommit gets the size of a commit.
 func (d *driver) sizeOfCommit(ctx context.Context, commit *pfs.Commit) (int64, error) {
-	fsid, err := d.getFileset(ctx, commit)
+	fsid, err := d.getFileSet(ctx, commit)
 	if err != nil {
 		return 0, err
 	}

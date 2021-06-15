@@ -544,7 +544,9 @@ This resets the cluster to its initial state.`,
 	var uiPort uint16
 	var uiWebsocketPort uint16
 	var pfsPort uint16
+	var remotePfsPort uint16
 	var s3gatewayPort uint16
+	var remoteS3gatewayPort uint16
 	var dexPort uint16
 	var remoteDexPort uint16
 	var idePort, remoteIDEPort uint16
@@ -620,7 +622,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the PFS port...")
-			port, err = fw.RunForPFS(pfsPort)
+			port, err = fw.RunForPFS(pfsPort, remotePfsPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -630,7 +632,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the s3gateway port...")
-			port, err = fw.RunForS3Gateway(s3gatewayPort)
+			port, err = fw.RunForS3Gateway(s3gatewayPort, remoteS3gatewayPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -693,15 +695,17 @@ This resets the cluster to its initial state.`,
 		}),
 	}
 	portForward.Flags().Uint16VarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
-	portForward.Flags().Uint16Var(&remotePort, "remote-port", 650, "The remote port that pachd is bound to in the cluster.")
+	portForward.Flags().Uint16Var(&remotePort, "remote-port", 1650, "The remote port that pachd is bound to in the cluster.")
 	portForward.Flags().Uint16Var(&oidcPort, "oidc-port", 30657, "The local port to bind pachd's OIDC callback to.")
-	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 657, "The remote port that OIDC callback is bound to in the cluster.")
+	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 1657, "The remote port that OIDC callback is bound to in the cluster.")
 	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
+	portForward.Flags().Uint16Var(&remotePfsPort, "remote-pfs-port", 30652, "The remote port PFS over HTTP is bound to.")
 	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
+	portForward.Flags().Uint16Var(&remoteS3gatewayPort, "remote-s3gateway-port", 1600, "The remote port that the s3 gateway is bound to.")
 	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
-	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 658, "The local port to bind the identity service to.")
+	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 1658, "The local port to bind the identity service to.")
 	portForward.Flags().Uint16Var(&idePort, "ide-port", 30659, "The local port to bind the IDE service to.")
 	portForward.Flags().Uint16Var(&remoteIDEPort, "remote-ide-port", 8000, "The local port to bind the IDE service to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")

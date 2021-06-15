@@ -121,7 +121,7 @@ message CommitInfo {
   repeated Branch direct_provenance = 9;
 }
 
-message Commitset {
+message CommitSet {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
 
@@ -208,13 +208,13 @@ message ListCommitRequest {
   bool reverse = 5;  // Return commits oldest to newest
 }
 
-message InspectCommitsetRequest {
-  Commitset commitset = 1;
+message InspectCommitSetRequest {
+  CommitSet commit_set = 1;
   bool wait = 2; // When true, wait until all commits in the set are finished
 }
 
-message SquashCommitsetRequest {
-  Commitset commitset = 1;
+message SquashCommitSetRequest {
+  CommitSet commit_set = 1;
 }
 
 message SubscribeCommitRequest {
@@ -235,7 +235,7 @@ message CreateBranchRequest {
   Branch branch = 2;
   repeated Branch provenance = 3;
   Trigger trigger = 4;
-  bool new_commitset = 5; // overrides the default behavior of using the same Commitset as 'head'
+  bool new_commit_set = 5; // overrides the default behavior of using the same CommitSet as 'head'
 }
 
 message InspectBranchRequest {
@@ -405,21 +405,21 @@ message FsckResponse {
   string error = 2;
 }
 
-message CreateFilesetResponse {
-  string fileset_id = 1;
+message CreateFileSetResponse {
+  string file_set_id = 1;
 }
 
-message GetFilesetRequest {
+message GetFileSetRequest {
   Commit commit = 1;
 }
 
-message AddFilesetRequest {
+message AddFileSetRequest {
   Commit commit = 1;
-  string fileset_id = 2;
+  string file_set_id = 2;
 }
 
-message RenewFilesetRequest {
-  string fileset_id = 1;
+message RenewFileSetRequest {
+  string file_set_id = 1;
   int64 ttl_seconds = 2;
 }
 
@@ -460,10 +460,10 @@ service API {
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
 
-  // InspectCommitset returns the info about a Commitset.
-  rpc InspectCommitset(InspectCommitsetRequest) returns (stream CommitInfo) {}
-  // SquashCommitset squashes the commits of a Commitset into their children.
-  rpc SquashCommitset(SquashCommitsetRequest) returns (google.protobuf.Empty) {}
+  // InspectCommitSet returns the info about a CommitSet.
+  rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}
+  // SquashCommitSet squashes the commits of a CommitSet into their children.
+  rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
@@ -497,15 +497,15 @@ service API {
   // Fsck does a file system consistency check for pfs.
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 
-  // Fileset API
-  // CreateFileset creates a new fileset.
-  rpc CreateFileset(stream ModifyFileRequest) returns (CreateFilesetResponse) {}
-  // GetFileset returns a fileset with the data from a commit
-  rpc GetFileset(GetFilesetRequest) returns (CreateFilesetResponse) {}
-  // AddFileset associates a fileset with a commit
-  rpc AddFileset(AddFilesetRequest) returns (google.protobuf.Empty) {}
-  // RenewFileset prevents a fileset from being deleted for a set amount of time.
-  rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
+  // FileSet API
+  // CreateFileSet creates a new file set.
+  rpc CreateFileSet(stream ModifyFileRequest) returns (CreateFileSetResponse) {}
+  // GetFileSet returns a file set with the data from a commit
+  rpc GetFileSet(GetFileSetRequest) returns (CreateFileSetResponse) {}
+  // AddFileSet associates a file set with a commit
+  rpc AddFileSet(AddFileSetRequest) returns (google.protobuf.Empty) {}
+  // RenewFileSet prevents a file set from being deleted for a set amount of time.
+  rpc RenewFileSet(RenewFileSetRequest) returns (google.protobuf.Empty) {}
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}

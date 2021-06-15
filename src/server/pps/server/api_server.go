@@ -85,10 +85,6 @@ func newErrPipelineExists(pipeline string) error {
 	return errors.Errorf("pipeline %v already exists", pipeline)
 }
 
-func newErrPipelineUpdate(pipeline string, reason string) error {
-	return errors.Errorf("pipeline %v update error: %s", pipeline, reason)
-}
-
 // apiServer implements the public interface of the Pachyderm Pipeline System,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
@@ -583,9 +579,9 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 	// commitset, it will block on commits that don't have a job associated with
 	// them (aliases and input commits, for example).
 	if request.Wait {
-		return pachClient.WaitCommitset(request.Jobset.ID, cb)
+		return pachClient.WaitCommitSet(request.Jobset.ID, cb)
 	}
-	commitInfos, err := pachClient.InspectCommitset(request.Jobset.ID)
+	commitInfos, err := pachClient.InspectCommitSet(request.Jobset.ID)
 	if err != nil {
 		return err
 	}
@@ -597,12 +593,12 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 	return nil
 }
 
-// intersectCommitsets finds all commitsets which involve the specified commits
+// intersectCommitSets finds all commitsets which involve the specified commits
 // (or aliases of the specified commits)
 // TODO(global ids): this assumes that all aliases are equivalent to their first
 // ancestor non-alias commit, but that may not be true if the ancestor has been
 // squashed.  We may need to recursively squash commitsets to prevent this.
-func (a *apiServer) intersectCommitsets(ctx context.Context, commits []*pfs.Commit) (map[string]struct{}, error) {
+func (a *apiServer) intersectCommitSets(ctx context.Context, commits []*pfs.Commit) (map[string]struct{}, error) {
 	walkCommits := func(startCommit *pfs.Commit) (map[string]struct{}, error) {
 		result := map[string]struct{}{} // key is the commitset id
 		queue := []*pfs.Commit{}
@@ -687,7 +683,7 @@ func (a *apiServer) listJob(
 
 	// For each specified input commit, build the set of commitset IDs which
 	// belong to all of them.
-	commitsets, err := a.intersectCommitsets(ctx, inputCommits)
+	commitsets, err := a.intersectCommitSets(ctx, inputCommits)
 	if err != nil {
 		return err
 	}
@@ -815,9 +811,8 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.StoredJobInf
 		result.ResourceLimits = pipelineInfo.ResourceLimits
 		result.SidecarResourceLimits = pipelineInfo.SidecarResourceLimits
 		result.Input = ppsutil.JobInput(pipelineInfo, result.OutputCommit)
-		result.EnableStats = pipelineInfo.EnableStats
 		result.Salt = pipelineInfo.Salt
-		result.ChunkSpec = pipelineInfo.ChunkSpec
+		result.DatumSetSpec = pipelineInfo.DatumSetSpec
 		result.DatumTimeout = pipelineInfo.DatumTimeout
 		result.JobTimeout = pipelineInfo.JobTimeout
 		result.DatumTries = pipelineInfo.DatumTries
@@ -1437,9 +1432,6 @@ func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps
 	if request.CacheSize != "" {
 		return nil, errors.Errorf("CacheSize not implemented")
 	}
-	if request.Service == nil && request.Spout == nil {
-		request.EnableStats = true
-	}
 	if request.MaxQueueSize != 0 {
 		return nil, errors.Errorf("MaxQueueSize not implemented")
 	}
@@ -1544,9 +1536,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 		}
 	}
 	if pipelineInfo.Spout != nil {
-		if pipelineInfo.EnableStats {
-			return errors.Errorf("spouts are not allowed to have a stats branch")
-		}
 		if pipelineInfo.Spout.Service == nil && pipelineInfo.Input != nil {
 			return errors.Errorf("spout pipelines (without a service) must not have an input")
 		}
@@ -1568,23 +1557,23 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-func (a *apiServer) writePipelineInfoToFileset(ctx context.Context, pipelineInfo *pps.PipelineInfo) (string, error) {
+func (a *apiServer) writePipelineInfoToFileSet(ctx context.Context, pipelineInfo *pps.PipelineInfo) (string, error) {
 	data, err := pipelineInfo.Marshal()
 	if err != nil {
 		return "", errors.Wrapf(err, "could not marshal PipelineInfo")
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		err := mf.PutFile(ppsconsts.SpecFile, bytes.NewReader(data))
 		return err
 	})
 	if err != nil {
 		return "", err
 	}
-	return resp.FilesetId, nil
+	return resp.FileSetId, nil
 }
 
-// commitPipelineInfoFromFileset is a helper for all pipeline updates that
+// commitPipelineInfoFromFileSet is a helper for all pipeline updates that
 // creates a commit with 'pipelineInfo' in SpecRepo (in PFS). It's called in
 // both the case where a user is updating a pipeline and the case where a user
 // is creating a new pipeline.
@@ -1592,7 +1581,7 @@ func (a *apiServer) writePipelineInfoToFileset(ctx context.Context, pipelineInfo
 // transactionality) the new pipelineInfo is only applied on top of the previous
 // pipelineInfo - if the version of the pipeline has changed, this operation
 // will error out.
-func (a *apiServer) commitPipelineInfoFromFileset(
+func (a *apiServer) commitPipelineInfoFromFileSet(
 	txnCtx *txncontext.TransactionContext,
 	pipelineName string,
 	filesetID string,
@@ -1616,9 +1605,9 @@ func (a *apiServer) commitPipelineInfoFromFileset(
 		return nil, errors.Wrapf(err, "could not marshal PipelineInfo")
 	}
 
-	if err := a.env.PfsServer().AddFilesetInTransaction(txnCtx, &pfs.AddFilesetRequest{
+	if err := a.env.PfsServer().AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{
 		Commit:    commit,
-		FilesetId: filesetID,
+		FileSetId: filesetID,
 	}); err != nil {
 		return nil, err
 	}
@@ -1748,7 +1737,7 @@ func getExpectedNumWorkers(kc *kube.Clientset, pipelineInfo *pps.PipelineInfo) (
 //   pipeline's spec branch is in the pipeline output branch's provenance
 // - CreatePipeline will always create a new output commit, but that's done
 //   by CreateBranch at the bottom of the function, which sets the new output
-//   branch provenance, rather than commitPipelineInfoFromFileset higher up.
+//   branch provenance, rather than commitPipelineInfoFromFileSet higher up.
 // - This is because CreatePipeline calls hardStopPipeline towards the top,
 // 	 breaking the provenance connection from the spec branch to the output branch
 // - For straightforward pipeline updates (e.g. new pipeline image)
@@ -1816,12 +1805,11 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		SidecarResourceLimits: request.SidecarResourceLimits,
 		Description:           request.Description,
 		CacheSize:             request.CacheSize,
-		EnableStats:           request.EnableStats,
 		Salt:                  request.Salt,
 		MaxQueueSize:          request.MaxQueueSize,
 		Service:               request.Service,
 		Spout:                 request.Spout,
-		ChunkSpec:             request.ChunkSpec,
+		DatumSetSpec:          request.DatumSetSpec,
 		DatumTimeout:          request.DatumTimeout,
 		JobTimeout:            request.JobTimeout,
 		Standby:               request.Standby,
@@ -1854,10 +1842,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		}
 		if !request.Reprocess {
 			pipelineInfo.Salt = oldPipelineInfo.Salt
-		}
-		// Cannot disable stats after it has been enabled.
-		if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
-			return nil, newErrPipelineUpdate(pipelineInfo.Pipeline.Name, "cannot disable stats")
 		}
 	}
 
@@ -1908,7 +1892,7 @@ func (a *apiServer) pipelineInfosForUpdate(txnCtx *txncontext.TransactionContext
 func (a *apiServer) CreatePipelineInTransaction(
 	txnCtx *txncontext.TransactionContext,
 	request *pps.CreatePipelineRequest,
-	specFilesetID *string,
+	specFileSetID *string,
 	prevPipelineVersion *uint64,
 ) error {
 	oldPipelineInfo, newPipelineInfo, err := a.pipelineInfosForUpdate(txnCtx, request)
@@ -1917,26 +1901,26 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 	pipelineName := request.Pipeline.Name
 
-	if *specFilesetID != "" {
+	if *specFileSetID != "" {
 		// If we already have a fileset, try to renew it - if that fails, invalidate it
-		if err := a.env.GetPachClient(txnCtx.ClientContext).RenewFileSet(*specFilesetID, 600*time.Second); err != nil {
-			*specFilesetID = ""
+		if err := a.env.GetPachClient(txnCtx.ClientContext).RenewFileSet(*specFileSetID, 600*time.Second); err != nil {
+			*specFileSetID = ""
 		}
 	}
 
 	// If the expected pipeline version doesn't match up with oldPipelineInfo, we
 	// need to recreate the fileset
-	staleFileset := false
+	staleFileSet := false
 	if oldPipelineInfo == nil {
-		staleFileset = (*prevPipelineVersion != 0)
+		staleFileSet = (*prevPipelineVersion != 0)
 	} else {
-		staleFileset = oldPipelineInfo.Version != *prevPipelineVersion
+		staleFileSet = oldPipelineInfo.Version != *prevPipelineVersion
 	}
 
-	if staleFileset || *specFilesetID == "" {
+	if staleFileSet || *specFileSetID == "" {
 		// No existing fileset or the old one expired, create a new fileset - the
 		// pipeline spec to be written into a fileset outside of the transaction.
-		*specFilesetID, err = a.writePipelineInfoToFileset(txnCtx.ClientContext, newPipelineInfo)
+		*specFileSetID, err = a.writePipelineInfoToFileSet(txnCtx.ClientContext, newPipelineInfo)
 		if err != nil {
 			return err
 		}
@@ -2052,7 +2036,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		// There is, so we use that as the spec commit, rather than making a new one
 		specCommit = commitInfo.Commit
 	} else {
-		specCommit, err = a.commitPipelineInfoFromFileset(txnCtx, pipelineName, *specFilesetID, *prevPipelineVersion)
+		specCommit, err = a.commitPipelineInfoFromFileSet(txnCtx, pipelineName, *specFileSetID, *prevPipelineVersion)
 		if err != nil {
 			return err
 		}
@@ -2207,7 +2191,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return errors.Wrapf(visitErr, "could not create/update trigger branch")
 	}
 
-	if newPipelineInfo.EnableStats {
+	if request.Service == nil && request.Spout == nil {
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
 			Repo:        statsBranch.Repo,
 			Description: fmt.Sprint("Meta repo for", pipelineName),
@@ -2857,7 +2841,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 }
 
 func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
-	commitInfos, err := a.env.PfsServer().InspectCommitsetInTransaction(txnCtx, client.NewCommitset(txnCtx.CommitsetID))
+	commitInfos, err := a.env.PfsServer().InspectCommitSetInTransaction(txnCtx, client.NewCommitSet(txnCtx.CommitSetID))
 	if err != nil {
 		return err
 	}
@@ -2888,7 +2872,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 		}
 
 		// Check if there is an existing job for the output commit
-		job := client.NewJob(pipelineInfo.Pipeline.Name, txnCtx.CommitsetID)
+		job := client.NewJob(pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
 		jobInfo := &pps.StoredJobInfo{}
 		if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(job), jobInfo); err == nil {
 			continue // Job already exists, skip it

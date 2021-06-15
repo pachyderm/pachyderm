@@ -121,6 +121,27 @@ func (mfr *MergeFileReader) Content(w io.Writer) error {
 	return r.Get(w)
 }
 
+// Hash returns the hash of the file.
+func (mfr *MergeFileReader) Hash() ([]byte, error) {
+	var resolvedDataRefs []*chunk.DataRef
+	cw := mfr.chunks.NewWriter(mfr.ctx, "resolve-writer", func(annotations []*chunk.Annotation) error {
+		if annotations[0].NextDataRef != nil {
+			resolvedDataRefs = append(resolvedDataRefs, annotations[0].NextDataRef)
+		}
+		return nil
+	}, chunk.WithNoUpload())
+	cw.Annotate(&chunk.Annotation{})
+	for _, dataRef := range mfr.idx.File.DataRefs {
+		if err := cw.Copy(dataRef); err != nil {
+			return nil, err
+		}
+	}
+	if err := cw.Close(); err != nil {
+		return nil, err
+	}
+	return hashDataRefs(resolvedDataRefs)
+}
+
 type fileStream struct {
 	iterator *Iterator
 	file     File

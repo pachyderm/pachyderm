@@ -84,3 +84,7 @@ func (im *indexMap) Index() *index.Index {
 func (im *indexMap) Content(w io.Writer) error {
 	return im.inner.Content(w)
 }
+
+func (im *indexMap) Hash() ([]byte, error) {
+	return im.inner.Hash()
+}

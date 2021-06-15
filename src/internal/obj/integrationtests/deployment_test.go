@@ -287,7 +287,7 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	require.NoError(t, pachClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	// Wait for the output commit
-	commitInfos, err := pachClient.WaitCommitsetAll(commit1.ID)
+	commitInfos, err := pachClient.WaitCommitSetAll(commit1.ID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 

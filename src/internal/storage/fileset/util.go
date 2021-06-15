@@ -10,6 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -143,4 +144,15 @@ func (i *Iterator) Next() (File, error) {
 	case err := <-i.errChan:
 		return nil, err
 	}
+}
+
+func hashDataRefs(dataRefs []*chunk.DataRef) ([]byte, error) {
+	h := pachhash.New()
+	for _, dataRef := range dataRefs {
+		_, err := h.Write(dataRef.Hash)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return h.Sum(nil), nil
 }
