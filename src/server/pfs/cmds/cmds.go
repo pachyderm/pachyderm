@@ -553,7 +553,7 @@ $ {{alias}} XXX -b bar@baz`,
 					return waitBranches(commitsetID)
 				}
 				// We are waiting for the entire commitset to finish
-				commitInfos, err := c.WaitCommitsetAll(commitsetID)
+				commitInfos, err := c.WaitCommitSetAll(commitsetID)
 				if err != nil {
 					return err
 				}
@@ -629,7 +629,7 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	squashCommitset := &cobra.Command{
+	squashCommitSet := &cobra.Command{
 		Use:   "{{alias}} <commitset>",
 		Short: "Squash the commits of a commitset.",
 		Long:  "Squash the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
@@ -641,12 +641,12 @@ $ {{alias}} test@master --new`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.SquashCommitset(args[0])
+				return c.SquashCommitSet(args[0])
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(squashCommitset, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(squashCommitset, "squash commitset"))
+	shell.RegisterCompletionFunc(squashCommitSet, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(squashCommitSet, "squash commitset"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",

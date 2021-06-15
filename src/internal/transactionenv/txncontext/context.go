@@ -18,8 +18,8 @@ type TransactionContext struct {
 	ClientContext context.Context
 	// SqlTx is the ongoing database transaction.
 	SqlTx *sqlx.Tx
-	// CommitsetID is the ID of the Commitset corresponding to PFS changes in this transaction.
-	CommitsetID string
+	// CommitSetID is the ID of the CommitSet corresponding to PFS changes in this transaction.
+	CommitSetID string
 	// Timestamp is the canonical timestamp to be used for writes in this transaction.
 	Timestamp *types.Timestamp
 	// PfsPropagater applies commits at the end of the transaction.
@@ -39,7 +39,7 @@ func (t *TransactionContext) PropagateJobs() {
 
 // StopJobs notifies PPS that some commits have been removed and the jobs
 // associated with them should be stopped.
-func (t *TransactionContext) StopJobs(commitset *pfs.Commitset) {
+func (t *TransactionContext) StopJobs(commitset *pfs.CommitSet) {
 	t.PpsJobStopper.StopJobs(commitset)
 }
 
@@ -84,6 +84,6 @@ type PpsPropagater interface {
 // commitsets at the end of a transaction.  It is defined here to avoid a
 // circular dependency.
 type PpsJobStopper interface {
-	StopJobs(commitset *pfs.Commitset)
+	StopJobs(commitset *pfs.CommitSet)
 	Run() error
 }

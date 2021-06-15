@@ -45,7 +45,6 @@ func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 			"CfgS3Gateway":        metrics.CfgS3Gateway,
 			"CfgServices":         metrics.CfgServices,
 			"CfgErrcmd":           metrics.CfgErrcmd,
-			"CfgStats":            metrics.CfgStats,
 			"CfgTfjob":            metrics.CfgTfjob,
 			"InputGroup":          metrics.InputGroup,
 			"InputJoin":           metrics.InputJoin,

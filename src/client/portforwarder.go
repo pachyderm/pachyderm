@@ -189,13 +189,13 @@ func (f *PortForwarder) RunForDashWebSocket(localPort uint16) (uint16, error) {
 }
 
 // RunForPFS creates a port forwarder for PFS over HTTP.
-func (f *PortForwarder) RunForPFS(localPort uint16) (uint16, error) {
-	return f.Run("pachd", localPort, 30652)
+func (f *PortForwarder) RunForPFS(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("pachd", localPort, remotePort)
 }
 
 // RunForS3Gateway creates a port forwarder for the s3gateway.
-func (f *PortForwarder) RunForS3Gateway(localPort uint16) (uint16, error) {
-	return f.Run("pachd", localPort, 600)
+func (f *PortForwarder) RunForS3Gateway(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("pachd", localPort, remotePort)
 }
 
 // RunForIDE creates a port forwarder for the IDE

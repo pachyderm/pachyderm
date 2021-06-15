@@ -28,7 +28,7 @@ type PfsWrites interface {
 
 	StartCommit(*pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
-	SquashCommitset(*pfs.SquashCommitsetRequest) error
+	SquashCommitSet(*pfs.SquashCommitSetRequest) error
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
@@ -134,9 +134,9 @@ func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) erro
 	return t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) SquashCommitset(original *pfs.SquashCommitsetRequest) error {
-	req := proto.Clone(original).(*pfs.SquashCommitsetRequest)
-	return t.txnEnv.serviceEnv.PfsServer().SquashCommitsetInTransaction(t.txnCtx, req)
+func (t *directTransaction) SquashCommitSet(original *pfs.SquashCommitSetRequest) error {
+	req := proto.Clone(original).(*pfs.SquashCommitSetRequest)
+	return t.txnEnv.serviceEnv.PfsServer().SquashCommitSetInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
@@ -211,8 +211,8 @@ func (t *appendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
 	return err
 }
 
-func (t *appendTransaction) SquashCommitset(req *pfs.SquashCommitsetRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommitset: req})
+func (t *appendTransaction) SquashCommitSet(req *pfs.SquashCommitSetRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommitSet: req})
 	return err
 }
 
@@ -276,7 +276,7 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 				return err
 			}
 			if id != "" {
-				txnCtx.CommitsetID = id
+				txnCtx.CommitSetID = id
 			}
 		}
 
@@ -291,7 +291,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 		txnCtx := &txncontext.TransactionContext{
 			ClientContext: ctx,
 			SqlTx:         sqlTx,
-			CommitsetID:   uuid.NewWithoutDashes(),
+			CommitSetID:   uuid.NewWithoutDashes(),
 			Timestamp:     types.TimestampNow(),
 		}
 		if env.serviceEnv.PfsServer() != nil {
@@ -318,7 +318,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 		txnCtx := &txncontext.TransactionContext{
 			ClientContext: ctx,
 			SqlTx:         sqlTx,
-			CommitsetID:   uuid.NewWithoutDashes(),
+			CommitSetID:   uuid.NewWithoutDashes(),
 			Timestamp:     types.TimestampNow(),
 		}
 		if env.serviceEnv.PfsServer() != nil {

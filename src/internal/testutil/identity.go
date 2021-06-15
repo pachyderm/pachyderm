@@ -26,7 +26,7 @@ func OIDCOIDCConfig() *auth.OIDCConfig {
 		Issuer:          "http://localhost:30658/",
 		ClientID:        "pachyderm",
 		ClientSecret:    "notsecret",
-		RedirectURI:     "http://pachd:657/authorization-code/callback",
+		RedirectURI:     "http://pachd:1657/authorization-code/callback",
 		LocalhostIssuer: true,
 		Scopes:          auth.DefaultOIDCScopes,
 	}
@@ -70,7 +70,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 		Client: &identity.OIDCClient{
 			Id:           "testapp",
 			Name:         "testapp",
-			RedirectUris: []string{"http://test.example.com:657/authorization-code/callback"},
+			RedirectUris: []string{"http://test.example.com:1657/authorization-code/callback"},
 			Secret:       "test",
 		},
 	})
@@ -80,7 +80,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 		Client: &identity.OIDCClient{
 			Id:           "pachyderm",
 			Name:         "pachyderm",
-			RedirectUris: []string{"http://pachd:657/authorization-code/callback"},
+			RedirectUris: []string{"http://pachd:1657/authorization-code/callback"},
 			Secret:       "notsecret",
 			TrustedPeers: []string{"testapp"},
 		},
@@ -142,7 +142,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB) string {
 	oauthConfig := oauth2.Config{
 		ClientID:     "testapp",
 		ClientSecret: "test",
-		RedirectURL:  "http://test.example.com:657/authorization-code/callback",
+		RedirectURL:  "http://test.example.com:1657/authorization-code/callback",
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  RewriteURL(t, "http://pachd:30658/auth", DexHost(testClient)),
 			TokenURL: RewriteURL(t, "http://pachd:30658/token", DexHost(testClient)),
@@ -198,8 +198,8 @@ func RewriteURL(t testing.TB, urlStr, host string) string {
 
 // DexHost returns the address to access the identity server during tests
 func DexHost(c *client.APIClient) string {
-	if c.GetAddress().Port == 650 {
-		return c.GetAddress().Host + ":658"
+	if c.GetAddress().Port == 1650 {
+		return c.GetAddress().Host + ":1658"
 	}
 	if c.GetAddress().Port == 31650 {
 		return c.GetAddress().Host + ":31658"
@@ -208,8 +208,8 @@ func DexHost(c *client.APIClient) string {
 }
 
 func pachHost(c *client.APIClient) string {
-	if c.GetAddress().Port == 650 {
-		return c.GetAddress().Host + ":657"
+	if c.GetAddress().Port == 1650 {
+		return c.GetAddress().Host + ":1657"
 	}
 	if c.GetAddress().Port == 31650 {
 		return c.GetAddress().Host + ":31657"

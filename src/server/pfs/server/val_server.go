@@ -133,18 +133,18 @@ func (a *validatedAPIServer) InspectCommit(ctx context.Context, req *pfs.Inspect
 	return a.apiServer.InspectCommit(ctx, req)
 }
 
-func (a *validatedAPIServer) InspectCommitset(request *pfs.InspectCommitsetRequest, server pfs.API_InspectCommitsetServer) error {
-	if request.Commitset == nil {
+func (a *validatedAPIServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, server pfs.API_InspectCommitSetServer) error {
+	if request.CommitSet == nil {
 		return errors.New("commitset cannot be nil")
 	}
-	return a.apiServer.InspectCommitset(request, server)
+	return a.apiServer.InspectCommitSet(request, server)
 }
 
-func (a *validatedAPIServer) SquashCommitset(ctx context.Context, request *pfs.SquashCommitsetRequest) (*types.Empty, error) {
-	if request.Commitset == nil {
+func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (*types.Empty, error) {
+	if request.CommitSet == nil {
 		return nil, errors.New("commitset cannot be nil")
 	}
-	return a.apiServer.SquashCommitset(ctx, request)
+	return a.apiServer.SquashCommitSet(ctx, request)
 }
 
 func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) error {

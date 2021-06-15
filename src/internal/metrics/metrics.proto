@@ -28,7 +28,6 @@ message Metrics {
     int64 cfg_s3gateway            = 20; // Number of pipelines with S3 Gateway configured
     int64 cfg_services             = 21; // Number of pipelines with services configured
     int64 cfg_errcmd               = 22; // Number of pipelines with error cmd set
-    int64 cfg_stats                = 23; // Number of pipelines with stats configured
     int64 cfg_tfjob                = 24; // Number of pipelines with TFJobs configured
     int64 input_group              = 25; // Number of pipelines with group inputs
     int64 input_join               = 26; // Number of pipelines with join inputs

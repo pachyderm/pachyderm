@@ -639,7 +639,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.Stor
 		return errors.Wrapf(err, "error getting the active context")
 	}
 	context.SessionToken = ptr.AuthToken
-	context.PachdAddress = "localhost:653"
+	context.PachdAddress = "localhost:1653"
 
 	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {

@@ -207,7 +207,7 @@ func createDeployIDECmd() *cobra.Command {
 	deployIDE.Flags().StringVar(&hubImage, "hub-image", "", "Image for IDE hub. By default this value is automatically derived.")
 	deployIDE.Flags().StringVar(&userImage, "user-image", "", "Image for IDE user environments. By default this value is automatically derived.")
 	deployIDE.Flags().StringVar(&clientID, "client-id", "ide", "The OIDC client ID for the IDE.")
-	deployIDE.Flags().StringVar(&internalIDAddr, "internal-id-server", "http://pachd:658", "The web address where the identity server can be reached from within the cluster.")
+	deployIDE.Flags().StringVar(&internalIDAddr, "internal-id-server", "http://pachd:1658", "The web address where the identity server can be reached from within the cluster.")
 	deployIDE.Flags().StringVar(&idAddr, "id-server", "http://localhost:30658", "The web address where the identity server can be reached from the client machine.")
 	deployIDE.Flags().StringVar(&ideAddr, "ide-address", "http://localhost:30659", "The web address where the IDE can be reached from the client machine.")
 

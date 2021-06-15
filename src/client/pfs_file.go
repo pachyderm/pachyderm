@@ -284,11 +284,11 @@ func (c APIClient) WithRenewer(cb func(context.Context, *renew.StringSet) error)
 	return renew.WithStringSet(c.Ctx(), DefaultTTL, rf, cb)
 }
 
-// WithCreateFilesetClient provides a scoped fileset client.
-func (c APIClient) WithCreateFilesetClient(cb func(ModifyFile) error) (resp *pfs.CreateFilesetResponse, retErr error) {
+// WithCreateFileSetClient provides a scoped fileset client.
+func (c APIClient) WithCreateFileSetClient(cb func(ModifyFile) error) (resp *pfs.CreateFileSetResponse, retErr error) {
 	cancelCtx, cancel := context.WithCancel(c.Ctx())
 	defer cancel()
-	ctfsc, err := c.WithCtx(cancelCtx).NewCreateFilesetClient()
+	ctfsc, err := c.WithCtx(cancelCtx).NewCreateFileSetClient()
 	if err != nil {
 		return nil, err
 	}
@@ -300,22 +300,22 @@ func (c APIClient) WithCreateFilesetClient(cb func(ModifyFile) error) (resp *pfs
 	return nil, cb(ctfsc)
 }
 
-// CreateFilesetClient is used to create a temporary fileset.
-type CreateFilesetClient struct {
-	client pfs.API_CreateFilesetClient
+// CreateFileSetClient is used to create a temporary fileset.
+type CreateFileSetClient struct {
+	client pfs.API_CreateFileSetClient
 	modifyFileCore
 }
 
-// NewCreateFilesetClient returns a CreateFilesetClient instance backed by this client
-func (c APIClient) NewCreateFilesetClient() (_ *CreateFilesetClient, retErr error) {
+// NewCreateFileSetClient returns a CreateFileSetClient instance backed by this client
+func (c APIClient) NewCreateFileSetClient() (_ *CreateFileSetClient, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	client, err := c.PfsAPIClient.CreateFileset(c.Ctx())
+	client, err := c.PfsAPIClient.CreateFileSet(c.Ctx())
 	if err != nil {
 		return nil, err
 	}
-	return &CreateFilesetClient{
+	return &CreateFileSetClient{
 		client: client,
 		modifyFileCore: modifyFileCore{
 			client: client,
@@ -323,9 +323,9 @@ func (c APIClient) NewCreateFilesetClient() (_ *CreateFilesetClient, retErr erro
 	}, nil
 }
 
-// Close closes the CreateFilesetClient.
-func (ctfsc *CreateFilesetClient) Close() (*pfs.CreateFilesetResponse, error) {
-	var ret *pfs.CreateFilesetResponse
+// Close closes the CreateFileSetClient.
+func (ctfsc *CreateFileSetClient) Close() (*pfs.CreateFileSetResponse, error) {
+	var ret *pfs.CreateFileSetResponse
 	if err := ctfsc.maybeError(func() error {
 		resp, err := ctfsc.client.CloseAndRecv()
 		if err != nil {
@@ -339,16 +339,16 @@ func (ctfsc *CreateFilesetClient) Close() (*pfs.CreateFilesetResponse, error) {
 	return ret, nil
 }
 
-// AddFileset adds a fileset to a commit.
-func (c APIClient) AddFileset(repo, branch, commit, ID string) (retErr error) {
+// AddFileSet adds a fileset to a commit.
+func (c APIClient) AddFileSet(repo, branch, commit, ID string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	_, err := c.PfsAPIClient.AddFileset(
+	_, err := c.PfsAPIClient.AddFileSet(
 		c.Ctx(),
-		&pfs.AddFilesetRequest{
+		&pfs.AddFileSetRequest{
 			Commit:    NewCommit(repo, branch, commit),
-			FilesetId: ID,
+			FileSetId: ID,
 		},
 	)
 	return err
@@ -359,10 +359,10 @@ func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	_, err := c.PfsAPIClient.RenewFileset(
+	_, err := c.PfsAPIClient.RenewFileSet(
 		c.Ctx(),
-		&pfs.RenewFilesetRequest{
-			FilesetId:  ID,
+		&pfs.RenewFileSetRequest{
+			FileSetId:  ID,
 			TtlSeconds: int64(ttl.Seconds()),
 		},
 	)

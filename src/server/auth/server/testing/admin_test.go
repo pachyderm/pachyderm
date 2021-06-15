@@ -567,7 +567,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		})
 	rootClient.Enterprise.Activate(rootClient.Ctx(),
 		&enterprise.ActivateRequest{
-			LicenseServer: "localhost:650",
+			LicenseServer: "localhost:1650",
 			Id:            "localhost",
 			Secret:        "localhost",
 		})

@@ -10,9 +10,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-// NewCommitset creates a pfs.Commitset
-func NewCommitset(id string) *pfs.Commitset {
-	return &pfs.Commitset{ID: id}
+// NewCommitSet creates a pfs.CommitSet
+func NewCommitSet(id string) *pfs.CommitSet {
+	return &pfs.CommitSet{ID: id}
 }
 
 // NewRepo creates a pfs.Repo.
@@ -361,12 +361,12 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
-func (c APIClient) inspectCommitset(id string, wait bool, cb func(*pfs.CommitInfo) error) error {
-	req := &pfs.InspectCommitsetRequest{
-		Commitset: NewCommitset(id),
+func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInfo) error) error {
+	req := &pfs.InspectCommitSetRequest{
+		CommitSet: NewCommitSet(id),
 		Wait:      wait,
 	}
-	client, err := c.PfsAPIClient.InspectCommitset(c.Ctx(), req)
+	client, err := c.PfsAPIClient.InspectCommitSet(c.Ctx(), req)
 	if err != nil {
 		return err
 	}
@@ -387,11 +387,11 @@ func (c APIClient) inspectCommitset(id string, wait bool, cb func(*pfs.CommitInf
 	}
 }
 
-// InspectCommitset returns info about a specific Commitset.
-func (c APIClient) InspectCommitset(id string) (_ []*pfs.CommitInfo, retErr error) {
+// InspectCommitSet returns info about a specific CommitSet.
+func (c APIClient) InspectCommitSet(id string) (_ []*pfs.CommitInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pfs.CommitInfo{}
-	if err := c.inspectCommitset(id, false, func(ci *pfs.CommitInfo) error {
+	if err := c.inspectCommitSet(id, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -400,12 +400,12 @@ func (c APIClient) InspectCommitset(id string) (_ []*pfs.CommitInfo, retErr erro
 	return result, nil
 }
 
-// WaitCommitsetAll blocks until all of a Commitset's commits are finished.  To
+// WaitCommitSetAll blocks until all of a CommitSet's commits are finished.  To
 // wait for an individual commit, use WaitCommit instead.
-func (c APIClient) WaitCommitsetAll(id string) (_ []*pfs.CommitInfo, retErr error) {
+func (c APIClient) WaitCommitSetAll(id string) (_ []*pfs.CommitInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pfs.CommitInfo{}
-	if err := c.WaitCommitset(id, func(ci *pfs.CommitInfo) error {
+	if err := c.WaitCommitSet(id, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -414,23 +414,23 @@ func (c APIClient) WaitCommitsetAll(id string) (_ []*pfs.CommitInfo, retErr erro
 	return result, nil
 }
 
-// WaitCommitset blocks until each of a Commitset's commits are finished,
+// WaitCommitSet blocks until each of a CommitSet's commits are finished,
 // passing them to the given callback as they finish.  To wait for an individual
 // commit, use WaitCommit instead.
-func (c APIClient) WaitCommitset(id string, cb func(*pfs.CommitInfo) error) (retErr error) {
+func (c APIClient) WaitCommitSet(id string, cb func(*pfs.CommitInfo) error) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	if err := c.inspectCommitset(id, true, cb); err != nil {
+	if err := c.inspectCommitSet(id, true, cb); err != nil {
 		return err
 	}
 	return nil
 }
 
-// SquashCommitset squashes the commits of a Commitset into their children.
-func (c APIClient) SquashCommitset(id string) error {
-	_, err := c.PfsAPIClient.SquashCommitset(
+// SquashCommitSet squashes the commits of a CommitSet into their children.
+func (c APIClient) SquashCommitSet(id string) error {
+	_, err := c.PfsAPIClient.SquashCommitSet(
 		c.Ctx(),
-		&pfs.SquashCommitsetRequest{
-			Commitset: NewCommitset(id),
+		&pfs.SquashCommitSetRequest{
+			CommitSet: NewCommitSet(id),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
