@@ -86,7 +86,7 @@ var (
 	IAMAnnotation = "iam.amazonaws.com/role"
 
 	// OidcPort is the port where OIDC ID Providers can send auth assertions
-	OidcPort = int32(657)
+	OidcPort = int32(1657)
 )
 
 // Backend is the type used to enumerate what system provides object storage or
@@ -508,16 +508,16 @@ func imagePullSecrets(opts *AssetOpts) []v1.LocalObjectReference {
 func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath string) *apps.Deployment {
 	// set port defaults
 	if opts.PachdPort == 0 {
-		opts.PachdPort = 650
+		opts.PachdPort = 1650
 	}
 	if opts.TracePort == 0 {
-		opts.TracePort = 651
+		opts.TracePort = 1651
 	}
 	if opts.HTTPPort == 0 {
-		opts.HTTPPort = 652
+		opts.HTTPPort = 1652
 	}
 	if opts.PeerPort == 0 {
-		opts.PeerPort = 653
+		opts.PeerPort = 1653
 	}
 	mem := resource.MustParse(opts.PachdNonCacheMemRequest)
 	cpu := resource.MustParse(opts.PachdCPURequest)
@@ -737,41 +737,41 @@ func PachdService(opts *AssetOpts) *v1.Service {
 				// NOTE: do not put any new ports before `api-grpc-port`, as
 				// it'll change k8s SERVICE_PORT env var values
 				{
-					Port:     650, // also set in cmd/pachd/main.go
+					Port:     1650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
 					NodePort: 30650,
 				},
 				{
-					Port:     651, // also set in cmd/pachd/main.go
+					Port:     1651, // also set in cmd/pachd/main.go
 					Name:     "trace-port",
 					NodePort: 30651,
 				},
 				{
-					Port:     652, // also set in cmd/pachd/main.go
+					Port:     1652, // also set in cmd/pachd/main.go
 					Name:     "api-http-port",
 					NodePort: 30652,
 				},
 				{
 					Port:     OidcPort,
 					Name:     "oidc-port",
-					NodePort: 30000 + OidcPort,
+					NodePort: 30657,
 				},
 				{
-					Port:     658,
+					Port:     1658,
 					Name:     "identity-port",
 					NodePort: 30658,
 				},
 				{
-					Port:     600, // also set in cmd/pachd/main.go
+					Port:     1600, // also set in cmd/pachd/main.go
 					Name:     "s3gateway-port",
 					NodePort: 30600,
 				},
 				{
-					Port:       656,
+					Port:       1656,
 					Name:       "prometheus-metrics",
 					NodePort:   30656,
 					Protocol:   v1.ProtocolTCP,
-					TargetPort: intstr.FromInt(656),
+					TargetPort: intstr.FromInt(1656),
 				},
 			},
 		},

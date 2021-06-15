@@ -68,8 +68,8 @@ func ActivateCmd() *cobra.Command {
 			resp, err := c.License.AddCluster(c.Ctx(),
 				&license.AddClusterRequest{
 					Id:                  "localhost",
-					Address:             "grpc://localhost:653",
-					UserAddress:         "grpc://localhost:653",
+					Address:             "grpc://localhost:1653",
+					UserAddress:         "grpc://localhost:1653",
 					ClusterDeploymentId: clusterInfo.DeploymentID,
 					EnterpriseServer:    true,
 				})
@@ -82,7 +82,7 @@ func ActivateCmd() *cobra.Command {
 				&enterprise.ActivateRequest{
 					Id:            "localhost",
 					Secret:        resp.Secret,
-					LicenseServer: "grpc://localhost:653",
+					LicenseServer: "grpc://localhost:1653",
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not activate the enterprise service")

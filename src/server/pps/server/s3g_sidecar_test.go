@@ -473,7 +473,7 @@ func TestS3SkippedDatums(t *testing.T) {
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
-						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
+						"aws --endpoint=http://pachd.%s:1600 s3 cp s3://master.%s/round /tmp/bg",
 						Namespace, background,
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
@@ -630,7 +630,7 @@ func TestS3SkippedDatums(t *testing.T) {
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
-						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
+						"aws --endpoint=http://pachd.%s:1600 s3 cp s3://master.%s/round /tmp/bg",
 						Namespace, background,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",

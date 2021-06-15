@@ -16,7 +16,7 @@ const (
 
 	// DefaultPachdPort is the pachd kubernetes service's default
 	// Port (often used with Pachyderm ELBs)
-	DefaultPachdPort = 650
+	DefaultPachdPort = 1650
 )
 
 var (
