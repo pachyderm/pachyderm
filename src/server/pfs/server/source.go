@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -21,14 +20,13 @@ type Source interface {
 }
 
 type source struct {
-	storage    *chunk.Storage
 	commitInfo *pfs.CommitInfo
 	fileSet    fileset.FileSet
 	full       bool
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
-func NewSource(storage *chunk.Storage, commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
+func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
 	sc := &sourceConfig{}
 	for _, opt := range opts {
 		opt(sc)
@@ -38,7 +36,6 @@ func NewSource(storage *chunk.Storage, commitInfo *pfs.CommitInfo, fs fileset.Fi
 		fs = sc.filter(fs)
 	}
 	return &source{
-		storage:    storage,
 		commitInfo: commitInfo,
 		fileSet:    fs,
 		full:       sc.full,
@@ -65,7 +62,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 			fi.FileType = pfs.FileType_DIR
 		}
 		if s.full {
-			cachedFi, ok, err := s.checkFileInfoCache(ctx, cache, idx)
+			cachedFi, ok, err := s.checkFileInfoCache(ctx, cache, f)
 			if err != nil {
 				return err
 			}
@@ -86,7 +83,8 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	})
 }
 
-func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.FileInfo, idx *index.Index) (*pfs.FileInfo, bool, error) {
+func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.FileInfo, f fileset.File) (*pfs.FileInfo, bool, error) {
+	idx := f.Index()
 	// Handle a cached directory file info.
 	fi, ok := cache[idx.Path]
 	if ok {
@@ -97,7 +95,7 @@ func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.F
 	dir, _ := path.Split(idx.Path)
 	_, ok = cache[dir]
 	if ok {
-		fi, err := s.computeRegularFileInfo(ctx, idx)
+		fi, err := s.computeRegularFileInfo(ctx, f)
 		if err != nil {
 			return nil, false, err
 		}
@@ -119,7 +117,7 @@ func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.File
 		return nil, errors.Errorf("stream is wrong place to compute hash for %s", target)
 	}
 	if !fileset.IsDir(idx.Path) {
-		return s.computeRegularFileInfo(ctx, idx)
+		return s.computeRegularFileInfo(ctx, f)
 	}
 	var size uint64
 	h := pfs.NewHash()
@@ -150,13 +148,13 @@ func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.File
 	return fi, nil
 }
 
-func (s *source) computeRegularFileInfo(ctx context.Context, idx *index.Index) (*pfs.FileInfo, error) {
+func (s *source) computeRegularFileInfo(ctx context.Context, f fileset.File) (*pfs.FileInfo, error) {
 	fi := &pfs.FileInfo{
 		FileType:  pfs.FileType_FILE,
-		SizeBytes: uint64(index.SizeBytes(idx)),
+		SizeBytes: uint64(index.SizeBytes(f.Index())),
 	}
 	var err error
-	fi.Hash, err = s.storage.StableHash(ctx, idx.File.DataRefs)
+	fi.Hash, err = f.Hash()
 	if err != nil {
 		return nil, err
 	}

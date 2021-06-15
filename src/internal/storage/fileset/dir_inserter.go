@@ -79,3 +79,8 @@ func (d dirFile) Index() *index.Index {
 func (d dirFile) Content(w io.Writer) error {
 	return nil
 }
+
+func (d dirFile) Hash() ([]byte, error) {
+	// TODO: It may make sense to move the generation of directory metadata (size / hash) into the directory inserter.
+	panic("we should not be using the Hash function for dirFile, this is a bug")
+}
