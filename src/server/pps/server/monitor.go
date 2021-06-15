@@ -425,7 +425,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
-		if err = pachClient.SquashCommitset(commitInfo.Commit.ID); err != nil {
+		if err = pachClient.SquashCommitSet(commitInfo.Commit.ID); err != nil {
 			return err
 		}
 	}

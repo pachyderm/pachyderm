@@ -302,8 +302,8 @@ func (c *pfsBuilderClient) FinishCommit(ctx context.Context, req *pfs.FinishComm
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{FinishCommit: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) SquashCommitset(ctx context.Context, req *pfs.SquashCommitsetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{SquashCommitset: req})
+func (c *pfsBuilderClient) SquashCommitSet(ctx context.Context, req *pfs.SquashCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{SquashCommitSet: req})
 	return nil, nil
 }
 func (c *pfsBuilderClient) CreateBranch(ctx context.Context, req *pfs.CreateBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
@@ -347,8 +347,8 @@ func (c *pfsBuilderClient) InspectCommit(ctx context.Context, req *pfs.InspectCo
 func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (pfs.API_ListCommitClient, error) {
 	return nil, unsupportedError("ListCommit")
 }
-func (c *pfsBuilderClient) InspectCommitset(ctx context.Context, req *pfs.InspectCommitsetRequest, opts ...grpc.CallOption) (pfs.API_InspectCommitsetClient, error) {
-	return nil, unsupportedError("InspectCommitset")
+func (c *pfsBuilderClient) InspectCommitSet(ctx context.Context, req *pfs.InspectCommitSetRequest, opts ...grpc.CallOption) (pfs.API_InspectCommitSetClient, error) {
+	return nil, unsupportedError("InspectCommitSet")
 }
 func (c *pfsBuilderClient) SubscribeCommit(ctx context.Context, req *pfs.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs.API_SubscribeCommitClient, error) {
 	return nil, unsupportedError("SubscribeCommit")

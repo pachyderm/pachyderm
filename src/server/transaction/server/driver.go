@@ -143,9 +143,9 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
 	}
 
-	// Set the transaction's CommitsetID to be the same as the transaction ID, which
+	// Set the transaction's CommitSetID to be the same as the transaction ID, which
 	// will be used for any newly made commits.
-	txnCtx.CommitsetID = info.Transaction.ID
+	txnCtx.CommitSetID = info.Transaction.ID
 
 	directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
 	for i, request := range info.Requests {
@@ -160,8 +160,8 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 			response.Commit, err = directTxn.StartCommit(request.StartCommit)
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
-		} else if request.SquashCommitset != nil {
-			err = directTxn.SquashCommitset(request.SquashCommitset)
+		} else if request.SquashCommitSet != nil {
+			err = directTxn.SquashCommitSet(request.SquashCommitSet)
 		} else if request.CreateBranch != nil {
 			err = directTxn.CreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {

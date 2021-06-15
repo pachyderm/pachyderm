@@ -20,7 +20,7 @@ message TransactionRequest {
   pfs_v2.DeleteRepoRequest delete_repo = 2;
   pfs_v2.StartCommitRequest start_commit = 3;
   pfs_v2.FinishCommitRequest finish_commit = 4;
-  pfs_v2.SquashCommitsetRequest squash_commitset = 5;
+  pfs_v2.SquashCommitSetRequest squash_commit_set = 5;
   pfs_v2.CreateBranchRequest create_branch = 6;
   pfs_v2.DeleteBranchRequest delete_branch = 7;
   pps_v2.UpdateJobStateRequest update_job_state = 8;

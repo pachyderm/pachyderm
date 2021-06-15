@@ -128,7 +128,7 @@ message CommitInfo {
   repeated Branch direct_provenance = 9;
 }
 
-message Commitset {
+message CommitSet {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
 
@@ -215,13 +215,13 @@ message ListCommitRequest {
   bool reverse = 5;  // Return commits oldest to newest
 }
 
-message InspectCommitsetRequest {
-  Commitset commitset = 1;
+message InspectCommitSetRequest {
+  CommitSet commit_set = 1;
   bool wait = 2; // When true, wait until all commits in the set are finished
 }
 
-message SquashCommitsetRequest {
-  Commitset commitset = 1;
+message SquashCommitSetRequest {
+  CommitSet commit_set = 1;
 }
 
 message SubscribeCommitRequest {
@@ -242,7 +242,7 @@ message CreateBranchRequest {
   Branch branch = 2;
   repeated Branch provenance = 3;
   Trigger trigger = 4;
-  bool new_commitset = 5; // overrides the default behavior of using the same Commitset as 'head'
+  bool new_commit_set = 5; // overrides the default behavior of using the same CommitSet as 'head'
 }
 
 message InspectBranchRequest {
@@ -467,10 +467,10 @@ service API {
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
 
-  // InspectCommitset returns the info about a Commitset.
-  rpc InspectCommitset(InspectCommitsetRequest) returns (stream CommitInfo) {}
-  // SquashCommitset squashes the commits of a Commitset into their children.
-  rpc SquashCommitset(SquashCommitsetRequest) returns (google.protobuf.Empty) {}
+  // InspectCommitSet returns the info about a CommitSet.
+  rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}
+  // SquashCommitSet squashes the commits of a CommitSet into their children.
+  rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}

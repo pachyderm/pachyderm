@@ -327,7 +327,7 @@ func TestPFS(suite *testing.T) {
 		_, err = env.PachClient.PfsAPIClient.CreateBranch(env.PachClient.Ctx(), &pfs.CreateBranchRequest{
 			Head:         client.NewCommit("b", "master", commit2.ID),
 			Branch:       client.NewBranch("b", "master"),
-			NewCommitset: true,
+			NewCommitSet: true,
 			Provenance:   provB,
 		})
 		require.NoError(t, err)
@@ -718,7 +718,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, eg.Wait())
 	})
 
-	suite.Run("SquashCommitset", func(t *testing.T) {
+	suite.Run("SquashCommitSet", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -736,7 +736,7 @@ func TestPFS(suite *testing.T) {
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
-		require.NoError(t, env.PachClient.SquashCommitset(commit2.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(commit2.ID))
 
 		_, err = env.PachClient.InspectCommit(repo, commit2.Branch.Name, commit2.ID)
 		require.YesError(t, err)
@@ -752,7 +752,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(branchInfos))
 	})
 
-	suite.Run("SquashCommitsetOnlyCommitInBranch", func(t *testing.T) {
+	suite.Run("SquashCommitSetOnlyCommitInBranch", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -769,7 +769,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
 
-		require.NoError(t, env.PachClient.SquashCommitset(commit.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(commit.ID))
 
 		// The branch has not been deleted, though its head has been replaced with an empty commit
 		branchInfos, err := env.PachClient.ListBranch(repo)
@@ -787,7 +787,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, uint64(0), repoInfo.SizeBytes)
 	})
 
-	suite.Run("SquashCommitsetFinished", func(t *testing.T) {
+	suite.Run("SquashCommitSetFinished", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -810,7 +810,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), commitInfo.SizeBytes)
 
-		require.NoError(t, env.PachClient.SquashCommitset(commit.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(commit.ID))
 
 		// The branch has not been deleted, though it only has an empty commit
 		branchInfos, err := env.PachClient.ListBranch(repo)
@@ -1153,10 +1153,10 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, bHead.Commit.ID, ci.Commit.ID)
 
 		// We should be able to squash the parent commits of A and B Head
-		require.NoError(t, env.PachClient.SquashCommitset(aHead.ParentCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(aHead.ParentCommit.ID))
 
 		// Now, squashing the head of A and B and C should leave each of them with just an empty head commit
-		require.NoError(t, env.PachClient.SquashCommitset(aHead.Commit.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(aHead.Commit.ID))
 
 		_, err = env.PachClient.InspectCommit("output", "C", "")
 		require.NoError(t, err)
@@ -1206,20 +1206,20 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(branchInfos))
 		require.Equal(t, "master", branchInfos[0].Branch.Name)
 
-		// Check that moving the commit to other branches uses the same Commitset ID and extends the existing Commitset
-		commitInfos, err := env.PachClient.InspectCommitset(commit.ID)
+		// Check that moving the commit to other branches uses the same CommitSet ID and extends the existing CommitSet
+		commitInfos, err := env.PachClient.InspectCommitSet(commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master2", commit.Branch.Name, commit.ID, nil))
 
-		commitInfos, err = env.PachClient.InspectCommitset(commit.ID)
+		commitInfos, err = env.PachClient.InspectCommitSet(commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master3", commit.Branch.Name, commit.ID, nil))
 
-		commitInfos, err = env.PachClient.InspectCommitset(commit.ID)
+		commitInfos, err = env.PachClient.InspectCommitSet(commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 
@@ -2509,7 +2509,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit2.ID, branchInfos[1].Head.ID) // original branch should remain unchanged
 	})
 
-	suite.Run("WaitCommitset", func(t *testing.T) {
+	suite.Run("WaitCommitSet", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2524,16 +2524,16 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
 		require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
 
-		commitInfos, err := env.PachClient.WaitCommitsetAll(ACommit.ID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, ACommit, commitInfos[0].Commit)
 		require.Equal(t, BCommit, commitInfos[1].Commit)
 	})
 
-	// WaitCommitset2 implements the following DAG:
+	// WaitCommitSet2 implements the following DAG:
 	// A ─▶ B ─▶ C ─▶ D
-	suite.Run("WaitCommitset2", func(t *testing.T) {
+	suite.Run("WaitCommitSet2", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2562,7 +2562,7 @@ func TestPFS(suite *testing.T) {
 		}()
 
 		// Wait for the commits to finish
-		commitInfos, err := env.PachClient.WaitCommitsetAll(ACommit.ID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.ID)
 		require.NoError(t, err)
 		BCommit := client.NewCommit("B", "master", ACommit.ID)
 		CCommit := client.NewCommit("C", "master", ACommit.ID)
@@ -2581,7 +2581,7 @@ func TestPFS(suite *testing.T) {
 	//   ◀
 	//  ╱
 	// B
-	suite.Run("WaitCommitset3", func(t *testing.T) {
+	suite.Run("WaitCommitSet3", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2607,7 +2607,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 
 		// The first two commits will be A and B, but they aren't deterministically sorted
-		commitInfos, err := env.PachClient.WaitCommitsetAll(ACommit.ID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 		expected := []*pfs.Commit{ACommit, client.NewCommit("B", "master", ACommit.ID)}
@@ -2615,7 +2615,7 @@ func TestPFS(suite *testing.T) {
 		require.ImagesEqual(t, expected, actual, CommitToID)
 		require.Equal(t, client.NewCommit("C", "master", ACommit.ID), commitInfos[2].Commit)
 
-		commitInfos, err = env.PachClient.WaitCommitsetAll(BCommit.ID)
+		commitInfos, err = env.PachClient.WaitCommitSetAll(BCommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 		expected = []*pfs.Commit{client.NewCommit("A", "master", BCommit.ID), BCommit}
@@ -2624,7 +2624,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, client.NewCommit("C", "master", BCommit.ID), commitInfos[2].Commit)
 	})
 
-	suite.Run("WaitCommitsetWithNoDownstreamRepos", func(t *testing.T) {
+	suite.Run("WaitCommitSetWithNoDownstreamRepos", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -2633,7 +2633,7 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
-		commitInfos, err := env.PachClient.WaitCommitsetAll(commit.ID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
@@ -2665,7 +2665,7 @@ func TestPFS(suite *testing.T) {
 		})
 
 		// Wait for the commit to finish
-		commitInfos, err := env.PachClient.WaitCommitsetAll(commit.ID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
@@ -2707,17 +2707,17 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.WaitCommitsetAll("")
+		_, err := env.PachClient.WaitCommitSetAll("")
 		require.YesError(t, err)
 	})
 
-	suite.Run("WaitNonExistentCommitset", func(t *testing.T) {
+	suite.Run("WaitNonExistentCommitSet", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		_, err := env.PachClient.WaitCommitsetAll("fake-commitset")
+		_, err := env.PachClient.WaitCommitSetAll("fake-commitset")
 		require.YesError(t, err)
-		require.True(t, pfsserver.IsCommitsetNotFoundErr(err))
+		require.True(t, pfsserver.IsCommitSetNotFoundErr(err))
 	})
 
 	suite.Run("PutFileSplit", func(t *testing.T) {
@@ -3444,7 +3444,7 @@ func TestPFS(suite *testing.T) {
 		cCommitInfo, err := env.PachClient.InspectCommit("C", "master", "")
 		require.NoError(t, err)
 
-		commitInfos, err := env.PachClient.InspectCommitset(cCommitInfo.Commit.ID)
+		commitInfos, err := env.PachClient.InspectCommitSet(cCommitInfo.Commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(commitInfos))
 	})
@@ -3636,7 +3636,7 @@ func TestPFS(suite *testing.T) {
 		require.ImagesEqual(t, []*pfs.Commit{commit2}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit 2 and make sure it's removed from commit1.ChildCommits
-		require.NoError(t, env.PachClient.SquashCommitset(commit2.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(commit2.ID))
 		commit1Info = inspect("A", commit1.Branch.Name, commit1.ID)
 		require.ElementsEqualUnderFn(t, nil, commit1Info.ChildCommits, CommitToID)
 
@@ -3654,7 +3654,7 @@ func TestPFS(suite *testing.T) {
 		require.ImagesEqual(t, []*pfs.Commit{commit2, commit3}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit3 and make sure commit1 has the right children
-		require.NoError(t, env.PachClient.SquashCommitset(commit3.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(commit3.ID))
 		commit1Info = inspect("A", commit1.Branch.Name, commit1.ID)
 		require.ImagesEqual(t, []*pfs.Commit{commit2}, commit1Info.ChildCommits, CommitToID)
 
@@ -3760,7 +3760,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 3, len(commits))
 	})
 
-	// SquashCommitsetMultipleChildrenSingleCommit tests that when you have the
+	// SquashCommitSetMultipleChildrenSingleCommit tests that when you have the
 	// following commit graph in a repo:
 	// c   d
 	//  ↘ ↙
@@ -3773,7 +3773,7 @@ func TestPFS(suite *testing.T) {
 	// c   d
 	//  ↘ ↙
 	//   a
-	suite.Run("SquashCommitsetMultipleChildrenSingleCommit", func(t *testing.T) {
+	suite.Run("SquashCommitSetMultipleChildrenSingleCommit", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -3788,11 +3788,11 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("repo", b.Branch.Name, b.ID))
 
-		// Create 'd' by aliasing 'b' into another branch (force a new Commitset rather than extending 'b')
+		// Create 'd' by aliasing 'b' into another branch (force a new CommitSet rather than extending 'b')
 		_, err = env.PachClient.PfsAPIClient.CreateBranch(env.PachClient.Ctx(), &pfs.CreateBranchRequest{
 			Branch:       client.NewBranch("repo", "master2"),
 			Head:         client.NewCommit("repo", "master", ""),
-			NewCommitset: true,
+			NewCommitSet: true,
 		})
 		require.NoError(t, err)
 
@@ -3826,7 +3826,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 0, len(dInfo.ChildCommits))
 
 		// Delete commit 'b'
-		env.PachClient.SquashCommitset(b.ID)
+		env.PachClient.SquashCommitSet(b.ID)
 
 		// Collect info re: a, c, and d, and make sure that the parent/child
 		// relationships are still correct
@@ -3865,7 +3865,7 @@ func TestPFS(suite *testing.T) {
 	//   a
 	// This makes sure that multiple live children are re-pointed at a live parent
 	// if appropriate
-	suite.Run("SquashCommitsetMultiLevelChildren", func(t *testing.T) {
+	suite.Run("SquashCommitSetMultiLevelChildren", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -3972,7 +3972,7 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, fInfo.ChildCommits)
 
 		// Delete second commit in upstream2, which deletes b
-		require.NoError(t, env.PachClient.SquashCommitset(squashMeCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(squashMeCommit.ID))
 
 		// Re-read commit info to get new parents/children
 		aInfo, err = env.PachClient.InspectCommit("repo", a.Branch.Name, a.ID)
@@ -3989,7 +3989,7 @@ func TestPFS(suite *testing.T) {
 		// The head of master should be 'c'
 
 		// Make sure child/parent relationships are as shown in second diagram. Note
-		// that after 'b' is deleted, SquashCommitset does not create a new commit (c has
+		// that after 'b' is deleted, SquashCommitSet does not create a new commit (c has
 		// an alias for the deleted commit in upstream1)
 		commits, err = env.PachClient.ListCommit(client.NewRepo("repo"), nil, nil, 0)
 		require.NoError(t, err)
@@ -4543,7 +4543,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		commitsetID := commitInfoA.Commit.ID
 
-		commitInfos, err := env.PachClient.WaitCommitsetAll(commitsetID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(commitsetID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commitInfoA.Commit, commitInfos[0].Commit)
@@ -4554,7 +4554,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, commitsetID, commitInfoB.Commit.ID)
 
-		commitInfos, err = env.PachClient.WaitCommitsetAll(commitsetID)
+		commitInfos, err = env.PachClient.WaitCommitSetAll(commitsetID)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 
@@ -4573,7 +4573,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, commitsetID, commitInfoC.Commit.ID)
 
-		commitInfos, err = env.PachClient.WaitCommitsetAll(commitsetID)
+		commitInfos, err = env.PachClient.WaitCommitSetAll(commitsetID)
 		require.NoError(t, err)
 		require.Equal(t, 5, len(commitInfos))
 		expectedCommits = append(expectedCommits, []string{
@@ -4769,7 +4769,7 @@ func TestPFS(suite *testing.T) {
 		inputBranch               // create a new branch on an existing input repo
 		deleteInputBranch         // delete an input branch
 		commit                    // commit to an input branch
-		squashCommitset           // squash a commitset from an input branch
+		squashCommitSet           // squash a commitset from an input branch
 		outputRepo                // create a new output repo, with master branch subscribed to random other branches
 		outputBranch              // create a new output branch on an existing output repo
 		deleteOutputBranch        // delete an output branch
@@ -4791,7 +4791,7 @@ func TestPFS(suite *testing.T) {
 			1, // inputBranch
 			1, // deleteInputBranch
 			5, // commit
-			3, // squashCommitset
+			3, // squashCommitSet
 			1, // outputRepo
 			2, // outputBranch
 			1, // deleteOutputBranch
@@ -4857,14 +4857,14 @@ func TestPFS(suite *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, env.PachClient.FinishCommit(branch.Repo.Name, branch.Name, ""))
 				commits = append(commits, commit)
-			case squashCommitset:
+			case squashCommitSet:
 				if len(commits) == 0 {
 					continue OpLoop
 				}
 				i := r.Intn(len(commits))
 				commit := commits[i]
 				commits = append(commits[:i], commits[i+1:]...)
-				require.NoError(t, env.PachClient.SquashCommitset(commit.ID))
+				require.NoError(t, env.PachClient.SquashCommitSet(commit.ID))
 			case outputRepo:
 				if len(inputBranches) == 0 {
 					continue OpLoop
@@ -5569,9 +5569,9 @@ func TestPFS(suite *testing.T) {
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.SquashCommitset(c.Ctx(), &pfs.SquashCommitsetRequest{})
+		_, err = c.PfsAPIClient.SquashCommitSet(c.Ctx(), &pfs.SquashCommitSetRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectCommitset(c.Ctx(), &pfs.InspectCommitsetRequest{})
+		_, err = c.PfsAPIClient.InspectCommitSet(c.Ctx(), &pfs.InspectCommitSetRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{})
 		requireNoPanic(err)

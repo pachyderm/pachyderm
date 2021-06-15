@@ -579,9 +579,9 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 	// commitset, it will block on commits that don't have a job associated with
 	// them (aliases and input commits, for example).
 	if request.Wait {
-		return pachClient.WaitCommitset(request.Jobset.ID, cb)
+		return pachClient.WaitCommitSet(request.Jobset.ID, cb)
 	}
-	commitInfos, err := pachClient.InspectCommitset(request.Jobset.ID)
+	commitInfos, err := pachClient.InspectCommitSet(request.Jobset.ID)
 	if err != nil {
 		return err
 	}
@@ -593,12 +593,12 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 	return nil
 }
 
-// intersectCommitsets finds all commitsets which involve the specified commits
+// intersectCommitSets finds all commitsets which involve the specified commits
 // (or aliases of the specified commits)
 // TODO(global ids): this assumes that all aliases are equivalent to their first
 // ancestor non-alias commit, but that may not be true if the ancestor has been
 // squashed.  We may need to recursively squash commitsets to prevent this.
-func (a *apiServer) intersectCommitsets(ctx context.Context, commits []*pfs.Commit) (map[string]struct{}, error) {
+func (a *apiServer) intersectCommitSets(ctx context.Context, commits []*pfs.Commit) (map[string]struct{}, error) {
 	walkCommits := func(startCommit *pfs.Commit) (map[string]struct{}, error) {
 		result := map[string]struct{}{} // key is the commitset id
 		queue := []*pfs.Commit{}
@@ -683,7 +683,7 @@ func (a *apiServer) listJob(
 
 	// For each specified input commit, build the set of commitset IDs which
 	// belong to all of them.
-	commitsets, err := a.intersectCommitsets(ctx, inputCommits)
+	commitsets, err := a.intersectCommitSets(ctx, inputCommits)
 	if err != nil {
 		return err
 	}
@@ -2841,7 +2841,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 }
 
 func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
-	commitInfos, err := a.env.PfsServer().InspectCommitsetInTransaction(txnCtx, client.NewCommitset(txnCtx.CommitsetID))
+	commitInfos, err := a.env.PfsServer().InspectCommitSetInTransaction(txnCtx, client.NewCommitSet(txnCtx.CommitSetID))
 	if err != nil {
 		return err
 	}
@@ -2872,7 +2872,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 		}
 
 		// Check if there is an existing job for the output commit
-		job := client.NewJob(pipelineInfo.Pipeline.Name, txnCtx.CommitsetID)
+		job := client.NewJob(pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
 		jobInfo := &pps.StoredJobInfo{}
 		if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(job), jobInfo); err == nil {
 			continue // Job already exists, skip it

@@ -82,7 +82,7 @@ func TestPrometheusStats(t *testing.T) {
 	require.NoError(t, c.PutFile(commit, "test", strings.NewReader("fail")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
-	_, err = c.WaitCommitsetAll(commit.ID)
+	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
 
 	port := os.Getenv("PROM_PORT")
@@ -260,7 +260,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 
 	// If the error exists, the stats commit will never close, and this will
 	// timeout
-	_, err = c.WaitCommitsetAll(commit.ID)
+	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
 
 	// Make sure the job succeeded as well

@@ -404,8 +404,8 @@ type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Empty, error)
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
-type squashCommitsetFunc func(context.Context, *pfs.SquashCommitsetRequest) (*types.Empty, error)
-type inspectCommitsetFunc func(*pfs.InspectCommitsetRequest, pfs.API_InspectCommitsetServer) error
+type squashCommitSetFunc func(context.Context, *pfs.SquashCommitSetRequest) (*types.Empty, error)
+type inspectCommitSetFunc func(*pfs.InspectCommitSetRequest, pfs.API_InspectCommitSetServer) error
 type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeCommitServer) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
 type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Empty, error)
@@ -436,8 +436,8 @@ type mockStartCommit struct{ handler startCommitFunc }
 type mockFinishCommit struct{ handler finishCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
 type mockListCommit struct{ handler listCommitFunc }
-type mockSquashCommitset struct{ handler squashCommitsetFunc }
-type mockInspectCommitset struct{ handler inspectCommitsetFunc }
+type mockSquashCommitSet struct{ handler squashCommitSetFunc }
+type mockInspectCommitSet struct{ handler inspectCommitSetFunc }
 type mockSubscribeCommit struct{ handler subscribeCommitFunc }
 type mockClearCommit struct{ handler clearCommitFunc }
 type mockCreateBranch struct{ handler createBranchFunc }
@@ -470,8 +470,8 @@ func (mock *mockInspectCommit) Use(cb inspectCommitFunc)       { mock.handler = 
 func (mock *mockListCommit) Use(cb listCommitFunc)             { mock.handler = cb }
 func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc)   { mock.handler = cb }
 func (mock *mockClearCommit) Use(cb clearCommitFunc)           { mock.handler = cb }
-func (mock *mockSquashCommitset) Use(cb squashCommitsetFunc)   { mock.handler = cb }
-func (mock *mockInspectCommitset) Use(cb inspectCommitsetFunc) { mock.handler = cb }
+func (mock *mockSquashCommitSet) Use(cb squashCommitSetFunc)   { mock.handler = cb }
+func (mock *mockInspectCommitSet) Use(cb inspectCommitSetFunc) { mock.handler = cb }
 func (mock *mockCreateBranch) Use(cb createBranchFunc)         { mock.handler = cb }
 func (mock *mockInspectBranch) Use(cb inspectBranchFunc)       { mock.handler = cb }
 func (mock *mockListBranch) Use(cb listBranchFunc)             { mock.handler = cb }
@@ -508,8 +508,8 @@ type mockPFSServer struct {
 	ListCommit       mockListCommit
 	SubscribeCommit  mockSubscribeCommit
 	ClearCommit      mockClearCommit
-	SquashCommitset  mockSquashCommitset
-	InspectCommitset mockInspectCommitset
+	SquashCommitSet  mockSquashCommitSet
+	InspectCommitSet mockInspectCommitSet
 	CreateBranch     mockCreateBranch
 	InspectBranch    mockInspectBranch
 	ListBranch       mockListBranch
@@ -584,17 +584,17 @@ func (api *pfsServerAPI) ListCommit(req *pfs.ListCommitRequest, serv pfs.API_Lis
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListCommit")
 }
-func (api *pfsServerAPI) SquashCommitset(ctx context.Context, req *pfs.SquashCommitsetRequest) (*types.Empty, error) {
-	if api.mock.SquashCommitset.handler != nil {
-		return api.mock.SquashCommitset.handler(ctx, req)
+func (api *pfsServerAPI) SquashCommitSet(ctx context.Context, req *pfs.SquashCommitSetRequest) (*types.Empty, error) {
+	if api.mock.SquashCommitSet.handler != nil {
+		return api.mock.SquashCommitSet.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommitset")
+	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommitSet")
 }
-func (api *pfsServerAPI) InspectCommitset(req *pfs.InspectCommitsetRequest, serv pfs.API_InspectCommitsetServer) error {
-	if api.mock.InspectCommitset.handler != nil {
-		return api.mock.InspectCommitset.handler(req, serv)
+func (api *pfsServerAPI) InspectCommitSet(req *pfs.InspectCommitSetRequest, serv pfs.API_InspectCommitSetServer) error {
+	if api.mock.InspectCommitSet.handler != nil {
+		return api.mock.InspectCommitSet.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.InspectCommitset")
+	return errors.Errorf("unhandled pachd mock pfs.InspectCommitSet")
 }
 func (api *pfsServerAPI) SubscribeCommit(req *pfs.SubscribeCommitRequest, serv pfs.API_SubscribeCommitServer) error {
 	if api.mock.SubscribeCommit.handler != nil {

@@ -2353,7 +2353,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// make sure the pipeline failure doesn't cause waits to block indefinitely
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.WaitCommitsetAll(commitInfo.Commit.ID)
+		_, err := aliceClient.WaitCommitSetAll(commitInfo.Commit.ID)
 		return err
 	})
 }
