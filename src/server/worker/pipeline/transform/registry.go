@@ -38,7 +38,7 @@ import (
 // TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
 
 const (
-	defaultChunksPerWorker int64 = 4
+	defaultDatumSetsPerWorker int64 = 4
 )
 
 type hasher struct {
@@ -509,16 +509,16 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	// Set up the datum set spec for the job.
 	// When the datum set spec is not set, evenly distribute the datums.
 	var setSpec *datum.SetSpec
-	chunksPerWorker := defaultChunksPerWorker
-	if pj.driver.PipelineInfo().ChunkSpec != nil {
+	datumSetsPerWorker := defaultDatumSetsPerWorker
+	if pj.driver.PipelineInfo().DatumSetSpec != nil {
 		setSpec = &datum.SetSpec{
-			Number:    pj.driver.PipelineInfo().ChunkSpec.Number,
-			SizeBytes: pj.driver.PipelineInfo().ChunkSpec.SizeBytes,
+			Number:    pj.driver.PipelineInfo().DatumSetSpec.Number,
+			SizeBytes: pj.driver.PipelineInfo().DatumSetSpec.SizeBytes,
 		}
-		chunksPerWorker = pj.driver.PipelineInfo().ChunkSpec.ChunksPerWorker
+		datumSetsPerWorker = pj.driver.PipelineInfo().DatumSetSpec.PerWorker
 	}
 	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
-		setSpec = &datum.SetSpec{Number: numDatums / (int64(reg.concurrency) * chunksPerWorker)}
+		setSpec = &datum.SetSpec{Number: numDatums / (int64(reg.concurrency) * datumSetsPerWorker)}
 		if setSpec.Number == 0 {
 			setSpec.Number = 1
 		}
@@ -556,21 +556,21 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 						if err != nil {
 							return err
 						}
-						renewer.Remove(data.FilesetId)
-						if _, err := pachClient.PfsAPIClient.AddFileset(
+						renewer.Remove(data.FileSetId)
+						if _, err := pachClient.PfsAPIClient.AddFileSet(
 							pachClient.Ctx(),
-							&pfs.AddFilesetRequest{
+							&pfs.AddFileSetRequest{
 								Commit:    pj.commitInfo.Commit,
-								FilesetId: data.OutputFilesetId,
+								FileSetId: data.OutputFileSetId,
 							},
 						); err != nil {
 							return grpcutil.ScrubGRPC(err)
 						}
-						if _, err := pachClient.PfsAPIClient.AddFileset(
+						if _, err := pachClient.PfsAPIClient.AddFileSet(
 							pachClient.Ctx(),
-							&pfs.AddFilesetRequest{
+							&pfs.AddFileSetRequest{
 								Commit:    pj.metaCommitInfo.Commit,
-								FilesetId: data.MetaFilesetId,
+								FileSetId: data.MetaFileSetId,
 							},
 						); err != nil {
 							return grpcutil.ScrubGRPC(err)
@@ -605,19 +605,19 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 }
 
 func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(client.ModifyFile) error, renewer *renew.StringSet) (*work.Task, error) {
-	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		return upload(mf)
 	})
 	if err != nil {
 		return nil, err
 	}
-	renewer.Add(resp.FilesetId)
+	renewer.Add(resp.FileSetId)
 	data, err := serializeDatumSet(&DatumSet{
 		JobID:        pj.ji.Job.ID,
 		OutputCommit: pj.commitInfo.Commit,
 		// TODO: It might make sense for this to be a hash of the constituent datums?
 		// That could make it possible to recover from a master restart.
-		FilesetId: resp.FilesetId,
+		FileSetId: resp.FileSetId,
 	})
 	if err != nil {
 		return nil, err

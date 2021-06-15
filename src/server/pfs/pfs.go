@@ -35,9 +35,9 @@ type ErrCommitNotFound struct {
 	Commit *pfs.Commit
 }
 
-// ErrCommitsetNotFound represents a commitset-not-found error.
-type ErrCommitsetNotFound struct {
-	Commitset *pfs.Commitset
+// ErrCommitSetNotFound represents a commitset-not-found error.
+type ErrCommitSetNotFound struct {
+	CommitSet *pfs.CommitSet
 }
 
 // ErrCommitExists represents an error where the commit already exists.
@@ -80,7 +80,7 @@ type ErrAmbiguousCommit struct {
 }
 
 // ErrInconsistentCommit represents an error where a transaction attempts to
-// create a Commitset with multiple commits in the same branch, which would
+// create a CommitSet with multiple commits in the same branch, which would
 // result in inconsistent data dependencies.
 type ErrInconsistentCommit struct {
 	Branch *pfs.Branch
@@ -115,8 +115,8 @@ func (e ErrCommitNotFound) Error() string {
 	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
 }
 
-func (e ErrCommitsetNotFound) Error() string {
-	return fmt.Sprintf("no commits found for commitset %v", e.Commitset.ID)
+func (e ErrCommitSetNotFound) Error() string {
+	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.ID)
 }
 
 func (e ErrCommitExists) Error() string {
@@ -180,9 +180,9 @@ func IsCommitNotFoundErr(err error) bool {
 	return commitNotFoundRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }
 
-// IsCommitsetNotFoundErr returns true if 'err' has an error message that matches
-// ErrCommitsetNotFound
-func IsCommitsetNotFoundErr(err error) bool {
+// IsCommitSetNotFoundErr returns true if 'err' has an error message that matches
+// ErrCommitSetNotFound
+func IsCommitSetNotFoundErr(err error) bool {
 	if err == nil {
 		return false
 	}

@@ -186,10 +186,10 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 		return txn.FinishCommit(request)
 	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
 		// FinishCommit in a transaction by itself has special handling with regards
-		// to its Commitset ID.  It is possible that this transaction will create
+		// to its CommitSet ID.  It is possible that this transaction will create
 		// new commits via triggers, but we want those commits to be associated with
-		// the same Commitset that the finished commit is associated with.
-		// Therefore, we override the txnCtx's CommitsetID field to point to the
+		// the same CommitSet that the finished commit is associated with.
+		// Therefore, we override the txnCtx's CommitSetID field to point to the
 		// same commit.
 		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
 		if err != nil {
@@ -229,32 +229,32 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	})
 }
 
-// InspectCommitsetInTransaction performs the same job as InspectCommitset
+// InspectCommitSetInTransaction performs the same job as InspectCommitSet
 // without the option of blocking for commits to finish so that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) InspectCommitsetInTransaction(txnCtx *txncontext.TransactionContext, commitset *pfs.Commitset) ([]*pfs.CommitInfo, error) {
-	return a.driver.inspectCommitsetImmediate(txnCtx, commitset)
+func (a *apiServer) InspectCommitSetInTransaction(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitInfo, error) {
+	return a.driver.inspectCommitSetImmediate(txnCtx, commitset)
 }
 
-// InspectCommitset implements the protobuf pfs.InspectCommitset RPC
-func (a *apiServer) InspectCommitset(request *pfs.InspectCommitsetRequest, server pfs.API_InspectCommitsetServer) (retErr error) {
+// InspectCommitSet implements the protobuf pfs.InspectCommitSet RPC
+func (a *apiServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, server pfs.API_InspectCommitSetServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectCommitset(server.Context(), request.Commitset, request.Wait, server.Send)
+	return a.driver.inspectCommitSet(server.Context(), request.CommitSet, request.Wait, server.Send)
 }
 
-// SquashCommitsetInTransaction is identical to SquashCommitset except that it can run
+// SquashCommitSetInTransaction is identical to SquashCommitSet except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) SquashCommitsetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitsetRequest) error {
-	return a.driver.squashCommitset(txnCtx, request.Commitset)
+func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetRequest) error {
+	return a.driver.squashCommitSet(txnCtx, request.CommitSet)
 }
 
-// SquashCommitset implements the protobuf pfs.SquashCommitset RPC
-func (a *apiServer) SquashCommitset(ctx context.Context, request *pfs.SquashCommitsetRequest) (response *types.Empty, retErr error) {
+// SquashCommitSet implements the protobuf pfs.SquashCommitSet RPC
+func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.SquashCommitset(request)
+		return txn.SquashCommitSet(request)
 	}, nil); err != nil {
 		return nil, err
 	}
@@ -288,19 +288,19 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.CreateBranch(request)
 	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
-		if request.Head == nil || request.NewCommitset {
+		if request.Head == nil || request.NewCommitSet {
 			return "", nil
 		}
 		// CreateBranch in a transaction by itself has special handling with regards
-		// to its Commitset ID.  In order to better support a 'deferred processing'
+		// to its CommitSet ID.  In order to better support a 'deferred processing'
 		// workflow with global IDs, it is useful for moving a branch head to be
-		// done in the same Commitset as the parent commit of the new branch head -
+		// done in the same CommitSet as the parent commit of the new branch head -
 		// this is similar to how we handle triggers when finishing a commit.
-		// Therefore we override the Commitset ID being used by this operation, and
-		// propagateBranches will update the existing Commitset structure.  As an
+		// Therefore we override the CommitSet ID being used by this operation, and
+		// propagateBranches will update the existing CommitSet structure.  As an
 		// escape hatch in case of an unexpected workload, this behavior can be
-		// overridden by setting NewCommitset=true in the request.
-		// if request.Head != nil && !request.NewCommitset {
+		// overridden by setting NewCommitSet=true in the request.
+		// if request.Head != nil && !request.NewCommitSet {
 		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Head)
 		if err != nil {
 			return "", err
@@ -740,63 +740,63 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	return nil
 }
 
-// CreateFileset implements the pfs.CreateFileset RPC
-func (a *apiServer) CreateFileset(server pfs.API_CreateFilesetServer) (retErr error) {
+// CreateFileSet implements the pfs.CreateFileSet RPC
+func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr error) {
 	request, err := server.Recv()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
-	fsID, err := a.driver.createFileset(server.Context(), func(uw *fileset.UnorderedWriter) error {
+	fsID, err := a.driver.createFileSet(server.Context(), func(uw *fileset.UnorderedWriter) error {
 		_, err := a.modifyFile(server.Context(), uw, server, request)
 		return err
 	})
 	if err != nil {
 		return err
 	}
-	return server.SendAndClose(&pfs.CreateFilesetResponse{
-		FilesetId: fsID.HexString(),
+	return server.SendAndClose(&pfs.CreateFileSetResponse{
+		FileSetId: fsID.HexString(),
 	})
 }
 
-func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error) {
-	filesetID, err := a.driver.getFileset(ctx, req.Commit)
+func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error) {
+	filesetID, err := a.driver.getFileSet(ctx, req.Commit)
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.CreateFilesetResponse{
-		FilesetId: filesetID.HexString(),
+	return &pfs.CreateFileSetResponse{
+		FileSetId: filesetID.HexString(),
 	}, nil
 }
 
-func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
+func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (*types.Empty, error) {
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.AddFilesetInTransaction(txnCtx, req)
+		return a.AddFileSetInTransaction(txnCtx, req)
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) AddFilesetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.AddFilesetRequest) error {
-	fsid, err := fileset.ParseID(request.FilesetId)
+func (a *apiServer) AddFileSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.AddFileSetRequest) error {
+	fsid, err := fileset.ParseID(request.FileSetId)
 	if err != nil {
 		return err
 	}
-	if err := a.driver.addFileset(txnCtx, request.Commit, *fsid); err != nil {
+	if err := a.driver.addFileSet(txnCtx, request.Commit, *fsid); err != nil {
 		return err
 	}
 	return nil
 }
 
-// RenewFileset implements the pfs.RenewFileset RPC
-func (a *apiServer) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest) (*types.Empty, error) {
-	fsid, err := fileset.ParseID(req.FilesetId)
+// RenewFileSet implements the pfs.RenewFileSet RPC
+func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (*types.Empty, error) {
+	fsid, err := fileset.ParseID(req.FileSetId)
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.renewFileset(ctx, *fsid, time.Duration(req.TtlSeconds)*time.Second); err != nil {
+	if err := a.driver.renewFileSet(ctx, *fsid, time.Duration(req.TtlSeconds)*time.Second); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

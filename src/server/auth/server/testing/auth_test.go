@@ -1705,7 +1705,6 @@ func TestInspectDatum(t *testing.T) {
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 			Input:           client.NewPFSInput(repo, "/*"),
-			EnableStats:     true,
 		})
 	require.NoError(t, err)
 
@@ -1859,7 +1858,6 @@ func TestInspectDatum(t *testing.T) {
 //			},
 //			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 //			Input:           client.NewPFSInput(repo, "/*"),
-//			EnableStats:     true,
 //		})
 //	require.NoError(t, err)
 //
@@ -2355,7 +2353,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// make sure the pipeline failure doesn't cause waits to block indefinitely
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.WaitCommitsetAll(commitInfo.Commit.ID)
+		_, err := aliceClient.WaitCommitSetAll(commitInfo.Commit.ID)
 		return err
 	})
 }

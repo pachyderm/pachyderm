@@ -75,9 +75,9 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup file operation client for output meta commit.
-	resp, err := pachClient.WithCreateFilesetClient(func(mfMeta client.ModifyFile) error {
+	resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 		// Setup file operation client for output PFS commit.
-		resp, err := pachClient.WithCreateFilesetClient(func(mfPFS client.ModifyFile) (retErr error) {
+		resp, err := pachClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) (retErr error) {
 			opts := []datum.SetOption{
 				datum.WithMetaOutput(mfMeta),
 				datum.WithPFSOutput(mfPFS),
@@ -85,7 +85,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 			}
 			// Setup datum set for processing.
 			return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
-				di := datum.NewFileSetIterator(pachClient, datumSet.FilesetId)
+				di := datum.NewFileSetIterator(pachClient, datumSet.FileSetId)
 				// Process each datum in the assigned datum set.
 				return di.Iterate(func(meta *datum.Meta) error {
 					ctx := pachClient.Ctx()
@@ -125,12 +125,12 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 		if err != nil {
 			return err
 		}
-		datumSet.OutputFilesetId = resp.FilesetId
+		datumSet.OutputFileSetId = resp.FileSetId
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	datumSet.MetaFilesetId = resp.FilesetId
+	datumSet.MetaFileSetId = resp.FileSetId
 	return nil
 }

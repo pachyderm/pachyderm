@@ -317,9 +317,6 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 			if pi.Input != nil {
 				inputMetrics(pi.Input, metrics)
 			}
-			if pi.EnableStats {
-				metrics.CfgStats++
-			}
 			if pi.Service != nil {
 				metrics.CfgServices++
 			}
