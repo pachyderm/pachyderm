@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 	"golang.org/x/net/context"
 )
 
@@ -45,7 +46,7 @@ func newAPIServerV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, e
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServerV2) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
+func (a *apiServerV2) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
 	if request.All {
 		return a.driver.deleteAll(txnCtx)
 	}
@@ -54,7 +55,7 @@ func (a *apiServerV2) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext,
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServerV2) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
+func (a *apiServerV2) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
 		if request.Empty {
 			request.Description += pfs.EmptyStr
@@ -65,7 +66,7 @@ func (a *apiServerV2) FinishCommitInTransaction(txnCtx *txnenv.TransactionContex
 
 // DeleteCommitInTransaction is identical to DeleteCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServerV2) DeleteCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteCommitRequest) error {
+func (a *apiServerV2) DeleteCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteCommitRequest) error {
 	return a.driver.deleteCommit(txnCtx, request.Commit)
 }
 
@@ -147,7 +148,7 @@ func (a *apiServerV2) DeleteFile(ctx context.Context, request *pfs.DeleteFileReq
 
 // DeleteAll implements the protobuf pfs.DeleteAll RPC
 func (a *apiServerV2) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
-	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.deleteAll(txnCtx)
 	})
 	if err != nil {
@@ -309,7 +310,7 @@ func (a *apiServerV2) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFile
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServerV2) CreateRepoInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	request *pfs.CreateRepoRequest,
 ) error {
 	if repo := request.GetRepo(); repo != nil && repo.Name == tmpRepo {

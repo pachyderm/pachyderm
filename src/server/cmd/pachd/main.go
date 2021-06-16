@@ -27,11 +27,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	adminserver "github.com/pachyderm/pachyderm/src/server/admin/server"
+	auth_iface "github.com/pachyderm/pachyderm/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pach_http "github.com/pachyderm/pachyderm/src/server/http"
+	pfs_iface "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
@@ -46,6 +48,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	pps_iface "github.com/pachyderm/pachyderm/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
@@ -171,7 +174,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	var pfsAPIServer pfs_server.APIServer
+	var pfsAPIServer pfs_iface.APIServer
 	if err := logGRPCServerSetup("PFS API", func() error {
 		pfsAPIServer, err = pfs_server.NewAPIServer(
 			env,
@@ -186,11 +189,12 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
+		env.SetPfsServer(pfsAPIServer)
 		return nil
 	}); err != nil {
 		return err
 	}
-	var ppsAPIServer pps_server.APIServer
+	var ppsAPIServer pps_iface.APIServer
 	if err := logGRPCServerSetup("PPS API", func() error {
 		ppsAPIServer, err = pps_server.NewSidecarAPIServer(
 			env,
@@ -207,11 +211,12 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
+		env.SetPpsServer(ppsAPIServer)
 		return nil
 	}); err != nil {
 		return err
 	}
-	var authAPIServer authserver.APIServer
+	var authAPIServer auth_iface.APIServer
 	if err := logGRPCServerSetup("Auth API", func() error {
 		authAPIServer, err = authserver.NewAuthServer(
 			env,
@@ -224,6 +229,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		authclient.RegisterAPIServer(server.Server, authAPIServer)
+		env.SetAuthServer(authAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -250,6 +256,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			return err
 		}
 		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+		env.SetEnterpriseServer(enterpriseAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -389,7 +396,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if err != nil {
 			return err
 		}
-		var pfsAPIServer pfs_server.APIServer
+		var pfsAPIServer pfs_iface.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes, blockAPIServer)
 			if err != nil {
@@ -400,7 +407,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		var ppsAPIServer pps_server.APIServer
+		var ppsAPIServer pps_iface.APIServer
 		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
@@ -453,7 +460,7 @@ func doFullMode(config interface{}) (retErr error) {
 				}
 			}
 		}
-		var authAPIServer authserver.APIServer
+		var authAPIServer auth_iface.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
 				env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true, requireNoncriticalServers)
@@ -551,7 +558,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if err != nil {
 			return err
 		}
-		var pfsAPIServer pfs_server.APIServer
+		var pfsAPIServer pfs_iface.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err = pfs_server.NewAPIServer(
 				env,
@@ -566,11 +573,12 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			pfsclient.RegisterAPIServer(internalServer.Server, pfsAPIServer)
+			env.SetPfsServer(pfsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		var ppsAPIServer pps_server.APIServer
+		var ppsAPIServer pps_iface.APIServer
 		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
@@ -599,11 +607,12 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			ppsclient.RegisterAPIServer(internalServer.Server, ppsAPIServer)
+			env.SetPpsServer(ppsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		var authAPIServer authserver.APIServer
+		var authAPIServer auth_iface.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
 				env,
@@ -616,6 +625,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
+			env.SetAuthServer(authAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -642,6 +652,7 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err

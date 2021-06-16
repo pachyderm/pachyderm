@@ -17,12 +17,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	auth_iface "github.com/pachyderm/pachyderm/src/server/auth"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
@@ -126,12 +128,6 @@ var githubTokenRegex = regexp.MustCompile("^[0-9a-f]{40}$")
 // though empty values are still stored in etcd)
 var epsilon = &types.BoolValue{Value: true}
 
-// APIServer represents an auth api server
-type APIServer interface {
-	auth.APIServer
-	txnenv.AuthTransactionServer
-}
-
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
@@ -221,7 +217,7 @@ func NewAuthServer(
 	etcdPrefix string,
 	public bool,
 	requireNoncriticalServers bool,
-) (APIServer, error) {
+) (auth_iface.APIServer, error) {
 	s := &apiServer{
 		env:        env,
 		txnEnv:     txnEnv,
@@ -1352,7 +1348,7 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, otp
 // AuthorizeInTransaction is identical to Authorize except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) AuthorizeInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.AuthorizeRequest,
 ) (resp *auth.AuthorizeResponse, retErr error) {
 	if a.activationState() == none {
@@ -1419,7 +1415,7 @@ func (a *apiServer) Authorize(
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.AuthorizeResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.AuthorizeInTransaction(txnCtx, req)
 		return err
@@ -1524,7 +1520,7 @@ func (a *apiServer) hasClusterRole(ctx context.Context, subject string, role aut
 // SetScopeInTransaction is identical to SetScope except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) SetScopeInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.SetScopeRequest,
 ) (*auth.SetScopeResponse, error) {
 	if a.activationState() == none {
@@ -1551,7 +1547,7 @@ func (a *apiServer) SetScopeInTransaction(
 			return nil, err
 		}
 		// ACL not found. Check that repo exists (return error if not).
-		_, err = txnCtx.Pfs().InspectRepoInTransaction(
+		_, err = a.env.PfsServer().InspectRepoInTransaction(
 			txnCtx,
 			&pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: req.Repo}},
 		)
@@ -1667,7 +1663,7 @@ func (a *apiServer) getScope(ctx context.Context, subject string, acl *auth.ACL)
 // GetScopeInTransaction is identical to GetScope except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) GetScopeInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.GetScopeRequest,
 ) (*auth.GetScopeResponse, error) {
 	if a.activationState() == none {
@@ -1757,7 +1753,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *auth.GetScopeRequest) (re
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.GetScopeResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.GetScopeInTransaction(txnCtx, req)
 		return err
@@ -1770,7 +1766,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *auth.GetScopeRequest) (re
 // GetACLInTransaction is identical to GetACL except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) GetACLInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.GetACLRequest,
 ) (*auth.GetACLResponse, error) {
 	if a.activationState() == none {
@@ -1816,7 +1812,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *auth.GetACLRequest) (resp *
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.GetACLResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.GetACLInTransaction(txnCtx, req)
 		return err
@@ -1829,7 +1825,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *auth.GetACLRequest) (resp *
 // SetACLInTransaction is identical to SetACL except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) SetACLInTransaction(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	req *auth.SetACLRequest,
 ) (*auth.SetACLResponse, error) {
 	if a.activationState() == none {
@@ -1919,7 +1915,7 @@ func (a *apiServer) SetACLInTransaction(
 		}
 
 		// No ACL -- check if the repo being modified exists
-		_, err = txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: req.Repo}})
+		_, err = a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: req.Repo}})
 		if err == nil {
 			// Repo exists -- user isn't authorized
 			return false, nil
@@ -2017,7 +2013,7 @@ func (a *apiServer) authorizeNewToken(ctx context.Context, callerInfo *auth.Toke
 func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.GetAuthTokenInTransaction(txnCtx, req)
 		return retErr
 	})
@@ -2025,7 +2021,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 }
 
 // GetAuthToken implements the protobuf auth.GetAuthToken RPC
-func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
+func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txncontext.TransactionContext, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
 	if a.activationState() == none {
 		// GetAuthToken must work in the partially-activated state so that PPS can
 		// get tokens for all existing pipelines during activation
@@ -2208,14 +2204,14 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
 	})
 	return resp, retErr
 }
 
-func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
+func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txncontext.TransactionContext, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	if a.activationState() != full {
 		return nil, auth.ErrNotActivated
 	}

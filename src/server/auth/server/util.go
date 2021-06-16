@@ -6,19 +6,19 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 )
 
 // CheckIsAuthorizedInTransaction is identicalto CheckIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
-func CheckIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Repo, s auth.Scope) error {
+func (a *apiServer) CheckIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, s auth.Scope) error {
 	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil
 	}
 
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
+	resp, err := a.AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
 		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
 	}

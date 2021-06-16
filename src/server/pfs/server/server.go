@@ -1,6 +1,8 @@
 package server
 
 import (
+	pfs_iface "github.com/pachyderm/pachyderm/src/server/pfs"
+
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -17,12 +19,6 @@ const (
 	LocalBackendEnvVar     = "LOCAL"
 )
 
-// APIServer represents an api server.
-type APIServer interface {
-	pfsclient.APIServer
-	txnenv.PfsTransactionServer
-}
-
 // BlockAPIServer combines BlockAPIServer and ObjectAPIServer.
 type BlockAPIServer interface {
 	pfsclient.ObjectAPIServer
@@ -37,7 +33,7 @@ func NewAPIServer(
 	storageRoot string,
 	memoryRequest int64,
 	blockAPIServer BlockAPIServer,
-) (APIServer, error) {
+) (pfs_iface.APIServer, error) {
 	if env.StorageV2 {
 		a, err := newAPIServerV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 		if err != nil {

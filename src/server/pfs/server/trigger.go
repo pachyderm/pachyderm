@@ -11,14 +11,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 )
 
 // triggerCommit is called when a commit is finished, it updates branches in
 // the repo if they trigger on the change and returns all branches which were
 // moved by this call.
 func (d *driver) triggerCommit(
-	txnCtx *txnenv.TransactionContext,
+	txnCtx *txncontext.TransactionContext,
 	commit *pfs.Commit,
 ) ([]*pfs.Branch, error) {
 	repos := d.repos.ReadWrite(txnCtx.Stm)
@@ -104,7 +104,7 @@ func (d *driver) triggerCommit(
 
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
-func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
+func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
 	result := t.All
 	merge := func(cond bool) {
 		if t.All {
@@ -168,7 +168,7 @@ func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, 
 }
 
 // validateTrigger returns an error if a trigger is invalid
-func (d *driver) validateTrigger(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
+func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
 	if trigger == nil {
 		return nil
 	}

@@ -5,7 +5,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 )
 
 // Propagater is an object that is used to propagate PFS branches at the end of
@@ -20,7 +20,7 @@ type Propagater struct {
 	isNewCommit bool
 }
 
-func (a *apiServer) NewPropagater(stm col.STM) txnenv.PfsPropagater {
+func (a *apiServer) NewPropagater(stm col.STM) txncontext.PfsPropagater {
 	return &Propagater{
 		d:   a.driver,
 		stm: stm,
@@ -49,13 +49,13 @@ func (t *Propagater) Run() error {
 // The Run method is called at the end of any transaction
 type PipelineFinisher struct {
 	d      *driver
-	txnCtx *txnenv.TransactionContext
+	txnCtx *txncontext.TransactionContext
 
 	// pipeline output branches to finish commits on
 	branches []*pfs.Branch
 }
 
-func (a *apiServer) NewPipelineFinisher(txnCtx *txnenv.TransactionContext) txnenv.PipelineCommitFinisher {
+func (a *apiServer) NewPipelineFinisher(txnCtx *txncontext.TransactionContext) txncontext.PipelineCommitFinisher {
 	return &PipelineFinisher{
 		d:      a.driver,
 		txnCtx: txnCtx,

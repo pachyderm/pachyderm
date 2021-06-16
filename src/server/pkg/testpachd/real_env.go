@@ -6,8 +6,9 @@ import (
 	"os"
 	"path"
 
-	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
+	authiface "github.com/pachyderm/pachyderm/src/server/auth"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
+	pfsiface "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -24,9 +25,9 @@ type RealEnv struct {
 
 	LocalStorageDirectory    string
 	treeCache                *hashtree.Cache
-	AuthServer               authserver.APIServer
+	AuthServer               authiface.APIServer
 	PFSBlockServer           pfsserver.BlockAPIServer
-	PFSServer                pfsserver.APIServer
+	PFSServer                pfsiface.APIServer
 	TransactionServer        txnserver.APIServer
 	MockPPSTransactionServer *MockPPSTransactionServer
 }
@@ -113,14 +114,17 @@ func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullC
 			return err
 		}
 
-		realEnv.AuthServer = &authtesting.InactiveAPIServer{}
-
 		realEnv.TransactionServer, err = txnserver.NewAPIServer(servEnv, txnEnv, etcdPrefix)
 		if err != nil {
 			return err
 		}
 
 		realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
+
+		realEnv.AuthServer = &authtesting.InactiveAPIServer{}
+		servEnv.SetAuthServer(realEnv.AuthServer)
+		servEnv.SetPfsServer(realEnv.PFSServer)
+		servEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.api)
 
 		txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, &realEnv.MockPPSTransactionServer.api)
 

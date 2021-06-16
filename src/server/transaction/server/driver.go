@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -67,7 +68,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 	}
 
 	var err error
-	err = d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err = d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		info, err = d.runTransaction(txnCtx, info)
 		if err != nil {
 			return err
@@ -112,11 +113,11 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 }
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// first try to clean up any aspects of the transaction that live outside the STM
 		info := &transaction.TransactionInfo{}
 		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
-		directTxn := txnenv.NewDirectTransaction(txnCtx)
+		directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
 		if err != nil {
 			return err
 		}
@@ -169,9 +170,9 @@ func (d *driver) deleteAll(ctx context.Context, stm col.STM, running *transactio
 	return nil
 }
 
-func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	responses := []*transaction.TransactionResponse{}
-	directTxn := txnenv.NewDirectTransaction(txnCtx)
+	directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
 	for i, request := range info.Requests {
 		var err error
 		var response *transaction.TransactionResponse
@@ -248,7 +249,7 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
 		if err != nil {
 			return err
@@ -286,7 +287,7 @@ func (d *driver) appendTransaction(
 		var dryrunResponses []*transaction.TransactionResponse
 
 		info := &transaction.TransactionInfo{}
-		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			// Get the existing transaction and append the new requests
 			err := d.transactions.ReadWrite(txnCtx.Stm).Get(txn.ID, info)
 			if err != nil {
