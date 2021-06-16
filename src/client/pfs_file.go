@@ -11,10 +11,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"golang.org/x/sync/errgroup"
 )
 
 // PutFile puts a file into PFS from a reader.
@@ -205,7 +205,7 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 					return err
 				}
 			}
-			return withPipe(func(w io.Writer) error {
+			return miscutil.WithPipe(func(w io.Writer) error {
 				return f.Content(w)
 			}, func(r io.Reader) error {
 				_, err := grpcutil.ChunkReader(r, func(data []byte) error {
@@ -241,7 +241,7 @@ func (mfc *modifyFileCore) PutFileURL(path, url string, recursive bool, opts ...
 			Path: path,
 			Tag:  config.tag,
 			Source: &pfs.AddFile_Url{
-				Url: &pfs.URLFileSource{
+				Url: &pfs.AddFile_URLSource{
 					URL:       url,
 					Recursive: recursive,
 				},
@@ -721,23 +721,4 @@ func (c APIClient) WalkFile(commit *pfs.Commit, path string, cb func(*pfs.FileIn
 			return err
 		}
 	}
-}
-
-// This is duplicated from the object package to remove a circular dependency.
-func withPipe(wcb func(w io.Writer) error, rcb func(r io.Reader) error) error {
-	pr, pw := io.Pipe()
-	eg := errgroup.Group{}
-	eg.Go(func() error {
-		if err := wcb(pw); err != nil {
-			return pw.CloseWithError(err)
-		}
-		return pw.Close()
-	})
-	eg.Go(func() error {
-		if err := rcb(pr); err != nil {
-			return pr.CloseWithError(err)
-		}
-		return pr.Close()
-	})
-	return eg.Wait()
 }

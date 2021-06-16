@@ -263,15 +263,15 @@ enum Delimiter {
 message AddFile {
   string path = 1;
   string tag = 2;
+
+  message URLSource {
+    string URL = 1;
+    bool recursive = 2;
+  }
   oneof source {
     google.protobuf.BytesValue raw = 3;
-    URLFileSource url = 4;
+    URLSource url = 4;
   }
-}
-
-message URLFileSource {
-  string URL = 1;
-  bool recursive = 2;
 }
 
 message DeleteFile {
@@ -280,10 +280,10 @@ message DeleteFile {
 }
 
 message CopyFile {
-  bool append = 1;
+  string dst = 1;
   string tag = 2;
-  string dst = 3;
-  File src = 4;
+  File src = 3;
+  bool append = 4;
 }
 
 message ModifyFileRequest {

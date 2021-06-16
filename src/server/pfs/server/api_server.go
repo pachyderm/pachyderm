@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -443,7 +444,7 @@ func putFileRaw(uw *fileset.UnorderedWriter, path, tag string, src *types.BytesV
 	return int64(len(src.Value)), nil
 }
 
-func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.URLFileSource) (n int64, retErr error) {
+func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
 	url, err := url.Parse(src.URL)
 	if err != nil {
 		return 0, err
@@ -476,14 +477,14 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 		if src.Recursive {
 			path := strings.TrimPrefix(url.Object, "/")
 			return 0, objClient.Walk(ctx, path, func(name string) error {
-				return obj.WithPipe(func(w io.Writer) error {
+				return miscutil.WithPipe(func(w io.Writer) error {
 					return objClient.Get(ctx, name, w)
 				}, func(r io.Reader) error {
 					return uw.Put(filepath.Join(dstPath, strings.TrimPrefix(name, path)), tag, true, r)
 				})
 			})
 		}
-		return 0, obj.WithPipe(func(w io.Writer) error {
+		return 0, miscutil.WithPipe(func(w io.Writer) error {
 			return objClient.Get(ctx, url.Object, w)
 		}, func(r io.Reader) error {
 			return uw.Put(dstPath, tag, true, r)
@@ -537,7 +538,7 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 		if fi.FileType != pfs.FileType_FILE {
 			return nil
 		}
-		if err := obj.WithPipe(func(w io.Writer) error {
+		if err := miscutil.WithPipe(func(w io.Writer) error {
 			return file.Content(w)
 		}, func(r io.Reader) error {
 			return objClient.Put(ctx, filepath.Join(parsedURL.Object, fi.File.Path), r)
