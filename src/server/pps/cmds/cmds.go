@@ -651,7 +651,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			pipelineInfo, err := client.InspectPipeline(args[0])
+			pipelineInfo, err := client.InspectPipeline(args[0], true)
 			if err != nil {
 				return err
 			}
@@ -707,7 +707,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, AllowIncomplete: true, JqFilter: filter}
+			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}

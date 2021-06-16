@@ -249,22 +249,10 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	metrics.EnterpriseFailures = enterprisemetrics.GetEnterpriseFailures()
 
 	// Pipeline info
-	resp, err := r.env.PpsServer().ListPipeline(ctx, &pps.ListPipelineRequest{AllowIncomplete: true})
+	resp, err := r.env.PpsServer().ListPipeline(ctx, &pps.ListPipelineRequest{})
 	if err == nil {
 		metrics.Pipelines = int64(len(resp.PipelineInfo)) // Number of pipelines
 		for _, pi := range resp.PipelineInfo {
-			if pi.ParallelismSpec != nil {
-				if metrics.MaxParallelism < pi.ParallelismSpec.Constant {
-					metrics.MaxParallelism = pi.ParallelismSpec.Constant
-				}
-				if metrics.MinParallelism > pi.ParallelismSpec.Constant {
-					metrics.MinParallelism = pi.ParallelismSpec.Constant
-				}
-				metrics.NumParallelism++
-			}
-			if pi.Egress != nil {
-				metrics.CfgEgress++
-			}
 			if pi.JobCounts != nil {
 				var cnt int64 = 0
 				for _, c := range pi.JobCounts {
@@ -274,71 +262,85 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 					metrics.Jobs = cnt
 				}
 			}
-			if pi.ResourceRequests != nil {
-				if pi.ResourceRequests.Cpu != 0 {
-					metrics.ResourceCpuReq += pi.ResourceRequests.Cpu
-					if metrics.ResourceCpuReqMax < pi.ResourceRequests.Cpu {
-						metrics.ResourceCpuReqMax = pi.ResourceRequests.Cpu
+			if details := pi.Details; details != nil {
+				if details.ParallelismSpec != nil {
+					if metrics.MaxParallelism < details.ParallelismSpec.Constant {
+						metrics.MaxParallelism = details.ParallelismSpec.Constant
+					}
+					if metrics.MinParallelism > details.ParallelismSpec.Constant {
+						metrics.MinParallelism = details.ParallelismSpec.Constant
+					}
+					metrics.NumParallelism++
+				}
+				if details.Egress != nil {
+					metrics.CfgEgress++
+				}
+				if details.ResourceRequests != nil {
+					if details.ResourceRequests.Cpu != 0 {
+						metrics.ResourceCpuReq += details.ResourceRequests.Cpu
+						if metrics.ResourceCpuReqMax < details.ResourceRequests.Cpu {
+							metrics.ResourceCpuReqMax = details.ResourceRequests.Cpu
+						}
+					}
+					if details.ResourceRequests.Memory != "" {
+						metrics.ResourceMemReq += (details.ResourceRequests.Memory + " ")
+					}
+					if details.ResourceRequests.Gpu != nil {
+						metrics.ResourceGpuReq += details.ResourceRequests.Gpu.Number
+						if metrics.ResourceGpuReqMax < details.ResourceRequests.Gpu.Number {
+							metrics.ResourceGpuReqMax = details.ResourceRequests.Gpu.Number
+						}
+					}
+					if details.ResourceRequests.Disk != "" {
+						metrics.ResourceDiskReq += (details.ResourceRequests.Disk + " ")
 					}
 				}
-				if pi.ResourceRequests.Memory != "" {
-					metrics.ResourceMemReq += (pi.ResourceRequests.Memory + " ")
-				}
-				if pi.ResourceRequests.Gpu != nil {
-					metrics.ResourceGpuReq += pi.ResourceRequests.Gpu.Number
-					if metrics.ResourceGpuReqMax < pi.ResourceRequests.Gpu.Number {
-						metrics.ResourceGpuReqMax = pi.ResourceRequests.Gpu.Number
+				if details.ResourceLimits != nil {
+					if details.ResourceLimits.Cpu != 0 {
+						metrics.ResourceCpuLimit += details.ResourceLimits.Cpu
+						if metrics.ResourceCpuLimitMax < details.ResourceLimits.Cpu {
+							metrics.ResourceCpuLimitMax = details.ResourceLimits.Cpu
+						}
+					}
+					if details.ResourceLimits.Memory != "" {
+						metrics.ResourceMemLimit += (details.ResourceLimits.Memory + " ")
+					}
+					if details.ResourceLimits.Gpu != nil {
+						metrics.ResourceGpuLimit += details.ResourceLimits.Gpu.Number
+						if metrics.ResourceGpuLimitMax < details.ResourceLimits.Gpu.Number {
+							metrics.ResourceGpuLimitMax = details.ResourceLimits.Gpu.Number
+						}
+					}
+					if details.ResourceLimits.Disk != "" {
+						metrics.ResourceDiskLimit += (details.ResourceLimits.Disk + " ")
 					}
 				}
-				if pi.ResourceRequests.Disk != "" {
-					metrics.ResourceDiskReq += (pi.ResourceRequests.Disk + " ")
+				if details.Input != nil {
+					inputMetrics(details.Input, metrics)
 				}
-			}
-			if pi.ResourceLimits != nil {
-				if pi.ResourceLimits.Cpu != 0 {
-					metrics.ResourceCpuLimit += pi.ResourceLimits.Cpu
-					if metrics.ResourceCpuLimitMax < pi.ResourceLimits.Cpu {
-						metrics.ResourceCpuLimitMax = pi.ResourceLimits.Cpu
+				if details.Service != nil {
+					metrics.CfgServices++
+				}
+				if details.Spout != nil {
+					metrics.PpsSpout++
+					if details.Spout.Service != nil {
+						metrics.PpsSpoutService++
 					}
 				}
-				if pi.ResourceLimits.Memory != "" {
-					metrics.ResourceMemLimit += (pi.ResourceLimits.Memory + " ")
+				if details.Standby {
+					metrics.CfgStandby++
 				}
-				if pi.ResourceLimits.Gpu != nil {
-					metrics.ResourceGpuLimit += pi.ResourceLimits.Gpu.Number
-					if metrics.ResourceGpuLimitMax < pi.ResourceLimits.Gpu.Number {
-						metrics.ResourceGpuLimitMax = pi.ResourceLimits.Gpu.Number
+				if details.S3Out {
+					metrics.CfgS3Gateway++
+				}
+				if details.Transform != nil {
+					if details.Transform.ErrCmd != nil {
+						metrics.CfgErrcmd++
 					}
 				}
-				if pi.ResourceLimits.Disk != "" {
-					metrics.ResourceDiskLimit += (pi.ResourceLimits.Disk + " ")
+				if details.TFJob != nil {
+					metrics.CfgTfjob++
 				}
-			}
-			if pi.Input != nil {
-				inputMetrics(pi.Input, metrics)
-			}
-			if pi.Service != nil {
-				metrics.CfgServices++
-			}
-			if pi.Spout != nil {
-				metrics.PpsSpout++
-				if pi.Spout.Service != nil {
-					metrics.PpsSpoutService++
-				}
-			}
-			if pi.Standby {
-				metrics.CfgStandby++
-			}
-			if pi.S3Out {
-				metrics.CfgS3Gateway++
-			}
-			if pi.Transform != nil {
-				if pi.Transform.ErrCmd != nil {
-					metrics.CfgErrcmd++
-				}
-			}
-			if pi.TFJob != nil {
-				metrics.CfgTfjob++
 			}
 		}
 	} else {

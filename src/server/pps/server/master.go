@@ -86,11 +86,11 @@ type ppsMaster struct {
 	monitorCancels         map[string]func() // protected by monitorCancelsMu
 	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
 
-	// fields for the pollPipelines and pollPipelinePods goros
+	// fields for the pollPipelines, pollPipelinePods, and watchPipelines goros
 	pollPipelinesMu sync.Mutex
 	pollCancel      func() // protected by pollPipelinesMu
 	pollPodsCancel  func() // protected by pollPipelinesMu
-	pollEtcdCancel  func() // protected by pollPipelinesMu
+	watchCancel     func() // protected by pollPipelinesMu
 
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
@@ -147,8 +147,8 @@ func (m *ppsMaster) run() {
 	defer m.cancelPipelinePoller()
 	m.startPipelinePodsPoller()
 	defer m.cancelPipelinePodsPoller()
-	m.startPipelineEtcdPoller()
-	defer m.cancelPipelineEtcdPoller()
+	m.startPipelineWatcher()
+	defer m.cancelPipelineWatcher()
 
 eventLoop:
 	for {

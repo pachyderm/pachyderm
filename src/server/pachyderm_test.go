@@ -316,7 +316,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 
 		fileInfo, err := c.InspectFile(outputCommit, fileName)
 		require.NoError(t, err)
-		require.Equal(t, chunkSize+i*units.MB, int(fileInfo.SizeBytes))
+		require.Equal(t, chunkSize+i*units.MB, int(fileInfo.Details.SizeBytes))
 
 		require.NoError(t, c.GetFile(outputCommit, fileName, &buf))
 		// we don't wanna use the `require` package here since it prints
@@ -1350,14 +1350,14 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineA, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
-	require.NotNil(t, jobInfos[0].Input.Pfs)
-	require.Equal(t, true, jobInfos[0].Input.Pfs.Lazy)
+	require.NotNil(t, jobInfos[0].Details.Input.Pfs)
+	require.Equal(t, true, jobInfos[0].Details.Input.Pfs.Lazy)
 
 	jobInfos, err = c.ListJob(pipelineB, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
-	require.NotNil(t, jobInfos[0].Input.Pfs)
-	require.Equal(t, true, jobInfos[0].Input.Pfs.Lazy)
+	require.NotNil(t, jobInfos[0].Details.Input.Pfs)
+	require.Equal(t, true, jobInfos[0].Details.Input.Pfs.Lazy)
 }
 
 func TestLazyPipeline(t *testing.T) {
@@ -1535,7 +1535,7 @@ func TestProvenance(t *testing.T) {
 
 	for _, ci := range commitInfos {
 		if ci.Commit.Branch.Repo.Name == cPipeline && ci.Commit.Branch.Repo.Type == pfs.UserRepoType {
-			require.Equal(t, uint64(0), ci.SizeBytes)
+			require.Equal(t, uint64(0), ci.Details.SizeBytes)
 		}
 	}
 
@@ -1982,7 +1982,7 @@ func TestDeletePipeline(t *testing.T) {
 		time.Sleep(10 * time.Second)
 		// Wait for the pipeline to start running
 		require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
-			pipelineInfos, err := c.ListPipeline()
+			pipelineInfos, err := c.ListPipeline(false)
 			if err != nil {
 				return err
 			}
@@ -1995,7 +1995,7 @@ func TestDeletePipeline(t *testing.T) {
 				return errors.Errorf("Expected two pipelines, but got: %+v", names)
 			}
 			// make sure second pipeline is running
-			pipelineInfo, err := c.InspectPipeline(pipelines[1])
+			pipelineInfo, err := c.InspectPipeline(pipelines[1], false)
 			if err != nil {
 				return err
 			}
@@ -2013,7 +2013,7 @@ func TestDeletePipeline(t *testing.T) {
 		time.Sleep(5 * time.Second)
 		// Wait for the pipeline to disappear
 		require.NoError(t, backoff.Retry(func() error {
-			_, err := c.InspectPipeline(pipeline)
+			_, err := c.InspectPipeline(pipeline, false)
 			if err == nil {
 				return errors.Errorf("expected pipeline to be missing, but it's still present")
 			}
@@ -2068,7 +2068,7 @@ func TestPipelineState(t *testing.T) {
 	// Wait for pipeline to get picked up
 	time.Sleep(15 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
+		pipelineInfo, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -2082,7 +2082,7 @@ func TestPipelineState(t *testing.T) {
 	require.NoError(t, c.StopPipeline(pipeline))
 	time.Sleep(5 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
+		pipelineInfo, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -2096,7 +2096,7 @@ func TestPipelineState(t *testing.T) {
 	require.NoError(t, c.StartPipeline(pipeline))
 	time.Sleep(15 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
+		pipelineInfo, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -2147,7 +2147,7 @@ func TestJobCounts(t *testing.T) {
 	require.NoError(t, err)
 
 	// check that the job has been accounted for
-	pipelineInfo, err := c.InspectPipeline(pipeline)
+	pipelineInfo, err := c.InspectPipeline(pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, int32(2), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
 }
@@ -2306,7 +2306,7 @@ func TestPrettyPrinting(t *testing.T) {
 	fileInfo, err := c.InspectFile(commit, "file")
 	require.NoError(t, err)
 	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, true)
 	require.NoError(t, err)
 	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
 	jobInfos, err := c.ListJob("", nil, -1, true)
@@ -2350,7 +2350,7 @@ func TestDeleteAll(t *testing.T) {
 	repoInfos, err := c.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(repoInfos))
-	pipelineInfos, err := c.ListPipeline()
+	pipelineInfos, err := c.ListPipeline(false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(pipelineInfos))
 	jobInfos, err := c.ListJob("", nil, -1, true)
@@ -2539,10 +2539,10 @@ func TestUpdatePipeline(t *testing.T) {
 	jis, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
-	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Transform.Stdin[0])
-	require.Equal(t, "echo bar >/pfs/out/file", jis[1].Transform.Stdin[0])
-	require.Equal(t, "echo foo >/pfs/out/file", jis[2].Transform.Stdin[0])
-	require.Equal(t, "echo foo >/pfs/out/file", jis[3].Transform.Stdin[0])
+	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Details.Transform.Stdin[0])
+	require.Equal(t, "echo bar >/pfs/out/file", jis[1].Details.Transform.Stdin[0])
+	require.Equal(t, "echo foo >/pfs/out/file", jis[2].Details.Transform.Stdin[0])
+	require.Equal(t, "echo foo >/pfs/out/file", jis[3].Details.Transform.Stdin[0])
 
 	// Update the pipeline again, this time with Reprocess: true set. Now we
 	// should see a different output file
@@ -2688,7 +2688,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 
 	// Wait for pod to try and pull the bad image
 	time.Sleep(10 * time.Second)
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_CRASHING.String(), pipelineInfo.State.String())
 
@@ -2705,7 +2705,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		true,
 	))
 	time.Sleep(10 * time.Second)
-	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	pipelineInfo, err = c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 
@@ -2766,11 +2766,11 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	// Stop the pipeline (and confirm that it's stopped)
 	require.NoError(t, c.StopPipeline(pipelineName))
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 	require.Equal(t, true, pipelineInfo.Stopped)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err = c.InspectPipeline(pipelineName)
+		pipelineInfo, err = c.InspectPipeline(pipelineName, false)
 		if err != nil {
 			return err
 		}
@@ -2800,7 +2800,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	))
 	time.Sleep(10 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err = c.InspectPipeline(pipelineName)
+		pipelineInfo, err = c.InspectPipeline(pipelineName, false)
 		if err != nil {
 			return err
 		}
@@ -3097,7 +3097,7 @@ func TestStandby(t *testing.T) {
 		}
 
 		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
-			pis, err := c.ListPipeline()
+			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
 			for _, pi := range pis {
@@ -3123,7 +3123,7 @@ func TestStandby(t *testing.T) {
 		})
 		eg.Go(func() error {
 			for !finished {
-				pis, err := c.ListPipeline()
+				pis, err := c.ListPipeline(false)
 				require.NoError(t, err)
 				var active int
 				for _, pi := range pis {
@@ -3179,7 +3179,7 @@ func TestStandby(t *testing.T) {
 				require.True(t, pod == buffer.String(), "multiple pods were used to process commits")
 			}
 		}
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.PipelineState_PIPELINE_STANDBY.String(), pi.State.String())
 	})
@@ -3214,7 +3214,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
 			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
@@ -3232,7 +3232,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
 		// check ending state
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
 			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
@@ -3243,7 +3243,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	// Stop the pipeline...
 	require.NoError(t, c.StopPipeline(pipeline))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_PAUSED {
 			return fmt.Errorf("expected %q to be in PAUSED, but was in %s", pipeline,
@@ -3258,7 +3258,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	for ctx.Err() == nil {
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		require.NotEqual(t, pps.PipelineState_PIPELINE_RUNNING, pi.State)
 	}
@@ -3273,7 +3273,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
 		// check ending state
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
 			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
@@ -3379,7 +3379,7 @@ func TestPipelineEnv(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("/pfs/%s/file\n", dataRepo), buffer.String())
 	buffer.Reset()
 	require.NoError(t, c.GetFile(jis[0].OutputCommit, "input_commit", &buffer))
-	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Input.Pfs.Commit), buffer.String())
+	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Details.Input.Pfs.Commit), buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {
@@ -3959,7 +3959,7 @@ func TestGetLogs(t *testing.T) {
 		pathLog := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		base64Hash := "kstrTGrFE58QWlxEpCRBt3aT8NJPNY0rso6XK7a4+wM="
-		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
+		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Details.Hash))
 		base64Log := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
@@ -4262,10 +4262,10 @@ func TestDatumStatusRestart(t *testing.T) {
 		require.NoError(t, backoff.Retry(func() error {
 			jobInfo, err := c.InspectJob(pipeline, commit1.ID, true)
 			require.NoError(t, err)
-			if len(jobInfo.WorkerStatus) == 0 {
+			if len(jobInfo.Details.WorkerStatus) == 0 {
 				return errors.Errorf("no worker statuses")
 			}
-			workerStatus := jobInfo.WorkerStatus[0]
+			workerStatus := jobInfo.Details.WorkerStatus[0]
 			if workerStatus.JobID == jobInfo.Job.ID {
 				if workerStatus.DatumStatus == nil {
 					return errors.Errorf("no datum status")
@@ -4390,7 +4390,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 
 	var container v1.Container
@@ -4461,7 +4461,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 
 	var container v1.Container
@@ -4525,7 +4525,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 
 	var container v1.Container
@@ -4620,7 +4620,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		for i := 0; i < 3; i++ {
-			pipelineInfo, err := c.InspectPipeline(fmt.Sprintf("%s-%d", pipelineName, i))
+			pipelineInfo, err := c.InspectPipeline(fmt.Sprintf("%s-%d", pipelineName, i), false)
 			require.NoError(t, err)
 			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
 				return errors.Errorf("pipeline not in running state")
@@ -4668,7 +4668,7 @@ func TestPipelineCrashing(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, backoff.Retry(func() error {
-		pi, err := c.InspectPipeline(pipelineName)
+		pi, err := c.InspectPipeline(pipelineName, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_CRASHING {
 			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
@@ -4759,7 +4759,7 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get info about the pipeline pods from k8s & check for resources
-		pipelineInfo, err := c.InspectPipeline(pipelineName)
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 		require.NoError(t, err)
 
 		var pod v1.Pod
@@ -4819,7 +4819,7 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get info about the pipeline pods from k8s & check for resources
-		pipelineInfo, err := c.InspectPipeline(pipelineName)
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 		require.NoError(t, err)
 
 		var pod v1.Pod
@@ -6257,7 +6257,7 @@ func TestPipelineBadImage(t *testing.T) {
 	))
 	require.NoError(t, backoff.Retry(func() error {
 		for _, pipeline := range []string{pipeline1, pipeline2} {
-			pipelineInfo, err := c.InspectPipeline(pipeline)
+			pipelineInfo, err := c.InspectPipeline(pipeline, false)
 			if err != nil {
 				return err
 			}
@@ -6378,15 +6378,14 @@ func TestListJobTruncated(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commit1.ID, fullJobInfos[0].Job.ID)
 
-	// Check that fields stored in PFS are missing, but fields stored in etcd
-	// are not
-	require.Nil(t, liteJobInfos[0].Transform)
-	require.Nil(t, liteJobInfos[0].Input)
+	// Check that details are missing when not requested
+	require.Nil(t, liteJobInfos[0].Details)
 	require.Equal(t, pipeline, liteJobInfos[0].Job.Pipeline.Name)
 
-	// Check that all fields are present
-	require.NotNil(t, fullJobInfos[0].Transform)
-	require.NotNil(t, fullJobInfos[0].Input)
+	// Check that all fields are present when requested
+	require.NotNil(t, fullJobInfos[0].Details)
+	require.NotNil(t, fullJobInfos[0].Details.Transform)
+	require.NotNil(t, fullJobInfos[0].Details.Input)
 	require.Equal(t, pipeline, fullJobInfos[0].Job.Pipeline.Name)
 }
 
@@ -6493,8 +6492,8 @@ func TestMaxQueueSize(t *testing.T) {
 			if err != nil {
 				return errors.Wrapf(err, "could not inspect job")
 			}
-			if len(jobInfo.WorkerStatus) != 2 {
-				return errors.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
+			if len(jobInfo.Details.WorkerStatus) != 2 {
+				return errors.Errorf("incorrect number of statuses: %v", len(jobInfo.Details.WorkerStatus))
 			}
 			return nil
 		}, backoff.RetryEvery(500*time.Millisecond).For(60*time.Second)))
@@ -7322,9 +7321,9 @@ func TestPipelineDescription(t *testing.T) {
 			Input:       client.NewPFSInput(dataRepo, "/"),
 		})
 	require.NoError(t, err)
-	pi, err := c.InspectPipeline(pipeline)
+	pi, err := c.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
-	require.Equal(t, description, pi.Description)
+	require.Equal(t, description, pi.Details.Description)
 }
 
 func TestListJobInputCommits(t *testing.T) {
@@ -8144,9 +8143,9 @@ func TestPipelineVersions(t *testing.T) {
 	}
 
 	for i := 0; i < nVersions; i++ {
-		pi, err := c.InspectPipeline(ancestry.Add(pipeline, nVersions-1-i))
+		pi, err := c.InspectPipeline(ancestry.Add(pipeline, nVersions-1-i), true)
 		require.NoError(t, err)
-		require.Equal(t, fmt.Sprintf("%d", i), pi.Transform.Cmd[0])
+		require.Equal(t, fmt.Sprintf("%d", i), pi.Details.Transform.Cmd[0])
 	}
 }
 
@@ -8356,7 +8355,7 @@ func TestDeferredCross(t *testing.T) {
 	headCommit, err := c.InspectCommit(dataSet, "master", "")
 	require.NoError(t, err)
 
-	pps.VisitInput(jobInfo.Input, func(i *pps.Input) error {
+	pps.VisitInput(jobInfo.Details.Input, func(i *pps.Input) error {
 		if i.Pfs != nil && i.Pfs.Repo == dataSet {
 			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
 		}
@@ -8561,23 +8560,23 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, len(jis))
 
-	pipelineInfos, err := c.ListPipeline()
+	pipelineInfos, err := c.ListPipeline(false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory("", -1)
+	pipelineInfos, err = c.ListPipelineHistory("", -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory("", 1)
+	pipelineInfos, err = c.ListPipelineHistory("", 1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pipelineName, -1)
+	pipelineInfos, err = c.ListPipelineHistory(pipelineName, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pipelineName2, -1)
+	pipelineInfos, err = c.ListPipelineHistory(pipelineName2, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pipelineInfos))
 }
@@ -8682,17 +8681,12 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		// use list pipeline instead of inspect pipeline because we expect
 		// the spec repo to be gone, which will cause GetPipelineInfo to fail
-		resp, err := c.PpsAPIClient.ListPipeline(
-			c.Ctx(),
-			&pps.ListPipelineRequest{
-				AllowIncomplete: true,
-			},
-		)
+		pipelineInfos, err := c.ListPipeline(false)
 		if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 		var pi *pps.PipelineInfo
-		for _, info := range resp.PipelineInfo {
+		for _, info := range pipelineInfos {
 			if info.Pipeline.Name == pipeline {
 				pi = info
 				break
@@ -8838,7 +8832,7 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 	time.Sleep(5 * time.Second) // give pipeline time to start
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
+		pipelineInfo, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -8974,7 +8968,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfo.Commit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 
-	pipelineInfo, err := c.InspectPipeline(pipeline)
+	pipelineInfo, err := c.InspectPipeline(pipeline, false)
 	require.NoError(t, err)
 
 	// make sure 'vol0' is correct in the pod spec
@@ -9783,11 +9777,11 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	_, err = c.FinishTransaction(txn)
 	require.NoError(t, err)
 	// make sure the final pipeline is the third version, with the input from in the transaction
-	info, err := c.InspectPipeline(pipeline)
+	pipelineInfo, err := c.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), info.Version)
-	require.NotNil(t, info.Input.Pfs)
-	require.Equal(t, inputB, info.Input.Pfs.Repo)
+	require.Equal(t, uint64(3), pipelineInfo.Version)
+	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
+	require.Equal(t, inputB, pipelineInfo.Details.Input.Pfs.Repo)
 }
 
 func TestSystemRepoDependence(t *testing.T) {

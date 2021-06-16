@@ -123,7 +123,7 @@ func (logger *taggedLogger) WithData(data []*common.Input) TaggedLogger {
 	for _, d := range data {
 		result.template.Data = append(result.template.Data, &pps.InputFile{
 			Path: d.FileInfo.File.Path,
-			Hash: d.FileInfo.Hash,
+			Hash: d.FileInfo.Details.Hash,
 		})
 	}
 

@@ -68,28 +68,28 @@ func NewWorker(
 		return nil, err
 	}
 
-	if pipelineInfo.Transform.Image != "" && hasDocker {
+	if pipelineInfo.Details.Transform.Image != "" && hasDocker {
 		docker, err := docker.NewClientFromEnv()
 		if err != nil {
 			return nil, err
 		}
-		image, err := docker.InspectImage(pipelineInfo.Transform.Image)
+		image, err := docker.InspectImage(pipelineInfo.Details.Transform.Image)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error inspecting image %s", pipelineInfo.Transform.Image)
+			return nil, errors.Wrapf(err, "error inspecting image %s", pipelineInfo.Details.Transform.Image)
 		}
-		if pipelineInfo.Transform.User == "" {
-			pipelineInfo.Transform.User = image.Config.User
+		if pipelineInfo.Details.Transform.User == "" {
+			pipelineInfo.Details.Transform.User = image.Config.User
 		}
-		if pipelineInfo.Transform.WorkingDir == "" {
-			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
+		if pipelineInfo.Details.Transform.WorkingDir == "" {
+			pipelineInfo.Details.Transform.WorkingDir = image.Config.WorkingDir
 		}
-		if pipelineInfo.Transform.Cmd == nil {
+		if pipelineInfo.Details.Transform.Cmd == nil {
 			if len(image.Config.Entrypoint) == 0 {
 				ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
 					pipelineInfo.Pipeline.Name,
 					"nothing to run: no transform.cmd and no entrypoint")
 			}
-			pipelineInfo.Transform.Cmd = image.Config.Entrypoint
+			pipelineInfo.Details.Transform.Cmd = image.Config.Entrypoint
 		}
 	}
 
@@ -138,7 +138,7 @@ func (w *Worker) worker() {
 func (w *Worker) master(env serviceenv.ServiceEnv) {
 	pipelineInfo := w.driver.PipelineInfo()
 	logger := logs.NewMasterLogger(pipelineInfo)
-	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Salt)
+	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Details.Salt)
 	masterLock := dlock.NewDLock(env.GetEtcdClient(), lockPath)
 
 	b := backoff.NewInfiniteBackOff()
@@ -187,9 +187,9 @@ type spawnerFunc func(driver.Driver, logs.TaggedLogger) error
 func runSpawner(driver driver.Driver, logger logs.TaggedLogger) error {
 	pipelineType, runFn := func() (string, spawnerFunc) {
 		switch {
-		case driver.PipelineInfo().Service != nil:
+		case driver.PipelineInfo().Details.Service != nil:
 			return "service", service.Run
-		case driver.PipelineInfo().Spout != nil:
+		case driver.PipelineInfo().Details.Spout != nil:
 			return "spout", spout.Run
 		default:
 			return "transform", transform.Run

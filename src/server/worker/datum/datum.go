@@ -84,7 +84,7 @@ func shouldCreateSetFunc(setSpec *SetSpec) func(*Meta) bool {
 		var size int64
 		return func(meta *Meta) bool {
 			for _, input := range meta.Inputs {
-				size += int64(input.FileInfo.SizeBytes)
+				size += int64(input.FileInfo.Details.SizeBytes)
 			}
 			if size >= setSpec.SizeBytes {
 				size = 0

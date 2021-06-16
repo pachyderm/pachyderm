@@ -103,9 +103,9 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		}
 		var oldSize uint64
 		if oldHead != nil {
-			oldSize = oldHead.SizeBytes
+			oldSize = oldHead.Details.SizeBytes
 		}
-		merge(int64(newHead.SizeBytes-oldSize) >= size)
+		merge(int64(newHead.Details.SizeBytes-oldSize) >= size)
 	}
 	if t.CronSpec != "" {
 		// Shouldn't be possible to error here since we validate on ingress

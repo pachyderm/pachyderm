@@ -473,7 +473,7 @@ $ {{alias}} foo@master --from XXX`,
 $ {{alias}} XXX
 
 # return commits caused by foo@XXX leading to branch bar@baz
-$ {{alias}} XXX -b bar@baz`,
+$ {{alias}} foo@XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			// Parse args before connecting
 			var commitsetID string
@@ -1072,7 +1072,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				if err != nil {
 					return err
 				}
-				f, err := progress.Create(outputPath, int64(fi.SizeBytes))
+				f, err := progress.Create(outputPath, int64(fi.Details.SizeBytes))
 				if err != nil {
 					return err
 				}

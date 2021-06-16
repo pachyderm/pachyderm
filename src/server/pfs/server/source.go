@@ -48,7 +48,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	iter := fileset.NewIterator(ctx, s.fileSet)
-	cache := make(map[string]*pfs.FileInfo)
+	cache := make(map[string]*pfs.FileInfo_Details)
 	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		file := s.commitInfo.Commit.NewFile(idx.Path)
@@ -62,20 +62,21 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 			fi.FileType = pfs.FileType_DIR
 		}
 		if s.full {
-			cachedFi, ok, err := s.checkFileInfoCache(ctx, cache, f)
+			fi.Details = &pfs.FileInfo_Details{}
+			cachedDetails, ok, err := s.checkFileDetailsCache(ctx, cache, f)
 			if err != nil {
 				return err
 			}
 			if ok {
-				fi.SizeBytes = cachedFi.SizeBytes
-				fi.Hash = cachedFi.Hash
+				fi.Details.SizeBytes = cachedDetails.SizeBytes
+				fi.Details.Hash = cachedDetails.Hash
 			} else {
-				computedFi, err := s.computeFileInfo(ctx, cache, iter, idx.Path)
+				computedDetails, err := s.computeFileDetails(ctx, cache, iter, idx.Path)
 				if err != nil {
 					return err
 				}
-				fi.SizeBytes = computedFi.SizeBytes
-				fi.Hash = computedFi.Hash
+				fi.Details.SizeBytes = computedDetails.SizeBytes
+				fi.Details.Hash = computedDetails.Hash
 			}
 		}
 		// TODO: Figure out how to remove directory infos from cache when they are no longer needed.
@@ -83,7 +84,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	})
 }
 
-func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.FileInfo, f fileset.File) (*pfs.FileInfo, bool, error) {
+func (s *source) checkFileDetailsCache(ctx context.Context, cache map[string]*pfs.FileInfo_Details, f fileset.File) (*pfs.FileInfo_Details, bool, error) {
 	idx := f.Index()
 	// Handle a cached directory file info.
 	fi, ok := cache[idx.Path]
@@ -95,16 +96,16 @@ func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.F
 	dir, _ := path.Split(idx.Path)
 	_, ok = cache[dir]
 	if ok {
-		fi, err := s.computeRegularFileInfo(ctx, f)
+		details, err := s.computeRegularFileDetails(ctx, f)
 		if err != nil {
 			return nil, false, err
 		}
-		return fi, true, nil
+		return details, true, nil
 	}
 	return nil, false, nil
 }
 
-func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.FileInfo, iter *fileset.Iterator, target string) (*pfs.FileInfo, error) {
+func (s *source) computeFileDetails(ctx context.Context, cache map[string]*pfs.FileInfo_Details, iter *fileset.Iterator, target string) (*pfs.FileInfo_Details, error) {
 	f, err := iter.Next()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -117,7 +118,7 @@ func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.File
 		return nil, errors.Errorf("stream is wrong place to compute hash for %s", target)
 	}
 	if !fileset.IsDir(idx.Path) {
-		return s.computeRegularFileInfo(ctx, f)
+		return s.computeRegularFileDetails(ctx, f)
 	}
 	var size uint64
 	h := pfs.NewHash()
@@ -133,32 +134,31 @@ func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.File
 		if !strings.HasPrefix(idx2.Path, target) {
 			break
 		}
-		childFi, err := s.computeFileInfo(ctx, cache, iter, idx2.Path)
+		childDetails, err := s.computeFileDetails(ctx, cache, iter, idx2.Path)
 		if err != nil {
 			return nil, err
 		}
-		size += childFi.SizeBytes
-		h.Write(childFi.Hash)
+		size += childDetails.SizeBytes
+		h.Write(childDetails.Hash)
 	}
-	fi := &pfs.FileInfo{
+	details := &pfs.FileInfo_Details{
 		SizeBytes: size,
 		Hash:      h.Sum(nil),
 	}
-	cache[target] = fi
-	return fi, nil
+	cache[target] = details
+	return details, nil
 }
 
-func (s *source) computeRegularFileInfo(ctx context.Context, f fileset.File) (*pfs.FileInfo, error) {
-	fi := &pfs.FileInfo{
-		FileType:  pfs.FileType_FILE,
+func (s *source) computeRegularFileDetails(ctx context.Context, f fileset.File) (*pfs.FileInfo_Details, error) {
+	details := &pfs.FileInfo_Details{
 		SizeBytes: uint64(index.SizeBytes(f.Index())),
 	}
 	var err error
-	fi.Hash, err = f.Hash()
+	details.Hash, err = f.Hash()
 	if err != nil {
 		return nil, err
 	}
-	return fi, nil
+	return details, nil
 }
 
 type errOnEmpty struct {

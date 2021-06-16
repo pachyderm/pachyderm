@@ -148,10 +148,10 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 			fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Finished))
 		}
 	}
-	if commitInfo.Finished == nil {
+	if commitInfo.Finished == nil || commitInfo.Details == nil {
 		fmt.Fprintf(w, "-\t")
 	} else {
-		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.SizeBytes)))
+		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.Details.SizeBytes)))
 	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Description)
 	fmt.Fprintln(w)
@@ -212,7 +212,11 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 			fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
 		}
 	}
-	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.SizeBytes)))
+	if fileInfo.Details != nil {
+		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.Details.SizeBytes)))
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
 	fmt.Fprintln(w)
 }
 

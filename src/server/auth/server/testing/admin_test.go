@@ -1100,7 +1100,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 		return err
 	})
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -1180,17 +1180,12 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		// use list pipeline instead of inspect pipeline because we expect
 		// the spec repo to be gone, which will cause GetPipelineInfo to fail
-		resp, err := aliceClient.PpsAPIClient.ListPipeline(
-			aliceClient.Ctx(),
-			&pps.ListPipelineRequest{
-				AllowIncomplete: true,
-			},
-		)
+		pipelineInfos, err := aliceClient.ListPipeline(false)
 		if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 		var pi *pps.PipelineInfo
-		for _, info := range resp.PipelineInfo {
+		for _, info := range pipelineInfos {
 			if info.Pipeline.Name == pipeline {
 				pi = info
 				break
@@ -1303,7 +1298,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	})
 
 	// make sure the pipeline is failed
-	pi, err := rootClient.InspectPipeline(pipeline)
+	pi, err := rootClient.InspectPipeline(pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
 }

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -11,18 +10,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	logrus "github.com/sirupsen/logrus"
@@ -63,27 +59,18 @@ func (a *apiServer) ServeSidecarS3G() {
 	if err := backoff.RetryNotify(func() error {
 		retryCtx, retryCancel := context.WithCancel(context.Background())
 		defer retryCancel()
+
+		if err := a.pipelines.ReadOnly(retryCtx).Get(pipelineName, s.pipelineInfo); err != nil {
+			return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
+		}
+
 		// Set auth token for s.pachClient (pipelinePtr.AuthToken will be empty if
 		// auth is off)
-		pipelinePtr := &pps.StoredPipelineInfo{}
-		err := a.pipelines.ReadOnly(retryCtx).Get(pipelineName, pipelinePtr)
-		if err != nil {
-			return errors.Wrapf(err, "could not get auth token from etcdPipelineInfo")
-		}
-		s.pachClient.SetAuthToken(pipelinePtr.AuthToken)
+		s.pachClient.SetAuthToken(s.pipelineInfo.AuthToken)
 
-		buf := bytes.Buffer{}
-		commit := client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewCommit("", specCommit)
-		if err := s.pachClient.GetFile(commit, ppsconsts.SpecFile, &buf); err != nil {
-			return errors.Wrapf(err, "sidecar s3 gateway: could not read pipeline spec commit: could not read existing PipelineInfo from PFS")
+		if err := ppsutil.GetPipelineDetails(s.pachClient, s.pipelineInfo); err != nil {
+			return errors.Wrapf(err, "sidecar s3 gateway: could not get pipeline details")
 		}
-		if err := proto.Unmarshal(buf.Bytes(), s.pipelineInfo); err != nil {
-			return errors.Wrapf(err, "sidecar s3 gateway: could not read pipeline spec commit: could not unmarshal PipelineInfo bytes from PFS")
-		}
-		if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Input) && !s.pipelineInfo.S3Out {
-			return nil // break out of backoff (nothing to serve via S3 gateway)
-		}
-
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error starting sidecar s3 gateway: %v; retrying in %d", err, d)
@@ -94,7 +81,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		logrus.Errorf("restarting startup of sidecar s3 gateway: %v", err)
 		a.ServeSidecarS3G()
 	}
-	if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Input) && !s.pipelineInfo.S3Out {
+	if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Details.Input) && !s.pipelineInfo.Details.S3Out {
 		return // break early (nothing to serve via S3 gateway)
 	}
 
@@ -139,7 +126,7 @@ func (s *sidecarS3G) createK8sServices() {
 			path.Join(s.apiServer.etcdPrefix,
 				s3gSidecarLockPath,
 				s.pipelineInfo.Pipeline.Name,
-				s.pipelineInfo.Salt))
+				s.pipelineInfo.Details.Salt))
 		ctx, err := masterLock.Lock(s.pachClient.Ctx())
 		if err != nil {
 			// retry obtaining lock
@@ -185,7 +172,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 
 	// Initialize new S3 gateway
 	var inputBuckets []*s3.Bucket
-	pps.VisitInput(jobInfo.Input, func(in *pps.Input) error {
+	pps.VisitInput(jobInfo.Details.Input, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
 				Commit: client.NewSystemRepo(in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
@@ -195,7 +182,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		return nil
 	})
 	var outputBucket *s3.Bucket
-	if s.s.pipelineInfo.S3Out {
+	if s.s.pipelineInfo.Details.S3Out {
 		outputBucket = &s3.Bucket{
 			Commit: jobInfo.OutputCommit,
 			Name:   "out",
@@ -327,7 +314,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 }
 
 func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, job *pps.Job) {
-	if !ppsutil.ContainsS3Inputs(s.s.pipelineInfo.Input) && !s.s.pipelineInfo.S3Out {
+	if !ppsutil.ContainsS3Inputs(s.s.pipelineInfo.Details.Input) && !s.s.pipelineInfo.Details.S3Out {
 		return // Nothing to delete; this isn't an s3 pipeline (shouldn't happen)
 	}
 
@@ -376,7 +363,7 @@ func (h *handleJobsCtx) start() {
 			}
 
 			var key string
-			jobInfo := &pps.StoredJobInfo{}
+			jobInfo := &pps.JobInfo{}
 			if err := e.Unmarshal(&key, jobInfo); err != nil {
 				logrus.Errorf("sidecar s3 gateway watch unmarshal error: %v", err)
 			}

@@ -102,12 +102,12 @@ func (s *server) getFileHandler(w http.ResponseWriter, r *http.Request, ps httpr
 func (s *server) serviceHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	c := s.getPachClient()
 	serviceName := ps.ByName("serviceName")
-	pipelineInfo, err := c.InspectPipeline(serviceName)
+	pipelineInfo, err := c.InspectPipeline(serviceName, true)
 	if err != nil {
 		httpError(w, err)
 		return
 	}
-	URL, err := url.Parse(fmt.Sprintf("http://%s:%d", pipelineInfo.Service.IP, pipelineInfo.Service.ExternalPort))
+	URL, err := url.Parse(fmt.Sprintf("http://%s:%d", pipelineInfo.Details.Service.IP, pipelineInfo.Details.Service.ExternalPort))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
