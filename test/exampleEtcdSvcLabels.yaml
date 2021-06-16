@@ -1,0 +1,4 @@
+etcd:
+  service:
+    labels:
+      myApp: Blah123

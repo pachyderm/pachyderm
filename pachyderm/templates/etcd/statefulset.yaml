@@ -82,23 +82,22 @@ spec:
   {{- if not (eq .Values.pachd.storage.backend "LOCAL") }}
   volumeClaimTemplates:
   - metadata:
-  {{- if or (eq .Values.pachd.storage.backend "AMAZON") (eq .Values.pachd.storage.backend "GOOGLE") }}
-      annotations:
-        volume.beta.kubernetes.io/storage-class: {{ if .Values.etcd.storageClass -}}
-        {{ .Values.etcd.storageClass }}
-        {{- else -}}
-        etcd-storage-class
-        {{- end }}
-  {{- end }}
       labels:
         app: etcd
         suite: pachyderm
       name: etcd-storage
       namespace: {{ .Release.Namespace }}
     spec:
+      storageClassName: {{ .Values.etcd.storageClass | default "etcd-storage-class" }}
       accessModes:
       - ReadWriteOnce
       resources:
         requests:
-          storage: {{ .Values.etcd.storageSize }}
+          storage:
+              {{- if .Values.etcd.storageSize }} {{ .Values.etcd.storageSize }}
+              {{- else if eq .Values.pachd.storage.backend "MICROSOFT" }} 256Gi # 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
+              {{- else if eq .Values.pachd.storage.backend "GOOGLE" }} 50Gi     # 1,500 IOPS https://cloud.google.com/compute/docs/disks/performance
+              {{- else if eq .Values.pachd.storage.backend "AMAZON" }} 10Gi     # Baseline 3,000 IOPS https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
+              {{- else }} 10Gi  # Default
+              {{- end }}
   {{- end }}
