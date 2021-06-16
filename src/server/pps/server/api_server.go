@@ -545,7 +545,7 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
 			return nil
 		}
-		jobInfo, err := pachClient.InspectJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, false)
+		jobInfo, err := pachClient.InspectJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, request.Details)
 		if err != nil {
 			// Not all commits are guaranteed to have an associated job - skip over it
 			if errutil.IsNotFoundError(err) {

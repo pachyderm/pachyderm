@@ -22,7 +22,7 @@ type Source interface {
 type source struct {
 	commitInfo *pfs.CommitInfo
 	fileSet    fileset.FileSet
-	full       bool
+	details    bool
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
@@ -38,7 +38,7 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 	return &source{
 		commitInfo: commitInfo,
 		fileSet:    fs,
-		full:       sc.full,
+		details:    sc.details,
 	}
 }
 
@@ -61,7 +61,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 		if fileset.IsDir(idx.Path) {
 			fi.FileType = pfs.FileType_DIR
 		}
-		if s.full {
+		if s.details {
 			fi.Details = &pfs.FileInfo_Details{}
 			cachedDetails, ok, err := s.checkFileDetailsCache(ctx, cache, f)
 			if err != nil {

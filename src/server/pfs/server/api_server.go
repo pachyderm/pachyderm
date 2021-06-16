@@ -583,7 +583,6 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 			return err
 		})
 		return bytesWritten, err
-
 	})
 }
 
@@ -609,7 +608,11 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 		}); err != nil {
 			return err
 		}
-		bytesWritten += int64(fi.Details.SizeBytes)
+		// TODO(2.0 required) - SizeBytes requires constructing the src with
+		// `WithDetails` which we don't do here, so we can't get the size from here
+		// that easily.  One option is to always calculate the size of files in the
+		// source.
+		// bytesWritten += int64(fi.Details.SizeBytes)
 		return nil
 	})
 	return bytesWritten, err
