@@ -689,7 +689,7 @@ message StopPipelineRequest {
 
 message RunPipelineRequest {
   Pipeline pipeline = 1;
-  repeated pfs_v2.CommitProvenance provenance = 2;
+  repeated pfs_v2.Commit provenance = 2;
   string job_id = 3 [(gogoproto.customname) = "JobID"];
 }
 

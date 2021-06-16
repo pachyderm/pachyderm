@@ -1142,8 +1142,6 @@ func TestDeleteRCInStandby(t *testing.T) {
 // anywhere. However, it restarts pachd, so it shouldn't be run in parallel with
 // any other test (which is expected of tests in auth_test.go)
 func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
-	// TODO(required 2.0)
-	t.Skip("Broken as of global IDs, needs investigation")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1217,16 +1215,12 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	err = aliceClient.PutFile(masterCommit, "/file.2", strings.NewReader("2"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, time.Minute, func() error {
-		// TODO(msteffen): While not currently possible, PFS could return
-		// CommitDeleted here. This should detect that error, but first:
-		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
-		//   handling code)
-		// - packages depending on that code should be migrated
-		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if _, err := aliceClient.WaitCommit(pipeline, "master", masterCommit.ID); err != nil {
-			return errors.Wrapf(err, "unexpected error value")
+		inputHead, err := aliceClient.InspectCommit(repo, "master", "")
+		if err != nil {
+			return err
 		}
-		return nil
+		_, err = aliceClient.WaitCommitSetAll(inputHead.Commit.ID)
+		return err
 	})
 
 	// Create a new pipeline, make sure FlushJob eventually returns, and check

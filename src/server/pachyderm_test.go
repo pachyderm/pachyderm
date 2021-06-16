@@ -661,8 +661,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline with non-empty provenance
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//			client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
+	//		return c.RunPipeline(pipeline, []*pfs.Commit{
+	//			client.NewCommit(dataRepo, "branchA", commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -696,9 +696,9 @@ func TestRunPipeline(t *testing.T) {
 	//	require.Equal(t, "data A\ndata A2\ndata B\ndata B2\n", buffer.String())
 
 	//	// now run the pipeline provenant on the old commits
-	//	require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//		client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
-	//		client.NewCommitProvenance(dataRepo, "branchB", commitB2.ID),
+	//	require.NoError(t, c.RunPipeline(pipeline, []*pfs.Commit{
+	//		client.NewCommit(dataRepo, "branchA", commitA.ID),
+	//		client.NewCommit(dataRepo, "branchB", commitB2.ID),
 	//	}, ""))
 
 	//	// and ensure that the file now has the info from the correct versions of the commits
@@ -786,8 +786,8 @@ func TestRunPipeline(t *testing.T) {
 	//	require.NoError(t, err)
 
 	//	// now run the pipeline with unrelated provenance
-	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//		client.NewCommitProvenance(dataRepo, "unrelated", commitU.ID)}, ""))
+	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.Commit{
+	//		client.NewCommit(dataRepo, "unrelated", commitU.ID)}, ""))
 	//})
 
 	//// Test with downstream pipeline
@@ -859,8 +859,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+	//		return c.RunPipeline(pipeline, []*pfs.Commit{
+	//			client.NewCommit(dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -952,8 +952,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+	//		return c.RunPipeline(pipeline, []*pfs.Commit{
+	//			client.NewCommit(dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -1021,9 +1021,9 @@ func TestRunPipeline(t *testing.T) {
 	//	require.NoError(t, err)
 
 	//	// now run the pipeline with provenance from the same branch
-	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//		client.NewCommitProvenance(dataRepo, branchA, commitA1.ID),
-	//		client.NewCommitProvenance(dataRepo, branchA, commitA2.ID),
+	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.Commit{
+	//		client.NewCommit(dataRepo, branchA, commitA1.ID),
+	//		client.NewCommit(dataRepo, branchA, commitA2.ID),
 	//	}, ""))
 	//})
 	//// Test on pipeline that should always fail
@@ -1110,8 +1110,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+	//		return c.RunPipeline(pipeline, []*pfs.Commit{
+	//			client.NewCommit(dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -8646,8 +8646,6 @@ func TestFileHistory(t *testing.T) {
 // pipelines can be created (i.e. that the PPS master doesn't crashloop due to
 // the missing output repo).
 func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
-	// TODO(required 2.0)
-	t.Skip("Broken as of global IDs, needs investigation")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8716,16 +8714,12 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	// the pipeline either restarts the RC and recreates the output repo, or fails
 	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "/file.2", strings.NewReader("2"), client.WithAppendPutFile()))
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		// TODO(msteffen): While not currently possible, PFS could return
-		// CommitDeleted here. This should detect that error, but first:
-		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
-		//   handling code)
-		// - packages depending on that code should be migrated
-		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if _, err := c.WaitCommit(pipeline, "master", ""); err != nil {
-			return errors.Wrapf(err, "unexpected error value")
+		inputHead, err := c.InspectCommit(repo, "master", "")
+		if err != nil {
+			return err
 		}
-		return nil
+		_, err = c.WaitCommitSetAll(inputHead.Commit.ID)
+		return err
 	})
 
 	// Create a new pipeline, make sure WaitCommit eventually returns, and check
