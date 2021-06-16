@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -22,10 +23,10 @@ func (c APIClient) PutFile(commit *pfs.Commit, path string, r io.Reader, opts ..
 	})
 }
 
-// PutFileTar puts a set of files into PFS from a tar stream.
-func (c APIClient) PutFileTar(commit *pfs.Commit, r io.Reader, opts ...PutFileOption) error {
+// PutFileTAR puts a set of files into PFS from a tar stream.
+func (c APIClient) PutFileTAR(commit *pfs.Commit, r io.Reader, opts ...PutFileOption) error {
 	return c.WithModifyFileClient(commit, func(mf ModifyFile) error {
-		return mf.PutFileTar(r, opts...)
+		return mf.PutFileTAR(r, opts...)
 	})
 }
 
@@ -60,8 +61,8 @@ func (c APIClient) CopyFile(dstCommit *pfs.Commit, dstPath string, srcCommit *pf
 type ModifyFile interface {
 	// PutFile puts a file into PFS from a reader.
 	PutFile(path string, r io.Reader, opts ...PutFileOption) error
-	// PutFileTar puts a set of files into PFS from a tar stream.
-	PutFileTar(r io.Reader, opts ...PutFileOption) error
+	// PutFileTAR puts a set of files into PFS from a tar stream.
+	PutFileTAR(r io.Reader, opts ...PutFileOption) error
 	// PutFileURL puts a file into PFS using the content found at a URL.
 	// recursive allows for recursive scraping of some types of URLs.
 	PutFileURL(path, url string, recursive bool, opts ...PutFileOption) error
@@ -98,7 +99,7 @@ func (c APIClient) NewModifyFileClient(commit *pfs.Commit) (_ *ModifyFileClient,
 		return nil, err
 	}
 	if err := client.Send(&pfs.ModifyFileRequest{
-		Commit: commit,
+		Body: &pfs.ModifyFileRequest_SetCommit{SetCommit: commit},
 	}); err != nil {
 		return nil, err
 	}
@@ -123,38 +124,39 @@ type modifyFileCore struct {
 }
 
 func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOption) error {
+	config := &putFileConfig{}
+	for _, opt := range opts {
+		opt(config)
+	}
 	return mfc.maybeError(func() error {
-		pf := &pfs.PutFile{
-			Source: &pfs.PutFile_RawFileSource{
-				RawFileSource: &pfs.RawFileSource{
-					Path: path,
-				},
-			},
+		if !config.append {
+			if err := mfc.sendDeleteFile(&pfs.DeleteFile{
+				Path: path,
+				Tag:  config.tag,
+			}); err != nil {
+				return err
+			}
 		}
-		for _, opt := range opts {
-			opt(pf)
-		}
-		if err := mfc.sendPutFile(pf); err != nil {
-			return err
-		}
+		emptyFile := true
 		if _, err := grpcutil.ChunkReader(r, func(data []byte) error {
-			return mfc.sendPutFile(&pfs.PutFile{
-				Source: &pfs.PutFile_RawFileSource{
-					RawFileSource: &pfs.RawFileSource{
-						Data: data,
-					},
+			emptyFile = false
+			return mfc.sendPutFile(&pfs.AddFile{
+				Path: path,
+				Tag:  config.tag,
+				Source: &pfs.AddFile_Raw{
+					Raw: &types.BytesValue{Value: data},
 				},
 			})
 		}); err != nil {
 			return err
 		}
-		return mfc.sendPutFile(&pfs.PutFile{
-			Source: &pfs.PutFile_RawFileSource{
-				RawFileSource: &pfs.RawFileSource{
-					EOF: true,
-				},
-			},
-		})
+		if emptyFile {
+			return mfc.sendPutFile(&pfs.AddFile{
+				Path: path,
+				Tag:  config.tag,
+			})
+		}
+		return nil
 	})
 }
 
@@ -171,53 +173,85 @@ func (mfc *modifyFileCore) maybeError(f func() error) (retErr error) {
 	return f()
 }
 
-func (mfc *modifyFileCore) sendPutFile(req *pfs.PutFile) error {
+func (mfc *modifyFileCore) sendPutFile(req *pfs.AddFile) error {
 	return mfc.client.Send(&pfs.ModifyFileRequest{
-		Modification: &pfs.ModifyFileRequest_PutFile{
-			PutFile: req,
+		Body: &pfs.ModifyFileRequest_AddFile{
+			AddFile: req,
 		},
 	})
 }
 
-func (mfc *modifyFileCore) PutFileTar(r io.Reader, opts ...PutFileOption) error {
+func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error {
+	config := &putFileConfig{}
+	for _, opt := range opts {
+		opt(config)
+	}
 	return mfc.maybeError(func() error {
-		pf := &pfs.PutFile{
-			Source: &pfs.PutFile_TarFileSource{
-				TarFileSource: &pfs.TarFileSource{},
-			},
+		tr := tar.NewReader(r)
+		for hdr, err := tr.Next(); err != io.EOF; hdr, err = tr.Next() {
+			if err != nil {
+				return err
+			}
+			if hdr.Typeflag == tar.TypeDir {
+				continue
+			}
+			p := hdr.Name
+			if !config.append {
+				if err := mfc.sendDeleteFile(&pfs.DeleteFile{
+					Path: p,
+					Tag:  config.tag,
+				}); err != nil {
+					return err
+				}
+			}
+			if hdr.Size == 0 {
+				if err := mfc.sendPutFile(&pfs.AddFile{
+					Path: p,
+					Tag:  config.tag,
+				}); err != nil {
+					return err
+				}
+			} else {
+				if _, err := grpcutil.ChunkReader(tr, func(data []byte) error {
+					return mfc.sendPutFile(&pfs.AddFile{
+						Path: p,
+						Tag:  config.tag,
+						Source: &pfs.AddFile_Raw{
+							Raw: &types.BytesValue{Value: data},
+						},
+					})
+				}); err != nil {
+					return err
+				}
+			}
 		}
-		for _, opt := range opts {
-			opt(pf)
-		}
-		if err := mfc.sendPutFile(pf); err != nil {
-			return err
-		}
-		_, err := grpcutil.ChunkReader(r, func(data []byte) error {
-			return mfc.sendPutFile(&pfs.PutFile{
-				Source: &pfs.PutFile_TarFileSource{
-					TarFileSource: &pfs.TarFileSource{
-						Data: data,
-					},
-				},
-			})
-		})
-		return err
+		return nil
 	})
 }
 
 func (mfc *modifyFileCore) PutFileURL(path, url string, recursive bool, opts ...PutFileOption) error {
+	config := &putFileConfig{}
+	for _, opt := range opts {
+		opt(config)
+	}
 	return mfc.maybeError(func() error {
-		pf := &pfs.PutFile{
-			Source: &pfs.PutFile_UrlFileSource{
-				UrlFileSource: &pfs.URLFileSource{
-					Path:      path,
+		if !config.append {
+			if err := mfc.sendDeleteFile(&pfs.DeleteFile{
+				Path: path,
+				Tag:  config.tag,
+			}); err != nil {
+				return err
+			}
+		}
+		pf := &pfs.AddFile{
+			Path: path,
+			Tag:  config.tag,
+			Source: &pfs.AddFile_Url{
+				Url: &pfs.AddFile_URLSource{
 					URL:       url,
 					Recursive: recursive,
 				},
 			},
-		}
-		for _, opt := range opts {
-			opt(pf)
 		}
 		return mfc.sendPutFile(pf)
 	})
@@ -225,7 +259,7 @@ func (mfc *modifyFileCore) PutFileURL(path, url string, recursive bool, opts ...
 
 func (mfc *modifyFileCore) DeleteFile(path string, opts ...DeleteFileOption) error {
 	return mfc.maybeError(func() error {
-		df := &pfs.DeleteFile{File: path}
+		df := &pfs.DeleteFile{Path: path}
 		for _, opt := range opts {
 			opt(df)
 		}
@@ -235,7 +269,7 @@ func (mfc *modifyFileCore) DeleteFile(path string, opts ...DeleteFileOption) err
 
 func (mfc *modifyFileCore) sendDeleteFile(req *pfs.DeleteFile) error {
 	return mfc.client.Send(&pfs.ModifyFileRequest{
-		Modification: &pfs.ModifyFileRequest_DeleteFile{
+		Body: &pfs.ModifyFileRequest_DeleteFile{
 			DeleteFile: req,
 		},
 	})
@@ -256,7 +290,7 @@ func (mfc *modifyFileCore) CopyFile(dst string, src *pfs.File, opts ...CopyFileO
 
 func (mfc *modifyFileCore) sendCopyFile(req *pfs.CopyFile) error {
 	return mfc.client.Send(&pfs.ModifyFileRequest{
-		Modification: &pfs.ModifyFileRequest_CopyFile{
+		Body: &pfs.ModifyFileRequest_CopyFile{
 			CopyFile: req,
 		},
 	})
