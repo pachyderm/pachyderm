@@ -107,13 +107,6 @@ message Commit {
   string id = 2 [(gogoproto.customname) = "ID"];
 }
 
-// CommitProvenance keeps track of where (i.e. which branch) a certain commit
-// originated from. A commit's provenance consists of the commits of
-// the commits which are in its causal history.
-message CommitProvenance {
-  Commit commit = 1;
-}
-
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
   Commit commit = 1;

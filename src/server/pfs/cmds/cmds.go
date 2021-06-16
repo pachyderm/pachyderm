@@ -1435,12 +1435,8 @@ Objects are a low-level resource and should not be accessed directly by most use
 }
 
 func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendFile bool) (retErr error) {
-	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
-	// to the server, and convert to unix path in case we're on windows.
+	// Resolve the path and convert to unix path in case we're on windows.
 	path = filepath.ToSlash(filepath.Clean(path))
-	for strings.HasPrefix(path, "../") {
-		path = strings.TrimPrefix(path, "../")
-	}
 	var opts []client.PutFileOption
 	if appendFile {
 		opts = append(opts, client.WithAppendPutFile())
@@ -1457,6 +1453,8 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 		defer stdin.Finish()
 		return mf.PutFile(path, stdin, opts...)
 	}
+	// Resolve the source and convert to unix path in case we're on windows.
+	source = filepath.ToSlash(filepath.Clean(source))
 	if recursive {
 		return filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
 			// file doesn't exist
