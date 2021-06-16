@@ -14,7 +14,7 @@ spec:
   ports:
   - name: api-grpc-peer-port
     port: 30653
-    targetPort: 653
+    targetPort: peer-port
   selector:
     app: pachd
   type: ClusterIP
