@@ -426,7 +426,7 @@ message PipelineInfo {
   // Set at call time, not stored in etcd
   int64 unclaimed_tasks = 37;
   string worker_rc = 38;
-  bool disable_autoscaling = 39;
+  bool autoscaling = 39;
 }
 
 message PipelineInfos {
@@ -644,7 +644,7 @@ message CreatePipelineRequest {
   pfs_v2.Commit spec_commit = 27;
   Metadata metadata = 28;
   string reprocess_spec = 29;
-  bool disable_autoscaling = 30;
+  bool autoscaling = 30;
 }
 
 message InspectPipelineRequest {

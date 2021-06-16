@@ -3089,7 +3089,8 @@ func TestStandby(t *testing.T) {
 					Transform: &pps.Transform{
 						Cmd: []string{"cp", path.Join("/pfs", input, "file"), "/pfs/out/file"},
 					},
-					Input: client.NewPFSInput(input, "/*"),
+					Input:       client.NewPFSInput(input, "/*"),
+					Autoscaling: true,
 				},
 			)
 			require.NoError(t, err)
@@ -9870,6 +9871,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 			},
 			Input:           client.NewPFSInput(dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
+			Autoscaling:     true,
 		},
 	)
 	require.NoError(t, err)
@@ -9893,36 +9895,6 @@ func TestPipelineAutoscaling(t *testing.T) {
 	commitNFiles(1)
 	commitNFiles(3)
 	commitNFiles(8)
-}
-
-func TestPipelineDisableAutoscaling(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestPipelineDisableAutoscaling_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	pipeline := tu.UniqueString("pipeline")
-	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-				},
-			},
-			Input:              client.NewPFSInput(dataRepo, "/*"),
-			ParallelismSpec:    &pps.ParallelismSpec{Constant: 4},
-			DisableAutoscaling: true,
-		},
-	)
-	require.NoError(t, err)
-	monitorReplicas(t, pipeline, 4)
 }
 
 func TestListDeletedDatums(t *testing.T) {

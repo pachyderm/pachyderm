@@ -193,7 +193,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		return nil
 	})
-	if !pipelineInfo.DisableAutoscaling {
+	if pipelineInfo.Autoscaling {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
 		// standby when SubscribeCommit takes too long to return.
 		ciChan := make(chan *pfs.CommitInfo, 1)
@@ -327,7 +327,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 			}, backoff.NewInfiniteBackOff(),
 				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipeline))
 		})
-		if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > 1 && !pipelineInfo.DisableAutoscaling {
+		if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > 1 && pipelineInfo.Autoscaling {
 			eg.Go(func() error {
 				pachClient := m.a.env.GetPachClient(ctx)
 				return backoff.RetryUntilCancel(ctx, func() error {
