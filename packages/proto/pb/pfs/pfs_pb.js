@@ -5977,7 +5977,7 @@ proto.pfs_v2.InspectCommitRequest.prototype.toObject = function(opt_includeInsta
 proto.pfs_v2.InspectCommitRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     commit: (f = msg.getCommit()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
-    block: jspb.Message.getFieldWithDefault(msg, 2, 0)
+    wait: jspb.Message.getFieldWithDefault(msg, 2, 0)
   };
 
   if (includeInstance) {
@@ -6021,7 +6021,7 @@ proto.pfs_v2.InspectCommitRequest.deserializeBinaryFromReader = function(msg, re
       break;
     case 2:
       var value = /** @type {!proto.pfs_v2.CommitState} */ (reader.readEnum());
-      msg.setBlock(value);
+      msg.setWait(value);
       break;
     default:
       reader.skipField();
@@ -6060,7 +6060,7 @@ proto.pfs_v2.InspectCommitRequest.serializeBinaryToWriter = function(message, wr
       proto.pfs_v2.Commit.serializeBinaryToWriter
     );
   }
-  f = message.getBlock();
+  f = message.getWait();
   if (f !== 0.0) {
     writer.writeEnum(
       2,
@@ -6108,10 +6108,10 @@ proto.pfs_v2.InspectCommitRequest.prototype.hasCommit = function() {
 
 
 /**
- * optional CommitState block = 2;
+ * optional CommitState wait = 2;
  * @return {!proto.pfs_v2.CommitState}
  */
-proto.pfs_v2.InspectCommitRequest.prototype.getBlock = function() {
+proto.pfs_v2.InspectCommitRequest.prototype.getWait = function() {
   return /** @type {!proto.pfs_v2.CommitState} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
 };
 
@@ -6120,7 +6120,7 @@ proto.pfs_v2.InspectCommitRequest.prototype.getBlock = function() {
  * @param {!proto.pfs_v2.CommitState} value
  * @return {!proto.pfs_v2.InspectCommitRequest} returns this
  */
-proto.pfs_v2.InspectCommitRequest.prototype.setBlock = function(value) {
+proto.pfs_v2.InspectCommitRequest.prototype.setWait = function(value) {
   return jspb.Message.setProto3EnumField(this, 2, value);
 };
 
@@ -6471,7 +6471,7 @@ proto.pfs_v2.InspectCommitsetRequest.prototype.toObject = function(opt_includeIn
 proto.pfs_v2.InspectCommitsetRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     commitset: (f = msg.getCommitset()) && proto.pfs_v2.Commitset.toObject(includeInstance, f),
-    block: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+    wait: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
   };
 
   if (includeInstance) {
@@ -6515,7 +6515,7 @@ proto.pfs_v2.InspectCommitsetRequest.deserializeBinaryFromReader = function(msg,
       break;
     case 2:
       var value = /** @type {boolean} */ (reader.readBool());
-      msg.setBlock(value);
+      msg.setWait(value);
       break;
     default:
       reader.skipField();
@@ -6554,7 +6554,7 @@ proto.pfs_v2.InspectCommitsetRequest.serializeBinaryToWriter = function(message,
       proto.pfs_v2.Commitset.serializeBinaryToWriter
     );
   }
-  f = message.getBlock();
+  f = message.getWait();
   if (f) {
     writer.writeBool(
       2,
@@ -6602,10 +6602,10 @@ proto.pfs_v2.InspectCommitsetRequest.prototype.hasCommitset = function() {
 
 
 /**
- * optional bool block = 2;
+ * optional bool wait = 2;
  * @return {boolean}
  */
-proto.pfs_v2.InspectCommitsetRequest.prototype.getBlock = function() {
+proto.pfs_v2.InspectCommitsetRequest.prototype.getWait = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
 };
 
@@ -6614,7 +6614,7 @@ proto.pfs_v2.InspectCommitsetRequest.prototype.getBlock = function() {
  * @param {boolean} value
  * @return {!proto.pfs_v2.InspectCommitsetRequest} returns this
  */
-proto.pfs_v2.InspectCommitsetRequest.prototype.setBlock = function(value) {
+proto.pfs_v2.InspectCommitsetRequest.prototype.setWait = function(value) {
   return jspb.Message.setProto3BooleanField(this, 2, value);
 };
 

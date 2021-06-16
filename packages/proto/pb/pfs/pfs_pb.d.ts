@@ -648,8 +648,8 @@ export class InspectCommitRequest extends jspb.Message {
     clearCommit(): void;
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): InspectCommitRequest;
-    getBlock(): CommitState;
-    setBlock(value: CommitState): InspectCommitRequest;
+    getWait(): CommitState;
+    setWait(value: CommitState): InspectCommitRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectCommitRequest.AsObject;
@@ -664,7 +664,7 @@ export class InspectCommitRequest extends jspb.Message {
 export namespace InspectCommitRequest {
     export type AsObject = {
         commit?: Commit.AsObject,
-        block: CommitState,
+        wait: CommitState,
     }
 }
 
@@ -715,8 +715,8 @@ export class InspectCommitsetRequest extends jspb.Message {
     clearCommitset(): void;
     getCommitset(): Commitset | undefined;
     setCommitset(value?: Commitset): InspectCommitsetRequest;
-    getBlock(): boolean;
-    setBlock(value: boolean): InspectCommitsetRequest;
+    getWait(): boolean;
+    setWait(value: boolean): InspectCommitsetRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectCommitsetRequest.AsObject;
@@ -731,7 +731,7 @@ export class InspectCommitsetRequest extends jspb.Message {
 export namespace InspectCommitsetRequest {
     export type AsObject = {
         commitset?: Commitset.AsObject,
-        block: boolean,
+        wait: boolean,
     }
 }
 

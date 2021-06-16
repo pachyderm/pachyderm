@@ -12385,7 +12385,7 @@ proto.pps_v2.InspectJobsetRequest.prototype.toObject = function(opt_includeInsta
 proto.pps_v2.InspectJobsetRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     jobset: (f = msg.getJobset()) && proto.pps_v2.Jobset.toObject(includeInstance, f),
-    block: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+    wait: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
   };
 
   if (includeInstance) {
@@ -12429,7 +12429,7 @@ proto.pps_v2.InspectJobsetRequest.deserializeBinaryFromReader = function(msg, re
       break;
     case 2:
       var value = /** @type {boolean} */ (reader.readBool());
-      msg.setBlock(value);
+      msg.setWait(value);
       break;
     default:
       reader.skipField();
@@ -12468,7 +12468,7 @@ proto.pps_v2.InspectJobsetRequest.serializeBinaryToWriter = function(message, wr
       proto.pps_v2.Jobset.serializeBinaryToWriter
     );
   }
-  f = message.getBlock();
+  f = message.getWait();
   if (f) {
     writer.writeBool(
       2,
@@ -12516,10 +12516,10 @@ proto.pps_v2.InspectJobsetRequest.prototype.hasJobset = function() {
 
 
 /**
- * optional bool block = 2;
+ * optional bool wait = 2;
  * @return {boolean}
  */
-proto.pps_v2.InspectJobsetRequest.prototype.getBlock = function() {
+proto.pps_v2.InspectJobsetRequest.prototype.getWait = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
 };
 
@@ -12528,7 +12528,7 @@ proto.pps_v2.InspectJobsetRequest.prototype.getBlock = function() {
  * @param {boolean} value
  * @return {!proto.pps_v2.InspectJobsetRequest} returns this
  */
-proto.pps_v2.InspectJobsetRequest.prototype.setBlock = function(value) {
+proto.pps_v2.InspectJobsetRequest.prototype.setWait = function(value) {
   return jspb.Message.setProto3BooleanField(this, 2, value);
 };
 
@@ -12566,7 +12566,7 @@ proto.pps_v2.InspectJobRequest.prototype.toObject = function(opt_includeInstance
 proto.pps_v2.InspectJobRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     job: (f = msg.getJob()) && proto.pps_v2.Job.toObject(includeInstance, f),
-    block: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
+    wait: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
     full: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
   };
 
@@ -12611,7 +12611,7 @@ proto.pps_v2.InspectJobRequest.deserializeBinaryFromReader = function(msg, reade
       break;
     case 2:
       var value = /** @type {boolean} */ (reader.readBool());
-      msg.setBlock(value);
+      msg.setWait(value);
       break;
     case 3:
       var value = /** @type {boolean} */ (reader.readBool());
@@ -12654,7 +12654,7 @@ proto.pps_v2.InspectJobRequest.serializeBinaryToWriter = function(message, write
       proto.pps_v2.Job.serializeBinaryToWriter
     );
   }
-  f = message.getBlock();
+  f = message.getWait();
   if (f) {
     writer.writeBool(
       2,
@@ -12709,10 +12709,10 @@ proto.pps_v2.InspectJobRequest.prototype.hasJob = function() {
 
 
 /**
- * optional bool block = 2;
+ * optional bool wait = 2;
  * @return {boolean}
  */
-proto.pps_v2.InspectJobRequest.prototype.getBlock = function() {
+proto.pps_v2.InspectJobRequest.prototype.getWait = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
 };
 
@@ -12721,7 +12721,7 @@ proto.pps_v2.InspectJobRequest.prototype.getBlock = function() {
  * @param {boolean} value
  * @return {!proto.pps_v2.InspectJobRequest} returns this
  */
-proto.pps_v2.InspectJobRequest.prototype.setBlock = function(value) {
+proto.pps_v2.InspectJobRequest.prototype.setWait = function(value) {
   return jspb.Message.setProto3BooleanField(this, 2, value);
 };
 

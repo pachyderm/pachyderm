@@ -1400,8 +1400,8 @@ export class InspectJobsetRequest extends jspb.Message {
     clearJobset(): void;
     getJobset(): Jobset | undefined;
     setJobset(value?: Jobset): InspectJobsetRequest;
-    getBlock(): boolean;
-    setBlock(value: boolean): InspectJobsetRequest;
+    getWait(): boolean;
+    setWait(value: boolean): InspectJobsetRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectJobsetRequest.AsObject;
@@ -1416,7 +1416,7 @@ export class InspectJobsetRequest extends jspb.Message {
 export namespace InspectJobsetRequest {
     export type AsObject = {
         jobset?: Jobset.AsObject,
-        block: boolean,
+        wait: boolean,
     }
 }
 
@@ -1426,8 +1426,8 @@ export class InspectJobRequest extends jspb.Message {
     clearJob(): void;
     getJob(): Job | undefined;
     setJob(value?: Job): InspectJobRequest;
-    getBlock(): boolean;
-    setBlock(value: boolean): InspectJobRequest;
+    getWait(): boolean;
+    setWait(value: boolean): InspectJobRequest;
     getFull(): boolean;
     setFull(value: boolean): InspectJobRequest;
 
@@ -1444,7 +1444,7 @@ export class InspectJobRequest extends jspb.Message {
 export namespace InspectJobRequest {
     export type AsObject = {
         job?: Job.AsObject,
-        block: boolean,
+        wait: boolean,
         full: boolean,
     }
 }
