@@ -417,7 +417,7 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
 		var err error
-		jobInfo, err = pachClient.InspectJob(h.s.pipelineInfo.Pipeline.Name, job.ID, false)
+		jobInfo, err = pachClient.InspectJob(h.s.pipelineInfo.Pipeline.Name, job.ID, true)
 		if err != nil {
 			if col.IsErrNotFound(err) {
 				// TODO(msteffen): I'm not sure what this means--maybe that the service

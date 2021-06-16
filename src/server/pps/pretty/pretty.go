@@ -136,8 +136,7 @@ func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
 func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}}
-Pipeline: {{.Job.Pipeline.Name}}{{if .ParentJob}}
-Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamps}}
+Pipeline: {{.Job.Pipeline.Name}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
@@ -153,31 +152,31 @@ Data Uploaded: {{prettySize .Stats.UploadBytes}}
 Download Time: {{prettyDuration .Stats.DownloadTime}}
 Process Time: {{prettyDuration .Stats.ProcessTime}}
 Upload Time: {{prettyDuration .Stats.UploadTime}}
-Datum Timeout: {{.DatumTimeout}}
-Job Timeout: {{.JobTimeout}}
+Datum Timeout: {{.Details.DatumTimeout}}
+Job Timeout: {{.Details.JobTimeout}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
-ParallelismSpec: {{.ParallelismSpec}}
-{{ if .ResourceRequests }}ResourceRequests:
-  CPU: {{ .ResourceRequests.Cpu }}
-  Memory: {{ .ResourceRequests.Memory }} {{end}}
-{{ if .ResourceLimits }}ResourceLimits:
-  CPU: {{ .ResourceLimits.Cpu }}
-  Memory: {{ .ResourceLimits.Memory }}
-  {{ if .ResourceLimits.Gpu }}GPU:
-    Type: {{ .ResourceLimits.Gpu.Type }}
-    Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
-{{ if .SidecarResourceLimits }}SidecarResourceLimits:
-  CPU: {{ .SidecarResourceLimits.Cpu }}
-  Memory: {{ .SidecarResourceLimits.Memory }} {{end}}
-{{ if .Service }}Service:
-	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
-	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}Input:
+ParallelismSpec: {{.Details.ParallelismSpec}}
+{{ if .Details.ResourceRequests }}ResourceRequests:
+  CPU: {{ .Details.ResourceRequests.Cpu }}
+  Memory: {{ .Details.ResourceRequests.Memory }} {{end}}
+{{ if .Details.ResourceLimits }}ResourceLimits:
+  CPU: {{ .Details.ResourceLimits.Cpu }}
+  Memory: {{ .Details.ResourceLimits.Memory }}
+  {{ if .Details.ResourceLimits.Gpu }}GPU:
+    Type: {{ .Details.ResourceLimits.Gpu.Type }}
+    Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
+{{ if .Details.SidecarResourceLimits }}SidecarResourceLimits:
+  CPU: {{ .Details.SidecarResourceLimits.Cpu }}
+  Memory: {{ .Details.SidecarResourceLimits.Memory }} {{end}}
+{{ if .Details.Service }}Service:
+	{{ if .Details.Service.InternalPort }}InternalPort: {{ .Details.Service.InternalPort }} {{end}}
+	{{ if .Details.Service.ExternalPort }}ExternalPort: {{ .Details.Service.ExternalPort }} {{end}} {{end}}Input:
 {{jobInput .}}
 Transform:
-{{prettyTransform .Transform}} {{if .OutputCommit}}
-Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Egress }}
-Egress: {{.Egress.URL}} {{end}}
+{{prettyTransform .Details.Transform}} {{if .OutputCommit}}
+Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Details.Egress }}
+Egress: {{.Details.Egress.URL}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -202,7 +201,7 @@ func NewPrintablePipelineInfo(pi *ppsclient.PipelineInfo) *PrintablePipelineInfo
 // PrintDetailedPipelineInfo pretty-prints detailed pipeline info.
 func PrintDetailedPipelineInfo(w io.Writer, pipelineInfo *PrintablePipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
-		`Name: {{.Pipeline.Name}}{{if .Description}}
+		`Name: {{.Pipeline.Name}}{{if .Details.Description}}
 Description: {{.Details.Description}}{{end}}{{if .FullTimestamps }}
 Created: {{.Details.CreatedAt}}{{ else }}
 Created: {{prettyAgo .Details.CreatedAt}} {{end}}
