@@ -2780,3 +2780,61 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(repoInfo))
 }
+
+// asserts that retrieval of Pachd logs requires additional permissions granted to the PachdLogReader role
+func TestGetPachdLogsRequiresPerm(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+
+	aliceRepo := tu.UniqueString("alice_repo")
+	err := aliceClient.CreateRepo(aliceRepo)
+	require.NoError(t, err)
+
+	// create pipeline
+	alicePipeline := tu.UniqueString("pipeline_for_logs")
+	err = aliceClient.CreatePipeline(
+		alicePipeline,
+		"", // default image: DefaultUserImage
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(aliceRepo, "/*"),
+		"", // default output branch: master
+		false,
+	)
+	require.NoError(t, err)
+
+	// wait for the pipeline pod to come up
+	time.Sleep(time.Second * 10)
+
+	// must be authorized to access pachd logs
+	pachdLogsIter := aliceClient.GetLogs("", "", nil, "", false, false, 0)
+	pachdLogsIter.Next()
+	require.YesError(t, pachdLogsIter.Err())
+	require.True(t, strings.Contains(pachdLogsIter.Err().Error(), "is not authorized to perform this operation"))
+
+	// alice can view the pipeline logs
+	pipelineLogsIter := aliceClient.GetLogs(alicePipeline, "", nil, "", false, false, 0)
+	pipelineLogsIter.Next()
+	require.NoError(t, pipelineLogsIter.Err())
+
+	// PachdLogReaderRole grants authorized retrieval of pachd logs
+	_, err = adminClient.AuthAPIClient.ModifyRoleBinding(adminClient.Ctx(),
+		&auth.ModifyRoleBindingRequest{
+			Principal: alice,
+			Roles:     []string{auth.PachdLogReaderRole},
+			Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
+		})
+	require.NoError(t, err)
+	pachdLogsIter = aliceClient.GetLogs("", "", nil, "", false, false, 0)
+	pachdLogsIter.Next()
+	require.NoError(t, pachdLogsIter.Err())
+}
