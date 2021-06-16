@@ -299,9 +299,6 @@ worker:
 postgresql:
   # Set to true if you are bringing your own PostgreSQL instance
   external: false
-  host: "postgres-0"
-  port: 5432
-  ssl: disable
   service:
     type: ClusterIP
   storageClass: ""
