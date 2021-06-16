@@ -676,7 +676,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	return nil
 }
 
-// CreateFileset implements the pfs.CreateFileset RPC
+// CreateFileSet implements the pfs.CreateFileset RPC
 func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr error) {
 	func() { a.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())

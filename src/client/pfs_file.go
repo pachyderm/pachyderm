@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -188,13 +187,13 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 		opt(config)
 	}
 	return mfc.maybeError(func() error {
-		return tarutil.Iterate(r, func(f tarutil.File) error {
-			hdr, err := f.Header()
+		tr := tar.NewReader(r)
+		for hdr, err := tr.Next(); err != io.EOF; hdr, err = tr.Next() {
 			if err != nil {
 				return err
 			}
 			if hdr.Typeflag == tar.TypeDir {
-				return nil
+				continue
 			}
 			p := hdr.Name
 			if !config.append {
@@ -205,10 +204,15 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 					return err
 				}
 			}
-			return miscutil.WithPipe(func(w io.Writer) error {
-				return f.Content(w)
-			}, func(r io.Reader) error {
-				_, err := grpcutil.ChunkReader(r, func(data []byte) error {
+			if hdr.Size == 0 {
+				if err := mfc.sendPutFile(&pfs.AddFile{
+					Path: p,
+					Tag:  config.tag,
+				}); err != nil {
+					return err
+				}
+			} else {
+				if _, err := grpcutil.ChunkReader(tr, func(data []byte) error {
 					return mfc.sendPutFile(&pfs.AddFile{
 						Path: p,
 						Tag:  config.tag,
@@ -216,10 +220,12 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 							Raw: &types.BytesValue{Value: data},
 						},
 					})
-				})
-				return err
-			})
-		})
+				}); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	})
 }
 
