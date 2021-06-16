@@ -504,6 +504,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		}
 		defer watcher.Close()
 
+	watchLoop:
 		for {
 			ev, ok := <-watcher.Watch()
 			if !ok {
@@ -520,7 +521,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 					return nil, err
 				}
 				if ppsutil.IsTerminal(jobInfo.State) {
-					break
+					break watchLoop
 				}
 			}
 		}
