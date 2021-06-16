@@ -78,7 +78,7 @@ type ErrBranchSubvenanceTransitivity struct {
 }
 
 func (e ErrBranchSubvenanceTransitivity) Error() string {
-	return fmt.Sprintf("consistency error: branch %s is missing branch %s in its subvenance\n", pfsdb.BranchKey(e.BranchInfo.Branch), pfsdb.BranchKey(e.MissingSubvenance))
+	return fmt.Sprintf("consistency error: branch %s is missing branch %s in its subvenance\n", e.BranchInfo.Branch, e.MissingSubvenance)
 }
 
 // ErrBranchInfoNotFound Branch info could not be found. Typically because of an incomplete deletion of a branch.
@@ -100,7 +100,7 @@ type ErrCommitInfoNotFound struct {
 
 func (e ErrCommitInfoNotFound) Error() string {
 	return fmt.Sprintf("consistency error: the commit %s could not be found while checking %v",
-		pfsdb.CommitKey(e.Commit), e.Location)
+		e.Commit, e.Location)
 }
 
 // ErrCommitAncestryBroken indicates that a parent and child commit disagree on their relationship.
@@ -112,7 +112,7 @@ type ErrCommitAncestryBroken struct {
 
 func (e ErrCommitAncestryBroken) Error() string {
 	return fmt.Sprintf("consistency error: parent commit %s and child commit %s disagree about their parent/child relationship",
-		pfsdb.CommitKey(e.Parent), pfsdb.CommitKey(e.Child))
+		e.Parent, e.Child)
 }
 
 // ErrMissingBranchHead indicates that a branch has a 'nil' head, which should never happen.
@@ -121,7 +121,7 @@ type ErrMissingBranchHead struct {
 }
 
 func (e ErrMissingBranchHead) Error() string {
-	return fmt.Sprintf("consistency error: branch %s does not have a head commit", pfsdb.BranchKey(e.Branch))
+	return fmt.Sprintf("consistency error: branch %s does not have a head commit", e.Branch)
 }
 
 // fsck verifies that pfs satisfies the following invariants:
@@ -233,7 +233,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 			parentCommitInfo, ok := commitInfos[pfsdb.CommitKey(commitInfo.ParentCommit)]
 			if !ok {
 				if err := onError(ErrCommitInfoNotFound{
-					Location: fmt.Sprintf("parent commit of %s", pfsdb.CommitKey(commitInfo.Commit)),
+					Location: fmt.Sprintf("parent commit of %s", commitInfo.Commit),
 					Commit:   commitInfo.ParentCommit,
 				}); err != nil {
 					return err
@@ -264,7 +264,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 
 			if !ok {
 				if err := onError(ErrCommitInfoNotFound{
-					Location: fmt.Sprintf("child commit of %s", pfsdb.CommitKey(commitInfo.Commit)),
+					Location: fmt.Sprintf("child commit of %s", commitInfo.Commit),
 					Commit:   child,
 				}); err != nil {
 					return err

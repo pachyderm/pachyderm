@@ -48,6 +48,7 @@ message Egress {
 }
 
 message Job {
+  option (gogoproto.goproto_stringer) = false;
   Pipeline pipeline = 1;
   string id = 2 [(gogoproto.customname) = "ID"];
 }

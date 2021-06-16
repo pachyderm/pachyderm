@@ -375,7 +375,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		// delete the repos we found
 		for _, dep := range dependentRepos {
 			if err := d.deleteRepo(txnCtx, dep.Repo, force); err != nil {
-				return errors.Wrapf(err, "error deleting dependent repo %q", pfsdb.RepoKey(dep.Repo))
+				return errors.Wrapf(err, "error deleting dependent repo %q", dep.Repo)
 			}
 		}
 	} else {
@@ -501,7 +501,7 @@ func (d *driver) startCommit(
 	if ok1 && ok2 {
 		specBranch := client.NewSystemRepo(spoutName, pfs.SpecRepoType).NewBranch("master")
 		specCommit := specBranch.NewCommit(spoutCommit)
-		log.Infof("Adding spout spec commit to current commitset: %s", pfsdb.CommitKey(specCommit))
+		log.Infof("Adding spout spec commit to current commitset: %s", specCommit)
 		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
 			return nil, err
 		}
@@ -524,7 +524,7 @@ func (d *driver) startCommit(
 		}
 		// fail if the parent commit has not been finished
 		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s has not been finished", pfsdb.CommitKey(parent))
+			return nil, errors.Errorf("parent commit %s has not been finished", parent)
 		}
 
 		newCommitInfo.ParentCommit = parentCommitInfo.Commit
@@ -533,7 +533,7 @@ func (d *driver) startCommit(
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(parentCommitInfo.Commit), parentCommitInfo); err != nil {
 			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
 			// missing/invalid commit ID
-			return nil, errors.Wrapf(err, "could not resolve parent commit %s", pfsdb.CommitKey(parent))
+			return nil, errors.Wrapf(err, "could not resolve parent commit %s", parent)
 		}
 	}
 
@@ -565,7 +565,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		}
 	}
 	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
-		return errors.Errorf("cannot finish an alias commit: %s", pfsdb.CommitKey(commitInfo.Commit))
+		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
 	if description != "" {
 		commitInfo.Description = description
@@ -1320,7 +1320,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 		}); err != nil && !col.IsErrNotFound(err) {
 			// If err is NotFound, branch is in downstream provenance but
 			// doesn't exist yet (or branch may have been deleted) --nothing to update
-			return errors.Wrapf(err, "error updating branch %s", pfsdb.BranchKey(commitInfo.Commit.Branch))
+			return errors.Wrapf(err, "error updating branch %s", commitInfo.Commit.Branch)
 		}
 	}
 
@@ -1372,7 +1372,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 				commitInfo.ParentCommit = parent
 				return nil
 			}); err != nil {
-				return errors.Wrapf(err, "err updating child commit %s", pfsdb.CommitKey(oldestCommitInfo.Commit))
+				return errors.Wrapf(err, "err updating child commit %s", oldestCommitInfo.Commit)
 			}
 		}
 		if parent != nil {
@@ -1393,7 +1393,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 				}
 				return nil
 			}); err != nil {
-				return errors.Wrapf(err, "err rewriting children of ancestor commit %s", pfsdb.CommitKey(oldestCommitInfo.Commit))
+				return errors.Wrapf(err, "err rewriting children of ancestor commit %s", oldestCommitInfo.Commit)
 			}
 		}
 	}
@@ -1503,7 +1503,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
 			if proto.Equal(provBranch.Repo, branch.Repo) {
-				return errors.Errorf("repo %s cannot be in the provenance of its own branch", pfsdb.RepoKey(branch.Repo))
+				return errors.Errorf("repo %s cannot be in the provenance of its own branch", branch.Repo)
 			}
 			add(&branchInfo.DirectProvenance, provBranch)
 		}
@@ -1520,7 +1520,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		// resolve the given commit
 		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
 		if err != nil {
-			return errors.Wrapf(err, "unable to inspect %s", pfsdb.CommitKey(commit))
+			return errors.Wrapf(err, "unable to inspect %s", commit)
 		}
 
 		// Verify the provenance of the new branch head and lock in its upstream commits
@@ -1528,7 +1528,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			// Check that the CommitSet for the given commit has values for every branch in provenance and alias them
 			if _, err := d.aliasCommit(txnCtx, provBranch.NewCommit(ci.Commit.ID), provBranch); err != nil {
 				if pfsserver.IsCommitNotFoundErr(err) {
-					return errors.Errorf("cannot create branch %s with commit %s as head because it does not have provenance in the %s branch", pfsdb.BranchKey(branch), pfsdb.CommitKey(ci.Commit), pfsdb.BranchKey(provBranch))
+					return errors.Errorf("cannot create branch %s with commit %s as head because it does not have provenance in the %s branch", branch, ci.Commit, provBranch)
 				}
 			}
 		}
@@ -1788,7 +1788,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 
 func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, provBranch *pfs.Branch) error {
 	if pfsdb.BranchKey(provBranch) == pfsdb.BranchKey(branchInfo.Branch) {
-		return errors.Errorf("provenance loop, branch %s cannot be provenant on itself", pfsdb.BranchKey(provBranch))
+		return errors.Errorf("provenance loop, branch %s cannot be provenant on itself", provBranch)
 	}
 	add(&branchInfo.Provenance, provBranch)
 	provBranchInfo := &pfs.BranchInfo{}

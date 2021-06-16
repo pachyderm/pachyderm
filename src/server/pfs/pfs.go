@@ -5,7 +5,6 @@ import (
 	"regexp"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -147,11 +146,11 @@ func (e ErrAmbiguousCommit) Error() string {
 }
 
 func (e ErrInconsistentCommit) Error() string {
-	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", pfsdb.CommitKey(e.Commit), e.Branch.Name)
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", e.Commit, e.Branch.Name)
 }
 
 func (e ErrCommitOnOutputBranch) Error() string {
-	return fmt.Sprintf("cannot start a commit on an output branch: %s", pfsdb.BranchKey(e.Branch))
+	return fmt.Sprintf("cannot start a commit on an output branch: %s", e.Branch)
 }
 
 var (
