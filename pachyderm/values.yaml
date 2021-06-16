@@ -23,7 +23,7 @@ dash:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
-    tag: "83baed0930c3d990f33c06094996a0692713439f"
+    tag: "b6769ac1ad4561d76e9382bc24ac271bc7686956"
   # podLabels specifies labels to add to the dash pod.
   podLabels: {}
   # resources specifies the resource request and limits.

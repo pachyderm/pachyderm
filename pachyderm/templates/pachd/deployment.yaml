@@ -315,33 +315,33 @@ spec:
         {{- end }}
         name: pachd
         ports:
-        - containerPort: 600
+        - containerPort: 1600
           name: s3gateway-port
           protocol: TCP
-        - containerPort: 650
+        - containerPort: 1650
           name: api-grpc-port
           protocol: TCP
-        - containerPort: 651
+        - containerPort: 1651
           name: trace-port
-        - containerPort: 652
+        - containerPort: 1652
           name: api-http-port
           protocol: TCP
-        - containerPort: 653
+        - containerPort: 1653
           name: peer-port
           protocol: TCP
-        - containerPort: 655
+        - containerPort: 1655
           name: api-git-port
           protocol: TCP
-        - containerPort: 654
+        - containerPort: 1654
           name: saml-port
           protocol: TCP
-        - containerPort: 657
+        - containerPort: 1657
           name: oidc-port
           protocol: TCP
-        - containerPort: 658
+        - containerPort: 1658
           name: identity-port
           protocol: TCP
-        - containerPort: 656
+        - containerPort: 1656
           name: prom-metrics
           protocol: TCP
         readinessProbe:

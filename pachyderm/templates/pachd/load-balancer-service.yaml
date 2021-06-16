@@ -18,13 +18,13 @@ spec:
   ports:
   - name: api-grpc-port
     port: 31400
-    targetPort: 650
+    targetPort: api-grpc-port
   - name: api-http-port
     port: 30652
-    targetPort: 652
+    targetPort: api-http-port
   - name: s3-gateway-port
     port: 30600
-    targetPort: 600
+    targetPort: s3-gateway-port
   selector:
     app: pachd
   type: LoadBalancer

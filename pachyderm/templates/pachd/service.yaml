@@ -23,7 +23,7 @@ spec:
   - name: api-grpc-peer
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30653
-    port: 653
+    port: 1653
     {{ else }}
     port: 30653
     {{- end }}
@@ -32,7 +32,7 @@ spec:
   - name: api-grpc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30650
-    port: 650
+    port: 1650
     {{ else }}
     port: 30650
     {{- end }}
@@ -41,7 +41,7 @@ spec:
   - name: trace-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30651
-    port: 651
+    port: 1651
     {{ else }}
     port: 30651
     {{- end }}
@@ -50,7 +50,7 @@ spec:
   - name: api-http-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30652
-    port: 652
+    port: 1652
     {{ else }}
     port: 30652
     {{- end }}
@@ -59,7 +59,7 @@ spec:
   - name: saml-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30654
-    port: 654
+    port: 1654
     {{ else }}
     port: 30654
     {{- end }}
@@ -67,7 +67,7 @@ spec:
   - name: oidc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30657
-    port: 657
+    port: 1657
     {{ else }}
     port: 30657
     {{- end }}
@@ -75,7 +75,7 @@ spec:
   - name: identity-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30658
-    port: 658
+    port: 1658
     {{ else }}
     port: 30658
     {{- end }}
@@ -83,7 +83,7 @@ spec:
   - name: api-git-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30655
-    port: 655
+    port: 1655
     {{ else }}
     port: 30655
     {{- end }}
@@ -91,7 +91,7 @@ spec:
   - name: s3gateway-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30600
-    port: 600
+    port: 1600
     {{ else }}
     port: 30600
     {{- end }}
@@ -100,7 +100,7 @@ spec:
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30656
     {{- end }}
-    port: 656
+    port: 1656
     protocol: TCP
     targetPort: prom-metrics
   selector:
