@@ -48,3 +48,7 @@
 .icon:hover path {
   fill: var(--pachyderm-black);
 }
+
+:global(.modal-backdrop) {
+  background-color: var(--background-black);
+}
