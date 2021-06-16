@@ -15,6 +15,18 @@ describe('Pipeline Job Resolver', () => {
     expect(data?.jobs.length).toBe(jobs['1'].length);
   });
 
+  it('should return a specified number of jobs when a limit is given', async () => {
+    const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
+      args: {
+        projectId: '1',
+        limit: 1,
+      },
+    });
+
+    expect(errors.length).toBe(0);
+    expect(data?.jobs.length).toBe(1);
+  });
+
   it('should find jobs for a given pipelineId', async () => {
     const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
       args: {

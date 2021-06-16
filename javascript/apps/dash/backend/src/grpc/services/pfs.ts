@@ -18,6 +18,7 @@ import {
   repoFromObject,
   RepoObject,
 } from '@dash-backend/grpc/builders/pfs';
+import streamToObjectArray from '@dash-backend/grpc/utils/streamToObjectArray';
 import {ServiceArgs} from '@dash-backend/lib/types';
 
 const pfs = ({
@@ -36,13 +37,7 @@ const pfs = ({
 
       const stream = client.listFile(listFileRequest, credentialMetadata);
 
-      return new Promise<FileInfo.AsObject[]>((resolve, reject) => {
-        const files: FileInfo.AsObject[] = [];
-
-        stream.on('data', (chunk: FileInfo) => files.push(chunk.toObject()));
-        stream.on('error', (err) => reject(err));
-        stream.on('end', () => resolve(files));
-      });
+      return streamToObjectArray<FileInfo, FileInfo.AsObject>(stream);
     },
     getFile: (params: FileObject) => {
       const getFileRequest = new GetFileRequest();
@@ -96,15 +91,7 @@ const pfs = ({
 
       const stream = client.listCommit(listCommitRequest, credentialMetadata);
 
-      return new Promise<CommitInfo.AsObject[]>((resolve, reject) => {
-        const commits: CommitInfo.AsObject[] = [];
-
-        stream.on('data', (chunk: CommitInfo) =>
-          commits.push(chunk.toObject()),
-        );
-        stream.on('error', (err) => reject(err));
-        stream.on('end', () => resolve(commits));
-      });
+      return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
     },
     listRepo: (type = 'user') => {
       return new Promise<RepoInfo.AsObject[]>((resolve, reject) => {

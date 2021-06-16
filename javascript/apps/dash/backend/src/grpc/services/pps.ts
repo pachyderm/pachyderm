@@ -8,6 +8,7 @@ import {
   InspectPipelineRequest,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
+import streamToObjectArray from '@dash-backend/grpc/utils/streamToObjectArray';
 import {ServiceArgs} from '@dash-backend/lib/types';
 
 import {jobFromObject, pipelineFromObject} from '../builders/pps';
@@ -42,19 +43,7 @@ const pps = ({
       const listJobRequest = new ListJobRequest().setJqfilter(jq);
       const stream = client.listJob(listJobRequest, credentialMetadata);
 
-      return new Promise<JobInfo.AsObject[]>((resolve, reject) => {
-        const jobs: JobInfo.AsObject[] = [];
-
-        stream.on('data', (chunk: JobInfo) => {
-          jobs.push(chunk.toObject());
-          if (limit && jobs.length >= limit) {
-            stream.destroy();
-          }
-        });
-        stream.on('error', (err) => reject(err));
-        stream.on('close', () => resolve(jobs));
-        stream.on('end', () => resolve(jobs));
-      });
+      return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream, limit);
     },
 
     inspectJob: (id: string) => {
