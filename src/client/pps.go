@@ -232,10 +232,11 @@ func (c APIClient) WaitJob(pipelineName string, jobID string, details bool) (_ *
 	return jobInfo, grpcutil.ScrubGRPC(err)
 }
 
-func (c APIClient) inspectJobset(id string, wait bool, cb func(*pps.JobInfo) error) (retErr error) {
+func (c APIClient) inspectJobset(id string, wait bool, details bool, cb func(*pps.JobInfo) error) (retErr error) {
 	req := &pps.InspectJobsetRequest{
-		Jobset: NewJobset(id),
-		Wait:   wait,
+		Jobset:  NewJobset(id),
+		Wait:    wait,
+		Details: details,
 	}
 	client, err := c.PpsAPIClient.InspectJobset(c.Ctx(), req)
 	if err != nil {
@@ -258,10 +259,10 @@ func (c APIClient) inspectJobset(id string, wait bool, cb func(*pps.JobInfo) err
 	}
 }
 
-func (c APIClient) InspectJobset(id string) (_ []*pps.JobInfo, retErr error) {
+func (c APIClient) InspectJobset(id string, details bool) (_ []*pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pps.JobInfo{}
-	if err := c.inspectJobset(id, false, func(ji *pps.JobInfo) error {
+	if err := c.inspectJobset(id, false, details, func(ji *pps.JobInfo) error {
 		result = append(result, ji)
 		return nil
 	}); err != nil {
@@ -270,10 +271,10 @@ func (c APIClient) InspectJobset(id string) (_ []*pps.JobInfo, retErr error) {
 	return result, nil
 }
 
-func (c APIClient) WaitJobsetAll(id string) (_ []*pps.JobInfo, retErr error) {
+func (c APIClient) WaitJobsetAll(id string, details bool) (_ []*pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pps.JobInfo{}
-	if err := c.WaitJobset(id, func(ji *pps.JobInfo) error {
+	if err := c.WaitJobset(id, details, func(ji *pps.JobInfo) error {
 		result = append(result, ji)
 		return nil
 	}); err != nil {
@@ -282,9 +283,9 @@ func (c APIClient) WaitJobsetAll(id string) (_ []*pps.JobInfo, retErr error) {
 	return result, nil
 }
 
-func (c APIClient) WaitJobset(id string, cb func(*pps.JobInfo) error) (retErr error) {
+func (c APIClient) WaitJobset(id string, details bool, cb func(*pps.JobInfo) error) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	return c.inspectJobset(id, true, cb)
+	return c.inspectJobset(id, true, details, cb)
 }
 
 // ListJob returns info about all jobs.
