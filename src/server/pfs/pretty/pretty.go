@@ -231,6 +231,7 @@ func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTime
 func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Path}}
+Tag: {{.File.Tag}}
 Type: {{fileType .FileType}}
 Size: {{prettySize .SizeBytes}}
 `)
