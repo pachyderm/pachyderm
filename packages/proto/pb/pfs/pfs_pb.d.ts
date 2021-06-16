@@ -312,29 +312,6 @@ export namespace Commit {
     }
 }
 
-export class CommitProvenance extends jspb.Message { 
-
-    hasCommit(): boolean;
-    clearCommit(): void;
-    getCommit(): Commit | undefined;
-    setCommit(value?: Commit): CommitProvenance;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): CommitProvenance.AsObject;
-    static toObject(includeInstance: boolean, msg: CommitProvenance): CommitProvenance.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: CommitProvenance, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): CommitProvenance;
-    static deserializeBinaryFromReader(message: CommitProvenance, reader: jspb.BinaryReader): CommitProvenance;
-}
-
-export namespace CommitProvenance {
-    export type AsObject = {
-        commit?: Commit.AsObject,
-    }
-}
-
 export class CommitInfo extends jspb.Message { 
 
     hasCommit(): boolean;
@@ -398,21 +375,21 @@ export namespace CommitInfo {
     }
 }
 
-export class Commitset extends jspb.Message { 
+export class CommitSet extends jspb.Message { 
     getId(): string;
-    setId(value: string): Commitset;
+    setId(value: string): CommitSet;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): Commitset.AsObject;
-    static toObject(includeInstance: boolean, msg: Commitset): Commitset.AsObject;
+    toObject(includeInstance?: boolean): CommitSet.AsObject;
+    static toObject(includeInstance: boolean, msg: CommitSet): CommitSet.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: Commitset, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): Commitset;
-    static deserializeBinaryFromReader(message: Commitset, reader: jspb.BinaryReader): Commitset;
+    static serializeBinaryToWriter(message: CommitSet, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CommitSet;
+    static deserializeBinaryFromReader(message: CommitSet, reader: jspb.BinaryReader): CommitSet;
 }
 
-export namespace Commitset {
+export namespace CommitSet {
     export type AsObject = {
         id: string,
     }
@@ -709,52 +686,52 @@ export namespace ListCommitRequest {
     }
 }
 
-export class InspectCommitsetRequest extends jspb.Message { 
+export class InspectCommitSetRequest extends jspb.Message { 
 
-    hasCommitset(): boolean;
-    clearCommitset(): void;
-    getCommitset(): Commitset | undefined;
-    setCommitset(value?: Commitset): InspectCommitsetRequest;
+    hasCommitSet(): boolean;
+    clearCommitSet(): void;
+    getCommitSet(): CommitSet | undefined;
+    setCommitSet(value?: CommitSet): InspectCommitSetRequest;
     getWait(): boolean;
-    setWait(value: boolean): InspectCommitsetRequest;
+    setWait(value: boolean): InspectCommitSetRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): InspectCommitsetRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: InspectCommitsetRequest): InspectCommitsetRequest.AsObject;
+    toObject(includeInstance?: boolean): InspectCommitSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InspectCommitSetRequest): InspectCommitSetRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: InspectCommitsetRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): InspectCommitsetRequest;
-    static deserializeBinaryFromReader(message: InspectCommitsetRequest, reader: jspb.BinaryReader): InspectCommitsetRequest;
+    static serializeBinaryToWriter(message: InspectCommitSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InspectCommitSetRequest;
+    static deserializeBinaryFromReader(message: InspectCommitSetRequest, reader: jspb.BinaryReader): InspectCommitSetRequest;
 }
 
-export namespace InspectCommitsetRequest {
+export namespace InspectCommitSetRequest {
     export type AsObject = {
-        commitset?: Commitset.AsObject,
+        commitSet?: CommitSet.AsObject,
         wait: boolean,
     }
 }
 
-export class SquashCommitsetRequest extends jspb.Message { 
+export class SquashCommitSetRequest extends jspb.Message { 
 
-    hasCommitset(): boolean;
-    clearCommitset(): void;
-    getCommitset(): Commitset | undefined;
-    setCommitset(value?: Commitset): SquashCommitsetRequest;
+    hasCommitSet(): boolean;
+    clearCommitSet(): void;
+    getCommitSet(): CommitSet | undefined;
+    setCommitSet(value?: CommitSet): SquashCommitSetRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SquashCommitsetRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: SquashCommitsetRequest): SquashCommitsetRequest.AsObject;
+    toObject(includeInstance?: boolean): SquashCommitSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SquashCommitSetRequest): SquashCommitSetRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SquashCommitsetRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SquashCommitsetRequest;
-    static deserializeBinaryFromReader(message: SquashCommitsetRequest, reader: jspb.BinaryReader): SquashCommitsetRequest;
+    static serializeBinaryToWriter(message: SquashCommitSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SquashCommitSetRequest;
+    static deserializeBinaryFromReader(message: SquashCommitSetRequest, reader: jspb.BinaryReader): SquashCommitSetRequest;
 }
 
-export namespace SquashCommitsetRequest {
+export namespace SquashCommitSetRequest {
     export type AsObject = {
-        commitset?: Commitset.AsObject,
+        commitSet?: CommitSet.AsObject,
     }
 }
 
@@ -836,8 +813,8 @@ export class CreateBranchRequest extends jspb.Message {
     clearTrigger(): void;
     getTrigger(): Trigger | undefined;
     setTrigger(value?: Trigger): CreateBranchRequest;
-    getNewCommitset(): boolean;
-    setNewCommitset(value: boolean): CreateBranchRequest;
+    getNewCommitSet(): boolean;
+    setNewCommitSet(value: boolean): CreateBranchRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateBranchRequest.AsObject;
@@ -855,7 +832,7 @@ export namespace CreateBranchRequest {
         branch?: Branch.AsObject,
         provenanceList: Array<Branch.AsObject>,
         trigger?: Trigger.AsObject,
-        newCommitset: boolean,
+        newCommitSet: boolean,
     }
 }
 
@@ -934,136 +911,78 @@ export namespace DeleteBranchRequest {
     }
 }
 
-export class PutFile extends jspb.Message { 
-    getAppend(): boolean;
-    setAppend(value: boolean): PutFile;
+export class AddFile extends jspb.Message { 
+    getPath(): string;
+    setPath(value: string): AddFile;
     getTag(): string;
-    setTag(value: string): PutFile;
+    setTag(value: string): AddFile;
 
-    hasRawFileSource(): boolean;
-    clearRawFileSource(): void;
-    getRawFileSource(): RawFileSource | undefined;
-    setRawFileSource(value?: RawFileSource): PutFile;
+    hasRaw(): boolean;
+    clearRaw(): void;
+    getRaw(): google_protobuf_wrappers_pb.BytesValue | undefined;
+    setRaw(value?: google_protobuf_wrappers_pb.BytesValue): AddFile;
 
-    hasTarFileSource(): boolean;
-    clearTarFileSource(): void;
-    getTarFileSource(): TarFileSource | undefined;
-    setTarFileSource(value?: TarFileSource): PutFile;
+    hasUrl(): boolean;
+    clearUrl(): void;
+    getUrl(): AddFile.URLSource | undefined;
+    setUrl(value?: AddFile.URLSource): AddFile;
 
-    hasUrlFileSource(): boolean;
-    clearUrlFileSource(): void;
-    getUrlFileSource(): URLFileSource | undefined;
-    setUrlFileSource(value?: URLFileSource): PutFile;
-
-    getSourceCase(): PutFile.SourceCase;
+    getSourceCase(): AddFile.SourceCase;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): PutFile.AsObject;
-    static toObject(includeInstance: boolean, msg: PutFile): PutFile.AsObject;
+    toObject(includeInstance?: boolean): AddFile.AsObject;
+    static toObject(includeInstance: boolean, msg: AddFile): AddFile.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: PutFile, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): PutFile;
-    static deserializeBinaryFromReader(message: PutFile, reader: jspb.BinaryReader): PutFile;
+    static serializeBinaryToWriter(message: AddFile, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AddFile;
+    static deserializeBinaryFromReader(message: AddFile, reader: jspb.BinaryReader): AddFile;
 }
 
-export namespace PutFile {
+export namespace AddFile {
     export type AsObject = {
-        append: boolean,
+        path: string,
         tag: string,
-        rawFileSource?: RawFileSource.AsObject,
-        tarFileSource?: TarFileSource.AsObject,
-        urlFileSource?: URLFileSource.AsObject,
+        raw?: google_protobuf_wrappers_pb.BytesValue.AsObject,
+        url?: AddFile.URLSource.AsObject,
     }
+
+
+    export class URLSource extends jspb.Message { 
+        getUrl(): string;
+        setUrl(value: string): URLSource;
+        getRecursive(): boolean;
+        setRecursive(value: boolean): URLSource;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): URLSource.AsObject;
+        static toObject(includeInstance: boolean, msg: URLSource): URLSource.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: URLSource, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): URLSource;
+        static deserializeBinaryFromReader(message: URLSource, reader: jspb.BinaryReader): URLSource;
+    }
+
+    export namespace URLSource {
+        export type AsObject = {
+            url: string,
+            recursive: boolean,
+        }
+    }
+
 
     export enum SourceCase {
         SOURCE_NOT_SET = 0,
-        RAW_FILE_SOURCE = 3,
-        TAR_FILE_SOURCE = 4,
-        URL_FILE_SOURCE = 5,
+        RAW = 3,
+        URL = 4,
     }
 
-}
-
-export class RawFileSource extends jspb.Message { 
-    getPath(): string;
-    setPath(value: string): RawFileSource;
-    getData(): Uint8Array | string;
-    getData_asU8(): Uint8Array;
-    getData_asB64(): string;
-    setData(value: Uint8Array | string): RawFileSource;
-    getEof(): boolean;
-    setEof(value: boolean): RawFileSource;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): RawFileSource.AsObject;
-    static toObject(includeInstance: boolean, msg: RawFileSource): RawFileSource.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: RawFileSource, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): RawFileSource;
-    static deserializeBinaryFromReader(message: RawFileSource, reader: jspb.BinaryReader): RawFileSource;
-}
-
-export namespace RawFileSource {
-    export type AsObject = {
-        path: string,
-        data: Uint8Array | string,
-        eof: boolean,
-    }
-}
-
-export class TarFileSource extends jspb.Message { 
-    getData(): Uint8Array | string;
-    getData_asU8(): Uint8Array;
-    getData_asB64(): string;
-    setData(value: Uint8Array | string): TarFileSource;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): TarFileSource.AsObject;
-    static toObject(includeInstance: boolean, msg: TarFileSource): TarFileSource.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: TarFileSource, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): TarFileSource;
-    static deserializeBinaryFromReader(message: TarFileSource, reader: jspb.BinaryReader): TarFileSource;
-}
-
-export namespace TarFileSource {
-    export type AsObject = {
-        data: Uint8Array | string,
-    }
-}
-
-export class URLFileSource extends jspb.Message { 
-    getPath(): string;
-    setPath(value: string): URLFileSource;
-    getUrl(): string;
-    setUrl(value: string): URLFileSource;
-    getRecursive(): boolean;
-    setRecursive(value: boolean): URLFileSource;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): URLFileSource.AsObject;
-    static toObject(includeInstance: boolean, msg: URLFileSource): URLFileSource.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: URLFileSource, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): URLFileSource;
-    static deserializeBinaryFromReader(message: URLFileSource, reader: jspb.BinaryReader): URLFileSource;
-}
-
-export namespace URLFileSource {
-    export type AsObject = {
-        path: string,
-        url: string,
-        recursive: boolean,
-    }
 }
 
 export class DeleteFile extends jspb.Message { 
-    getFile(): string;
-    setFile(value: string): DeleteFile;
+    getPath(): string;
+    setPath(value: string): DeleteFile;
     getTag(): string;
     setTag(value: string): DeleteFile;
 
@@ -1079,23 +998,23 @@ export class DeleteFile extends jspb.Message {
 
 export namespace DeleteFile {
     export type AsObject = {
-        file: string,
+        path: string,
         tag: string,
     }
 }
 
 export class CopyFile extends jspb.Message { 
-    getAppend(): boolean;
-    setAppend(value: boolean): CopyFile;
-    getTag(): string;
-    setTag(value: string): CopyFile;
     getDst(): string;
     setDst(value: string): CopyFile;
+    getTag(): string;
+    setTag(value: string): CopyFile;
 
     hasSrc(): boolean;
     clearSrc(): void;
     getSrc(): File | undefined;
     setSrc(value?: File): CopyFile;
+    getAppend(): boolean;
+    setAppend(value: boolean): CopyFile;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CopyFile.AsObject;
@@ -1109,24 +1028,24 @@ export class CopyFile extends jspb.Message {
 
 export namespace CopyFile {
     export type AsObject = {
-        append: boolean,
-        tag: string,
         dst: string,
+        tag: string,
         src?: File.AsObject,
+        append: boolean,
     }
 }
 
 export class ModifyFileRequest extends jspb.Message { 
 
-    hasCommit(): boolean;
-    clearCommit(): void;
-    getCommit(): Commit | undefined;
-    setCommit(value?: Commit): ModifyFileRequest;
+    hasSetCommit(): boolean;
+    clearSetCommit(): void;
+    getSetCommit(): Commit | undefined;
+    setSetCommit(value?: Commit): ModifyFileRequest;
 
-    hasPutFile(): boolean;
-    clearPutFile(): void;
-    getPutFile(): PutFile | undefined;
-    setPutFile(value?: PutFile): ModifyFileRequest;
+    hasAddFile(): boolean;
+    clearAddFile(): void;
+    getAddFile(): AddFile | undefined;
+    setAddFile(value?: AddFile): ModifyFileRequest;
 
     hasDeleteFile(): boolean;
     clearDeleteFile(): void;
@@ -1138,7 +1057,7 @@ export class ModifyFileRequest extends jspb.Message {
     getCopyFile(): CopyFile | undefined;
     setCopyFile(value?: CopyFile): ModifyFileRequest;
 
-    getModificationCase(): ModifyFileRequest.ModificationCase;
+    getBodyCase(): ModifyFileRequest.BodyCase;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ModifyFileRequest.AsObject;
@@ -1152,15 +1071,16 @@ export class ModifyFileRequest extends jspb.Message {
 
 export namespace ModifyFileRequest {
     export type AsObject = {
-        commit?: Commit.AsObject,
-        putFile?: PutFile.AsObject,
+        setCommit?: Commit.AsObject,
+        addFile?: AddFile.AsObject,
         deleteFile?: DeleteFile.AsObject,
         copyFile?: CopyFile.AsObject,
     }
 
-    export enum ModificationCase {
-        MODIFICATION_NOT_SET = 0,
-        PUT_FILE = 2,
+    export enum BodyCase {
+        BODY_NOT_SET = 0,
+        SET_COMMIT = 1,
+        ADD_FILE = 2,
         DELETE_FILE = 3,
         COPY_FILE = 4,
     }
@@ -1395,94 +1315,94 @@ export namespace FsckResponse {
     }
 }
 
-export class CreateFilesetResponse extends jspb.Message { 
-    getFilesetId(): string;
-    setFilesetId(value: string): CreateFilesetResponse;
+export class CreateFileSetResponse extends jspb.Message { 
+    getFileSetId(): string;
+    setFileSetId(value: string): CreateFileSetResponse;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): CreateFilesetResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: CreateFilesetResponse): CreateFilesetResponse.AsObject;
+    toObject(includeInstance?: boolean): CreateFileSetResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: CreateFileSetResponse): CreateFileSetResponse.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: CreateFilesetResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): CreateFilesetResponse;
-    static deserializeBinaryFromReader(message: CreateFilesetResponse, reader: jspb.BinaryReader): CreateFilesetResponse;
+    static serializeBinaryToWriter(message: CreateFileSetResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CreateFileSetResponse;
+    static deserializeBinaryFromReader(message: CreateFileSetResponse, reader: jspb.BinaryReader): CreateFileSetResponse;
 }
 
-export namespace CreateFilesetResponse {
+export namespace CreateFileSetResponse {
     export type AsObject = {
-        filesetId: string,
+        fileSetId: string,
     }
 }
 
-export class GetFilesetRequest extends jspb.Message { 
+export class GetFileSetRequest extends jspb.Message { 
 
     hasCommit(): boolean;
     clearCommit(): void;
     getCommit(): Commit | undefined;
-    setCommit(value?: Commit): GetFilesetRequest;
+    setCommit(value?: Commit): GetFileSetRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetFilesetRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: GetFilesetRequest): GetFilesetRequest.AsObject;
+    toObject(includeInstance?: boolean): GetFileSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetFileSetRequest): GetFileSetRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetFilesetRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetFilesetRequest;
-    static deserializeBinaryFromReader(message: GetFilesetRequest, reader: jspb.BinaryReader): GetFilesetRequest;
+    static serializeBinaryToWriter(message: GetFileSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetFileSetRequest;
+    static deserializeBinaryFromReader(message: GetFileSetRequest, reader: jspb.BinaryReader): GetFileSetRequest;
 }
 
-export namespace GetFilesetRequest {
+export namespace GetFileSetRequest {
     export type AsObject = {
         commit?: Commit.AsObject,
     }
 }
 
-export class AddFilesetRequest extends jspb.Message { 
+export class AddFileSetRequest extends jspb.Message { 
 
     hasCommit(): boolean;
     clearCommit(): void;
     getCommit(): Commit | undefined;
-    setCommit(value?: Commit): AddFilesetRequest;
-    getFilesetId(): string;
-    setFilesetId(value: string): AddFilesetRequest;
+    setCommit(value?: Commit): AddFileSetRequest;
+    getFileSetId(): string;
+    setFileSetId(value: string): AddFileSetRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): AddFilesetRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: AddFilesetRequest): AddFilesetRequest.AsObject;
+    toObject(includeInstance?: boolean): AddFileSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AddFileSetRequest): AddFileSetRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: AddFilesetRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): AddFilesetRequest;
-    static deserializeBinaryFromReader(message: AddFilesetRequest, reader: jspb.BinaryReader): AddFilesetRequest;
+    static serializeBinaryToWriter(message: AddFileSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AddFileSetRequest;
+    static deserializeBinaryFromReader(message: AddFileSetRequest, reader: jspb.BinaryReader): AddFileSetRequest;
 }
 
-export namespace AddFilesetRequest {
+export namespace AddFileSetRequest {
     export type AsObject = {
         commit?: Commit.AsObject,
-        filesetId: string,
+        fileSetId: string,
     }
 }
 
-export class RenewFilesetRequest extends jspb.Message { 
-    getFilesetId(): string;
-    setFilesetId(value: string): RenewFilesetRequest;
+export class RenewFileSetRequest extends jspb.Message { 
+    getFileSetId(): string;
+    setFileSetId(value: string): RenewFileSetRequest;
     getTtlSeconds(): number;
-    setTtlSeconds(value: number): RenewFilesetRequest;
+    setTtlSeconds(value: number): RenewFileSetRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): RenewFilesetRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: RenewFilesetRequest): RenewFilesetRequest.AsObject;
+    toObject(includeInstance?: boolean): RenewFileSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RenewFileSetRequest): RenewFileSetRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: RenewFilesetRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): RenewFilesetRequest;
-    static deserializeBinaryFromReader(message: RenewFilesetRequest, reader: jspb.BinaryReader): RenewFilesetRequest;
+    static serializeBinaryToWriter(message: RenewFileSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RenewFileSetRequest;
+    static deserializeBinaryFromReader(message: RenewFileSetRequest, reader: jspb.BinaryReader): RenewFileSetRequest;
 }
 
-export namespace RenewFilesetRequest {
+export namespace RenewFileSetRequest {
     export type AsObject = {
-        filesetId: string,
+        fileSetId: string,
         ttlSeconds: number,
     }
 }

@@ -53,15 +53,15 @@ function deserialize_pfs_v2_ActivateAuthResponse(buffer_arg) {
   return pfs_pfs_pb.ActivateAuthResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_AddFilesetRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.AddFilesetRequest)) {
-    throw new Error('Expected argument of type pfs_v2.AddFilesetRequest');
+function serialize_pfs_v2_AddFileSetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.AddFileSetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.AddFileSetRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pfs_v2_AddFilesetRequest(buffer_arg) {
-  return pfs_pfs_pb.AddFilesetRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pfs_v2_AddFileSetRequest(buffer_arg) {
+  return pfs_pfs_pb.AddFileSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_BranchInfo(arg) {
@@ -130,15 +130,15 @@ function deserialize_pfs_v2_CreateBranchRequest(buffer_arg) {
   return pfs_pfs_pb.CreateBranchRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_CreateFilesetResponse(arg) {
-  if (!(arg instanceof pfs_pfs_pb.CreateFilesetResponse)) {
-    throw new Error('Expected argument of type pfs_v2.CreateFilesetResponse');
+function serialize_pfs_v2_CreateFileSetResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.CreateFileSetResponse)) {
+    throw new Error('Expected argument of type pfs_v2.CreateFileSetResponse');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pfs_v2_CreateFilesetResponse(buffer_arg) {
-  return pfs_pfs_pb.CreateFilesetResponse.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pfs_v2_CreateFileSetResponse(buffer_arg) {
+  return pfs_pfs_pb.CreateFileSetResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_CreateRepoRequest(arg) {
@@ -251,15 +251,15 @@ function deserialize_pfs_v2_GetFileRequest(buffer_arg) {
   return pfs_pfs_pb.GetFileRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_GetFilesetRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.GetFilesetRequest)) {
-    throw new Error('Expected argument of type pfs_v2.GetFilesetRequest');
+function serialize_pfs_v2_GetFileSetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.GetFileSetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.GetFileSetRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pfs_v2_GetFilesetRequest(buffer_arg) {
-  return pfs_pfs_pb.GetFilesetRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pfs_v2_GetFileSetRequest(buffer_arg) {
+  return pfs_pfs_pb.GetFileSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_GlobFileRequest(arg) {
@@ -295,15 +295,15 @@ function deserialize_pfs_v2_InspectCommitRequest(buffer_arg) {
   return pfs_pfs_pb.InspectCommitRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_InspectCommitsetRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.InspectCommitsetRequest)) {
-    throw new Error('Expected argument of type pfs_v2.InspectCommitsetRequest');
+function serialize_pfs_v2_InspectCommitSetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.InspectCommitSetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.InspectCommitSetRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pfs_v2_InspectCommitsetRequest(buffer_arg) {
-  return pfs_pfs_pb.InspectCommitsetRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pfs_v2_InspectCommitSetRequest(buffer_arg) {
+  return pfs_pfs_pb.InspectCommitSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_InspectFileRequest(arg) {
@@ -394,15 +394,15 @@ function deserialize_pfs_v2_ModifyFileRequest(buffer_arg) {
   return pfs_pfs_pb.ModifyFileRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_RenewFilesetRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.RenewFilesetRequest)) {
-    throw new Error('Expected argument of type pfs_v2.RenewFilesetRequest');
+function serialize_pfs_v2_RenewFileSetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.RenewFileSetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.RenewFileSetRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pfs_v2_RenewFilesetRequest(buffer_arg) {
-  return pfs_pfs_pb.RenewFilesetRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pfs_v2_RenewFileSetRequest(buffer_arg) {
+  return pfs_pfs_pb.RenewFileSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_RepoInfo(arg) {
@@ -438,15 +438,15 @@ function deserialize_pfs_v2_RunLoadTestResponse(buffer_arg) {
   return pfs_pfs_pb.RunLoadTestResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_SquashCommitsetRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.SquashCommitsetRequest)) {
-    throw new Error('Expected argument of type pfs_v2.SquashCommitsetRequest');
+function serialize_pfs_v2_SquashCommitSetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.SquashCommitSetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.SquashCommitSetRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pfs_v2_SquashCommitsetRequest(buffer_arg) {
-  return pfs_pfs_pb.SquashCommitsetRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pfs_v2_SquashCommitSetRequest(buffer_arg) {
+  return pfs_pfs_pb.SquashCommitSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_StartCommitRequest(arg) {
@@ -604,27 +604,27 @@ subscribeCommit: {
     responseSerialize: serialize_pfs_v2_CommitInfo,
     responseDeserialize: deserialize_pfs_v2_CommitInfo,
   },
-  // InspectCommitset returns the info about a Commitset.
-inspectCommitset: {
-    path: '/pfs_v2.API/InspectCommitset',
+  // InspectCommitSet returns the info about a CommitSet.
+inspectCommitSet: {
+    path: '/pfs_v2.API/InspectCommitSet',
     requestStream: false,
     responseStream: true,
-    requestType: pfs_pfs_pb.InspectCommitsetRequest,
+    requestType: pfs_pfs_pb.InspectCommitSetRequest,
     responseType: pfs_pfs_pb.CommitInfo,
-    requestSerialize: serialize_pfs_v2_InspectCommitsetRequest,
-    requestDeserialize: deserialize_pfs_v2_InspectCommitsetRequest,
+    requestSerialize: serialize_pfs_v2_InspectCommitSetRequest,
+    requestDeserialize: deserialize_pfs_v2_InspectCommitSetRequest,
     responseSerialize: serialize_pfs_v2_CommitInfo,
     responseDeserialize: deserialize_pfs_v2_CommitInfo,
   },
-  // SquashCommitset squashes the commits of a Commitset into their children.
-squashCommitset: {
-    path: '/pfs_v2.API/SquashCommitset',
+  // SquashCommitSet squashes the commits of a CommitSet into their children.
+squashCommitSet: {
+    path: '/pfs_v2.API/SquashCommitSet',
     requestStream: false,
     responseStream: false,
-    requestType: pfs_pfs_pb.SquashCommitsetRequest,
+    requestType: pfs_pfs_pb.SquashCommitSetRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pfs_v2_SquashCommitsetRequest,
-    requestDeserialize: deserialize_pfs_v2_SquashCommitsetRequest,
+    requestSerialize: serialize_pfs_v2_SquashCommitSetRequest,
+    requestDeserialize: deserialize_pfs_v2_SquashCommitSetRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
@@ -796,52 +796,52 @@ fsck: {
     responseSerialize: serialize_pfs_v2_FsckResponse,
     responseDeserialize: deserialize_pfs_v2_FsckResponse,
   },
-  // Fileset API
-// CreateFileset creates a new fileset.
-createFileset: {
-    path: '/pfs_v2.API/CreateFileset',
+  // FileSet API
+// CreateFileSet creates a new file set.
+createFileSet: {
+    path: '/pfs_v2.API/CreateFileSet',
     requestStream: true,
     responseStream: false,
     requestType: pfs_pfs_pb.ModifyFileRequest,
-    responseType: pfs_pfs_pb.CreateFilesetResponse,
+    responseType: pfs_pfs_pb.CreateFileSetResponse,
     requestSerialize: serialize_pfs_v2_ModifyFileRequest,
     requestDeserialize: deserialize_pfs_v2_ModifyFileRequest,
-    responseSerialize: serialize_pfs_v2_CreateFilesetResponse,
-    responseDeserialize: deserialize_pfs_v2_CreateFilesetResponse,
+    responseSerialize: serialize_pfs_v2_CreateFileSetResponse,
+    responseDeserialize: deserialize_pfs_v2_CreateFileSetResponse,
   },
-  // GetFileset returns a fileset with the data from a commit
-getFileset: {
-    path: '/pfs_v2.API/GetFileset',
+  // GetFileSet returns a file set with the data from a commit
+getFileSet: {
+    path: '/pfs_v2.API/GetFileSet',
     requestStream: false,
     responseStream: false,
-    requestType: pfs_pfs_pb.GetFilesetRequest,
-    responseType: pfs_pfs_pb.CreateFilesetResponse,
-    requestSerialize: serialize_pfs_v2_GetFilesetRequest,
-    requestDeserialize: deserialize_pfs_v2_GetFilesetRequest,
-    responseSerialize: serialize_pfs_v2_CreateFilesetResponse,
-    responseDeserialize: deserialize_pfs_v2_CreateFilesetResponse,
+    requestType: pfs_pfs_pb.GetFileSetRequest,
+    responseType: pfs_pfs_pb.CreateFileSetResponse,
+    requestSerialize: serialize_pfs_v2_GetFileSetRequest,
+    requestDeserialize: deserialize_pfs_v2_GetFileSetRequest,
+    responseSerialize: serialize_pfs_v2_CreateFileSetResponse,
+    responseDeserialize: deserialize_pfs_v2_CreateFileSetResponse,
   },
-  // AddFileset associates a fileset with a commit
-addFileset: {
-    path: '/pfs_v2.API/AddFileset',
+  // AddFileSet associates a file set with a commit
+addFileSet: {
+    path: '/pfs_v2.API/AddFileSet',
     requestStream: false,
     responseStream: false,
-    requestType: pfs_pfs_pb.AddFilesetRequest,
+    requestType: pfs_pfs_pb.AddFileSetRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pfs_v2_AddFilesetRequest,
-    requestDeserialize: deserialize_pfs_v2_AddFilesetRequest,
+    requestSerialize: serialize_pfs_v2_AddFileSetRequest,
+    requestDeserialize: deserialize_pfs_v2_AddFileSetRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
-  // RenewFileset prevents a fileset from being deleted for a set amount of time.
-renewFileset: {
-    path: '/pfs_v2.API/RenewFileset',
+  // RenewFileSet prevents a file set from being deleted for a set amount of time.
+renewFileSet: {
+    path: '/pfs_v2.API/RenewFileSet',
     requestStream: false,
     responseStream: false,
-    requestType: pfs_pfs_pb.RenewFilesetRequest,
+    requestType: pfs_pfs_pb.RenewFileSetRequest,
     responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pfs_v2_RenewFilesetRequest,
-    requestDeserialize: deserialize_pfs_v2_RenewFilesetRequest,
+    requestSerialize: serialize_pfs_v2_RenewFileSetRequest,
+    requestDeserialize: deserialize_pfs_v2_RenewFileSetRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },

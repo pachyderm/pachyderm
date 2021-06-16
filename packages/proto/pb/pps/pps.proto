@@ -288,9 +288,8 @@ message JobInfo {
   ResourceSpec sidecar_resource_limits = 26;   // requires ListJobRequest.Full
   Input input = 27;                            // requires ListJobRequest.Full
   pfs_v2.BranchInfo new_branch = 28;
-  bool enable_stats = 29;                      // requires ListJobRequest.Full
   string salt = 30;                            // requires ListJobRequest.Full
-  ChunkSpec chunk_spec = 31;                   // requires ListJobRequest.Full
+  DatumSetSpec datum_set_spec = 31;                   // requires ListJobRequest.Full
   google.protobuf.Duration datum_timeout = 32; // requires ListJobRequest.Full
   google.protobuf.Duration job_timeout = 33;   // requires ListJobRequest.Full
   int64 datum_tries = 34;                      // requires ListJobRequest.Full
@@ -407,7 +406,6 @@ message PipelineInfo {
   Input input = 19;
   string description = 20;
   string cache_size = 21;
-  bool enable_stats = 22;
   string salt = 23;
 
   // reason includes any error messages associated with a failed pipeline
@@ -415,7 +413,7 @@ message PipelineInfo {
   int64 max_queue_size = 25;
   Service service = 26;
   Spout spout = 27;
-  ChunkSpec chunk_spec = 28;
+  DatumSetSpec datum_set_spec = 28;
   google.protobuf.Duration datum_timeout = 29;
   google.protobuf.Duration job_timeout = 30;
   bool standby = 31;
@@ -586,20 +584,20 @@ message ListDatumRequest {
   //int64 page = 3;
 }
 
-// ChunkSpec specifies how a pipeline should chunk its datums.
-message ChunkSpec {
-  // number, if nonzero, specifies that each chunk should contain `number`
-  // datums. Chunks may contain fewer if the total number of datums don't
+// DatumSetSpec specifies how a pipeline should split its datums into datum sets.
+message DatumSetSpec {
+  // number, if nonzero, specifies that each datum set should contain `number`
+  // datums. Datum sets may contain fewer if the total number of datums don't
   // divide evenly.
   int64 number = 1;
-  // size_bytes, if nonzero, specifies a target size for each chunk of datums.
-  // Chunks may be larger or smaller than size_bytes, but will usually be
+  // size_bytes, if nonzero, specifies a target size for each datum set.
+  // Datum sets may be larger or smaller than size_bytes, but will usually be
   // pretty close to size_bytes in size.
   int64 size_bytes = 2;
 
-  // chunks_per_worker, if nonzero, specifies how many chunks should be created
+  // per_worker, if nonzero, specifies how many datum sets should be created
   // for each worker. It can't be set with number or size_bytes.
-  int64 chunks_per_worker = 3;
+  int64 per_worker = 3;
 }
 
 message SchedulingSpec {
@@ -630,14 +628,13 @@ message CreatePipelineRequest {
   Input input = 12;
   string description = 13;
   string cache_size = 14;
-  bool enable_stats = 15;
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
   bool reprocess = 16;
   int64 max_queue_size = 17;
   Service service = 18;
   Spout spout = 19;
-  ChunkSpec chunk_spec = 20;
+  DatumSetSpec datum_set_spec = 20;
   google.protobuf.Duration datum_timeout = 21;
   google.protobuf.Duration job_timeout = 22;
   string salt = 23;
@@ -694,7 +691,7 @@ message StopPipelineRequest {
 
 message RunPipelineRequest {
   Pipeline pipeline = 1;
-  repeated pfs_v2.CommitProvenance provenance = 2;
+  repeated pfs_v2.Commit provenance = 2;
   string job_id = 3 [(gogoproto.customname) = "JobID"];
 }
 

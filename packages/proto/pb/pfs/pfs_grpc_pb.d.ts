@@ -24,8 +24,8 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     inspectCommit: IAPIService_IInspectCommit;
     listCommit: IAPIService_IListCommit;
     subscribeCommit: IAPIService_ISubscribeCommit;
-    inspectCommitset: IAPIService_IInspectCommitset;
-    squashCommitset: IAPIService_ISquashCommitset;
+    inspectCommitSet: IAPIService_IInspectCommitSet;
+    squashCommitSet: IAPIService_ISquashCommitSet;
     createBranch: IAPIService_ICreateBranch;
     inspectBranch: IAPIService_IInspectBranch;
     listBranch: IAPIService_IListBranch;
@@ -40,10 +40,10 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     activateAuth: IAPIService_IActivateAuth;
     deleteAll: IAPIService_IDeleteAll;
     fsck: IAPIService_IFsck;
-    createFileset: IAPIService_ICreateFileset;
-    getFileset: IAPIService_IGetFileset;
-    addFileset: IAPIService_IAddFileset;
-    renewFileset: IAPIService_IRenewFileset;
+    createFileSet: IAPIService_ICreateFileSet;
+    getFileSet: IAPIService_IGetFileSet;
+    addFileSet: IAPIService_IAddFileSet;
+    renewFileSet: IAPIService_IRenewFileSet;
     runLoadTest: IAPIService_IRunLoadTest;
 }
 
@@ -137,21 +137,21 @@ interface IAPIService_ISubscribeCommit extends grpc.MethodDefinition<pfs_pfs_pb.
     responseSerialize: grpc.serialize<pfs_pfs_pb.CommitInfo>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
 }
-interface IAPIService_IInspectCommitset extends grpc.MethodDefinition<pfs_pfs_pb.InspectCommitsetRequest, pfs_pfs_pb.CommitInfo> {
-    path: "/pfs_v2.API/InspectCommitset";
+interface IAPIService_IInspectCommitSet extends grpc.MethodDefinition<pfs_pfs_pb.InspectCommitSetRequest, pfs_pfs_pb.CommitInfo> {
+    path: "/pfs_v2.API/InspectCommitSet";
     requestStream: false;
     responseStream: true;
-    requestSerialize: grpc.serialize<pfs_pfs_pb.InspectCommitsetRequest>;
-    requestDeserialize: grpc.deserialize<pfs_pfs_pb.InspectCommitsetRequest>;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.InspectCommitSetRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.InspectCommitSetRequest>;
     responseSerialize: grpc.serialize<pfs_pfs_pb.CommitInfo>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
 }
-interface IAPIService_ISquashCommitset extends grpc.MethodDefinition<pfs_pfs_pb.SquashCommitsetRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs_v2.API/SquashCommitset";
+interface IAPIService_ISquashCommitSet extends grpc.MethodDefinition<pfs_pfs_pb.SquashCommitSetRequest, google_protobuf_empty_pb.Empty> {
+    path: "/pfs_v2.API/SquashCommitSet";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<pfs_pfs_pb.SquashCommitsetRequest>;
-    requestDeserialize: grpc.deserialize<pfs_pfs_pb.SquashCommitsetRequest>;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.SquashCommitSetRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.SquashCommitSetRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
@@ -281,39 +281,39 @@ interface IAPIService_IFsck extends grpc.MethodDefinition<pfs_pfs_pb.FsckRequest
     responseSerialize: grpc.serialize<pfs_pfs_pb.FsckResponse>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.FsckResponse>;
 }
-interface IAPIService_ICreateFileset extends grpc.MethodDefinition<pfs_pfs_pb.ModifyFileRequest, pfs_pfs_pb.CreateFilesetResponse> {
-    path: "/pfs_v2.API/CreateFileset";
+interface IAPIService_ICreateFileSet extends grpc.MethodDefinition<pfs_pfs_pb.ModifyFileRequest, pfs_pfs_pb.CreateFileSetResponse> {
+    path: "/pfs_v2.API/CreateFileSet";
     requestStream: true;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ModifyFileRequest>;
     requestDeserialize: grpc.deserialize<pfs_pfs_pb.ModifyFileRequest>;
-    responseSerialize: grpc.serialize<pfs_pfs_pb.CreateFilesetResponse>;
-    responseDeserialize: grpc.deserialize<pfs_pfs_pb.CreateFilesetResponse>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.CreateFileSetResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.CreateFileSetResponse>;
 }
-interface IAPIService_IGetFileset extends grpc.MethodDefinition<pfs_pfs_pb.GetFilesetRequest, pfs_pfs_pb.CreateFilesetResponse> {
-    path: "/pfs_v2.API/GetFileset";
+interface IAPIService_IGetFileSet extends grpc.MethodDefinition<pfs_pfs_pb.GetFileSetRequest, pfs_pfs_pb.CreateFileSetResponse> {
+    path: "/pfs_v2.API/GetFileSet";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<pfs_pfs_pb.GetFilesetRequest>;
-    requestDeserialize: grpc.deserialize<pfs_pfs_pb.GetFilesetRequest>;
-    responseSerialize: grpc.serialize<pfs_pfs_pb.CreateFilesetResponse>;
-    responseDeserialize: grpc.deserialize<pfs_pfs_pb.CreateFilesetResponse>;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.GetFileSetRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.GetFileSetRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.CreateFileSetResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.CreateFileSetResponse>;
 }
-interface IAPIService_IAddFileset extends grpc.MethodDefinition<pfs_pfs_pb.AddFilesetRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs_v2.API/AddFileset";
+interface IAPIService_IAddFileSet extends grpc.MethodDefinition<pfs_pfs_pb.AddFileSetRequest, google_protobuf_empty_pb.Empty> {
+    path: "/pfs_v2.API/AddFileSet";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<pfs_pfs_pb.AddFilesetRequest>;
-    requestDeserialize: grpc.deserialize<pfs_pfs_pb.AddFilesetRequest>;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.AddFileSetRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.AddFileSetRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
-interface IAPIService_IRenewFileset extends grpc.MethodDefinition<pfs_pfs_pb.RenewFilesetRequest, google_protobuf_empty_pb.Empty> {
-    path: "/pfs_v2.API/RenewFileset";
+interface IAPIService_IRenewFileSet extends grpc.MethodDefinition<pfs_pfs_pb.RenewFileSetRequest, google_protobuf_empty_pb.Empty> {
+    path: "/pfs_v2.API/RenewFileSet";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<pfs_pfs_pb.RenewFilesetRequest>;
-    requestDeserialize: grpc.deserialize<pfs_pfs_pb.RenewFilesetRequest>;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.RenewFileSetRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.RenewFileSetRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
@@ -340,8 +340,8 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     inspectCommit: grpc.handleUnaryCall<pfs_pfs_pb.InspectCommitRequest, pfs_pfs_pb.CommitInfo>;
     listCommit: grpc.handleServerStreamingCall<pfs_pfs_pb.ListCommitRequest, pfs_pfs_pb.CommitInfo>;
     subscribeCommit: grpc.handleServerStreamingCall<pfs_pfs_pb.SubscribeCommitRequest, pfs_pfs_pb.CommitInfo>;
-    inspectCommitset: grpc.handleServerStreamingCall<pfs_pfs_pb.InspectCommitsetRequest, pfs_pfs_pb.CommitInfo>;
-    squashCommitset: grpc.handleUnaryCall<pfs_pfs_pb.SquashCommitsetRequest, google_protobuf_empty_pb.Empty>;
+    inspectCommitSet: grpc.handleServerStreamingCall<pfs_pfs_pb.InspectCommitSetRequest, pfs_pfs_pb.CommitInfo>;
+    squashCommitSet: grpc.handleUnaryCall<pfs_pfs_pb.SquashCommitSetRequest, google_protobuf_empty_pb.Empty>;
     createBranch: grpc.handleUnaryCall<pfs_pfs_pb.CreateBranchRequest, google_protobuf_empty_pb.Empty>;
     inspectBranch: grpc.handleUnaryCall<pfs_pfs_pb.InspectBranchRequest, pfs_pfs_pb.BranchInfo>;
     listBranch: grpc.handleUnaryCall<pfs_pfs_pb.ListBranchRequest, pfs_pfs_pb.BranchInfos>;
@@ -356,10 +356,10 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     activateAuth: grpc.handleUnaryCall<pfs_pfs_pb.ActivateAuthRequest, pfs_pfs_pb.ActivateAuthResponse>;
     deleteAll: grpc.handleUnaryCall<google_protobuf_empty_pb.Empty, google_protobuf_empty_pb.Empty>;
     fsck: grpc.handleServerStreamingCall<pfs_pfs_pb.FsckRequest, pfs_pfs_pb.FsckResponse>;
-    createFileset: handleClientStreamingCall<pfs_pfs_pb.ModifyFileRequest, pfs_pfs_pb.CreateFilesetResponse>;
-    getFileset: grpc.handleUnaryCall<pfs_pfs_pb.GetFilesetRequest, pfs_pfs_pb.CreateFilesetResponse>;
-    addFileset: grpc.handleUnaryCall<pfs_pfs_pb.AddFilesetRequest, google_protobuf_empty_pb.Empty>;
-    renewFileset: grpc.handleUnaryCall<pfs_pfs_pb.RenewFilesetRequest, google_protobuf_empty_pb.Empty>;
+    createFileSet: handleClientStreamingCall<pfs_pfs_pb.ModifyFileRequest, pfs_pfs_pb.CreateFileSetResponse>;
+    getFileSet: grpc.handleUnaryCall<pfs_pfs_pb.GetFileSetRequest, pfs_pfs_pb.CreateFileSetResponse>;
+    addFileSet: grpc.handleUnaryCall<pfs_pfs_pb.AddFileSetRequest, google_protobuf_empty_pb.Empty>;
+    renewFileSet: grpc.handleUnaryCall<pfs_pfs_pb.RenewFileSetRequest, google_protobuf_empty_pb.Empty>;
     runLoadTest: grpc.handleUnaryCall<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse>;
 }
 
@@ -392,11 +392,11 @@ export interface IAPIClient {
     listCommit(request: pfs_pfs_pb.ListCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
-    inspectCommitset(request: pfs_pfs_pb.InspectCommitsetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
-    inspectCommitset(request: pfs_pfs_pb.InspectCommitsetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
-    squashCommitset(request: pfs_pfs_pb.SquashCommitsetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    squashCommitset(request: pfs_pfs_pb.SquashCommitsetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    squashCommitset(request: pfs_pfs_pb.SquashCommitsetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createBranch(request: pfs_pfs_pb.CreateBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -434,19 +434,19 @@ export interface IAPIClient {
     deleteAll(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     fsck(request: pfs_pfs_pb.FsckRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FsckResponse>;
     fsck(request: pfs_pfs_pb.FsckRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FsckResponse>;
-    createFileset(callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
-    createFileset(metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
-    createFileset(options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
-    createFileset(metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
-    getFileset(request: pfs_pfs_pb.GetFilesetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientUnaryCall;
-    getFileset(request: pfs_pfs_pb.GetFilesetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientUnaryCall;
-    getFileset(request: pfs_pfs_pb.GetFilesetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientUnaryCall;
-    addFileset(request: pfs_pfs_pb.AddFilesetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    addFileset(request: pfs_pfs_pb.AddFilesetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    addFileset(request: pfs_pfs_pb.AddFilesetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    renewFileset(request: pfs_pfs_pb.RenewFilesetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    renewFileset(request: pfs_pfs_pb.RenewFilesetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    renewFileset(request: pfs_pfs_pb.RenewFilesetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    createFileSet(callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    createFileSet(metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    createFileSet(options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    createFileSet(metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    getFileSet(request: pfs_pfs_pb.GetFileSetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    getFileSet(request: pfs_pfs_pb.GetFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    getFileSet(request: pfs_pfs_pb.GetFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    addFileSet(request: pfs_pfs_pb.AddFileSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    addFileSet(request: pfs_pfs_pb.AddFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    addFileSet(request: pfs_pfs_pb.AddFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    renewFileSet(request: pfs_pfs_pb.RenewFileSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    renewFileSet(request: pfs_pfs_pb.RenewFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    renewFileSet(request: pfs_pfs_pb.RenewFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
@@ -482,11 +482,11 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public listCommit(request: pfs_pfs_pb.ListCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     public subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     public subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
-    public inspectCommitset(request: pfs_pfs_pb.InspectCommitsetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
-    public inspectCommitset(request: pfs_pfs_pb.InspectCommitsetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
-    public squashCommitset(request: pfs_pfs_pb.SquashCommitsetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public squashCommitset(request: pfs_pfs_pb.SquashCommitsetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public squashCommitset(request: pfs_pfs_pb.SquashCommitsetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    public inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    public squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createBranch(request: pfs_pfs_pb.CreateBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -524,19 +524,19 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public deleteAll(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public fsck(request: pfs_pfs_pb.FsckRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FsckResponse>;
     public fsck(request: pfs_pfs_pb.FsckRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FsckResponse>;
-    public createFileset(callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
-    public createFileset(metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
-    public createFileset(options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
-    public createFileset(metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
-    public getFileset(request: pfs_pfs_pb.GetFilesetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientUnaryCall;
-    public getFileset(request: pfs_pfs_pb.GetFilesetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientUnaryCall;
-    public getFileset(request: pfs_pfs_pb.GetFilesetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFilesetResponse) => void): grpc.ClientUnaryCall;
-    public addFileset(request: pfs_pfs_pb.AddFilesetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public addFileset(request: pfs_pfs_pb.AddFilesetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public addFileset(request: pfs_pfs_pb.AddFilesetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public renewFileset(request: pfs_pfs_pb.RenewFilesetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public renewFileset(request: pfs_pfs_pb.RenewFilesetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public renewFileset(request: pfs_pfs_pb.RenewFilesetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public createFileSet(callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    public createFileSet(metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    public createFileSet(options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    public createFileSet(metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    public getFileSet(request: pfs_pfs_pb.GetFileSetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    public getFileSet(request: pfs_pfs_pb.GetFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    public getFileSet(request: pfs_pfs_pb.GetFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    public addFileSet(request: pfs_pfs_pb.AddFileSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public addFileSet(request: pfs_pfs_pb.AddFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public addFileSet(request: pfs_pfs_pb.AddFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public renewFileSet(request: pfs_pfs_pb.RenewFileSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public renewFileSet(request: pfs_pfs_pb.RenewFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public renewFileSet(request: pfs_pfs_pb.RenewFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;

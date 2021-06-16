@@ -107,13 +107,6 @@ message Commit {
   string id = 2 [(gogoproto.customname) = "ID"];
 }
 
-// CommitProvenance keeps track of where (i.e. which branch) a certain commit
-// originated from. A commit's provenance consists of the commits of
-// the commits which are in its causal history.
-message CommitProvenance {
-  Commit commit = 1;
-}
-
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
   Commit commit = 1;
@@ -128,7 +121,7 @@ message CommitInfo {
   repeated Branch direct_provenance = 9;
 }
 
-message Commitset {
+message CommitSet {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
 
@@ -215,13 +208,13 @@ message ListCommitRequest {
   bool reverse = 5;  // Return commits oldest to newest
 }
 
-message InspectCommitsetRequest {
-  Commitset commitset = 1;
+message InspectCommitSetRequest {
+  CommitSet commit_set = 1;
   bool wait = 2; // When true, wait until all commits in the set are finished
 }
 
-message SquashCommitsetRequest {
-  Commitset commitset = 1;
+message SquashCommitSetRequest {
+  CommitSet commit_set = 1;
 }
 
 message SubscribeCommitRequest {
@@ -242,7 +235,7 @@ message CreateBranchRequest {
   Branch branch = 2;
   repeated Branch provenance = 3;
   Trigger trigger = 4;
-  bool new_commitset = 5; // overrides the default behavior of using the same Commitset as 'head'
+  bool new_commit_set = 5; // overrides the default behavior of using the same CommitSet as 'head'
 }
 
 message InspectBranchRequest {
@@ -267,81 +260,36 @@ enum Delimiter {
   CSV = 4;
 }
 
-message PutFile {
-  bool append = 1;
+message AddFile {
+  string path = 1;
   string tag = 2;
-  oneof source {
-    RawFileSource raw_file_source = 3;
-    TarFileSource tar_file_source = 4;
-    URLFileSource url_file_source = 5;
+
+  message URLSource {
+    string URL = 1;
+    bool recursive = 2;
   }
-// TODO:
-//  Delimiter delimiter = 7;
-//  // TargetFileDatums specifies the target number of datums in each written
-//  // file it may be lower if data does not split evenly, but will never be
-//  // higher, unless the value is 0.
-//  int64 target_file_datums = 8;
-//  // TargetFileBytes specifies the target number of bytes in each written
-//  // file, files may have more or fewer bytes than the target.
-//  int64 target_file_bytes = 9;
-//  // header_records is an option for splitting data when 'delimiter' is not NONE
-//  // (or SQL). It specifies the number of records that are converted to a
-//  // header and applied to all file shards.
-//  //
-//  // This is particularly useful for CSV files, where the first row often
-//  // contains column titles; if 'header_records' is set to one in that case,
-//  // the first row will be associated with the directory that contains the rest
-//  // of the split-up csv rows as files, and if any data is retrieved from that
-//  // directory by GetFile, it will appear to begin with that first row of
-//  // column labels (including in pipeline workers).
-//  //
-//  // Note that SQL files have their own logic for determining headers (their
-//  // header is not a number of records, but a collection of SQL commands that
-//  // create the relevant tables and such). This way, SQL files retrieved by
-//  // GetFile can be passed to psql, and they will set up the appropriate tables
-//  // before inserting the records in the files that were retrieved.
-//  int64 header_records = 11;
-//  // overwrite_index is the object index where the write starts from.  All
-//  // existing objects starting from the index are deleted.
-//  OverwriteIndex overwrite_index = 10;
-//  // delete indicates that the file should be deleted, this is redundant with
-//  // DeleteFile, but is necessary because it allows you to send file deletes
-//  // atomically with other PutFile operations.
-//  bool delete = 12;
-}
-
-message RawFileSource {
-  string path = 1;
-  bytes data = 2;
-  bool EOF = 3;
-}
-
-message TarFileSource {
-  bytes data = 1;
-}
-
-message URLFileSource {
-  string path = 1;
-  string URL = 2;
-  bool recursive = 3;
+  oneof source {
+    google.protobuf.BytesValue raw = 3;
+    URLSource url = 4;
+  }
 }
 
 message DeleteFile {
-  string file = 1; 
+  string path = 1; 
   string tag = 2;
 }
 
 message CopyFile {
-  bool append = 1;
+  string dst = 1;
   string tag = 2;
-  string dst = 3;
-  File src = 4;
+  File src = 3;
+  bool append = 4;
 }
 
 message ModifyFileRequest {
-  Commit commit = 1;
-  oneof modification {
-    PutFile put_file = 2;
+  oneof body {
+    Commit set_commit = 1;
+    AddFile add_file = 2;
     DeleteFile delete_file = 3;
     CopyFile copy_file = 4;
   }
@@ -412,21 +360,21 @@ message FsckResponse {
   string error = 2;
 }
 
-message CreateFilesetResponse {
-  string fileset_id = 1;
+message CreateFileSetResponse {
+  string file_set_id = 1;
 }
 
-message GetFilesetRequest {
+message GetFileSetRequest {
   Commit commit = 1;
 }
 
-message AddFilesetRequest {
+message AddFileSetRequest {
   Commit commit = 1;
-  string fileset_id = 2;
+  string file_set_id = 2;
 }
 
-message RenewFilesetRequest {
-  string fileset_id = 1;
+message RenewFileSetRequest {
+  string file_set_id = 1;
   int64 ttl_seconds = 2;
 }
 
@@ -467,10 +415,10 @@ service API {
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
 
-  // InspectCommitset returns the info about a Commitset.
-  rpc InspectCommitset(InspectCommitsetRequest) returns (stream CommitInfo) {}
-  // SquashCommitset squashes the commits of a Commitset into their children.
-  rpc SquashCommitset(SquashCommitsetRequest) returns (google.protobuf.Empty) {}
+  // InspectCommitSet returns the info about a CommitSet.
+  rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}
+  // SquashCommitSet squashes the commits of a CommitSet into their children.
+  rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
@@ -504,15 +452,15 @@ service API {
   // Fsck does a file system consistency check for pfs.
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 
-  // Fileset API
-  // CreateFileset creates a new fileset.
-  rpc CreateFileset(stream ModifyFileRequest) returns (CreateFilesetResponse) {}
-  // GetFileset returns a fileset with the data from a commit
-  rpc GetFileset(GetFilesetRequest) returns (CreateFilesetResponse) {}
-  // AddFileset associates a fileset with a commit
-  rpc AddFileset(AddFilesetRequest) returns (google.protobuf.Empty) {}
-  // RenewFileset prevents a fileset from being deleted for a set amount of time.
-  rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
+  // FileSet API
+  // CreateFileSet creates a new file set.
+  rpc CreateFileSet(stream ModifyFileRequest) returns (CreateFileSetResponse) {}
+  // GetFileSet returns a file set with the data from a commit
+  rpc GetFileSet(GetFileSetRequest) returns (CreateFileSetResponse) {}
+  // AddFileSet associates a file set with a commit
+  rpc AddFileSet(AddFileSetRequest) returns (google.protobuf.Empty) {}
+  // RenewFileSet prevents a file set from being deleted for a set amount of time.
+  rpc RenewFileSet(RenewFileSetRequest) returns (google.protobuf.Empty) {}
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}

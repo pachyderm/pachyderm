@@ -968,15 +968,13 @@ export class JobInfo extends jspb.Message {
     clearNewBranch(): void;
     getNewBranch(): pfs_pfs_pb.BranchInfo | undefined;
     setNewBranch(value?: pfs_pfs_pb.BranchInfo): JobInfo;
-    getEnableStats(): boolean;
-    setEnableStats(value: boolean): JobInfo;
     getSalt(): string;
     setSalt(value: string): JobInfo;
 
-    hasChunkSpec(): boolean;
-    clearChunkSpec(): void;
-    getChunkSpec(): ChunkSpec | undefined;
-    setChunkSpec(value?: ChunkSpec): JobInfo;
+    hasDatumSetSpec(): boolean;
+    clearDatumSetSpec(): void;
+    getDatumSetSpec(): DatumSetSpec | undefined;
+    setDatumSetSpec(value?: DatumSetSpec): JobInfo;
 
     hasDatumTimeout(): boolean;
     clearDatumTimeout(): void;
@@ -1039,9 +1037,8 @@ export namespace JobInfo {
         sidecarResourceLimits?: ResourceSpec.AsObject,
         input?: Input.AsObject,
         newBranch?: pfs_pfs_pb.BranchInfo.AsObject,
-        enableStats: boolean,
         salt: string,
-        chunkSpec?: ChunkSpec.AsObject,
+        datumSetSpec?: DatumSetSpec.AsObject,
         datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         datumTries: number,
@@ -1233,8 +1230,6 @@ export class PipelineInfo extends jspb.Message {
     setDescription(value: string): PipelineInfo;
     getCacheSize(): string;
     setCacheSize(value: string): PipelineInfo;
-    getEnableStats(): boolean;
-    setEnableStats(value: boolean): PipelineInfo;
     getSalt(): string;
     setSalt(value: string): PipelineInfo;
     getReason(): string;
@@ -1252,10 +1247,10 @@ export class PipelineInfo extends jspb.Message {
     getSpout(): Spout | undefined;
     setSpout(value?: Spout): PipelineInfo;
 
-    hasChunkSpec(): boolean;
-    clearChunkSpec(): void;
-    getChunkSpec(): ChunkSpec | undefined;
-    setChunkSpec(value?: ChunkSpec): PipelineInfo;
+    hasDatumSetSpec(): boolean;
+    clearDatumSetSpec(): void;
+    getDatumSetSpec(): DatumSetSpec | undefined;
+    setDatumSetSpec(value?: DatumSetSpec): PipelineInfo;
 
     hasDatumTimeout(): boolean;
     clearDatumTimeout(): void;
@@ -1329,13 +1324,12 @@ export namespace PipelineInfo {
         input?: Input.AsObject,
         description: string,
         cacheSize: string,
-        enableStats: boolean,
         salt: string,
         reason: string,
         maxQueueSize: number,
         service?: Service.AsObject,
         spout?: Spout.AsObject,
-        chunkSpec?: ChunkSpec.AsObject,
+        datumSetSpec?: DatumSetSpec.AsObject,
         datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         standby: boolean,
@@ -1801,29 +1795,29 @@ export namespace ListDatumRequest {
     }
 }
 
-export class ChunkSpec extends jspb.Message { 
+export class DatumSetSpec extends jspb.Message { 
     getNumber(): number;
-    setNumber(value: number): ChunkSpec;
+    setNumber(value: number): DatumSetSpec;
     getSizeBytes(): number;
-    setSizeBytes(value: number): ChunkSpec;
-    getChunksPerWorker(): number;
-    setChunksPerWorker(value: number): ChunkSpec;
+    setSizeBytes(value: number): DatumSetSpec;
+    getPerWorker(): number;
+    setPerWorker(value: number): DatumSetSpec;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ChunkSpec.AsObject;
-    static toObject(includeInstance: boolean, msg: ChunkSpec): ChunkSpec.AsObject;
+    toObject(includeInstance?: boolean): DatumSetSpec.AsObject;
+    static toObject(includeInstance: boolean, msg: DatumSetSpec): DatumSetSpec.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ChunkSpec, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ChunkSpec;
-    static deserializeBinaryFromReader(message: ChunkSpec, reader: jspb.BinaryReader): ChunkSpec;
+    static serializeBinaryToWriter(message: DatumSetSpec, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DatumSetSpec;
+    static deserializeBinaryFromReader(message: DatumSetSpec, reader: jspb.BinaryReader): DatumSetSpec;
 }
 
-export namespace ChunkSpec {
+export namespace DatumSetSpec {
     export type AsObject = {
         number: number,
         sizeBytes: number,
-        chunksPerWorker: number,
+        perWorker: number,
     }
 }
 
@@ -1908,8 +1902,6 @@ export class CreatePipelineRequest extends jspb.Message {
     setDescription(value: string): CreatePipelineRequest;
     getCacheSize(): string;
     setCacheSize(value: string): CreatePipelineRequest;
-    getEnableStats(): boolean;
-    setEnableStats(value: boolean): CreatePipelineRequest;
     getReprocess(): boolean;
     setReprocess(value: boolean): CreatePipelineRequest;
     getMaxQueueSize(): number;
@@ -1925,10 +1917,10 @@ export class CreatePipelineRequest extends jspb.Message {
     getSpout(): Spout | undefined;
     setSpout(value?: Spout): CreatePipelineRequest;
 
-    hasChunkSpec(): boolean;
-    clearChunkSpec(): void;
-    getChunkSpec(): ChunkSpec | undefined;
-    setChunkSpec(value?: ChunkSpec): CreatePipelineRequest;
+    hasDatumSetSpec(): boolean;
+    clearDatumSetSpec(): void;
+    getDatumSetSpec(): DatumSetSpec | undefined;
+    setDatumSetSpec(value?: DatumSetSpec): CreatePipelineRequest;
 
     hasDatumTimeout(): boolean;
     clearDatumTimeout(): void;
@@ -1995,12 +1987,11 @@ export namespace CreatePipelineRequest {
         input?: Input.AsObject,
         description: string,
         cacheSize: string,
-        enableStats: boolean,
         reprocess: boolean,
         maxQueueSize: number,
         service?: Service.AsObject,
         spout?: Spout.AsObject,
-        chunkSpec?: ChunkSpec.AsObject,
+        datumSetSpec?: DatumSetSpec.AsObject,
         datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         salt: string,
@@ -2156,9 +2147,9 @@ export class RunPipelineRequest extends jspb.Message {
     getPipeline(): Pipeline | undefined;
     setPipeline(value?: Pipeline): RunPipelineRequest;
     clearProvenanceList(): void;
-    getProvenanceList(): Array<pfs_pfs_pb.CommitProvenance>;
-    setProvenanceList(value: Array<pfs_pfs_pb.CommitProvenance>): RunPipelineRequest;
-    addProvenance(value?: pfs_pfs_pb.CommitProvenance, index?: number): pfs_pfs_pb.CommitProvenance;
+    getProvenanceList(): Array<pfs_pfs_pb.Commit>;
+    setProvenanceList(value: Array<pfs_pfs_pb.Commit>): RunPipelineRequest;
+    addProvenance(value?: pfs_pfs_pb.Commit, index?: number): pfs_pfs_pb.Commit;
     getJobId(): string;
     setJobId(value: string): RunPipelineRequest;
 
@@ -2175,7 +2166,7 @@ export class RunPipelineRequest extends jspb.Message {
 export namespace RunPipelineRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
-        provenanceList: Array<pfs_pfs_pb.CommitProvenance.AsObject>,
+        provenanceList: Array<pfs_pfs_pb.Commit.AsObject>,
         jobId: string,
     }
 }
