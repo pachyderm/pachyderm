@@ -105,7 +105,6 @@ type Pipeline {
   datumTimeoutS: Int
   datumTries: Int!
   jobTimeoutS: Int
-  enableStats: Boolean!
   outputBranch: String!
   s3OutputRepo: String
   egress: Boolean!

@@ -251,7 +251,6 @@ export type Pipeline = {
   datumTimeoutS?: Maybe<Scalars['Int']>;
   datumTries: Scalars['Int'];
   jobTimeoutS?: Maybe<Scalars['Int']>;
-  enableStats: Scalars['Boolean'];
   outputBranch: Scalars['String'];
   s3OutputRepo?: Maybe<Scalars['String']>;
   egress: Scalars['Boolean'];
@@ -963,7 +962,6 @@ export type PipelineResolvers<
   >;
   datumTries?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   jobTimeoutS?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  enableStats?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   outputBranch?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   s3OutputRepo?: Resolver<
     Maybe<ResolversTypes['String']>,
@@ -1374,7 +1372,6 @@ export type PipelineQuery = {__typename?: 'Query'} & {
     | 'datumTimeoutS'
     | 'datumTries'
     | 'jobTimeoutS'
-    | 'enableStats'
     | 'outputBranch'
     | 's3OutputRepo'
     | 'egress'

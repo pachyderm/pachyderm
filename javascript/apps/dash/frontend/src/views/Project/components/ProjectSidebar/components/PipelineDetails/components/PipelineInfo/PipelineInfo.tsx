@@ -56,10 +56,6 @@ const PipelineInfo = () => {
         {pipeline?.jobTimeoutS ? `${pipeline.jobTimeoutS} seconds` : 'N/A'}
       </Description>
 
-      <Description term="Enable Stats" loading={loading}>
-        {pipeline?.enableStats ? 'Yes' : 'No'}
-      </Description>
-
       <Description term="Output Branch" loading={loading}>
         {pipeline?.outputBranch}
       </Description>

@@ -17,7 +17,6 @@ export const GET_PIPELINE_QUERY = gql`
       datumTimeoutS
       datumTries
       jobTimeoutS
-      enableStats
       outputBranch
       s3OutputRepo
       egress

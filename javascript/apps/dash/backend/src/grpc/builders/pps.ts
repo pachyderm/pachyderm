@@ -1,6 +1,6 @@
 import {
-  ChunkSpec,
   CronInput,
+  DatumSetSpec,
   Egress,
   GPUSpec,
   Input,
@@ -126,9 +126,9 @@ export type SpoutObject = {
   service?: ServiceObject;
 };
 
-export type ChunkSpecObject = {
-  number: ChunkSpec.AsObject['number'];
-  sizeBytes: ChunkSpec.AsObject['sizeBytes'];
+export type DatumSetSpecObject = {
+  number: DatumSetSpec.AsObject['number'];
+  sizeBytes: DatumSetSpec.AsObject['sizeBytes'];
 };
 export type SchedulingSpecObject = {
   //TODO: Proto Map does not have a setter
@@ -159,13 +159,12 @@ export type PipelineInfoObject = {
   input?: InputObject;
   description?: PipelineInfo.AsObject['description'];
   cacheSize?: PipelineInfo.AsObject['cacheSize'];
-  enableStats?: PipelineInfo.AsObject['enableStats'];
   salt?: PipelineInfo.AsObject['salt'];
   reason?: PipelineInfo.AsObject['reason'];
   maxQueueSize?: PipelineInfo.AsObject['maxQueueSize'];
   service?: ServiceObject;
   spout?: SpoutObject;
-  chunkSpec?: ChunkSpecObject;
+  chunkSpec?: DatumSetSpecObject;
   datumTimeout?: DurationObject;
   jobTimeout?: DurationObject;
   specCommit?: CommitObject;
@@ -427,8 +426,11 @@ export const spoutFromObject = ({service}: SpoutObject) => {
   return spout;
 };
 
-export const chunkSpecFromObject = ({number, sizeBytes}: ChunkSpecObject) => {
-  const chunkSpec = new ChunkSpec();
+export const chunkSpecFromObject = ({
+  number,
+  sizeBytes,
+}: DatumSetSpecObject) => {
+  const chunkSpec = new DatumSetSpec();
   chunkSpec.setNumber(number);
   chunkSpec.setSizeBytes(sizeBytes);
 
@@ -465,7 +467,6 @@ export const pipelineInfoFromObject = ({
   input,
   description = '',
   cacheSize = '',
-  enableStats = false,
   salt = '',
   reason = '',
   maxQueueSize = 1,
@@ -531,7 +532,7 @@ export const pipelineInfoFromObject = ({
     pipelineInfo.setSpout(spoutFromObject(spout));
   }
   if (chunkSpec) {
-    pipelineInfo.setChunkSpec(chunkSpecFromObject(chunkSpec));
+    pipelineInfo.setDatumSetSpec(chunkSpecFromObject(chunkSpec));
   }
   if (datumTimeout) {
     pipelineInfo.setDatumTimeout(durationFromObject(datumTimeout));
@@ -542,7 +543,6 @@ export const pipelineInfoFromObject = ({
 
   pipelineInfo.setDescription(description);
   pipelineInfo.setCacheSize(cacheSize);
-  pipelineInfo.setEnableStats(enableStats);
   pipelineInfo.setSalt(salt);
   pipelineInfo.setReason(reason);
   pipelineInfo.setMaxQueueSize(maxQueueSize);

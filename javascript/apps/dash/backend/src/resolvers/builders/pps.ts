@@ -51,7 +51,6 @@ export const pipelineInfoToGQLPipeline = (
     datumTimeoutS: pipelineInfo.datumTimeout?.seconds,
     datumTries: pipelineInfo.datumTries,
     jobTimeoutS: pipelineInfo.jobTimeout?.seconds,
-    enableStats: pipelineInfo.enableStats,
     outputBranch: pipelineInfo.outputBranch,
     s3OutputRepo:
       pipelineInfo.s3Out && pipelineInfo.pipeline

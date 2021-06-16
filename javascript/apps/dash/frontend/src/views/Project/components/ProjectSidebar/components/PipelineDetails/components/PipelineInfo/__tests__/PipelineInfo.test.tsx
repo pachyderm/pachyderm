@@ -60,9 +60,6 @@ describe('PipelineInfo', () => {
     expect(getByText('Job Timeout').nextElementSibling).toHaveTextContent(
       'N/A',
     );
-    expect(getByText('Enable Stats').nextElementSibling).toHaveTextContent(
-      'No',
-    );
     expect(getByText('Output Branch').nextElementSibling).toHaveTextContent(
       'master',
     );

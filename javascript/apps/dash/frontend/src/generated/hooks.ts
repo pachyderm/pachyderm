@@ -532,7 +532,6 @@ export const PipelineDocument = gql`
       datumTimeoutS
       datumTries
       jobTimeoutS
-      enableStats
       outputBranch
       s3OutputRepo
       egress
