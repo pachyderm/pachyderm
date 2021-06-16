@@ -1090,7 +1090,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 			Input:           client.NewPFSInput(repo, "/*"),
-			Standby:         true,
+			Autoscaling:     true,
 		})
 	require.NoError(t, err)
 
