@@ -28,7 +28,7 @@ const gqlServer = new ApolloServer({
       idToken = req.header('id-token');
       authToken = req.header('auth-token');
       projectId = req.body?.variables?.args?.projectId;
-      host = `${req.protocol}://${req.get('host')}`;
+      host = `//${req.get('host')}`;
     }
 
     if (idToken) {
