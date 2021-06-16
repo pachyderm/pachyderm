@@ -15,7 +15,6 @@ data:
     EOSQL
 kind: ConfigMap
 metadata:
-  creationTimestamp: null
   labels:
     app: postgres
     suite: pachyderm
