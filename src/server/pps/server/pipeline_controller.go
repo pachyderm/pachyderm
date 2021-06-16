@@ -124,8 +124,13 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 		"current-state", op.pipelineInfo.State.String(),
 		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
 	// set op.pipelineInfo.Details
-	if err := op.getPipelineDetails(); err != nil {
-		return nil, err
+
+	// this reads the pipelineInfo associated with 'op's pipeline, as most other
+	// methods (e.g.  getRC, though not failPipeline) assume that
+	// op.pipelineInfo.Details is set.
+	pachClient := op.m.a.env.GetPachClient(op.ctx)
+	if err := ppsutil.GetPipelineDetails(pachClient, op.pipelineInfo); err != nil {
+		return nil, newRetriableError(err, "error retrieving spec")
 	}
 	return op, nil
 }
@@ -228,17 +233,6 @@ func (op *pipelineOp) run() error {
 		// In general, CRASHING is actually almost identical to RUNNING (except for
 		// the monitorCrashing goro)
 		return op.scaleUpPipeline()
-	}
-	return nil
-}
-
-// getPipelineDetails reads the pipelineInfo associated with 'op's pipeline. This
-// should be one of the first calls made on 'op', as most other methods (e.g.
-// getRC, though not failPipeline) assume that op.pipelineInfo.Details is set.
-func (op *pipelineOp) getPipelineDetails() error {
-	pachClient := op.m.a.env.GetPachClient(op.ctx)
-	if err := ppsutil.GetPipelineDetails(pachClient, op.pipelineInfo); err != nil {
-		return newRetriableError(err, "error retrieving spec")
 	}
 	return nil
 }

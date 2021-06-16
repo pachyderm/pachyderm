@@ -129,7 +129,7 @@ func (m *ppsMaster) cancelCrashingMonitor(pipeline string) {
 //
 // 'leave' indicates pipelines whose monitorPipeline goros shouldn't be
 // cancelled. It's set by pollPipelines, which does not cancel any pipeline in
-// etcd at the time that it runs
+// the database at the time that it runs
 func (m *ppsMaster) cancelAllMonitorsAndCrashingMonitors() {
 	m.monitorCancelsMu.Lock()
 	defer m.monitorCancelsMu.Unlock()

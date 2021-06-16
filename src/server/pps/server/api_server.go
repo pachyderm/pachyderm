@@ -2549,9 +2549,6 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		logrus.Errorf("error loading pipeline details: %v", err)
 		pipelineInfo.Details = &pps.PipelineInfo_Details{OutputBranch: "master"}
 	}
-	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline.Name)
-	if err != nil {
-	}
 
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks

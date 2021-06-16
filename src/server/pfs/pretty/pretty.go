@@ -182,7 +182,7 @@ Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}
-Size: {{prettySize .SizeBytes}}
+Size: {{prettySize .Details.SizeBytes}}
 `)
 	if err != nil {
 		return err
@@ -235,7 +235,7 @@ func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Path}}
 Type: {{fileType .FileType}}
-Size: {{prettySize .SizeBytes}}
+Size: {{prettySize .Details.SizeBytes}}
 `)
 	if err != nil {
 		return err
