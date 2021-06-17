@@ -908,7 +908,6 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"extract",
 			"restore",
 			"garbage-collect",
-			"update-dash",
 			"auth",
 			"enterprise",
 			"idp":
