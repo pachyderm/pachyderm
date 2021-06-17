@@ -12,7 +12,6 @@ import deriveRouteParamFromNode from '../lib/deriveRepoNameFromNode';
 
 const useRouteController = () => {
   const {projectId, repoId, pipelineId} = useUrlState();
-
   const browserHistory = useHistory();
 
   const navigateToNode = useCallback(
@@ -38,7 +37,7 @@ const useRouteController = () => {
         );
       }
     },
-    [browserHistory, projectId],
+    [projectId, browserHistory],
   );
 
   const selectedNode = useMemo(() => {

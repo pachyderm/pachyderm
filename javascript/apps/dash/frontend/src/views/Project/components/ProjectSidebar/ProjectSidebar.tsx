@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {memo} from 'react';
 import {Route, Switch} from 'react-router';
 
 import JobList from '@dash-frontend/components/JobList';
@@ -57,4 +57,4 @@ const ProjectSidebar = () => {
   );
 };
 
-export default ProjectSidebar;
+export default memo(ProjectSidebar);

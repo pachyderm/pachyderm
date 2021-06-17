@@ -13,13 +13,14 @@ export const useProjectDagsData = ({
   nodeHeight,
   direction,
 }: DagQueryArgs) => {
-  const {repoId, pipelineId} = useUrlState();
+  const {repoId, pipelineId, projectId: routeProjectId} = useUrlState();
   const browserHistory = useHistory();
 
   const {data, error, loading} = useGetDagsSubscription({
     variables: {args: {projectId, nodeHeight, nodeWidth, direction}},
     onSubscriptionData: ({client, subscriptionData}) => {
       if (
+        (repoId || pipelineId) &&
         !(subscriptionData.data?.dags || []).some((dag) => {
           return dag.nodes.some(
             (node) =>
@@ -34,6 +35,10 @@ export const useProjectDagsData = ({
         client.reFetchObservableQueries();
       }
     },
+    // We want to skip the `onSubscriptionData` callback if
+    // we've been redirected to, for example, the NOT_FOUND page
+    // and the consuming component has been unmounted
+    skip: !routeProjectId,
   });
 
   return {

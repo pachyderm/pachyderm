@@ -2,7 +2,6 @@ import countBy from 'lodash/countBy';
 import sum from 'lodash/sum';
 import values from 'lodash/values';
 import {useCallback, useMemo} from 'react';
-import {useHistory} from 'react-router';
 
 import useJobList from '@dash-frontend/components/JobList/hooks/useJobList';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
@@ -15,7 +14,6 @@ import {useSearch} from './useSearch';
 export const useDefaultDropdown = () => {
   const {projectId} = useUrlState();
   const {jobs} = useJobList({projectId});
-  const browserHistory = useHistory();
   const {setUrlFromViewState} = useUrlQueryState();
   const {closeDropdown, setSearchValue} = useSearch();
 
@@ -24,17 +22,21 @@ export const useDefaultDropdown = () => {
 
   const handleJobChipClick = useCallback(
     (value?: JobState) => {
-      const params = value
-        ? setUrlFromViewState({jobFilters: [value]})
-        : setUrlFromViewState({
-            jobFilters: Object.values(JobState),
-          });
+      value
+        ? setUrlFromViewState(
+            {jobFilters: [value]},
+            jobsRoute({projectId}, false),
+          )
+        : setUrlFromViewState(
+            {
+              jobFilters: Object.values(JobState),
+            },
+            jobsRoute({projectId}, false),
+          );
 
-      browserHistory.push(params);
-      browserHistory.push(jobsRoute({projectId}));
       closeDropdown();
     },
-    [browserHistory, closeDropdown, projectId, setUrlFromViewState],
+    [closeDropdown, projectId, setUrlFromViewState],
   );
 
   const handleHistoryChipClick = useCallback(

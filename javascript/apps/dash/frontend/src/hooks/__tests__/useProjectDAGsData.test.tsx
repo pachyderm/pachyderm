@@ -1,12 +1,13 @@
 import {render} from '@testing-library/react';
 import React from 'react';
+import {Route} from 'react-router';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
 import {DagDirection} from '@graphqlTypes';
 
 import {useProjectDagsData} from '../useProjectDAGsData';
 
-const ProjectsComponent = withContextProviders(() => {
+const ProjectsComponent = () => {
   const {dags, loading} = useProjectDagsData({
     projectId: '1',
     nodeHeight: 60,
@@ -56,11 +57,21 @@ const ProjectsComponent = withContextProviders(() => {
       })}
     </div>
   );
+};
+
+const TestBed = withContextProviders(() => {
+  return (
+    <Route path="/project/:projectId">
+      <ProjectsComponent />
+    </Route>
+  );
 });
 
 describe('useProjects', () => {
   it('should get dag data', async () => {
-    const {findByText} = render(<ProjectsComponent />);
+    window.history.replaceState('', '', '/project/1');
+
+    const {findByText} = render(<TestBed />);
 
     const node0Id = await findByText('0 node id: montage_repo');
     const node1Id = await findByText('1 node id: montage');

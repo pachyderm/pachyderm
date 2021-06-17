@@ -1,7 +1,6 @@
 import cloneDeep from 'lodash/cloneDeep';
 import countBy from 'lodash/countBy';
-import {useMemo} from 'react';
-import {useHistory} from 'react-router';
+import {useCallback, useMemo} from 'react';
 
 import {JobFilters} from '@dash-frontend/components/JobList/hooks/useJobList';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
@@ -12,28 +11,28 @@ const useJobListStatusFilter = (
   selectedFilters: JobFilters,
 ) => {
   const {setUrlFromViewState} = useUrlQueryState();
-  const browserHistory = useHistory();
 
   const stateCounts = useMemo(() => countBy(jobs, (job) => job.state), [jobs]);
 
-  const onChipClick = (job?: JobState) => {
-    if (job) {
-      const updatedFilterList = cloneDeep(selectedFilters);
-      updatedFilterList[job] = !updatedFilterList[job];
+  const onChipClick = useCallback(
+    (job?: JobState) => {
+      if (job) {
+        const updatedFilterList = cloneDeep(selectedFilters);
+        updatedFilterList[job] = !updatedFilterList[job];
 
-      const updatedJobFilteres = Object.entries(updatedFilterList).reduce<
-        JobState[]
-      >((result, [key, selected]) => {
-        if (selected) {
-          result.push(key as JobState);
-        }
-        return result;
-      }, []);
-      browserHistory.push(
-        setUrlFromViewState({jobFilters: updatedJobFilteres}),
-      );
-    }
-  };
+        const updatedJobFilters = Object.entries(updatedFilterList).reduce<
+          JobState[]
+        >((result, [key, selected]) => {
+          if (selected) {
+            result.push(key as JobState);
+          }
+          return result;
+        }, []);
+        setUrlFromViewState({jobFilters: updatedJobFilters});
+      }
+    },
+    [setUrlFromViewState, selectedFilters],
+  );
 
   return {stateCounts, onChipClick};
 };

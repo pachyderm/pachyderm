@@ -1,6 +1,4 @@
-import {generatePath} from 'react-router';
-
-import {ProjectRouteParams} from '@dash-frontend/lib/types';
+import {ExtractRouteParams, generatePath as rrGeneratePath} from 'react-router';
 
 import {
   JOBS_PATH,
@@ -12,117 +10,27 @@ import {
   PIPELINE_JOB_PATH,
 } from '../constants/projectPaths';
 
-const generatePathWithSearch = (
+const generatePathWithSearch = <S extends string>(
   pathTemplate: string,
-  params: ProjectRouteParams,
+  params?: ExtractRouteParams<S>,
 ) => {
-  const path = generatePath(pathTemplate, {...params});
+  const path = encodeURI(rrGeneratePath(pathTemplate, {...params}));
   const urlParams = new URLSearchParams(window.location.search);
   return path + '?' + urlParams.toString();
 };
 
-export const projectRoute = ({
-  projectId,
-  withSearch = true,
-}: {
-  projectId: string;
-  withSearch?: boolean;
-}) => {
-  return withSearch
-    ? generatePathWithSearch(PROJECT_PATH, {
-        projectId: encodeURIComponent(projectId),
-      })
-    : generatePath(PROJECT_PATH, {
-        projectId: encodeURIComponent(projectId),
-      });
+const generateRouteFn = <S extends string>(path: S) => {
+  return (params?: ExtractRouteParams<S>, withSearch = true) => {
+    return withSearch
+      ? generatePathWithSearch(path, params)
+      : encodeURI(rrGeneratePath(path, params));
+  };
 };
 
-export const jobsRoute = ({projectId}: {projectId: string}) =>
-  generatePathWithSearch(JOBS_PATH, {
-    projectId: encodeURIComponent(projectId),
-  });
-
-export const repoRoute = ({
-  projectId,
-  repoId,
-  branchId,
-}: {
-  projectId: string;
-  repoId: string;
-  branchId: string;
-}) =>
-  generatePathWithSearch(REPO_PATH, {
-    projectId: encodeURIComponent(projectId),
-    repoId: encodeURIComponent(repoId),
-    branchId: encodeURIComponent(branchId),
-  });
-
-export const pipelineRoute = ({
-  projectId,
-  pipelineId,
-  tabId,
-}: {
-  projectId: string;
-  pipelineId: string;
-  tabId?: string;
-}) =>
-  generatePathWithSearch(PIPELINE_PATH, {
-    projectId: encodeURIComponent(projectId),
-    pipelineId: encodeURIComponent(pipelineId),
-    tabId,
-  });
-
-export const fileBrowserRoute = ({
-  projectId,
-  repoId,
-  commitId,
-  filePath,
-  branchId,
-}: {
-  projectId: string;
-  repoId: string;
-  commitId: string;
-  filePath?: string;
-  branchId: string;
-}) =>
-  generatePathWithSearch(FILE_BROWSER_PATH, {
-    projectId: encodeURIComponent(projectId),
-    repoId: encodeURIComponent(repoId),
-    commitId: encodeURIComponent(commitId),
-    branchId: encodeURIComponent(branchId),
-    filePath: filePath ? encodeURIComponent(filePath) : undefined,
-  });
-
-export const jobRoute = ({
-  projectId,
-  jobId,
-  pipelineJobId,
-}: {
-  projectId: string;
-  jobId: string;
-  pipelineId?: string;
-  pipelineJobId?: string;
-}) =>
-  generatePathWithSearch(JOB_PATH, {
-    projectId,
-    jobId,
-    pipelineJobId,
-  });
-
-export const pipelineJobRoute = ({
-  projectId,
-  jobId,
-  pipelineId,
-  pipelineJobId,
-}: {
-  projectId: string;
-  jobId: string;
-  pipelineId: string;
-  pipelineJobId: string;
-}) =>
-  generatePathWithSearch(PIPELINE_JOB_PATH, {
-    projectId,
-    jobId,
-    pipelineId,
-    pipelineJobId,
-  });
+export const projectRoute = generateRouteFn(PROJECT_PATH);
+export const jobsRoute = generateRouteFn(JOBS_PATH);
+export const repoRoute = generateRouteFn(REPO_PATH);
+export const pipelineRoute = generateRouteFn(PIPELINE_PATH);
+export const fileBrowserRoute = generateRouteFn(FILE_BROWSER_PATH);
+export const jobRoute = generateRouteFn(JOB_PATH);
+export const pipelineJobRoute = generateRouteFn(PIPELINE_JOB_PATH);
