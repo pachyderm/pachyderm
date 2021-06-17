@@ -170,7 +170,6 @@ type AssetOpts struct {
 	Registry   string
 	EtcdPrefix string
 	PachdPort  int32
-	TracePort  int32
 	PeerPort   int32
 	RunAsRoot  bool
 
@@ -475,9 +474,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 	if opts.PachdPort == 0 {
 		opts.PachdPort = 1650
 	}
-	if opts.TracePort == 0 {
-		opts.TracePort = 1651
-	}
 
 	if opts.PeerPort == 0 {
 		opts.PeerPort = 1653
@@ -654,11 +650,8 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 									Name:          "api-grpc-port",
 								},
 								{
-									ContainerPort: opts.TracePort, // also set in cmd/pachd/main.go
-									Name:          "trace-port",
-								},
-								{
 									ContainerPort: opts.PeerPort, // also set in cmd/pachd/main.go
+									ContainerPort: opts.HTTPPort, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "peer-port",
 								},
@@ -719,11 +712,6 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					Port:     1650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
 					NodePort: 30650,
-				},
-				{
-					Port:     1651, // also set in cmd/pachd/main.go
-					Name:     "trace-port",
-					NodePort: 30651,
 				},
 				{
 					Port:     OidcPort,
