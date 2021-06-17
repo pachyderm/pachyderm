@@ -50,7 +50,7 @@ var (
 	grpcProxyName      = "grpc-proxy"
 	pachdName          = "pachd"
 	// PrometheusPort hosts the prometheus stats for scraping
-	PrometheusPort = 656
+	PrometheusPort = 1656
 
 	enterpriseServerName = "pach-enterprise"
 
