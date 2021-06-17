@@ -543,8 +543,6 @@ This resets the cluster to its initial state.`,
 	var remoteOidcPort uint16
 	var uiPort uint16
 	var uiWebsocketPort uint16
-	var pfsPort uint16
-	var remotePfsPort uint16
 	var s3gatewayPort uint16
 	var remoteS3gatewayPort uint16
 	var dexPort uint16
