@@ -7,7 +7,12 @@ import {FileMajorType} from '@dash-frontend/lib/types';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {File, FileType} from '@graphqlTypes';
 
-const SUPPORTED_PREVIEW_TYPES: FileMajorType[] = ['image', 'video'];
+const SUPPORTED_PREVIEW_MAJOR_TYPES: FileMajorType[] = [
+  'image',
+  'video',
+  'audio',
+];
+const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = ['json', 'csv'];
 
 const useFileDisplay = (file: File) => {
   const {repoId, commitId, branchId, projectId} = useUrlState();
@@ -98,8 +103,11 @@ const useFileDisplay = (file: File) => {
   }, [file.path, file.type]);
 
   const previewSupported = useMemo(() => {
-    return SUPPORTED_PREVIEW_TYPES.includes(fileMajorType);
-  }, [fileMajorType]);
+    return (
+      SUPPORTED_PREVIEW_MAJOR_TYPES.includes(fileMajorType) ||
+      SUPPORTED_PREVIEW_MINOR_TYPES.includes(fileType)
+    );
+  }, [fileMajorType, fileType]);
 
   return {
     copy,

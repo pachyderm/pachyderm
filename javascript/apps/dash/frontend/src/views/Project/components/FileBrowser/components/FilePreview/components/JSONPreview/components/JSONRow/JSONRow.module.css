@@ -1,0 +1,55 @@
+.base {
+  display: block;
+  padding-left: 2rem;
+  width: 100%;
+}
+
+.base.clickable:hover {
+  cursor: pointer;
+}
+
+.base:hover {
+  background-color: var(--background-grey);
+}
+
+.base.depth1 {
+  color: var(--chart-blue);
+}
+
+.base.depth2 {
+  color: var(--chart-dark-green);
+}
+
+.base.depth3 {
+  color: var(--pachyderm-coral);
+}
+
+.base.depth4 {
+  color: var(--pachyderm-plum);
+}
+
+.base.depth5 {
+  color: var(--pachyderm-green);
+}
+
+.base.depth6 {
+  color: var(--chart-hover-dark-blue);
+}
+
+.arrowDown, .arrowRight {
+  display: inline-block;
+  margin-right: 0.5rem;
+  font-size: 0.6rem;
+}
+
+.arrowRight {
+  transform: rotate(-90deg);
+}
+
+.value {
+  color: var(--pachyderm-black);
+}
+
+.depthTab {
+  margin-left: 2rem;
+}

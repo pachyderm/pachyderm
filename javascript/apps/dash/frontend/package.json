@@ -39,6 +39,7 @@
     "react-hook-form": "7.5.2",
     "react-router": "5.2.0",
     "react-router-dom": "5.2.0",
+    "react-window": "1.8.6",
     "subscriptions-transport-ws": "0.9.18"
   },
   "devDependencies": {
@@ -63,6 +64,7 @@
     "@types/react-dom": "17.0.0",
     "@types/react-helmet": "6.1.0",
     "@types/react-router-dom": "5.1.5",
+    "@types/react-window": "1.8.3",
     "canvas": "2.6.1",
     "cross-fetch": "3.0.6",
     "cypress": "7.2.0",

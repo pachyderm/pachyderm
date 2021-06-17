@@ -1,0 +1,29 @@
+.base {
+  text-align: left;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: var(--font-size-body-large);
+  line-height: 1.5rem;
+  background-color: var(--white);
+  margin: 2rem;
+  border: solid 2px var(--line-grey);
+  border-radius: 0.4rem;
+  margin-left: 50%;
+  transform: translateX(-50%);
+}
+
+::-webkit-scrollbar-thumb {
+  border: none;
+}
+
+::-webkit-scrollbar-track {
+  background-color: var(--background-grey);
+  border-left: solid 1px var(--line-grey);
+  border-top-right-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+}
+
+::-webkit-scrollbar {
+  border-radius: 0.5rem;
+  width: 0.5rem;
+  padding-left: 1px;
+}

@@ -6,6 +6,7 @@ import {
   useModal,
   ListViewSVG,
   IconViewSVG,
+  LoadingDots,
 } from '@pachyderm/components';
 import React, {useState, useMemo} from 'react';
 import {Route, Switch, useHistory} from 'react-router';
@@ -120,6 +121,7 @@ const FileBrowser: React.FC = () => {
             {fileAtLocation && <FilePreview file={fileAtLocation} />}
           </Route>
         </Switch>
+        {loading && <LoadingDots />}
         {!loading && filteredFiles?.length === 0 && !fileAtLocation && (
           <div className={styles.emptyResults}>
             <GenericErrorSVG />

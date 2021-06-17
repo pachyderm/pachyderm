@@ -4,6 +4,8 @@ import React, {useCallback} from 'react';
 import {File} from '@graphqlTypes';
 
 import useFileDisplay from './../../hooks/useFileDisplay';
+import CSVPreview from './components/CSVPreview';
+import JSONPreview from './components/JSONPreview';
 import styles from './FilePreview.module.css';
 
 type FilePreviewProps = {
@@ -11,27 +13,42 @@ type FilePreviewProps = {
 };
 
 const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
-  const {copy, copySupported, fileName, dateDisplay, previewSupported} =
-    useFileDisplay(file);
+  const {
+    copy,
+    copySupported,
+    fileName,
+    dateDisplay,
+    previewSupported,
+    fileType,
+    fileMajorType,
+  } = useFileDisplay(file);
 
   const getPreviewElement = useCallback(
-    (fileLink: string, fileType: string) => {
+    (fileLink: string) => {
       if (previewSupported) {
-        switch (fileType) {
+        switch (fileMajorType) {
           case 'image':
             return (
-              <img
-                className={styles.preview}
-                src={file.download || ''}
-                alt={fileName}
-              />
+              <img className={styles.preview} src={fileLink} alt={fileName} />
             );
           case 'video':
             return <video controls className={styles.preview} src={fileLink} />;
+          case 'audio':
+            return (
+              <audio className={styles.preview} controls>
+                <source src={fileLink} />
+              </audio>
+            );
+        }
+        switch (fileType) {
+          case 'json':
+            return <JSONPreview downloadLink={fileLink} />;
+          case 'csv':
+            return <CSVPreview downloadLink={fileLink} />;
         }
       }
     },
-    [file.download, fileName, previewSupported],
+    [fileMajorType, fileName, fileType, previewSupported],
   );
 
   return (
@@ -53,7 +70,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
       </Group>
       {!file.downloadDisabled &&
         file.download &&
-        getPreviewElement(file.download, 'image')}
+        getPreviewElement(file.download)}
     </div>
   );
 };

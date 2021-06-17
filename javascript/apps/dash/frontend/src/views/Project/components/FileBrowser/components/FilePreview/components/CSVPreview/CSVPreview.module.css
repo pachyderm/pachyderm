@@ -1,0 +1,52 @@
+.base {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: var(--font-size-body-large);
+  background-color: var(--white);
+  margin-top: 2rem;
+  border-top: solid 2px var(--line-grey);
+  overflow: auto;
+  white-space: nowrap;
+  margin-left: -2rem;
+}
+
+::-webkit-scrollbar-thumb {
+  border: none;
+}
+
+::-webkit-scrollbar-track {
+  background-color: var(--background-grey);
+  border-left: solid 1px var(--line-grey);
+}
+
+::-webkit-scrollbar {
+  border-radius: 0.5rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  padding-top: 1px;
+  padding-left: 1px;
+}
+
+.cell {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0.25rem;
+  padding-left: 1rem;
+  border-bottom: solid 1px var(--line-grey);
+}
+
+.header {
+  position: sticky;
+  background-color: var(--background-blue);
+  border-bottom: solid 1px var(--line-grey);
+  top: 0;
+  z-index: 1;
+  max-height: 30px;
+}
+
+.header .cell {
+  width: 10rem;
+  display: inline-block;
+  font-weight: 600;
+  background-color: var(--background-blue);
+}

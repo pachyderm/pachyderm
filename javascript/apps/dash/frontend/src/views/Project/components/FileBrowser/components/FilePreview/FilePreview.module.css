@@ -1,6 +1,7 @@
 .base {
-  padding: 0 2rem;
   text-align: center;
+  position: relative;
+  padding: 0 2rem;
   height: calc(100vh - var(--header-height) - var(--subheader-height));
 }
 
@@ -13,7 +14,8 @@
 
 .fileText {
   flex: 1;
-  font-size: var(--font-size-body-large);
+  margin: 0;
+  font-size: var(--font-size-body-medium);
 }
 
 .download, .download:hover {
@@ -23,5 +25,7 @@
 
 .preview {
   margin: 2rem;
-  height: calc(100vh - var(--header-height) - var(--subheader-height) - 6.25rem);
+  text-align: center;
+  min-height: 10rem;
+  max-height: calc(100vh - var(--header-height) - var(--subheader-height) - 6.25rem);
 }
