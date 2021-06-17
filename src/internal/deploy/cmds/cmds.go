@@ -3,11 +3,9 @@ package cmds
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -118,15 +116,6 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 
 	args = append([]string{"kubectl"}, args...)
 	return cmdutil.RunIO(ioObj, args...)
-}
-
-// Generates a random secure token, in hex
-func generateSecureToken(length int) string {
-	b := make([]byte, length)
-	if _, err := rand.Read(b); err != nil {
-		return ""
-	}
-	return hex.EncodeToString(b)
 }
 
 // Return the appropriate encoder for the given output format.
