@@ -112,24 +112,22 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 	return getResourceListFromSpec(limits)
 }
 
-// GetPipelineDetails etrieves and returns a PipelineInfo from PFS,
-// but may omit the Details field if the spec data cannot be found in PPS (e.g.
-// due to corruption or a missing block). It does the PFS read/unmarshalling of
-// bytes as well as filling in missing fields
+// GetPipelineDetails retrieves the pipeline spec for the given PipelineInfo from PFS,
+// then fills in the Details field in the given PipelineInfo from the spec.
 func GetPipelineDetails(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
-	loadedPipelineInfo := &pps.PipelineInfo{}
-	buf := bytes.Buffer{}
 	// ensure we are authorized to read the pipeline's spec commit, but don't propagate that back out
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
 	pachClient.SetAuthToken(pipelineInfo.AuthToken)
+
+	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(pipelineInfo.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
 		return errors.Wrapf(err, "could not retrieve pipeline spec file from PFS for pipeline '%s'", pipelineInfo.Pipeline.Name)
-	} else {
-		if err := loadedPipelineInfo.Unmarshal(buf.Bytes()); err != nil {
-			return errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
-		}
 	}
 
+	loadedPipelineInfo := &pps.PipelineInfo{}
+	if err := loadedPipelineInfo.Unmarshal(buf.Bytes()); err != nil {
+		return errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
+	}
 	pipelineInfo.Version = loadedPipelineInfo.Version
 	pipelineInfo.Details = loadedPipelineInfo.Details
 	return nil

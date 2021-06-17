@@ -148,7 +148,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 			fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Finished))
 		}
 	}
-	if commitInfo.Finished == nil || commitInfo.Details == nil {
+	if commitInfo.Details == nil {
 		fmt.Fprintf(w, "-\t")
 	} else {
 		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.Details.SizeBytes)))

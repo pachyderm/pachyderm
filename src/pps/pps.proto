@@ -260,18 +260,18 @@ message JobInfo {
   google.protobuf.Timestamp finished = 14;
 
   message Details {
-    Transform transform = 2;
-    ParallelismSpec parallelism_spec = 3;
-    Egress egress = 4;
-    Service service = 5;
-    Spout spout = 6;
-    repeated WorkerStatus worker_status = 7;
-    ResourceSpec resource_requests = 8;
-    ResourceSpec resource_limits = 9;
-    ResourceSpec sidecar_resource_limits = 10;
-    Input input = 11;
-    string salt = 12;
-    DatumSetSpec datum_set_spec = 13;
+    Transform transform = 1;
+    ParallelismSpec parallelism_spec = 2;
+    Egress egress = 3;
+    Service service = 4;
+    Spout spout = 5;
+    repeated WorkerStatus worker_status = 6;
+    ResourceSpec resource_requests = 7;
+    ResourceSpec resource_limits = 8;
+    ResourceSpec sidecar_resource_limits = 9;
+    Input input = 10;
+    string salt = 11;
+    DatumSetSpec datum_set_spec = 12;
     google.protobuf.Duration datum_timeout = 13;
     google.protobuf.Duration job_timeout = 14;
     int64 datum_tries = 15;
@@ -327,8 +327,8 @@ enum PipelineState {
 // database. It tracks the state of the pipeline, and points to its metadata in
 // PFS (and, by pointing to a PFS commit, de facto tracks the pipeline's
 // version).  Any information about the pipeline _not_ stored in the database is
-// in the Details object, which requires fetching the spec from object storage
-// or other potentially expensive operations.
+// in the Details object, which requires fetching the spec from PFS or other
+// potentially expensive operations.
 message PipelineInfo {
   Pipeline pipeline = 1;
   uint64 version = 2;
@@ -630,7 +630,7 @@ message CreatePipelineRequest {
 message InspectPipelineRequest {
   Pipeline pipeline = 1;
   // When true, return PipelineInfos with the details field, which requires
-  // loading the pipeline spec from object storage.
+  // loading the pipeline spec from PFS.
   bool details = 2;
 }
 
@@ -647,7 +647,7 @@ message ListPipelineRequest {
   int64 history = 2;
 
   // When true, return PipelineInfos with the details field, which requires
-  // loading the pipeline spec from object storage.
+  // loading the pipeline spec from PFS.
   bool details = 3;
 
   // A jq program string for additional result filtering
