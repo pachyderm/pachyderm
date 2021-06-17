@@ -35,7 +35,7 @@ Pachyderm defines 5 type of User:
 Pachyderm has 2 types of resources: **Repositories**: `repo`, **Clusters**: `cluster`. 
 
 !!! Coming soon
-    Two additionnal tiers: A `project` tier between the cluster and repo levels, and the `enterprise` tier, above all clusters, at the enterprise server level, are in the works. Clusters contain one to many projects. Projects contain one to many repositories.
+    Two additionnal tiers, a `project` tier between the cluster and repo levels, and the `enterprise` tier, above all clusters, at the enterprise server level, are in the works. Clusters contain one to many projects. Projects contain one to many repositories.
 
 ## Roles
 Pachyderm has a number of predefined roles granting permissions to its Resources.
@@ -56,7 +56,7 @@ adding, deleting, or updating the files in the repo. The
 `repoWriter` role can perform operations such as `pachctl put file` or
 `pachctl delete commit`...
 
-- **repoOwner**: A repoOwner can read and modify daat in a repo, 
+- **repoOwner**: A repoOwner can read and modify data in a repo, 
 update the role bindings for that repo, and delete the repo.
 
 ### Cluster Roles
@@ -64,7 +64,9 @@ update the role bindings for that repo, and delete the repo.
 These roles are only applicable at the cluster level. `clusterAdmin` is a catch-all role which allows a user to perform any operation on the cluster, while the others allow delegation of specific privileges depending on a users needs.
 
 - **clusterAdmin**: A clusterAdmin can perform any action on the cluster.
-Activating auth (`pachctl auth activate`) creates a Root User with irrevocable `clusterAdmin` rights. This Role must be set at the cluster level only.
+
+!!! Info
+    Activating auth (`pachctl auth activate`) creates a Root User with irrevocable `clusterAdmin` rights. This Role must be set at the cluster level only.
 
 - **secretAdmin**: A secretAdmin has the ability to create, update, delete Kubernetes secrets on a cluster.
 
