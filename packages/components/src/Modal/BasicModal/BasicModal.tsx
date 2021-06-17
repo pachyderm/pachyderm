@@ -1,7 +1,7 @@
 import noop from 'lodash/noop';
 import React from 'react';
 
-import Modal from './../../Modal';
+import {Modal} from './../../Modal';
 
 type BasicModalProps = {
   cancelTestId?: string;

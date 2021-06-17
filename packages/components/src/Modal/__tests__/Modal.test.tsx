@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import {Button} from './../../Button';
-import Modal, {useModal} from './../../Modal';
+import {Modal, useModal} from './../../Modal';
 
 const confirmMock = jest.fn();
 

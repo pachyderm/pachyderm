@@ -6,7 +6,7 @@ import BootstrapModalFooter from 'react-bootstrap/ModalFooter';
 import {Button} from './../../Button';
 import {ButtonLink} from './../../ButtonLink';
 import {Group} from './../../Group';
-import Modal from './../../Modal';
+import {Modal} from './../../Modal';
 import styles from './WizardModal.module.css';
 
 type WizardModalProps = {
