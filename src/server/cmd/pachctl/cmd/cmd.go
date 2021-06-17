@@ -621,16 +621,6 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
-			fmt.Println("Forwarding the PFS port...")
-			port, err = fw.RunForPFS(pfsPort, remotePfsPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["pfs-over-http"] = uint32(port)
-				successCount++
-			}
-
 			fmt.Println("Forwarding the s3gateway port...")
 			port, err = fw.RunForS3Gateway(s3gatewayPort, remoteS3gatewayPort)
 			if err != nil {
@@ -700,8 +690,6 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 1657, "The remote port that OIDC callback is bound to in the cluster.")
 	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
-	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
-	portForward.Flags().Uint16Var(&remotePfsPort, "remote-pfs-port", 30652, "The remote port PFS over HTTP is bound to.")
 	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
 	portForward.Flags().Uint16Var(&remoteS3gatewayPort, "remote-s3gateway-port", 1600, "The remote port that the s3 gateway is bound to.")
 	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
