@@ -1,25 +1,16 @@
 # Local Installation
 
-!!! Info
-      A local installation helps you learn
-      some of the Pachyderm basics and experiment. It is not designed to be a production
-      environment.
-
-This guide walks you through the steps to install Pachyderm
+This guide covers how you can quickly get started using Pachyderm.
+It walks you through the steps to install Pachyderm locally
 on macOS®, Linux®, or Microsoft® Windows®. 
 
 To install Pachyderm on Windows, take a look at
 [Deploy Pachyderm on Windows](wsl-deploy.md) first.
 
-We offer two ways to deploy Pachyderm on a local Kubernetes cluster. 
-
-- The first uses Pachyderm's client `pachctl` and the command `pachctl deploy local`.
-- The second uses the deployment tool `Helm`. 
-
-!!! Info
-      - Helm support in Pachyderm is a **beta** release. 
-      See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details.
-      - `pachctl deploy local` is designed for a **single-node cluster**.
+!!! Warning
+      - A local installation is not designed to be a production
+      environment. It is meant to help you learn and experiment quickly with Pachyderm. 
+      - A local installation is designed for a **single-node cluster**.
       This cluster uses local storage on disk and does not create a
       PersistentVolume (PV). If you want to deploy a production multi-node
       cluster, follow the instructions for your cloud provider or on-prem
@@ -30,18 +21,22 @@ We offer two ways to deploy Pachyderm on a local Kubernetes cluster.
       ask for advice in our [Slack channel](http://slack.pachyderm.io/).
 
 
+Pachyderm's deployment on a local Kubernetes cluster uses `Helm`.
 ## Prerequisites
 
-Before you deploy Pachyderm, make sure that you have installed:
+The following prerequisites are required for a successful local deployment of Pachyderm:
 
 - A Kubernetes cluster running on your local environment: 
       - [Docker Desktop](#using-kubernetes-on-docker-desktop),
       - [Minikube](#using-minikube)
       - [Kind](#using-kind)
       - Oracle® VirtualBox™
-- [Pachyderm Command Line Interface](#install-pachctl)
 - [Helm](https://helm.sh/docs/intro/install/) depending on your installation choice.
 
+Pachyderm Command Line Interface is not a hard requirement for your installation of Pachyderm,
+however, it will be necessary right after to interact with your cluster. 
+We recommend to install it as well:
+- [Pachyderm Command Line Interface](#install-pachctl)
 ### Using Minikube
 
 On your local machine, you can run Pachyderm in a minikube virtual machine.
