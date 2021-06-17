@@ -304,3 +304,10 @@ postgresql:
   service:
     type: ClusterIP
   storageClass: ""
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"

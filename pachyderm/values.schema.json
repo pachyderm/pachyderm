@@ -402,6 +402,9 @@
         "postgresql": {
             "type": "object",
             "properties": {
+                "resources": {
+                    "type": "object"
+                },
                 "service": {
                     "type": "object",
                     "properties": {

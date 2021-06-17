@@ -37,16 +37,17 @@ spec:
         ports:
         - containerPort: 5432
           name: client-port
-        resources:
-          requests:
-            cpu: "1"
-            memory: 2G
+        {{- if .Values.postgresql.resources }}
+        resources: {{ toYaml .Values.postgresql.resources | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - mountPath: /var/lib/postgresql
           name: postgres-storage
         - mountPath: /docker-entrypoint-initdb.d
           name: postgres-init
-      imagePullSecrets: null
+      {{- if .Values.imagePullSecret }}
+      imagePullSecret: {{ .Values.imagePullSecret | quote }}
+      {{- end }}
       volumes:
       - configMap:
           name: postgres-init-cm
