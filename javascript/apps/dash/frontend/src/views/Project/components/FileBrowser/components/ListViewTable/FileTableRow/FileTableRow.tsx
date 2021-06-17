@@ -4,7 +4,6 @@ import React from 'react';
 import {File, FileType} from '@graphqlTypes';
 
 import useFileDisplay from './../../../hooks/useFileDisplay';
-import styles from './FileTableRow.module.css';
 
 type FileTableRowProps = {
   file: File;
@@ -25,7 +24,7 @@ const FileTableRow: React.FC<FileTableRowProps> = ({file}) => {
     !file.downloadDisabled && file.download ? file.download : undefined;
 
   return (
-    <Table.Row className={styles.base}>
+    <Table.Row>
       <Table.DataCell>{fileName}</Table.DataCell>
       <Table.DataCell>{file.sizeDisplay}</Table.DataCell>
       <Table.DataCell>{dateDisplay}</Table.DataCell>
