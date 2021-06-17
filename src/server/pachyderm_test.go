@@ -7525,6 +7525,10 @@ func TestCancelJob(t *testing.T) {
 // running (which tests that only one job can run at a time), and then is
 // cancelled.
 func TestCancelManyJobs(t *testing.T) {
+	// TODO(2.0 required): this test is flaky due to how PPS and PFS deal with
+	// finished commits.  When canceling a job we finish the associated commit,
+	// but its parents might not be finished, which breaks assumptions.
+	t.Skip("Skipping flaky test")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
