@@ -36,7 +36,7 @@
   font-family: var(--font-family-mono);
   background-color: var(--background-blue-light);
   white-space: nowrap;
-  overflow-x: scroll;
+  overflow-x: auto;
   padding: 1rem 1.25rem;
 }
 

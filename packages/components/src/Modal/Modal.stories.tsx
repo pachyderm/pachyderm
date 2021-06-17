@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 
 import {Button} from './../Button';
 
-import {BasicModal, useModal} from './';
+import {BasicModal, useModal, WizardModal} from './';
 
 export default {title: 'Modal'};
 
@@ -75,6 +75,28 @@ export const ErrorState = () => {
       >
         This Modal has an error
       </BasicModal>
+    </>
+  );
+};
+
+export const Wizard = () => {
+  const {isOpen, openModal, closeModal} = useModal();
+
+  return (
+    <>
+      <Button autoWidth autoHeight onClick={openModal}>
+        Open Modal
+      </Button>
+      <WizardModal
+        show={isOpen}
+        onHide={closeModal}
+        headerContent={['Wizard Modal Page 1', 'Wizard Modal Page 2']}
+        loading={false}
+        modalContent={[
+          'The wizard modal is for modals that have multiple pages, and navigation between those pages. This is content for page 1.',
+          "This is page 2 of the modal. Pressing 'done' simply closes the modal",
+        ]}
+      />
     </>
   );
 };

@@ -1,0 +1,29 @@
+.dots {
+  width: calc(100% - 1.5rem);
+  position: absolute;
+  text-align: center;
+  bottom: -2.5rem;
+  margin: 0;
+}
+
+.dot {
+  font-size: var(--font-size-body-small);
+  color: var(--dropshadow-grey);
+  margin: 0.5rem;
+}
+
+.dot.active {
+  color: var(--white);
+}
+
+.footer {
+  border-top: none;
+}
+  
+.base[class$='modal-footer'] {
+  padding: 1.875rem 1.5rem 0.75rem;
+}
+  
+.base[class$='modal-footer'] > * {
+  margin: 0;
+}

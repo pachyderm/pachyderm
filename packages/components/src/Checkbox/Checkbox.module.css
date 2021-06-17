@@ -28,9 +28,12 @@
   transition: fill .2s;
 }
 
-.input:focus + .checkbox > path,
 .input:hover + .checkbox > path {
-  fill: var(--pachyderm-green);
+  fill: var(--hover-plum);
+}
+
+.input:focus + .checkbox > path {
+  fill: var(--pachyderm-plum);
 }
 
 .label {

@@ -28,20 +28,23 @@
   transition: background-color .2s, border-color .2s;
 }
 
+.input:hover + .radio {
+  border-color: var(--hover-plum);
+}
+
 .input:focus + .radio,
-.input:hover + .radio,
 .input:checked + .radio {
-  border-color: var(--pachyderm-green);
+  border-color: var(--pachyderm-plum);
 }
 
 .input:focus + .radio {
   outline-width: 2px;
   outline-style: solid;
-  outline-color: var(--pachyderm-green);
+  outline-color: var(--pachyderm-plum);
 }
 
 .input:checked + .radio {
-  background-color: var(--pachyderm-green);
+  background-color: var(--pachyderm-plum);
 }
 
 .input + .radio::after {

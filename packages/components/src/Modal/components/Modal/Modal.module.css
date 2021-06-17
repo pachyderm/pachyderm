@@ -15,6 +15,10 @@
 	top: 0;
 }
 
+.base [class$="modal-backdrop"] {
+  background-color: var(--background-black);
+}
+
 .content {
   padding: 0 2.5rem;
 }

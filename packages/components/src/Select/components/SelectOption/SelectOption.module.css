@@ -7,7 +7,7 @@
 
 .base[aria-selected="true"] {
   font-weight: 500;
-  color: var(--pachyderm-green);
+  color: var(--pachyderm-plum);
 }
 
 .base:hover,

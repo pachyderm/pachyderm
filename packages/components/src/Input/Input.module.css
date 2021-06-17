@@ -14,7 +14,7 @@
 .base:not(.disabled):active,
 .base:not(.disabled)[class$=":focus"] {
   outline: none;
-  border-color: var(--pachyderm-green);
+  border-color: var(--pachyderm-plum);
 }
 
 .base:disabled,

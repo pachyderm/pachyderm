@@ -10,6 +10,7 @@
 .base a[aria-selected=true] {
   border-bottom: 2px solid var(--pachyderm-plum);
   color: var(--pachyderm-plum);
+  font-weight: 800;
 }
 
 .base a:hover {

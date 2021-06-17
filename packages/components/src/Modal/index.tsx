@@ -7,11 +7,13 @@ import ModalHeader from './components/ModalHeader';
 import FormModal from './FormModal';
 import FullPageModal from './FullPageModal';
 import useModal from './hooks/useModal';
+import WizardModal from './WizardModal';
 
 export {useModal};
 export {BasicModal};
 export {FullPageModal};
 export {FormModal};
+export {WizardModal};
 
 export default Object.assign(Modal, {
   Body: ModalBody,

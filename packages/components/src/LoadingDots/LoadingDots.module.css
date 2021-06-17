@@ -21,6 +21,7 @@
 }
 
 .base {
+  text-align: left;
   margin-left: 50%;
   top: 50%;
   animation-delay: .25s;  
