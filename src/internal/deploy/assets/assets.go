@@ -635,7 +635,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		// from it for setting up the worker client. Probably should not be pulling directly from environment variables.
 		{
 			Name:  client.PPSWorkerPortEnv,
-			Value: "80",
+			Value: "1080",
 		},
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)

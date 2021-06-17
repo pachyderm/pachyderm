@@ -371,6 +371,11 @@ func (h *handleJobsCtx) start() {
 			// create new ctx for this job
 			jobCtx, jobCancel := context.WithCancel(context.Background())
 			h.processJobEvent(jobCtx, e.Type, jobInfo.Job)
+			// TODO(2.0 required): this is not true - this will continue to get PUT
+			// notifications on every job update - this needs to be refactored
+			// (preferrably with just one watcher, will likely require a way to know
+			// when initial PUTs are complete so we can remove dead jobs after
+			// recovering from a failed watcher):
 			// spin off handler for job termination. 'watcher' will not see any job
 			// state updates after the first because job state updates don't update
 			// the pipelines index, so this establishes a watcher that will.

@@ -537,6 +537,27 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
+	// Make sure that we don't get an auth token returned by the inspect
+	require.Equal(t, "", infoAfter.AuthToken)
+	infoAfter, err = aliceClient.InspectPipeline(pipeline, false)
+	require.NoError(t, err)
+	require.Equal(t, "", infoAfter.AuthToken)
+
+	// And also check for a listPipeline
+	pipelineInfos, err := aliceClient.ListPipeline(false)
+	require.NoError(t, err)
+	for _, pipelineInfo := range pipelineInfos {
+		require.Equal(t, "", pipelineInfo.AuthToken)
+	}
+	// TODO(2.0 required): this call errors if it uses aliceClient (maybe skip
+	// pipelines we don't have read access on?)
+	// pipelineInfos, err = aliceClient.ListPipeline(true)
+	pipelineInfos, err = bobClient.ListPipeline(true)
+	require.NoError(t, err)
+	for _, pipelineInfo := range pipelineInfos {
+		require.Equal(t, "", pipelineInfo.AuthToken)
+	}
+
 	// Make sure the updated pipeline runs successfully
 	err = aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
 		strings.NewReader("test data"))

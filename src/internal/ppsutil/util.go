@@ -123,7 +123,7 @@ func GetPipelineDetails(pachClient *client.APIClient, pipelineInfo *pps.Pipeline
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
 	pachClient.SetAuthToken(pipelineInfo.AuthToken)
 	if err := pachClient.GetFile(pipelineInfo.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
-		return errors.Errorf("could not retrieve pipeline spec file from PFS for pipeline '%s', there may be a problem reaching object storage, or the pipeline may need to be deleted and recreated", pipelineInfo.Pipeline.Name)
+		return errors.Wrapf(err, "could not retrieve pipeline spec file from PFS for pipeline '%s'", pipelineInfo.Pipeline.Name)
 	} else {
 		if err := loadedPipelineInfo.Unmarshal(buf.Bytes()); err != nil {
 			return errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")

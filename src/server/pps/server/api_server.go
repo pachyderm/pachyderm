@@ -2325,6 +2325,9 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		}
 		return nil, err
 	}
+	// Erase any AuthToken - this shouldn't be returned to anyone (the workers
+	// won't use this function to get their auth token)
+	pipelineInfo.AuthToken = ""
 	// TODO(global ids): how should we treat ancestry here?  Alias commits are going to gum it up.
 	pipelineInfo.SpecCommit.ID = ancestry.Add(pipelineInfo.SpecCommit.ID, ancestors)
 	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
@@ -2478,6 +2481,9 @@ func (a *apiServer) listPipelinePtr(ctx context.Context,
 	pipeline *pps.Pipeline, history int64, f func(*pps.PipelineInfo) error) error {
 	p := &pps.PipelineInfo{}
 	forEachPipeline := func() error {
+		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
+		// won't use this function to get their auth token)
+		p.AuthToken = ""
 		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
 		lastVersionToSend := int64(p.Version) - history
 		if history == -1 || lastVersionToSend < 1 {
