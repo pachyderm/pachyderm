@@ -14,6 +14,7 @@ import (
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -64,6 +65,11 @@ func do(config interface{}) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
+
+	// Enable cloud profilers if the configuration allows.
+	if err := profileutil.StartCloudProfiler("pachyderm-worker", env.Config()); err != nil {
+		return errors.Wrapf(err, "error starting cloud profiler")
+	}
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())
