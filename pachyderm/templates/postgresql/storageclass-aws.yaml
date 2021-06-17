@@ -10,7 +10,7 @@ metadata:
   labels:
     app: postgres
     suite: pachyderm
-  name: postgres-storage-class
+  name: postgresql-storage-class
 parameters:
   type: gp3
 # https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html

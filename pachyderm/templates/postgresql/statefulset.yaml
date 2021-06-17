@@ -59,7 +59,7 @@ spec:
       name: postgres-storage
       namespace: {{ .Release.Namespace }}
     spec:
-      storageClassName: {{ .Values.postgresql.storageClass | default "postgres-storage-class" }}
+      storageClassName: {{ .Values.postgresql.storageClass | default "postgresql-storage-class" }}
       accessModes:
       - ReadWriteOnce
       resources:

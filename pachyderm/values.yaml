@@ -321,3 +321,4 @@ worker:
 postgresql:
   service:
     type: ClusterIP
+  storageClass: ""
