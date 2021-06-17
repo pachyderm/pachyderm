@@ -59,7 +59,9 @@ spec:
       name: postgres-storage
       namespace: {{ .Release.Namespace }}
     spec:
+      {{- if not (eq .Values.pachd.storage.backend "LOCAL") }}
       storageClassName: {{ .Values.postgresql.storageClass | default "postgresql-storage-class" }}
+      {{- end }}
       accessModes:
       - ReadWriteOnce
       resources:
