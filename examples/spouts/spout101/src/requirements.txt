@@ -1,1 +1,1 @@
-python-pachyderm
+python-pachyderm==6.2.0
