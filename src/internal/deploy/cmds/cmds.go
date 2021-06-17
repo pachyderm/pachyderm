@@ -27,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
-	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/images"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	_metrics "github.com/pachyderm/pachyderm/v2/src/internal/metrics"
@@ -988,48 +987,6 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 	appendGlobalFlags(listImages)
 	commands = append(commands, cmdutil.CreateAlias(listImages, "deploy list-images"))
-
-	exportImages := &cobra.Command{
-		Use:    "{{alias}} <output-file>",
-		Short:  "Export a tarball (to stdout) containing all of the images in a deployment.",
-		Long:   "Export a tarball (to stdout) containing all of the images in a deployment.",
-		PreRun: preRun,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			file, err := os.Create(args[0])
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := file.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			return images.Export(opts, file)
-		}),
-	}
-	appendGlobalFlags(exportImages)
-	commands = append(commands, cmdutil.CreateAlias(exportImages, "deploy export-images"))
-
-	importImages := &cobra.Command{
-		Use:    "{{alias}} <input-file>",
-		Short:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
-		Long:   "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
-		PreRun: preRun,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			file, err := os.Open(args[0])
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := file.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			return images.Import(opts, file)
-		}),
-	}
-	appendGlobalFlags(importImages)
-	commands = append(commands, cmdutil.CreateAlias(importImages, "deploy import-images"))
 
 	return commands
 }
