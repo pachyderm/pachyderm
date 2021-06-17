@@ -56,14 +56,6 @@ spec:
     {{- end }}
     protocol: TCP
     targetPort: api-http-port
-  - name: saml-port
-    {{- if eq .Values.pachd.service.type "NodePort" }}
-    nodePort: 30654
-    port: 1654
-    {{ else }}
-    port: 30654
-    {{- end }}
-    targetPort: saml-port
   - name: oidc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30657
@@ -80,14 +72,6 @@ spec:
     port: 30658
     {{- end }}
     targetPort: identity-port
-  - name: api-git-port
-    {{- if eq .Values.pachd.service.type "NodePort" }}
-    nodePort: 30655
-    port: 1655
-    {{ else }}
-    port: 30655
-    {{- end }}
-    targetPort: api-git-port
   - name: s3gateway-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30600

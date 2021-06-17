@@ -166,19 +166,10 @@
                 "affinity": {
                     "type": "object"
                 },
-                "authenticationDisabledForTesting": {
-                    "type": "boolean"
-                },
-                "blockCacheBytes": {
-                    "type": "string"
-                },
                 "clusterDeploymentID": {
                     "type": "string"
                 },
                 "exposeDockerSocket": {
-                    "type": "boolean"
-                },
-                "exposeObjectAPI": {
                     "type": "boolean"
                 },
                 "goMaxProcs": {
@@ -214,9 +205,6 @@
                             "type": "string"
                         }
                     }
-                },
-                "numShards": {
-                    "type": "integer"
                 },
                 "podLabels": {
                     "type": "object"
@@ -308,20 +296,6 @@
                                 },
                                 "uploadACL": {
                                     "type": "string"
-                                },
-                                "vault": {
-                                    "type": "object",
-                                    "properties": {
-                                        "address": {
-                                            "type": "string"
-                                        },
-                                        "role": {
-                                            "type": "string"
-                                        },
-                                        "token": {
-                                            "type": "string"
-                                        }
-                                    }
                                 },
                                 "verifySSL": {
                                     "type": "boolean"

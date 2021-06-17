@@ -46,8 +46,6 @@ spec:
           value: "/pach"
         - name: ETCD_PREFIX
           #value:
-        - name: NUM_SHARDS
-          value: {{ required ".Values.pachd.numShards is required." .Values.pachd.numShards | quote }}
         - name: STORAGE_BACKEND
           value: {{ required ".Values.pachd.storage.backend is required." .Values.pachd.storage.backend | quote }}
           {{- if eq .Values.pachd.storage.backend "LOCAL" }}
@@ -64,30 +62,24 @@ spec:
           value: {{ .Values.worker.image.pullPolicy | quote }}
         - name: WORKER_SERVICE_ACCOUNT
           value: {{ .Values.worker.serviceAccount.name | quote }}
-        - name: PACHD_VERSION
-          value: "{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         - name: METRICS
           value: {{ .Values.pachd.metrics.enabled | quote }}
-        {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
-        - name: GOMAXPROCS
-          value: {{ .Values.pachd.goMaxProcs | quote }}
-        {{- end }}
         {{- if .Values.pachd.metricsEndpoint}}
         - name: METRICS_ENDPOINT
           value: "{{ .Values.pachd.metricsEndpoint }}"
         {{- end }}
+        {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
+        - name: GOMAXPROCS # Needs to be PR'd to 2.0 
+          value: {{ .Values.pachd.goMaxProcs | quote }}
+        {{- end }}
         - name: LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
-        - name: BLOCK_CACHE_BYTES
-          value: {{ .Values.pachd.blockCacheBytes | quote }}
-          {{- if.Values.pachd.storage.amazon.iamRole }}
+        {{- if.Values.pachd.storage.amazon.iamRole }}
         - name: IAM_ROLE
           value: {{ .Values.pachd.storage.amazon.iamRole | quote }}
-          {{- end }}
+        {{- end }}
         - name: NO_EXPOSE_DOCKER_SOCKET
           value: {{ .Values.pachd.exposeDockerSocket | not | quote }}
-        - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
-          value: {{ .Values.pachd.authenticationDisabledForTesting | quote }}
         - name: PACH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -99,8 +91,6 @@ spec:
               containerName: pachd
               divisor: "0"
               resource: requests.memory
-        - name: EXPOSE_OBJECT_API
-          value: {{ .Values.pachd.exposeObjectAPI | quote }}
         {{- if .Values.pachd.clusterDeploymentID }}
         - name: CLUSTER_DEPLOYMENT_ID
           value: {{ .Values.pachd.clusterDeploymentID | quote }}
@@ -217,24 +207,6 @@ spec:
               key: amazon-token
               name: pachyderm-storage-secret
               optional: true
-        - name: AMAZON_VAULT_ADDR
-          valueFrom:
-            secretKeyRef:
-              key: amazon-vault-addr
-              name: pachyderm-storage-secret
-              optional: true
-        - name: AMAZON_VAULT_ROLE
-          valueFrom:
-            secretKeyRef:
-              key: amazon-vault-role
-              name: pachyderm-storage-secret
-              optional: true
-        - name: AMAZON_VAULT_TOKEN
-          valueFrom:
-            secretKeyRef:
-              key: amazon-vault-token
-              name: pachyderm-storage-secret
-              optional: true
         - name: AMAZON_DISTRIBUTION
           valueFrom:
             secretKeyRef:
@@ -306,8 +278,6 @@ spec:
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
-        - name: STORAGE_V2
-          value: "false"
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         {{- if .Values.imagePullSecret }}
@@ -322,18 +292,12 @@ spec:
           name: api-grpc-port
           protocol: TCP
         - containerPort: 1651
-          name: trace-port
+          name: trace-port # Confirm for 2.0
         - containerPort: 1652
           name: api-http-port
           protocol: TCP
         - containerPort: 1653
           name: peer-port
-          protocol: TCP
-        - containerPort: 1655
-          name: api-git-port
-          protocol: TCP
-        - containerPort: 1654
-          name: saml-port
           protocol: TCP
         - containerPort: 1657
           name: oidc-port
@@ -341,7 +305,7 @@ spec:
         - containerPort: 1658
           name: identity-port
           protocol: TCP
-        - containerPort: 1656
+        - containerPort: 1656 #Confirm for 2.0
           name: prom-metrics
           protocol: TCP
         readinessProbe:

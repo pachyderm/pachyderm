@@ -7,9 +7,6 @@ pachd:
   image:
     tag: local
   resources:
-    limits:
-      cpu: 250m
-      memory: 512M
     requests:
       cpu: 250m
       memory: 512M
@@ -18,14 +15,10 @@ pachd:
   metrics:
     enabled: false
   blockCacheBytes: 256M
-  authenticationDisabledForTesting: true
-  exposeObjectAPI: true
   exposeDockerSocket: true
 
-
 dash:
-  service:
-    type: NodePort
+  enabled: false
 
 worker:
   image:

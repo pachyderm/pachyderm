@@ -105,18 +105,12 @@ imageCredentials: {}
 
 pachd:
   affinity: {}
-  # blockCacheBytes sets the size of the block cache.  It is analogous
-  # to the --block-cache-size argument passed to pachctl deploy.
-  blockCacheBytes: "1G"
   # clusterDeploymentID sets the Pachyderm cluster ID.
   clusterDeploymentID: ""
   # exposeDockerSocket controls whether the Docker socket is
   # exposed.  It is the inverse of the --no-expose-docker-socket
   # argument passed to pachctl deploy.
   exposeDockerSocket: false
-  # exposeObjectAPI controls whether the object API is exposed.  It is
-  # analogous to --expose-object-api passed to pachctl deploy.
-  exposeObjectAPI: false
   # goMaxProcs is passed as GOMAXPROCS to the pachd container.
   goMaxProcs: 0
   image:
@@ -132,11 +126,6 @@ pachd:
     enabled: true
     # endpoint should be the URL of the metrics endpoint.
     endpoint: ""
-  # numShards sets the maximum number of pachd nodes allowed in the
-  # cluster; increasing this number blindly can result in degraded
-  # performance.  It is analogous to the --shards argument to pachctl
-  # deploy.
-  numShards: 16
   # podLabels specifies labels to add to the pachd pod.
   podLabels: {}
   # resources specifies the resource requests and limits
@@ -226,10 +215,6 @@ pachd:
       # uploadACL sets the upload ACL for object storage uploads.  It
       # is analogous to the --upload-acl argument to pachctl deploy.
       uploadACL: "bucket-owner-full-control"
-      vault:
-        address: ""
-        role: ""
-        token: ""
     # backend configures the storage backend to use.  It must be one
     # of GOOGLE, AMAZON, MINIO, MICROSOFT or LOCAL.
     backend: ""
@@ -281,9 +266,6 @@ pachd:
     # object storage uploads per Pachd instance.  It is analogous to
     # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
-  # The options below are unusual.  You probably will not want to
-  # change them.
-  authenticationDisabledForTesting: false
   ppsWorkerGRPCPort: 80
   # There are three options for TLS:
   # 1. Disabled

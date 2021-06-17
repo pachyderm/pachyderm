@@ -132,13 +132,6 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
 
-	//fmt.Printf("%+v\n", deploymentContainers[0].Env)
-	pachdVersionEnvVar := "PACHD_VERSION"
-	err, version := GetEnvVarByName(deploymentContainers[0].Env, pachdVersionEnvVar)
-
-	if err != nil {
-		t.Fatalf("Could not find env var")
-	}
 	workerImageEnvVar := "WORKER_IMAGE"
 	err, workerImage := GetEnvVarByName(deploymentContainers[0].Env, workerImageEnvVar)
 	if err != nil {
@@ -152,9 +145,7 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 	if deploymentContainers[0].Image != expectedPachdContainerImage {
 		t.Fatalf("Rendered Pachd Image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedPachdContainerImage)
 	}
-	if version != expectedTag {
-		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", workerImageEnvVar, version, expectedTag)
-	}
+
 	if workerImage != expectedWorkerContainerImage {
 		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", workerImageEnvVar, workerImage, expectedWorkerContainerImage)
 	}
@@ -295,7 +286,6 @@ func TestAmazonStorageSecretsAmazonRegion(t *testing.T) {
 		maxUploadParts:
 		disableSSL:
 		noVerifySSL:
-		#TODO Vault env vars
 		#TODO iamRole - Check all places IAM role rendered
 	*/
 	helmChartPath := "../pachyderm"
