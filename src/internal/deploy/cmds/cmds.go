@@ -482,6 +482,7 @@ func standardDeployCmds() []*cobra.Command {
 
 	var dev bool
 	var hostPath string
+	var rootless bool
 	deployLocal := &cobra.Command{
 		Short:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:   "Deploy a single-node Pachyderm cluster with local metadata storage.",
@@ -509,6 +510,10 @@ func standardDeployCmds() []*cobra.Command {
 					opts.PostgresOpts.Port = dbutil.DefaultPort
 					opts.EtcdOpts.Port = etcdNodePort
 				}
+			}
+
+			if !rootless {
+				opts.RunAsRoot = true
 			}
 
 			// Put the enterprise server backing data in a different path,
@@ -541,6 +546,7 @@ func standardDeployCmds() []*cobra.Command {
 	appendGlobalFlags(deployLocal)
 	appendContextFlags(deployLocal)
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
+	deployLocal.Flags().BoolVar(&rootless, "rootless", false, "Run as the default image user (UID 1000) instead of root")
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)")
 	commands = append(commands, cmdutil.CreateAlias(deployLocal, "deploy local"))
 

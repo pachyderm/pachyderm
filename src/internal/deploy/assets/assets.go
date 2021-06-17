@@ -178,6 +178,7 @@ type AssetOpts struct {
 	TracePort  int32
 	HTTPPort   int32
 	PeerPort   int32
+	RunAsRoot  bool
 
 	// NoGuaranteed will not generate assets that have both resource limits and
 	// resource requests set which causes kubernetes to give the pods
@@ -648,6 +649,14 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		command = append(command, "--mode=enterprise")
 	}
 
+	var securityContext *v1.PodSecurityContext
+	if opts.RunAsRoot {
+		rootUID := int64(0)
+		securityContext = &v1.PodSecurityContext{
+			RunAsUser: &rootUID,
+		}
+	}
+
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -710,6 +719,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 					ServiceAccountName: ServiceAccountName,
 					Volumes:            volumes,
 					ImagePullSecrets:   imagePullSecrets(opts),
+					SecurityContext:    securityContext,
 				},
 			},
 		},
