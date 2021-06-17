@@ -17,9 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -27,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/images"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	_metrics "github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
@@ -1082,53 +1078,4 @@ func getCompatibleVersion(displayName, subpath, defaultValue string) string {
 	}
 	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
 	return latestVersion
-}
-
-// addOIDCClient registers a new OIDC client for the app, and makes it a trusted peer of this app.
-// If the client already exists, it will return the existing client secret.
-func addOIDCClient(c *client.APIClient, clientID, redirectURI string) (string, string, error) {
-	authConfig, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
-	if err != nil {
-		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get auth configuration")
-	}
-	pachdClient, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: authConfig.Configuration.ClientID})
-	if err != nil {
-		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get the OIDC config for pachd")
-	}
-
-	if err := func() error {
-		// If the client ID is already a trusted peer, don't add  it again
-		for _, peer := range pachdClient.Client.TrustedPeers {
-			if peer == clientID {
-				return nil
-			}
-		}
-
-		pachdClient.Client.TrustedPeers = append(pachdClient.Client.TrustedPeers, clientID)
-		_, err = c.UpdateOIDCClient(c.Ctx(), &identity.UpdateOIDCClientRequest{Client: pachdClient.Client})
-		return err
-	}(); err != nil {
-		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not update OIDC config for pachd")
-	}
-
-	existingOIDCClient, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: clientID})
-	if err == nil {
-		if len(existingOIDCClient.Client.RedirectUris) != 1 || existingOIDCClient.Client.RedirectUris[0] != redirectURI {
-			return "", "", errors.New("another client is already registered with this ID")
-		}
-		return authConfig.Configuration.ClientID, existingOIDCClient.Client.Secret, nil
-	}
-
-	oidcClient, err := c.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{
-		Client: &identity.OIDCClient{
-			Id:           clientID,
-			Name:         clientID,
-			RedirectUris: []string{redirectURI},
-		},
-	})
-
-	if err != nil {
-		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create new OIDC client")
-	}
-	return authConfig.Configuration.ClientID, oidcClient.Client.Secret, nil
 }
