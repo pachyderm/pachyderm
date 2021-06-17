@@ -198,11 +198,6 @@ func (f *PortForwarder) RunForS3Gateway(localPort, remotePort uint16) (uint16, e
 	return f.Run("pachd", localPort, remotePort)
 }
 
-// RunForIDE creates a port forwarder for the IDE
-func (f *PortForwarder) RunForIDE(localPort, remotePort uint16) (uint16, error) {
-	return f.Run("jupyterhub", localPort, remotePort, "component", "proxy")
-}
-
 // Close shuts down port forwarding.
 func (f *PortForwarder) Close() {
 	defer f.logger.Close()

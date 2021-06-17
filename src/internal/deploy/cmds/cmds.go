@@ -1037,8 +1037,6 @@ If <object store backend> is \"s3\", then the arguments are:
 // Cmds returns a list of cobra commands for deploying Pachyderm clusters.
 func Cmds() []*cobra.Command {
 	commands := standardDeployCmds()
-	deployIDE := createDeployIDECmd()
-	commands = append(commands, cmdutil.CreateAlias(deployIDE, "deploy ide"))
 
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
