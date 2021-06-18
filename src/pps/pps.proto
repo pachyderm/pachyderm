@@ -48,6 +48,7 @@ message Egress {
 }
 
 message Job {
+  option (gogoproto.goproto_stringer) = false;
   Pipeline pipeline = 1;
   string id = 2 [(gogoproto.customname) = "ID"];
 }
@@ -161,6 +162,7 @@ enum DatumState {
   SKIPPED = 2;
   STARTING = 3;
   RECOVERED = 4;
+  UNPROCESSED = 5;
 }
 
 message DatumInfo {
