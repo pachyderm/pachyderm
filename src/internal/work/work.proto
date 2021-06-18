@@ -7,9 +7,10 @@ import "gogoproto/gogo.proto";
 import "google/protobuf/any.proto";
 
 enum State {
-  RUNNING = 0;
-  SUCCESS = 1;
-  FAILURE = 2;
+  STATE_UNKNOWN = 0;
+  RUNNING = 1;
+  SUCCESS = 2;
+  FAILURE = 3;
 }
 
 message Task {

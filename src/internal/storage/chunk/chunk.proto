@@ -20,7 +20,8 @@ enum CompressionAlgo {
 }
 
 enum EncryptionAlgo {
-  CHACHA20 = 0;
+  ENCRYPTION_ALGO_UNKNOWN = 0;
+  CHACHA20 = 1;
 }
 
 message Ref {
