@@ -2214,7 +2214,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		}
 		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch:     statsBranch,
-			Provenance: []*pfs.Branch{outputBranch},
+			Provenance: provenance, // same provenance as output branch
 		}); err != nil {
 			return errors.Wrapf(err, "could not create/update meta branch")
 		}
@@ -2718,6 +2718,13 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}); err != nil {
 			return err
 		}
+		// restore same provenance to meta repo
+		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.OutputBranch),
+			Provenance: provenance,
+		}); err != nil {
+			return err
+		}
 
 		storedPipelineInfo := &pps.StoredPipelineInfo{}
 		return a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, storedPipelineInfo, func() error {
@@ -2756,9 +2763,15 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			return err
 		}
 
-		// Remove branch provenance to prevent new output commits from being created
+		// Remove branch provenance to prevent new output and meta commits from being created
 		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch),
+			Provenance: nil,
+		}); err != nil {
+			return err
+		}
+		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.OutputBranch),
 			Provenance: nil,
 		}); err != nil {
 			return err
