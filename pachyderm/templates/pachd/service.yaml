@@ -24,7 +24,7 @@ spec:
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30653
     port: 1653
-    {{ else }}
+    {{- else }}
     port: 30653
     {{- end }}
     protocol: TCP
@@ -33,7 +33,7 @@ spec:
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30650
     port: 1650
-    {{ else }}
+    {{- else }}
     port: 30650
     {{- end }}
     protocol: TCP
@@ -42,7 +42,7 @@ spec:
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30651
     port: 1651
-    {{ else }}
+    {{- else }}
     port: 30651
     {{- end }}
     protocol: TCP
@@ -51,7 +51,7 @@ spec:
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30652
     port: 1652
-    {{ else }}
+    {{- else }}
     port: 30652
     {{- end }}
     protocol: TCP
@@ -60,7 +60,7 @@ spec:
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30657
     port: 1657
-    {{ else }}
+    {{- else }}
     port: 30657
     {{- end }}
     targetPort: oidc-port
@@ -68,7 +68,7 @@ spec:
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30658
     port: 1658
-    {{ else }}
+    {{- else }}
     port: 30658
     {{- end }}
     targetPort: identity-port
@@ -76,7 +76,7 @@ spec:
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30600
     port: 1600
-    {{ else }}
+    {{- else }}
     port: 30600
     {{- end }}
     targetPort: s3gateway-port
