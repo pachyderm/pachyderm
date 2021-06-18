@@ -589,7 +589,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		{Name: "WORKER_SIDECAR_IMAGE", Value: image},
 		{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
 		{Name: WorkerServiceAccountEnvVar, Value: opts.WorkerServiceAccountName},
-		{Name: "PACHD_VERSION", Value: opts.Version},
 		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
 		{Name: "LOG_LEVEL", Value: opts.LogLevel},
 		{Name: "IAM_ROLE", Value: opts.IAMRole},
