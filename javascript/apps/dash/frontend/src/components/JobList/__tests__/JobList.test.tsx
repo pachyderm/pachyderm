@@ -23,7 +23,9 @@ describe('JobList', () => {
     );
 
     await waitFor(() =>
-      expect(queryByTestId('JobListSkeleton__list')).not.toBeInTheDocument(),
+      expect(
+        queryByTestId('JobListStatic__loadingdots'),
+      ).not.toBeInTheDocument(),
     );
 
     const {queryAllByRole, queryByText, queryAllByText} = within(
@@ -51,7 +53,9 @@ describe('JobList', () => {
     );
 
     await waitFor(() =>
-      expect(queryByTestId('JobListSkeleton__list')).not.toBeInTheDocument(),
+      expect(
+        queryByTestId('JobListStatic__loadingdots'),
+      ).not.toBeInTheDocument(),
     );
 
     const {queryAllByRole, queryByText} = within(getByRole('list'));

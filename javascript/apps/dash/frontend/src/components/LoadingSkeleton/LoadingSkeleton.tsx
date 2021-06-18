@@ -1,3 +1,4 @@
+import {LoadingDots} from '@pachyderm/components';
 import React from 'react';
 import {useRouteMatch} from 'react-router';
 
@@ -8,15 +9,14 @@ import styles from './LoadingSkeleton.module.css';
 const LoadingSkeleton: React.FC = () => {
   const projectMatch = useRouteMatch({
     path: PROJECT_PATH,
-    exact: true,
   });
 
   return (
     <>
       <div className={styles.loadingHeader} />
       <div className={styles.loadingBase}>
-        <div className={styles.projects} />
-        {!projectMatch && <div className={styles.sidebar} />}
+        <div className={styles.projects}>{projectMatch && <LoadingDots />}</div>
+        {!projectMatch?.isExact && <div className={styles.sidebar} />}
       </div>
     </>
   );

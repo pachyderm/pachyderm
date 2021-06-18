@@ -1,3 +1,4 @@
+import {LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 
@@ -6,7 +7,6 @@ import {JobOverviewFragment} from '@graphqlTypes';
 import ListEmptyState from '../../../ListEmptyState';
 
 import JobListItem from './components/JobListItem';
-import JobListSkeleton from './components/JobListSkeleton';
 import styles from './JobListStatic.module.css';
 
 type JobListBaseProps = {
@@ -28,7 +28,12 @@ const JobListBase: React.FC<JobListBaseProps> = ({
   emptyStateTitle,
   emptyStateMessage,
 }) => {
-  if (loading) return <JobListSkeleton expandActions={expandActions} />;
+  if (loading)
+    return (
+      <div data-testid="JobListStatic__loadingdots">
+        <LoadingDots />
+      </div>
+    );
 
   if (jobs?.length === 0)
     return (

@@ -26,7 +26,7 @@ describe('ProjectSidebar', () => {
 
       const {queryByTestId, findByTestId} = render(<Project />);
 
-      expect(queryByTestId('JobListSkeleton__list')).toBeInTheDocument();
+      expect(queryByTestId('JobListStatic__loadingdots')).toBeInTheDocument();
       expect(await findByTestId('JobList__project1')).toBeInTheDocument();
     });
   });
