@@ -84,6 +84,8 @@ var (
 
 	// OidcPort is the port where OIDC ID Providers can send auth assertions
 	OidcPort = int32(1657)
+
+	IdentityPort = int32(1658)
 )
 
 // Backend is the type used to enumerate what system provides object storage or
@@ -684,6 +686,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 									Name:          "peer-port",
 								},
 								{
+									ContainerPort: IdentityPort,
+									Protocol:      "TCP",
+									Name:          "identity-port",
+								},
+								{
 									ContainerPort: OidcPort,
 									Protocol:      "TCP",
 									Name:          "oidc-port",
@@ -747,7 +754,7 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					NodePort: 30657,
 				},
 				{
-					Port:     1658,
+					Port:     IdentityPort,
 					Name:     "identity-port",
 					NodePort: 30658,
 				},
