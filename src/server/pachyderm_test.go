@@ -9835,6 +9835,61 @@ func TestListDeletedDatums(t *testing.T) {
 	createAndCheckJoin(false, false)
 }
 
+// TestNonrootPipeline tests that a pipeline can work when it's running as a UID that's not 0 (root).
+func TestNonrootPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestNonrootPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
+
+	pipeline := tu.UniqueString("TestNonrootPipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "ubuntu:20.04",
+				Cmd:   []string{"bash"},
+				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			OutputBranch: "",
+			Update:       false,
+			PodPatch:     `[{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}]`,
+		},
+	)
+
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	require.Equal(t, 4, len(commitInfos))
+	// First two are not deterministically ordered
+	require.Equal(t, pipeline, commitInfos[2].Commit.Branch.Repo.Name)
+	require.Equal(t, pfs.UserRepoType, commitInfos[2].Commit.Branch.Repo.Type)
+	require.Equal(t, pipeline, commitInfos[3].Commit.Branch.Repo.Name)
+	require.Equal(t, pfs.MetaRepoType, commitInfos[3].Commit.Branch.Repo.Type)
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[2].Commit, "file", &buf))
+	require.Equal(t, "foo", buf.String())
+
+}
+
 func monitorReplicas(t testing.TB, pipeline string, n int) {
 	c := tu.GetPachClient(t)
 	kc := tu.GetKubeClient(t)
