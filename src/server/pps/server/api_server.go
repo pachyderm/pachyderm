@@ -1446,7 +1446,7 @@ func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	pachClient := a.env.GetPachClient(ctx)
 	pipelines := a.pipelines.ReadOnly(ctx)
-	if err := pipelines.Get(pipelineInfo.Pipeline.Name, &pps.PipelineInfo{}); err == nil {
+	if err := pipelines.Get(pipelineInfo.Pipeline.Name, &pps.StoredPipelineInfo{}); err == nil {
 		// Pipeline already exists so we allow people to update it even if
 		// they're over the limits.
 		return nil
@@ -1977,7 +1977,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	update := false
 	if request.Update {
 		// check if the pipeline already exists, meaning this is a real update
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(request.Pipeline.Name, &pps.PipelineInfo{}); err == nil {
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(request.Pipeline.Name, &pps.StoredPipelineInfo{}); err == nil {
 			update = true
 		} else if !col.IsErrNotFound(err) {
 			return err
