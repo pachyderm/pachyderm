@@ -72,7 +72,7 @@ func main() {
 
 	switch {
 	case readiness:
-		cmdutil.Main(doReadinessCheck, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(doReadinessCheck, &serviceenv.GlobalConfiguration{})
 	case mode == "full":
 		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
