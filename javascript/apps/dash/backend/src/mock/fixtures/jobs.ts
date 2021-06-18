@@ -50,6 +50,7 @@ const pipelineJobs: {[projectId: string]: JobInfo[]} = {
   '4': customerTeam,
   '5': [],
   '6': [],
+  '7': [],
   default: [...tutorial, ...customerTeam],
 };
 

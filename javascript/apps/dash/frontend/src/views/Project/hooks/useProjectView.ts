@@ -139,32 +139,19 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     min: number,
     padding: number,
   ) => {
-    const dagSize = max - min + padding;
+    const dagSize = max + min + padding;
     return dagSize > 0 ? svgMeasurement / dagSize : 1;
   };
 
   const startScale = useMemo(() => {
     const {xMax, xMin, yMax, yMin} = graphExtents;
-    const horizontal =
-      dagDirection === DagDirection.RIGHT || dagDirection === DagDirection.LEFT;
 
     // multiply node dimensions by 2 to account for alignment padding
-    const xScale = getScale(
-      svgSize.width,
-      xMax,
-      xMin,
-      nodeWidth * (horizontal ? 2 : 1),
-    );
-    const yScale = getScale(
-      svgSize.height,
-      yMax,
-      yMin,
-      nodeHeight * (horizontal ? 1 : 2),
-    );
+    const xScale = getScale(svgSize.width, xMax, xMin, nodeWidth);
+    const yScale = getScale(svgSize.height, yMax, yMin, nodeHeight);
 
-    // 0.6 is the largest value allowed for the minimum zoom value
-    return Math.max(DEFAULT_MINIMUM_SCALE_VALUE, Math.min(xScale, yScale, 1.5));
-  }, [dagDirection, graphExtents, nodeHeight, nodeWidth, svgSize]);
+    return Math.min(xScale, yScale, 1.5);
+  }, [graphExtents, nodeHeight, nodeWidth, svgSize]);
 
   const applyZoom = useCallback(
     (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
@@ -190,15 +177,18 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
         dagDirection === DagDirection.LEFT;
       const {xMin, xMax, yMin, yMax} = graphExtents;
 
+      const yTranslate = horizontal
+        ? svgSize.height / 2 - ((yMin + yMax) / 2) * startScale - nodeHeight
+        : nodeHeight * startScale;
+
+      const xTranslate = horizontal
+        ? nodeWidth * startScale
+        : svgSize.width / 2 - ((xMin + xMax) / 2) * startScale - nodeWidth;
       // translate to center of svg and align based on direction
       const transform = zoomIdentity
         .translate(
-          horizontal
-            ? nodeWidth
-            : svgSize.width / 2 - (xMin + xMax) / 2 - nodeWidth,
-          horizontal
-            ? svgSize.height / 2 - (yMin + yMax) / 2 - nodeHeight
-            : nodeHeight,
+          xTranslate < 0 ? xTranslate : xTranslate,
+          yTranslate < 0 ? yTranslate : yTranslate,
         )
         .scale(startScale);
 

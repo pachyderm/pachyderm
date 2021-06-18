@@ -23,7 +23,7 @@ describe('Landing', () => {
       await findByRole('heading', {name: 'Data Cleaning Process', level: 3}),
     ).toBeInTheDocument();
 
-    expect(await findAllByRole('row', {})).toHaveLength(6);
+    expect(await findAllByRole('row', {})).toHaveLength(7);
   });
 
   it('should allow users to search for projects by name', async () => {
@@ -71,7 +71,7 @@ describe('Landing', () => {
   it('should display the project status', async () => {
     const {findAllByTestId} = render(<Landing />);
 
-    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(4);
+    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(5);
     expect(await findAllByTestId('ProjectStatus__UNHEALTHY')).toHaveLength(2);
   });
 
@@ -86,7 +86,7 @@ describe('Landing', () => {
       await findAllByText(
         'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
       ),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
   });
 
   it('should allow a user to view a project', async () => {
@@ -106,7 +106,7 @@ describe('Landing', () => {
     const projectCreations = await findAllByTestId('ProjectRow__created');
 
     expect(projectCreations[0].textContent).toEqual('02/28/2021');
-    expect(projectCreations[5].textContent).toEqual('02/22/2021');
+    expect(projectCreations[6].textContent).toEqual('02/22/2021');
   });
 
   it('should allow the user to sort by name', async () => {
@@ -121,7 +121,9 @@ describe('Landing', () => {
     expect(projectNames[2].textContent).toEqual('Solar Price Prediction Modal');
     expect(projectNames[3].textContent).toEqual('Solar Industry Analysis 2020');
     expect(projectNames[4].textContent).toEqual('Empty Project');
-    expect(projectNames[5].textContent).toEqual('Solar Panel Data Sorting');
+    expect(projectNames[5].textContent).toEqual('Trait Discovery');
+
+    expect(projectNames[6].textContent).toEqual('Solar Panel Data Sorting');
 
     const sortDropdown = await findByRole('button', {
       name: 'Sort by: Created On',
@@ -148,13 +150,14 @@ describe('Landing', () => {
     expect(nameSortedProjectNames[5].textContent).toEqual(
       'Solar Price Prediction Modal',
     );
+    expect(nameSortedProjectNames[6].textContent).toEqual('Trait Discovery');
   });
 
   it('should allow the user to filter projects by status', async () => {
     const {findByRole, findByLabelText, findAllByTestId, queryByTestId} =
       render(<Landing />);
 
-    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(4);
+    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(5);
     expect(await findAllByTestId('ProjectStatus__UNHEALTHY')).toHaveLength(2);
 
     const filterDropdown = await findByRole('button', {name: 'Show: All'});
@@ -186,7 +189,7 @@ describe('Landing', () => {
       await findByRole('button', {name: 'Show: Healthy'}),
     ).toBeInTheDocument();
 
-    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(4);
+    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(5);
     expect(queryByTestId('ProjectStatus__UNHEALTHY')).not.toBeInTheDocument();
   });
 

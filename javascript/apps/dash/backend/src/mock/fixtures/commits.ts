@@ -47,6 +47,7 @@ const commits: {[projectId: string]: CommitInfo[]} = {
   '1': tutorial,
   '2': [],
   default: [...tutorial],
+  '7': [],
 };
 
 export default commits;
