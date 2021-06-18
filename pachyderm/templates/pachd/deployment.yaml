@@ -293,9 +293,6 @@ spec:
           protocol: TCP
         - containerPort: 1651
           name: trace-port # Confirm for 2.0
-        - containerPort: 1652
-          name: api-http-port
-          protocol: TCP
         - containerPort: 1653
           name: peer-port
           protocol: TCP

@@ -47,15 +47,6 @@ spec:
     {{- end }}
     protocol: TCP
     targetPort: trace-port
-  - name: api-http-port
-    {{- if eq .Values.pachd.service.type "NodePort" }}
-    nodePort: 30652
-    port: 1652
-    {{- else }}
-    port: 30652
-    {{- end }}
-    protocol: TCP
-    targetPort: api-http-port
   - name: oidc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30657

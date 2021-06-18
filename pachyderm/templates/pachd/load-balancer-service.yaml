@@ -19,9 +19,6 @@ spec:
   - name: api-grpc-port
     port: 31400
     targetPort: api-grpc-port
-  - name: api-http-port
-    port: 30652
-    targetPort: api-http-port
   - name: s3gateway-port
     port: 30600
     targetPort: s3gateway-port
