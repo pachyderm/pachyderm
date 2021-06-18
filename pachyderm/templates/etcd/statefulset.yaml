@@ -71,15 +71,7 @@ spec:
         {{- end }}
         volumeMounts:
         - mountPath: /var/data/etcd
-          name: etcd-storage
-      {{- if eq .Values.pachd.storage.backend "LOCAL" }}
-      volumes:
-      - hostPath:
-          path: /var/pachyderm/etcd
-          type: DirectoryOrCreate
-        name: etcd-storage
-      {{- end }}
-  {{- if not (eq .Values.pachd.storage.backend "LOCAL") }}
+          name: etcd-storage 
   volumeClaimTemplates:
   - metadata:
       labels:
@@ -88,7 +80,9 @@ spec:
       name: etcd-storage
       namespace: {{ .Release.Namespace }}
     spec:
+      {{- if not (eq .Values.pachd.storage.backend "LOCAL") }}
       storageClassName: {{ .Values.etcd.storageClass | default "etcd-storage-class" }}
+      {{- end }}
       accessModes:
       - ReadWriteOnce
       resources:
@@ -100,4 +94,3 @@ spec:
               {{- else if eq .Values.pachd.storage.backend "AMAZON" }} 10Gi     # Baseline 3,000 IOPS https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
               {{- else }} 10Gi  # Default
               {{- end }}
-  {{- end }}
