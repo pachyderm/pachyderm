@@ -15,13 +15,15 @@ const PipelineSpec = () => {
   return (
     <dl className={styles.base}>
       <Description term="Inputs" loading={loading} lines={9}>
-        {pipeline && (
+        {pipeline?.inputString ? (
           <PipelineInput
             branchId="master"
             inputString={pipeline.inputString}
             projectId={projectId}
             className={styles.input}
           />
+        ) : (
+          'N/A'
         )}
       </Description>
 

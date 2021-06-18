@@ -1,3 +1,5 @@
+import {PipelineType} from '@graphqlTypes';
+
 import usePipeline from './usePipeline';
 import useUrlState from './useUrlState';
 
@@ -8,9 +10,14 @@ const useCurrentPipeline = () => {
     projectId,
   });
 
+  const isServiceOrSpout =
+    pipeline?.type === PipelineType.SERVICE ||
+    pipeline?.type === PipelineType.SPOUT;
+
   return {
     pipeline,
     loading,
+    isServiceOrSpout,
   };
 };
 

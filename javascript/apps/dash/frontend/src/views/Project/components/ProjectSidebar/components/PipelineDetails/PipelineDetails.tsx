@@ -9,12 +9,12 @@ import Title from '../Title';
 import PipelineInfo from './components/PipelineInfo';
 import PipelineJobs from './components/PipelineJobs';
 import PipelineSpec from './components/PipelineSpec';
-import {TAB_ID, TAB_IDS} from './constants/tabIds';
+import {TAB_ID} from './constants/tabIds';
 import usePipelineDetails from './hooks/usePipelineDetails';
 import styles from './PipelineDetails.module.css';
 
 const PipelineDetails = () => {
-  const {loading, pipelineName} = usePipelineDetails();
+  const {loading, pipelineName, filteredTabIds} = usePipelineDetails();
 
   return (
     <div className={styles.base}>
@@ -29,7 +29,7 @@ const PipelineDetails = () => {
       </div>
       <Tabs.RouterTabs basePathTabId={TAB_ID.INFO} basePath={PIPELINE_PATH}>
         <Tabs.TabsHeader className={styles.tabsHeader}>
-          {TAB_IDS.map((tabId) => (
+          {filteredTabIds.map((tabId) => (
             <Tabs.Tab id={tabId} key={tabId}>
               {capitalize(tabId)}
             </Tabs.Tab>

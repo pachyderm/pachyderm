@@ -14,21 +14,24 @@ const generateInputObject = (
   projectId: string,
   branchId: string,
 ) => {
-  const json = JSON.parse(jsonString, (key, value) => {
-    if (key === 'repo') {
-      return `
-        <a href=${repoRoute({
-          projectId,
-          repoId: value,
-          branchId,
-        })} id=${`__repo${value}`} class=repoLink>${value}</a>
-      `.trim();
-    }
+  try {
+    const json = JSON.parse(jsonString, (key, value) => {
+      if (key === 'repo') {
+        return `
+          <a href=${repoRoute({
+            projectId,
+            repoId: value,
+            branchId,
+          })} id=${`__repo${value}`} class=repoLink>${value}</a>
+        `.trim();
+      }
 
-    return value;
-  });
-
-  return json;
+      return value;
+    });
+    return json;
+  } catch (e) {
+    return {};
+  }
 };
 
 interface PipelineInputProps extends JSONBlockProps {

@@ -46,7 +46,9 @@ export const pipelineInfoToGQLPipeline = (
     lastJobState: toGQLJobState(pipelineInfo.lastJobState),
     type: derivePipelineType(pipelineInfo),
     transform: pipelineInfo.transform,
-    inputString: JSON.stringify(pipelineInfo.input, null, 2),
+    inputString: pipelineInfo.input
+      ? JSON.stringify(pipelineInfo.input, null, 2)
+      : '',
     cacheSize: pipelineInfo.cacheSize,
     datumTimeoutS: pipelineInfo.datumTimeout?.seconds,
     datumTries: pipelineInfo.datumTries,
