@@ -136,6 +136,7 @@ enum Permission {
 
   CLUSTER_MODIFY_BINDINGS                          = 100;
   CLUSTER_GET_BINDINGS                             = 101;
+  CLUSTER_GET_PACHD_LOGS                           = 148;
 
   CLUSTER_AUTH_ACTIVATE                            = 102;
   CLUSTER_AUTH_DEACTIVATE                          = 103;
