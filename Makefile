@@ -346,28 +346,6 @@ clean-launch-stats:
 launch-stats:
 	kubectl apply --filename etc/kubernetes-prometheus -R
 
-clean-launch-monitoring:
-	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
-
-launch-monitoring:
-	kubectl create -f ./etc/plugin/monitoring
-	@echo "Waiting for services to spin up ..."
-	kubectl wait --for=condition=ready pod -l k8s-app=heapster --namespace kube-system --timeout=5m
-	kubectl wait --for=condition=ready pod -l k8s-app=influxdb --namespace kube-system --timeout=5m
-	kubectl wait --for=condition=ready pod -l k8s-app=grafana --namespace kube-system --timeout=5m
-	@echo "All services up. Now port forwarding grafana to localhost:3000"
-	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
-
-clean-launch-logging: check-kubectl check-kubectl-connection
-	git submodule update --init
-	cd etc/plugin/logging && ./undeploy.sh
-
-launch-logging: check-kubectl check-kubectl-connection
-	@# Creates Fluentd / Elasticsearch / Kibana services for logging under --namespace=monitoring
-	git submodule update --init
-	cd etc/plugin/logging && ./deploy.sh
-	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
-
 launch-loki:
 	helm repo remove loki || true
 	helm repo add loki https://grafana.github.io/loki/charts
@@ -513,10 +491,6 @@ check-buckets:
 	launch-kafka \
 	clean-launch-stats \
 	launch-stats \
-	clean-launch-monitoring \
-	launch-monitoring \
-	clean-launch-logging \
-	launch-logging \
 	launch-loki \
 	clean-launch-loki \
 	launch-enterprise \
