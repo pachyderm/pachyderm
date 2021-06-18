@@ -114,7 +114,7 @@ func validate(client Client, commit *pfs.Commit, files []*file) (retErr error) {
 			}
 		}
 	}()
-	r, err := client.GetFileTar(client.Ctx(), commit, "**")
+	r, err := client.GetFileTAR(client.Ctx(), commit, "**")
 	if err != nil {
 		return err
 	}
