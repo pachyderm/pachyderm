@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -658,7 +657,7 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 	waitCommit := func(name string, commit *pfs.Commit) error {
 		ci, err := pachClient.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
-			return errors.Wrapf(err, "error blocking on commit %s", pfsdb.CommitKey(commit))
+			return errors.Wrapf(err, "error blocking on commit %s", commit)
 		}
 		if strings.Contains(ci.Description, pfs.EmptyStr) {
 			failed = append(failed, name)

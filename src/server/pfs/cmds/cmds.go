@@ -293,7 +293,7 @@ $ {{alias}} test -p XXX`,
 			if parent != "" {
 				// We don't know if the parent is a commit ID, branch, or ancestry, so
 				// construct a string to parse.
-				parentCommit, err = cmdutil.ParseCommit(pretty.CompactPrintRepo(branch.Repo) + "@" + parent)
+				parentCommit, err = cmdutil.ParseCommit(fmt.Sprintf("%s@%s", branch.Repo, parent))
 				if err != nil {
 					return err
 				}

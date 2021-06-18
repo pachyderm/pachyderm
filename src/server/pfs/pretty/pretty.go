@@ -32,7 +32,7 @@ const (
 
 // PrintRepoInfo pretty-prints repo info.
 func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", CompactPrintRepo(repoInfo.Repo))
+	fmt.Fprintf(w, "%s\t", repoInfo.Repo)
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", repoInfo.Created.String())
 	} else {
@@ -136,7 +136,7 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", CompactPrintRepo(commitInfo.Commit.Branch.Repo))
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.Finished == nil {
@@ -255,23 +255,10 @@ var funcMap = template.FuncMap{
 	"printTrigger": printTrigger,
 }
 
-func CompactPrintRepo(r *pfs.Repo) string {
-	if r.Type == pfs.UserRepoType {
-		return r.Name
-	}
-	return fmt.Sprintf("%s.%s", r.Name, r.Type)
-}
-
-// CompactPrintBranch renders 'b' as a compact string, e.g.
-// "myrepo@master:/my/file"
-func CompactPrintBranch(b *pfs.Branch) string {
-	return fmt.Sprintf("%s@%s", CompactPrintRepo(b.Repo), b.Name)
-}
-
 // CompactPrintCommit renders 'c' as a compact string, e.g.
 // "myrepo@123abc:/my/file"
 func CompactPrintCommit(c *pfs.Commit) string {
-	return fmt.Sprintf("%s@%s", CompactPrintRepo(c.Branch.Repo), c.ID)
+	return fmt.Sprintf("%s@%s", c.Branch.Repo, c.ID)
 }
 
 // CompactPrintCommitSafe is similar to CompactPrintCommit but accepts 'nil'
@@ -286,5 +273,5 @@ func CompactPrintCommitSafe(c *pfs.Commit) string {
 // CompactPrintFile renders 'f' as a compact string, e.g.
 // "myrepo@master:/my/file"
 func CompactPrintFile(f *pfs.File) string {
-	return fmt.Sprintf("%s@%s:%s", CompactPrintRepo(f.Commit.Branch.Repo), f.Commit.ID, f.Path)
+	return fmt.Sprintf("%s@%s:%s", f.Commit.Branch.Repo, f.Commit.ID, f.Path)
 }
