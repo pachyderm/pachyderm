@@ -10,25 +10,24 @@ type Configuration struct {
 // GlobalConfiguration contains the global configuration.
 type GlobalConfiguration struct {
 	FeatureFlags
-	EtcdHost            string `env:"ETCD_SERVICE_HOST,required"`
-	EtcdPort            string `env:"ETCD_SERVICE_PORT,required"`
-	PPSWorkerPort       uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
-	Port                uint16 `env:"PORT,default=1650"`
-	PeerPort            uint16 `env:"PEER_PORT,default=1653"`
-	S3GatewayPort       uint16 `env:"S3GATEWAY_PORT,default=1600"`
-	PPSEtcdPrefix       string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace           string `env:"PACH_NAMESPACE,default=default"`
-	StorageRoot         string `env:"PACH_ROOT,default=/pach"`
-	GCPercent           int    `env:"GC_PERCENT,default=50"`
-	LokiHost            string `env:"LOKI_SERVICE_HOST"`
-	LokiPort            string `env:"LOKI_SERVICE_PORT"`
-	OidcPort            uint16 `env:"OIDC_PORT,default=1657"`
-	PostgresServiceHost string `env:"POSTGRES_HOST"`
-	PostgresServicePort int    `env:"POSTGRES_PORT"`
-	PostgresServiceSSL  string `env:"POSTGRES_SSL,default=disable"`
-	PostgresDBName      string `env:"POSTGRES_DATABASE_NAME"`
-	PostgresUser        string `env:"POSTGRES_USER,default=postgres"`
-	PostgresPassword    string `env:"POSTGRES_PASSWORD"`
+
+	EtcdHost       string `env:"ETCD_SERVICE_HOST,required"`
+	EtcdPort       string `env:"ETCD_SERVICE_PORT,required"`
+	PPSWorkerPort  uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
+	Port           uint16 `env:"PORT,default=1650"`
+	PeerPort       uint16 `env:"PEER_PORT,default=1653"`
+	S3GatewayPort  uint16 `env:"S3GATEWAY_PORT,default=1600"`
+	PPSEtcdPrefix  string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
+	Namespace      string `env:"PACH_NAMESPACE,default=default"`
+	StorageRoot    string `env:"PACH_ROOT,default=/pach"`
+	GCPercent      int    `env:"GC_PERCENT,default=50"`
+	LokiHost       string `env:"LOKI_SERVICE_HOST"`
+	LokiPort       string `env:"LOKI_SERVICE_PORT"`
+	OidcPort       uint16 `env:"OIDC_PORT,default=1657"`
+	PostgresHost   string `env:"POSTGRES_HOST"`
+	PostgresPort   int    `env:"POSTGRES_PORT"`
+	PostgresSSL    string `env:"POSTGRES_SSL,default=disable"`
+	PostgresDBName string `env:"POSTGRES_DATABASE_NAME"`
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
