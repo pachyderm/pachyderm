@@ -31,8 +31,6 @@ type GlobalConfiguration struct {
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	LogLevel             string `env:"LOG_LEVEL,default=info"`
-	AuthEtcdPrefix       string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
-	IdentityEtcdPrefix   string `env:"PACHYDERM_IDENTITY_ETCD_PREFIX,default=pachyderm_identity"`
 	EnterpriseEtcdPrefix string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	Metrics              bool   `env:"METRICS,default=true"`
 	MetricsEndpoint      string `env:"METRICS_ENDPOINT,default="`
