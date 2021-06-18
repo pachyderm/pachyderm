@@ -598,26 +598,6 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
-			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
-			port, err = fw.RunForDashUI(uiPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["dash-ui"] = uint32(port)
-				successCount++
-			}
-
-			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-			port, err = fw.RunForDashWebSocket(uiWebsocketPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["dash-ws"] = uint32(port)
-				successCount++
-			}
-
 			fmt.Println("Forwarding the s3gateway port...")
 			port, err = fw.RunForS3Gateway(s3gatewayPort, remoteS3gatewayPort)
 			if err != nil {

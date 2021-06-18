@@ -178,11 +178,6 @@ func (f *PortForwarder) RunForEnterpriseServer(localPort, remotePort uint16) (ui
 	return f.Run("pach-enterprise", localPort, remotePort)
 }
 
-// RunForDashWebSocket creates a port forwarder for the dash websocket.
-func (f *PortForwarder) RunForDashWebSocket(localPort uint16) (uint16, error) {
-	return f.Run("dash", localPort, 8081)
-}
-
 // RunForS3Gateway creates a port forwarder for the s3gateway.
 func (f *PortForwarder) RunForS3Gateway(localPort, remotePort uint16) (uint16, error) {
 	return f.Run("pachd", localPort, remotePort)
