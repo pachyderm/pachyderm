@@ -9878,6 +9878,7 @@ func TestNonrootPipeline(t *testing.T) {
 			PodPatch:     `[{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}]`,
 		},
 	)
+	require.NoError(t, err)
 
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
