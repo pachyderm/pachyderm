@@ -502,7 +502,7 @@ func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
 	return nil
 }
 
-// GetFileTAR implements the protobuf pfs.GetFile RPC
+// GetFileTAR implements the protobuf pfs.GetFileTAR RPC
 func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -524,6 +524,32 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 			return err
 		})
 		return bytesWritten, err
+	})
+}
+
+// GetFile implements the protobuf pfs.GetFile RPC
+func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	return metrics.ReportRequestWithThroughput(func() (int64, error) {
+		ctx := server.Context()
+		src, err := a.driver.getFile(ctx, request.File)
+		if err != nil {
+			return 0, err
+		}
+		finfo, file, err := singleFile(ctx, src)
+		if err != nil {
+			return 0, err
+		}
+		if request.URL != "" {
+			return getFileURL(ctx, request.URL, src)
+		}
+		if err := grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
+			return file.Content(w)
+		}); err != nil {
+			return 0, err
+		}
+		return int64(finfo.SizeBytes), nil
 	})
 }
 

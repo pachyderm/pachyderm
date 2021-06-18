@@ -2395,7 +2395,7 @@ func TestPFS(suite *testing.T) {
 		t.Run("Directory", func(t *testing.T) {
 			buffer := bytes.Buffer{}
 			err = env.PachClient.GetFile(commit, "dir", &buffer)
-			require.NoError(t, err)
+			require.YesError(t, err)
 		})
 	})
 
@@ -3269,7 +3269,7 @@ func TestPFS(suite *testing.T) {
 	// right order. GetFile(glob) is supposed to return a stream of data of the
 	// form file1 + file2 + .. + fileN, where file1 is the lexicographically lowest
 	// file matching 'glob', file2 is the next lowest, etc.
-	suite.Run("GetFileGlobOrder", func(t *testing.T) {
+	suite.Run("GetFileTARGlobOrder", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
@@ -3287,7 +3287,17 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
 		var output bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(commit, "/data/*", &output))
+		rc, err := env.PachClient.GetFileTAR(commit, "/data/*")
+		require.NoError(t, err)
+		defer rc.Close()
+		tr := tar.NewReader(rc)
+		for _, err := tr.Next(); err != io.EOF; _, err = tr.Next() {
+			require.NoError(t, err)
+			_, err = io.Copy(&output, tr)
+			require.NoError(t, err)
+		}
+		require.NoError(t, err)
+
 		require.Equal(t, expected.String(), output.String())
 	})
 
