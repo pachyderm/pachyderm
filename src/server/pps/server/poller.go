@@ -101,12 +101,12 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 
 			// 2. Replenish 'dbPipelines' with the set of pipelines currently in
 			// the database. Note that there may be zero, and dbPipelines may be empty
-			if err := m.a.listPipelinePtr(ctx, nil, 0,
+			if err := m.a.listPipelineInfo(ctx, nil, 0,
 				func(ptr *pps.PipelineInfo) error {
 					dbPipelines[ptr.Pipeline.Name] = true
 					return nil
 				}); err != nil {
-				// listPipelinePtr results (dbPipelines) are used by all remaining
+				// listPipelineInfo results (dbPipelines) are used by all remaining
 				// steps, so if that didn't work, start over and try again
 				dbPipelines = map[string]bool{}
 				return errors.Wrap(err, "error polling pipelines")

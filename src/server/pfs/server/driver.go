@@ -923,7 +923,10 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 		if err != nil {
 			return nil, err
 		}
-		commitInfo.Details = &pfs.CommitInfo_Details{SizeBytes: uint64(size)}
+		if commitInfo.Details == nil {
+			commitInfo.Details = &pfs.CommitInfo_Details{}
+		}
+		commitInfo.Details.SizeBytes = uint64(size)
 	}
 	return commitInfo, nil
 }

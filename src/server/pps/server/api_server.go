@@ -690,7 +690,7 @@ func (a *apiServer) listJob(
 		return fmt.Sprintf("%s-%v", name, version)
 	}
 	pipelineVersions := make(map[string]bool)
-	if err := a.listPipelinePtr(ctx, pipeline, history,
+	if err := a.listPipelineInfo(ctx, pipeline, history,
 		func(ptr *pps.PipelineInfo) error {
 			pipelineVersions[versionKey(ptr.Pipeline.Name, ptr.Version)] = true
 			return nil
@@ -2350,7 +2350,7 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		}
 	}
 
-	// TODO: move this into
+	// TODO: move this into ppsutil.GetPipelineDetails?
 	workerPoolID := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	workerStatus, err := workerserver.Status(txnCtx.ClientContext, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
 	if err != nil {
@@ -2429,7 +2429,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	// stream these out of etcd
 	eg.Go(func() error {
 		defer close(infos)
-		return a.listPipelinePtr(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
+		return a.listPipelineInfo(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -2475,9 +2475,9 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	return eg.Wait()
 }
 
-// listPipelinePtr enumerates all PPS pipelines in etcd, filters them based on
-// 'request', and then calls 'f' on each value
-func (a *apiServer) listPipelinePtr(ctx context.Context,
+// listPipelineInfo enumerates all PPS pipelines in the database, filters them
+// based on 'request', and then calls 'f' on each value
+func (a *apiServer) listPipelineInfo(ctx context.Context,
 	pipeline *pps.Pipeline, history int64, f func(*pps.PipelineInfo) error) error {
 	p := &pps.PipelineInfo{}
 	forEachPipeline := func() error {
@@ -2521,52 +2521,49 @@ func (a *apiServer) listPipelinePtr(ctx context.Context,
 func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	// Possibly list pipelines in etcd (skip PFS read--don't need it) and delete them
+
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
 		pipelineInfo := &pps.PipelineInfo{}
 		if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
 			request.Pipeline.Name = pipelineInfo.Pipeline.Name
-			_, err := a.deletePipeline(ctx, request)
-			return err
+			return a.deletePipeline(ctx, request)
 		}); err != nil {
 			return nil, err
 		}
-		return &types.Empty{}, nil
+	} else if err := a.deletePipeline(ctx, request); err != nil {
+		return nil, err
 	}
 
-	// Otherwise delete single pipeline from request
-	return a.deletePipeline(ctx, request)
+	return &types.Empty{}, nil
 }
 
-func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) error {
 	// Check if there's a PipelineInfo for this pipeline. If not, we can't
 	// authorize, and must return something here
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		if col.IsErrNotFound(err) {
-			return &types.Empty{}, nil
+			return nil
 		}
-		return nil, err
+		return err
 	}
 
-	// Attempt to load pipeline details
+	// Load pipeline details so we can do some cleanup tasks based on certain
+	// input types and the output branch.
 	pachClient := a.env.GetPachClient(ctx)
 	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
-		logrus.Errorf("error loading pipeline details: %v", err)
-		pipelineInfo.Details = &pps.PipelineInfo_Details{OutputBranch: "master"}
+		return err
 	}
 
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
 	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
-		return nil, err
+		return err
 	} else if err == nil {
-		// Check if the caller is authorized to delete this pipeline. This must be
-		// done after cleaning up the spec branch HEAD commit, because the
-		// authorization condition depends on the pipeline's PipelineInfo
+		// Check if the caller is authorized to delete this pipeline
 		if err := a.authorizePipelineOp(ctx, pipelineOpDelete, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
-			return nil, err
+			return err
 		}
 		if request.KeepRepo {
 			// Remove branch provenance
@@ -2577,12 +2574,12 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 				"",
 				nil,
 			); err != nil {
-				return nil, err
+				return err
 			}
 		} else {
 			// delete the pipeline's output repo
 			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -2595,22 +2592,19 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
 			// 'pipelineInfo' == nil => remove pipeline from all input repos
 			if err := a.fixPipelineInputRepoACLs(ctx, nil, pipelineInfo); err != nil {
-				return nil, grpcutil.ScrubGRPC(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			if _, err := pachClient.RevokeAuthToken(pachClient.Ctx(),
 				&auth.RevokeAuthTokenRequest{
 					Token: pipelineInfo.AuthToken,
 				}); err != nil {
 
-				return nil, grpcutil.ScrubGRPC(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 		}
 	}
 
-	// Kill or delete all of the pipeline's jobs
-	// TODO(msteffen): a job may be created by the worker master after this step
-	// but before the pipeline RC is deleted. Check for orphaned jobs in
-	// pollPipelines.
+	// Delete all of the pipeline's jobs
 	var eg errgroup.Group
 	jobInfo := &pps.JobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobInfo, col.DefaultOptions(), func(string) error {
@@ -2624,10 +2618,10 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		})
 		return nil
 	}); err != nil {
-		return nil, err
+		return err
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return err
 	}
 
 	eg = errgroup.Group{}
@@ -2651,10 +2645,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		}
 		return nil
 	})
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
+	return eg.Wait()
 }
 
 // StartPipeline implements the protobuf pps.StartPipeline RPC
