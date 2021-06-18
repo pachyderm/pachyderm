@@ -321,8 +321,6 @@ spec:
         - containerPort: 650
           name: api-grpc-port
           protocol: TCP
-        - containerPort: 651
-          name: trace-port
         - containerPort: 652
           name: api-http-port
           protocol: TCP
