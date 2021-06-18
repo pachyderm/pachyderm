@@ -37,17 +37,14 @@ const (
 var (
 	suite = "pachyderm"
 
-	pachdImage     = "pachyderm/pachd"
-	grpcProxyImage = "pachyderm/grpc-proxy:0.4.10"
-	dashName       = "dash"
-	workerImage    = "pachyderm/worker"
-	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
+	pachdImage  = "pachyderm/pachd"
+	workerImage = "pachyderm/worker"
+	pauseImage  = "gcr.io/google_containers/pause-amd64:3.0"
 
 	// ServiceAccountName is the name of Pachyderm's service account.
 	// It's public because it's needed by pps.APIServer to create the RCs for
 	// workers.
 	ServiceAccountName = "pachyderm"
-	grpcProxyName      = "grpc-proxy"
 	pachdName          = "pachd"
 	// PrometheusPort hosts the prometheus stats for scraping
 	PrometheusPort = 1656
@@ -169,9 +166,6 @@ type AssetOpts struct {
 	LogLevel   string
 	Metrics    bool
 	Dynamic    bool
-	DashOnly   bool
-	NoDash     bool
-	DashImage  string
 	Registry   string
 	EtcdPrefix string
 	PachdPort  int32
@@ -802,79 +796,6 @@ func PachdPeerService(opts *AssetOpts) *v1.Service {
 	}
 }
 
-// DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment(opts *AssetOpts) *apps.Deployment {
-	return &apps.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Deployment",
-			APIVersion: "apps/v1",
-		},
-		ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
-		Spec: apps.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels(dashName),
-			},
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name:  dashName,
-							Image: AddRegistry(opts.Registry, opts.DashImage),
-							Ports: []v1.ContainerPort{
-								{
-									ContainerPort: 8080,
-									Name:          "dash-http",
-								},
-							},
-							ImagePullPolicy: "IfNotPresent",
-						},
-						{
-							Name:  grpcProxyName,
-							Image: AddRegistry(opts.Registry, grpcProxyImage),
-							Ports: []v1.ContainerPort{
-								{
-									ContainerPort: 8081,
-									Name:          "grpc-proxy-http",
-								},
-							},
-							ImagePullPolicy: "IfNotPresent",
-						},
-					},
-					ImagePullSecrets: imagePullSecrets(opts),
-				},
-			},
-		},
-	}
-}
-
-// DashService creates a Service for the pachyderm dashboard.
-func DashService(opts *AssetOpts) *v1.Service {
-	return &v1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
-		Spec: v1.ServiceSpec{
-			Type:     v1.ServiceTypeNodePort,
-			Selector: labels(dashName),
-			Ports: []v1.ServicePort{
-				{
-					Port:     8080,
-					Name:     "dash-http",
-					NodePort: 30080,
-				},
-				{
-					Port:     8081,
-					Name:     "grpc-proxy-http",
-					NodePort: 30081,
-				},
-			},
-		},
-	}
-}
-
 // MinioSecret creates an amazon secret with the following parameters:
 //   bucket - S3 bucket name
 //   id     - S3 access key id
@@ -904,9 +825,6 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 // WriteSecret writes a JSON-encoded k8s secret to the given writer.
 // The secret uses the given map as data.
 func WriteSecret(encoder serde.Encoder, data map[string][]byte, opts *AssetOpts) error {
-	if opts.DashOnly {
-		return nil
-	}
 	secret := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -986,26 +904,11 @@ func MicrosoftSecret(container string, id string, secret string) map[string][]by
 	}
 }
 
-// WriteDashboardAssets writes the k8s config for deploying the Pachyderm
-// dashboard to 'encoder'
-func WriteDashboardAssets(encoder serde.Encoder, opts *AssetOpts) error {
-	if err := encoder.Encode(DashService(opts)); err != nil {
-		return err
-	}
-	return encoder.Encode(DashDeployment(opts))
-}
-
 // WriteAssets writes the assets to encoder.
 func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Backend,
 	persistentDiskBackend Backend, volumeSize int,
 	hostPath string) error {
 	fillDefaultResourceRequests(opts, persistentDiskBackend)
-	if opts.DashOnly {
-		if dashErr := WriteDashboardAssets(encoder, opts); dashErr != nil {
-			return dashErr
-		}
-		return nil
-	}
 
 	for _, sa := range ServiceAccounts(opts) {
 		if err := encoder.Encode(sa); err != nil {
@@ -1062,11 +965,6 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 	if err := encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath)); err != nil {
 		return err
 	}
-	if !opts.NoDash {
-		if err := WriteDashboardAssets(encoder, opts); err != nil {
-			return err
-		}
-	}
 	if opts.TLS != nil {
 		if err := WriteTLSSecret(encoder, opts); err != nil {
 			return err
@@ -1081,9 +979,6 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 // key
 func WriteTLSSecret(encoder serde.Encoder, opts *AssetOpts) error {
 	// Validate arguments
-	if opts.DashOnly {
-		return nil
-	}
 	if opts.TLS == nil {
 		return errors.Errorf("internal error: WriteTLSSecret called but opts.TLS is nil")
 	}
@@ -1222,10 +1117,8 @@ func Images(opts *AssetOpts) []string {
 		versionedWorkerImage(opts),
 		etcdImage,
 		postgresImage,
-		grpcProxyImage,
 		pauseImage,
 		versionedPachdImage(opts),
-		opts.DashImage,
 	}
 }
 

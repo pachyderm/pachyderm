@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -40,9 +39,7 @@ var (
 )
 
 const (
-	defaultDashImage   = "pachyderm/dash"
-	defaultDashVersion = "0.5.57"
-	etcdNodePort       = 32379
+	etcdNodePort = 32379
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
@@ -141,10 +138,6 @@ func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 	}
 
 	fmt.Println("\nPachyderm is launching. Check its status with \"kubectl get all\"")
-	if opts.DashOnly || !opts.NoDash {
-		fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
-	}
-	fmt.Println("")
 
 	return nil
 }
@@ -248,8 +241,6 @@ func standardDeployCmds() []*cobra.Command {
 	var outputFormat string
 	var namespace string
 	var serverCert string
-	var dashImage string
-	var dashOnly bool
 	var etcdCPURequest string
 	var etcdMemRequest string
 	var etcdNodes int
@@ -262,7 +253,6 @@ func standardDeployCmds() []*cobra.Command {
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
-	var noDash bool
 	var noExposeDockerSocket bool
 	var noGuaranteed bool
 	var noRBAC bool
@@ -285,11 +275,8 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest. Note that a pachyderm context will not be created, unless you also use `--create-context`.")
 		cmd.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
 		cmd.Flags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-		cmd.Flags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
-		cmd.Flags().BoolVar(&noDash, "no-dashboard", false, "Don't deploy the Pachyderm UI alongside Pachyderm (experimental).")
 		cmd.Flags().StringVar(&registry, "registry", "", "The registry to pull images from.")
 		cmd.Flags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
-		cmd.Flags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 		cmd.Flags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as on Minikube), it should normally be used for production clusters.")
 		cmd.Flags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
 		cmd.Flags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
@@ -378,15 +365,6 @@ func standardDeployCmds() []*cobra.Command {
 			}
 		}
 
-		// When deploying the enterprise server don't ever install dash.
-		if enterpriseServer {
-			noDash = true
-		}
-
-		if dashImage == "" {
-			dashImage = fmt.Sprintf("%s:%s", defaultDashImage, getCompatibleVersion("dash", "", defaultDashVersion))
-		}
-
 		opts = &assets.AssetOpts{
 			FeatureFlags: assets.FeatureFlags{},
 			EtcdOpts: assets.EtcdOpts{
@@ -411,9 +389,6 @@ func standardDeployCmds() []*cobra.Command {
 			Metrics:                    cfg == nil || cfg.V2.Metrics,
 			PachdCPURequest:            pachdCPURequest,
 			PachdNonCacheMemRequest:    pachdNonCacheMemRequest,
-			DashOnly:                   dashOnly,
-			NoDash:                     noDash,
-			DashImage:                  dashImage,
 			Registry:                   registry,
 			ImagePullSecret:            imagePullSecret,
 			NoGuaranteed:               noGuaranteed,
@@ -898,49 +873,4 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(undeployCmd, "undeploy"))
 
 	return commands
-}
-
-// getCompatibleVersion gets the compatible version of another piece of
-// software, or falls back to a default
-func getCompatibleVersion(displayName, subpath, defaultValue string) string {
-	var relVersion string
-	// This is the branch where to look.
-	// When a new version needs to be pushed we can just update the
-	// compatibility file in pachyderm repo branch. A (re)deploy will pick it
-	// up. To make this work we have to point the URL to the branch (not tag)
-	// in the repo.
-	branch := version.BranchFromVersion(version.Version)
-	if version.IsCustomRelease(version.Version) {
-		relVersion = version.PrettyPrintVersionNoAdditional(version.Version)
-	} else {
-		relVersion = version.PrettyPrintVersion(version.Version)
-	}
-
-	url := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/compatibility%s/etc/%s/%s", branch, subpath, relVersion)
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
-		return defaultValue
-	}
-
-	// Error on non-200; for the requests we're making, 200 is the only OK
-	// state
-	if resp.StatusCode != 200 {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: unexpected return code %d", displayName, defaultValue, resp.StatusCode)
-		return defaultValue
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
-		return defaultValue
-	}
-
-	allVersions := strings.Split(strings.TrimSpace(string(body)), "\n")
-	if len(allVersions) < 1 {
-		log.Warningf("no compatible version of %s found, falling back to %s", displayName, defaultValue)
-		return defaultValue
-	}
-	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
-	return latestVersion
 }
