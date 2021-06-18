@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -874,49 +873,4 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(undeployCmd, "undeploy"))
 
 	return commands
-}
-
-// getCompatibleVersion gets the compatible version of another piece of
-// software, or falls back to a default
-func getCompatibleVersion(displayName, subpath, defaultValue string) string {
-	var relVersion string
-	// This is the branch where to look.
-	// When a new version needs to be pushed we can just update the
-	// compatibility file in pachyderm repo branch. A (re)deploy will pick it
-	// up. To make this work we have to point the URL to the branch (not tag)
-	// in the repo.
-	branch := version.BranchFromVersion(version.Version)
-	if version.IsCustomRelease(version.Version) {
-		relVersion = version.PrettyPrintVersionNoAdditional(version.Version)
-	} else {
-		relVersion = version.PrettyPrintVersion(version.Version)
-	}
-
-	url := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/compatibility%s/etc/%s/%s", branch, subpath, relVersion)
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
-		return defaultValue
-	}
-
-	// Error on non-200; for the requests we're making, 200 is the only OK
-	// state
-	if resp.StatusCode != 200 {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: unexpected return code %d", displayName, defaultValue, resp.StatusCode)
-		return defaultValue
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
-		return defaultValue
-	}
-
-	allVersions := strings.Split(strings.TrimSpace(string(body)), "\n")
-	if len(allVersions) < 1 {
-		log.Warningf("no compatible version of %s found, falling back to %s", displayName, defaultValue)
-		return defaultValue
-	}
-	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
-	return latestVersion
 }
