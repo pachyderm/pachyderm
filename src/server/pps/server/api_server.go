@@ -1444,10 +1444,13 @@ func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps
 
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	pachClient := a.env.GetPachClient(ctx)
-	if _, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name); err == nil {
+	pipelines := a.pipelines.ReadOnly(ctx)
+	if err := pipelines.Get(pipelineInfo.Pipeline.Name, &pps.StoredPipelineInfo{}); err == nil {
 		// Pipeline already exists so we allow people to update it even if
 		// they're over the limits.
 		return nil
+	} else if !col.IsErrNotFound(err) {
+		return err
 	}
 	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
 		&enterpriseclient.GetStateRequest{})
@@ -1458,14 +1461,14 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *
 		// Enterprise is enabled so anything goes.
 		return nil
 	}
-	pipelines, err := a.pipelines.ReadOnly(ctx).Count()
+	pipelineCount, err := pipelines.Count()
 	if err != nil {
 		return err
 	}
-	if pipelines >= enterpriselimits.Pipelines {
+	if pipelineCount >= enterpriselimits.Pipelines {
 		enterprisemetrics.IncEnterpriseFailures()
 		return errors.Errorf("%s requires an activation key to create more than %d total pipelines (you have %d). %s\n\n%s",
-			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, pipelines, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, pipelineCount, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 	}
 	if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > enterpriselimits.Parallelism {
 		enterprisemetrics.IncEnterpriseFailures()
@@ -1972,9 +1975,11 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 	update := false
 	if request.Update {
-		// inspect the pipeline to see if this is a real update
-		if _, err := a.inspectPipelineInTransaction(txnCtx, request.Pipeline.Name); err == nil {
+		// check if the pipeline already exists, meaning this is a real update
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(request.Pipeline.Name, &pps.StoredPipelineInfo{}); err == nil {
 			update = true
+		} else if !col.IsErrNotFound(err) {
+			return err
 		}
 	}
 	var (
