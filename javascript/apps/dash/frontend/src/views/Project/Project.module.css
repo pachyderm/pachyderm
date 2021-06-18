@@ -2,6 +2,10 @@
   overflow: visible;
 }
 
+.base {
+  background-color: var(--background-grey);
+}
+
 .base:hover {
   cursor: move;
   cursor: grab;
