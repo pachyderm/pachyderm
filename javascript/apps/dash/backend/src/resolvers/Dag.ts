@@ -1,5 +1,10 @@
 import {RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
-import {Input, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
+import {
+  CronInput,
+  Input,
+  PFSInput,
+  PipelineInfo,
+} from '@pachyderm/proto/pb/pps/pps_pb';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatMap from 'lodash/flatMap';
 import flatten from 'lodash/flatten';
@@ -14,7 +19,13 @@ import {
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
 import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
-import {LinkInputData, NodeInputData, Vertex} from '@dash-backend/lib/types';
+import {
+  EgressVertex,
+  LinkInputData,
+  NodeInputData,
+  PipelineVertex,
+  RepoVertex,
+} from '@dash-backend/lib/types';
 import withSubscription from '@dash-backend/lib/withSubscription';
 import {
   Dag,
@@ -38,15 +49,23 @@ interface DagResolver {
 
 const elk = new ELK();
 
-const flattenPipelineInput = (input: Input.AsObject): string[] => {
+const flattenPipelineInput = (
+  input: Input.AsObject,
+): (
+  | Omit<PFSInput.AsObject, 'commit'>
+  | Omit<CronInput.AsObject, 'commit'>
+)[] => {
   const result = [];
 
   if (input.pfs) {
-    result.push(`${input.pfs.repo}_repo`);
+    const {commit, ...rest} = input.pfs;
+    result.push(rest);
   }
 
   if (input.cron) {
-    result.push(`${input.cron.repo}_repo`);
+    const {commit, ...rest} = input.cron;
+
+    result.push(rest);
   }
 
   // TODO: Update to indicate which elemets are crossed, unioned, joined, grouped, with.
@@ -66,7 +85,7 @@ const deriveVertices = (
   const pipelineMap = keyBy(pipelines, (p) => p.pipeline?.name || '');
   const repoMap = keyBy(repos, (r) => r.repo?.name || '');
 
-  const repoNodes = repos.map((r) => ({
+  const repoNodes = repos.map<RepoVertex>((r) => ({
     name: `${r.repo?.name}_repo`,
     type:
       r.repo && pipelineMap[r.repo.name]
@@ -84,7 +103,7 @@ const deriveVertices = (
     const state = toGQLPipelineState(p.state);
     const jobState = toGQLJobState(p.lastJobState);
 
-    const nodes: Vertex[] = [
+    const nodes: (PipelineVertex | EgressVertex)[] = [
       {
         name: pipelineName,
         type: NodeType.PIPELINE,
@@ -137,7 +156,7 @@ const deriveTransferringState = ({
 };
 
 const normalizeDAGData = async (
-  vertices: Vertex[],
+  vertices: (EgressVertex | PipelineVertex | RepoVertex)[],
   nodeWidth: number,
   nodeHeight: number,
   direction: DagDirection = DagDirection.RIGHT,
@@ -157,20 +176,20 @@ const normalizeDAGData = async (
 
   // create elk edges
   const elkEdges = flatten(
-    vertices.map((node) =>
-      node.parents.reduce<LinkInputData[]>((acc, parentName) => {
-        const source = correspondingIndex[parentName || ''];
-        if (Number.isInteger(source)) {
-          const state = vertices[source].jobState;
-
+    vertices.map<LinkInputData[]>((node) => {
+      if (node.type === NodeType.PIPELINE) {
+        return node.parents.reduce<LinkInputData[]>((acc, parent) => {
+          const parentName = `${parent.repo}_repo`;
+          const sourceIndex = correspondingIndex[parentName];
+          const state = vertices[sourceIndex].jobState;
           return [
             ...acc,
             {
-              id: `${parentName}-${node.name}`,
+              id: objectHash({node: node, ...parent}),
               sources: [parentName],
               targets: [node.name],
               state,
-              sourceState: vertices[source].state,
+              sourceState: vertices[sourceIndex].state,
               targetstate: node.state,
               sections: [],
               transferring: deriveTransferringState({
@@ -180,10 +199,33 @@ const normalizeDAGData = async (
               }),
             },
           ];
-        }
-        return acc;
-      }, []),
-    ),
+        }, []);
+      }
+
+      return node.parents.reduce<LinkInputData[]>((acc, parentName) => {
+        const sourceIndex = correspondingIndex[parentName || ''];
+        const state = vertices[sourceIndex].jobState;
+
+        return [
+          ...acc,
+          {
+            // hashing here for consistency
+            id: objectHash(`${parentName}-${node.name}`),
+            sources: [parentName],
+            targets: [node.name],
+            state,
+            sourceState: vertices[sourceIndex].state,
+            targetstate: node.state,
+            sections: [],
+            transferring: deriveTransferringState({
+              targetNodeType: node.type,
+              state,
+              targetNodeState: node.jobState,
+            }),
+          },
+        ];
+      }, []);
+    }),
   );
 
   // create elk children

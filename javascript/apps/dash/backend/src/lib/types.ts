@@ -1,10 +1,11 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
+import {CronInput, PFSInput} from '@pachyderm/proto/pb/pps/pps_pb';
 import {ApolloError} from 'apollo-server-errors';
 import Logger from 'bunyan';
 import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
 import client from '@dash-backend/grpc/client';
-import {Node, JobState, Account, Link} from '@graphqlTypes';
+import {Node, JobState, Account, Link, NodeType} from '@graphqlTypes';
 
 export type PachClient = ReturnType<typeof client>;
 
@@ -27,8 +28,24 @@ export interface LinkInputData
 
 export interface NodeInputData extends ElkNode, Omit<Node, 'x' | 'y'> {}
 
-export interface Vertex extends Omit<Node, 'x' | 'y' | 'id'> {
+export interface RepoVertex extends Omit<Node, 'x' | 'y' | 'id' | 'type'> {
   parents: string[];
+  type: NodeType.OUTPUT_REPO | NodeType.INPUT_REPO;
+  jobState?: JobState;
+}
+
+export interface EgressVertex extends Omit<Node, 'x' | 'y' | 'id' | 'type'> {
+  parents: string[];
+  type: NodeType.EGRESS;
+  jobState?: JobState;
+}
+
+export interface PipelineVertex extends Omit<Node, 'x' | 'y' | 'id' | 'type'> {
+  parents: (
+    | Omit<PFSInput.AsObject, 'commit'>
+    | Omit<CronInput.AsObject, 'commit'>
+  )[];
+  type: NodeType.PIPELINE;
   jobState?: JobState;
 }
 

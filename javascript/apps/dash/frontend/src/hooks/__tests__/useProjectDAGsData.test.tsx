@@ -44,7 +44,10 @@ const ProjectsComponent = () => {
               return (
                 <div key={link.id}>
                   <span>
-                    {i} link id: {link.id}
+                    {i} link source: {link.source}
+                  </span>
+                  <span>
+                    {i} link target: {link.target}
                   </span>
                   <span>
                     {i} link state: {link.state}
@@ -95,17 +98,29 @@ describe('useProjects', () => {
     expect(node0state).toBeInTheDocument();
     expect(node1state).toBeInTheDocument();
 
-    const link0id = await findByText('0 link id: montage-montage_repo');
-    const link1id = await findByText('1 link id: edges-edges_repo');
-    const link2id = await findByText('2 link id: images_repo-montage');
-    const link3id = await findByText('3 link id: images_repo-edges');
-    const link4id = await findByText('4 link id: edges_repo-montage');
+    const link0Source = await findByText('0 link source: montage');
+    const link1Source = await findByText('1 link source: edges');
+    const link2Source = await findByText('2 link source: images_repo');
+    const link3Source = await findByText('3 link source: images_repo');
+    const link4Source = await findByText('4 link source: edges_repo');
 
-    expect(link0id).toBeInTheDocument();
-    expect(link1id).toBeInTheDocument();
-    expect(link2id).toBeInTheDocument();
-    expect(link3id).toBeInTheDocument();
-    expect(link4id).toBeInTheDocument();
+    expect(link0Source).toBeInTheDocument();
+    expect(link1Source).toBeInTheDocument();
+    expect(link2Source).toBeInTheDocument();
+    expect(link3Source).toBeInTheDocument();
+    expect(link4Source).toBeInTheDocument();
+
+    const link0Target = await findByText('0 link target: montage_repo');
+    const link1Target = await findByText('1 link target: edges_repo');
+    const link2Target = await findByText('2 link target: montage');
+    const link3Target = await findByText('3 link target: edges');
+    const link4Target = await findByText('4 link target: montage');
+
+    expect(link0Target).toBeInTheDocument();
+    expect(link1Target).toBeInTheDocument();
+    expect(link2Target).toBeInTheDocument();
+    expect(link3Target).toBeInTheDocument();
+    expect(link4Target).toBeInTheDocument();
 
     const link0state = await findByText('0 link state: JOB_CREATED');
     const link1state = await findByText('1 link state: JOB_CREATED');
