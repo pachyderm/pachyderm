@@ -99,9 +99,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "PORT",
 		Value: strconv.FormatUint(uint64(a.port), 10),
 	}, {
-		Name:  "HTTP_PORT",
-		Value: strconv.FormatUint(uint64(a.httpPort), 10),
-	}, {
 		Name:  "PEER_PORT",
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	}, {

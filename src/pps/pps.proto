@@ -161,6 +161,7 @@ enum DatumState {
   SKIPPED = 2;
   STARTING = 3;
   RECOVERED = 4;
+  UNPROCESSED = 5;
 }
 
 message DatumInfo {

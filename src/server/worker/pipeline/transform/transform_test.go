@@ -223,7 +223,7 @@ func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 		}
 		return nil
 	}))
-	require.NoError(t, env.PachClient.PutFileTar(commit, buf, client.WithAppendPutFile()))
+	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
 	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
 }
 

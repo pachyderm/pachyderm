@@ -5433,7 +5433,7 @@ func TestPFS(suite *testing.T) {
 			"file1.txt": tarutil.NewMemFile("file1.txt", data),
 			"file2.txt": tarutil.NewMemFile("file2.txt", data),
 		}
-		require.NoError(t, fsclient.PutFileTar(spec.makeTarStream()))
+		require.NoError(t, fsclient.PutFileTAR(spec.makeTarStream()))
 		resp, err := fsclient.Close()
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FileSetId)
@@ -5470,7 +5470,7 @@ func TestPFS(suite *testing.T) {
 				require.NoError(t, err)
 				fsSpec[hdr.Name] = file
 			}
-			require.NoError(t, env.PachClient.PutFileTar(commit1, fsSpec.makeTarStream()))
+			require.NoError(t, env.PachClient.PutFileTAR(commit1, fsSpec.makeTarStream()))
 			runtime.GC()
 		}
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
@@ -5487,16 +5487,16 @@ func TestPFS(suite *testing.T) {
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
 			require.NoError(t, err)
 			files := []string{"/empty-1", "/empty-2"}
+			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
+				Body: &pfs.ModifyFileRequest_SetCommit{SetCommit: client.NewCommit(repo, "master", "")},
+			}))
 			for _, file := range files {
 				require.NoError(t, c.Send(&pfs.ModifyFileRequest{
-					Commit: client.NewCommit(repo, "master", ""),
-					Modification: &pfs.ModifyFileRequest_PutFile{
-						PutFile: &pfs.PutFile{
-							Source: &pfs.PutFile_RawFileSource{
-								RawFileSource: &pfs.RawFileSource{
-									Path: file,
-									EOF:  true,
-								},
+					Body: &pfs.ModifyFileRequest_AddFile{
+						AddFile: &pfs.AddFile{
+							Path: file,
+							Source: &pfs.AddFile_Raw{
+								Raw: &types.BytesValue{},
 							},
 						},
 					},
@@ -5522,15 +5522,14 @@ func TestPFS(suite *testing.T) {
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
 			require.NoError(t, err)
 			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
-				Commit: client.NewCommit(repo, "master", ""),
-				Modification: &pfs.ModifyFileRequest_PutFile{
-					PutFile: &pfs.PutFile{
-						Source: &pfs.PutFile_RawFileSource{
-							RawFileSource: &pfs.RawFileSource{
-								Path: filePath,
-								Data: []byte(fileContent),
-								EOF:  true,
-							},
+				Body: &pfs.ModifyFileRequest_SetCommit{SetCommit: client.NewCommit(repo, "master", "")},
+			}))
+			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
+				Body: &pfs.ModifyFileRequest_AddFile{
+					AddFile: &pfs.AddFile{
+						Path: filePath,
+						Source: &pfs.AddFile_Raw{
+							Raw: &types.BytesValue{Value: []byte(fileContent)},
 						},
 					},
 				},
@@ -5618,7 +5617,11 @@ func TestPFS(suite *testing.T) {
 			file.Tag = tag
 			return file
 		}
-		expected := []*pfs.File{newFile(repo, "master", "", "/bar", fileset.DefaultFileTag), newFile(repo, "master", "", "/foo", "tag1"), newFile(repo, "master", "", "/foo", "tag2")}
+		expected := []*pfs.File{
+			newFile(repo, "master", "", "/bar", fileset.DefaultFileTag),
+			newFile(repo, "master", "", "/foo", "tag1"),
+			newFile(repo, "master", "", "/foo", "tag2"),
+		}
 		require.NoError(t, env.PachClient.ListFile(masterCommit, "", func(fi *pfs.FileInfo) error {
 			require.Equal(t, expected[0].Path, fi.File.Path)
 			require.Equal(t, expected[0].Tag, fi.File.Tag)

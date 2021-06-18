@@ -12,7 +12,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"reflect"
@@ -6507,112 +6506,7 @@ func TestMaxQueueSize(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 	}
 }
-
-func TestHTTPAuth(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-
-	host := c.GetAddress().Host
-	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-	if !ok {
-		port = "30652" // default NodePort port for Pachd's HTTP API
-	}
-	httpAPIAddr := net.JoinHostPort(host, port)
-
-	// Try to login
-	token := "abbazabbadoo"
-	form := url.Values{}
-	form.Add("Token", token)
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/login", httpAPIAddr), strings.NewReader(form.Encode()))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	require.NoError(t, err)
-	httpClient := &http.Client{}
-	resp, err := httpClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, 1, len(resp.Cookies()))
-	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
-	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
-	require.Equal(t, token, resp.Cookies()[0].Value)
-
-	// Try to logout
-	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logout", httpAPIAddr), nil)
-	require.NoError(t, err)
-	resp, err = httpClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, 1, len(resp.Cookies()))
-	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
-	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
-	// The cookie should be unset now
-	require.Equal(t, "", resp.Cookies()[0].Value)
-
-	// Make sure we get 404s for non existent routes
-	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logoutzz", httpAPIAddr), nil)
-	require.NoError(t, err)
-	resp, err = httpClient.Do(req)
-	require.NoError(t, err)
-	require.Equal(t, 404, resp.StatusCode)
-}
-
-func TestHTTPGetFile(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-
-	dataRepo := tu.UniqueString("TestHTTPGetFile_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	f, err := os.Open("../../etc/testing/artifacts/giphy.gif")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "giphy.gif", f, client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-
-	host := c.GetAddress().Host
-	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-	if !ok {
-		port = "30652" // default NodePort port for Pachd's HTTP API
-	}
-	httpAPIAddr := net.JoinHostPort(host, port)
-
-	// Try to get raw contents
-	resp, err := http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file", httpAPIAddr, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contents, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, "foo", string(contents))
-	contentDisposition := resp.Header.Get("Content-Disposition")
-	require.Equal(t, "", contentDisposition)
-
-	// Try to get file for downloading
-	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file?download=true", httpAPIAddr, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contents, err = ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, "foo", string(contents))
-	contentDisposition = resp.Header.Get("Content-Disposition")
-	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
-
-	// Make sure MIME type is set
-	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/giphy.gif", httpAPIAddr, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contentDisposition = resp.Header.Get("Content-Type")
-	require.Equal(t, "image/gif", contentDisposition)
-}
-
 func TestService(t *testing.T) {
-	// TODO(2.0 required): this test is failing at the part where it tries to read
-	// from the PFS-over-HTTP service
-	t.Skip("PFS-over-HTTP not working for some reason")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -6718,53 +6612,6 @@ func TestService(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	host := c.GetAddress().Host
-	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-	if !ok {
-		port = "30652" // default NodePort port for Pachd's HTTP API
-	}
-	httpAPIAddr := net.JoinHostPort(host, port)
-	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := httpClient.Get(url)
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode != 200 {
-			return errors.Errorf("GET returned %d", resp.StatusCode)
-		}
-		content, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		if string(content) != "foo" {
-			return errors.Errorf("wrong content for file1: expected foo, got %s", string(content))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-
-	commit2, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit2, "file2", strings.NewReader("bar"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
-
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file2", serviceAddr, dataRepo))
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode != 200 {
-			return errors.Errorf("GET returned %d", resp.StatusCode)
-		}
-		content, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		if string(content) != "bar" {
-			return errors.Errorf("wrong content for file2: expected bar, got %s", string(content))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
 }
 
 func TestServiceEnvVars(t *testing.T) {
@@ -7524,6 +7371,10 @@ func TestCancelJob(t *testing.T) {
 // running (which tests that only one job can run at a time), and then is
 // cancelled.
 func TestCancelManyJobs(t *testing.T) {
+	// TODO(2.0 required): this test is flaky due to how PPS and PFS deal with
+	// finished commits.  When canceling a job we finish the associated commit,
+	// but its parents might not be finished, which breaks assumptions.
+	t.Skip("Skipping flaky test")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
