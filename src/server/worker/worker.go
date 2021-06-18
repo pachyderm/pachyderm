@@ -3,11 +3,9 @@ package worker
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"time"
 
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
@@ -53,11 +51,6 @@ func NewWorker(
 ) (*Worker, error) {
 	stats.InitPrometheus()
 
-	hasDocker := true
-	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
-		hasDocker = false
-	}
-
 	driver, err := driver.NewDriver(
 		env,
 		pachClient,
@@ -66,31 +59,6 @@ func NewWorker(
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	if pipelineInfo.Transform.Image != "" && hasDocker {
-		docker, err := docker.NewClientFromEnv()
-		if err != nil {
-			return nil, err
-		}
-		image, err := docker.InspectImage(pipelineInfo.Transform.Image)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error inspecting image %s", pipelineInfo.Transform.Image)
-		}
-		if pipelineInfo.Transform.User == "" {
-			pipelineInfo.Transform.User = image.Config.User
-		}
-		if pipelineInfo.Transform.WorkingDir == "" {
-			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
-		}
-		if pipelineInfo.Transform.Cmd == nil {
-			if len(image.Config.Entrypoint) == 0 {
-				ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
-					pipelineInfo.Pipeline.Name,
-					"nothing to run: no transform.cmd and no entrypoint")
-			}
-			pipelineInfo.Transform.Cmd = image.Config.Entrypoint
-		}
 	}
 
 	worker := &Worker{

@@ -32,7 +32,6 @@ func NewAPIServer(
 		storageHostPath:       env.Config().StorageHostPath,
 		iamRole:               env.Config().IAMRole,
 		imagePullSecret:       env.Config().ImagePullSecret,
-		exposeDockerSocket:    env.Config().ExposeDockerSocket,
 		reporter:              reporter,
 		workerUsesRoot:        env.Config().WorkerUsesRoot,
 		pipelines:             ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener()),

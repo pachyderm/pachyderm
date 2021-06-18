@@ -279,20 +279,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 			ContainerPort: options.s3GatewayPort,
 		})
 	}
-	if a.exposeDockerSocket {
-		options.volumes = append(options.volumes, v1.Volume{
-			Name: "docker",
-			VolumeSource: v1.VolumeSource{
-				HostPath: &v1.HostPathVolumeSource{
-					Path: "/var/run/docker.sock",
-				},
-			},
-		})
-		userVolumeMounts = append(userVolumeMounts, v1.VolumeMount{
-			Name:      "docker",
-			MountPath: "/var/run/docker.sock",
-		})
-	}
+
 	zeroVal := int64(0)
 	workerImage := a.workerImage
 	var securityContext *v1.PodSecurityContext
