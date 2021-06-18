@@ -547,7 +547,6 @@ This resets the cluster to its initial state.`,
 	var remoteS3gatewayPort uint16
 	var dexPort uint16
 	var remoteDexPort uint16
-	var idePort, remoteIDEPort uint16
 	var namespace string
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
@@ -639,16 +638,6 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
-			fmt.Println("Forwarding the IDE service port...")
-			port, err = fw.RunForIDE(idePort, remoteIDEPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["ide"] = uint32(port)
-				successCount++
-			}
-
 			if successCount == 0 {
 				return errors.New("failed to start port forwarders")
 			}
@@ -692,8 +681,6 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16Var(&remoteS3gatewayPort, "remote-s3gateway-port", 1600, "The remote port that the s3 gateway is bound to.")
 	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
 	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 1658, "The local port to bind the identity service to.")
-	portForward.Flags().Uint16Var(&idePort, "ide-port", 30659, "The local port to bind the IDE service to.")
-	portForward.Flags().Uint16Var(&remoteIDEPort, "remote-ide-port", 8000, "The local port to bind the IDE service to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
