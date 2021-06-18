@@ -424,8 +424,6 @@ func standardDeployCmds() []*cobra.Command {
 		}
 		return nil
 	}
-	preRun := cmdutil.Run(preRunInternal)
-
 	deployPreRun := cmdutil.Run(func(args []string) error {
 		if version.IsUnstable() {
 			fmt.Fprintf(os.Stderr, "WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
@@ -841,20 +839,6 @@ If <object store backend> is \"s3\", then the arguments are:
 	appendContextFlags(deployMicrosoft)
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy azure"))
-
-	listImages := &cobra.Command{
-		Short:  "Output the list of images in a deployment.",
-		Long:   "Output the list of images in a deployment.",
-		PreRun: preRun,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			for _, image := range assets.Images(opts) {
-				fmt.Println(image)
-			}
-			return nil
-		}),
-	}
-	appendGlobalFlags(listImages)
-	commands = append(commands, cmdutil.CreateAlias(listImages, "deploy list-images"))
 
 	return commands
 }
