@@ -253,7 +253,7 @@ func standardDeployCmds() []*cobra.Command {
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
-	var noExposeDockerSocket bool
+	var exposeDockerSocket bool
 	var noGuaranteed bool
 	var noRBAC bool
 	var pachdCPURequest string
@@ -281,7 +281,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
 		cmd.Flags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 		cmd.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
-		cmd.Flags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
+		cmd.Flags().BoolVar(&exposeDockerSocket, "expose-docker-socket", false, "Expose the Docker socket to worker containers. This requires root privileges for workers, but allows them to automatically set the working dir and user.")
 		cmd.Flags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
@@ -395,7 +395,7 @@ func standardDeployCmds() []*cobra.Command {
 			NoRBAC:                     noRBAC,
 			LocalRoles:                 localRoles,
 			Namespace:                  namespace,
-			NoExposeDockerSocket:       noExposeDockerSocket,
+			ExposeDockerSocket:         exposeDockerSocket,
 			ClusterDeploymentID:        clusterDeploymentID,
 			RequireCriticalServersOnly: requireCriticalServersOnly,
 			WorkerServiceAccountName:   workerServiceAccountName,

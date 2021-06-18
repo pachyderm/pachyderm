@@ -71,7 +71,7 @@ type PachdSpecificConfiguration struct {
 	WorkerImagePullPolicy      string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	IAMRole                    string `env:"IAM_ROLE,default="`
 	ImagePullSecret            string `env:"IMAGE_PULL_SECRET,default="`
-	NoExposeDockerSocket       bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
+	ExposeDockerSocket         bool   `env:"EXPOSE_DOCKER_SOCKET,default=false"`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`

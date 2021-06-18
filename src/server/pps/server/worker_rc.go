@@ -279,7 +279,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 			ContainerPort: options.s3GatewayPort,
 		})
 	}
-	if !a.noExposeDockerSocket {
+	if a.exposeDockerSocket {
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: "docker",
 			VolumeSource: v1.VolumeSource{

@@ -101,7 +101,7 @@ type apiServer struct {
 	storageHostPath       string
 	iamRole               string
 	imagePullSecret       string
-	noExposeDockerSocket  bool
+	exposeDockerSocket    bool
 	reporter              *metrics.Reporter
 	workerUsesRoot        bool
 	workerGrpcPort        uint16

@@ -9836,9 +9836,16 @@ func TestListDeletedDatums(t *testing.T) {
 }
 
 // TestNonrootPipeline tests that a pipeline can work when it's running as a UID that's not 0 (root).
+// This test doesn't work in a typical local deployment because the storage sidecar needs to
+// run as root to access the host path where the chunks are stored (at /pach).
 func TestNonrootPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// Only run this test in CI since we can control the permissions on the hostpath
+	if os.Getenv("CIRCLE_REPOSITORY_URL") == "" {
+		t.Skip("Skipping non-root test because hostpath permissions can't be verified")
 	}
 
 	c := tu.GetPachClient(t)
