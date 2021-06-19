@@ -154,6 +154,13 @@ func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.
 	return a.apiServer.GetFileTAR(request, server)
 }
 
+func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
+	if request.Head != nil && request.Branch.Repo.Name != request.Head.Branch.Repo.Name {
+		return errors.New("branch and head commit must belong to the same repo")
+	}
+	return a.apiServer.CreateBranchInTransaction(txnCtx, request)
+}
+
 func validateFile(file *pfs.File) error {
 	if file == nil {
 		return errors.New("file cannot be nil")
