@@ -2379,10 +2379,10 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	})
 }
 
-// TestDeletePipelineMissingRepos creates a pipeline, force-deletes its input
-// and output repos, and then confirms that DeletePipeline still works (i.e.
-// the missing repos/ACLs don't cause an auth error).
-func TestDeletePipelineMissingRepos(t *testing.T) {
+// TestDeletePipelineMissingInput creates a pipeline, force-deletes its input
+// repo, and then confirms that DeletePipeline still works (i.e. the missing
+// repos/ACLs don't cause an auth error).
+func TestDeletePipelineMissingInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2412,7 +2412,6 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// force-delete input and output repos
 	require.NoError(t, aliceClient.DeleteRepo(repo, true))
-	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
 
 	// Attempt to delete the pipeline--must succeed
 	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
