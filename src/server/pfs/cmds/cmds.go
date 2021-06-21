@@ -952,7 +952,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
 						}
-						if err := putFileHelper(mf, joinPaths("", source), source, recursive, appendFile); err != nil {
+						target := filepath.Base(source)
+						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
@@ -964,7 +965,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						if err := putFileHelper(mf, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
+						target := filepath.Base(source)
+						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					}
