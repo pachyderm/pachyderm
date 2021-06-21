@@ -75,9 +75,9 @@ func NewJob(pipelineName string, jobID string) *pps.Job {
 	return &pps.Job{Pipeline: NewPipeline(pipelineName), ID: jobID}
 }
 
-// NewJobset creates a pps.Jobset.
-func NewJobset(id string) *pps.Jobset {
-	return &pps.Jobset{ID: id}
+// NewJobSet creates a pps.JobSet.
+func NewJobSet(id string) *pps.JobSet {
+	return &pps.JobSet{ID: id}
 }
 
 // DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
@@ -232,12 +232,12 @@ func (c APIClient) WaitJob(pipelineName string, jobID string, full bool) (_ *pps
 	return jobInfo, grpcutil.ScrubGRPC(err)
 }
 
-func (c APIClient) inspectJobset(id string, wait bool, cb func(*pps.JobInfo) error) (retErr error) {
-	req := &pps.InspectJobsetRequest{
-		Jobset: NewJobset(id),
+func (c APIClient) inspectJobSet(id string, wait bool, cb func(*pps.JobInfo) error) (retErr error) {
+	req := &pps.InspectJobSetRequest{
+		JobSet: NewJobSet(id),
 		Wait:   wait,
 	}
-	client, err := c.PpsAPIClient.InspectJobset(c.Ctx(), req)
+	client, err := c.PpsAPIClient.InspectJobSet(c.Ctx(), req)
 	if err != nil {
 		return err
 	}
@@ -258,10 +258,10 @@ func (c APIClient) inspectJobset(id string, wait bool, cb func(*pps.JobInfo) err
 	}
 }
 
-func (c APIClient) InspectJobset(id string) (_ []*pps.JobInfo, retErr error) {
+func (c APIClient) InspectJobSet(id string) (_ []*pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pps.JobInfo{}
-	if err := c.inspectJobset(id, false, func(ji *pps.JobInfo) error {
+	if err := c.inspectJobSet(id, false, func(ji *pps.JobInfo) error {
 		result = append(result, ji)
 		return nil
 	}); err != nil {
@@ -270,10 +270,10 @@ func (c APIClient) InspectJobset(id string) (_ []*pps.JobInfo, retErr error) {
 	return result, nil
 }
 
-func (c APIClient) WaitJobsetAll(id string) (_ []*pps.JobInfo, retErr error) {
+func (c APIClient) WaitJobSetAll(id string) (_ []*pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pps.JobInfo{}
-	if err := c.WaitJobset(id, func(ji *pps.JobInfo) error {
+	if err := c.WaitJobSet(id, func(ji *pps.JobInfo) error {
 		result = append(result, ji)
 		return nil
 	}); err != nil {
@@ -282,9 +282,9 @@ func (c APIClient) WaitJobsetAll(id string) (_ []*pps.JobInfo, retErr error) {
 	return result, nil
 }
 
-func (c APIClient) WaitJobset(id string, cb func(*pps.JobInfo) error) (retErr error) {
+func (c APIClient) WaitJobSet(id string, cb func(*pps.JobInfo) error) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	return c.inspectJobset(id, true, cb)
+	return c.inspectJobSet(id, true, cb)
 }
 
 // ListJob returns info about all jobs.
