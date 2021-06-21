@@ -651,7 +651,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 								},
 								{
 									ContainerPort: opts.PeerPort, // also set in cmd/pachd/main.go
-									ContainerPort: opts.HTTPPort, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "peer-port",
 								},
