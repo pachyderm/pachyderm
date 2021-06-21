@@ -210,7 +210,8 @@ var authHandlers = map[string]authHandler{
 	// Proxy API
 	//
 
-	"/proxy.API/Listen": authDisabledOr(authenticated),
+	// TODO: Only the pachd sidecar instances should be able to use this endpoint.
+	"/proxy.API/Listen": unauthenticated,
 }
 
 // NewInterceptor instantiates a new Interceptor
