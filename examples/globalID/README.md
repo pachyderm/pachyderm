@@ -108,3 +108,40 @@ Note that in this case, the commits are **`ALIAS`**.
 
 
 The execution is tagged - GlobalID keep a snapshot of the data and the pipelines versions at the time of the processing of a change (create, update pipeline. Put files, squash commit...)
+
+
+
+
+
+
+Let's change the glog pattern in our edges.json from `/*' to `/` and update our pipeline:
+```json
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "images"
+    }
+  },
+```
+```shell
+pachctl update pipeline -f pipelines/edges.json --reprocess
+```
+
+```shell
+pachctl list job
+```
+```
+ID                               PIPELINE STARTED        DURATION   RESTART PROGRESS  DL       UL       STATE
+be97b64f110643389f171eb64697d4e1 edges    48 seconds ago 5 seconds  0       1 + 0 / 1 238.3KiB 133.6KiB success
+be97b64f110643389f171eb64697d4e1 montage  58 seconds ago 17 seconds 0       0 + 1 / 1 0B       0B       success
+```
+```shell
+pachctl inspect commit edges.spec@be97b64f110643389f171eb64697d4e1 --raw
+```
+This time, the original commit happens in the esges.repo by updating the pipeline.
+
+As a result, downstream commits in edges and montage are automatically created (note that their kind is `Auto` in their respective json):
+```shell
+pachctl inspect commit edges@be97b64f110643389f171eb64697d4e1 --raw
+pachctl inspect commit edges@be97b64f110643389f171eb64697d4e1 --raw
+```
