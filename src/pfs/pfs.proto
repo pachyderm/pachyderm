@@ -14,11 +14,13 @@ import "auth/auth.proto";
 ////  PFS Data structures (stored in etcd)
 
 message Repo {
+  option (gogoproto.goproto_stringer) = false;
   string name = 1;
   string type = 2;
 }
 
 message Branch {
+  option (gogoproto.goproto_stringer) = false;
   Repo repo = 1;
   string name = 2;
 }
@@ -104,6 +106,7 @@ message CommitOrigin {
 // collection of currently-open commits in etcd are collections of Commit
 // protos)
 message Commit {
+  option (gogoproto.goproto_stringer) = false;
   Branch branch = 1;
   string id = 2 [(gogoproto.customname) = "ID"];
 }
@@ -118,8 +121,13 @@ message CommitInfo {
   repeated Commit child_commits = 5;
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finished = 7;
-  uint64 size_bytes = 8;
-  repeated Branch direct_provenance = 9;
+  repeated Branch direct_provenance = 8;
+
+  // Details are only provided when explicitly requested
+  message Details {
+    uint64 size_bytes = 1;
+  }
+  Details details = 9;
 }
 
 message CommitSet {
@@ -135,9 +143,13 @@ enum FileType {
 message FileInfo {
   File file = 1;
   FileType file_type = 2;
-  uint64 size_bytes = 3;
-  google.protobuf.Timestamp committed = 4;
-  bytes hash = 5;
+  google.protobuf.Timestamp committed = 3;
+
+  message Details {
+    uint64 size_bytes = 1;
+    bytes hash = 2;
+  }
+  Details details = 4;
 }
 
 // PFS API
@@ -315,7 +327,7 @@ message ListFileRequest {
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
   File file = 1;
-  bool full = 2;
+  bool details = 2;
 // TODO:
 //  // History indicates how many historical versions you want returned. Its
 //  // semantics are:

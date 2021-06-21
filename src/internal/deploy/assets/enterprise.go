@@ -44,7 +44,7 @@ func EnterpriseService(opts *AssetOpts) *v1.Service {
 					NodePort: 31657,
 				},
 				{
-					Port:     1658,
+					Port:     IdentityPort,
 					Name:     "identity-port",
 					NodePort: 31658,
 				},

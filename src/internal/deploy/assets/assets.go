@@ -39,7 +39,6 @@ var (
 
 	pachdImage  = "pachyderm/pachd"
 	workerImage = "pachyderm/worker"
-	pauseImage  = "gcr.io/google_containers/pause-amd64:3.0"
 
 	// ServiceAccountName is the name of Pachyderm's service account.
 	// It's public because it's needed by pps.APIServer to create the RCs for
@@ -84,6 +83,8 @@ var (
 
 	// OidcPort is the port where OIDC ID Providers can send auth assertions
 	OidcPort = int32(1657)
+
+	IdentityPort = int32(1658)
 )
 
 // Backend is the type used to enumerate what system provides object storage or
@@ -209,9 +210,6 @@ type AssetOpts struct {
 
 	// Namespace is the kubernetes namespace to deploy to.
 	Namespace string
-
-	// NoExposeDockerSocket if true prevents pipelines from accessing the docker socket.
-	NoExposeDockerSocket bool
 
 	// If set, the files indictated by 'TLS.ServerCert' and 'TLS.ServerKey' are
 	// placed into a Kubernetes secret and used by pachd nodes to authenticate
@@ -442,33 +440,6 @@ func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) 
 		}
 }
 
-// GetSecretEnvVars returns the environment variable specs for the storage secret.
-func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
-	var envVars []v1.EnvVar
-	if storageBackend != "" {
-		envVars = append(envVars, v1.EnvVar{
-			Name:  obj.StorageBackendEnvVar,
-			Value: storageBackend,
-		})
-	}
-	trueVal := true
-	for _, e := range obj.EnvVarToSecretKey {
-		envVars = append(envVars, v1.EnvVar{
-			Name: e.Key,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
-						Name: client.StorageSecretName,
-					},
-					Key:      e.Value,
-					Optional: &trueVal,
-				},
-			},
-		})
-	}
-	return envVars
-}
-
 func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
 	return []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
@@ -592,7 +563,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
 		{Name: "LOG_LEVEL", Value: opts.LogLevel},
 		{Name: "IAM_ROLE", Value: opts.IAMRole},
-		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
 		{
 			Name: "PACH_NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
@@ -626,10 +596,9 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		// from it for setting up the worker client. Probably should not be pulling directly from environment variables.
 		{
 			Name:  client.PPSWorkerPortEnv,
-			Value: "80",
+			Value: "1080",
 		},
 	}
-	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)
 
 	name := pachdName
@@ -647,6 +616,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		}
 	}
 
+	envFrom := []v1.EnvFromSource{
+		{
+			SecretRef: &v1.SecretEnvSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: client.StorageSecretName,
+				},
+			},
+		},
+	}
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -668,6 +646,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 							Image:   image,
 							Command: command,
 							Env:     envVars,
+							EnvFrom: envFrom,
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: opts.PachdPort, // also set in cmd/pachd/main.go
@@ -682,6 +661,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 									ContainerPort: opts.PeerPort, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "peer-port",
+								},
+								{
+									ContainerPort: IdentityPort,
+									Protocol:      "TCP",
+									Name:          "identity-port",
 								},
 								{
 									ContainerPort: OidcPort,
@@ -747,7 +731,7 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					NodePort: 30657,
 				},
 				{
-					Port:     1658,
+					Port:     IdentityPort,
 					Name:     "identity-port",
 					NodePort: 30658,
 				},
@@ -812,12 +796,12 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 		s3V2 = "1"
 	}
 	return map[string][]byte{
-		"minio-bucket":    []byte(bucket),
-		"minio-id":        []byte(id),
-		"minio-secret":    []byte(secret),
-		"minio-endpoint":  []byte(endpoint),
-		"minio-secure":    []byte(secureV),
-		"minio-signature": []byte(s3V2),
+		obj.MinioBucketEnvVar:    []byte(bucket),
+		obj.MinioIDEnvVar:        []byte(id),
+		obj.MinioSecretEnvVar:    []byte(secret),
+		obj.MinioEndpointEnvVar:  []byte(endpoint),
+		obj.MinioSecureEnvVar:    []byte(secureV),
+		obj.MinioSignatureEnvVar: []byte(s3V2),
 	}
 }
 
@@ -851,10 +835,10 @@ func LocalSecret() map[string][]byte {
 //   advancedConfig - advanced configuration
 func AmazonSecret(region, bucket, id, secret, token, distribution, endpoint string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
 	s := amazonBasicSecret(region, bucket, distribution, advancedConfig)
-	s["amazon-id"] = []byte(id)
-	s["amazon-secret"] = []byte(secret)
-	s["amazon-token"] = []byte(token)
-	s["custom-endpoint"] = []byte(endpoint)
+	s[obj.AmazonIDEnvVar] = []byte(id)
+	s[obj.AmazonSecretEnvVar] = []byte(secret)
+	s[obj.AmazonTokenEnvVar] = []byte(token)
+	s[obj.CustomEndpointEnvVar] = []byte(endpoint)
 	return s
 }
 
@@ -869,25 +853,25 @@ func AmazonIAMRoleSecret(region, bucket, distribution string, advancedConfig *ob
 
 func amazonBasicSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
 	return map[string][]byte{
-		"amazon-region":       []byte(region),
-		"amazon-bucket":       []byte(bucket),
-		"amazon-distribution": []byte(distribution),
-		"retries":             []byte(strconv.Itoa(advancedConfig.Retries)),
-		"timeout":             []byte(advancedConfig.Timeout),
-		"upload-acl":          []byte(advancedConfig.UploadACL),
-		"part-size":           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
-		"max-upload-parts":    []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
-		"disable-ssl":         []byte(strconv.FormatBool(advancedConfig.DisableSSL)),
-		"no-verify-ssl":       []byte(strconv.FormatBool(advancedConfig.NoVerifySSL)),
-		"log-options":         []byte(advancedConfig.LogOptions),
+		obj.AmazonRegionEnvVar:       []byte(region),
+		obj.AmazonBucketEnvVar:       []byte(bucket),
+		obj.AmazonDistributionEnvVar: []byte(distribution),
+		obj.RetriesEnvVar:            []byte(strconv.Itoa(advancedConfig.Retries)),
+		obj.TimeoutEnvVar:            []byte(advancedConfig.Timeout),
+		obj.UploadACLEnvVar:          []byte(advancedConfig.UploadACL),
+		obj.PartSizeEnvVar:           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
+		obj.MaxUploadPartsEnvVar:     []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
+		obj.DisableSSLEnvVar:         []byte(strconv.FormatBool(advancedConfig.DisableSSL)),
+		obj.NoVerifySSLEnvVar:        []byte(strconv.FormatBool(advancedConfig.NoVerifySSL)),
+		obj.LogOptionsEnvVar:         []byte(advancedConfig.LogOptions),
 	}
 }
 
 // GoogleSecret creates a google secret with a bucket name.
 func GoogleSecret(bucket string, cred string) map[string][]byte {
 	return map[string][]byte{
-		"google-bucket": []byte(bucket),
-		"google-cred":   []byte(cred),
+		obj.GoogleBucketEnvVar: []byte(bucket),
+		obj.GoogleCredEnvVar:   []byte(cred),
 	}
 }
 
@@ -897,9 +881,9 @@ func GoogleSecret(bucket string, cred string) map[string][]byte {
 //   secret    - Azure storage account key
 func MicrosoftSecret(container string, id string, secret string) map[string][]byte {
 	return map[string][]byte{
-		"microsoft-container": []byte(container),
-		"microsoft-id":        []byte(id),
-		"microsoft-secret":    []byte(secret),
+		obj.MicrosoftContainerEnvVar: []byte(container),
+		obj.MicrosoftIDEnvVar:        []byte(id),
+		obj.MicrosoftSecretEnvVar:    []byte(secret),
 	}
 }
 
@@ -1108,17 +1092,6 @@ func WriteMicrosoftAssets(encoder serde.Encoder, opts *AssetOpts, container stri
 		return err
 	}
 	return WriteSecret(encoder, MicrosoftSecret(container, id, secret), opts)
-}
-
-// Images returns a list of all the images that are used by a pachyderm deployment.
-func Images(opts *AssetOpts) []string {
-	return []string{
-		versionedWorkerImage(opts),
-		etcdImage,
-		postgresImage,
-		pauseImage,
-		versionedPachdImage(opts),
-	}
 }
 
 // AddRegistry switches the registry that an image is targeting, unless registry is blank

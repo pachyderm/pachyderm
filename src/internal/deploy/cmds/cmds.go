@@ -253,7 +253,6 @@ func standardDeployCmds() []*cobra.Command {
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
-	var noExposeDockerSocket bool
 	var noGuaranteed bool
 	var noRBAC bool
 	var pachdCPURequest string
@@ -281,7 +280,6 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
 		cmd.Flags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 		cmd.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
-		cmd.Flags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 		cmd.Flags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
@@ -395,7 +393,6 @@ func standardDeployCmds() []*cobra.Command {
 			NoRBAC:                     noRBAC,
 			LocalRoles:                 localRoles,
 			Namespace:                  namespace,
-			NoExposeDockerSocket:       noExposeDockerSocket,
 			ClusterDeploymentID:        clusterDeploymentID,
 			RequireCriticalServersOnly: requireCriticalServersOnly,
 			WorkerServiceAccountName:   workerServiceAccountName,
@@ -424,8 +421,6 @@ func standardDeployCmds() []*cobra.Command {
 		}
 		return nil
 	}
-	preRun := cmdutil.Run(preRunInternal)
-
 	deployPreRun := cmdutil.Run(func(args []string) error {
 		if version.IsUnstable() {
 			fmt.Fprintf(os.Stderr, "WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
@@ -841,20 +836,6 @@ If <object store backend> is \"s3\", then the arguments are:
 	appendContextFlags(deployMicrosoft)
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy azure"))
-
-	listImages := &cobra.Command{
-		Short:  "Output the list of images in a deployment.",
-		Long:   "Output the list of images in a deployment.",
-		PreRun: preRun,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			for _, image := range assets.Images(opts) {
-				fmt.Println(image)
-			}
-			return nil
-		}),
-	}
-	appendGlobalFlags(listImages)
-	commands = append(commands, cmdutil.CreateAlias(listImages, "deploy list-images"))
 
 	return commands
 }

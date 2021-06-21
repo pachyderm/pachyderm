@@ -201,7 +201,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 		return nil, err
 	}
 	opts := []SourceOption{
-		WithFull(),
+		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
@@ -230,7 +230,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, cb fun
 		return err
 	}
 	opts := []SourceOption{
-		WithFull(),
+		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				// Check for directory match (don't return directory in list)
@@ -289,7 +289,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 		return err
 	}
 	opts := []SourceOption{
-		WithFull(),
+		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				return mf(idx.Path)
@@ -358,7 +358,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 			return err
 		}
 		opts := []SourceOption{
-			WithFull(),
+			WithDetails(),
 			WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 				return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 					return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
@@ -372,7 +372,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 		return err
 	}
 	opts := []SourceOption{
-		WithFull(),
+		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")

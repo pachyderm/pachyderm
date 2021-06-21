@@ -75,7 +75,7 @@ func TestSpoutPachctl(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
-				fileLength := files[0].SizeBytes
+				fileLength := files[0].Details.SizeBytes
 				if fileLength <= prevLength {
 					t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
 				}
@@ -147,7 +147,7 @@ func TestSpoutPachctl(t *testing.T) {
 		defer tu.DeleteAll(t)
 
 		require.NoErrorWithinTRetry(t, 10*time.Second, func() error {
-			pipelineInfo, err := c.InspectPipeline(pipeline)
+			pipelineInfo, err := c.InspectPipeline(pipeline, false)
 			if err != nil {
 				return err
 			}
@@ -264,7 +264,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
-				fileLength := files[0].SizeBytes
+				fileLength := files[0].Details.SizeBytes
 				if fileLength <= prevLength {
 					t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
 				}
@@ -360,7 +360,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
-				fileLength := files[0].SizeBytes
+				fileLength := files[0].Details.SizeBytes
 				if count > 2 && fileLength != prevLength {
 					t.Errorf("File length was expected to stay the same. Prev: %v, Cur: %v", prevLength, fileLength)
 				}

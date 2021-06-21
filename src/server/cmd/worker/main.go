@@ -44,17 +44,20 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
-	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelinePtr); err != nil {
+	pipelineInfo := &pps.PipelineInfo{}
+	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelineInfo); err != nil {
 		return nil, err
 	}
-	pachClient.SetAuthToken(pipelinePtr.AuthToken)
+	pachClient.SetAuthToken(pipelineInfo.AuthToken)
 	// Notice we use the SpecCommitID from our env, not from etcd. This is
 	// because the value in etcd might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	pipelinePtr.SpecCommit.ID = env.Config().PPSSpecCommitID
-	return ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
+	pipelineInfo.SpecCommit.ID = env.Config().PPSSpecCommitID
+	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
+		return nil, err
+	}
+	return pipelineInfo, nil
 }
 
 func do(config interface{}) error {

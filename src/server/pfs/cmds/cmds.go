@@ -293,7 +293,7 @@ $ {{alias}} test -p XXX`,
 			if parent != "" {
 				// We don't know if the parent is a commit ID, branch, or ancestry, so
 				// construct a string to parse.
-				parentCommit, err = cmdutil.ParseCommit(pretty.CompactPrintRepo(branch.Repo) + "@" + parent)
+				parentCommit, err = cmdutil.ParseCommit(fmt.Sprintf("%s@%s", branch.Repo, parent))
 				if err != nil {
 					return err
 				}
@@ -473,7 +473,7 @@ $ {{alias}} foo@master --from XXX`,
 $ {{alias}} XXX
 
 # return commits caused by foo@XXX leading to branch bar@baz
-$ {{alias}} XXX -b bar@baz`,
+$ {{alias}} foo@XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			// Parse args before connecting
 			var commitsetID string
@@ -687,13 +687,14 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			var headCommit *pfs.Commit
 			if head != "" {
-				if uuid.IsUUIDWithoutDashes(head) {
-					headCommit = branch.Repo.NewCommit("", head)
-				} else {
+				if strings.Contains(head, "@") {
 					headCommit, err = cmdutil.ParseCommit(head)
 					if err != nil {
 						return err
 					}
+				} else {
+					// treat head as the commitID or branch name
+					headCommit = branch.Repo.NewCommit("", head)
 				}
 			}
 
@@ -718,7 +719,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
 	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch-or-commit>")
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
-	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
+	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch. Either pass the commit with format: <branch-or-commit>, or fully-qualified as <repo>@<branch>=<id>")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "The branch to trigger this branch on.")
 	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "The cron spec to use in triggering.")
@@ -1072,7 +1073,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				if err != nil {
 					return err
 				}
-				f, err := progress.Create(outputPath, int64(fi.SizeBytes))
+				f, err := progress.Create(outputPath, int64(fi.Details.SizeBytes))
 				if err != nil {
 					return err
 				}

@@ -2,15 +2,13 @@
 // shared by both the PPS API and the worker binary. These utilities include:
 // - Getting the RC name and querying k8s reguarding pipelines
 // - Reading and writing pipeline resource requests and limits
-// - Reading and writing StoredPipelineInfos and PipelineInfos[1]
+// - Reading and writing PipelineInfos[1]
 //
 // [1] Note that PipelineInfo in particular is complicated because it contains
-// fields that are not always set or are stored in multiple places
-// ('job_state', for example, is not stored in PFS along with the rest of each
-// PipelineInfo, because this field is volatile and we cannot commit to PFS
-// every time it changes. 'job_counts' is the same, and 'reason' is in etcd
-// because it is only updated alongside 'job_state').  As of 12/7/2017, these
-// are the only fields not stored in PFS.
+// fields that are not always set or are stored in multiple places.  The
+// 'Details' field is not stored in the database and must be fetched from the
+// PFS spec commit, and a few fields in 'Details' may depend on current
+// kubernetes state.
 package ppsutil
 
 import (
@@ -40,7 +38,7 @@ import (
 
 // JobKey is the string representation of a Job suitable for use as an indexing key
 func JobKey(job *pps.Job) string {
-	return fmt.Sprintf("%s@%s", job.Pipeline.Name, job.ID)
+	return job.String()
 }
 
 // PipelineRepo creates a pfs repo for a given pipeline.
@@ -61,7 +59,7 @@ func PipelineRcName(name string, version uint64) string {
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
 // minimally requires.
 func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceRequests)
+	return getResourceListFromSpec(pipelineInfo.Details.ResourceRequests)
 }
 
 func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, error) {
@@ -114,43 +112,25 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 	return getResourceListFromSpec(limits)
 }
 
-// GetPipelineInfoAllowIncomplete retrieves and returns a PipelineInfo from PFS,
-// or a sparsely-populated PipelineInfo if the spec data cannot be found in PPS
-// (e.g. due to corruption or a missing block). It does the PFS
-// read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
-	result := &pps.PipelineInfo{}
-	buf := bytes.Buffer{}
+// GetPipelineDetails retrieves the pipeline spec for the given PipelineInfo from PFS,
+// then fills in the Details field in the given PipelineInfo from the spec.
+func GetPipelineDetails(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
 	// ensure we are authorized to read the pipeline's spec commit, but don't propagate that back out
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
-	pachClient.SetAuthToken(ptr.AuthToken)
-	if err := pachClient.GetFile(ptr.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
-		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
-	} else {
-		if err := result.Unmarshal(buf.Bytes()); err != nil {
-			return nil, errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
-		}
+	pachClient.SetAuthToken(pipelineInfo.AuthToken)
+
+	buf := bytes.Buffer{}
+	if err := pachClient.GetFile(pipelineInfo.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
+		return errors.Wrapf(err, "could not retrieve pipeline spec file from PFS for pipeline '%s'", pipelineInfo.Pipeline.Name)
 	}
 
-	if result.Pipeline == nil {
-		result.Pipeline = ptr.Pipeline
+	loadedPipelineInfo := &pps.PipelineInfo{}
+	if err := loadedPipelineInfo.Unmarshal(buf.Bytes()); err != nil {
+		return errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
 	}
-	result.Stopped = ptr.Stopped
-	result.State = ptr.State
-	result.Reason = ptr.Reason
-	result.JobCounts = ptr.JobCounts
-	result.LastJobState = ptr.LastJobState
-	return result, nil
-}
-
-// GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
-// the PFS read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.StoredPipelineInfo) (*pps.PipelineInfo, error) {
-	result, err := GetPipelineInfoAllowIncomplete(pachClient, ptr)
-	if err == nil && result.Transform == nil {
-		return nil, errors.Errorf("could not retrieve pipeline spec file from PFS for pipeline '%s', there may be a problem reaching object storage, or the pipeline may need to be deleted and recreated", result.Pipeline.Name)
-	}
-	return result, err
+	pipelineInfo.Version = loadedPipelineInfo.Version
+	pipelineInfo.Details = loadedPipelineInfo.Details
+	return nil
 }
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
@@ -223,21 +203,21 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 	logSetPipelineState(pipeline, from, to, reason)
 	err := col.NewSQLTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
-		pipelinePtr := &pps.StoredPipelineInfo{}
-		if err := pipelines.Get(pipeline, pipelinePtr); err != nil {
+		pipelineInfo := &pps.PipelineInfo{}
+		if err := pipelines.Get(pipeline, pipelineInfo); err != nil {
 			return err
 		}
-		tracing.TagAnySpan(ctx, "old-state", pipelinePtr.State)
+		tracing.TagAnySpan(ctx, "old-state", pipelineInfo.State)
 		// Only UpdatePipeline can bring a pipeline out of failure
 		// TODO(msteffen): apply the same logic for CRASHING?
-		if pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
+		if pipelineInfo.State == pps.PipelineState_PIPELINE_FAILURE {
 			if to != pps.PipelineState_PIPELINE_FAILURE {
 				log.Warningf("cannot move pipeline %q to %s when it is already in FAILURE", pipeline, to)
 			}
 			return nil
 		}
 		// Don't allow a transition from STANDBY to CRASHING if we receive events out of order
-		if pipelinePtr.State == pps.PipelineState_PIPELINE_STANDBY && to == pps.PipelineState_PIPELINE_CRASHING {
+		if pipelineInfo.State == pps.PipelineState_PIPELINE_STANDBY && to == pps.PipelineState_PIPELINE_CRASHING {
 			log.Warningf("cannot move pipeline %q to CRASHING when it is in STANDBY", pipeline)
 			return nil
 		}
@@ -246,29 +226,29 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 		// state.
 		//
 		// allow transitionPipelineState to send a pipeline state to its target
-		// repeatedly (thus pipelinePtr.State == to yields no error). This will
+		// repeatedly (thus pipelineInfo.State == to yields no error). This will
 		// trigger additional etcd write events, but will not trigger an error.
 		if len(from) > 0 {
 			var isInFromState bool
 			for _, fromState := range from {
-				if pipelinePtr.State == fromState {
+				if pipelineInfo.State == fromState {
 					isInFromState = true
 					break
 				}
 			}
-			if !isInFromState && pipelinePtr.State != to {
+			if !isInFromState && pipelineInfo.State != to {
 				return PipelineTransitionError{
 					Pipeline: pipeline,
 					Expected: from,
 					Target:   to,
-					Current:  pipelinePtr.State,
+					Current:  pipelineInfo.State,
 				}
 			}
 		}
-		log.Infof("SetPipelineState moving pipeline %s from %s to %s", pipeline, pipelinePtr.State, to)
-		pipelinePtr.State = to
-		pipelinePtr.Reason = reason
-		return pipelines.Put(pipeline, pipelinePtr)
+		log.Infof("SetPipelineState moving pipeline %s from %s to %s", pipeline, pipelineInfo.State, to)
+		pipelineInfo.State = to
+		pipelineInfo.Reason = reason
+		return pipelines.Put(pipeline, pipelineInfo)
 	})
 	return err
 }
@@ -276,7 +256,7 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 // JobInput fills in the commits for an Input
 func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
 	commitsetID := outputCommit.ID
-	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
+	jobInput := proto.Clone(pipelineInfo.Details.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			input.Pfs.Commit = commitsetID
@@ -293,32 +273,32 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Inp
 func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequest {
 	return &pps.CreatePipelineRequest{
 		Pipeline:              pipelineInfo.Pipeline,
-		Transform:             pipelineInfo.Transform,
-		ParallelismSpec:       pipelineInfo.ParallelismSpec,
-		Egress:                pipelineInfo.Egress,
-		OutputBranch:          pipelineInfo.OutputBranch,
-		ResourceRequests:      pipelineInfo.ResourceRequests,
-		ResourceLimits:        pipelineInfo.ResourceLimits,
-		SidecarResourceLimits: pipelineInfo.SidecarResourceLimits,
-		Input:                 pipelineInfo.Input,
-		Description:           pipelineInfo.Description,
-		CacheSize:             pipelineInfo.CacheSize,
-		MaxQueueSize:          pipelineInfo.MaxQueueSize,
-		Service:               pipelineInfo.Service,
-		DatumSetSpec:          pipelineInfo.DatumSetSpec,
-		DatumTimeout:          pipelineInfo.DatumTimeout,
-		JobTimeout:            pipelineInfo.JobTimeout,
-		Salt:                  pipelineInfo.Salt,
-		PodSpec:               pipelineInfo.PodSpec,
-		PodPatch:              pipelineInfo.PodPatch,
-		Spout:                 pipelineInfo.Spout,
-		SchedulingSpec:        pipelineInfo.SchedulingSpec,
-		DatumTries:            pipelineInfo.DatumTries,
-		Standby:               pipelineInfo.Standby,
-		S3Out:                 pipelineInfo.S3Out,
-		Metadata:              pipelineInfo.Metadata,
-		ReprocessSpec:         pipelineInfo.ReprocessSpec,
-		Autoscaling:           pipelineInfo.Autoscaling,
+		Transform:             pipelineInfo.Details.Transform,
+		ParallelismSpec:       pipelineInfo.Details.ParallelismSpec,
+		Egress:                pipelineInfo.Details.Egress,
+		OutputBranch:          pipelineInfo.Details.OutputBranch,
+		ResourceRequests:      pipelineInfo.Details.ResourceRequests,
+		ResourceLimits:        pipelineInfo.Details.ResourceLimits,
+		SidecarResourceLimits: pipelineInfo.Details.SidecarResourceLimits,
+		Input:                 pipelineInfo.Details.Input,
+		Description:           pipelineInfo.Details.Description,
+		CacheSize:             pipelineInfo.Details.CacheSize,
+		MaxQueueSize:          pipelineInfo.Details.MaxQueueSize,
+		Service:               pipelineInfo.Details.Service,
+		DatumSetSpec:          pipelineInfo.Details.DatumSetSpec,
+		DatumTimeout:          pipelineInfo.Details.DatumTimeout,
+		JobTimeout:            pipelineInfo.Details.JobTimeout,
+		Salt:                  pipelineInfo.Details.Salt,
+		PodSpec:               pipelineInfo.Details.PodSpec,
+		PodPatch:              pipelineInfo.Details.PodPatch,
+		Spout:                 pipelineInfo.Details.Spout,
+		SchedulingSpec:        pipelineInfo.Details.SchedulingSpec,
+		DatumTries:            pipelineInfo.Details.DatumTries,
+		Standby:               pipelineInfo.Details.Standby,
+		S3Out:                 pipelineInfo.Details.S3Out,
+		Metadata:              pipelineInfo.Details.Metadata,
+		ReprocessSpec:         pipelineInfo.Details.ReprocessSpec,
+		Autoscaling:           pipelineInfo.Details.Autoscaling,
 	}
 }
 
@@ -337,56 +317,56 @@ func IsTerminal(state pps.JobState) bool {
 }
 
 // UpdateJobState performs the operations involved with a job state transition.
-func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.StoredJobInfo, state pps.JobState, reason string) error {
+func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
 	// Check if this is a new job
-	if jobPtr.State != pps.JobState_JOB_STATE_UNKNOWN {
-		if IsTerminal(jobPtr.State) {
-			return ppsServer.ErrJobFinished{Job: jobPtr.Job}
+	if jobInfo.State != pps.JobState_JOB_STATE_UNKNOWN {
+		if IsTerminal(jobInfo.State) {
+			return ppsServer.ErrJobFinished{Job: jobInfo.Job}
 		}
 	}
 
 	// Update pipeline
-	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := pipelines.Get(jobPtr.Job.Pipeline.Name, pipelinePtr); err != nil {
+	pipelineInfo := &pps.PipelineInfo{}
+	if err := pipelines.Get(jobInfo.Job.Pipeline.Name, pipelineInfo); err != nil {
 		return err
 	}
-	if pipelinePtr.JobCounts == nil {
-		pipelinePtr.JobCounts = make(map[int32]int32)
+	if pipelineInfo.JobCounts == nil {
+		pipelineInfo.JobCounts = make(map[int32]int32)
 	}
 	// If the old state is UNKNOWN, this is a new job, don't decrement the count
-	if jobPtr.State != pps.JobState_JOB_STATE_UNKNOWN {
-		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobPtr.State)]--
+	if jobInfo.State != pps.JobState_JOB_STATE_UNKNOWN {
+		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
+			pipelineInfo.JobCounts[int32(jobInfo.State)]--
 		}
 	}
-	pipelinePtr.JobCounts[int32(state)]++
-	pipelinePtr.LastJobState = state
-	if err := pipelines.Put(jobPtr.Job.Pipeline.Name, pipelinePtr); err != nil {
+	pipelineInfo.JobCounts[int32(state)]++
+	pipelineInfo.LastJobState = state
+	if err := pipelines.Put(jobInfo.Job.Pipeline.Name, pipelineInfo); err != nil {
 		return err
 	}
 
 	// Update job info
 	var err error
 	if state == pps.JobState_JOB_STARTING {
-		jobPtr.Started, err = types.TimestampProto(time.Now())
+		jobInfo.Started, err = types.TimestampProto(time.Now())
 		if err != nil {
 			return err
 		}
 	} else if IsTerminal(state) {
-		if jobPtr.Started == nil {
-			jobPtr.Started, err = types.TimestampProto(time.Now())
+		if jobInfo.Started == nil {
+			jobInfo.Started, err = types.TimestampProto(time.Now())
 			if err != nil {
 				return err
 			}
 		}
-		jobPtr.Finished, err = types.TimestampProto(time.Now())
+		jobInfo.Finished, err = types.TimestampProto(time.Now())
 		if err != nil {
 			return err
 		}
 	}
-	jobPtr.State = state
-	jobPtr.Reason = reason
-	return jobs.Put(JobKey(jobPtr.Job), jobPtr)
+	jobInfo.State = state
+	jobInfo.Reason = reason
+	return jobs.Put(JobKey(jobInfo.Job), jobInfo)
 }
 
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {

@@ -31,8 +31,6 @@ type GlobalConfiguration struct {
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	LogLevel             string `env:"LOG_LEVEL,default=info"`
-	AuthEtcdPrefix       string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
-	IdentityEtcdPrefix   string `env:"PACHYDERM_IDENTITY_ETCD_PREFIX,default=pachyderm_identity"`
 	EnterpriseEtcdPrefix string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	Metrics              bool   `env:"METRICS,default=true"`
 	MetricsEndpoint      string `env:"METRICS_ENDPOINT,default="`
@@ -73,7 +71,6 @@ type PachdSpecificConfiguration struct {
 	WorkerImagePullPolicy      string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	IAMRole                    string `env:"IAM_ROLE,default="`
 	ImagePullSecret            string `env:"IMAGE_PULL_SECRET,default="`
-	NoExposeDockerSocket       bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
