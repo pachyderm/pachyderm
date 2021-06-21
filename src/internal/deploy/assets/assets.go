@@ -625,6 +625,14 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 			Name:  client.PPSWorkerPortEnv,
 			Value: "80",
 		},
+		{
+			Name:  "POSTGRES_USER",
+			Value: "postgres",
+		},
+		{
+			Name:  "POSTGRES_PASSWORD",
+			Value: "TEMPORARY_PLACEHOLDER",
+		},
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)
